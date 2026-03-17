@@ -1,1 +1,4 @@
 project_id = "fuxzlmporikuhotzcqyc"
+
+[functions.audit-deck]
+verify_jwt = false
