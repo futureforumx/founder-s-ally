@@ -10,26 +10,21 @@ const steps = [
   { id: "score", label: "Calculating Diligence Score" },
 ];
 
-interface ProcessingStatusProps {
-  onComplete: () => void;
-}
-
-export function ProcessingStatus({ onComplete }: ProcessingStatusProps) {
+export function ProcessingStatus() {
   const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentStep((prev) => {
         if (prev >= steps.length - 1) {
-          clearInterval(timer);
-          setTimeout(onComplete, 800);
-          return prev;
+          // Keep cycling through to show activity while waiting
+          return 0;
         }
         return prev + 1;
       });
-    }, 1200);
+    }, 2000);
     return () => clearInterval(timer);
-  }, [onComplete]);
+  }, []);
 
   return (
     <div className="surface-card p-6">
