@@ -28,16 +28,19 @@ const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extrac
    - totalHeadcount: team size / number of employees
    - description: 1-sentence company description
    - stage: funding stage if mentioned
-   - sector: primary sector (MUST be one of: Artificial Intelligence, Fintech, Climate & Energy, Health & Biotech, Enterprise Software, Deep Tech & Space, Consumer & Retail)
+    - sector: primary sector (MUST be one of: Construction & Real Estate, Industrial & Manufacturing, Enterprise Software & SaaS, Artificial Intelligence, Fintech, Climate & Energy, Health & Biotech, Consumer & Retail, Deep Tech & Space, Defense & GovTech)
 6. Semantic Sector Mapping using this taxonomy:
-   - Artificial Intelligence: Vertical AI (SaaS), AI Infrastructure & LLMOps, Autonomous Agents, Computer Vision, NLP, Generative Media
-   - Fintech: Payments & Infrastructure, Neobanking, DeFi & Web3 Finance, Insurtech, RegTech & Compliance, Embedded Finance
-   - Climate & Energy: Carbon Capture & Storage, Renewable Energy, Battery Tech & Storage, Circular Economy, AgTech & Food Science, Water Tech
-   - Health & Biotech: Longevity & Anti-Aging, Digital Health & Telemedicine, Biopharmaceuticals, Medical Devices, Genomics, Mental Health Tech
-   - Enterprise Software: Cybersecurity, DevTools & Open Source, HRTech & Future of Work, MarTech, Supply Chain & Logistics, ERP & CRM
-   - Deep Tech & Space: Quantum Computing, Space Infrastructure, Satellite Communications, Advanced Materials, Semiconductors, Photonics
-   - Consumer & Retail: E-commerce & D2C, Gaming & Esport, EdTech, PropTech, Social Media & Creators, AR/VR Platforms
-   Return the sectorMapping with the detected sector (from the 7 above), subTag (matching subsector), and the keywords that triggered the mapping.
+   - Construction & Real Estate: ConTech (Construction Tech), PropTech, Sustainable Materials, Infrastructure & Civil Engineering, Digital Twins & BIM, Residential Construction
+   - Industrial & Manufacturing: Industrial Tech (Industry 4.0), Robotics & Automation, Supply Chain Tech, Warehousing Tech, Advanced Manufacturing, 3D Printing
+   - Enterprise Software & SaaS: Vertical SaaS, Horizontal SaaS, DevTools & Open Source, Cybersecurity, HRTech, MarTech, LegalTech
+   - Artificial Intelligence: Vertical AI Agents, LLMOps & Infrastructure, Computer Vision, Generative Media, AI Safety & Governance, Edge AI
+   - Fintech: Embedded Finance, Payments Infrastructure, Insurtech, Real World Asset (RWA) Tokenization, RegTech, WealthTech
+   - Climate & Energy: Carbon Capture, Energy Storage, Circular Economy, Grid Optimization, AgTech, Water Tech
+   - Health & Biotech: Longevity, Digital Health, MedTech, Biopharma, Genomics, Neurotech
+   - Consumer & Retail: E-commerce Infrastructure, Gaming & Interactive, EdTech, Social Commerce, AdTech
+   - Deep Tech & Space: Quantum Computing, Space Infrastructure, Satcom, Photonics, Semiconductors
+   - Defense & GovTech: Dual-Use Tech, Public Safety, Civic Engagement, National Security, Drones & UAVs
+   Return the sectorMapping with the detected sector (from the 10 above), subTag (matching subsector), and the keywords that triggered the mapping.
 7. Stage Classification using linguistic heuristics:
    Analyze the deck/website text to classify the company as "Seed" or "Series A" (or other if clearly stated).
    

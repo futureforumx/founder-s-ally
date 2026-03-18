@@ -1,40 +1,55 @@
 import { TrendingUp, ArrowRight } from "lucide-react";
 
 const SECTOR_DATA: Record<string, { momentum: number; label: string; pulse: string }> = {
+  "Construction & Real Estate": {
+    momentum: 70,
+    label: "Growing",
+    pulse: "2026 Trend: ConTech platforms digitizing $13T global construction spend; modular and sustainable building methods attracting late-seed capital.",
+  },
+  "Industrial & Manufacturing": {
+    momentum: 74,
+    label: "Strong Interest",
+    pulse: "2026 Trend: Industry 4.0 robotics and warehouse automation seeing accelerated deployment; reshoring driving domestic manufacturing tech demand.",
+  },
+  "Enterprise Software & SaaS": {
+    momentum: 60,
+    label: "Stable",
+    pulse: "2026 Trend: Vertical SaaS outperforming horizontal; cybersecurity and LegalTech remain resilient as compliance complexity grows.",
+  },
   "Artificial Intelligence": {
     momentum: 95,
     label: "High Momentum",
-    pulse: "2026 Trend: Investors are shifting focus from foundational models to Vertical AI agents with proven unit economics.",
+    pulse: "2026 Trend: Investors shifting from foundational models to Vertical AI agents with proven unit economics and Edge AI deployments.",
   },
   "Fintech": {
     momentum: 78,
     label: "Strong Interest",
-    pulse: "2026 Trend: High interest in cross-border payment infrastructure and RWA (Real World Asset) tokenization.",
+    pulse: "2026 Trend: High interest in payments infrastructure and RWA tokenization; embedded finance becoming table stakes for vertical platforms.",
   },
   "Climate & Energy": {
     momentum: 72,
     label: "Growing",
-    pulse: "2026 Trend: Carbon credit markets and grid-scale battery storage are attracting record Series A rounds.",
+    pulse: "2026 Trend: Grid optimization and energy storage attracting record rounds; carbon capture moving from pilot to commercial scale.",
   },
   "Health & Biotech": {
     momentum: 68,
     label: "Steady Growth",
-    pulse: "2026 Trend: GLP-1 adjacencies and AI-driven drug discovery platforms dominate new fund mandates.",
-  },
-  "Enterprise Software": {
-    momentum: 55,
-    label: "Stable",
-    pulse: "2026 Trend: Cybersecurity and DevTools remain resilient; HRTech facing valuation compression.",
-  },
-  "Deep Tech & Space": {
-    momentum: 62,
-    label: "Emerging",
-    pulse: "2026 Trend: Quantum computing pilots and satellite constellations drawing sovereign wealth fund interest.",
+    pulse: "2026 Trend: Neurotech and longevity science gaining institutional interest; digital health consolidating around AI-first platforms.",
   },
   "Consumer & Retail": {
     momentum: 40,
     label: "Consolidating",
-    pulse: "2026 Trend: Social commerce and creator-economy plays outperform traditional D2C models.",
+    pulse: "2026 Trend: Social commerce and e-commerce infrastructure plays outperform traditional D2C; AdTech rebounding with privacy-first attribution.",
+  },
+  "Deep Tech & Space": {
+    momentum: 62,
+    label: "Emerging",
+    pulse: "2026 Trend: Quantum computing pilots and satcom constellations drawing sovereign wealth fund interest; photonics enabling new compute paradigms.",
+  },
+  "Defense & GovTech": {
+    momentum: 82,
+    label: "High Interest",
+    pulse: "2026 Trend: Dual-use tech and autonomous drones surging with government modernization budgets; public safety platforms scaling rapidly.",
   },
 };
 

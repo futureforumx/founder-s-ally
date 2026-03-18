@@ -72,7 +72,7 @@ The primary_sector MUST be one of the 10 sectors above. The modern_tags should i
                 properties: {
                   primary_sector: {
                     type: "string",
-                    enum: ["Artificial Intelligence", "Fintech", "Climate & Energy", "Health & Biotech", "Enterprise Software", "Deep Tech & Space", "Consumer & Retail"],
+                    enum: ["Construction & Real Estate", "Industrial & Manufacturing", "Enterprise Software & SaaS", "Artificial Intelligence", "Fintech", "Climate & Energy", "Health & Biotech", "Consumer & Retail", "Deep Tech & Space", "Defense & GovTech"],
                     description: "Primary sector from the taxonomy",
                   },
                   modern_tags: {
