@@ -963,13 +963,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                         onSectorChange={s => {
                           const oldSector = form.sector;
                           update("sector", s);
-                          // Clear subsectors not relevant to new sector
-                          const newSectorSubs = new Set(
-                            (await import("./company-profile/types")).subsectorsFor(s).map((x: string) => x.toLowerCase())
-                          );
-                          // Actually use sync import since it's already imported
-                          const { subsectorsFor: subsFor } = await import("./company-profile/types");
-                          // Fallback to sync approach:
                           setForm(prev => {
                             const validSubs = prev.subsectors.filter(sub =>
                               subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
