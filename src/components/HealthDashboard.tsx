@@ -193,7 +193,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
 
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Company Health</h2>
+          <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company Health</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {mode === "market"
               ? `Real-time positioning against up-to-date market data${contextLabel ? ` for ${contextLabel}` : ""}`
