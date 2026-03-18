@@ -250,7 +250,7 @@ function CompactSuggestionCard({
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
 
   return (
-    <div className="min-w-[300px] max-w-[320px] snap-center shrink-0 rounded-xl border border-accent/15 bg-card p-4 shadow-surface relative group transition-all hover:border-accent/30 hover:shadow-surface-md">
+    <div className="min-w-[300px] max-w-[320px] snap-center shrink-0 rounded-xl border border-accent/15 bg-card p-4 relative group transition-all hover:border-accent/30">
       {/* Top row: Logo + Name + Amount */}
       <div className="flex items-center gap-2.5">
         <InvestorLogo name={row.investor_name} domain={row._domain} size="md" />
@@ -280,23 +280,31 @@ function CompactSuggestionCard({
             <Sparkles className="h-2 w-2" /> AI Sourced
           </Badge>
           {row._sourceUrl && (
-            <a href={row._sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors">
+            <a
+              href={row._sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
               <ExternalLink className="h-2.5 w-2.5" /> Source
             </a>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 relative z-10">
           <button
-            onClick={onReject}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-all"
+            onClick={(e) => { e.stopPropagation(); onReject(); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive hover:bg-destructive/10 hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Reject"
+            type="button"
           >
             <X className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={onApprove}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 text-success bg-success/5 hover:bg-success/15 hover:border-success/50 transition-all"
+            onClick={(e) => { e.stopPropagation(); onApprove(); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 text-success bg-success/5 hover:bg-success/20 hover:border-success/60 hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Approve"
+            type="button"
           >
             <Check className="h-3.5 w-3.5" />
           </button>
