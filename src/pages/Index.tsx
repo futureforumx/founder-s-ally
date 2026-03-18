@@ -145,13 +145,13 @@ const Index = () => {
 
               {/* Market & Community */}
               <div>
-                <h2 className="text-sm font-semibold text-foreground mb-3">Market & Community</h2>
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Market & Community</h2>
                 <PulseCards sector={companyData?.sector} />
               </div>
 
               {/* Company Health */}
               <div>
-                <h2 className="text-sm font-semibold text-foreground mb-3">Company Health</h2>
+                <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Company Health</h2>
                 <HealthDashboard
                   stage={companyData?.stage}
                   sector={companyData?.sector}
