@@ -186,6 +186,9 @@ interface SectorSubsectorPickerProps {
   /** All AI suggestions (including overflow beyond 3) */
   aiOverflowSubsectors?: string[];
   onApplyAiSector?: () => void;
+  /** Re-classify callback — triggers AI sector scan */
+  onReclassify?: () => void;
+  isReclassifying?: boolean;
   isAiDraft?: boolean;
   className?: string;
 }
