@@ -487,7 +487,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors hover:bg-accent/20" title="Upload logo">
             {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : logoUrl ? (
               <>
-                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover transition-opacity duration-500" />
                 <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="h-3.5 w-3.5 text-foreground" />
                 </div>
@@ -498,7 +498,26 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                 <Camera className="h-4 w-4 text-accent hidden group-hover:block" />
               </>
             )}
+            {/* Sync badge */}
+            {logoSyncBadge && (
+              <div className="absolute -bottom-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-medium text-accent-foreground animate-in fade-in zoom-in duration-300 shadow-sm">
+                <Sparkles className="h-2.5 w-2.5" /> Synced
+              </div>
+            )}
           </button>
+          {/* Logo sync suggestion card */}
+          {suggestedLogoUrl && (
+            <div className="absolute top-full left-0 mt-1.5 z-20 flex items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-surface-md animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
+              <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-md object-contain bg-muted" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">New logo found via URL.</span>
+                <div className="flex items-center gap-1.5">
+                  <button className="text-[10px] font-medium text-accent hover:underline" onClick={() => { setLogoUrl(suggestedLogoUrl); setSuggestedLogoUrl(null); }}>Apply</button>
+                  <button className="text-[10px] font-medium text-muted-foreground hover:underline" onClick={() => setSuggestedLogoUrl(null)}>Keep Current</button>
+                </div>
+              </div>
+            </div>
+          )}
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
             onClick={e => e.stopPropagation()} onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
           <div className="text-left">
