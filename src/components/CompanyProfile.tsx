@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { SectorTags, SectorClassification } from "@/components/SectorTags";
+import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
@@ -124,6 +124,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
+  const [isReclassifying, setIsReclassifying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -430,6 +431,77 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       }
       return next;
     });
+
+    setAiSuggestions(newSuggestions);
+  };
+
+  const handleReclassify = async () => {
+    const execSummary = (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary || ""; } catch { return ""; } })();
+    if (!websiteMarkdown && !execSummary) return;
+    setIsReclassifying(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("classify-sector", {
+        body: { websiteText: websiteMarkdown, executiveSummary: execSummary, companyName: form.name },
+      });
+      if (fnError) throw fnError;
+      if (data?.error) throw new Error(data.error);
+      const classification = data as SectorClassification;
+      setSectorClassification(classification);
+      onSectorChange?.(classification);
+
+      // Auto-select primary sector if AI provides one
+      if (classification.primary_sector) {
+        const normalized = normalizeSector(classification.primary_sector);
+        if (normalized.sector && !userTouched.has("sector")) {
+          setForm(prev => ({ ...prev, sector: normalized.sector }));
+        }
+      }
+
+      // Convert modern_tags to canonical subsectors and populate the picker
+      if (classification.modern_tags?.length) {
+        const resolvedSector = form.sector || (classification.primary_sector ? normalizeSector(classification.primary_sector).sector : "");
+        const canonicalTags: string[] = [];
+        const seenLower = new Set<string>();
+        for (const tag of classification.modern_tags) {
+          // Snap non-taxonomy tags to closest match
+          let canonical = tag;
+          if (resolvedSector) {
+            const match = subsectorsFor(resolvedSector).find(s => s.toLowerCase() === tag.toLowerCase());
+            if (match) canonical = match;
+          }
+          // Also check all sectors for a match
+          if (canonical === tag) {
+            for (const s of sectors) {
+              const match = subsectorsFor(s).find(sub => sub.toLowerCase() === tag.toLowerCase() || sub.toLowerCase().includes(tag.toLowerCase()));
+              if (match) { canonical = match; break; }
+            }
+          }
+          const lower = canonical.toLowerCase();
+          if (!seenLower.has(lower)) {
+            seenLower.add(lower);
+            canonicalTags.push(canonical);
+          }
+        }
+
+        // Deduplicate against user's existing selections
+        const userSubsLower = new Set(form.subsectors.map(s => s.toLowerCase()));
+        const newTags = canonicalTags.filter(t => !userSubsLower.has(t.toLowerCase()));
+
+        // Top 3 as suggestions, rest as overflow
+        setAiSuggestedSubsectors(newTags.slice(0, 3));
+        setAiOverflowSubsectors(newTags.slice(3));
+
+        // Auto-populate if user has no subsectors
+        if (form.subsectors.length === 0 && !userTouched.has("sector")) {
+          setForm(prev => ({ ...prev, subsectors: newTags.slice(0, 3) }));
+        }
+      }
+    } catch (e) {
+      console.error("Re-classification failed:", e);
+    } finally {
+      setIsReclassifying(false);
+    }
+  };
 
 
     setAiSuggestions(newSuggestions);
@@ -1015,6 +1087,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                           if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
                         } : undefined}
                         isAiDraft={isFieldAiDraft("sector")}
+                        onReclassify={analysisComplete ? handleReclassify : undefined}
+                        isReclassifying={isReclassifying}
                       />
                     </div>
                     {renderVerificationBadge("sector")}
@@ -1296,13 +1370,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           )}
 
-          {/* AI Sector Tags */}
-          <SectorTags
-            websiteText={websiteMarkdown}
-            executiveSummary={analysisComplete ? (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary; } catch { return ""; } })() : ""}
-            companyName={form.name}
-            onChange={c => { setSectorClassification(c); onSectorChange?.(c); }}
-          />
         </div>
       )}
 
