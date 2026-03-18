@@ -471,15 +471,28 @@ export function SectorSubsectorPicker({
       {/* Subsector Multi-select Combobox — supports cross-sector picks */}
       {sector && (
         <div ref={subsectorRef} className="relative">
-          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
-            Subsectors
-            <span className="text-muted-foreground/50">(up to 3, any sector)</span>
-            {aiSuggestedSubsectors && aiSuggestedSubsectors.length > 0 && subsectors.some(s => aiSuggestedSubsectors.includes(s)) && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
-                <Sparkles className="h-2 w-2" /> AI Suggested
-              </Badge>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              Subsectors
+              <span className="text-muted-foreground/50">(up to 3, any sector)</span>
+              {aiSuggestedSubsectors && aiSuggestedSubsectors.length > 0 && subsectors.some(s => subsectorExists(aiSuggestedSubsectors, s)) && (
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
+                  <Sparkles className="h-2 w-2" /> AI
+                </Badge>
+              )}
+            </label>
+            {onReclassify && (
+              <button
+                type="button"
+                onClick={onReclassify}
+                disabled={isReclassifying}
+                className="text-[10px] text-accent hover:text-accent/80 hover:underline disabled:opacity-40 flex items-center gap-1 transition-colors"
+              >
+                {isReclassifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Re-classify
+              </button>
             )}
-          </label>
+          </div>
 
           {/* Pills + input area */}
           <div
