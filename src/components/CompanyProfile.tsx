@@ -3,6 +3,7 @@ import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorTags, SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +110,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [showOverrideWarning, setShowOverrideWarning] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
     try { return localStorage.getItem("company-logo-url"); } catch { return null; }
   });
@@ -254,6 +256,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+  const OUTPUT_FIELDS: (keyof CompanyData)[] = ["description", "stage", "sector", "businessModel", "targetCustomer", "hqLocation", "uniqueValueProp", "currentARR", "yoyGrowth", "totalHeadcount", "competitors"];
+
+  const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
+
+  const handleAnalyzeClick = () => {
+    if (hasManualEdits) {
+      setShowOverrideWarning(true);
+    } else {
+      handleAnalyze();
+    }
+  };
 
   const update = (field: keyof CompanyData, value: string | string[]) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -853,7 +866,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
-                <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+                <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
                   className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
                   {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
@@ -1246,6 +1259,27 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           />
         </div>
       )}
+
+      {/* Override warning dialog */}
+      <AlertDialog open={showOverrideWarning} onOpenChange={setShowOverrideWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              AI will override your edits
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You've manually edited some fields. Running analysis will replace them with AI-generated values. Your changes may be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}>
+              Continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
