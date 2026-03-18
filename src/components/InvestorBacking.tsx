@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
@@ -17,7 +16,10 @@ export interface ExtractedInvestor {
   instrument: string;
   amount: number;
   date?: string;
-  source: "deck" | "web";
+  source: "deck" | "web" | "exa";
+  highlight?: string;
+  sourceUrl?: string;
+  domain?: string;
 }
 
 interface CapRow {
@@ -29,8 +31,11 @@ interface CapRow {
   date: string;
   notes: string;
   _new?: boolean;
-  _source?: "deck" | "web";
+  _source?: "deck" | "web" | "exa";
   _verified?: boolean;
+  _highlight?: string;
+  _sourceUrl?: string;
+  _domain?: string;
 }
 
 interface PendingInvestor {
@@ -49,6 +54,7 @@ interface PendingInvestor {
 interface InvestorBackingProps {
   extractedInvestors?: ExtractedInvestor[];
   isScanning?: boolean;
+  companyName?: string;
 }
 
 const ENTITY_TYPES = ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"];
@@ -61,10 +67,14 @@ const INSTRUMENT_COLORS: Record<string, string> = {
   "Convertible Note": "bg-sky-500/15 text-sky-700 border-sky-500/25",
 };
 
-function logoUrl(name: string) {
+function faviconUrl(domain: string) {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
+
+function fallbackLogoUrl(name: string) {
   if (!name.trim()) return null;
-  const domain = name.trim().toLowerCase().replace(/\s+/g, "") + ".com";
-  return `https://logo.clearbit.com/${domain}`;
+  const domain = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
+  return faviconUrl(domain);
 }
 
 function useCountUp(target: number, duration = 1200) {
@@ -90,20 +100,16 @@ function useCountUp(target: number, duration = 1200) {
 }
 
 // ── Radar Discovery Animation ──
-function DiscoveryRadar({ logs }: { logs: string[] }) {
+function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 gap-5">
-      {/* Radar visual */}
       <div className="relative w-28 h-28">
-        {/* Rings */}
         <div className="absolute inset-0 rounded-full border border-accent/20" />
         <div className="absolute inset-3 rounded-full border border-accent/15" />
         <div className="absolute inset-6 rounded-full border border-accent/10" />
-        {/* Center dot */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="h-3 w-3 rounded-full bg-accent animate-funding-pulse" />
         </div>
-        {/* Sweep */}
         <div className="absolute inset-0 animate-radar-spin" style={{ transformOrigin: "center" }}>
           <div
             className="absolute top-1/2 left-1/2 w-1/2 h-[2px]"
@@ -113,13 +119,14 @@ function DiscoveryRadar({ logs }: { logs: string[] }) {
             }}
           />
         </div>
-        {/* Ping rings */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="h-6 w-6 rounded-full border border-accent/40 animate-radar-ping" />
         </div>
       </div>
-      {/* Log lines */}
       <div className="space-y-1.5 text-center max-w-xs">
+        <p className="text-xs font-medium text-accent">
+          Exa AI is auditing global funding news{companyName ? ` for ${companyName}` : ""}...
+        </p>
         {logs.map((log, i) => (
           <p key={i} className={`text-[11px] font-mono transition-opacity duration-500 ${i === logs.length - 1 ? "text-accent" : "text-muted-foreground/60"}`}>
             {log}
@@ -133,9 +140,7 @@ function DiscoveryRadar({ logs }: { logs: string[] }) {
 // ── Mini Funding Timeline Chart ──
 function FundingTimeline({ rows }: { rows: CapRow[] }) {
   const sorted = useMemo(() => {
-    return rows
-      .filter(r => r.amount > 0 && r.date)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
   }, [rows]);
 
   if (sorted.length < 2) return null;
@@ -156,26 +161,14 @@ function FundingTimeline({ rows }: { rows: CapRow[] }) {
   return (
     <div className="h-12 w-full max-w-[200px]">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <polyline
-          points={points}
-          fill="none"
-          stroke="hsl(var(--accent))"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        {/* Area fill */}
-        <polygon
-          points={`0,100 ${points} 100,100`}
-          fill="hsl(var(--accent) / 0.1)"
-        />
+        <polyline points={points} fill="none" stroke="hsl(var(--accent))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <polygon points={`0,100 ${points} 100,100`} fill="hsl(var(--accent) / 0.1)" />
       </svg>
     </div>
   );
 }
 
-// ── Investor Profile Card ──
+// ── Bento Investor Profile Card ──
 function InvestorCard({
   row,
   onUpdate,
@@ -192,18 +185,20 @@ function InvestorCard({
   const fmt = (n: number) =>
     n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : n > 0 ? `$${n}` : "";
 
+  const logoSrc = row._domain
+    ? faviconUrl(row._domain)
+    : fallbackLogoUrl(row.investor_name);
+
   return (
-    <div
-      className={`group rounded-xl border border-border bg-card p-4 hover:shadow-surface-md transition-all duration-200 ${row._source ? "animate-spring-pop" : ""}`}
-    >
+    <div className={`group rounded-xl border border-border bg-card p-4 hover:shadow-lg hover:border-accent/20 transition-all duration-300 ${row._source ? "animate-spring-pop" : ""}`}>
       <div className="flex items-start gap-3">
         {/* Logo */}
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted shrink-0 overflow-hidden">
-          {row.investor_name ? (
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 shrink-0 overflow-hidden border border-border">
+          {logoSrc ? (
             <img
-              src={logoUrl(row.investor_name)!}
+              src={logoSrc}
               alt=""
-              className="h-full w-full object-contain"
+              className="h-8 w-8 object-contain"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
                 (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
@@ -235,14 +230,8 @@ function InvestorCard({
           </div>
 
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {/* Entity type */}
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-              {row.entity_type}
-            </Badge>
-            {/* Instrument — colored tag */}
-            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>
-              {row.instrument}
-            </Badge>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{row.entity_type}</Badge>
+            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>{row.instrument}</Badge>
             {/* Source badges */}
             {row._source === "deck" && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent-foreground border-accent/20">
@@ -254,7 +243,12 @@ function InvestorCard({
                 <Globe className="h-2.5 w-2.5" /> Web
               </Badge>
             )}
-            {/* Verification Status */}
+            {row._source === "exa" && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
+                <Sparkles className="h-2.5 w-2.5" /> AI Sourced
+              </Badge>
+            )}
+            {/* Verification */}
             {row._source && !row._verified && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
                 <Sparkles className="h-2.5 w-2.5" /> AI Found
@@ -267,10 +261,29 @@ function InvestorCard({
             )}
           </div>
 
-          {/* Date */}
-          {row.date && (
-            <p className="text-[10px] text-muted-foreground mt-1 font-mono">{row.date}</p>
+          {/* Exa Highlight / Match Logic */}
+          {row._highlight && (
+            <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed italic border-l-2 border-accent/30 pl-2">
+              {row._highlight}
+            </p>
           )}
+
+          {/* Date + Source Link */}
+          <div className="flex items-center gap-2 mt-1.5">
+            {row.date && (
+              <p className="text-[10px] text-muted-foreground font-mono">{row.date}</p>
+            )}
+            {row._sourceUrl && (
+              <a
+                href={row._sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors"
+              >
+                <ExternalLink className="h-2.5 w-2.5" /> View Source
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Amount + Actions */}
@@ -302,7 +315,7 @@ function InvestorCard({
   );
 }
 
-export function InvestorBacking({ extractedInvestors, isScanning = false }: InvestorBackingProps) {
+export function InvestorBacking({ extractedInvestors, isScanning = false, companyName }: InvestorBackingProps) {
   const [rows, setRows] = useState<CapRow[]>([]);
   const [original, setOriginal] = useState<CapRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -322,12 +335,13 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
       setRadarLogs([]);
       return;
     }
-    setRadarLogs(["Initializing deep search..."]);
+    setRadarLogs(["Initializing Exa neural search..."]);
     const timers = [
-      setTimeout(() => setRadarLogs(prev => [...prev, "Checking SEC filings..."]), 1500),
-      setTimeout(() => setRadarLogs(prev => [...prev, "Scanned 12 investment news sources..."]), 3500),
-      setTimeout(() => setRadarLogs(prev => [...prev, "Cross-referencing Firecrawl results..."]), 5500),
-      setTimeout(() => setRadarLogs(prev => [...prev, "Found matching backers."]), 7000),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Querying global funding databases..."]), 1500),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Scanning venture capital news sources..."]), 3000),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Cross-referencing SEC filings..."]), 4500),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Extracting investor profiles..."]), 6000),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Found matching backers."]), 7500),
     ];
     return () => timers.forEach(clearTimeout);
   }, [isScanning, syncing]);
@@ -348,7 +362,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
       amount: r.amount,
       date: r.date || "",
       notes: r.notes || "",
-      _verified: true, // Existing DB rows are founder-verified
+      _verified: true,
     }));
     setRows(mapped);
     setOriginal(mapped);
@@ -369,7 +383,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);
 
-  // Auto-populate from AI-extracted investors
+  // Auto-populate from AI-extracted investors (deck, web, or exa)
   useEffect(() => {
     if (!extractedInvestors?.length) return;
     setRows(prev => {
@@ -389,6 +403,9 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
           notes: "",
           _new: true,
           _source: inv.source,
+          _highlight: inv.highlight || "",
+          _sourceUrl: inv.sourceUrl || "",
+          _domain: inv.domain || "",
         });
       }
       if (newRows.length === 0) return prev;
@@ -399,10 +416,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
 
   const updateCell = (id: string, field: keyof CapRow, value: string | number) => {
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
-  };
-
-  const verifyRow = (id: string) => {
-    setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true } : r));
   };
 
   const addRow = () => {
@@ -527,7 +540,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
               </div>
               <div className="text-left">
                 <h3 className="text-sm font-semibold text-foreground">Funding Hub</h3>
-                <p className="text-[10px] text-muted-foreground">Capital raised, investor backing &amp; discovery</p>
+                <p className="text-[10px] text-muted-foreground">Capital raised, investor backing &amp; Exa discovery</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -576,7 +589,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
                   <FundingTimeline rows={rows} />
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
                     {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {syncing ? "Deep Searching..." : "Deep Search"}
+                    {syncing ? "Exa Searching..." : "Deep Search"}
                   </Button>
                 </div>
               </div>
@@ -584,7 +597,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
 
             {/* ══ Discovery Radar — while scanning with no results ══ */}
             {(isScanning || syncing) && rows.length === 0 && (
-              <DiscoveryRadar logs={radarLogs} />
+              <DiscoveryRadar logs={radarLogs} companyName={companyName} />
             )}
 
             {/* ══ Investor Discovery — Pending Cards ══ */}
@@ -594,7 +607,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
               onIgnore={dismissPending}
             />
 
-            {/* ══ Investor Profile Cards ══ */}
+            {/* ══ Bento Grid of Investor Profile Cards ══ */}
             {rows.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -608,7 +621,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {rows.map((row) => (
                     <InvestorCard
                       key={row.id}
@@ -627,7 +640,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
               <div className="text-center py-8">
                 <Radio className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-xs text-muted-foreground">No investors yet.</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">Add manually or run Deep Search to discover backers.</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">Add manually or run analysis to discover backers via Exa AI.</p>
               </div>
             )}
 
@@ -653,7 +666,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {p.investor_name && (
                             <img
-                              src={logoUrl(p.investor_name)!}
+                              src={fallbackLogoUrl(p.investor_name)!}
                               alt=""
                               className="h-8 w-8 rounded object-contain shrink-0"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
