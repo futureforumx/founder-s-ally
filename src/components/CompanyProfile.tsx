@@ -893,6 +893,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   {stages.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {renderVerificationBadge("stage")}
+                {analysisComplete && <InsightIcon field="stage" label="Stage" />}
               </div>
             </ProfileField>
           </div>
