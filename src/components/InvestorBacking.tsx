@@ -518,6 +518,16 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     toast.success("Investor removed");
   };
 
+  const verifyRow = (id: string) => {
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true } : r));
+    toast.success("Investor verified");
+  };
+
+  const rejectRow = (id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    toast("Investor rejected");
+  };
+
   const saveChanges = async () => {
     setSaving(true);
     try {
