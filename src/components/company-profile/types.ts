@@ -1,13 +1,16 @@
 export const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 
 export const SECTOR_TAXONOMY = {
-  "Artificial Intelligence": ["Vertical AI (SaaS)", "AI Infrastructure & LLMOps", "Autonomous Agents", "Computer Vision", "Natural Language Processing", "Generative Media"],
-  "Fintech": ["Payments & Infrastructure", "Neobanking", "DeFi & Web3 Finance", "Insurtech", "RegTech & Compliance", "Embedded Finance"],
-  "Climate & Energy": ["Carbon Capture & Storage", "Renewable Energy (Solar/Wind/Fusion)", "Battery Tech & Storage", "Circular Economy", "AgTech & Food Science", "Water Tech"],
-  "Health & Biotech": ["Longevity & Anti-Aging", "Digital Health & Telemedicine", "Biopharmaceuticals", "Medical Devices", "Genomics", "Mental Health Tech"],
-  "Enterprise Software": ["Cybersecurity", "DevTools & Open Source", "HRTech & Future of Work", "MarTech", "Supply Chain & Logistics", "ERP & CRM"],
-  "Deep Tech & Space": ["Quantum Computing", "Space Infrastructure", "Satellite Communications", "Advanced Materials", "Semiconductors", "Photonics"],
-  "Consumer & Retail": ["E-commerce & D2C", "Gaming & Esport", "EdTech", "PropTech", "Social Media & Creators", "AR/VR Platforms"],
+  "Construction & Real Estate": ["ConTech (Construction Tech)", "PropTech", "Sustainable Materials", "Infrastructure & Civil Engineering", "Digital Twins & BIM", "Residential Construction"],
+  "Industrial & Manufacturing": ["Industrial Tech (Industry 4.0)", "Robotics & Automation", "Supply Chain Tech", "Warehousing Tech", "Advanced Manufacturing", "3D Printing"],
+  "Enterprise Software & SaaS": ["Vertical SaaS", "Horizontal SaaS", "DevTools & Open Source", "Cybersecurity", "HRTech", "MarTech", "LegalTech"],
+  "Artificial Intelligence": ["Vertical AI Agents", "LLMOps & Infrastructure", "Computer Vision", "Generative Media", "AI Safety & Governance", "Edge AI"],
+  "Fintech": ["Embedded Finance", "Payments Infrastructure", "Insurtech", "Real World Asset (RWA) Tokenization", "RegTech", "WealthTech"],
+  "Climate & Energy": ["Carbon Capture", "Energy Storage", "Circular Economy", "Grid Optimization", "AgTech", "Water Tech"],
+  "Health & Biotech": ["Longevity", "Digital Health", "MedTech", "Biopharma", "Genomics", "Neurotech"],
+  "Consumer & Retail": ["E-commerce Infrastructure", "Gaming & Interactive", "EdTech", "Social Commerce", "AdTech"],
+  "Deep Tech & Space": ["Quantum Computing", "Space Infrastructure", "Satcom", "Photonics", "Semiconductors"],
+  "Defense & GovTech": ["Dual-Use Tech", "Public Safety", "Civic Engagement", "National Security", "Drones & UAVs"],
 } as const;
 
 export const sectors = Object.keys(SECTOR_TAXONOMY);
