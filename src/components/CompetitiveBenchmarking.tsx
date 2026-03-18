@@ -1,10 +1,12 @@
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle, Shield, ShieldAlert, ShieldQuestion } from "lucide-react";
+import type { ConfidenceLevel } from "./CompanyProfile";
 
 interface MetricRow {
   metric: string;
   value: string;
   benchmark: string;
   status: "healthy" | "warning" | "critical";
+  confidence?: ConfidenceLevel;
 }
 
 // 2026 SaaS benchmarks
