@@ -113,6 +113,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         localStorage.setItem("company-metrics-unlocked", String(metricsUnlocked));
         localStorage.setItem("company-metrics-confirmed", String(metricsConfirmed));
         localStorage.setItem("company-metric-sources", JSON.stringify(metricSources));
+        localStorage.setItem("company-source-verification", JSON.stringify(sourceVerification));
         if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
       } catch {}
     }, 800);
