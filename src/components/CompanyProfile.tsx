@@ -1632,4 +1632,4 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </AlertDialog>
     </div>
   );
-}
+});
