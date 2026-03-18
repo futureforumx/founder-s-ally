@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,9 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { toast } from "sonner";
+
+export interface ExtractedInvestor {
+  investorName: string;
+  entityType: string;
+  instrument: string;
+  amount: number;
+  date?: string;
+  source: "deck" | "web";
+}
 
 interface CapRow {
   id: string;
@@ -20,6 +29,7 @@ interface CapRow {
   date: string;
   notes: string;
   _new?: boolean;
+  _source?: "deck" | "web"; // AI source badge
 }
 
 interface PendingInvestor {
@@ -35,7 +45,11 @@ interface PendingInvestor {
   status: string;
 }
 
-const ENTITY_TYPES = ["Angel", "VC Firm", "Syndicate", "Accelerator"];
+interface InvestorBackingProps {
+  extractedInvestors?: ExtractedInvestor[];
+}
+
+const ENTITY_TYPES = ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"];
 const INSTRUMENTS = ["SAFE (Post-money)", "SAFE (Pre-money)", "Convertible Note", "Equity"];
 
 function logoUrl(name: string) {
@@ -44,7 +58,33 @@ function logoUrl(name: string) {
   return `https://logo.clearbit.com/${domain}`;
 }
 
-export function InvestorBacking() {
+/** Counting-up animation hook */
+function useCountUp(target: number, duration = 1200) {
+  const [display, setDisplay] = useState(0);
+  const prevTarget = useRef(0);
+
+  useEffect(() => {
+    if (target === prevTarget.current) return;
+    const start = prevTarget.current;
+    prevTarget.current = target;
+    const diff = target - start;
+    if (diff === 0) { setDisplay(target); return; }
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + diff * eased));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration]);
+
+  return display;
+}
+
+export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
   const [rows, setRows] = useState<CapRow[]>([]);
   const [original, setOriginal] = useState<CapRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +95,7 @@ export function InvestorBacking() {
 
   const dirty = useMemo(() => JSON.stringify(rows) !== JSON.stringify(original), [rows, original]);
   const totalRaised = useMemo(() => rows.reduce((s, r) => s + (r.amount || 0), 0), [rows]);
+  const animatedTotal = useCountUp(totalRaised);
 
   const fetchRows = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
