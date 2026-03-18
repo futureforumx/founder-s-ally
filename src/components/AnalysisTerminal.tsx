@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
 
 const LOG_LINES = [
-  { tag: "INFO", text: "Initializing Neural Parser v3.4...", delay: 400 },
-  { tag: "DATA", text: "Web-hook established: scanning digital footprint...", delay: 900 },
-  { tag: "PDF", text: "Decrypting Pitch Deck layers...", delay: 1400 },
-  { tag: "AI", text: "Extracting ARR, Burn, and NRR metrics...", delay: 2200 },
-  { tag: "MATCH", text: "Cross-referencing 2026 SaaS Benchmarks...", delay: 3200 },
-  { tag: "SEARCH", text: "Mapping direct competitors in sector...", delay: 4400 },
-  { tag: "SUCCESS", text: "Profile synthesized. Finalizing Dashboard...", delay: 5800 },
+  { tag: "INIT", text: "Initializing Neural Parser v3.4...", delay: 400, progressLabel: "Initializing...", progress: 8 },
+  { tag: "WEB", text: "Scraping website & digital footprint...", delay: 900, progressLabel: "Scraping website...", progress: 22 },
+  { tag: "PDF", text: "Decrypting Pitch Deck layers...", delay: 1400, progressLabel: "Parsing deck...", progress: 38 },
+  { tag: "AI", text: "Extracting ARR, Burn, and NRR metrics...", delay: 2200, progressLabel: "Extracting metrics...", progress: 55, ghostTags: ["ARR: $2.4M", "NRR: 118%"] },
+  { tag: "MATCH", text: "Cross-referencing 2026 SaaS Benchmarks...", delay: 3200, progressLabel: "Benchmarking...", progress: 70, ghostTags: ["Stage: Series A"] },
+  { tag: "SEARCH", text: "Mapping direct competitors in sector...", delay: 4400, progressLabel: "Mapping competitors...", progress: 85, ghostTags: ["Competitors: 12"] },
+  { tag: "OK", text: "Profile synthesized. Finalizing Dashboard...", delay: 5800, progressLabel: "Finalizing...", progress: 100 },
 ];
 
 const RAW_JSON = `{
@@ -46,15 +46,59 @@ const RAW_JSON = `{
   }
 }`;
 
-const TAG_COLORS: Record<string, string> = {
-  INFO: "text-blue-400",
-  DATA: "text-cyan-400",
-  PDF: "text-purple-400",
-  AI: "text-emerald-400",
-  MATCH: "text-yellow-400",
-  SEARCH: "text-orange-400",
-  SUCCESS: "text-green-400",
+const TAG_STYLES: Record<string, { color: string; glow: string }> = {
+  INIT: { color: "#60a5fa", glow: "0 0 8px rgba(96,165,250,0.5)" },
+  WEB: { color: "#22d3ee", glow: "0 0 8px rgba(34,211,238,0.5)" },
+  PDF: { color: "#c084fc", glow: "0 0 8px rgba(192,132,252,0.5)" },
+  AI: { color: "#34d399", glow: "0 0 8px rgba(52,211,153,0.5)" },
+  MATCH: { color: "#fbbf24", glow: "0 0 8px rgba(251,191,36,0.5)" },
+  SEARCH: { color: "#fb923c", glow: "0 0 8px rgba(251,146,60,0.5)" },
+  OK: { color: "#4ade80", glow: "0 0 10px rgba(74,222,128,0.6)" },
 };
+
+/* ── Particle burst component ── */
+function ParticleBurst({ active }: { active: boolean }) {
+  if (!active) return null;
+  const particles = Array.from({ length: 5 }, (_, i) => {
+    const angle = (i / 5) * 360;
+    const rad = (angle * Math.PI) / 180;
+    const tx = Math.cos(rad) * 18;
+    const ty = Math.sin(rad) * 18;
+    return (
+      <span
+        key={i}
+        className="absolute w-1 h-1 rounded-full"
+        style={{
+          background: "#60a5fa",
+          boxShadow: "0 0 4px rgba(96,165,250,0.8)",
+          animation: `particle-burst 0.5s ease-out forwards`,
+          animationDelay: `${i * 30}ms`,
+          ["--tx" as string]: `${tx}px`,
+          ["--ty" as string]: `${ty}px`,
+        }}
+      />
+    );
+  });
+  return <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">{particles}</span>;
+}
+
+/* ── Ghost tag floating upward ── */
+function GhostTag({ label }: { label: string }) {
+  return (
+    <span
+      className="absolute font-mono text-[10px] font-semibold pointer-events-none whitespace-nowrap"
+      style={{
+        color: "rgba(96,165,250,0.9)",
+        textShadow: "0 0 6px rgba(96,165,250,0.5)",
+        animation: "ghost-float 2s ease-out forwards",
+        left: `${30 + Math.random() * 40}%`,
+        bottom: "0",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface AnalysisTerminalProps {
   companyName?: string;
@@ -63,37 +107,42 @@ interface AnalysisTerminalProps {
 
 export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalProps) {
   const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("Initializing...");
   const [visibleLogs, setVisibleLogs] = useState<typeof LOG_LINES>([]);
-  const [typingIndex, setTypingIndex] = useState(0);
+  const [completedIndices, setCompletedIndices] = useState<Set<number>>(new Set());
+  const [burstIndex, setBurstIndex] = useState<number | null>(null);
+  const [ghostTags, setGhostTags] = useState<{ id: number; label: string }[]>([]);
   const [showTechView, setShowTechView] = useState(false);
   const [complete, setComplete] = useState(false);
   const [glitch, setGlitch] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
-  const radarRef = useRef<number>(0);
+  const ghostId = useRef(0);
 
-  // Progress bar
-  useEffect(() => {
-    const duration = 7000;
-    const interval = 50;
-    const step = 100 / (duration / interval);
-    const timer = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(timer);
-          return 100;
-        }
-        return Math.min(p + step, 100);
-      });
-    }, interval);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Log lines with typewriter
+  // Log lines with synced progress
   useEffect(() => {
     const timers = LOG_LINES.map((line, i) =>
       setTimeout(() => {
         setVisibleLogs((prev) => [...prev, line]);
-        setTypingIndex(i);
+        setProgress(line.progress);
+        setProgressLabel(line.progressLabel);
+
+        // Mark previous line as completed + trigger burst
+        if (i > 0) {
+          setCompletedIndices((prev) => new Set(prev).add(i - 1));
+          setBurstIndex(i - 1);
+          setTimeout(() => setBurstIndex(null), 600);
+        }
+
+        // Ghost tags
+        if (line.ghostTags) {
+          line.ghostTags.forEach((tag, ti) => {
+            setTimeout(() => {
+              const id = ghostId.current++;
+              setGhostTags((prev) => [...prev, { id, label: tag }]);
+              setTimeout(() => setGhostTags((prev) => prev.filter((g) => g.id !== id)), 2200);
+            }, ti * 400);
+          });
+        }
       }, line.delay)
     );
     return () => timers.forEach(clearTimeout);
@@ -101,36 +150,28 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
 
   // Auto-scroll logs
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [visibleLogs]);
 
   // Completion trigger
   useEffect(() => {
-    if (progress >= 100 && !complete) {
+    if (progress >= 100 && visibleLogs.length === LOG_LINES.length && !complete) {
       const timer = setTimeout(() => {
+        setCompletedIndices((prev) => {
+          const next = new Set(prev);
+          next.add(LOG_LINES.length - 1);
+          return next;
+        });
         setComplete(true);
         setGlitch(true);
         setTimeout(() => {
           setGlitch(false);
           onComplete();
         }, 1200);
-      }, 600);
+      }, 800);
       return () => clearTimeout(timer);
     }
-  }, [progress, complete, onComplete]);
-
-  // Radar angle animation
-  useEffect(() => {
-    let raf: number;
-    const animate = () => {
-      radarRef.current = (radarRef.current + 1.5) % 360;
-      raf = requestAnimationFrame(animate);
-    };
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [progress, visibleLogs, complete, onComplete]);
 
   return (
     <div
@@ -139,9 +180,61 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
       }`}
       style={{ background: "#0B0E14" }}
     >
-      {/* Subtle grid */}
+      {/* Inline styles for custom animations */}
+      <style>{`
+        @keyframes terminal-scan {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(1000%); }
+        }
+        .laser-scan {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 80px;
+          background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            rgba(59, 130, 246, 0.04) 50%,
+            rgba(59, 130, 246, 0.15) 95%,
+            transparent 100%
+          );
+          animation: terminal-scan 3s linear infinite;
+          pointer-events: none;
+          z-index: 10;
+        }
+        @keyframes particle-burst {
+          0% { opacity: 1; transform: translate(0, 0) scale(1); }
+          100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+        }
+        @keyframes ghost-float {
+          0% { opacity: 0; transform: translateY(0); }
+          15% { opacity: 1; }
+          70% { opacity: 0.6; }
+          100% { opacity: 0; transform: translateY(-120px); }
+        }
+        .terminal-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .terminal-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .terminal-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(96, 165, 250, 0.15);
+          border-radius: 4px;
+        }
+        .terminal-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: rgba(96, 165, 250, 0.35);
+        }
+        .terminal-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(96,165,250,0.15) transparent;
+        }
+      `}</style>
+
+      {/* Grid overlay */}
       <div
-        className="absolute inset-0 opacity-[0.04]"
+        className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage:
             "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
@@ -149,34 +242,38 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
         }}
       />
 
-      {/* Terminal card */}
+      {/* Terminal card — Glass aesthetic */}
       <div className="relative w-full max-w-2xl mx-4">
-        {/* Glow effect */}
+        {/* Outer glow */}
         <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-500/20 via-cyan-500/10 to-blue-500/20 blur-xl" />
 
         <div
-          className="relative rounded-2xl border overflow-hidden"
+          className="relative rounded-2xl overflow-hidden"
           style={{
-            background: "rgba(15, 20, 30, 0.85)",
-            backdropFilter: "blur(20px)",
-            borderColor: "rgba(56, 130, 246, 0.15)",
+            background: "rgba(15, 20, 30, 0.55)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(148, 163, 184, 0.12)",
           }}
         >
+          {/* Scanline */}
+          {!complete && <div className="laser-scan" />}
+
           {/* Title bar */}
           <div
             className="flex items-center gap-3 px-4 py-3 border-b"
-            style={{ borderColor: "rgba(56, 130, 246, 0.1)" }}
+            style={{ borderColor: "rgba(148, 163, 184, 0.08)" }}
           >
             <div className="flex gap-1.5">
               <div className="h-3 w-3 rounded-full" style={{ background: "#FF5F57" }} />
               <div className="h-3 w-3 rounded-full" style={{ background: "#FEBD2E" }} />
               <div className="h-3 w-3 rounded-full" style={{ background: "#27C840" }} />
             </div>
-            <span className="font-mono text-[11px] tracking-wider" style={{ color: "rgba(148, 163, 184, 0.7)" }}>
+            <span className="font-mono text-[11px] tracking-wider" style={{ color: "rgba(148, 163, 184, 0.6)" }}>
               COPILOT_ANALYSIS_ENGINE — {companyName || "STARTUP"}.exec
             </span>
             <div className="ml-auto flex items-center gap-2">
-              <span className="font-mono text-[10px]" style={{ color: "rgba(148, 163, 184, 0.5)" }}>
+              <span className="font-mono text-[10px]" style={{ color: "rgba(148, 163, 184, 0.4)" }}>
                 Technical View
               </span>
               <Switch
@@ -187,17 +284,15 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* Radar / DNA animation */}
+          <div className="relative p-6 space-y-6">
+            {/* Radar animation */}
             <div className="flex justify-center">
               <div className="relative h-28 w-28">
-                {/* Outer ring */}
                 <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "8s" }}>
                   <circle cx="56" cy="56" r="52" fill="none" stroke="rgba(56, 130, 246, 0.1)" strokeWidth="1" />
                   <circle cx="56" cy="56" r="40" fill="none" stroke="rgba(56, 130, 246, 0.07)" strokeWidth="1" />
                   <circle cx="56" cy="56" r="28" fill="none" stroke="rgba(56, 130, 246, 0.05)" strokeWidth="1" />
                 </svg>
-                {/* Radar sweep */}
                 <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "3s" }}>
                   <defs>
                     <linearGradient id="sweep" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -207,12 +302,10 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
                   </defs>
                   <line x1="56" y1="56" x2="56" y2="4" stroke="url(#sweep)" strokeWidth="2" />
                 </svg>
-                {/* Center dot */}
                 <div
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full animate-pulse"
                   style={{ background: "rgba(56, 130, 246, 0.8)", boxShadow: "0 0 20px rgba(56, 130, 246, 0.5)" }}
                 />
-                {/* Ping dots */}
                 {[
                   { x: 30, y: 20, delay: "0s" },
                   { x: 75, y: 35, delay: "1s" },
@@ -234,56 +327,78 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
 
             {/* Status text */}
             <div className="text-center">
-              <p className="font-mono text-sm" style={{ color: "rgba(56, 130, 246, 0.9)" }}>
+              <p className="font-mono text-sm" style={{ color: "rgba(96, 165, 250, 0.9)" }}>
                 {complete ? "SYSTEM ONLINE" : "ANALYZING…"}
               </p>
               <p className="font-mono text-[10px] mt-1" style={{ color: "rgba(148, 163, 184, 0.5)" }}>
-                {complete
-                  ? "All systems nominal. Launching dashboard."
-                  : `Processing ${Math.round(progress)}% complete`}
+                {complete ? "All systems nominal. Launching dashboard." : progressLabel}
               </p>
             </div>
 
-            {/* Log output */}
-            <div
-              ref={logRef}
-              className="rounded-lg p-3 max-h-44 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1"
-              style={{
-                background: "rgba(0, 0, 0, 0.3)",
-                border: "1px solid rgba(56, 130, 246, 0.08)",
-              }}
-            >
-              {visibleLogs.map((line, i) => (
-                <div key={i} className="flex gap-2">
-                  <span className="shrink-0" style={{ color: "rgba(148, 163, 184, 0.3)" }}>
-                    {String(i + 1).padStart(2, "0")}
+            {/* Log output — Glass container with custom scrollbar */}
+            <div className="relative">
+              <div
+                ref={logRef}
+                className="rounded-lg p-3 max-h-44 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1 terminal-scrollbar"
+                style={{
+                  background: "rgba(0, 0, 0, 0.25)",
+                  border: "1px solid rgba(148, 163, 184, 0.06)",
+                }}
+              >
+                {visibleLogs.map((line, i) => {
+                  const isDimmed = completedIndices.has(i);
+                  const isActive = i === visibleLogs.length - 1 && !complete;
+                  const tagStyle = TAG_STYLES[line.tag] || TAG_STYLES.INIT;
+                  return (
+                    <div
+                      key={i}
+                      className="relative flex gap-2 transition-opacity duration-500"
+                      style={{ opacity: isDimmed ? 0.4 : 1 }}
+                    >
+                      <span className="shrink-0" style={{ color: "rgba(148, 163, 184, 0.25)" }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="shrink-0" style={{ color: "rgba(148,163,184,0.3)" }}>&gt;</span>
+                      <span
+                        className="shrink-0 font-semibold"
+                        style={{
+                          color: tagStyle.color,
+                          textShadow: isActive ? tagStyle.glow : "none",
+                        }}
+                      >
+                        [{line.tag}]
+                      </span>
+                      <span style={{ color: isActive ? "rgba(226, 232, 240, 0.95)" : "rgba(226, 232, 240, 0.7)" }}>
+                        {line.text}
+                        {isActive && !complete && <span className="animate-pulse ml-0.5">▊</span>}
+                      </span>
+                      {isDimmed && (
+                        <span className="ml-auto shrink-0" style={{ color: "rgba(74, 222, 128, 0.5)" }}>✓</span>
+                      )}
+                      <ParticleBurst active={burstIndex === i} />
+                    </div>
+                  );
+                })}
+                {visibleLogs.length === 0 && (
+                  <span style={{ color: "rgba(148, 163, 184, 0.4)" }} className="animate-pulse">
+                    &gt; Booting analysis engine...▊
                   </span>
-                  <span className="shrink-0">&gt;</span>
-                  <span className={`shrink-0 font-semibold ${TAG_COLORS[line.tag] || "text-blue-400"}`}>
-                    [{line.tag}]
-                  </span>
-                  <span style={{ color: "rgba(226, 232, 240, 0.8)" }}>
-                    {line.text}
-                    {i === visibleLogs.length - 1 && !complete && (
-                      <span className="animate-pulse ml-0.5">▊</span>
-                    )}
-                  </span>
-                </div>
+                )}
+              </div>
+
+              {/* Ghost tags floating up */}
+              {ghostTags.map((g) => (
+                <GhostTag key={g.id} label={g.label} />
               ))}
-              {visibleLogs.length === 0 && (
-                <span style={{ color: "rgba(148, 163, 184, 0.4)" }} className="animate-pulse">
-                  &gt; Booting analysis engine...▊
-                </span>
-              )}
             </div>
 
             {/* Technical / raw JSON view */}
             {showTechView && (
               <div
-                className="rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-[10px] leading-relaxed animate-fade-in"
+                className="rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-[10px] leading-relaxed animate-fade-in terminal-scrollbar"
                 style={{
-                  background: "rgba(0, 0, 0, 0.4)",
-                  border: "1px solid rgba(56, 130, 246, 0.06)",
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: "1px solid rgba(148, 163, 184, 0.06)",
                   color: "rgba(34, 211, 238, 0.6)",
                 }}
               >
@@ -291,29 +406,52 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
               </div>
             )}
 
-            {/* Progress bar */}
+            {/* Synced progress bar with label */}
             <div className="space-y-2">
+              {/* Button-style progress indicator */}
               <div
-                className="h-1.5 w-full rounded-full overflow-hidden"
-                style={{ background: "rgba(56, 130, 246, 0.1)" }}
+                className="relative h-9 rounded-lg overflow-hidden font-mono text-[11px] flex items-center justify-center"
+                style={{
+                  background: "rgba(0, 0, 0, 0.3)",
+                  border: "1px solid rgba(148, 163, 184, 0.08)",
+                }}
               >
                 <div
-                  className="h-full rounded-full transition-all duration-200 ease-linear"
+                  className="absolute inset-0 transition-all duration-700 ease-out"
                   style={{
                     width: `${progress}%`,
                     background: complete
-                      ? "rgba(34, 197, 94, 0.8)"
-                      : "linear-gradient(90deg, rgba(56, 130, 246, 0.6), rgba(34, 211, 238, 0.8))",
-                    boxShadow: complete
-                      ? "0 0 12px rgba(34, 197, 94, 0.4)"
-                      : "0 0 12px rgba(56, 130, 246, 0.3)",
+                      ? "rgba(34, 197, 94, 0.25)"
+                      : "linear-gradient(90deg, rgba(56, 130, 246, 0.15), rgba(34, 211, 238, 0.25))",
                   }}
                 />
+                <span
+                  className="relative z-10 tracking-wide"
+                  style={{
+                    color: complete ? "rgba(74, 222, 128, 0.9)" : "rgba(148, 163, 184, 0.7)",
+                  }}
+                >
+                  {complete ? "✓ Analysis Complete" : `${progressLabel} — ${Math.round(progress)}%`}
+                </span>
               </div>
-              <div className="flex justify-between font-mono text-[10px]" style={{ color: "rgba(148, 163, 184, 0.4)" }}>
-                <span>0%</span>
-                <span>{Math.round(progress)}%</span>
-                <span>100%</span>
+
+              {/* Thin progress rail */}
+              <div
+                className="h-1 w-full rounded-full overflow-hidden"
+                style={{ background: "rgba(148, 163, 184, 0.06)" }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${progress}%`,
+                    background: complete
+                      ? "rgba(34, 197, 94, 0.7)"
+                      : "linear-gradient(90deg, rgba(56, 130, 246, 0.5), rgba(34, 211, 238, 0.7))",
+                    boxShadow: complete
+                      ? "0 0 10px rgba(34, 197, 94, 0.4)"
+                      : "0 0 10px rgba(56, 130, 246, 0.3)",
+                  }}
+                />
               </div>
             </div>
           </div>
