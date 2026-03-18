@@ -104,6 +104,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -388,6 +389,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const handleAnalyze = async () => {
+    if (isEditing) { setError("Please finish editing fields before running analysis."); return; }
     if (!form.name.trim()) { setError("Company name is required."); return; }
     if (!form.website.trim() && !deckText) { setError("Provide a website URL or upload a pitch deck."); return; }
 
@@ -532,7 +534,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
     }`;
 
-  const canAnalyze = form.name.trim() && (form.website.trim() || deckText);
+  const canAnalyze = form.name.trim() && (form.website.trim() || deckText) && !isEditing;
 
   // Verification badge renderer
   const renderVerificationBadge = (field: string) => {
@@ -884,7 +886,10 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               OUTPUT SECTIONS (greyed out before analysis)
               ═══════════════════════════════════════════════ */}
 
-          <div className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+          <div
+            onFocusCapture={() => setIsEditing(true)}
+            onBlurCapture={() => setIsEditing(false)}
+            className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6">
