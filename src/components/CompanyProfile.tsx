@@ -1105,6 +1105,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   {form.sector && (
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
                   )}
+                  {analysisComplete && <InsightIcon field="sector" label="Sector" />}
                 </span>
                 {sectorExpanded
                   ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
