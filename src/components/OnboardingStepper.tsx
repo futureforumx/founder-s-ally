@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { normalizeSector } from "@/components/company-profile/sectorNormalization";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
