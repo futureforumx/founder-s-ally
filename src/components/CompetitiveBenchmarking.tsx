@@ -107,7 +107,9 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
       status: "unknown", confidence: "low", higherIsBetter: true,
     });
   } else {
-    const nrrTarget = isSeedOrEarlier ? 100 : 110;
+  const isSeriesB = stage === "Series B";
+    const isSeriesCPlus = stage === "Series C+";
+    const nrrTarget = isSeedOrEarlier ? 100 : (isSeriesB || isSeriesCPlus) ? 115 : 110;
     rows.push({
       metric: "Net Revenue Retention (NRR)",
       yourValue: null,
