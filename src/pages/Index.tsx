@@ -178,16 +178,6 @@ const Index = () => {
 
               {/* Investor Backing */}
               <InvestorBacking />
-
-              {/* Health Dashboard below */}
-              {profileComplete && (
-                <HealthDashboard
-                  stage={companyData?.stage}
-                  sector={companyData?.sector}
-                  analysisResult={analysisResult}
-                  onMetricEdit={handleMetricEdit}
-                />
-              )}
             </div>
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
