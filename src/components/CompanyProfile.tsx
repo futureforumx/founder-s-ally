@@ -81,6 +81,8 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
+  const [websiteMarkdown, setWebsiteMarkdown] = useState<string>("");
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
