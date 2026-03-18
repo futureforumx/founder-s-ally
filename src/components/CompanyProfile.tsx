@@ -789,35 +789,53 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           </ProfileField>
 
           {/* === SECTION: Categorization === */}
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
-              <Briefcase className="h-3 w-3" /> Categorization
-            </p>
-            <div className="grid grid-cols-3 gap-4">
-              <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
-                aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
-                <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
-                  <option value="" disabled>Select model</option>
-                  {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </ProfileField>
-              <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
-                aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
-                <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
-                  <option value="" disabled>Select type</option>
-                  {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </ProfileField>
-              <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
-                isAiDraft={isFieldAiDraft("hqLocation")}
-                aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
-                <div className="flex items-center gap-1.5">
-                  <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                    className={inputCls("hqLocation")} />
-                  {renderVerificationBadge("hqLocation")}
+          <div className="rounded-xl border transition-all duration-300 border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setCategorizationExpanded(!categorizationExpanded)}
+              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+            >
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Briefcase className="h-3 w-3 text-accent" />
+                Categorization
+                {form.businessModel && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.businessModel}</Badge>
+                )}
+              </span>
+              {categorizationExpanded
+                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              }
+            </button>
+            {categorizationExpanded && (
+              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="grid grid-cols-3 gap-4">
+                  <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
+                    aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
+                    <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
+                      <option value="" disabled>Select model</option>
+                      {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </ProfileField>
+                  <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
+                    aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
+                    <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
+                      <option value="" disabled>Select type</option>
+                      {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </ProfileField>
+                  <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
+                    isAiDraft={isFieldAiDraft("hqLocation")}
+                    aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
+                    <div className="flex items-center gap-1.5">
+                      <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                        className={inputCls("hqLocation")} />
+                      {renderVerificationBadge("hqLocation")}
+                    </div>
+                  </ProfileField>
                 </div>
-              </ProfileField>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* === SECTION: Competitive Landscape === */}
