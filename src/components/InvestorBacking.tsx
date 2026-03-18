@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
 
 export interface ExtractedInvestor {
