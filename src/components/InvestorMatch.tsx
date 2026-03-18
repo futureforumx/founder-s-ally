@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import {
   Users, MapPin, DollarSign, TrendingUp, Shield, Send,
-  Activity, Pause, RefreshCw, ChevronDown, ChevronUp, Filter
+  Activity, Pause, RefreshCw, ChevronDown, ChevronUp, Filter, Lock
 } from "lucide-react";
 
 interface Investor {
