@@ -190,6 +190,16 @@ ${combinedText.slice(0, 40000)}`;
                     },
                     additionalProperties: false,
                   },
+                  sectorMapping: {
+                    type: "object",
+                    description: "Semantic sector mapping based on detected keywords",
+                    properties: {
+                      sector: { type: "string", description: "Mapped sector (e.g. Fintech, Health Tech)" },
+                      subTag: { type: "string", description: "Specific sub-tag (e.g. Web3 Payments, Digital Health)" },
+                      keywords: { type: "array", items: { type: "string" }, description: "Keywords that triggered this mapping" },
+                    },
+                    additionalProperties: false,
+                  },
                 },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
                 additionalProperties: false,
