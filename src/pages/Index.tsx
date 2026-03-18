@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
+import { CompanyProfile, CompanyData, AnalysisResult, CompanyProfileHandle } from "@/components/CompanyProfile";
 import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
