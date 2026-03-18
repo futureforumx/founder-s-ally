@@ -57,7 +57,7 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   "": "",
 };
 
-export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyProfileProps) {
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
