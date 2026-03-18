@@ -416,6 +416,19 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
                         className="h-8 text-xs border-transparent hover:border-input focus:border-input bg-transparent"
                         placeholder="Firm name…"
                       />
+                      {row._source === "deck" && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-accent/10 text-accent-foreground border-accent/20">
+                          <FileText className="h-2.5 w-2.5" /> Deck
+                        </Badge>
+                      )}
+                      {row._source === "web" && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-primary/10 text-primary border-primary/20">
+                          <Globe className="h-2.5 w-2.5" /> Web
+                        </Badge>
+                      )}
+                      {row.amount === 0 && row._source && (
+                        <span className="text-[9px] text-muted-foreground/50 italic shrink-0">Suggesting $...</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="p-1.5">
