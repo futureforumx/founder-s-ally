@@ -441,6 +441,11 @@ export function SectorSubsectorPicker({
           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
             Subsectors
             <span className="text-muted-foreground/50">(up to 3, any sector)</span>
+            {aiSuggestedSubsectors && aiSuggestedSubsectors.length > 0 && subsectors.some(s => aiSuggestedSubsectors.includes(s)) && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
+                <Sparkles className="h-2 w-2" /> AI Suggested
+              </Badge>
+            )}
           </label>
 
           {/* Pills + input area */}
