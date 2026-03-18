@@ -535,7 +535,28 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
     }`;
 
-  const canAnalyze = form.name.trim() && (form.website.trim() || deckText) && !isEditing;
+  const isEditableElement = (element: Element | null): boolean => {
+    if (!element) return false;
+    const editableSelector = "input, textarea, select, [contenteditable='true']";
+    return element.matches(editableSelector) || !!element.closest(editableSelector);
+  };
+
+  const handleOutputFocusCapture = (event: FocusEvent<HTMLDivElement>) => {
+    if (isEditableElement(event.target as Element)) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleOutputBlurCapture = () => {
+    requestAnimationFrame(() => {
+      const container = outputSectionsRef.current;
+      const activeElement = document.activeElement;
+      const stillEditing = !!container && container.contains(activeElement) && isEditableElement(activeElement);
+      setIsEditing(stillEditing);
+    });
+  };
+
+  const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
 
   // Verification badge renderer
   const renderVerificationBadge = (field: string) => {
