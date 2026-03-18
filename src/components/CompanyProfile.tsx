@@ -431,10 +431,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       return next;
     });
 
-    // Set AI suggested subsectors for ghost pills
-    if (normalized.subsectors.length > 0) {
-      setAiSuggestedSubsectors(normalized.subsectors);
-    }
 
     setAiSuggestions(newSuggestions);
   };
