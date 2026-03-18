@@ -32,6 +32,14 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [stageClassification, setStageClassification] = useState<{
+    detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-stage-classification");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
     try {
       const saved = localStorage.getItem("company-sector-tags");
