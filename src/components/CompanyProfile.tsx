@@ -461,16 +461,37 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const handleConfirm = () => {
+    // 1. Clear all AI suggestion flags
     setConfirmed(true);
     setAiSuggestions({});
-    // Mark all currently filled fields as touched
+    setAiSuggestedSubsectors([]);
+    
+    // Mark all filled fields as user-touched (clears isAiDraft styling)
     const allKeys = Object.keys(form) as (keyof CompanyData)[];
     setUserTouched(new Set(allKeys.filter(k => {
       const v = form[k];
       return Array.isArray(v) ? v.length > 0 : !!v;
     })));
-    onSave?.(form);
+    
+    // Confirm all metrics too
+    setMetricsConfirmed(true);
+    METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+    
+    // 2. Collapse the profile accordion
     setIsExpanded(false);
+    
+    // 3. Save and notify parent
+    onSave?.(form);
+    onProfileVerified?.(true);
+    
+    // Persist verified state
+    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    
+    // 4. Show celebratory toast
+    toast({
+      title: "✅ Profile Verified",
+      description: "Data locked. Investor Matching and Benchmarking are now live!",
+    });
   };
 
   const isFieldAiDraft = (field: keyof CompanyData) => !confirmed && !userTouched.has(field) && !!form[field];
