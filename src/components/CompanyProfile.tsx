@@ -394,6 +394,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
               {isAnalyzing ? "Analyzing..." : "Run Analysis"}
             </button>
           </div>
+
+          {/* AI Sector Classification */}
+          <SectorTags
+            websiteText={websiteMarkdown}
+            executiveSummary={analysisComplete ? (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary; } catch { return ""; } })() : ""}
+            companyName={form.name}
+            onChange={(c) => { setSectorClassification(c); onSectorChange?.(c); }}
+          />
+
           {/* Auto-save indicator */}
           <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-2">
             <span className="relative flex h-2 w-2">
