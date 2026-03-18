@@ -124,6 +124,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
+  const [isReclassifying, setIsReclassifying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
