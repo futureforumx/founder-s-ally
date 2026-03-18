@@ -375,12 +375,49 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Apply normalized subsectors
+      // Apply normalized subsectors with deduplication
       if (normalized.subsectors.length > 0) {
-        if (!userTouched.has("sector") && prev.subsectors.length === 0) {
-          next.subsectors = normalized.subsectors;
-          console.log(`[AI Extraction] Subsectors auto-applied: [${normalized.subsectors.join(", ")}]`);
+        // Deduplicate: case-insensitive, consolidate to canonical taxonomy names
+        const deduped: string[] = [];
+        const seenLower = new Set<string>();
+        for (const sub of normalized.subsectors) {
+          // Find canonical name from taxonomy
+          let canonical = sub;
+          if (normalized.sector) {
+            const match = subsectorsFor(normalized.sector).find(s => s.toLowerCase() === sub.toLowerCase());
+            if (match) canonical = match;
+          }
+          const lower = canonical.toLowerCase();
+          if (!seenLower.has(lower)) {
+            seenLower.add(lower);
+            deduped.push(canonical);
+          }
         }
+
+        // Also deduplicate against user's existing selections (case-insensitive)
+        const userSubsLower = new Set(prev.subsectors.map(s => s.toLowerCase()));
+        const newSubs = deduped.filter(s => !userSubsLower.has(s.toLowerCase()));
+
+        // If user already has a subsector that AI also found, mark user's as "verified" (keep user version)
+        for (const sub of deduped) {
+          const userMatch = prev.subsectors.find(existing => existing.toLowerCase() === sub.toLowerCase());
+          if (userMatch) {
+            setVerifiedFields(vf => new Set(vf).add("subsectors"));
+          }
+        }
+
+        if (!userTouched.has("sector") && prev.subsectors.length === 0) {
+          next.subsectors = deduped.slice(0, 3);
+          console.log(`[AI Extraction] Subsectors auto-applied: [${next.subsectors.join(", ")}]`);
+        }
+
+        // Split into top 3 + overflow
+        const allForSuggestion = [...newSubs];
+        setAiSuggestedSubsectors(allForSuggestion.slice(0, 3));
+        setAiOverflowSubsectors(allForSuggestion.slice(3));
+      } else {
+        setAiSuggestedSubsectors([]);
+        setAiOverflowSubsectors([]);
       }
 
       // Handle competitors array
