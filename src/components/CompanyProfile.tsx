@@ -201,7 +201,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
     setIsAnalyzing(true);
     setError(null);
-    let websiteMarkdown = "";
+    let scrapedMarkdown = "";
 
     try {
       // Step 1: Scrape website if provided
