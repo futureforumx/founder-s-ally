@@ -52,6 +52,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
   // AI suggestions that differ from user input
   const [aiSuggestions, setAiSuggestions] = useState<Partial<Record<keyof CompanyData, string>>>({});
+  const [aiSuggestedSubsectors, setAiSuggestedSubsectors] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState(() => {
     try { return localStorage.getItem("company-profile-confirmed") === "true"; } catch { return false; }
   });
