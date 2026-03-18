@@ -319,34 +319,6 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
 
         <CollapsibleContent>
           <div className="px-5 pb-5 space-y-4">
-      {/* Pending Investors Notification Banner */}
-      {pending.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardContent className="flex items-center justify-between py-3 px-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/10">
-                <Bell className="h-4 w-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  We found {pending.length} new investor{pending.length > 1 ? "s" : ""} for your recent round.
-                </p>
-                <p className="text-xs text-muted-foreground">Would you like to add them to your cap table?</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowReview(true)}>
-                <Eye className="h-3.5 w-3.5" />
-                Review
-              </Button>
-              <Button size="sm" className="gap-1.5 text-xs" onClick={acceptAll}>
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Accept All
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Total Capital Raised Summary */}
       <Card className="border-primary/20 bg-primary/5">
