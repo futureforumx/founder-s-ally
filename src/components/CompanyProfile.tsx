@@ -675,7 +675,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                   logoSyncDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
                     if (!domain) { setSuggestedLogoUrl(null); return; }
-                    const hdLogoUrl = `https://logo.clearbit.com/${domain}?size=128`;
+                    const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
                     const testImg = new Image();
                     testImg.onload = () => {
                       if (!logoUrl) {
