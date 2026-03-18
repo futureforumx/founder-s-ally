@@ -866,7 +866,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
-                <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+                <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
                   className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
                   {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
