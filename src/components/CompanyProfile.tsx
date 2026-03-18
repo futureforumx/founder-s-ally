@@ -503,10 +503,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     }
   };
 
-
-    setAiSuggestions(newSuggestions);
-  };
-
   const handleAnalyze = async () => {
     if (isEditing) { setError("Please finish editing fields before running analysis."); return; }
     if (!form.name.trim()) { setError("Company name is required."); return; }
