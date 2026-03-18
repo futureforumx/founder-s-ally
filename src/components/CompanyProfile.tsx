@@ -1425,9 +1425,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             )}
           </div>
         </div>
-      )
-
-        </div>
       )}
 
       {/* Override warning dialog */}
