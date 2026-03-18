@@ -148,14 +148,31 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     } finally { setUploadingLogo(false); }
   };
 
+  const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+
   const update = (field: keyof CompanyData, value: string | string[]) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setUserTouched(prev => new Set(prev).add(field));
     setAnalysisComplete(false);
     setConfirmed(false);
-    // Clear AI suggestion for this field if user edits it
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
+    // Auto-verify metric fields on manual edit
+    if (METRIC_FIELDS.includes(field)) {
+      setVerifiedFields(prev => new Set(prev).add(field));
+    }
   };
+
+  const verifyField = (field: string) => {
+    setVerifiedFields(prev => new Set(prev).add(field));
+  };
+
+  const confirmAllMetrics = () => {
+    setMetricsConfirmed(true);
+    METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+  };
+
+  const isMetricPending = (field: keyof CompanyData) =>
+    metricsUnlocked && !metricsConfirmed && !verifiedFields.has(field) && !userTouched.has(field) && !!form[field];
 
   const handleFileSelect = useCallback(async (file: File) => {
     const name = file.name.toLowerCase();
