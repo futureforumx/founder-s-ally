@@ -43,6 +43,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     return { ...EMPTY_FORM };
   });
 
+  // Favicon state
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [faviconLoaded, setFaviconLoaded] = useState(false);
+  const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Track which fields were manually touched by user (not AI)
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
