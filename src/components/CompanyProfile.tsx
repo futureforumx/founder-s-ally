@@ -425,7 +425,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       // Capture stage classification
       if (analysisData.stageClassification) {
         setStageClassification(analysisData.stageClassification);
-        // If AI classified stage and user hasn't touched it, apply it
+        onStageClassification?.(analysisData.stageClassification);
         if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
           setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
         }
