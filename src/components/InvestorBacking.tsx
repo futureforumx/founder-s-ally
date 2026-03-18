@@ -492,6 +492,9 @@ export function InvestorBacking() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
