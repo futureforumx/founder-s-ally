@@ -165,7 +165,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
               {/* Stage Classification Card — shown after analysis */}
               {stageClassification && (
