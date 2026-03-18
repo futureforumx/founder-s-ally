@@ -127,6 +127,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   });
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [sectorExpanded, setSectorExpanded] = useState(false);
+  const [categorizationExpanded, setCategorizationExpanded] = useState(false);
+  const [competitiveExpanded, setCompetitiveExpanded] = useState(false);
   const [scanningMetrics, setScanningMetrics] = useState(false);
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
