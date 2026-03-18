@@ -23,6 +23,28 @@ interface CompanyProfileProps {
   onSectorChange?: (classification: SectorClassification) => void;
 }
 
+const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
+
+function extractDomain(url: string): string | null {
+  try {
+    let u = url.trim();
+    if (!u) return null;
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    const hostname = new URL(u).hostname.replace(/^www\./, "");
+    return hostname || null;
+  } catch { return null; }
+}
+
+function cleanDomainToName(domain: string): string {
+  let name = domain.replace(/^www\./, "");
+  for (const tld of TLDS) {
+    if (name.endsWith(tld)) { name = name.slice(0, -tld.length); break; }
+  }
+  const parts = name.split(".");
+  name = parts[parts.length - 1];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 type AnalyzeStepKey = "scraping" | "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
 const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   scraping: "Parsing Deck Structure...",
