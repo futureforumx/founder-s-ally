@@ -288,7 +288,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         return true;
       })
       .sort((a, b) => b.score - a.score);
-  }, [investors, companyData, analysisResult, checkSizeRange, leadFilter, geoFilter]);
+  }, [investors, companyData, analysisResult, sectorClassification, checkSizeRange, leadFilter, geoFilter]);
 
   const locations = useMemo(() => {
     const set = new Set(investors.map(i => i.location).filter(Boolean) as string[]);
