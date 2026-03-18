@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 interface CapRow {
@@ -219,8 +220,35 @@ export function InvestorBacking() {
   const fmt = (n: number) =>
     n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
 
+  const [open, setOpen] = useState(true);
+
   return (
-    <div className="space-y-4">
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="surface-card border border-border">
+        <CollapsibleTrigger asChild>
+          <button className="w-full p-5 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Landmark className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm font-semibold text-foreground">Investment</h3>
+                <p className="text-[10px] text-muted-foreground">Capital raised &amp; investor backing</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {totalRaised > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                  {fmt(totalRaised)} raised
+                </Badge>
+              )}
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            </div>
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="px-5 pb-5 space-y-4">
       {/* Pending Investors Notification Banner */}
       {pending.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
@@ -464,6 +492,9 @@ export function InvestorBacking() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
