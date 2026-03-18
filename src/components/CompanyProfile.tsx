@@ -132,6 +132,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [categorizationExpanded, setCategorizationExpanded] = useState(false);
   const [competitiveExpanded, setCompetitiveExpanded] = useState(false);
   const [scanningMetrics, setScanningMetrics] = useState(false);
+  const [aiCompetitors, setAiCompetitors] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("company-ai-competitors");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("company-verified-fields");
