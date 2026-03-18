@@ -721,6 +721,8 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                       row={row}
                       onUpdate={(field, value) => updateCell(row.id, field, value)}
                       onDelete={() => deleteRow(row.id, row._new)}
+                      onVerify={row._source && !row._verified ? () => verifyRow(row.id) : undefined}
+                      onReject={row._source && !row._verified ? () => rejectRow(row.id) : undefined}
                       saving={saving}
                     />
                   ))}
