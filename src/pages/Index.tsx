@@ -124,6 +124,14 @@ const Index = () => {
         />
       )}
 
+      {/* AI Analysis Terminal transition */}
+      {showTerminal && (
+        <AnalysisTerminal
+          companyName={companyData?.name}
+          onComplete={handleTerminalComplete}
+        />
+      )}
+
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto">
         <div className="px-8 py-6">
