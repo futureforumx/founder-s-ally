@@ -367,6 +367,13 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
         </CardContent>
       </Card>
 
+      {/* 🔍 Investor Discovery — Pending Cards with Match Scores */}
+      <InvestorDiscovery
+        pending={pending}
+        onConfirm={acceptPending}
+        onIgnore={dismissPending}
+      />
+
       {/* Main Table */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
