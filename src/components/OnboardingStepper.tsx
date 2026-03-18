@@ -361,7 +361,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <button onClick={onSkip} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={onSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 Skip for now
               </button>
               <div className="flex gap-2">
@@ -370,16 +370,22 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 )}
                 {step === 1 && (
                   <Button size="sm" disabled={!companyName.trim() || isProcessing} onClick={() => {
-                    if (website.trim()) { scrapeWebsite(); } else { setStep(2); }
+                    if (website.trim()) { scrapeWebsite(); } else { runPredictiveFetch(); setStep(2); }
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue"}
                   </Button>
                 )}
-                {step === 2 && (
-                  <Button size="sm" disabled={isProcessing} onClick={runAnalysis}>
+                {step === 2 && !deckFile && (
+                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={runAnalysis}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    {isProcessing ? processStep : "Analyze & Continue"}
+                    {isProcessing ? processStep : "Continue with Web Data"}
+                  </Button>
+                )}
+                {step === 2 && deckFile && (
+                  <Button size="sm" disabled={isProcessing} onClick={runAnalysis} className="animate-pulse hover:animate-none">
+                    {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                    {isProcessing ? processStep : "Analyze Deck & Continue"}
                   </Button>
                 )}
                 {step === 3 && (
