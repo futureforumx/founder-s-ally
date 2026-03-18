@@ -162,7 +162,15 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} />
+
+              {/* Stage Classification Card — shown after analysis */}
+              {stageClassification && (
+                <StageClassificationCard
+                  stageClassification={stageClassification}
+                  currentStage={companyData?.stage}
+                />
+              )}
 
 
               {/* Investor Backing */}
