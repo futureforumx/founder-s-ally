@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { HealthGauge } from "./HealthGauge";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { AnalysisResult } from "./CompanyProfile";
+import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion } from "lucide-react";
+import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
 
 const stageMultipliers: Record<string, number> = {
   "Pre-Seed": 0.8, "Seed": 0.9, "Series A": 1.0, "Series B": 1.1, "Series C+": 1.2,
@@ -59,22 +59,86 @@ function buildHealthData(mode: "market" | "community", stage?: string, sector?: 
   ];
 }
 
-const marketMetrics = [
-  { label: "MRR", value: "$142K", change: "+12%", trend: "up" },
-  { label: "Burn Rate", value: "$89K/mo", change: "+5%", trend: "up" },
-  { label: "Runway", value: "14 mo", change: "-2 mo", trend: "down" },
-  { label: "CAC", value: "$4,200", change: "0%", trend: "flat" },
-  { label: "LTV", value: "$18,500", change: "+8%", trend: "up" },
-  { label: "CAC/LTV", value: "4.4x", change: "+0.3x", trend: "up" },
-];
+const confidenceConfig: Record<ConfidenceLevel, { icon: typeof Shield; color: string; bg: string; label: string }> = {
+  high: { icon: Shield, color: "text-success", bg: "bg-success/10", label: "High" },
+  medium: { icon: ShieldAlert, color: "text-amber-500", bg: "bg-amber-500/10", label: "Med" },
+  low: { icon: ShieldQuestion, color: "text-destructive", bg: "bg-destructive/10", label: "Low" },
+};
 
-const communityMetrics = [
-  { label: "MRR", value: "$142K", change: "+18% vs peers", trend: "up" },
-  { label: "Burn Rate", value: "$89K/mo", change: "-12% vs peers", trend: "up" },
-  { label: "Runway", value: "14 mo", change: "+3 mo vs peers", trend: "up" },
-  { label: "CAC", value: "$4,200", change: "-8% vs peers", trend: "up" },
-  { label: "LTV", value: "$18,500", change: "+22% vs peers", trend: "up" },
-  { label: "CAC/LTV", value: "4.4x", change: "+0.6x vs peers", trend: "up" },
+interface MetricCardProps {
+  label: string;
+  metricData: MetricWithConfidence;
+  change: string;
+  trend: string;
+  onEdit: (newValue: string) => void;
+}
+
+function MetricCard({ label, metricData, change, trend, onEdit }: MetricCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(metricData.value || "—");
+  const conf = confidenceConfig[metricData.confidence];
+  const ConfIcon = conf.icon;
+
+  const save = () => {
+    onEdit(editValue);
+    setEditing(false);
+  };
+
+  return (
+    <div className="rounded-lg bg-muted/40 px-3 py-3 relative group">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-mono ${conf.bg} ${conf.color}`}>
+          <ConfIcon className="h-2.5 w-2.5" />
+          {conf.label}
+        </span>
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        {editing ? (
+          <div className="flex items-center gap-1">
+            <input
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              className="w-24 rounded border border-input bg-background px-1.5 py-0.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && save()}
+            />
+            <button onClick={save} className="text-success hover:text-success/80"><Check className="h-3.5 w-3.5" /></button>
+            <button onClick={() => setEditing(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        ) : (
+          <>
+            <span className="text-lg font-semibold tracking-tight text-foreground">{metricData.value || "—"}</span>
+            {metricData.confidence === "low" && (
+              <button
+                onClick={() => { setEditValue(metricData.value || ""); setEditing(true); }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                title="Edit value"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+          </>
+        )}
+        {!editing && (
+          <span className={`flex items-center gap-0.5 text-[11px] font-mono font-medium ${
+            trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground"
+          }`}>
+            {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            {change}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const defaultMetrics: { label: string; key: keyof AnalysisResult["metrics"]; change: string; trend: string }[] = [
+  { label: "MRR", key: "mrr", change: "+12%", trend: "up" },
+  { label: "Burn Rate", key: "burnRate", change: "+5%", trend: "up" },
+  { label: "Runway", key: "runway", change: "-2 mo", trend: "down" },
+  { label: "CAC", key: "cac", change: "0%", trend: "flat" },
+  { label: "LTV", key: "ltv", change: "+8%", trend: "up" },
 ];
 
 type BenchmarkMode = "market" | "community";
@@ -83,36 +147,19 @@ interface HealthDashboardProps {
   stage?: string;
   sector?: string;
   analysisResult?: AnalysisResult | null;
+  onMetricEdit?: (key: string, value: string) => void;
 }
 
-export function HealthDashboard({ stage, sector, analysisResult }: HealthDashboardProps) {
+export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
 
   const healthData = useMemo(() => buildHealthData(mode, stage, sector), [mode, stage, sector]);
 
-  // Override metrics if AI analysis provided real values
-  const activeMetrics = useMemo(() => {
-    const base = mode === "market" ? marketMetrics : communityMetrics;
-    if (!analysisResult?.metrics) return base;
-    const m = analysisResult.metrics;
-    return base.map((item) => {
-      if (item.label === "MRR" && m.mrr) return { ...item, value: m.mrr };
-      if (item.label === "Burn Rate" && m.burnRate) return { ...item, value: m.burnRate };
-      if (item.label === "Runway" && m.runway) return { ...item, value: m.runway };
-      if (item.label === "CAC" && m.cac) return { ...item, value: m.cac };
-      if (item.label === "LTV" && m.ltv) return { ...item, value: m.ltv };
-      return item;
-    });
-  }, [mode, analysisResult]);
-
-  // Use AI health score if available
   const overallScore = analysisResult?.healthScore ?? null;
-
   const contextLabel = stage && sector ? `${stage} · ${sector}` : stage || sector || null;
 
   return (
     <div className="space-y-6">
-      {/* Overall Health Score from AI */}
       {overallScore !== null && (
         <div className="surface-card p-6 flex items-center gap-6">
           <div className="relative h-28 w-28 flex-shrink-0">
@@ -170,26 +217,31 @@ export function HealthDashboard({ stage, sector, analysisResult }: HealthDashboa
       </div>
 
       <div className="surface-card p-5">
-        <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">Key Metrics</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Key Metrics</h3>
+          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
+            <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
+            <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
+            <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
+          </div>
+        </div>
         <div className="grid grid-cols-3 gap-4">
-          {activeMetrics.map((m) => (
-            <div key={m.label} className="rounded-lg bg-muted/40 px-3 py-3">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{m.label}</span>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-lg font-semibold tracking-tight text-foreground">{m.value}</span>
-                <span className={`flex items-center gap-0.5 text-[11px] font-mono font-medium ${
-                  m.trend === "up" ? "text-success" : m.trend === "down" ? "text-destructive" : "text-muted-foreground"
-                }`}>
-                  {m.trend === "up" ? <TrendingUp className="h-3 w-3" /> : m.trend === "down" ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                  {m.change}
-                </span>
-              </div>
-            </div>
-          ))}
+          {defaultMetrics.map((m) => {
+            const metricData: MetricWithConfidence = analysisResult?.metrics?.[m.key] ?? { value: null, confidence: "medium" };
+            return (
+              <MetricCard
+                key={m.label}
+                label={m.label}
+                metricData={metricData}
+                change={m.change}
+                trend={m.trend}
+                onEdit={(val) => onMetricEdit?.(m.key, val)}
+              />
+            );
+          })}
         </div>
       </div>
 
-      {/* Executive Summary */}
       {analysisResult?.executiveSummary && (
         <div className="surface-card p-5">
           <h3 className="text-sm font-semibold tracking-tight text-foreground mb-3">Executive Summary</h3>
@@ -199,6 +251,43 @@ export function HealthDashboard({ stage, sector, analysisResult }: HealthDashboa
               <span className="text-[10px] font-mono uppercase tracking-wider text-accent">Value Proposition</span>
               <p className="text-sm text-foreground mt-1">{analysisResult.valueProposition}</p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Agent Mode Results */}
+      {analysisResult?.agentData && (
+        <div className="surface-card p-5">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground mb-3 flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10">
+              <Shield className="h-3 w-3 text-accent" />
+            </span>
+            Agent Verified Data
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {analysisResult.agentData.teamSize && (
+              <div className="rounded-lg bg-muted/40 px-3 py-3">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Team Size</span>
+                <p className="text-sm font-semibold text-foreground mt-1">{analysisResult.agentData.teamSize}</p>
+              </div>
+            )}
+            {analysisResult.agentData.lastFunding && (
+              <div className="rounded-lg bg-muted/40 px-3 py-3">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Latest Round</span>
+                <p className="text-sm font-semibold text-foreground mt-1">{analysisResult.agentData.lastFunding}</p>
+              </div>
+            )}
+            {analysisResult.agentData.fundingAmount && (
+              <div className="rounded-lg bg-muted/40 px-3 py-3">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Amount Raised</span>
+                <p className="text-sm font-semibold text-foreground mt-1">{analysisResult.agentData.fundingAmount}</p>
+              </div>
+            )}
+          </div>
+          {analysisResult.agentData.sources.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-3 font-mono">
+              Sources: {analysisResult.agentData.sources.join(", ")}
+            </p>
           )}
         </div>
       )}
