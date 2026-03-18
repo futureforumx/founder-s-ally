@@ -902,13 +902,21 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
                 <div className="space-y-4">
                   <ProfileField label="Direct Competitors" isAiDraft={isFieldAiDraft("competitors")}>
-                    <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1">
+                        <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
+                      </div>
+                      {renderVerificationBadge("competitors")}
+                    </div>
                   </ProfileField>
                   <ProfileField label="Unique Value Proposition" isAiDraft={isFieldAiDraft("uniqueValueProp")}
                     aiSuggestion={aiSuggestions.uniqueValueProp} onApplySuggestion={() => update("uniqueValueProp", aiSuggestions.uniqueValueProp!)}>
-                    <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
-                      placeholder="What makes your product uniquely defensible?"
-                      rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none`} />
+                    <div className="flex items-start gap-1.5">
+                      <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
+                        placeholder="What makes your product uniquely defensible?"
+                        rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none flex-1`} />
+                      {renderVerificationBadge("uniqueValueProp")}
+                    </div>
                   </ProfileField>
                 </div>
               </div>
