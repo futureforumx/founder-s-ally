@@ -166,7 +166,7 @@ const Index = () => {
               </div>
             </div>
           ) : activeView === "benchmarks" ? (
-            <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} />
+            <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} />
           ) : activeView === "investors" ? (
             <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} />
           ) : (
