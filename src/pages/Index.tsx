@@ -18,8 +18,9 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, ShieldCheck, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
@@ -51,6 +52,7 @@ const Index = () => {
   });
 
   const profileComplete = !!companyData && !!analysisResult;
+  const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
 
   // Listen for navigate-view events from child components
   useEffect(() => {
@@ -126,6 +128,12 @@ const Index = () => {
     setCompanyData({ ...companyData, [field]: value });
   };
 
+  // Track when analysis starts/stops via the analysis result callback
+  const handleAnalysis = (result: AnalysisResult) => {
+    setAnalysisResult(result);
+    setIsAnalysisRunning(false);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Onboarding modal */}
@@ -165,9 +173,12 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-              {/* Strategy Room — shown after analysis */}
+              {/* Investment — immediately after profile/metrics */}
+              <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} isScanning={isAnalysisRunning} />
+
+              {/* Strategy Room — at the bottom */}
               {stageClassification && (
                 <StrategyRoom
                   stageClassification={stageClassification}
@@ -175,9 +186,42 @@ const Index = () => {
                 />
               )}
 
-
-              {/* Investor Backing */}
-              <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} />
+              {/* Confirm Profile — below everything */}
+              {analysisResult && (
+                <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-5 py-3 -mx-8 -mb-6" style={{ width: "calc(100% + 4rem)" }}>
+                  <div className="flex items-center justify-between px-3">
+                    <p className="text-[10px] text-muted-foreground">
+                      {isProfileVerified ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
+                    </p>
+                    {isProfileVerified ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                        <Check className="h-3.5 w-3.5" />
+                        Profile Verified
+                      </div>
+                    ) : (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-success/30 bg-success/10 text-success hover:bg-success/20 hover:text-success"
+                            onClick={() => {
+                              setIsProfileVerified(true);
+                              try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+                            }}
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Confirm Profile
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px] text-xs">
+                          Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
