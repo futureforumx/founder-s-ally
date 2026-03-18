@@ -23,6 +23,28 @@ interface CompanyProfileProps {
   onSectorChange?: (classification: SectorClassification) => void;
 }
 
+const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
+
+function extractDomain(url: string): string | null {
+  try {
+    let u = url.trim();
+    if (!u) return null;
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    const hostname = new URL(u).hostname.replace(/^www\./, "");
+    return hostname || null;
+  } catch { return null; }
+}
+
+function cleanDomainToName(domain: string): string {
+  let name = domain.replace(/^www\./, "");
+  for (const tld of TLDS) {
+    if (name.endsWith(tld)) { name = name.slice(0, -tld.length); break; }
+  }
+  const parts = name.split(".");
+  name = parts[parts.length - 1];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 type AnalyzeStepKey = "scraping" | "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
 const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   scraping: "Parsing Deck Structure...",
@@ -42,6 +64,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     } catch {}
     return { ...EMPTY_FORM };
   });
+
+  // Favicon state
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [faviconLoaded, setFaviconLoaded] = useState(false);
+  const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track which fields were manually touched by user (not AI)
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
@@ -577,8 +604,52 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
           {/* Website URL */}
           <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
-            <input type="url" value={form.website} onChange={e => update("website", e.target.value)}
-              placeholder="https://acme.com" maxLength={255} className={inputCls("website")} />
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5">
+                {faviconUrl && faviconLoaded ? (
+                  <img
+                    src={faviconUrl}
+                    alt=""
+                    className="w-5 h-5 rounded-sm animate-in fade-in duration-300"
+                    onError={() => { setFaviconLoaded(false); setFaviconUrl(null); }}
+                  />
+                ) : (
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+              <input type="url" value={form.website}
+                onChange={e => {
+                  const url = e.target.value;
+                  update("website", url);
+
+                  // Debounced favicon + auto-fill
+                  if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
+                  faviconDebounceRef.current = setTimeout(() => {
+                    const domain = extractDomain(url);
+                    if (domain) {
+                      const fav = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                      setFaviconUrl(fav);
+                      setFaviconLoaded(false);
+                      const img = new Image();
+                      img.onload = () => setFaviconLoaded(true);
+                      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
+                      img.src = fav;
+
+                      // Auto-fill company name if empty and not touched
+                      if (!form.name.trim() && !userTouched.has("name")) {
+                        const cleaned = cleanDomainToName(domain);
+                        if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
+                      }
+                    } else {
+                      setFaviconUrl(null);
+                      setFaviconLoaded(false);
+                    }
+                  }, 300);
+                }}
+                placeholder="https://acme.com" maxLength={255}
+                className={`${inputCls("website")} pl-10`}
+              />
+            </div>
             <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop, pricing, and header info</p>
           </ProfileField>
 
