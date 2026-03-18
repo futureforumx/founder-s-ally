@@ -339,21 +339,34 @@ export function SectorSubsectorPicker({
         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
           Sector
           {isAiDraft && (
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20">AI</Badge>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
+              <Sparkles className="h-2 w-2" /> AI Suggested
+            </Badge>
           )}
         </label>
-        <button
-          type="button"
-          onClick={() => setSectorOpen(!sectorOpen)}
-          className={`w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 ${
-            isAiDraft ? "bg-accent/5 border-accent/20" : "bg-background border-input"
-          }`}
-        >
-          <span className={sector ? "text-foreground" : "text-muted-foreground/50"}>
-            {sector || "Select sector"}
-          </span>
-          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${sectorOpen ? "rotate-180" : ""}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSectorOpen(!sectorOpen)}
+            className={`flex-1 flex items-center justify-between rounded-lg border px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+              isAiDraft ? "bg-accent/5 border-accent/20" : "bg-background border-input"
+            }`}
+          >
+            <span className={sector ? "text-foreground" : "text-muted-foreground/50"}>
+              {sector || "Select sector"}
+            </span>
+            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${sectorOpen ? "rotate-180" : ""}`} />
+          </button>
+          {isAiDraft && sector && (
+            <button
+              type="button"
+              onClick={() => setSectorOpen(true)}
+              className="shrink-0 text-[10px] font-medium text-accent hover:text-accent/80 transition-colors px-2 py-1 rounded-md border border-accent/20 hover:bg-accent/5"
+            >
+              Change
+            </button>
+          )}
+        </div>
 
         {sectorOpen && (
           <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
@@ -428,6 +441,11 @@ export function SectorSubsectorPicker({
           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
             Subsectors
             <span className="text-muted-foreground/50">(up to 3, any sector)</span>
+            {aiSuggestedSubsectors && aiSuggestedSubsectors.length > 0 && subsectors.some(s => aiSuggestedSubsectors.includes(s)) && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
+                <Sparkles className="h-2 w-2" /> AI Suggested
+              </Badge>
+            )}
           </label>
 
           {/* Pills + input area */}

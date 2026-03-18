@@ -8,6 +8,7 @@ import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
 import { SectorHeatmap } from "./company-profile/SectorHeatmap";
+import { normalizeSector } from "./company-profile/sectorNormalization";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
@@ -270,13 +271,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   }, [handleFileSelect]);
 
   // Apply AI extracted data with "defer to user" rule
-  const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"]) => {
+  const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"], sectorMapping?: AnalysisResult["sectorMapping"]) => {
     if (!aiExtracted) return;
     const newSuggestions: Partial<Record<keyof CompanyData, string>> = {};
     const fieldMap: { key: keyof CompanyData; aiKey: keyof NonNullable<AnalysisResult["aiExtracted"]> }[] = [
       { key: "description", aiKey: "description" },
       { key: "stage", aiKey: "stage" },
-      { key: "sector", aiKey: "sector" },
       { key: "businessModel", aiKey: "businessModel" },
       { key: "targetCustomer", aiKey: "targetCustomer" },
       { key: "hqLocation", aiKey: "hqLocation" },
@@ -286,6 +286,13 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       { key: "totalHeadcount", aiKey: "totalHeadcount" },
     ];
 
+    // Normalize sector using the normalization layer
+    const normalized = normalizeSector(
+      aiExtracted.sector,
+      sectorMapping?.subTag,
+      sectorMapping?.keywords
+    );
+
     setForm(prev => {
       const next = { ...prev };
       for (const { key, aiKey } of fieldMap) {
@@ -294,13 +301,31 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         const userVal = prev[key];
         const touched = userTouched.has(key);
         if (!touched && (!userVal || userVal === "")) {
-          // Empty + not touched → populate
           (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
         } else if (touched && userVal && String(userVal) !== String(aiVal)) {
-          // User has data, AI differs → show suggestion
           newSuggestions[key] = String(aiVal);
         }
       }
+
+      // Apply normalized sector
+      if (normalized.sector) {
+        if (!userTouched.has("sector") && (!prev.sector || prev.sector === "")) {
+          next.sector = normalized.sector;
+          console.log(`[AI Extraction] Sector auto-applied: "${normalized.sector}"`);
+        } else if (userTouched.has("sector") && prev.sector !== normalized.sector) {
+          newSuggestions.sector = normalized.sector;
+          console.log(`[AI Extraction] Sector suggested (user has different): "${normalized.sector}" vs user "${prev.sector}"`);
+        }
+      }
+
+      // Apply normalized subsectors
+      if (normalized.subsectors.length > 0) {
+        if (!userTouched.has("sector") && prev.subsectors.length === 0) {
+          next.subsectors = normalized.subsectors;
+          console.log(`[AI Extraction] Subsectors auto-applied: [${normalized.subsectors.join(", ")}]`);
+        }
+      }
+
       // Handle competitors array
       if (aiExtracted.competitors?.length) {
         if (!userTouched.has("competitors") && (!prev.competitors || prev.competitors.length === 0)) {
@@ -309,6 +334,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       }
       return next;
     });
+
+    // Set AI suggested subsectors for ghost pills
+    if (normalized.subsectors.length > 0) {
+      setAiSuggestedSubsectors(normalized.subsectors);
+    }
+
     setAiSuggestions(newSuggestions);
   };
 
@@ -353,17 +384,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
       setAnalyzeStep("mapping");
 
-      // Apply AI data with defer-to-user logic
-      applyAiData(analysisData.aiExtracted);
-
-      // Capture AI-suggested subsectors from sectorMapping
-      if (analysisData.sectorMapping?.subTag) {
-        setAiSuggestedSubsectors([analysisData.sectorMapping.subTag]);
-        // Auto-apply subsector if user hasn't touched sector
-        if (!userTouched.has("sector") && form.subsectors.length === 0) {
-          setForm(prev => ({ ...prev, subsectors: [analysisData.sectorMapping.subTag] }));
-        }
-      }
+      // Apply AI data with defer-to-user logic + sector normalization
+      applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
 
       // Capture metric sources for attribution tooltips
       if (analysisData.metricSources) {

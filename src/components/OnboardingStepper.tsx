@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { normalizeSector } from "@/components/company-profile/sectorNormalization";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
@@ -102,6 +103,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       if (analysisData?.error) throw new Error(analysisData.error);
 
       setAnalysisResult(analysisData as AnalysisResult);
+
+      // Normalize and apply sector from AI
+      const normalized = normalizeSector(
+        analysisData?.aiExtracted?.sector || analysisData?.sectorMapping?.sector,
+        analysisData?.sectorMapping?.subTag,
+        analysisData?.sectorMapping?.keywords
+      );
+      if (normalized.sector) {
+        setSector(normalized.sector);
+        console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
+      }
+
       // Pre-fill confirmed values
       if (analysisData?.metrics?.mrr?.value) setMrr(analysisData.metrics.mrr.value);
       if (analysisData?.metrics?.burnRate?.value) setBurnRate(analysisData.metrics.burnRate.value);
@@ -117,8 +130,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const finalize = () => {
     setSynced(true);
     setTimeout(() => {
+      // Normalize sector one more time to ensure consistency
+      const normalized = normalizeSector(
+        sector || analysisResult?.aiExtracted?.sector,
+        analysisResult?.sectorMapping?.subTag,
+        analysisResult?.sectorMapping?.keywords
+      );
+      const finalSector = normalized.sector || sector;
+      const finalSubsectors = normalized.subsectors;
+
+      console.log(`[Onboarding Finalize] Sector: "${finalSector}" | Subsectors: [${finalSubsectors.join(", ")}]`);
+
       const company: CompanyData = {
-        name: companyName, stage, sector, subsectors: [], description: "", website, teamSize: "",
+        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors, description: "", website, teamSize: "",
         businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
         uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
       };
