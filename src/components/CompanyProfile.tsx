@@ -532,13 +532,36 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Source C: Deep Search — call sync-investor-data for SEC filings & news
+      // Source C: Exa AI Deep Search for investors
       setAnalyzeStep("deepSearch");
       let deepSearchInvestors: any[] = [];
       try {
+        console.log("[SEARCH] Cross-referencing SEC filings and funding news for investors...");
+        const subsector = form.sector ? form.sector : "";
+        const { data: exaData, error: exaError } = await supabase.functions.invoke("exa-search", {
+          body: {
+            companyName: form.name,
+            subsector,
+          },
+        });
+        if (!exaError && exaData?.investors?.length > 0) {
+          deepSearchInvestors = exaData.investors.map((inv: any) => ({
+            investorName: inv.investorName,
+            entityType: inv.entityType || "VC Firm",
+            instrument: inv.instrument || "Equity",
+            amount: inv.amount || 0,
+            date: inv.date || "",
+            source: "exa" as const,
+            highlight: inv.highlight || "",
+            sourceUrl: inv.sourceUrl || "",
+            domain: inv.domain || "",
+          }));
+          console.log(`[SEARCH] Exa found ${deepSearchInvestors.length} investors (source: ${exaData.source})`);
+        }
+
+        // Also run legacy sync-investor-data for SEC filings
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Check if user has a company_analyses record to attach to
           const { data: existingAnalysis } = await supabase
             .from("company_analyses")
             .select("id")
@@ -559,7 +582,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             },
           });
           if (!syncError && syncData?.newInvestorsFound > 0) {
-            // Fetch the newly created pending investors to merge as web-sourced
             const { data: pendingRows } = await supabase
               .from("pending_investors")
               .select("investor_name, entity_type, instrument, amount, source_date")
@@ -568,7 +590,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               .order("created_at", { ascending: false })
               .limit(syncData.newInvestorsFound);
 
-            deepSearchInvestors = (pendingRows || []).map((p: any) => ({
+            const webInvestors = (pendingRows || []).map((p: any) => ({
               investorName: p.investor_name,
               entityType: p.entity_type,
               instrument: p.instrument,
@@ -576,10 +598,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               date: p.source_date || "",
               source: "web" as const,
             }));
+            // Merge, dedup by name
+            const exaNames = new Set(deepSearchInvestors.map((i: any) => i.investorName.toLowerCase().trim()));
+            for (const wi of webInvestors) {
+              if (!exaNames.has(wi.investorName.toLowerCase().trim())) {
+                deepSearchInvestors.push(wi);
+              }
+            }
           }
         }
       } catch (deepErr) {
-        console.warn("Deep search sync failed (non-blocking):", deepErr);
+        console.warn("Deep search failed (non-blocking):", deepErr);
       }
 
       // Run AI analysis with all sources
