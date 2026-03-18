@@ -207,9 +207,10 @@ interface CompetitiveBenchmarkingProps {
   companyData?: CompanyData | null;
   analysisResult?: AnalysisResult | null;
   onScrollToProfile?: () => void;
+  isLocked?: boolean;
 }
 
-export function CompetitiveBenchmarking({ metricTable, companyData, analysisResult, onScrollToProfile }: CompetitiveBenchmarkingProps) {
+export function CompetitiveBenchmarking({ metricTable, companyData, analysisResult, onScrollToProfile, isLocked }: CompetitiveBenchmarkingProps) {
   const rows = buildRows(companyData ?? null, analysisResult ?? null);
 
   const summaryCards = rows.filter(r => r.yourValue != null).slice(0, 4);
