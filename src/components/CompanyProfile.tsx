@@ -124,6 +124,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
   });
   const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [sectorExpanded, setSectorExpanded] = useState(false);
   const [scanningMetrics, setScanningMetrics] = useState(false);
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
