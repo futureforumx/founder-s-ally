@@ -137,7 +137,7 @@ export function HealthDashboard() {
       <div className="surface-card p-5">
         <h3 className="text-sm font-semibold tracking-tight text-foreground mb-4">Key Metrics</h3>
         <div className="grid grid-cols-3 gap-4">
-          {metrics.map((m) => (
+          {activeMetrics.map((m) => (
             <div key={m.label} className="rounded-lg bg-muted/40 px-3 py-3">
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                 {m.label}
