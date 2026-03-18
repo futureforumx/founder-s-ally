@@ -116,8 +116,6 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
 
-              {/* Pulse Cards */}
-              <PulseCards sector={companyData?.sector} />
 
               {/* Investor Backing */}
               <InvestorBacking />
