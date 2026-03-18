@@ -426,7 +426,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
 
       // Build source verification map
       const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
-      const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount"];
+      const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount", "businessModel", "targetCustomer", "uniqueValueProp", "competitors"];
       for (const field of fieldKeys) {
         const sources: string[] = [];
         const aiVal = analysisData.aiExtracted?.[field];
