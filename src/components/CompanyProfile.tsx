@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorTags, SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -1015,36 +1017,70 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           )}
 
           {/* Logic-Gate Loading Steps */}
-          <div className="flex items-center justify-between pt-1">
-            {isAnalyzing ? (
-              <div className="flex items-center gap-2 text-[10px] text-accent font-mono">
-                <Search className="h-3 w-3 animate-pulse" />
-                {STEP_LABELS[analyzeStep] || "Initializing..."}
-              </div>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">
-                Triple-source triangulation: Deck + Website + Deep Search
-              </p>
-            )}
-            <div className="flex items-center gap-2">
-              <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
-                className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
-                {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
-              </button>
-              {confirmed ? (
-                <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
-                  <Check className="h-3.5 w-3.5" />
-                  Profile Verified
+          <div className="space-y-2">
+            <div className="flex items-center justify-between pt-1">
+              {isAnalyzing ? (
+                <div className="flex items-center gap-2 text-[10px] text-accent font-mono">
+                  <Search className="h-3 w-3 animate-pulse" />
+                  {STEP_LABELS[analyzeStep] || "Initializing..."}
                 </div>
               ) : (
-                <button onClick={handleConfirm}
-                  className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Confirm Profile
-                </button>
+                <div className="flex items-center gap-1">
+                  <p className="text-[10px] text-muted-foreground">
+                    Triple-source triangulation: Deck + Website + Deep Search
+                  </p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="top" className="w-64 text-xs p-3">
+                      We cross-reference your PDF, website, and live market data to ensure 95%+ accuracy in your profile.
+                    </PopoverContent>
+                  </Popover>
+                </div>
               )}
+              <div className="flex items-center gap-2">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+                      className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
+                      {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[280px] text-xs">
+                    AI will scrape your website and parse your pitch deck to auto-fill metrics and categorize your sector. (Estimated time: 10-15s).
+                  </TooltipContent>
+                </Tooltip>
+                {confirmed ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                    <Check className="h-3.5 w-3.5" />
+                    Profile Verified
+                  </div>
+                ) : (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <button onClick={handleConfirm}
+                        className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Confirm Profile
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px] text-xs">
+                      Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
+            {/* Conditional helper text */}
+            {!confirmed && (
+              <p className="text-[10px] text-muted-foreground text-right">
+                Confirming your profile is required to view matches.
+              </p>
+            )}
           </div>
 
           {/* AI Sector Tags */}
