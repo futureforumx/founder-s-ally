@@ -202,6 +202,8 @@ export function SectorSubsectorPicker({
   aiSuggestedSubsectors,
   aiOverflowSubsectors,
   onApplyAiSector,
+  onReclassify,
+  isReclassifying,
   isAiDraft,
   className,
 }: SectorSubsectorPickerProps) {
