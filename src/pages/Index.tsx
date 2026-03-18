@@ -12,6 +12,7 @@ import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
+import { AnalysisEngine } from "@/components/AnalysisEngine";
 import { PulseCards } from "@/components/PulseCards";
 import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
@@ -174,6 +175,9 @@ const Index = () => {
 
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+
+              {/* Analysis Engine — Funding Hub with processing states */}
+              <AnalysisEngine />
 
               {/* Investment — immediately after profile/metrics */}
               <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} isScanning={isAnalysisRunning} companyName={companyData?.name} />
