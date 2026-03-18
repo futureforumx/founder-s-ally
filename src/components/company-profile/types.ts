@@ -113,6 +113,16 @@ export interface AnalysisResult {
     reasoning: string;
     conflicting_signals?: string;
   };
+  // AI-extracted investors from deck/web
+  extractedInvestors?: {
+    investorName: string;
+    entityType: string;
+    instrument: string;
+    amount: number;
+    date?: string;
+    source: "deck" | "web";
+  }[];
+  totalFundingRaised?: number;
 }
 
 export const EMPTY_FORM: CompanyData = {

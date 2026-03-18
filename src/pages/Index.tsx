@@ -177,7 +177,7 @@ const Index = () => {
 
 
               {/* Investor Backing */}
-              <InvestorBacking />
+              <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} />
             </div>
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
