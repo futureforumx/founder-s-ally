@@ -222,7 +222,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       setAnalyzeStep("Running AI analysis...");
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
         body: {
-          websiteText: websiteMarkdown,
+          websiteText: scrapedMarkdown,
           deckText,
           companyName: form.name,
           stage: form.stage,
