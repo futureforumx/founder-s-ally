@@ -664,7 +664,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
 
       {isExpanded && (
         <div className="border-t border-border px-5 pb-5 pt-4 space-y-5">
-          {/* === SECTION: Core Info === */}
+
+          {/* ═══════════════════════════════════════════════
+              TOP SECTION: INPUTS
+              ═══════════════════════════════════════════════ */}
+
+          {/* === Core Info === */}
           <div className="grid grid-cols-2 gap-4">
             <ProfileField label="Company Name *">
               <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
@@ -681,7 +686,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               </div>
             </ProfileField>
           </div>
-
 
           {/* Website URL */}
           <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
@@ -780,281 +784,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           </ProfileField>
 
-          {/* Sector & Subsector Picker (Collapsible) */}
-          <div className={`rounded-xl border transition-all duration-300 border-border bg-card`}>
-            <button
-              type="button"
-              onClick={() => setSectorExpanded(!sectorExpanded)}
-              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
-            >
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Briefcase className="h-3 w-3 text-accent" />
-                Sector & Subsectors
-                {form.sector && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
-                )}
-              </span>
-              {sectorExpanded
-                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              }
-            </button>
-            {sectorExpanded && (
-              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <SectorSubsectorPicker
-                      sector={form.sector}
-                      subsectors={form.subsectors}
-                      onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
-                      onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                      aiSuggestedSector={aiSuggestions.sector}
-                      aiSuggestedSubsectors={aiSuggestedSubsectors}
-                      onApplyAiSector={aiSuggestions.sector ? () => {
-                        update("sector", aiSuggestions.sector!);
-                        if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                      } : undefined}
-                      isAiDraft={isFieldAiDraft("sector")}
-                    />
-                  </div>
-                  {renderVerificationBadge("sector")}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* === SECTION: Categorization === */}
-          <div className="rounded-xl border transition-all duration-300 border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setCategorizationExpanded(!categorizationExpanded)}
-              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
-            >
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Briefcase className="h-3 w-3 text-accent" />
-                Categorization
-                {form.businessModel && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.businessModel}</Badge>
-                )}
-              </span>
-              {categorizationExpanded
-                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              }
-            </button>
-            {categorizationExpanded && (
-              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="grid grid-cols-3 gap-4">
-                  <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
-                    aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
-                    <div className="flex items-center gap-1.5">
-                      <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
-                        <option value="" disabled>Select model</option>
-                        {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      {renderVerificationBadge("businessModel")}
-                    </div>
-                  </ProfileField>
-                  <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
-                    aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
-                    <div className="flex items-center gap-1.5">
-                      <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
-                        <option value="" disabled>Select type</option>
-                        {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      {renderVerificationBadge("targetCustomer")}
-                    </div>
-                  </ProfileField>
-                  <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
-                    isAiDraft={isFieldAiDraft("hqLocation")}
-                    aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
-                    <div className="flex items-center gap-1.5">
-                      <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                        className={inputCls("hqLocation")} />
-                      {renderVerificationBadge("hqLocation")}
-                    </div>
-                  </ProfileField>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* === SECTION: Competitive Landscape === */}
-          <div className="rounded-xl border transition-all duration-300 border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setCompetitiveExpanded(!competitiveExpanded)}
-              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
-            >
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Target className="h-3 w-3 text-accent" />
-                Competitive Landscape
-                {form.competitors.length > 0 && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.competitors.length} competitors</Badge>
-                )}
-              </span>
-              {competitiveExpanded
-                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              }
-            </button>
-            {competitiveExpanded && (
-              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="space-y-4">
-                  <ProfileField label="Direct Competitors" isAiDraft={isFieldAiDraft("competitors")}>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1">
-                        <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
-                      </div>
-                      {renderVerificationBadge("competitors")}
-                    </div>
-                  </ProfileField>
-                  <ProfileField label="Unique Value Proposition" isAiDraft={isFieldAiDraft("uniqueValueProp")}
-                    aiSuggestion={aiSuggestions.uniqueValueProp} onApplySuggestion={() => update("uniqueValueProp", aiSuggestions.uniqueValueProp!)}>
-                    <div className="flex items-start gap-1.5">
-                      <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
-                        placeholder="What makes your product uniquely defensible?"
-                        rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none flex-1`} />
-                      {renderVerificationBadge("uniqueValueProp")}
-                    </div>
-                  </ProfileField>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
-          <div className={`rounded-xl border transition-all duration-300 relative ${
-            scanningMetrics ? "laser-scan-border" : ""
-          } ${metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20"}`}>
-            {/* Section header — always visible */}
-            <div className="relative z-10">
-              <button
-                type="button"
-                onClick={() => metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
-                className={`flex w-full items-center justify-between px-4 py-3 ${metricsUnlocked ? "cursor-pointer" : "cursor-default"}`}
-              >
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  {metricsUnlocked ? <TrendingUp className="h-3 w-3 text-accent" /> : <Lock className="h-3 w-3" />}
-                  Growth Metrics
-                  {scanningMetrics && (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1 animate-pulse">Scanning...</Badge>
-                  )}
-                  {metricsConfirmed && (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 ml-1">Verified</Badge>
-                  )}
-                </span>
-                {metricsUnlocked && (
-                  metricsExpanded
-                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-              </button>
-
-              {/* Locked state — greyed-out fields with overlay */}
-              {!metricsUnlocked && (
-                <div className="px-4 pb-4 relative">
-                  {/* Disabled greyed-out fields */}
-                  <div className="grid grid-cols-3 gap-4 opacity-50 pointer-events-none select-none">
-                    {["Current ARR", "YoY Growth %", "Total Headcount"].map(label => (
-                      <div key={label} className="space-y-1.5">
-                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{label}</label>
-                        <div className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 h-[38px]" />
-                      </div>
-                    ))}
-                  </div>
-                  {/* Overlay message */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex items-center gap-2 rounded-lg bg-card/90 border border-border px-4 py-2.5 shadow-sm">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">Upload a Pitch Deck to unlock and auto-fill these metrics.</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Expanded content with slide animation */}
-              {metricsUnlocked && metricsExpanded && (
-                <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                  <div className="grid grid-cols-3 gap-4">
-                    {([
-                      { field: "currentARR" as keyof CompanyData, label: "Current ARR", icon: <DollarSign className="inline h-3 w-3" />, placeholder: "$1.2M" },
-                      { field: "yoyGrowth" as keyof CompanyData, label: "YoY Growth %", icon: <TrendingUp className="inline h-3 w-3" />, placeholder: "150%" },
-                      { field: "totalHeadcount" as keyof CompanyData, label: "Total Headcount", icon: <Users className="inline h-3 w-3" />, placeholder: "25" },
-                    ]).map(({ field, label, icon, placeholder }) => {
-                      const pending = isMetricPending(field);
-                      const verified = verifiedFields.has(field);
-                      const source = metricSources[field];
-                      const showSource = pending && source && !userTouched.has(field);
-                      return (
-                        <ProfileField key={field} label={label} icon={icon}
-                          isAiDraft={isFieldAiDraft(field) && !verified}
-                          aiSuggestion={aiSuggestions[field]} onApplySuggestion={() => update(field, aiSuggestions[field]!)}>
-                          <div className="relative group">
-                            {scanningMetrics && !form[field] ? (
-                              /* Scanning skeleton */
-                              <div className="w-full rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 h-[38px] flex items-center gap-2">
-                                <div className="h-3 w-3/4 rounded bg-accent/10 animate-pulse" />
-                                <Sparkles className="h-3 w-3 text-accent/40 animate-pulse" />
-                              </div>
-                            ) : (
-                              <>
-                                <input
-                                  type="text"
-                                  value={form[field] as string}
-                                  onChange={e => update(field, e.target.value)}
-                                  placeholder={placeholder}
-                                  className={`${inputCls(field)} ${pending ? "!bg-accent/5 !border-accent/20" : ""} ${verified ? "!bg-background !border-input" : ""} pr-8`}
-                                />
-                                {/* Pending sparkle → click to verify */}
-                                {pending && !verified && (
-                                  <button
-                                    type="button"
-                                    onClick={() => verifyField(field)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-accent hover:bg-accent/10 transition-colors"
-                                    title="Accept this value"
-                                  >
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                                {/* Verified checkmark */}
-                                {verified && (
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-success">
-                                    <Check className="h-3.5 w-3.5" />
-                                  </span>
-                                )}
-                                {/* Source attribution tooltip on hover */}
-                                {showSource && (
-                                  <div className="absolute left-0 -bottom-7 z-50 hidden group-hover:flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-1 text-[10px] font-mono whitespace-nowrap shadow-lg animate-in fade-in duration-150">
-                                    <FileText className="h-3 w-3 shrink-0" />
-                                    {source}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </ProfileField>
-                      );
-                    })}
-                  </div>
-
-                  {/* Confirm All Metrics button */}
-                  {!metricsConfirmed && METRIC_FIELDS.some(f => !!form[f]) && (
-                    <div className="mt-4 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={confirmAllMetrics}
-                        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent/90"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Confirm All Metrics
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* ═══════════════════════════════════════════════
+              THE TRIGGER: Run Analysis
+              ═══════════════════════════════════════════════ */}
 
           {/* Error */}
           {error && (
@@ -1063,44 +795,369 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           )}
 
-          {/* Logic-Gate Loading Steps */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between pt-1">
-              {isAnalyzing ? (
-                <div className="flex items-center gap-2 text-[10px] text-accent font-mono">
-                  <Search className="h-3 w-3 animate-pulse" />
-                  {STEP_LABELS[analyzeStep] || "Initializing..."}
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-1">
+              <p className="text-[10px] text-muted-foreground">
+                Triple-source triangulation: Deck + Website + Deep Search
+              </p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-64 text-xs p-3">
+                  We cross-reference your PDF, website, and live market data to ensure 95%+ accuracy in your profile.
+                </PopoverContent>
+              </Popover>
+            </div>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+                  className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
+                  {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[280px] text-xs">
+                AI will scrape your website and parse your pitch deck to auto-fill all sections below. (Estimated time: 10-15s).
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Inline analysis terminal — visible while analyzing */}
+          {isAnalyzing && (
+            <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
+              style={{ background: "rgba(15, 20, 30, 0.6)" }}>
+              <div className="px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                  <span className="font-mono text-[11px] text-accent">ANALYSIS ENGINE</span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <p className="text-[10px] text-muted-foreground">
-                    Triple-source triangulation: Deck + Website + Deep Search
-                  </p>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="top" className="w-64 text-xs p-3">
-                      We cross-reference your PDF, website, and live market data to ensure 95%+ accuracy in your profile.
-                    </PopoverContent>
-                  </Popover>
+                <div className="font-mono text-[10px] leading-relaxed space-y-1 max-h-28 overflow-y-auto" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
+                  {analyzeStep === "scraping" && (
+                    <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400">[PDF]</span> Parsing Deck Structure...</div>
+                  )}
+                  {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                    <>
+                      <div className="flex gap-2"><span className="text-purple-400">[PDF]</span> Deck layers extracted ✓</div>
+                      <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400">[WEB]</span> Scraping website content...</div>
+                    </>
+                  )}
+                  {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                    <>
+                      <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
+                      <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Running deep search for filings...</div>
+                    </>
+                  )}
+                  {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                    <>
+                      <div className="flex gap-2"><span className="text-yellow-400">[SEARCH]</span> Real-time data captured ✓</div>
+                      <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400">[AI]</span> Cross-referencing sources & mapping sectors...</div>
+                    </>
+                  )}
+                  {analyzeStep === "mapping" && (
+                    <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400">[MAP]</span> Mapping competitive landscape...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════
+              OUTPUT SECTIONS (greyed out before analysis)
+              ═══════════════════════════════════════════════ */}
+
+          <div className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+            {/* Pre-analysis placeholder */}
+            {!analysisComplete && !isAnalyzing && (
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
+              </div>
+            )}
+
+            {/* Sector & Subsector Picker (Collapsible) */}
+            <div className={`rounded-xl border transition-all duration-300 border-border bg-card`}>
+              <button
+                type="button"
+                onClick={() => setSectorExpanded(!sectorExpanded)}
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+              >
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Briefcase className="h-3 w-3 text-accent" />
+                  Sector & Subsectors
+                  {form.sector && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
+                  )}
+                </span>
+                {sectorExpanded
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                }
+              </button>
+              {sectorExpanded && (
+                <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <SectorSubsectorPicker
+                        sector={form.sector}
+                        subsectors={form.subsectors}
+                        onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
+                        onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                        aiSuggestedSector={aiSuggestions.sector}
+                        aiSuggestedSubsectors={aiSuggestedSubsectors}
+                        onApplyAiSector={aiSuggestions.sector ? () => {
+                          update("sector", aiSuggestions.sector!);
+                          if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                        } : undefined}
+                        isAiDraft={isFieldAiDraft("sector")}
+                      />
+                    </div>
+                    {renderVerificationBadge("sector")}
+                  </div>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
-                      className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
-                      {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[280px] text-xs">
-                    AI will scrape your website and parse your pitch deck to auto-fill metrics and categorize your sector. (Estimated time: 10-15s).
-                  </TooltipContent>
-                </Tooltip>
+            </div>
+
+            {/* === SECTION: Categorization === */}
+            <div className="rounded-xl border transition-all duration-300 border-border bg-card">
+              <button
+                type="button"
+                onClick={() => setCategorizationExpanded(!categorizationExpanded)}
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+              >
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Briefcase className="h-3 w-3 text-accent" />
+                  Categorization
+                  {form.businessModel && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.businessModel}</Badge>
+                  )}
+                </span>
+                {categorizationExpanded
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                }
+              </button>
+              {categorizationExpanded && (
+                <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <div className="grid grid-cols-3 gap-4">
+                    <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
+                      aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
+                      <div className="flex items-center gap-1.5">
+                        <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
+                          <option value="" disabled>Select model</option>
+                          {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {renderVerificationBadge("businessModel")}
+                      </div>
+                    </ProfileField>
+                    <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
+                      aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
+                      <div className="flex items-center gap-1.5">
+                        <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
+                          <option value="" disabled>Select type</option>
+                          {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {renderVerificationBadge("targetCustomer")}
+                      </div>
+                    </ProfileField>
+                    <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
+                      isAiDraft={isFieldAiDraft("hqLocation")}
+                      aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
+                      <div className="flex items-center gap-1.5">
+                        <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                          className={inputCls("hqLocation")} />
+                        {renderVerificationBadge("hqLocation")}
+                      </div>
+                    </ProfileField>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* === SECTION: Competitive Landscape === */}
+            <div className="rounded-xl border transition-all duration-300 border-border bg-card">
+              <button
+                type="button"
+                onClick={() => setCompetitiveExpanded(!competitiveExpanded)}
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+              >
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Target className="h-3 w-3 text-accent" />
+                  Competitive Landscape
+                  {form.competitors.length > 0 && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.competitors.length} competitors</Badge>
+                  )}
+                </span>
+                {competitiveExpanded
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                }
+              </button>
+              {competitiveExpanded && (
+                <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <div className="space-y-4">
+                    <ProfileField label="Direct Competitors" isAiDraft={isFieldAiDraft("competitors")}>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1">
+                          <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
+                        </div>
+                        {renderVerificationBadge("competitors")}
+                      </div>
+                    </ProfileField>
+                    <ProfileField label="Unique Value Proposition" isAiDraft={isFieldAiDraft("uniqueValueProp")}
+                      aiSuggestion={aiSuggestions.uniqueValueProp} onApplySuggestion={() => update("uniqueValueProp", aiSuggestions.uniqueValueProp!)}>
+                      <div className="flex items-start gap-1.5">
+                        <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
+                          placeholder="What makes your product uniquely defensible?"
+                          rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none flex-1`} />
+                        {renderVerificationBadge("uniqueValueProp")}
+                      </div>
+                    </ProfileField>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
+            <div className={`rounded-xl border transition-all duration-300 relative ${
+              scanningMetrics ? "laser-scan-border" : ""
+            } ${metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20"}`}>
+              {/* Section header — always visible */}
+              <div className="relative z-10">
+                <button
+                  type="button"
+                  onClick={() => metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
+                  className={`flex w-full items-center justify-between px-4 py-3 ${metricsUnlocked ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    {metricsUnlocked ? <TrendingUp className="h-3 w-3 text-accent" /> : <Lock className="h-3 w-3" />}
+                    Growth Metrics
+                    {scanningMetrics && (
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1 animate-pulse">Scanning...</Badge>
+                    )}
+                    {metricsConfirmed && (
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 ml-1">Verified</Badge>
+                    )}
+                  </span>
+                  {metricsUnlocked && (
+                    metricsExpanded
+                      ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </button>
+
+                {/* Locked state — greyed-out fields with overlay */}
+                {!metricsUnlocked && (
+                  <div className="px-4 pb-4 relative">
+                    <div className="grid grid-cols-3 gap-4 opacity-50 pointer-events-none select-none">
+                      {["Current ARR", "YoY Growth %", "Total Headcount"].map(label => (
+                        <div key={label} className="space-y-1.5">
+                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{label}</label>
+                          <div className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 h-[38px]" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="flex items-center gap-2 rounded-lg bg-card/90 border border-border px-4 py-2.5 shadow-sm">
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">Upload a Pitch Deck to unlock and auto-fill these metrics.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expanded content with slide animation */}
+                {metricsUnlocked && metricsExpanded && (
+                  <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="grid grid-cols-3 gap-4">
+                      {([
+                        { field: "currentARR" as keyof CompanyData, label: "Current ARR", icon: <DollarSign className="inline h-3 w-3" />, placeholder: "$1.2M" },
+                        { field: "yoyGrowth" as keyof CompanyData, label: "YoY Growth %", icon: <TrendingUp className="inline h-3 w-3" />, placeholder: "150%" },
+                        { field: "totalHeadcount" as keyof CompanyData, label: "Total Headcount", icon: <Users className="inline h-3 w-3" />, placeholder: "25" },
+                      ]).map(({ field, label, icon, placeholder }) => {
+                        const pending = isMetricPending(field);
+                        const verified = verifiedFields.has(field);
+                        const source = metricSources[field];
+                        const showSource = pending && source && !userTouched.has(field);
+                        return (
+                          <ProfileField key={field} label={label} icon={icon}
+                            isAiDraft={isFieldAiDraft(field) && !verified}
+                            aiSuggestion={aiSuggestions[field]} onApplySuggestion={() => update(field, aiSuggestions[field]!)}>
+                            <div className="relative group">
+                              {scanningMetrics && !form[field] ? (
+                                <div className="w-full rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 h-[38px] flex items-center gap-2">
+                                  <div className="h-3 w-3/4 rounded bg-accent/10 animate-pulse" />
+                                  <Sparkles className="h-3 w-3 text-accent/40 animate-pulse" />
+                                </div>
+                              ) : (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={form[field] as string}
+                                    onChange={e => update(field, e.target.value)}
+                                    placeholder={placeholder}
+                                    className={`${inputCls(field)} ${pending ? "!bg-accent/5 !border-accent/20" : ""} ${verified ? "!bg-background !border-input" : ""} pr-8`}
+                                  />
+                                  {pending && !verified && (
+                                    <button
+                                      type="button"
+                                      onClick={() => verifyField(field)}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-accent hover:bg-accent/10 transition-colors"
+                                      title="Accept this value"
+                                    >
+                                      <Sparkles className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  {verified && (
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-success">
+                                      <Check className="h-3.5 w-3.5" />
+                                    </span>
+                                  )}
+                                  {showSource && (
+                                    <div className="absolute left-0 -bottom-7 z-50 hidden group-hover:flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-1 text-[10px] font-mono whitespace-nowrap shadow-lg animate-in fade-in duration-150">
+                                      <FileText className="h-3 w-3 shrink-0" />
+                                      {source}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </ProfileField>
+                        );
+                      })}
+                    </div>
+
+                    {/* Confirm All Metrics button */}
+                    {!metricsConfirmed && METRIC_FIELDS.some(f => !!form[f]) && (
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={confirmAllMetrics}
+                          className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent/90"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Confirm All Metrics
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════
+              BOTTOM ACTION: Confirm Profile
+              ═══════════════════════════════════════════════ */}
+
+          {analysisComplete && (
+            <div className="border-t border-border pt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground">
+                  {confirmed ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
+                </p>
                 {confirmed ? (
                   <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
                     <Check className="h-3.5 w-3.5" />
@@ -1122,13 +1179,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 )}
               </div>
             </div>
-            {/* Conditional helper text */}
-            {!confirmed && (
-              <p className="text-[10px] text-muted-foreground text-right">
-                Confirming your profile is required to view matches.
-              </p>
-            )}
-          </div>
+          )}
 
           {/* AI Sector Tags */}
           <SectorTags
