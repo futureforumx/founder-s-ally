@@ -119,6 +119,9 @@ const Index = () => {
               {/* Pulse Cards */}
               <PulseCards sector={companyData?.sector} />
 
+              {/* Investor Backing */}
+              <InvestorBacking />
+
               {/* Health Dashboard below */}
               {profileComplete && (
                 <HealthDashboard
