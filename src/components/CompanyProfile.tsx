@@ -1083,6 +1083,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                           if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
                         } : undefined}
                         isAiDraft={isFieldAiDraft("sector")}
+                        onReclassify={analysisComplete ? handleReclassify : undefined}
+                        isReclassifying={isReclassifying}
                       />
                     </div>
                     {renderVerificationBadge("sector")}
