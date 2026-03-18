@@ -648,7 +648,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
-                  <FundingTimeline rows={rows} />
+                  <FundingAreaChart rows={rows} />
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
                     {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                     {syncing ? "Exa Searching..." : "Deep Search"}
