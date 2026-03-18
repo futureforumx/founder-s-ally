@@ -494,7 +494,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       {isExpanded && (
         <div className="border-t border-border px-5 pb-5 pt-4 space-y-5">
           {/* === SECTION: Core Info === */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <ProfileField label="Company Name *">
               <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
                 placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
@@ -530,16 +530,26 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                 </div>
               )}
             </ProfileField>
-            <ProfileField label="Sector" isAiDraft={isFieldAiDraft("sector")}
-              aiSuggestion={aiSuggestions.sector} onApplySuggestion={() => update("sector", aiSuggestions.sector!)}>
-              <div className="flex items-center gap-1.5">
-                <select value={form.sector} onChange={e => update("sector", e.target.value)} className={selectCls("sector")}>
-                  <option value="" disabled>Select sector</option>
-                  {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                {renderVerificationBadge("sector")}
-              </div>
-            </ProfileField>
+          </div>
+
+          {/* Sector & Subsector Picker */}
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              <SectorSubsectorPicker
+                sector={form.sector}
+                subsectors={form.subsectors}
+                onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
+                onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                aiSuggestedSector={aiSuggestions.sector}
+                aiSuggestedSubsectors={aiSuggestedSubsectors}
+                onApplyAiSector={aiSuggestions.sector ? () => {
+                  update("sector", aiSuggestions.sector!);
+                  if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                } : undefined}
+                isAiDraft={isFieldAiDraft("sector")}
+              />
+            </div>
+            {renderVerificationBadge("sector")}
           </div>
 
           {/* Website URL */}
