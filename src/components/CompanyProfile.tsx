@@ -389,6 +389,14 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
               {isAnalyzing ? "Analyzing..." : "Run Analysis"}
             </button>
           </div>
+          {/* Auto-save indicator */}
+          <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+            </span>
+            <span className="text-[10px] text-muted-foreground">Auto-save enabled</span>
+          </div>
         </div>
       )}
     </div>
