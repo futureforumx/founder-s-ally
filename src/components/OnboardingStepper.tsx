@@ -56,6 +56,13 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     setFaviconError(false);
   }
 
+  // Mock predictive categorization based on website
+  const runPredictiveFetch = useCallback(() => {
+    // Mock function - returns predicted values from web scrape
+    setPredictedStage("Series B");
+    setPredictedSector("Construction & Real Estate");
+  }, []);
+
   const scrapeWebsite = async () => {
     if (!website.trim()) return;
     setIsProcessing(true);
@@ -67,6 +74,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       });
       if (scrapeError) throw scrapeError;
       setWebsiteScraped(true);
+      runPredictiveFetch();
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to scrape website");
