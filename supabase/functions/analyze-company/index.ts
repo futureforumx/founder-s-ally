@@ -28,9 +28,16 @@ const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extrac
    - totalHeadcount: team size / number of employees
    - description: 1-sentence company description
    - stage: funding stage if mentioned
-   - sector: primary sector
-6. Semantic Sector Mapping: Analyze the content for domain-specific keywords and map to precise sectors with sub-tags.
-   Return the sectorMapping with the detected sector, subTag, and the keywords that triggered the mapping.
+   - sector: primary sector (MUST be one of: Artificial Intelligence, Fintech, Climate & Energy, Health & Biotech, Enterprise Software, Deep Tech & Space, Consumer & Retail)
+6. Semantic Sector Mapping using this taxonomy:
+   - Artificial Intelligence: Vertical AI (SaaS), AI Infrastructure & LLMOps, Autonomous Agents, Computer Vision, NLP, Generative Media
+   - Fintech: Payments & Infrastructure, Neobanking, DeFi & Web3 Finance, Insurtech, RegTech & Compliance, Embedded Finance
+   - Climate & Energy: Carbon Capture & Storage, Renewable Energy, Battery Tech & Storage, Circular Economy, AgTech & Food Science, Water Tech
+   - Health & Biotech: Longevity & Anti-Aging, Digital Health & Telemedicine, Biopharmaceuticals, Medical Devices, Genomics, Mental Health Tech
+   - Enterprise Software: Cybersecurity, DevTools & Open Source, HRTech & Future of Work, MarTech, Supply Chain & Logistics, ERP & CRM
+   - Deep Tech & Space: Quantum Computing, Space Infrastructure, Satellite Communications, Advanced Materials, Semiconductors, Photonics
+   - Consumer & Retail: E-commerce & D2C, Gaming & Esport, EdTech, PropTech, Social Media & Creators, AR/VR Platforms
+   Return the sectorMapping with the detected sector (from the 7 above), subTag (matching subsector), and the keywords that triggered the mapping.
 7. Stage Classification using linguistic heuristics:
    Analyze the deck/website text to classify the company as "Seed" or "Series A" (or other if clearly stated).
    
