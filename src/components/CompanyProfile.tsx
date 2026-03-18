@@ -843,6 +843,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
 
+  useImperativeHandle(ref, () => ({
+    triggerAnalysis: handleAnalyzeClick,
+    isAnalyzing,
+    canAnalyze,
+    analyzeStepLabel: isAnalyzing ? (STEP_LABELS[analyzeStep] || "Analyzing...") : "Run Analysis",
+  }), [handleAnalyzeClick, isAnalyzing, canAnalyze, analyzeStep]);
+
   // Whether a section can be manually toggled (disabled during analyzing or walkthrough)
   const isSectionLocked = walkthroughMode === "analyzing";
   const isWalkthrough = walkthroughMode === "walkthrough";
