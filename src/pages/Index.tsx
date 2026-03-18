@@ -168,7 +168,7 @@ const Index = () => {
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} />
+            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} />
           ) : (
             <DeckAuditView />
           )}
