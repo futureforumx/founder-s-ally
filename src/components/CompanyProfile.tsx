@@ -724,11 +724,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             </div>
           )}
 
-          {/* Actions */}
+          {/* Logic-Gate Loading Steps */}
           <div className="flex items-center justify-between pt-1">
-            <p className="text-[10px] text-muted-foreground">
-              {isAnalyzing ? STEP_LABELS[analyzeStep] : "AI will extract metrics and generate an executive summary"}
-            </p>
+            {isAnalyzing ? (
+              <div className="flex items-center gap-2 text-[10px] text-accent font-mono">
+                <Search className="h-3 w-3 animate-pulse" />
+                {STEP_LABELS[analyzeStep] || "Initializing..."}
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                Triple-source triangulation: Deck + Website + Deep Search
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
                 className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
