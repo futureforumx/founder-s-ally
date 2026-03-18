@@ -182,4 +182,26 @@
     90% { opacity: 1; }
     100% { top: 100%; opacity: 0; }
   }
+
+  @keyframes terminal-glitch {
+    0% { filter: brightness(1) hue-rotate(0deg); transform: scale(1); }
+    20% { filter: brightness(3) hue-rotate(90deg); transform: scale(1.01) translateX(2px); }
+    40% { filter: brightness(1) hue-rotate(0deg); transform: scale(1) translateX(-1px); }
+    60% { filter: brightness(5) hue-rotate(-30deg); transform: scale(1.005); }
+    80% { filter: brightness(1) hue-rotate(0deg); transform: scale(1); }
+    100% { filter: brightness(15); transform: scale(1.02); }
+  }
+
+  .animate-terminal-glitch {
+    animation: terminal-glitch 1.2s ease-in-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }

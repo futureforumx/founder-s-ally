@@ -10,6 +10,7 @@ import { InvestorExport } from "@/components/InvestorExport";
 import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
+import { AnalysisTerminal } from "@/components/AnalysisTerminal";
 import { PulseCards } from "@/components/PulseCards";
 import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
@@ -28,6 +29,7 @@ const Index = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showTerminal, setShowTerminal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
     try {
@@ -68,6 +70,12 @@ const Index = () => {
     setCompanyData(company);
     setAnalysisResult(analysis);
     setShowOnboarding(false);
+    setShowTerminal(true);
+  };
+
+  const handleTerminalComplete = () => {
+    setShowTerminal(false);
+    setActiveView("dashboard");
   };
 
   const handleSyncNow = async () => {
@@ -113,6 +121,14 @@ const Index = () => {
         <OnboardingStepper
           onComplete={handleOnboardingComplete}
           onSkip={() => setShowOnboarding(false)}
+        />
+      )}
+
+      {/* AI Analysis Terminal transition */}
+      {showTerminal && (
+        <AnalysisTerminal
+          companyName={companyData?.name}
+          onComplete={handleTerminalComplete}
         />
       )}
 
