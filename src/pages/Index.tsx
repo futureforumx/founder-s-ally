@@ -11,6 +11,11 @@ import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { PulseCards } from "@/components/PulseCards";
+import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
+import { CompanyView } from "@/components/dashboard/CompanyView";
+import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
+import { IndustryView } from "@/components/dashboard/IndustryView";
+import { CommunityView } from "@/components/dashboard/CommunityView";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +26,7 @@ const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
@@ -148,8 +154,8 @@ const Index = () => {
               )}
             </div>
           ) : activeView === "dashboard" ? (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
+            <div className="space-y-0">
+              <div className="flex items-center justify-between mb-2">
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
@@ -160,19 +166,35 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Market & Community */}
-              <div>
-                <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Market & Community</h2>
-                <PulseCards sector={companyData?.sector} />
-              </div>
+              <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
 
-              <div>
-                <HealthDashboard
-                  stage={companyData?.stage}
-                  sector={companyData?.sector}
-                  analysisResult={analysisResult}
-                  onMetricEdit={handleMetricEdit}
-                />
+              {/* Cross-fade content */}
+              <div className="mt-6 animate-fade-in" key={dashboardView}>
+                {dashboardView === "company" && (
+                  <CompanyView
+                    companyData={companyData}
+                    analysisResult={analysisResult}
+                    onMetricEdit={handleMetricEdit}
+                    onNavigateProfile={() => setActiveView("company")}
+                  />
+                )}
+                {dashboardView === "competitive" && (
+                  <CompetitiveView
+                    companyData={companyData}
+                    analysisResult={analysisResult}
+                    onNavigateProfile={() => setActiveView("company")}
+                  />
+                )}
+                {dashboardView === "industry" && (
+                  <IndustryView
+                    sector={companyData?.sector}
+                    onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                    onNavigateProfile={() => setActiveView("company")}
+                  />
+                )}
+                {dashboardView === "community" && (
+                  <CommunityView />
+                )}
               </div>
             </div>
           ) : activeView === "benchmarks" ? (
