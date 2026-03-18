@@ -213,7 +213,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         if (scrapeError) {
           console.error("Scrape error:", scrapeError);
         } else if (scrapeData?.markdown) {
-          websiteMarkdown = scrapeData.markdown;
+          scrapedMarkdown = scrapeData.markdown;
+          setWebsiteMarkdown(scrapedMarkdown);
         }
       }
 
