@@ -197,9 +197,36 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
         className="flex w-full items-center justify-between p-5"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
-            <Building2 className="h-4 w-4 text-accent" />
-          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors hover:bg-accent/20"
+            title="Upload logo"
+          >
+            {uploadingLogo ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : logoUrl ? (
+              <>
+                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="h-3.5 w-3.5 text-foreground" />
+                </div>
+              </>
+            ) : (
+              <>
+                <Building2 className="h-4 w-4 text-accent group-hover:hidden" />
+                <Camera className="h-4 w-4 text-accent hidden group-hover:block" />
+              </>
+            )}
+          </button>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
+          />
           <div className="text-left">
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
               {form.name || "Company Profile"}
