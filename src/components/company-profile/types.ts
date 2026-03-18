@@ -120,7 +120,10 @@ export interface AnalysisResult {
     instrument: string;
     amount: number;
     date?: string;
-    source: "deck" | "web";
+    source: "deck" | "web" | "exa";
+    highlight?: string;
+    sourceUrl?: string;
+    domain?: string;
   }[];
   totalFundingRaised?: number;
 }
