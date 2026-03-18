@@ -59,7 +59,7 @@ interface CompanyProfileProps {
   onSectorChange?: (classification: SectorClassification) => void;
 }
 
-export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {

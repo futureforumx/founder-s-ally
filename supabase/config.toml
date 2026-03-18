@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.sync-investor-data]
 verify_jwt = false
+
+[functions.classify-sector]
+verify_jwt = false
