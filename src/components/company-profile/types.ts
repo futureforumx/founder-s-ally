@@ -1,8 +1,18 @@
 export const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
-export const sectors = [
-  "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
-  "AI / ML", "Climate Tech", "Marketplace", "Developer Tools", "Edtech", "Other",
-];
+
+export const SECTOR_TAXONOMY = {
+  "Artificial Intelligence": ["Vertical AI (SaaS)", "AI Infrastructure & LLMOps", "Autonomous Agents", "Computer Vision", "Natural Language Processing", "Generative Media"],
+  "Fintech": ["Payments & Infrastructure", "Neobanking", "DeFi & Web3 Finance", "Insurtech", "RegTech & Compliance", "Embedded Finance"],
+  "Climate & Energy": ["Carbon Capture & Storage", "Renewable Energy (Solar/Wind/Fusion)", "Battery Tech & Storage", "Circular Economy", "AgTech & Food Science", "Water Tech"],
+  "Health & Biotech": ["Longevity & Anti-Aging", "Digital Health & Telemedicine", "Biopharmaceuticals", "Medical Devices", "Genomics", "Mental Health Tech"],
+  "Enterprise Software": ["Cybersecurity", "DevTools & Open Source", "HRTech & Future of Work", "MarTech", "Supply Chain & Logistics", "ERP & CRM"],
+  "Deep Tech & Space": ["Quantum Computing", "Space Infrastructure", "Satellite Communications", "Advanced Materials", "Semiconductors", "Photonics"],
+  "Consumer & Retail": ["E-commerce & D2C", "Gaming & Esport", "EdTech", "PropTech", "Social Media & Creators", "AR/VR Platforms"],
+} as const;
+
+export const sectors = Object.keys(SECTOR_TAXONOMY);
+export const subsectorsFor = (sector: string): string[] =>
+  SECTOR_TAXONOMY[sector as keyof typeof SECTOR_TAXONOMY] ?? [];
 export const businessModels = ["SaaS", "Marketplace", "E-Commerce", "Hardware", "Services", "Freemium", "Usage-Based", "Other"];
 export const targetCustomers = ["B2B", "B2C", "B2B2C", "B2G"];
 
