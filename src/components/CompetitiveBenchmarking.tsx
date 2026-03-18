@@ -43,6 +43,8 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
   const bizModel = company?.businessModel || "";
   const isMarketplace = bizModel === "Marketplace";
   const isSeedOrEarlier = !stage || stage === "Pre-Seed" || stage === "Seed";
+  const isSeriesB = stage === "Series B";
+  const isSeriesCPlus = stage === "Series C+";
 
   const metrics = analysis?.metrics;
   const arrStr = company?.currentARR;
@@ -107,7 +109,7 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
       status: "unknown", confidence: "low", higherIsBetter: true,
     });
   } else {
-    const nrrTarget = isSeedOrEarlier ? 100 : 110;
+    const nrrTarget = isSeedOrEarlier ? 100 : (isSeriesB || isSeriesCPlus) ? 115 : 110;
     rows.push({
       metric: "Net Revenue Retention (NRR)",
       yourValue: null,
@@ -168,7 +170,7 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
   });
 
   // Burn Multiple
-  const burnTarget = isSeedOrEarlier ? 3 : 2;
+  const burnTarget = isSeedOrEarlier ? 3 : (isSeriesB || isSeriesCPlus) ? 1.5 : 2;
   rows.push({
     metric: "Burn Multiple",
     yourValue: burnMultiple != null ? `${burnMultiple.toFixed(1)}x` : null,
