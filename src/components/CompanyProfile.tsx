@@ -369,6 +369,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         if (!userTouched.has("competitors") && (!prev.competitors || prev.competitors.length === 0)) {
           next.competitors = aiExtracted.competitors;
         }
+        setAiCompetitors(aiExtracted.competitors);
+        try { localStorage.setItem("company-ai-competitors", JSON.stringify(aiExtracted.competitors)); } catch {}
       }
       return next;
     });
