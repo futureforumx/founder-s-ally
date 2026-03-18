@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { InvestorBacking } from "@/components/InvestorBacking";
+
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
@@ -175,8 +175,6 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-              {/* Investment — immediately after profile/metrics */}
-              <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} isScanning={isAnalysisRunning} companyName={companyData?.name} />
 
               {/* Strategy Room — at the bottom */}
               {stageClassification && (
