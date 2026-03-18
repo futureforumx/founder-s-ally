@@ -4,11 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle, MoreHorizontal, Pencil, Inbox } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle, MoreHorizontal, Pencil, Inbox, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
+import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 export interface ExtractedInvestor {
   investorName: string;
@@ -67,8 +68,18 @@ const INSTRUMENT_COLORS: Record<string, string> = {
   "Convertible Note": "bg-sky-500/15 text-sky-700 border-sky-500/25",
 };
 
+/** Strip protocol, www, and trailing paths from a URL or domain string */
+function cleanDomain(raw: string): string {
+  return raw
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .trim();
+}
+
 function faviconUrl(domain: string) {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  const clean = cleanDomain(domain);
+  return `https://www.google.com/s2/favicons?domain=${clean}&sz=128`;
 }
 
 function fallbackLogoUrl(name: string) {
@@ -140,162 +151,156 @@ function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: s
   );
 }
 
-// ── Interactive Funding Area Chart ──
+// ── Interactive Funding Area Chart (recharts) ──
 function FundingAreaChart({ rows }: { rows: CapRow[] }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const sorted = useMemo(() => {
-    return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
+  const chartData = useMemo(() => {
+    const sorted = rows
+      .filter(r => r.amount > 0 && r.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (sorted.length < 2) return null;
+
+    let cumulative = 0;
+    return sorted.map(r => {
+      cumulative += r.amount;
+      return {
+        date: r.date,
+        total: cumulative,
+        investor: r.investor_name,
+        label: `${r.investor_name}: ${fmt(cumulative)}`,
+      };
+    });
   }, [rows]);
 
-  if (sorted.length < 2) return null;
-
-  const cumulative = sorted.reduce<{ date: string; total: number; label: string }[]>((acc, r) => {
-    const prev = acc.length > 0 ? acc[acc.length - 1].total : 0;
-    acc.push({ date: r.date, total: prev + r.amount, label: r.investor_name });
-    return acc;
-  }, []);
-
-  const maxVal = cumulative[cumulative.length - 1]?.total || 1;
-  const width = 280;
-  const height = 80;
-  const padX = 0;
-  const padY = 8;
-
-  const points = cumulative.map((p, i) => {
-    const x = padX + (i / (cumulative.length - 1)) * (width - padX * 2);
-    const y = height - padY - ((p.total / maxVal) * (height - padY * 2));
-    return { x, y, ...p };
-  });
-
-  const pathD = points.map((p, i) => {
-    if (i === 0) return `M${p.x},${p.y}`;
-    const prev = points[i - 1];
-    const cpx = (prev.x + p.x) / 2;
-    return `C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
-  }).join(" ");
-
-  const areaD = `${pathD} L${points[points.length - 1].x},${height} L${points[0].x},${height} Z`;
+  if (!chartData) return null;
 
   return (
-    <div className="w-full max-w-[280px] relative">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-20">
-        <defs>
-          <linearGradient id="colorFunding" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        <path d={areaD} fill="url(#colorFunding)" />
-        <path d={pathD} fill="none" stroke="hsl(var(--accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r="8" fill="transparent" className="cursor-pointer" onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} />
-            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? 4 : 2.5} fill={hoverIdx === i ? "hsl(var(--accent))" : "hsl(var(--background))"} stroke="hsl(var(--accent))" strokeWidth="1.5" className="transition-all duration-150" />
-          </g>
-        ))}
-      </svg>
-      {hoverIdx !== null && points[hoverIdx] && (
-        <div
-          className="absolute -top-10 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg pointer-events-none whitespace-nowrap z-10"
-          style={{ left: `${(points[hoverIdx].x / width) * 100}%`, transform: "translateX(-50%)" }}
-        >
-          <span className="font-semibold">{fmt(points[hoverIdx].total)}</span>
-          <span className="text-background/60 ml-1">· {points[hoverIdx].label}</span>
-          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground" />
-        </div>
-      )}
+    <div className="w-full h-20">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="colorFundingGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="date" hide />
+          <YAxis hide />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0].payload;
+              return (
+                <div className="px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg whitespace-nowrap">
+                  <span className="font-semibold">{fmt(d.total)}</span>
+                  <span className="text-background/60 ml-1">· {d.investor}</span>
+                </div>
+              );
+            }}
+            cursor={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="total"
+            stroke="hsl(var(--accent))"
+            strokeWidth={2}
+            fill="url(#colorFundingGrad)"
+            dot={false}
+            activeDot={{ r: 3, fill: "hsl(var(--accent))", strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
 
-// ── Focus Review Card (Large, single card in carousel) ──
-function FocusReviewCard({
+// ── Investor Logo with letter fallback ──
+function InvestorLogo({ name, domain, size = "sm" }: { name: string; domain?: string; size?: "sm" | "md" }) {
+  const [failed, setFailed] = useState(false);
+  const src = domain ? faviconUrl(domain) : fallbackLogoUrl(name);
+  const letter = (name || "?").charAt(0).toUpperCase();
+  const sizeClasses = size === "md" ? "h-10 w-10 rounded-xl" : "h-7 w-7 rounded-lg";
+  const imgClasses = size === "md" ? "h-6 w-6" : "h-4 w-4";
+  const textClass = size === "md" ? "text-sm" : "text-[11px]";
+
+  if (failed || !src) {
+    return (
+      <div className={`flex items-center justify-center ${sizeClasses} bg-accent/10 text-accent font-semibold ${textClass} shrink-0`}>
+        {letter}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex items-center justify-center ${sizeClasses} bg-muted/50 shrink-0 overflow-hidden border border-border`}>
+      <img src={src} alt="" className={`${imgClasses} object-contain`} onError={() => setFailed(true)} />
+    </div>
+  );
+}
+
+// ── Compact AI Suggestion Card (for horizontal carousel) ──
+function CompactSuggestionCard({
   row,
   onApprove,
   onReject,
-  swipeDirection,
 }: {
   row: CapRow;
   onApprove: () => void;
   onReject: () => void;
-  swipeDirection: "left" | "right" | null;
 }) {
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
-  const logoSrc = row._domain ? faviconUrl(row._domain) : fallbackLogoUrl(row.investor_name);
-
-  const animClass = swipeDirection === "right"
-    ? "animate-swipe-out-right"
-    : swipeDirection === "left"
-    ? "animate-swipe-out-left"
-    : "animate-slide-in-from-right";
 
   return (
-    <div className={`relative rounded-2xl border border-accent/20 bg-gradient-to-br from-card via-card to-accent/5 p-6 shadow-surface-lg ${animClass}`}>
-      {/* Accent glow */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl -translate-y-8 translate-x-8 pointer-events-none" />
-
-      <div className="flex items-start gap-4 relative">
-        {/* Logo */}
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 shrink-0 overflow-hidden border border-border">
-          {logoSrc ? (
-            <img src={logoSrc} alt="" className="h-9 w-9 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          ) : null}
-          <Landmark className="h-6 w-6 text-muted-foreground hidden" />
-        </div>
-
-        {/* Info */}
+    <div className="min-w-[300px] max-w-[320px] snap-center shrink-0 rounded-xl border border-accent/15 bg-card p-4 shadow-surface relative group transition-all hover:border-accent/30 hover:shadow-surface-md">
+      {/* Top row: Logo + Name + Amount */}
+      <div className="flex items-center gap-2.5">
+        <InvestorLogo name={row.investor_name} domain={row._domain} size="md" />
         <div className="flex-1 min-w-0">
-          <h4 className="text-base font-bold text-foreground">{row.investor_name || "Unknown Investor"}</h4>
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{row.entity_type}</Badge>
-            <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${instrumentColor}`}>{row.instrument}</Badge>
-            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-0.5 bg-accent/10 text-accent border-accent/20">
-              <Sparkles className="h-2.5 w-2.5" /> AI Sourced
-            </Badge>
-          </div>
-
-          {/* Highlight */}
-          {row._highlight && (
-            <p className="text-xs text-muted-foreground mt-3 leading-relaxed italic border-l-2 border-accent/30 pl-3">
-              "{row._highlight}"
-            </p>
-          )}
-
-          {/* Meta row */}
-          <div className="flex items-center gap-3 mt-3">
-            {row.date && <span className="text-[11px] text-muted-foreground font-mono">{row.date}</span>}
-            {row._sourceUrl && (
-              <a href={row._sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-accent hover:text-accent/80 transition-colors">
-                <ExternalLink className="h-3 w-3" /> Source
-              </a>
-            )}
+          <h4 className="text-sm font-semibold text-foreground truncate">{row.investor_name || "Unknown Investor"}</h4>
+          <div className="flex items-center gap-1 mt-0.5">
+            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>{row.instrument}</Badge>
+            {row.date && <span className="text-[10px] text-muted-foreground font-mono">{row.date}</span>}
           </div>
         </div>
-
-        {/* Amount */}
-        <div className="text-right shrink-0">
-          {row.amount > 0 ? (
-            <span className="text-2xl font-bold text-foreground font-mono">{fmt(row.amount)}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground/50 italic">Amount TBD</span>
-          )}
-        </div>
+        <span className="text-lg font-bold text-foreground font-mono shrink-0">
+          {row.amount > 0 ? fmt(row.amount) : "TBD"}
+        </span>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-border/50">
-        <button
-          onClick={onReject}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200 text-sm font-medium"
-        >
-          <XCircle className="h-4 w-4" /> Reject
-        </button>
-        <button
-          onClick={onApprove}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-success/10 text-success hover:bg-success/20 transition-all duration-200 text-sm font-semibold shadow-sm"
-        >
-          <CheckCircle2 className="h-4 w-4" /> Approve
-        </button>
+      {/* Highlight snippet — 2 lines max */}
+      {row._highlight && (
+        <p className="text-sm text-muted-foreground mt-2.5 leading-snug line-clamp-2 italic">
+          "{row._highlight}"
+        </p>
+      )}
+
+      {/* Bottom: source link + action buttons */}
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
+            <Sparkles className="h-2 w-2" /> AI Sourced
+          </Badge>
+          {row._sourceUrl && (
+            <a href={row._sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors">
+              <ExternalLink className="h-2.5 w-2.5" /> Source
+            </a>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onReject}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-all"
+            title="Reject"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onApprove}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 text-success bg-success/5 hover:bg-success/15 hover:border-success/50 transition-all"
+            title="Approve"
+          >
+            <Check className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -304,31 +309,16 @@ function FocusReviewCard({
 // ── Compact Verified Row ──
 function VerifiedRow({ row, onEdit, onDelete }: { row: CapRow; onEdit: () => void; onDelete: () => void }) {
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
-  const logoSrc = row._domain ? faviconUrl(row._domain) : fallbackLogoUrl(row.investor_name);
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-muted/30 transition-colors group animate-drop-in">
-      {/* Logo */}
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 shrink-0 overflow-hidden border border-border">
-        {logoSrc ? (
-          <img src={logoSrc} alt="" className="h-5 w-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : null}
-        <Landmark className="h-4 w-4 text-muted-foreground hidden" />
-      </div>
-
-      {/* Name */}
+      <InvestorLogo name={row.investor_name} domain={row._domain} />
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium text-foreground truncate block">{row.investor_name}</span>
       </div>
-
-      {/* Tags */}
       <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor} hidden sm:inline-flex`}>{row.instrument}</Badge>
       {row.date && <span className="text-[10px] text-muted-foreground font-mono hidden md:block">{row.date}</span>}
-
-      {/* Amount */}
       <span className="text-sm font-bold text-foreground font-mono min-w-[70px] text-right">{row.amount > 0 ? fmt(row.amount) : "—"}</span>
-
-      {/* Actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-all">
@@ -355,31 +345,17 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState<PendingInvestor[]>([]);
-  const [showReview, setShowReview] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [radarLogs, setRadarLogs] = useState<string[]>([]);
-  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [queueDismissed, setQueueDismissed] = useState(false);
 
   const dirty = useMemo(() => JSON.stringify(rows) !== JSON.stringify(original), [rows, original]);
 
-  // Split rows into pending queue and verified list
   const pendingQueue = useMemo(() => rows.filter(r => r._source && !r._verified), [rows]);
   const verifiedRows = useMemo(() => rows.filter(r => !r._source || r._verified), [rows]);
 
   const totalRaised = useMemo(() => verifiedRows.reduce((s, r) => s + (r.amount || 0), 0) + pendingQueue.reduce((s, r) => s + (r.amount || 0), 0), [verifiedRows, pendingQueue]);
   const animatedTotal = useCountUp(totalRaised);
-
-  // Current focus card index
-  const [focusIndex, setFocusIndex] = useState(0);
-  const currentPending = pendingQueue[focusIndex] || null;
-
-  // Reset focus when queue changes
-  useEffect(() => {
-    if (focusIndex >= pendingQueue.length) {
-      setFocusIndex(Math.max(0, pendingQueue.length - 1));
-    }
-  }, [pendingQueue.length, focusIndex]);
 
   // Radar log simulation
   useEffect(() => {
@@ -485,44 +461,32 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     toast.success("Investor removed");
   };
 
-  // ── Approve: swipe right, persist to cap_table ──
-  const approveCurrentCard = async () => {
-    if (!currentPending) return;
-    setSwipeDirection("right");
-    setTimeout(async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
-        const { error } = await supabase.from("cap_table").insert({
-          id: currentPending.id,
-          user_id: user.id,
-          investor_name: currentPending.investor_name,
-          entity_type: currentPending.entity_type,
-          instrument: currentPending.instrument,
-          amount: currentPending.amount,
-          date: currentPending.date || null,
-          notes: currentPending._highlight || null,
-        });
-        if (error) throw error;
-        setRows(prev => prev.map(r => r.id === currentPending.id ? { ...r, _verified: true, _new: false, _source: undefined } : r));
-        setOriginal(prev => [...prev, { ...currentPending, _verified: true, _new: false, _source: undefined }]);
-        toast.success(`${currentPending.investor_name} added to cap table`);
-      } catch (e: any) {
-        toast.error(e.message || "Failed to save");
-      }
-      setSwipeDirection(null);
-    }, 400);
+  const approveCard = async (row: CapRow) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("cap_table").insert({
+        id: row.id,
+        user_id: user.id,
+        investor_name: row.investor_name,
+        entity_type: row.entity_type,
+        instrument: row.instrument,
+        amount: row.amount,
+        date: row.date || null,
+        notes: row._highlight || null,
+      });
+      if (error) throw error;
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, _verified: true, _new: false, _source: undefined } : r));
+      setOriginal(prev => [...prev, { ...row, _verified: true, _new: false, _source: undefined }]);
+      toast.success(`${row.investor_name} added to cap table`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save");
+    }
   };
 
-  // ── Reject: swipe left, remove from UI ──
-  const rejectCurrentCard = () => {
-    if (!currentPending) return;
-    setSwipeDirection("left");
-    setTimeout(() => {
-      setRows(prev => prev.filter(r => r.id !== currentPending.id));
-      setSwipeDirection(null);
-      toast("Investor rejected");
-    }, 400);
+  const rejectCard = (id: string) => {
+    setRows(prev => prev.filter(r => r.id !== id));
+    toast("Investor rejected");
   };
 
   const saveChanges = async () => {
@@ -602,6 +566,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   };
 
   const [open, setOpen] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -641,36 +606,40 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
         <CollapsibleContent>
           <div className="px-5 pb-5 space-y-4">
 
-            {/* ══ Funding Pulse Header ══ */}
-            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 relative">
-                    <DollarSign className="h-7 w-7 text-primary" />
+            {/* ══ Funding Pulse Header with Area Chart ══ */}
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-5 overflow-hidden relative">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 relative">
+                    <DollarSign className="h-6 w-6 text-primary" />
                     {(isScanning || syncing) && (
                       <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent animate-funding-pulse" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Funding Pulse</p>
+                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Funding Pulse</p>
                       <TrendingUp className="h-3 w-3 text-success" />
                     </div>
-                    <p className="text-4xl font-bold text-foreground tracking-tighter mt-0.5 font-mono">{fmt(animatedTotal)}</p>
+                    <p className="text-3xl font-bold text-foreground tracking-tighter font-mono">{fmt(animatedTotal)}</p>
                     {rows.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
                         {verifiedRows.length} verified · {pendingQueue.length} pending
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-3">
+                {/* Area chart on the right */}
+                <div className="flex-1 max-w-[280px] min-w-[160px]">
                   <FundingAreaChart rows={verifiedRows} />
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
-                    {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {syncing ? "Exa Searching..." : "Deep Search"}
-                  </Button>
                 </div>
+              </div>
+              {/* Deep Search button */}
+              <div className="flex justify-end mt-3">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
+                  {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  {syncing ? "Exa Searching..." : "Deep Search"}
+                </Button>
               </div>
             </div>
 
@@ -682,52 +651,41 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
             {/* ══ Investor Discovery — DB Pending Cards ══ */}
             <InvestorDiscovery pending={pending} onConfirm={acceptPending} onIgnore={dismissPending} />
 
-            {/* ══ AI Review Queue — Focus Carousel ══ */}
+            {/* ══ AI Suggestions — Horizontal Carousel ══ */}
             {pendingQueue.length > 0 && !queueDismissed && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-accent" />
-                    <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">AI Suggestions</h4>
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
-                      {pendingQueue.length} pending review
-                    </Badge>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {Math.min(focusIndex + 1, pendingQueue.length)} / {pendingQueue.length}
-                  </span>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-accent" />
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">AI Suggestions</h4>
+                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
+                    {pendingQueue.length} pending
+                  </Badge>
                 </div>
 
-                {/* Focus Card */}
-                {currentPending && (
-                  <FocusReviewCard
-                    key={currentPending.id}
-                    row={currentPending}
-                    onApprove={approveCurrentCard}
-                    onReject={rejectCurrentCard}
-                    swipeDirection={swipeDirection}
-                  />
-                )}
-
-                {/* Peek indicator for next card */}
-                {pendingQueue.length > 1 && focusIndex < pendingQueue.length - 1 && (
-                  <div className="flex justify-center gap-1.5 pt-1">
-                    {pendingQueue.map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-1.5 rounded-full transition-all duration-300 ${
-                          i === focusIndex ? "w-6 bg-accent" : i < focusIndex ? "w-1.5 bg-success/40" : "w-1.5 bg-muted-foreground/20"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* Horizontal scroll track */}
+                <div
+                  ref={scrollRef}
+                  className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-3"
+                  style={{
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "hsl(var(--border)) transparent",
+                  }}
+                >
+                  {pendingQueue.map(row => (
+                    <CompactSuggestionCard
+                      key={row.id}
+                      row={row}
+                      onApprove={() => approveCard(row)}
+                      onReject={() => rejectCard(row.id)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
             {/* ══ Inbox Zero ══ */}
             {pendingQueue.length === 0 && queueDismissed && (
-              <div className="flex items-center gap-2 py-3 px-4 rounded-lg bg-success/5 border border-success/20 animate-fade-in">
+              <div className="flex items-center gap-2 py-3 px-4 rounded-lg bg-success/5 border border-success/20">
                 <Inbox className="h-4 w-4 text-success" />
                 <p className="text-xs font-medium text-success">Inbox Zero: All AI suggestions reviewed.</p>
               </div>
