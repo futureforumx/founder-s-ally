@@ -235,11 +235,15 @@ function InvestorCard({
   row,
   onUpdate,
   onDelete,
+  onVerify,
+  onReject,
   saving,
 }: {
   row: CapRow;
   onUpdate: (field: keyof CapRow, value: string | number) => void;
   onDelete: () => void;
+  onVerify?: () => void;
+  onReject?: () => void;
   saving: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -250,6 +254,8 @@ function InvestorCard({
   const logoSrc = row._domain
     ? faviconUrl(row._domain)
     : fallbackLogoUrl(row.investor_name);
+
+  const isAiPending = row._source && !row._verified;
 
   return (
     <div className={`group rounded-xl border border-border bg-card p-4 hover:shadow-lg hover:border-accent/20 transition-all duration-300 ${row._source ? "animate-spring-pop" : ""}`}>
@@ -294,7 +300,7 @@ function InvestorCard({
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{row.entity_type}</Badge>
             <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>{row.instrument}</Badge>
-            {/* Source badges */}
+            {/* Single consolidated badge per state */}
             {row._source === "deck" && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent-foreground border-accent/20">
                 <FileText className="h-2.5 w-2.5" /> Deck
@@ -305,15 +311,9 @@ function InvestorCard({
                 <Globe className="h-2.5 w-2.5" /> Web
               </Badge>
             )}
-            {row._source === "exa" && (
+            {row._source === "exa" && !row._verified && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
                 <Sparkles className="h-2.5 w-2.5" /> AI Sourced
-              </Badge>
-            )}
-            {/* Verification */}
-            {row._source && !row._verified && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
-                <Sparkles className="h-2.5 w-2.5" /> AI Found
               </Badge>
             )}
             {row._verified && (
@@ -363,14 +363,35 @@ function InvestorCard({
               placeholder="$0"
             />
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+
+          {/* Verify / Reject buttons for AI-sourced pending cards */}
+          {isAiPending && onVerify && onReject ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onVerify}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors"
+                title="Approve investor"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={onReject}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
+                title="Reject investor"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
