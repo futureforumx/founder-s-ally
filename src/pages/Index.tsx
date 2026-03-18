@@ -116,8 +116,6 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
 
-              {/* Pulse Cards */}
-              <PulseCards sector={companyData?.sector} />
 
               {/* Investor Backing */}
               <InvestorBacking />
@@ -136,20 +134,31 @@ const Index = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Health Dashboard</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Detailed health metrics and benchmarks</p>
+                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <AgentMode companyData={companyData} onAgentData={handleAgentData} />
                   <InvestorExport companyData={companyData} analysisResult={analysisResult} />
                 </div>
               </div>
-              <HealthDashboard
-                stage={companyData?.stage}
-                sector={companyData?.sector}
-                analysisResult={analysisResult}
-                onMetricEdit={handleMetricEdit}
-              />
+
+              {/* Market & Community */}
+              <div>
+                <h2 className="text-sm font-semibold text-foreground mb-3">Market & Community</h2>
+                <PulseCards sector={companyData?.sector} />
+              </div>
+
+              {/* Company Health */}
+              <div>
+                <h2 className="text-sm font-semibold text-foreground mb-3">Company Health</h2>
+                <HealthDashboard
+                  stage={companyData?.stage}
+                  sector={companyData?.sector}
+                  analysisResult={analysisResult}
+                  onMetricEdit={handleMetricEdit}
+                />
+              </div>
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} />
