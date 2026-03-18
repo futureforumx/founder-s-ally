@@ -109,4 +109,74 @@
   @keyframes gauge-fill {
     from { stroke-dashoffset: 283; }
   }
+
+  /* Laser-scan border animation */
+  @keyframes laser-border {
+    0% { background-position: 0% 0%; }
+    25% { background-position: 100% 0%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  .laser-scan-border {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .laser-scan-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    z-index: 0;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      hsl(217 91% 60% / 0.6) 60deg,
+      hsl(217 91% 60% / 0.9) 90deg,
+      hsl(217 91% 60% / 0.6) 120deg,
+      transparent 180deg,
+      transparent 360deg
+    );
+    animation: laser-rotate 2s linear infinite;
+  }
+
+  .laser-scan-border::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    z-index: 1;
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--card));
+  }
+
+  @keyframes laser-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Horizontal scan line for deck upload */
+  .deck-scan-line {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .deck-scan-line::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, hsl(217 91% 60% / 0.5), hsl(217 91% 60% / 0.8), hsl(217 91% 60% / 0.5), transparent);
+    animation: scan-horizontal 2s ease-in-out infinite;
+    z-index: 10;
+  }
+
+  @keyframes scan-horizontal {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
 }
