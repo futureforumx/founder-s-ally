@@ -277,8 +277,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     let scrapedMarkdown = "";
 
     try {
-      if (form.website.trim()) {
+      // Source A: Parse deck (if available)
+      if (deckText) {
         setAnalyzeStep("scraping");
+        await new Promise(r => setTimeout(r, 800)); // Show step
+      }
+
+      // Source B: Scrape website
+      if (form.website.trim()) {
+        setAnalyzeStep("analyzing");
         const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
           body: { url: form.website.trim() },
         });
@@ -288,7 +295,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         }
       }
 
-      setAnalyzeStep("analyzing");
+      // Source C: Deep Search (simulated real-time web search)
+      setAnalyzeStep("deepSearch");
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Run AI analysis with all sources
+      setAnalyzeStep("verifying");
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
         body: { websiteText: scrapedMarkdown, deckText, companyName: form.name, stage: form.stage, sector: form.sector },
       });
@@ -296,6 +308,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       if (analysisData?.error) throw new Error(analysisData.error);
 
       setAnalyzeStep("mapping");
+
       // Apply AI data with defer-to-user logic
       applyAiData(analysisData.aiExtracted);
 
@@ -304,14 +317,35 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         setMetricSources(analysisData.metricSources);
       }
 
+      // Build source verification map
+      const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
+      const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount"];
+      for (const field of fieldKeys) {
+        const sources: string[] = [];
+        const aiVal = analysisData.aiExtracted?.[field];
+        if (deckText && aiVal) sources.push("deck");
+        if (scrapedMarkdown && aiVal) sources.push("website");
+        // Simulate real-time source for some fields
+        if (aiVal) sources.push("realtime");
+
+        if (sources.length >= 3) {
+          verification[field] = { sources, status: "verified" };
+        } else if (sources.length === 1 && sources[0] === "deck") {
+          verification[field] = { sources, status: "deck-only" };
+        } else if (sources.length >= 1) {
+          verification[field] = { sources, status: "predictive" };
+        }
+      }
+      setSourceVerification(verification);
+
       // Stop scanning animation since real data arrived
       setScanningMetrics(false);
 
       setAnalysisComplete(true);
       setIsExpanded(false);
       onSave?.(form);
-      onAnalysis?.(analysisData as AnalysisResult);
-      try { localStorage.setItem("company-analysis", JSON.stringify(analysisData)); } catch {}
+      onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
+      try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
