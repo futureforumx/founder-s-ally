@@ -256,6 +256,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+  const OUTPUT_FIELDS: (keyof CompanyData)[] = ["description", "stage", "sector", "businessModel", "targetCustomer", "hqLocation", "uniqueValueProp", "currentARR", "yoyGrowth", "totalHeadcount", "competitors"];
+
+  const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
+
+  const handleAnalyzeClick = () => {
+    if (hasManualEdits) {
+      setShowOverrideWarning(true);
+    } else {
+      handleAnalyze();
+    }
+  };
 
   const update = (field: keyof CompanyData, value: string | string[]) => {
     setForm(prev => ({ ...prev, [field]: value }));
