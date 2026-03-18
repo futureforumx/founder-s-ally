@@ -7,8 +7,6 @@ import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
-import { InvestorExport } from "@/components/InvestorExport";
-import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
