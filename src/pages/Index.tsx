@@ -199,10 +199,8 @@ const Index = () => {
                     ) : (
                       <Tooltip delayDuration={200}>
                         <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 border-success/30 bg-success/10 text-success hover:bg-success/20 hover:text-success"
+                          <button
+                            className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success hover:bg-success/20 transition-colors"
                             onClick={() => {
                               setIsProfileVerified(true);
                               try { localStorage.setItem("company-profile-verified", "true"); } catch {}
@@ -210,7 +208,7 @@ const Index = () => {
                           >
                             <ShieldCheck className="h-3.5 w-3.5" />
                             Confirm Profile
-                          </Button>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px] text-xs">
                           Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
