@@ -70,6 +70,12 @@ const Index = () => {
     setCompanyData(company);
     setAnalysisResult(analysis);
     setShowOnboarding(false);
+    setShowTerminal(true);
+  };
+
+  const handleTerminalComplete = () => {
+    setShowTerminal(false);
+    setActiveView("dashboard");
   };
 
   const handleSyncNow = async () => {
