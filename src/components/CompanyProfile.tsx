@@ -290,6 +290,14 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       // Apply AI data with defer-to-user logic
       applyAiData(analysisData.aiExtracted);
 
+      // Capture metric sources for attribution tooltips
+      if (analysisData.metricSources) {
+        setMetricSources(analysisData.metricSources);
+      }
+
+      // Stop scanning animation since real data arrived
+      setScanningMetrics(false);
+
       setAnalysisComplete(true);
       setIsExpanded(false);
       onSave?.(form);
