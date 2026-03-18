@@ -105,6 +105,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const editingCountRef = useRef(0);
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -887,8 +888,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               ═══════════════════════════════════════════════ */}
 
           <div
-            onFocusCapture={() => setIsEditing(true)}
-            onBlurCapture={() => setIsEditing(false)}
+            onFocusCapture={() => { editingCountRef.current++; setIsEditing(true); }}
+            onBlurCapture={() => { editingCountRef.current--; requestAnimationFrame(() => { if (editingCountRef.current <= 0) { editingCountRef.current = 0; setIsEditing(false); } }); }}
             className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
