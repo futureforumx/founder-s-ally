@@ -2,3 +2,9 @@ project_id = "fuxzlmporikuhotzcqyc"
 
 [functions.audit-deck]
 verify_jwt = false
+
+[functions.scrape-website]
+verify_jwt = false
+
+[functions.analyze-company]
+verify_jwt = false

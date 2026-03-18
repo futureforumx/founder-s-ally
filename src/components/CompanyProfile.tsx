@@ -1,18 +1,11 @@
-import { useState } from "react";
-import { Building2, ChevronDown, ChevronUp, Upload, Check } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = [
-  "SaaS / B2B Software",
-  "Fintech",
-  "Health Tech",
-  "Consumer / D2C",
-  "AI / ML",
-  "Climate Tech",
-  "Marketplace",
-  "Developer Tools",
-  "Edtech",
-  "Other",
+  "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
+  "AI / ML", "Climate Tech", "Marketplace", "Developer Tools", "Edtech", "Other",
 ];
 
 export interface CompanyData {
@@ -24,34 +17,142 @@ export interface CompanyData {
   teamSize: string;
 }
 
-interface CompanyProfileProps {
-  onSave?: (data: CompanyData) => void;
+export interface AnalysisResult {
+  header: string;
+  valueProposition: string;
+  pricingStructure?: string;
+  executiveSummary: string;
+  healthScore: number;
+  metrics: {
+    mrr: string | null;
+    burnRate: string | null;
+    cac: string | null;
+    ltv: string | null;
+    runway: string | null;
+  };
+  metricTable: {
+    metric: string;
+    value: string;
+    benchmark: string;
+    status: "healthy" | "warning" | "critical";
+  }[];
 }
 
-export function CompanyProfile({ onSave }: CompanyProfileProps) {
+interface CompanyProfileProps {
+  onSave?: (data: CompanyData) => void;
+  onAnalysis?: (result: AnalysisResult) => void;
+}
+
+export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [isSaved, setIsSaved] = useState(false);
   const [form, setForm] = useState<CompanyData>({
-    name: "",
-    stage: "",
-    sector: "",
-    description: "",
-    website: "",
-    teamSize: "",
+    name: "", stage: "", sector: "", description: "", website: "", teamSize: "",
   });
+  const [deckFile, setDeckFile] = useState<File | null>(null);
+  const [deckText, setDeckText] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeStep, setAnalyzeStep] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (field: keyof CompanyData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setIsSaved(false);
+    setAnalysisComplete(false);
   };
 
-  const canSave = form.name.trim() && form.stage && form.sector;
+  const handleFileSelect = useCallback(async (file: File) => {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".txt")) {
+      setError("Please upload a PDF or TXT file.");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setError("File too large. Maximum 50 MB.");
+      return;
+    }
+    setError(null);
+    setDeckFile(file);
 
-  const handleSave = () => {
-    if (!canSave) return;
-    setIsSaved(true);
-    onSave?.(form);
+    // Extract text
+    try {
+      if (name.endsWith(".txt")) {
+        setDeckText(await file.text());
+      } else {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
+          pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
+        }
+        setDeckText(pages.join("\n\n"));
+      }
+    } catch {
+      setError("Failed to read file. Try a different format.");
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileSelect(file);
+  }, [handleFileSelect]);
+
+  const handleAnalyze = async () => {
+    if (!form.name.trim()) { setError("Company name is required."); return; }
+    if (!form.website.trim() && !deckText) { setError("Provide a website URL or upload a pitch deck."); return; }
+
+    setIsAnalyzing(true);
+    setError(null);
+    let websiteMarkdown = "";
+
+    try {
+      // Step 1: Scrape website if provided
+      if (form.website.trim()) {
+        setAnalyzeStep("Scraping website...");
+        const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
+          body: { url: form.website.trim() },
+        });
+        if (scrapeError) {
+          console.error("Scrape error:", scrapeError);
+        } else if (scrapeData?.markdown) {
+          websiteMarkdown = scrapeData.markdown;
+        }
+      }
+
+      // Step 2: AI analysis
+      setAnalyzeStep("Running AI analysis...");
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
+        body: {
+          websiteText: websiteMarkdown,
+          deckText,
+          companyName: form.name,
+          stage: form.stage,
+          sector: form.sector,
+        },
+      });
+
+      if (analysisError) throw new Error(analysisError.message || "Analysis failed");
+      if (analysisData?.error) throw new Error(analysisData.error);
+
+      setAnalysisComplete(true);
+      setIsExpanded(false);
+      onSave?.(form);
+      onAnalysis?.(analysisData as AnalysisResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+      setAnalyzeStep("");
+    }
   };
+
+  const canAnalyze = form.name.trim() && (form.website.trim() || deckText);
 
   return (
     <div className="surface-card">
@@ -70,137 +171,101 @@ export function CompanyProfile({ onSave }: CompanyProfileProps) {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {form.stage && form.sector
                 ? `${form.stage} · ${form.sector}`
-                : "Add your company details to personalize benchmarks"}
+                : "Add your company details to run AI analysis"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isSaved && (
+          {analysisComplete && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
-              <Check className="h-3 w-3" /> Saved
+              <Check className="h-3 w-3" /> Analyzed
             </span>
           )}
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
+          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </div>
       </button>
 
       {isExpanded && (
-        <div className="border-t border-border px-5 pb-5 pt-4">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Company Name */}
+        <div className="border-t border-border px-5 pb-5 pt-4 space-y-4">
+          {/* Row 1: Name + Stage + Sector */}
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Company Name *
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-                placeholder="Acme Corp"
-                maxLength={100}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors"
-              />
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
+              <input type="text" value={form.name} onChange={(e) => update("name", e.target.value)}
+                placeholder="Acme Corp" maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors" />
             </div>
-
-            {/* Website */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Website
-              </label>
-              <input
-                type="url"
-                value={form.website}
-                onChange={(e) => update("website", e.target.value)}
-                placeholder="https://acme.com"
-                maxLength={255}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors"
-              />
-            </div>
-
-            {/* Stage */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Stage *
-              </label>
-              <select
-                value={form.stage}
-                onChange={(e) => update("stage", e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none"
-              >
-                <option value="" disabled>
-                  Select stage
-                </option>
-                {stages.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
+              <select value={form.stage} onChange={(e) => update("stage", e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none">
+                <option value="" disabled>Select stage</option>
+                {stages.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-
-            {/* Sector */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Sector *
-              </label>
-              <select
-                value={form.sector}
-                onChange={(e) => update("sector", e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none"
-              >
-                <option value="" disabled>
-                  Select sector
-                </option>
-                {sectors.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
+              <select value={form.sector} onChange={(e) => update("sector", e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none">
+                <option value="" disabled>Select sector</option>
+                {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
-
-            {/* Team Size */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                Team Size
-              </label>
-              <input
-                type="text"
-                value={form.teamSize}
-                onChange={(e) => update("teamSize", e.target.value)}
-                placeholder="e.g. 12"
-                maxLength={20}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors"
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5 col-span-2">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                One-liner
-              </label>
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-                placeholder="What does your company do in one sentence?"
-                maxLength={200}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors"
-              />
             </div>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={!canSave}
-              className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
+          {/* Row 2: Website URL */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <Globe className="inline h-3 w-3 mr-1" />Website URL
+            </label>
+            <input type="url" value={form.website} onChange={(e) => update("website", e.target.value)}
+              placeholder="https://acme.com" maxLength={255}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors" />
+            <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop, pricing, and header info</p>
+          </div>
+
+          {/* Row 3: Pitch Deck Upload */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <FileText className="inline h-3 w-3 mr-1" />Pitch Deck (PDF)
+            </label>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="flex items-center justify-between rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-3 transition-colors hover:border-accent/40"
             >
-              Save Profile
+              <div className="flex items-center gap-3">
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {deckFile ? deckFile.name : "Drop PDF here or browse"}
+                </span>
+                {deckFile && deckText && (
+                  <span className="text-[10px] text-success font-mono">✓ Extracted</span>
+                )}
+              </div>
+              <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+              <button onClick={() => fileInputRef.current?.click()}
+                className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80">
+                Browse
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-[10px] text-muted-foreground">
+              {isAnalyzing ? analyzeStep : "AI will extract metrics and generate an executive summary"}
+            </p>
+            <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+              className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
+              {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isAnalyzing ? "Analyzing..." : "Run Analysis"}
             </button>
           </div>
         </div>
