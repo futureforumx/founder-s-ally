@@ -929,8 +929,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       {/* Header — always visible */}
       <button onClick={() => setIsExpanded(!isExpanded)} className="flex w-full items-center justify-between p-5">
         <div className="flex items-center gap-3 relative">
-          <button type="button" onClick={e => { e.stopPropagation(); logoInputRef.current?.click(); }}
-            className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors hover:bg-accent/20" title="Upload logo">
+          <button type="button" onClick={e => { e.stopPropagation(); if (isExpanded) logoInputRef.current?.click(); }}
+            className={`relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors ${isExpanded ? "hover:bg-accent/20 cursor-pointer" : "cursor-default"}`} title={isExpanded ? "Upload logo" : "Expand to change logo"}>
             {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : logoUrl ? (
               <>
                 <img src={logoUrl} alt="Logo" className="h-full w-full object-cover transition-opacity duration-500" />
