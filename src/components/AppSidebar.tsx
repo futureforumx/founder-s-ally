@@ -28,7 +28,8 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
       </div>
 
       <nav className="mt-4 flex flex-1 flex-col gap-1 px-3">
-        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
+        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Dashboard</div>
+        <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
         {navItems.map((item) => (
           <button
             key={item.id}
