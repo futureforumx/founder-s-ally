@@ -988,11 +988,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
               </button>
-              <button onClick={handleConfirm}
-                className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {confirmed ? "Profile Confirmed" : "Confirm Profile"}
-              </button>
+              {confirmed ? (
+                <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                  <Check className="h-3.5 w-3.5" />
+                  Profile Verified
+                </div>
+              ) : (
+                <button onClick={handleConfirm}
+                  className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Confirm Profile
+                </button>
+              )}
             </div>
           </div>
 
