@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, type FocusEvent } from "react";
+import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle, ArrowRight } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
@@ -37,6 +37,13 @@ interface CompanyProfileProps {
   onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
   onProfileVerified?: (verified: boolean) => void;
   onWalkthroughComplete?: () => void;
+}
+
+export interface CompanyProfileHandle {
+  triggerAnalysis: () => void;
+  isAnalyzing: boolean;
+  canAnalyze: boolean;
+  analyzeStepLabel: string;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
@@ -110,7 +117,7 @@ function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: ()
   );
 }
 
-export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete }: CompanyProfileProps) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete }, ref) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -835,6 +842,13 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
+
+  useImperativeHandle(ref, () => ({
+    triggerAnalysis: handleAnalyzeClick,
+    isAnalyzing,
+    canAnalyze,
+    analyzeStepLabel: isAnalyzing ? (STEP_LABELS[analyzeStep] || "Analyzing...") : "Run Analysis",
+  }), [handleAnalyzeClick, isAnalyzing, canAnalyze, analyzeStep]);
 
   // Whether a section can be manually toggled (disabled during analyzing or walkthrough)
   const isSectionLocked = walkthroughMode === "analyzing";
@@ -1618,4 +1632,4 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       </AlertDialog>
     </div>
   );
-}
+});

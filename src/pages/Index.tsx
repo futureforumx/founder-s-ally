@@ -1,14 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
+import { CompanyProfile, CompanyData, AnalysisResult, CompanyProfileHandle } from "@/components/CompanyProfile";
 import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
-import { InvestorExport } from "@/components/InvestorExport";
-import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
@@ -18,21 +16,21 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { RefreshCw, Loader2, ShieldCheck, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
 
 const Index = () => {
+  const profileRef = useRef<CompanyProfileHandle>(null);
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
   });
@@ -75,10 +73,6 @@ const Index = () => {
     });
   };
 
-  const handleAgentData = (agentData: AnalysisResult["agentData"]) => {
-    if (!analysisResult) return;
-    setAnalysisResult({ ...analysisResult, agentData });
-  };
 
   const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
     setCompanyData(company);
@@ -92,36 +86,6 @@ const Index = () => {
     setActiveView("dashboard");
   };
 
-  const handleSyncNow = async () => {
-    if (!companyData) return;
-    setIsSyncing(true);
-    try {
-      let websiteMarkdown = "";
-      if (companyData.website?.trim()) {
-        const { data } = await supabase.functions.invoke("scrape-website", {
-          body: { url: companyData.website.trim() },
-        });
-        websiteMarkdown = data?.markdown || "";
-      }
-
-      const { data: analysisData, error } = await supabase.functions.invoke("analyze-company", {
-        body: {
-          websiteText: websiteMarkdown,
-          deckText: "",
-          companyName: companyData.name,
-          stage: companyData.stage,
-          sector: companyData.sector,
-        },
-      });
-      if (error) throw error;
-      if (analysisData?.error) throw new Error(analysisData.error);
-      setAnalysisResult(analysisData as AnalysisResult);
-    } catch (e) {
-      console.error("Sync failed:", e);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleCompanyFieldEdit = (field: keyof CompanyData, value: string) => {
     if (!companyData) return;
@@ -162,18 +126,20 @@ const Index = () => {
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">My Company</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSyncNow} disabled={isSyncing || !companyData}>
-                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {isSyncing ? "Syncing..." : "Sync Now"}
-                  </Button>
-                  <AgentMode companyData={companyData} onAgentData={handleAgentData} />
-                  <InvestorExport companyData={companyData} analysisResult={analysisResult} />
+                <div>
+                  <button
+                    onClick={() => profileRef.current?.triggerAnalysis()}
+                    disabled={!profileRef.current?.canAnalyze || profileRef.current?.isAnalyzing}
+                    className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {profileRef.current?.isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {profileRef.current?.analyzeStepLabel || "Run Analysis"}
+                  </button>
                 </div>
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile ref={profileRef} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
 
               {/* Strategy Room — at the bottom */}
@@ -199,10 +165,8 @@ const Index = () => {
                     ) : (
                       <Tooltip delayDuration={200}>
                         <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 border-success/30 bg-success/10 text-success hover:bg-success/20 hover:text-success"
+                          <button
+                            className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success hover:bg-success/20 transition-colors"
                             onClick={() => {
                               setIsProfileVerified(true);
                               try { localStorage.setItem("company-profile-verified", "true"); } catch {}
@@ -210,7 +174,7 @@ const Index = () => {
                           >
                             <ShieldCheck className="h-3.5 w-3.5" />
                             Confirm Profile
-                          </Button>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[280px] text-xs">
                           Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
@@ -227,10 +191,6 @@ const Index = () => {
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <AgentMode companyData={companyData} onAgentData={handleAgentData} />
-                  <InvestorExport companyData={companyData} analysisResult={analysisResult} />
                 </div>
               </div>
 
