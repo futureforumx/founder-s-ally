@@ -14,7 +14,7 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
