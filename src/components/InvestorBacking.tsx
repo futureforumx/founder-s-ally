@@ -133,6 +133,34 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);
 
+  // Auto-populate from AI-extracted investors
+  useEffect(() => {
+    if (!extractedInvestors?.length) return;
+    setRows(prev => {
+      const existingNames = new Set(prev.map(r => r.investor_name.toLowerCase().trim()));
+      const newRows: CapRow[] = [];
+      for (const inv of extractedInvestors) {
+        const name = inv.investorName.trim();
+        if (!name || existingNames.has(name.toLowerCase())) continue;
+        existingNames.add(name.toLowerCase());
+        newRows.push({
+          id: crypto.randomUUID(),
+          investor_name: name,
+          entity_type: ENTITY_TYPES.includes(inv.entityType) ? inv.entityType : "VC Firm",
+          instrument: INSTRUMENTS.includes(inv.instrument) ? inv.instrument : "Equity",
+          amount: inv.amount || 0,
+          date: inv.date || "",
+          notes: "",
+          _new: true,
+          _source: inv.source,
+        });
+      }
+      if (newRows.length === 0) return prev;
+      toast.success(`${newRows.length} investor(s) auto-populated from analysis`);
+      return [...prev, ...newRows];
+    });
+  }, [extractedInvestors]);
+
   const updateCell = (id: string, field: keyof CapRow, value: string | number) => {
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
   };
