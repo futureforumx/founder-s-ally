@@ -232,6 +232,7 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
       setIsExpanded(false);
       onSave?.(form);
       onAnalysis?.(analysisData as AnalysisResult);
+      try { localStorage.setItem("company-analysis", JSON.stringify(analysisData)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
