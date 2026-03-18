@@ -103,6 +103,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       if (analysisData?.error) throw new Error(analysisData.error);
 
       setAnalysisResult(analysisData as AnalysisResult);
+
+      // Normalize and apply sector from AI
+      const normalized = normalizeSector(
+        analysisData?.aiExtracted?.sector || analysisData?.sectorMapping?.sector,
+        analysisData?.sectorMapping?.subTag,
+        analysisData?.sectorMapping?.keywords
+      );
+      if (normalized.sector) {
+        setSector(normalized.sector);
+        console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
+      }
+
       // Pre-fill confirmed values
       if (analysisData?.metrics?.mrr?.value) setMrr(analysisData.metrics.mrr.value);
       if (analysisData?.metrics?.burnRate?.value) setBurnRate(analysisData.metrics.burnRate.value);
