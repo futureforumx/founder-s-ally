@@ -56,6 +56,7 @@ export interface AnalysisResult {
 interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
   onAnalysis?: (result: AnalysisResult) => void;
+  onSectorChange?: (classification: SectorClassification) => void;
 }
 
 export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
