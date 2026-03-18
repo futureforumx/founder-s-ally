@@ -431,6 +431,10 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       }
       return next;
     });
+
+    setAiSuggestions(newSuggestions);
+  };
+
   const handleReclassify = async () => {
     const execSummary = (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary || ""; } catch { return ""; } })();
     if (!websiteMarkdown && !execSummary) return;
