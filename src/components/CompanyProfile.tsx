@@ -531,9 +531,55 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Source C: Deep Search (simulated real-time web search)
+      // Source C: Deep Search — call sync-investor-data for SEC filings & news
       setAnalyzeStep("deepSearch");
-      await new Promise(r => setTimeout(r, 2000));
+      let deepSearchInvestors: any[] = [];
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Check if user has a company_analyses record to attach to
+          const { data: existingAnalysis } = await supabase
+            .from("company_analyses")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1)
+            .maybeSingle();
+
+          const companyDomain = form.website.trim()
+            ? form.website.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+            : "";
+
+          const { data: syncData, error: syncError } = await supabase.functions.invoke("sync-investor-data", {
+            body: {
+              company_id: existingAnalysis?.id || crypto.randomUUID(),
+              company_domain: companyDomain,
+              user_id: user.id,
+              company_name: form.name,
+            },
+          });
+          if (!syncError && syncData?.newInvestorsFound > 0) {
+            // Fetch the newly created pending investors to merge as web-sourced
+            const { data: pendingRows } = await supabase
+              .from("pending_investors")
+              .select("investor_name, entity_type, instrument, amount, source_date")
+              .eq("user_id", user.id)
+              .eq("status", "pending")
+              .order("created_at", { ascending: false })
+              .limit(syncData.newInvestorsFound);
+
+            deepSearchInvestors = (pendingRows || []).map((p: any) => ({
+              investorName: p.investor_name,
+              entityType: p.entity_type,
+              instrument: p.instrument,
+              amount: p.amount || 0,
+              date: p.source_date || "",
+              source: "web" as const,
+            }));
+          }
+        }
+      } catch (deepErr) {
+        console.warn("Deep search sync failed (non-blocking):", deepErr);
+      }
 
       // Run AI analysis with all sources
       setAnalyzeStep("verifying");
@@ -592,9 +638,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       setCategorizationExpanded(true);
       setCompetitiveExpanded(true);
       setMetricsExpanded(true);
+      // Merge deck-extracted investors with deep search investors (deduplicated)
+      const deckInvestors = analysisData.extractedInvestors || [];
+      const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
+      const mergedInvestors = [
+        ...deckInvestors,
+        ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim())),
+      ];
+
+      const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
       // Auto-save will be handled by the useEffect below once form state settles
-      onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
-      try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
+      onAnalysis?.(finalResult as AnalysisResult);
+      try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
