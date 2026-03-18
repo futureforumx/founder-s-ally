@@ -323,6 +323,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       // Apply AI data with defer-to-user logic
       applyAiData(analysisData.aiExtracted);
 
+      // Capture AI-suggested subsectors from sectorMapping
+      if (analysisData.sectorMapping?.subTag) {
+        setAiSuggestedSubsectors([analysisData.sectorMapping.subTag]);
+        // Auto-apply subsector if user hasn't touched sector
+        if (!userTouched.has("sector") && form.subsectors.length === 0) {
+          setForm(prev => ({ ...prev, subsectors: [analysisData.sectorMapping.subTag] }));
+        }
+      }
+
       // Capture metric sources for attribution tooltips
       if (analysisData.metricSources) {
         setMetricSources(analysisData.metricSources);
