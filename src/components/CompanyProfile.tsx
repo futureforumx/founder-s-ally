@@ -37,7 +37,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
-      if (saved) { const p = JSON.parse(saved); return { ...EMPTY_FORM, ...p, competitors: p.competitors || [] }; }
+      if (saved) { const p = JSON.parse(saved); return { ...EMPTY_FORM, ...p, competitors: p.competitors || [], subsectors: p.subsectors || [] }; }
     } catch {}
     return { ...EMPTY_FORM };
   });
