@@ -160,13 +160,15 @@ const Index = () => {
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">My Company</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSyncNow} disabled={isSyncing || !companyData}>
-                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {isSyncing ? "Syncing..." : "Sync Now"}
-                  </Button>
-                  <AgentMode companyData={companyData} onAgentData={handleAgentData} />
-                  <InvestorExport companyData={companyData} analysisResult={analysisResult} />
+                <div>
+                  <button
+                    onClick={() => profileRef.current?.triggerAnalysis()}
+                    disabled={!profileRef.current?.canAnalyze || profileRef.current?.isAnalyzing}
+                    className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {profileRef.current?.isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {profileRef.current?.analyzeStepLabel || "Run Analysis"}
+                  </button>
                 </div>
               </div>
 
