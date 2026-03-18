@@ -647,49 +647,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </ProfileField>
           </div>
 
-          {/* Sector & Subsector Picker (Collapsible) */}
-          <div className={`rounded-xl border transition-all duration-300 border-border bg-card`}>
-            <button
-              type="button"
-              onClick={() => setSectorExpanded(!sectorExpanded)}
-              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
-            >
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Briefcase className="h-3 w-3 text-accent" />
-                Sector & Subsectors
-                {form.sector && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
-                )}
-              </span>
-              {sectorExpanded
-                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              }
-            </button>
-            {sectorExpanded && (
-              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <SectorSubsectorPicker
-                      sector={form.sector}
-                      subsectors={form.subsectors}
-                      onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
-                      onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                      aiSuggestedSector={aiSuggestions.sector}
-                      aiSuggestedSubsectors={aiSuggestedSubsectors}
-                      onApplyAiSector={aiSuggestions.sector ? () => {
-                        update("sector", aiSuggestions.sector!);
-                        if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                      } : undefined}
-                      isAiDraft={isFieldAiDraft("sector")}
-                    />
-                  </div>
-                  {renderVerificationBadge("sector")}
-                </div>
-              </div>
-            )}
-          </div>
-
 
           {/* Website URL */}
           <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
@@ -744,12 +701,10 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                     const testImg = new Image();
                     testImg.onload = () => {
                       if (!logoUrl) {
-                        // Empty logo → auto-apply
                         setLogoUrl(hdLogoUrl);
                         setLogoSyncBadge(true);
                         setTimeout(() => setLogoSyncBadge(false), 3000);
                       } else if (logoUrl !== hdLogoUrl) {
-                        // Existing logo → show suggestion
                         setSuggestedLogoUrl(hdLogoUrl);
                       }
                     };
@@ -789,6 +744,49 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80">Browse</button>
             </div>
           </ProfileField>
+
+          {/* Sector & Subsector Picker (Collapsible) */}
+          <div className={`rounded-xl border transition-all duration-300 border-border bg-card`}>
+            <button
+              type="button"
+              onClick={() => setSectorExpanded(!sectorExpanded)}
+              className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+            >
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Briefcase className="h-3 w-3 text-accent" />
+                Sector & Subsectors
+                {form.sector && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
+                )}
+              </span>
+              {sectorExpanded
+                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              }
+            </button>
+            {sectorExpanded && (
+              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <SectorSubsectorPicker
+                      sector={form.sector}
+                      subsectors={form.subsectors}
+                      onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
+                      onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                      aiSuggestedSector={aiSuggestions.sector}
+                      aiSuggestedSubsectors={aiSuggestedSubsectors}
+                      onApplyAiSector={aiSuggestions.sector ? () => {
+                        update("sector", aiSuggestions.sector!);
+                        if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                      } : undefined}
+                      isAiDraft={isFieldAiDraft("sector")}
+                    />
+                  </div>
+                  {renderVerificationBadge("sector")}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* === SECTION: Categorization === */}
           <div className="rounded-xl border transition-all duration-300 border-border bg-card">
