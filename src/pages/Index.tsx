@@ -121,7 +121,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} />
 
 
               {/* Investor Backing */}
