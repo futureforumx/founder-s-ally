@@ -93,6 +93,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
+  const [sourceVerification, setSourceVerification] = useState<Record<string, { sources: string[]; status: string; conflictDetail?: string }>>(() => {
+    try {
+      const saved = localStorage.getItem("company-source-verification");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
 
   const completion = getCompletionPercent(form);
 
