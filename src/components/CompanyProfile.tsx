@@ -650,6 +650,28 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                       setFaviconLoaded(false);
                     }
                   }, 300);
+
+                  // Debounced logo sync (500ms)
+                  if (logoSyncDebounceRef.current) clearTimeout(logoSyncDebounceRef.current);
+                  logoSyncDebounceRef.current = setTimeout(() => {
+                    const domain = extractDomain(url);
+                    if (!domain) { setSuggestedLogoUrl(null); return; }
+                    const hdLogoUrl = `https://img.logo.dev/${domain}?token=pk_a8IM0ZFaRjOxNXcaUBOpHQ&size=128&format=png`;
+                    const testImg = new Image();
+                    testImg.onload = () => {
+                      if (!logoUrl) {
+                        // Empty logo → auto-apply
+                        setLogoUrl(hdLogoUrl);
+                        setLogoSyncBadge(true);
+                        setTimeout(() => setLogoSyncBadge(false), 3000);
+                      } else if (logoUrl !== hdLogoUrl) {
+                        // Existing logo → show suggestion
+                        setSuggestedLogoUrl(hdLogoUrl);
+                      }
+                    };
+                    testImg.onerror = () => { /* fail silently */ };
+                    testImg.src = hdLogoUrl;
+                  }, 500);
                 }}
                 placeholder="https://acme.com" maxLength={255}
                 className={`${inputCls("website")} pl-10`}
