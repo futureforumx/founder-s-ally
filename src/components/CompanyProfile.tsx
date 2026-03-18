@@ -481,17 +481,23 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             </ProfileField>
             <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
               aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
-              <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
-                <option value="" disabled>Select stage</option>
-                {stages.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
+                  <option value="" disabled>Select stage</option>
+                  {stages.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {renderVerificationBadge("stage")}
+              </div>
             </ProfileField>
             <ProfileField label="Sector" isAiDraft={isFieldAiDraft("sector")}
               aiSuggestion={aiSuggestions.sector} onApplySuggestion={() => update("sector", aiSuggestions.sector!)}>
-              <select value={form.sector} onChange={e => update("sector", e.target.value)} className={selectCls("sector")}>
-                <option value="" disabled>Select sector</option>
-                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="flex items-center gap-1.5">
+                <select value={form.sector} onChange={e => update("sector", e.target.value)} className={selectCls("sector")}>
+                  <option value="" disabled>Select sector</option>
+                  {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {renderVerificationBadge("sector")}
+              </div>
             </ProfileField>
           </div>
 
