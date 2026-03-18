@@ -87,36 +87,6 @@ const Index = () => {
     setActiveView("dashboard");
   };
 
-  const handleSyncNow = async () => {
-    if (!companyData) return;
-    setIsSyncing(true);
-    try {
-      let websiteMarkdown = "";
-      if (companyData.website?.trim()) {
-        const { data } = await supabase.functions.invoke("scrape-website", {
-          body: { url: companyData.website.trim() },
-        });
-        websiteMarkdown = data?.markdown || "";
-      }
-
-      const { data: analysisData, error } = await supabase.functions.invoke("analyze-company", {
-        body: {
-          websiteText: websiteMarkdown,
-          deckText: "",
-          companyName: companyData.name,
-          stage: companyData.stage,
-          sector: companyData.sector,
-        },
-      });
-      if (error) throw error;
-      if (analysisData?.error) throw new Error(analysisData.error);
-      setAnalysisResult(analysisData as AnalysisResult);
-    } catch (e) {
-      console.error("Sync failed:", e);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleCompanyFieldEdit = (field: keyof CompanyData, value: string) => {
     if (!companyData) return;
