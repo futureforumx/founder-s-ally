@@ -3,10 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle, MoreHorizontal, Pencil, Inbox } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
 
@@ -99,6 +99,9 @@ function useCountUp(target: number, duration = 1200) {
   return display;
 }
 
+const fmt = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : n > 0 ? `$${n}` : "$0";
+
 // ── Radar Discovery Animation ──
 function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: string }) {
   return (
@@ -140,7 +143,6 @@ function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: s
 // ── Interactive Funding Area Chart ──
 function FundingAreaChart({ rows }: { rows: CapRow[] }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-
   const sorted = useMemo(() => {
     return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
   }, [rows]);
@@ -165,7 +167,6 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
     return { x, y, ...p };
   });
 
-  // Smooth monotone path
   const pathD = points.map((p, i) => {
     if (i === 0) return `M${p.x},${p.y}`;
     const prev = points[i - 1];
@@ -174,10 +175,6 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
   }).join(" ");
 
   const areaD = `${pathD} L${points[points.length - 1].x},${height} L${points[0].x},${height} Z`;
-
-
-  const fmt = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
 
   return (
     <div className="w-full max-w-[280px] relative">
@@ -190,35 +187,17 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
         </defs>
         <path d={areaD} fill="url(#colorFunding)" />
         <path d={pathD} fill="none" stroke="hsl(var(--accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {/* Interactive hover dots */}
         {points.map((p, i) => (
           <g key={i}>
-            <circle
-              cx={p.x} cy={p.y} r="8"
-              fill="transparent"
-              className="cursor-pointer"
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx(null)}
-            />
-            <circle
-              cx={p.x} cy={p.y}
-              r={hoverIdx === i ? 4 : 2.5}
-              fill={hoverIdx === i ? "hsl(var(--accent))" : "hsl(var(--background))"}
-              stroke="hsl(var(--accent))"
-              strokeWidth="1.5"
-              className="transition-all duration-150"
-            />
+            <circle cx={p.x} cy={p.y} r="8" fill="transparent" className="cursor-pointer" onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} />
+            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? 4 : 2.5} fill={hoverIdx === i ? "hsl(var(--accent))" : "hsl(var(--background))"} stroke="hsl(var(--accent))" strokeWidth="1.5" className="transition-all duration-150" />
           </g>
         ))}
       </svg>
-      {/* Tooltip */}
       {hoverIdx !== null && points[hoverIdx] && (
         <div
           className="absolute -top-10 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg pointer-events-none whitespace-nowrap z-10"
-          style={{
-            left: `${(points[hoverIdx].x / width) * 100}%`,
-            transform: "translateX(-50%)",
-          }}
+          style={{ left: `${(points[hoverIdx].x / width) * 100}%`, transform: "translateX(-50%)" }}
         >
           <span className="font-semibold">{fmt(points[hoverIdx].total)}</span>
           <span className="text-background/60 ml-1">· {points[hoverIdx].label}</span>
@@ -229,174 +208,146 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
   );
 }
 
-
-// ── Bento Investor Profile Card ──
-function InvestorCard({
+// ── Focus Review Card (Large, single card in carousel) ──
+function FocusReviewCard({
   row,
-  onUpdate,
-  onDelete,
-  onVerify,
+  onApprove,
   onReject,
-  saving,
+  swipeDirection,
 }: {
   row: CapRow;
-  onUpdate: (field: keyof CapRow, value: string | number) => void;
-  onDelete: () => void;
-  onVerify?: () => void;
-  onReject?: () => void;
-  saving: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  swipeDirection: "left" | "right" | null;
 }) {
-  const [editing, setEditing] = useState(false);
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
-  const fmt = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : n > 0 ? `$${n}` : "";
+  const logoSrc = row._domain ? faviconUrl(row._domain) : fallbackLogoUrl(row.investor_name);
 
-  const logoSrc = row._domain
-    ? faviconUrl(row._domain)
-    : fallbackLogoUrl(row.investor_name);
-
-  const isAiPending = row._source && !row._verified;
+  const animClass = swipeDirection === "right"
+    ? "animate-swipe-out-right"
+    : swipeDirection === "left"
+    ? "animate-swipe-out-left"
+    : "animate-slide-in-from-right";
 
   return (
-    <div className={`group rounded-xl border border-border bg-card p-4 hover:shadow-lg hover:border-accent/20 transition-all duration-300 ${row._source ? "animate-spring-pop" : ""}`}>
-      <div className="flex items-start gap-3">
+    <div className={`relative rounded-2xl border border-accent/20 bg-gradient-to-br from-card via-card to-accent/5 p-6 shadow-surface-lg ${animClass}`}>
+      {/* Accent glow */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full blur-3xl -translate-y-8 translate-x-8 pointer-events-none" />
+
+      <div className="flex items-start gap-4 relative">
         {/* Logo */}
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/50 shrink-0 overflow-hidden border border-border">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 shrink-0 overflow-hidden border border-border">
           {logoSrc ? (
-            <img
-              src={logoSrc}
-              alt=""
-              className="h-8 w-8 object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-              }}
-            />
+            <img src={logoSrc} alt="" className="h-9 w-9 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           ) : null}
-          <Landmark className="h-5 w-5 text-muted-foreground hidden" />
+          <Landmark className="h-6 w-6 text-muted-foreground hidden" />
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {editing ? (
-              <Input
-                value={row.investor_name}
-                onChange={(e) => onUpdate("investor_name", e.target.value)}
-                onBlur={() => setEditing(false)}
-                autoFocus
-                className="h-7 text-sm font-medium border-accent/30"
-              />
-            ) : (
-              <span
-                className="text-sm font-semibold text-foreground truncate cursor-pointer hover:text-accent transition-colors"
-                onClick={() => setEditing(true)}
-              >
-                {row.investor_name || "Untitled Investor"}
-              </span>
-            )}
-          </div>
-
+          <h4 className="text-base font-bold text-foreground">{row.investor_name || "Unknown Investor"}</h4>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{row.entity_type}</Badge>
-            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>{row.instrument}</Badge>
-            {/* Single consolidated badge per state */}
-            {row._source === "deck" && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent-foreground border-accent/20">
-                <FileText className="h-2.5 w-2.5" /> Deck
-              </Badge>
-            )}
-            {row._source === "web" && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/10 text-primary border-primary/20">
-                <Globe className="h-2.5 w-2.5" /> Web
-              </Badge>
-            )}
-            {row._source === "exa" && !row._verified && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
-                <Sparkles className="h-2.5 w-2.5" /> AI Sourced
-              </Badge>
-            )}
-            {row._verified && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-success/10 text-success border-success/20">
-                <Check className="h-2.5 w-2.5" /> Verified
-              </Badge>
-            )}
+            <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{row.entity_type}</Badge>
+            <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${instrumentColor}`}>{row.instrument}</Badge>
+            <Badge variant="secondary" className="text-[10px] px-2 py-0.5 gap-0.5 bg-accent/10 text-accent border-accent/20">
+              <Sparkles className="h-2.5 w-2.5" /> AI Sourced
+            </Badge>
           </div>
 
-          {/* Exa Highlight / Match Logic */}
+          {/* Highlight */}
           {row._highlight && (
-            <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed italic border-l-2 border-accent/30 pl-2">
-              {row._highlight}
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed italic border-l-2 border-accent/30 pl-3">
+              "{row._highlight}"
             </p>
           )}
 
-          {/* Date + Source Link */}
-          <div className="flex items-center gap-2 mt-1.5">
-            {row.date && (
-              <p className="text-[10px] text-muted-foreground font-mono">{row.date}</p>
-            )}
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-3">
+            {row.date && <span className="text-[11px] text-muted-foreground font-mono">{row.date}</span>}
             {row._sourceUrl && (
-              <a
-                href={row._sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors"
-              >
-                <ExternalLink className="h-2.5 w-2.5" /> View Source
+              <a href={row._sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-accent hover:text-accent/80 transition-colors">
+                <ExternalLink className="h-3 w-3" /> Source
               </a>
             )}
           </div>
         </div>
 
-        {/* Amount + Actions */}
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
+        {/* Amount */}
+        <div className="text-right shrink-0">
           {row.amount > 0 ? (
-            <span className="text-base font-bold text-foreground font-mono">{fmt(row.amount)}</span>
-          ) : row._source ? (
-            <span className="text-[10px] text-muted-foreground/50 italic">Suggesting $...</span>
+            <span className="text-2xl font-bold text-foreground font-mono">{fmt(row.amount)}</span>
           ) : (
-            <Input
-              type="number"
-              value={row.amount || ""}
-              onChange={(e) => onUpdate("amount", parseInt(e.target.value) || 0)}
-              className="h-7 w-24 text-xs text-right"
-              placeholder="$0"
-            />
-          )}
-
-          {/* Verify / Reject buttons for AI-sourced pending cards */}
-          {isAiPending && onVerify && onReject ? (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={onVerify}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors"
-                title="Approve investor"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={onReject}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
-                title="Reject investor"
-              >
-                <XCircle className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            <span className="text-sm text-muted-foreground/50 italic">Amount TBD</span>
           )}
         </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-border/50">
+        <button
+          onClick={onReject}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive/5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200 text-sm font-medium"
+        >
+          <XCircle className="h-4 w-4" /> Reject
+        </button>
+        <button
+          onClick={onApprove}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-success/10 text-success hover:bg-success/20 transition-all duration-200 text-sm font-semibold shadow-sm"
+        >
+          <CheckCircle2 className="h-4 w-4" /> Approve
+        </button>
       </div>
     </div>
   );
 }
+
+// ── Compact Verified Row ──
+function VerifiedRow({ row, onEdit, onDelete }: { row: CapRow; onEdit: () => void; onDelete: () => void }) {
+  const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
+  const logoSrc = row._domain ? faviconUrl(row._domain) : fallbackLogoUrl(row.investor_name);
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-muted/30 transition-colors group animate-drop-in">
+      {/* Logo */}
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 shrink-0 overflow-hidden border border-border">
+        {logoSrc ? (
+          <img src={logoSrc} alt="" className="h-5 w-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : null}
+        <Landmark className="h-4 w-4 text-muted-foreground hidden" />
+      </div>
+
+      {/* Name */}
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-foreground truncate block">{row.investor_name}</span>
+      </div>
+
+      {/* Tags */}
+      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor} hidden sm:inline-flex`}>{row.instrument}</Badge>
+      {row.date && <span className="text-[10px] text-muted-foreground font-mono hidden md:block">{row.date}</span>}
+
+      {/* Amount */}
+      <span className="text-sm font-bold text-foreground font-mono min-w-[70px] text-right">{row.amount > 0 ? fmt(row.amount) : "—"}</span>
+
+      {/* Actions */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-all">
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-32">
+          <DropdownMenuItem onClick={onEdit} className="gap-2 text-xs">
+            <Pencil className="h-3 w-3" /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onDelete} className="gap-2 text-xs text-destructive">
+            <Trash2 className="h-3 w-3" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 
 export function InvestorBacking({ extractedInvestors, isScanning = false, companyName }: InvestorBackingProps) {
   const [rows, setRows] = useState<CapRow[]>([]);
@@ -407,17 +358,32 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const [showReview, setShowReview] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [radarLogs, setRadarLogs] = useState<string[]>([]);
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [queueDismissed, setQueueDismissed] = useState(false);
 
   const dirty = useMemo(() => JSON.stringify(rows) !== JSON.stringify(original), [rows, original]);
-  const totalRaised = useMemo(() => rows.reduce((s, r) => s + (r.amount || 0), 0), [rows]);
+
+  // Split rows into pending queue and verified list
+  const pendingQueue = useMemo(() => rows.filter(r => r._source && !r._verified), [rows]);
+  const verifiedRows = useMemo(() => rows.filter(r => !r._source || r._verified), [rows]);
+
+  const totalRaised = useMemo(() => verifiedRows.reduce((s, r) => s + (r.amount || 0), 0) + pendingQueue.reduce((s, r) => s + (r.amount || 0), 0), [verifiedRows, pendingQueue]);
   const animatedTotal = useCountUp(totalRaised);
 
-  // Radar log simulation when scanning
+  // Current focus card index
+  const [focusIndex, setFocusIndex] = useState(0);
+  const currentPending = pendingQueue[focusIndex] || null;
+
+  // Reset focus when queue changes
   useEffect(() => {
-    if (!isScanning && !syncing) {
-      setRadarLogs([]);
-      return;
+    if (focusIndex >= pendingQueue.length) {
+      setFocusIndex(Math.max(0, pendingQueue.length - 1));
     }
+  }, [pendingQueue.length, focusIndex]);
+
+  // Radar log simulation
+  useEffect(() => {
+    if (!isScanning && !syncing) { setRadarLogs([]); return; }
     setRadarLogs(["Initializing Exa neural search..."]);
     const timers = [
       setTimeout(() => setRadarLogs(prev => [...prev, "Querying global funding databases..."]), 1500),
@@ -466,9 +432,10 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);
 
-  // Auto-populate from AI-extracted investors (deck, web, or exa)
+  // Auto-populate from AI-extracted investors
   useEffect(() => {
     if (!extractedInvestors?.length) return;
+    setQueueDismissed(false);
     setRows(prev => {
       const existingNames = new Set(prev.map(r => r.investor_name.toLowerCase().trim()));
       const newRows: CapRow[] = [];
@@ -492,7 +459,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
         });
       }
       if (newRows.length === 0) return prev;
-      toast.success(`${newRows.length} investor(s) auto-populated from analysis`);
+      toast.success(`${newRows.length} investor(s) discovered — review below`);
       return [...prev, ...newRows];
     });
   }, [extractedInvestors]);
@@ -518,35 +485,44 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     toast.success("Investor removed");
   };
 
-  const verifyRow = async (id: string) => {
-    const row = rows.find(r => r.id === id);
-    if (!row) return;
-    // Persist to cap_table
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("cap_table").insert({
-        id: row.id,
-        user_id: user.id,
-        investor_name: row.investor_name,
-        entity_type: row.entity_type,
-        instrument: row.instrument,
-        amount: row.amount,
-        date: row.date || null,
-        notes: row._highlight || null,
-      });
-      if (error) throw error;
-      setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true, _new: false, _source: undefined } : r));
-      setOriginal((prev) => [...prev, { ...row, _verified: true, _new: false, _source: undefined }]);
-      toast.success(`${row.investor_name} verified & saved to cap table`);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to verify");
-    }
+  // ── Approve: swipe right, persist to cap_table ──
+  const approveCurrentCard = async () => {
+    if (!currentPending) return;
+    setSwipeDirection("right");
+    setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        const { error } = await supabase.from("cap_table").insert({
+          id: currentPending.id,
+          user_id: user.id,
+          investor_name: currentPending.investor_name,
+          entity_type: currentPending.entity_type,
+          instrument: currentPending.instrument,
+          amount: currentPending.amount,
+          date: currentPending.date || null,
+          notes: currentPending._highlight || null,
+        });
+        if (error) throw error;
+        setRows(prev => prev.map(r => r.id === currentPending.id ? { ...r, _verified: true, _new: false, _source: undefined } : r));
+        setOriginal(prev => [...prev, { ...currentPending, _verified: true, _new: false, _source: undefined }]);
+        toast.success(`${currentPending.investor_name} added to cap table`);
+      } catch (e: any) {
+        toast.error(e.message || "Failed to save");
+      }
+      setSwipeDirection(null);
+    }, 400);
   };
 
-  const rejectRow = (id: string) => {
-    setRows((prev) => prev.filter((r) => r.id !== id));
-    toast("Investor rejected & removed");
+  // ── Reject: swipe left, remove from UI ──
+  const rejectCurrentCard = () => {
+    if (!currentPending) return;
+    setSwipeDirection("left");
+    setTimeout(() => {
+      setRows(prev => prev.filter(r => r.id !== currentPending.id));
+      setSwipeDirection(null);
+      toast("Investor rejected");
+    }, 400);
   };
 
   const saveChanges = async () => {
@@ -583,31 +559,20 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { error: insertErr } = await supabase.from("cap_table").insert({
-      user_id: user.id,
-      investor_name: p.investor_name,
-      entity_type: p.entity_type,
-      instrument: p.instrument,
-      amount: p.amount,
-      date: p.source_date || "",
-      notes: `${p.source_type}: ${p.source_detail || ""}`.trim(),
+      user_id: user.id, investor_name: p.investor_name, entity_type: p.entity_type,
+      instrument: p.instrument, amount: p.amount, date: p.source_date || "", notes: `${p.source_type}: ${p.source_detail || ""}`.trim(),
     });
     if (insertErr) { toast.error("Failed to add investor"); return; }
-    const { error: updateErr } = await supabase.from("pending_investors").update({ status: "accepted" }).eq("id", p.id);
-    if (updateErr) console.error(updateErr);
-    setPending((prev) => prev.filter((x) => x.id !== p.id));
+    await supabase.from("pending_investors").update({ status: "accepted" }).eq("id", p.id);
+    setPending(prev => prev.filter(x => x.id !== p.id));
     await fetchRows();
     toast.success(`${p.investor_name} added to your cap table`);
   };
 
   const dismissPending = async (id: string) => {
     await supabase.from("pending_investors").update({ status: "dismissed" }).eq("id", id);
-    setPending((prev) => prev.filter((x) => x.id !== id));
+    setPending(prev => prev.filter(x => x.id !== id));
     toast("Investor dismissed");
-  };
-
-  const acceptAll = async () => {
-    for (const p of pending) { await acceptPending(p); }
-    setShowReview(false);
   };
 
   const triggerSync = async () => {
@@ -622,9 +587,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
         .limit(1)
         .single();
       if (!analyses) { toast.error("No company profile found."); return; }
-      const domain = analyses.website_url
-        ? analyses.website_url.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
-        : "";
+      const domain = analyses.website_url ? analyses.website_url.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "";
       const { data, error } = await supabase.functions.invoke("sync-investor-data", {
         body: { company_id: analyses.id, company_domain: domain, user_id: user.id, company_name: analyses.company_name },
       });
@@ -637,9 +600,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
       setSyncing(false);
     }
   };
-
-  const fmt = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
 
   const [open, setOpen] = useState(true);
 
@@ -661,6 +621,11 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
               {(isScanning || syncing) && (
                 <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 animate-pulse gap-1">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" /> Scanning...
+                </Badge>
+              )}
+              {pendingQueue.length > 0 && (
+                <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-warning/10 text-warning border-warning/20 gap-1">
+                  <Sparkles className="h-2.5 w-2.5" /> {pendingQueue.length} to review
                 </Badge>
               )}
               {totalRaised > 0 && (
@@ -694,13 +659,13 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                     <p className="text-4xl font-bold text-foreground tracking-tighter mt-0.5 font-mono">{fmt(animatedTotal)}</p>
                     {rows.length > 0 && (
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {rows.length} investor{rows.length !== 1 ? "s" : ""} · {rows.filter(r => r._verified).length} verified
+                        {verifiedRows.length} verified · {pendingQueue.length} pending
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
-                  <FundingAreaChart rows={rows} />
+                  <FundingAreaChart rows={verifiedRows} />
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
                     {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                     {syncing ? "Exa Searching..." : "Deep Search"}
@@ -714,44 +679,96 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
               <DiscoveryRadar logs={radarLogs} companyName={companyName} />
             )}
 
-            {/* ══ Investor Discovery — Pending Cards ══ */}
-            <InvestorDiscovery
-              pending={pending}
-              onConfirm={acceptPending}
-              onIgnore={dismissPending}
-            />
+            {/* ══ Investor Discovery — DB Pending Cards ══ */}
+            <InvestorDiscovery pending={pending} onConfirm={acceptPending} onIgnore={dismissPending} />
 
-            {/* ══ Bento Grid of Investor Profile Cards ══ */}
-            {rows.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Investor Backing</h4>
+            {/* ══ AI Review Queue — Focus Carousel ══ */}
+            {pendingQueue.length > 0 && !queueDismissed && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {dirty && (
-                      <Button size="sm" className="gap-1.5 h-7 text-[11px]" onClick={saveChanges} disabled={saving}>
-                        <Save className="h-3 w-3" />
-                        {saving ? "Saving..." : "Save"}
-                      </Button>
-                    )}
+                    <Sparkles className="h-3.5 w-3.5 text-accent" />
+                    <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">AI Suggestions</h4>
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
+                      {pendingQueue.length} pending review
+                    </Badge>
                   </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {Math.min(focusIndex + 1, pendingQueue.length)} / {pendingQueue.length}
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {rows.map((row) => (
-                    <InvestorCard
+
+                {/* Focus Card */}
+                {currentPending && (
+                  <FocusReviewCard
+                    key={currentPending.id}
+                    row={currentPending}
+                    onApprove={approveCurrentCard}
+                    onReject={rejectCurrentCard}
+                    swipeDirection={swipeDirection}
+                  />
+                )}
+
+                {/* Peek indicator for next card */}
+                {pendingQueue.length > 1 && focusIndex < pendingQueue.length - 1 && (
+                  <div className="flex justify-center gap-1.5 pt-1">
+                    {pendingQueue.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          i === focusIndex ? "w-6 bg-accent" : i < focusIndex ? "w-1.5 bg-success/40" : "w-1.5 bg-muted-foreground/20"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ Inbox Zero ══ */}
+            {pendingQueue.length === 0 && queueDismissed && (
+              <div className="flex items-center gap-2 py-3 px-4 rounded-lg bg-success/5 border border-success/20 animate-fade-in">
+                <Inbox className="h-4 w-4 text-success" />
+                <p className="text-xs font-medium text-success">Inbox Zero: All AI suggestions reviewed.</p>
+              </div>
+            )}
+
+            {/* Mark queue as dismissed when it empties */}
+            {pendingQueue.length === 0 && !queueDismissed && rows.some(r => r._verified) && extractedInvestors && extractedInvestors.length > 0 && (() => { setTimeout(() => setQueueDismissed(true), 500); return null; })()}
+
+            {/* ══ Confirmed Backers — Compact List ══ */}
+            {verifiedRows.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-success" />
+                    <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Confirmed Backers</h4>
+                    <span className="text-[10px] text-muted-foreground">({verifiedRows.length})</span>
+                  </div>
+                  {dirty && (
+                    <Button size="sm" className="gap-1.5 h-7 text-[11px]" onClick={saveChanges} disabled={saving}>
+                      <Save className="h-3 w-3" />
+                      {saving ? "Saving..." : "Save"}
+                    </Button>
+                  )}
+                </div>
+                <div className="rounded-xl border border-border bg-card divide-y divide-border/50">
+                  {verifiedRows.map(row => (
+                    <VerifiedRow
                       key={row.id}
                       row={row}
-                      onUpdate={(field, value) => updateCell(row.id, field, value)}
+                      onEdit={() => {
+                        const newName = prompt("Investor name:", row.investor_name);
+                        if (newName !== null) updateCell(row.id, "investor_name", newName);
+                      }}
                       onDelete={() => deleteRow(row.id, row._new)}
-                      onVerify={row._source && !row._verified ? () => verifyRow(row.id) : undefined}
-                      onReject={row._source && !row._verified ? () => rejectRow(row.id) : undefined}
-                      saving={saving}
                     />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Empty state (no scanning) */}
+            {/* Empty state */}
             {rows.length === 0 && !loading && !isScanning && !syncing && (
               <div className="text-center py-8">
                 <Radio className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
@@ -765,58 +782,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
               <Plus className="h-3.5 w-3.5" />
               Add Investor
             </Button>
-
-            {/* Review Modal */}
-            <Dialog open={showReview} onOpenChange={setShowReview}>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Review Discovered Investors</DialogTitle>
-                  <DialogDescription>
-                    These investors were found from public data sources. Accept to add them to your cap table.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {pending.map((p) => (
-                    <Card key={p.id} className="border">
-                      <CardContent className="flex items-center justify-between py-3 px-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {p.investor_name && (
-                            <img
-                              src={fallbackLogoUrl(p.investor_name)!}
-                              alt=""
-                              className="h-8 w-8 rounded object-contain shrink-0"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{p.investor_name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{p.entity_type}</Badge>
-                              {p.round_name && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{p.round_name}</Badge>}
-                              {p.amount > 0 && <span className="text-xs text-muted-foreground font-mono">{fmt(p.amount)}</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => dismissPending(p.id)}>Dismiss</Button>
-                          <Button size="sm" className="text-xs gap-1" onClick={() => acceptPending(p)}>
-                            <CheckCircle2 className="h-3 w-3" /> Accept
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {pending.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No pending investors.</p>}
-                </div>
-                {pending.length > 1 && (
-                  <div className="flex justify-end pt-2 border-t">
-                    <Button className="gap-1.5" onClick={acceptAll}>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Accept All ({pending.length})
-                    </Button>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
           </div>
         </CollapsibleContent>
       </div>

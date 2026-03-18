@@ -107,6 +107,22 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.6" },
         },
+        "swipe-out-left": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateX(-120%) rotate(-8deg)", opacity: "0" },
+        },
+        "swipe-out-right": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateX(120%) rotate(8deg)", opacity: "0" },
+        },
+        "slide-in-from-right": {
+          "0%": { transform: "translateX(40px) scale(0.95)", opacity: "0" },
+          "100%": { transform: "translateX(0) scale(1)", opacity: "1" },
+        },
+        "drop-in": {
+          "0%": { transform: "translateY(-10px) scale(0.97)", opacity: "0" },
+          "100%": { transform: "translateY(0) scale(1)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -115,6 +131,10 @@ export default {
         "radar-ping": "radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite",
         "spring-pop": "spring-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
         "funding-pulse": "funding-pulse 2s ease-in-out infinite",
+        "swipe-out-left": "swipe-out-left 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards",
+        "swipe-out-right": "swipe-out-right 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards",
+        "slide-in-from-right": "slide-in-from-right 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        "drop-in": "drop-in 0.3s ease-out forwards",
       },
     },
   },
