@@ -16,7 +16,7 @@ import { normalizeSector } from "./company-profile/sectorNormalization";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
-  getCompletionPercent,
+  getCompletionPercent, subsectorsFor,
 } from "./company-profile/types";
 
 // Re-export types for backward compat
