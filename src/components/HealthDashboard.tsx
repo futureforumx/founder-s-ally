@@ -1,68 +1,102 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { HealthGauge } from "./HealthGauge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
-const marketHealthData = [
-  {
-    label: "Market Positioning",
-    value: 72,
-    benchmark: 65,
-    description: "Category leadership & brand authority relative to competitors",
-    status: "healthy" as const,
-  },
-  {
-    label: "Financial Health",
-    value: 45,
-    benchmark: 70,
-    description: "Burn rate, runway, unit economics vs. stage benchmarks",
-    status: "critical" as const,
-  },
-  {
-    label: "GTM Strategy",
-    value: 61,
-    benchmark: 60,
-    description: "Channel efficiency, CAC payback, pipeline velocity",
-    status: "warning" as const,
-  },
-  {
-    label: "Defensibility",
-    value: 78,
-    benchmark: 55,
-    description: "Moat depth: IP, network effects, switching costs, data advantages",
-    status: "healthy" as const,
-  },
-];
+// Stage multipliers — later stages have higher benchmarks
+const stageMultipliers: Record<string, number> = {
+  "Pre-Seed": 0.8,
+  "Seed": 0.9,
+  "Series A": 1.0,
+  "Series B": 1.1,
+  "Series C+": 1.2,
+};
 
-const communityHealthData = [
-  {
-    label: "Market Positioning",
-    value: 68,
-    benchmark: 58,
-    description: "How you rank against community peers in your sector & stage",
-    status: "healthy" as const,
-  },
-  {
-    label: "Financial Health",
-    value: 52,
-    benchmark: 48,
-    description: "Burn rate & runway compared to peer founders on the platform",
-    status: "warning" as const,
-  },
-  {
-    label: "GTM Strategy",
-    value: 55,
-    benchmark: 53,
-    description: "Channel mix & CAC payback vs. community founders at your stage",
-    status: "warning" as const,
-  },
-  {
-    label: "Defensibility",
-    value: 82,
-    benchmark: 60,
-    description: "Moat strength relative to community peers in your sector",
-    status: "healthy" as const,
-  },
-];
+// Sector offsets — some sectors naturally score differently
+const sectorOffsets: Record<string, { financial: number; gtm: number; market: number; moat: number }> = {
+  "SaaS / B2B Software": { financial: 5, gtm: 3, market: 0, moat: 2 },
+  "Fintech": { financial: 8, gtm: 0, market: 2, moat: 5 },
+  "Health Tech": { financial: -3, gtm: -2, market: 5, moat: 8 },
+  "Consumer / D2C": { financial: -5, gtm: 5, market: 3, moat: -3 },
+  "AI / ML": { financial: 0, gtm: -3, market: 8, moat: 10 },
+  "Climate Tech": { financial: -8, gtm: -5, market: 3, moat: 6 },
+  "Marketplace": { financial: -3, gtm: 8, market: 5, moat: 3 },
+  "Developer Tools": { financial: 3, gtm: -2, market: 2, moat: 7 },
+  "Edtech": { financial: -5, gtm: 2, market: 0, moat: -2 },
+  "Other": { financial: 0, gtm: 0, market: 0, moat: 0 },
+};
+
+const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+
+function buildHealthData(
+  mode: "market" | "community",
+  stage?: string,
+  sector?: string
+) {
+  const mult = stageMultipliers[stage || ""] ?? 1.0;
+  const offsets = sectorOffsets[sector || ""] ?? { financial: 0, gtm: 0, market: 0, moat: 0 };
+
+  const baseBenchmarks = mode === "market"
+    ? { market: 65, financial: 70, gtm: 60, moat: 55 }
+    : { market: 58, financial: 48, gtm: 53, moat: 60 };
+
+  const baseValues = mode === "market"
+    ? { market: 72, financial: 45, gtm: 61, moat: 78 }
+    : { market: 68, financial: 52, gtm: 55, moat: 82 };
+
+  const benchmarks = {
+    market: clamp(baseBenchmarks.market * mult + offsets.market),
+    financial: clamp(baseBenchmarks.financial * mult + offsets.financial),
+    gtm: clamp(baseBenchmarks.gtm * mult + offsets.gtm),
+    moat: clamp(baseBenchmarks.moat * mult + offsets.moat),
+  };
+
+  const getStatus = (val: number, bench: number) => {
+    if (val >= bench + 5) return "healthy" as const;
+    if (val >= bench - 10) return "warning" as const;
+    return "critical" as const;
+  };
+
+  const prefix = mode === "market" ? "" : "community ";
+
+  return [
+    {
+      label: "Market Positioning",
+      value: baseValues.market,
+      benchmark: benchmarks.market,
+      description: mode === "market"
+        ? `Category leadership & brand authority${stage ? ` for ${stage} companies` : ""}${sector ? ` in ${sector}` : ""}`
+        : `How you rank against ${prefix}peers${sector ? ` in ${sector}` : ""}${stage ? ` at ${stage} stage` : ""}`,
+      status: getStatus(baseValues.market, benchmarks.market),
+    },
+    {
+      label: "Financial Health",
+      value: baseValues.financial,
+      benchmark: benchmarks.financial,
+      description: mode === "market"
+        ? `Burn rate, runway, unit economics vs.${stage ? ` ${stage}` : ""} stage benchmarks`
+        : `Burn rate & runway compared to peer founders${stage ? ` at ${stage}` : ""}`,
+      status: getStatus(baseValues.financial, benchmarks.financial),
+    },
+    {
+      label: "GTM Strategy",
+      value: baseValues.gtm,
+      benchmark: benchmarks.gtm,
+      description: mode === "market"
+        ? `Channel efficiency, CAC payback, pipeline velocity${sector ? ` in ${sector}` : ""}`
+        : `Channel mix & CAC payback vs. ${prefix}founders${stage ? ` at ${stage}` : ""}`,
+      status: getStatus(baseValues.gtm, benchmarks.gtm),
+    },
+    {
+      label: "Defensibility",
+      value: baseValues.moat,
+      benchmark: benchmarks.moat,
+      description: mode === "market"
+        ? `Moat depth: IP, network effects, switching costs${sector ? ` in ${sector}` : ""}`
+        : `Moat strength relative to ${prefix}peers${sector ? ` in ${sector}` : ""}`,
+      status: getStatus(baseValues.moat, benchmarks.moat),
+    },
+  ];
+}
 
 const marketMetrics = [
   { label: "MRR", value: "$142K", change: "+12%", trend: "up" },
@@ -82,15 +116,25 @@ const communityMetrics = [
   { label: "CAC/LTV", value: "4.4x", change: "+0.6x vs peers", trend: "up" },
 ];
 
-const metrics = marketMetrics;
-
 type BenchmarkMode = "market" | "community";
 
-export function HealthDashboard() {
+interface HealthDashboardProps {
+  stage?: string;
+  sector?: string;
+}
+
+export function HealthDashboard({ stage, sector }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
 
-  const healthData = mode === "market" ? marketHealthData : communityHealthData;
+  const healthData = useMemo(
+    () => buildHealthData(mode, stage, sector),
+    [mode, stage, sector]
+  );
   const activeMetrics = mode === "market" ? marketMetrics : communityMetrics;
+
+  const contextLabel = stage && sector
+    ? `${stage} · ${sector}`
+    : stage || sector || null;
 
   return (
     <div className="space-y-6">
@@ -99,8 +143,8 @@ export function HealthDashboard() {
           <h2 className="text-lg font-semibold tracking-tight text-foreground">Company Health</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {mode === "market"
-              ? "Real-time positioning against up-to-date market data"
-              : "Positioning against similar founders on the platform"}
+              ? `Real-time positioning against up-to-date market data${contextLabel ? ` for ${contextLabel}` : ""}`
+              : `Positioning against similar founders on the platform${contextLabel ? ` (${contextLabel})` : ""}`}
           </p>
         </div>
 
