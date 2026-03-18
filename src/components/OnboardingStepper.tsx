@@ -130,8 +130,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const finalize = () => {
     setSynced(true);
     setTimeout(() => {
+      // Normalize sector one more time to ensure consistency
+      const normalized = normalizeSector(
+        sector || analysisResult?.aiExtracted?.sector,
+        analysisResult?.sectorMapping?.subTag,
+        analysisResult?.sectorMapping?.keywords
+      );
+      const finalSector = normalized.sector || sector;
+      const finalSubsectors = normalized.subsectors;
+
+      console.log(`[Onboarding Finalize] Sector: "${finalSector}" | Subsectors: [${finalSubsectors.join(", ")}]`);
+
       const company: CompanyData = {
-        name: companyName, stage, sector, subsectors: [], description: "", website, teamSize: "",
+        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors, description: "", website, teamSize: "",
         businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
         uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
       };
