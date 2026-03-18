@@ -415,11 +415,21 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
           {/* Pitch Deck */}
           <ProfileField label="Pitch Deck (PDF)" icon={<FileText className="inline h-3 w-3" />}>
             <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-              className="flex items-center justify-between rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-3 transition-colors hover:border-accent/40">
+              className={`relative flex items-center justify-between rounded-lg border-2 border-dashed px-4 py-3 transition-colors ${
+                scanningMetrics
+                  ? "border-accent/60 bg-accent/5 deck-scan-line"
+                  : "border-border bg-muted/30 hover:border-accent/40"
+              }`}>
               <div className="flex items-center gap-3">
-                <Upload className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{deckFile ? deckFile.name : "Drop PDF here or browse"}</span>
-                {deckFile && deckText && <span className="text-[10px] text-success font-mono">✓ Extracted</span>}
+                {scanningMetrics ? (
+                  <Loader2 className="h-4 w-4 text-accent animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className={`text-sm ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                  {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
+                </span>
+                {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono">✓ Extracted</span>}
               </div>
               <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
