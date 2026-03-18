@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      cap_table: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string | null
+          entity_type: string
+          id: string
+          instrument: string
+          investor_name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          date?: string | null
+          entity_type?: string
+          id?: string
+          instrument?: string
+          investor_name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string | null
+          entity_type?: string
+          id?: string
+          instrument?: string
+          investor_name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_analyses: {
         Row: {
           burn_rate: string | null
