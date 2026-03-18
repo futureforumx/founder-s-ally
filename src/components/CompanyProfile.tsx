@@ -39,6 +39,13 @@ interface CompanyProfileProps {
   onWalkthroughComplete?: () => void;
 }
 
+export interface CompanyProfileHandle {
+  triggerAnalysis: () => void;
+  isAnalyzing: boolean;
+  canAnalyze: boolean;
+  analyzeStepLabel: string;
+}
+
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
 
 function extractDomain(url: string): string | null {
