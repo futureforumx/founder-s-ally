@@ -23,6 +23,12 @@ const Index = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-sector-tags");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   const profileComplete = !!companyData && !!analysisResult;
 
