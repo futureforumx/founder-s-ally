@@ -137,36 +137,97 @@ function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: s
   );
 }
 
-// ── Mini Funding Timeline Chart ──
-function FundingTimeline({ rows }: { rows: CapRow[] }) {
+// ── Interactive Funding Area Chart ──
+function FundingAreaChart({ rows }: { rows: CapRow[] }) {
   const sorted = useMemo(() => {
     return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
   }, [rows]);
 
   if (sorted.length < 2) return null;
 
-  const cumulative = sorted.reduce<{ date: string; total: number }[]>((acc, r) => {
+  const cumulative = sorted.reduce<{ date: string; total: number; label: string }[]>((acc, r) => {
     const prev = acc.length > 0 ? acc[acc.length - 1].total : 0;
-    acc.push({ date: r.date, total: prev + r.amount });
+    acc.push({ date: r.date, total: prev + r.amount, label: r.investor_name });
     return acc;
   }, []);
 
   const maxVal = cumulative[cumulative.length - 1]?.total || 1;
+  const width = 280;
+  const height = 80;
+  const padX = 0;
+  const padY = 8;
+
   const points = cumulative.map((p, i) => {
-    const x = (i / (cumulative.length - 1)) * 100;
-    const y = 100 - (p.total / maxVal) * 80;
-    return `${x},${y}`;
+    const x = padX + (i / (cumulative.length - 1)) * (width - padX * 2);
+    const y = height - padY - ((p.total / maxVal) * (height - padY * 2));
+    return { x, y, ...p };
+  });
+
+  // Smooth monotone path
+  const pathD = points.map((p, i) => {
+    if (i === 0) return `M${p.x},${p.y}`;
+    const prev = points[i - 1];
+    const cpx = (prev.x + p.x) / 2;
+    return `C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
   }).join(" ");
 
+  const areaD = `${pathD} L${points[points.length - 1].x},${height} L${points[0].x},${height} Z`;
+
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const fmt = (n: number) =>
+    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
+
   return (
-    <div className="h-12 w-full max-w-[200px]">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <polyline points={points} fill="none" stroke="hsl(var(--accent))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <polygon points={`0,100 ${points} 100,100`} fill="hsl(var(--accent) / 0.1)" />
+    <div className="w-full max-w-[280px] relative">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-20">
+        <defs>
+          <linearGradient id="colorFunding" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#colorFunding)" />
+        <path d={pathD} fill="none" stroke="hsl(var(--accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {/* Interactive hover dots */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle
+              cx={p.x} cy={p.y} r="8"
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+            />
+            <circle
+              cx={p.x} cy={p.y}
+              r={hoverIdx === i ? 4 : 2.5}
+              fill={hoverIdx === i ? "hsl(var(--accent))" : "hsl(var(--background))"}
+              stroke="hsl(var(--accent))"
+              strokeWidth="1.5"
+              className="transition-all duration-150"
+            />
+          </g>
+        ))}
       </svg>
+      {/* Tooltip */}
+      {hoverIdx !== null && points[hoverIdx] && (
+        <div
+          className="absolute -top-10 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg pointer-events-none whitespace-nowrap z-10"
+          style={{
+            left: `${(points[hoverIdx].x / width) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
+        >
+          <span className="font-semibold">{fmt(points[hoverIdx].total)}</span>
+          <span className="text-background/60 ml-1">· {points[hoverIdx].label}</span>
+          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground" />
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ── Bento Investor Profile Card ──
 function InvestorCard({
