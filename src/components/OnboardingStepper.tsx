@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
+import { Globe, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { normalizeSector } from "@/components/company-profile/sectorNormalization";
+import { SmartSelect } from "@/components/onboarding/SmartSelect";
+import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
@@ -34,6 +36,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [faviconError, setFaviconError] = useState(false);
+  const [predictedStage, setPredictedStage] = useState("");
+  const [predictedSector, setPredictedSector] = useState("");
 
   const faviconUrl = useMemo(() => {
     if (!website.trim()) return null;
@@ -52,6 +56,13 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     setFaviconError(false);
   }
 
+  // Mock predictive categorization based on website
+  const runPredictiveFetch = useCallback(() => {
+    // Mock function - returns predicted values from web scrape
+    setPredictedStage("Series B");
+    setPredictedSector("Construction & Real Estate");
+  }, []);
+
   const scrapeWebsite = async () => {
     if (!website.trim()) return;
     setIsProcessing(true);
@@ -63,6 +74,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       });
       if (scrapeError) throw scrapeError;
       setWebsiteScraped(true);
+      runPredictiveFetch();
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to scrape website");
@@ -270,41 +282,30 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 <>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      <FileText className="inline h-3 w-3 mr-1" />Upload Your Pitch Deck
+                      Upload Your Pitch Deck
                     </label>
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFileSelect(f); }}
-                      className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 py-8 transition-colors hover:border-accent/40 cursor-pointer"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-8 w-8 text-muted-foreground/50" />
-                      <span className="text-sm text-muted-foreground">
-                        {deckFile ? deckFile.name : "Drop PDF here or click to browse"}
-                      </span>
-                      {deckFile && deckText && <span className="text-[10px] text-success font-mono">✓ Text extracted</span>}
-                      <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">AI will extract key metrics from your deck</p>
+                    <EnhancedDropzone
+                      file={deckFile}
+                      hasExtractedText={!!deckText}
+                      onFileSelect={handleFileSelect}
+                      onRemove={() => { setDeckFile(null); setDeckText(""); }}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-                      <select value={stage} onChange={(e) => setStage(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select stage</option>
-                        {stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-                      <select value={sector} onChange={(e) => setSector(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select sector</option>
-                        {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
+                    <SmartSelect
+                      label="Stage"
+                      value={stage}
+                      onChange={setStage}
+                      options={stages}
+                      predictedValue={predictedStage}
+                    />
+                    <SmartSelect
+                      label="Sector"
+                      value={sector}
+                      onChange={setSector}
+                      options={sectors}
+                      predictedValue={predictedSector}
+                    />
                   </div>
                 </>
               )}
@@ -360,7 +361,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <button onClick={onSkip} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={onSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 Skip for now
               </button>
               <div className="flex gap-2">
@@ -369,16 +370,22 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 )}
                 {step === 1 && (
                   <Button size="sm" disabled={!companyName.trim() || isProcessing} onClick={() => {
-                    if (website.trim()) { scrapeWebsite(); } else { setStep(2); }
+                    if (website.trim()) { scrapeWebsite(); } else { runPredictiveFetch(); setStep(2); }
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue"}
                   </Button>
                 )}
-                {step === 2 && (
-                  <Button size="sm" disabled={isProcessing} onClick={runAnalysis}>
+                {step === 2 && !deckFile && (
+                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={runAnalysis}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    {isProcessing ? processStep : "Analyze & Continue"}
+                    {isProcessing ? processStep : "Continue with Web Data"}
+                  </Button>
+                )}
+                {step === 2 && deckFile && (
+                  <Button size="sm" disabled={isProcessing} onClick={runAnalysis} className="animate-pulse hover:animate-none">
+                    {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                    {isProcessing ? processStep : "Analyze Deck & Continue"}
                   </Button>
                 )}
                 {step === 3 && (
