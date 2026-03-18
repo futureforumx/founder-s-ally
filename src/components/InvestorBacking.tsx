@@ -778,10 +778,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                     <VerifiedRow
                       key={row.id}
                       row={row}
-                      onEdit={() => {
-                        const newName = prompt("Investor name:", row.investor_name);
-                        if (newName !== null) updateCell(row.id, "investor_name", newName);
-                      }}
+                      onUpdate={updateCell}
                       onDelete={() => deleteRow(row.id, row._new)}
                     />
                   ))}
