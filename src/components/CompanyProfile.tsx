@@ -638,9 +638,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       setCategorizationExpanded(true);
       setCompetitiveExpanded(true);
       setMetricsExpanded(true);
+      // Merge deck-extracted investors with deep search investors (deduplicated)
+      const deckInvestors = analysisData.extractedInvestors || [];
+      const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
+      const mergedInvestors = [
+        ...deckInvestors,
+        ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim())),
+      ];
+
+      const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
       // Auto-save will be handled by the useEffect below once form state settles
-      onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
-      try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
+      onAnalysis?.(finalResult as AnalysisResult);
+      try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
