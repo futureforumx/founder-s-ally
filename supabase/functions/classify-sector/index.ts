@@ -40,7 +40,18 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a startup sector classification expert. Given website content and/or an executive summary, classify the company into a primary sector and generate modern niche tags that VCs and founders actually use in 2025+. Be specific and avoid generic labels.`,
+            content: `You are a startup sector classification expert. Given website content and/or an executive summary, classify the company using this exact taxonomy:
+
+Sectors and subsectors:
+- Artificial Intelligence: Vertical AI (SaaS), AI Infrastructure & LLMOps, Autonomous Agents, Computer Vision, Natural Language Processing, Generative Media
+- Fintech: Payments & Infrastructure, Neobanking, DeFi & Web3 Finance, Insurtech, RegTech & Compliance, Embedded Finance
+- Climate & Energy: Carbon Capture & Storage, Renewable Energy (Solar/Wind/Fusion), Battery Tech & Storage, Circular Economy, AgTech & Food Science, Water Tech
+- Health & Biotech: Longevity & Anti-Aging, Digital Health & Telemedicine, Biopharmaceuticals, Medical Devices, Genomics, Mental Health Tech
+- Enterprise Software: Cybersecurity, DevTools & Open Source, HRTech & Future of Work, MarTech, Supply Chain & Logistics, ERP & CRM
+- Deep Tech & Space: Quantum Computing, Space Infrastructure, Satellite Communications, Advanced Materials, Semiconductors, Photonics
+- Consumer & Retail: E-commerce & D2C, Gaming & Esport, EdTech, PropTech, Social Media & Creators, AR/VR Platforms
+
+The primary_sector MUST be one of the 7 sectors above. The modern_tags should include the matching subsector(s) plus any additional niche tags.`,
           },
           {
             role: "user",
@@ -58,12 +69,13 @@ serve(async (req) => {
                 properties: {
                   primary_sector: {
                     type: "string",
-                    description: "Broad category from: Fintech, Healthtech, SaaS, AI/ML, Consumer, Climate Tech, Edtech, Marketplace, Developer Tools, Biotech, Proptech, Insurtech, Logistics, Media, Cybersecurity, Web3, Other",
+                    enum: ["Artificial Intelligence", "Fintech", "Climate & Energy", "Health & Biotech", "Enterprise Software", "Deep Tech & Space", "Consumer & Retail"],
+                    description: "Primary sector from the taxonomy",
                   },
                   modern_tags: {
                     type: "array",
                     items: { type: "string" },
-                    description: "3-5 specific modern niche tags like 'Vertical AI', 'Climate-Fintech', 'B2B Infrastructure', 'Longevity Tech', 'Embedded Finance', 'API-First', 'PLG SaaS'",
+                    description: "3-5 tags: matching subsector(s) from taxonomy plus modern niche tags",
                   },
                 },
                 required: ["primary_sector", "modern_tags"],
