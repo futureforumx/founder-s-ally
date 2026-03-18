@@ -234,6 +234,27 @@ ${combinedText.slice(0, 40000)}`;
                     additionalProperties: false,
                   },
                 },
+                  extractedInvestors: {
+                    type: "array",
+                    description: "Investors found in the pitch deck or website content",
+                    items: {
+                      type: "object",
+                      properties: {
+                        investorName: { type: "string", description: "Investor firm or individual name" },
+                        entityType: { type: "string", enum: ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"], description: "Type of investor" },
+                        instrument: { type: "string", description: "Investment instrument (SAFE, Equity, Convertible Note, etc.)" },
+                        amount: { type: "number", description: "Amount invested in USD, 0 if unknown" },
+                        date: { type: "string", description: "Investment date YYYY-MM-DD if known, empty string if not" },
+                        source: { type: "string", enum: ["deck", "web"], description: "Where this investor was found" },
+                      },
+                      required: ["investorName", "entityType", "instrument", "amount", "source"],
+                      additionalProperties: false,
+                    },
+                  },
+                  totalFundingRaised: {
+                    type: "number",
+                    description: "Total funding raised in USD if mentioned, 0 if not found",
+                  },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
                 additionalProperties: false,
               },
