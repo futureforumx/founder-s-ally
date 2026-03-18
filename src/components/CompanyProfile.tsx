@@ -506,6 +506,27 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                 </select>
                 {renderVerificationBadge("stage")}
               </div>
+              {/* Stage Classification Detail */}
+              {stageClassification && analysisComplete && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 gap-0.5 ${
+                      stageClassification.confidence_score >= 0.8 ? "bg-success/10 text-success border-success/20" :
+                      stageClassification.confidence_score >= 0.5 ? "bg-accent/10 text-accent border-accent/20" :
+                      "bg-warning/10 text-warning border-warning/20"
+                    }`}>
+                      {Math.round(stageClassification.confidence_score * 100)}% confidence
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{stageClassification.reasoning}</p>
+                  {stageClassification.conflicting_signals && (
+                    <div className="flex items-start gap-1 text-[10px] text-warning">
+                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                      <span>{stageClassification.conflicting_signals}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </ProfileField>
             <ProfileField label="Sector" isAiDraft={isFieldAiDraft("sector")}
               aiSuggestion={aiSuggestions.sector} onApplySuggestion={() => update("sector", aiSuggestions.sector!)}>
