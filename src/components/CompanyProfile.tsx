@@ -886,7 +886,10 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               OUTPUT SECTIONS (greyed out before analysis)
               ═══════════════════════════════════════════════ */}
 
-          <div className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+          <div
+            onFocusCapture={() => setIsEditing(true)}
+            onBlurCapture={() => setIsEditing(false)}
+            className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
               <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6">
