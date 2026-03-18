@@ -356,7 +356,7 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground font-medium">Total Capital Raised</p>
-              <p className="text-xl font-bold text-foreground tracking-tight">{fmt(totalRaised)}</p>
+              <p className="text-xl font-bold text-foreground tracking-tight">{fmt(animatedTotal)}</p>
             </div>
           </div>
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing}>
