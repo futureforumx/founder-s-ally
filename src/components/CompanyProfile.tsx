@@ -909,8 +909,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               ═══════════════════════════════════════════════ */}
 
           <div
-            onFocusCapture={() => { editingCountRef.current++; setIsEditing(true); }}
-            onBlurCapture={() => { editingCountRef.current--; requestAnimationFrame(() => { if (editingCountRef.current <= 0) { editingCountRef.current = 0; setIsEditing(false); } }); }}
+            ref={outputSectionsRef}
+            onFocusCapture={handleOutputFocusCapture}
+            onBlurCapture={handleOutputBlurCapture}
             className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
