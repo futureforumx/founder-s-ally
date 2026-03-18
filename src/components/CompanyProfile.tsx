@@ -22,6 +22,7 @@ interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
   onAnalysis?: (result: AnalysisResult) => void;
   onSectorChange?: (classification: SectorClassification) => void;
+  onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
