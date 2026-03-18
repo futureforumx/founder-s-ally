@@ -934,9 +934,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : logoUrl ? (
               <>
                 <img src={logoUrl} alt="Logo" className="h-full w-full object-cover transition-opacity duration-500" />
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="h-3.5 w-3.5 text-foreground" />
-                </div>
+                {isExpanded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="h-3.5 w-3.5 text-foreground" />
+                  </div>
+                )}
               </>
             ) : (
               <>
