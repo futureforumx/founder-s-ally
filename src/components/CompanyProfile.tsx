@@ -104,6 +104,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
