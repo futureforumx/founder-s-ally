@@ -73,7 +73,6 @@ const Index = () => {
     });
   };
 
-  };
 
   const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
     setCompanyData(company);
