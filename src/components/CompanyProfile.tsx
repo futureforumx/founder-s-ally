@@ -1296,13 +1296,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           )}
 
-          {/* AI Sector Tags */}
-          <SectorTags
-            websiteText={websiteMarkdown}
-            executiveSummary={analysisComplete ? (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary; } catch { return ""; } })() : ""}
-            companyName={form.name}
-            onChange={c => { setSectorClassification(c); onSectorChange?.(c); }}
-          />
         </div>
       )}
 
