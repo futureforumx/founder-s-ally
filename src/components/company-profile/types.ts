@@ -12,7 +12,7 @@ export const SECTOR_TAXONOMY = {
 
 export const sectors = Object.keys(SECTOR_TAXONOMY);
 export const subsectorsFor = (sector: string): string[] =>
-  SECTOR_TAXONOMY[sector as keyof typeof SECTOR_TAXONOMY] ?? [];
+  (SECTOR_TAXONOMY[sector as keyof typeof SECTOR_TAXONOMY] as unknown as string[]) ?? [];
 export const businessModels = ["SaaS", "Marketplace", "E-Commerce", "Hardware", "Services", "Freemium", "Usage-Based", "Other"];
 export const targetCustomers = ["B2B", "B2C", "B2B2C", "B2G"];
 
