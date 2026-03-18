@@ -518,14 +518,35 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     toast.success("Investor removed");
   };
 
-  const verifyRow = (id: string) => {
-    setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true } : r));
-    toast.success("Investor verified");
+  const verifyRow = async (id: string) => {
+    const row = rows.find(r => r.id === id);
+    if (!row) return;
+    // Persist to cap_table
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("cap_table").insert({
+        id: row.id,
+        user_id: user.id,
+        investor_name: row.investor_name,
+        entity_type: row.entity_type,
+        instrument: row.instrument,
+        amount: row.amount,
+        date: row.date || null,
+        notes: row._highlight || null,
+      });
+      if (error) throw error;
+      setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true, _new: false, _source: undefined } : r));
+      setOriginal((prev) => [...prev, { ...row, _verified: true, _new: false, _source: undefined }]);
+      toast.success(`${row.investor_name} verified & saved to cap table`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to verify");
+    }
   };
 
   const rejectRow = (id: string) => {
     setRows((prev) => prev.filter((r) => r.id !== id));
-    toast("Investor rejected");
+    toast("Investor rejected & removed");
   };
 
   const saveChanges = async () => {

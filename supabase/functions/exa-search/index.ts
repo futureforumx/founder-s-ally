@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -21,6 +19,7 @@ interface ParsedInvestor {
   instrument: string;
   amount: number;
   date: string;
+  round: string;
   source: "exa";
   highlight: string;
   sourceUrl: string;
@@ -34,6 +33,7 @@ const MOCK_INVESTORS: ParsedInvestor[] = [
     instrument: "Equity",
     amount: 15_000_000,
     date: "2024-06-15",
+    round: "Series A",
     source: "exa",
     highlight: "Led Series A round with focus on construction technology disruption",
     sourceUrl: "https://a16z.com",
@@ -45,6 +45,7 @@ const MOCK_INVESTORS: ParsedInvestor[] = [
     instrument: "SAFE (Post-money)",
     amount: 5_000_000,
     date: "2024-03-10",
+    round: "Seed",
     source: "exa",
     highlight: "Participated in seed extension targeting vertical SaaS for infrastructure",
     sourceUrl: "https://foundersfund.com",
@@ -56,6 +57,7 @@ const MOCK_INVESTORS: ParsedInvestor[] = [
     instrument: "Equity",
     amount: 8_000_000,
     date: "2024-09-22",
+    round: "Series B",
     source: "exa",
     highlight: "Co-led growth round for real estate and construction tech portfolio expansion",
     sourceUrl: "https://standard.com",
@@ -63,50 +65,135 @@ const MOCK_INVESTORS: ParsedInvestor[] = [
   },
 ];
 
-// ── Proper Noun Extraction ──
-// Parses highlight text to extract the actual VC firm name as a proper noun,
-// rather than using a sentence fragment.
-function extractProperNoun(text: string): string | null {
-  // Patterns that precede investor names
-  const leadPatterns = [
-    /(?:led by|backed by|from|invested by|investment from|funding from|raised from|capital from|co-led by)\s+([A-Z][A-Za-z0-9\s&'.\-()]+?)(?:\s*[,;.]|\s+(?:and|with|in|for|to|at|has|have|was|were|will|which|who|that|this)\b)/gi,
-    /([A-Z][A-Za-z0-9\s&'.\-()]+?)\s+(?:led|invested|participated|backed|announced|joined|committed|contributed|co-led)/gi,
-    /(?:investors?\s+(?:include|including|such as|like)\s+)([A-Z][A-Za-z0-9\s&'.\-(),]+?)(?:\.|$)/gi,
-  ];
-
-  for (const pattern of leadPatterns) {
-    const matches = text.matchAll(pattern);
-    for (const match of matches) {
-      const rawNames = match[1]
-        .split(/\s*,\s*|\s+and\s+/)
-        .map((n: string) => n.trim())
-        .filter((n: string) => n.length >= 3 && n.length < 60);
-
-      for (const name of rawNames) {
-        // Must start with uppercase (proper noun) and not be a common word
-        if (!/^[A-Z]/.test(name)) continue;
-        if (/^(The|A|An|Its|Their|This|That|With|For|Has|Have|Was|Were|Will|Would|Said|Says|Which|Who|Also|Other|New|First|Last|More|Most|Some|All|Each|Every|Both|Several|Many|Few|Much|Round|Series|Company|Startup|Venture|Capital|Funding|Investment|Total|About|Around|Over|Under|Between|During|After|Before|Into|Through)$/i.test(name)) continue;
-        return name;
-      }
-    }
+// ── LLM-based extraction ──
+async function extractInvestorsViaLLM(
+  results: ExaResult[],
+  companyName: string
+): Promise<ParsedInvestor[]> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) {
+    console.warn("LOVABLE_API_KEY not set, falling back to regex extraction");
+    return regexFallbackExtraction(results);
   }
 
-  // Fallback: look for sequences of capitalized words (2+ words, likely a firm name)
-  const capitalizedSeq = text.match(/\b([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|&|of|the)){1,4})\b/g);
-  if (capitalizedSeq) {
-    for (const candidate of capitalizedSeq) {
-      if (candidate.length >= 4 && candidate.length < 50) {
-        if (!/^(The Round|The Company|Series [A-Z]|Total Funding|Venture Capital|New York|San Francisco|United States)/i.test(candidate)) {
-          return candidate.trim();
-        }
-      }
-    }
-  }
+  // Build context from all Exa results
+  const snippets = results.map((r, i) => {
+    const highlights = (r.highlights || []).join(" ");
+    const text = r.text ? r.text.substring(0, 500) : "";
+    return `[Source ${i + 1}] URL: ${r.url}\nTitle: ${r.title}\nDate: ${r.publishedDate || "unknown"}\nContent: ${highlights} ${text}`.trim();
+  }).join("\n\n");
 
-  return null;
+  const systemPrompt = `You are a financial analyst. Read the provided news snippets about "${companyName}". Extract the exact name of the Venture Capital firm or Lead Investor that supplied the funding. Ignore introductory text, article titles, or generic phrases. If the text says "The round was led by Sway Ventures", the investorName MUST be exactly "Sway Ventures".
+
+Rules:
+- investorName must be a proper noun (a real firm name), never a sentence fragment
+- If you cannot identify a real firm name, skip that entry entirely
+- Deduplicate: if multiple articles mention the same round (same amount + same investor), combine into ONE entry
+- amount should be in raw dollars (e.g. 11000000 for $11M)
+- round should be the funding stage like "Seed", "Series A", "Series B", etc. Use "Unknown" if unclear
+- instrument should be one of: "Equity", "SAFE (Post-money)", "SAFE (Pre-money)", "Convertible Note"
+- date should be ISO format YYYY-MM-DD if available, empty string if not
+- domain should be the investor's website domain (e.g. "swayventures.com")`;
+
+  const userPrompt = `Extract all unique investors from these snippets about ${companyName}:\n\n${snippets}`;
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "extract_investors",
+              description: "Extract deduplicated investor data from funding news snippets",
+              parameters: {
+                type: "object",
+                properties: {
+                  investors: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        investorName: { type: "string", description: "Proper noun name of the VC firm or lead investor" },
+                        amount: { type: "number", description: "Funding amount in raw dollars" },
+                        round: { type: "string", description: "Funding stage e.g. Seed, Series A" },
+                        instrument: { type: "string", enum: ["Equity", "SAFE (Post-money)", "SAFE (Pre-money)", "Convertible Note"] },
+                        date: { type: "string", description: "ISO date YYYY-MM-DD or empty" },
+                        domain: { type: "string", description: "Investor website domain" },
+                        sourceUrl: { type: "string", description: "URL of the source article" },
+                        highlight: { type: "string", description: "Brief excerpt explaining the investment" },
+                      },
+                      required: ["investorName", "amount", "round", "instrument", "domain", "sourceUrl", "highlight"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["investors"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "extract_investors" } },
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error(`AI gateway error: ${resp.status}`);
+      const text = await resp.text();
+      console.error(text);
+      return regexFallbackExtraction(results);
+    }
+
+    const data = await resp.json();
+    const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) {
+      console.warn("No tool call in AI response, falling back");
+      return regexFallbackExtraction(results);
+    }
+
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const investors: ParsedInvestor[] = (parsed.investors || [])
+      .filter((inv: any) => inv.investorName && inv.investorName.length >= 2 && inv.investorName.length < 80)
+      .map((inv: any) => ({
+        investorName: inv.investorName,
+        entityType: "VC Firm",
+        instrument: inv.instrument || "Equity",
+        amount: inv.amount || 0,
+        date: inv.date || "",
+        round: inv.round || "Unknown",
+        source: "exa" as const,
+        highlight: (inv.highlight || "").substring(0, 200),
+        sourceUrl: inv.sourceUrl || "",
+        domain: inv.domain || inv.investorName.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+      }));
+
+    // Final deduplication by investorName (case-insensitive)
+    const seen = new Set<string>();
+    return investors.filter((inv) => {
+      const key = inv.investorName.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 10);
+  } catch (e) {
+    console.error("LLM extraction failed:", e);
+    return regexFallbackExtraction(results);
+  }
 }
 
-function extractInvestorsFromResults(results: ExaResult[]): ParsedInvestor[] {
+// ── Regex fallback (simplified) ──
+function regexFallbackExtraction(results: ExaResult[]): ParsedInvestor[] {
   const investors: ParsedInvestor[] = [];
   const seen = new Set<string>();
 
@@ -114,119 +201,49 @@ function extractInvestorsFromResults(results: ExaResult[]): ParsedInvestor[] {
     const highlights = result.highlights || [];
     const fullText = [result.title, ...highlights, result.text || ""].join(" ");
 
-    // Try to extract names from each highlight individually first
-    const textsToSearch = highlights.length > 0 ? highlights : [fullText];
+    const patterns = [
+      /(?:led by|backed by|from|investment from|funding from)\s+([A-Z][A-Za-z0-9\s&'.\-()]+?)(?:\s*[,;.]|\s+(?:and|with|in|for|to|at|has|have|was|were|will)\b)/gi,
+      /([A-Z][A-Za-z0-9\s&'.\-()]+?)\s+(?:led|invested|participated|backed|co-led)/gi,
+    ];
 
-    for (const searchText of textsToSearch) {
-      const patterns = [
-        /(?:led by|backed by|from|invested by|investment from|funding from|raised from)\s+([A-Z][A-Za-z0-9\s&'.\-()]+?)(?:\s*[,;.]|\s+(?:and|with|in|for|to|at|has|have|was|were|will|which|who|that|this)\b)/gi,
-        /([A-Z][A-Za-z0-9\s&'.\-()]+?)\s+(?:led|invested|participated|backed|announced|joined|committed|co-led)/gi,
-        /(?:investors?\s+(?:include|including|such as)\s+)([A-Z][A-Za-z0-9\s&'.\-(),]+?)(?:\.|$)/gi,
-      ];
-
-      for (const pattern of patterns) {
-        const matches = searchText.matchAll(pattern);
-        for (const match of matches) {
-          const names = match[1]
-            .split(/\s*,\s*|\s+and\s+/)
-            .map((n: string) => n.trim())
-            .filter((n: string) => n.length >= 3 && n.length < 50);
-
-          for (const name of names) {
-            if (!/^[A-Z]/.test(name)) continue;
-            if (/^(The|A|An|Its|Their|This|That|With|For|Has|Have|Was|Were|Will|Would|Said|Says|Which|Who|Also|Other|New|First|Last|More|Most|Some|Round|Series|Company|Startup|Venture|Capital|Funding|Investment|Total|About|Around|Over|Under)$/i.test(name)) continue;
-
-            const key = name.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-
-            // Extract amount from full text
-            let amount = 0;
-            const amountMatch = fullText.match(/\$(\d+(?:\.\d+)?)\s*(million|m|billion|b|k|thousand)/i);
-            if (amountMatch) {
-              const num = parseFloat(amountMatch[1]);
-              const unit = amountMatch[2].toLowerCase();
-              if (unit === "billion" || unit === "b") amount = num * 1_000_000_000;
-              else if (unit === "million" || unit === "m") amount = num * 1_000_000;
-              else if (unit === "thousand" || unit === "k") amount = num * 1_000;
-            }
-
-            let instrument = "Equity";
-            if (/safe/i.test(fullText)) instrument = "SAFE (Post-money)";
-            else if (/convertible\s*note/i.test(fullText)) instrument = "Convertible Note";
-
-            let date = "";
-            const dateMatch = fullText.match(/(\d{4}-\d{2}-\d{2})/);
-            if (dateMatch) date = dateMatch[0];
-            else if (result.publishedDate) date = result.publishedDate.substring(0, 10);
-
-            const domain = name.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
-
-            investors.push({
-              investorName: name,
-              entityType: "VC Firm",
-              instrument,
-              amount,
-              date,
-              source: "exa",
-              highlight: (searchText || result.title || "Found via Exa neural search").substring(0, 200),
-              sourceUrl: result.url,
-              domain,
-            });
-          }
-        }
-      }
-    }
-
-    // If no names were extracted from patterns, try the proper noun extractor on each highlight
-    if (investors.length === 0 && highlights.length > 0) {
-      for (const hl of highlights) {
-        const extracted = extractProperNoun(hl);
-        if (extracted && !seen.has(extracted.toLowerCase())) {
-          seen.add(extracted.toLowerCase());
+    for (const pattern of patterns) {
+      const matches = fullText.matchAll(pattern);
+      for (const match of matches) {
+        const names = match[1].split(/\s*,\s*|\s+and\s+/).map((n: string) => n.trim()).filter((n: string) => n.length >= 3 && n.length < 50);
+        for (const name of names) {
+          if (!/^[A-Z]/.test(name)) continue;
+          if (/^(The|A|An|Its|Their|This|That|With|For|Round|Series|Company|Startup|Venture|Capital|Funding|Investment|Total)$/i.test(name)) continue;
+          const key = name.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
 
           let amount = 0;
-          const amountMatch = fullText.match(/\$(\d+(?:\.\d+)?)\s*(million|m|billion|b|k|thousand)/i);
+          const amountMatch = fullText.match(/\$(\d+(?:\.\d+)?)\s*(million|m|billion|b)/i);
           if (amountMatch) {
             const num = parseFloat(amountMatch[1]);
             const unit = amountMatch[2].toLowerCase();
             if (unit === "billion" || unit === "b") amount = num * 1_000_000_000;
-            else if (unit === "million" || unit === "m") amount = num * 1_000_000;
-            else if (unit === "thousand" || unit === "k") amount = num * 1_000;
+            else amount = num * 1_000_000;
           }
 
-          let instrument = "Equity";
-          if (/safe/i.test(fullText)) instrument = "SAFE (Post-money)";
-          else if (/convertible\s*note/i.test(fullText)) instrument = "Convertible Note";
-
-          let date = result.publishedDate?.substring(0, 10) || "";
-
           investors.push({
-            investorName: extracted,
+            investorName: name,
             entityType: "VC Firm",
-            instrument,
+            instrument: /safe/i.test(fullText) ? "SAFE (Post-money)" : "Equity",
             amount,
-            date,
+            date: result.publishedDate?.substring(0, 10) || "",
+            round: "Unknown",
             source: "exa",
-            highlight: hl.substring(0, 200),
+            highlight: (highlights[0] || result.title || "").substring(0, 200),
             sourceUrl: result.url,
-            domain: extracted.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
+            domain: name.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com",
           });
         }
       }
     }
   }
 
-  // Final safety: replace any investor whose name looks like a sentence
-  return investors.slice(0, 10).map(inv => {
-    const words = inv.investorName.split(/\s+/);
-    // If name is >5 words or starts with lowercase or contains verbs, it's likely a sentence
-    if (words.length > 5 || /^[a-z]/.test(inv.investorName) || /\b(was|were|is|are|has|have|had|the|a|an)\b/i.test(inv.investorName)) {
-      const extracted = extractProperNoun(inv.investorName + " " + inv.highlight);
-      return { ...inv, investorName: extracted || "Unknown Investor" };
-    }
-    return inv;
-  });
+  return investors.slice(0, 10);
 }
 
 Deno.serve(async (req) => {
@@ -278,20 +295,19 @@ Deno.serve(async (req) => {
     if (!resp.ok) {
       const status = resp.status;
       console.error(`Exa API error: ${status}`);
-
       if (status === 401 || status === 403) {
-        console.warn("Exa auth failed, returning mock fallback");
         return new Response(JSON.stringify({ investors: MOCK_INVESTORS, source: "mock_fallback" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
       throw new Error(`Exa API returned ${status}`);
     }
 
     const data = await resp.json();
     const results: ExaResult[] = data?.results || [];
-    const investors = extractInvestorsFromResults(results);
+
+    // Pass through LLM extraction instead of regex
+    const investors = await extractInvestorsViaLLM(results, companyName);
 
     if (investors.length === 0) {
       return new Response(JSON.stringify({ investors: MOCK_INVESTORS, source: "mock_no_results" }), {
