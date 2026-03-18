@@ -531,6 +531,26 @@ export function SectorSubsectorPicker({
             )}
           </div>
 
+          {/* Overflow AI suggestions panel */}
+          {showOverflow && aiOverflowSubsectors && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5 animate-in fade-in duration-200">
+              {aiOverflowSubsectors
+                .filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase()))
+                .map(sub => (
+                  <button
+                    key={`overflow-${sub}`}
+                    type="button"
+                    disabled={subsectors.length >= 3}
+                    onClick={() => toggleSubsector(sub)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-2.5 py-0.5 text-[11px] text-muted-foreground hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="h-2.5 w-2.5" />
+                    {sub}
+                  </button>
+                ))}
+            </div>
+          )}
+
           {subsectorOpen && (
             <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
               <div className="max-h-52 overflow-y-auto p-1">
