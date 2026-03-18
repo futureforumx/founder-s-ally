@@ -68,7 +68,29 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   const [analyzeStep, setAnalyzeStep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) { setError("Logo must be under 5 MB."); return; }
+    setUploadingLogo(true);
+    setError(null);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
+      setLogoUrl(publicUrl);
+    } catch (e: any) {
+      setError(e.message || "Logo upload failed");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const update = (field: keyof CompanyData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
