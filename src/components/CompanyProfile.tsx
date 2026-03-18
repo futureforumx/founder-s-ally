@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
