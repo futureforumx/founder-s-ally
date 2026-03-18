@@ -5,6 +5,7 @@ import { SectorTags, SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
+import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
@@ -408,8 +409,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
               <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
                 isAiDraft={isFieldAiDraft("hqLocation")}
                 aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
-                <input type="text" value={form.hqLocation} onChange={e => update("hqLocation", e.target.value)}
-                  placeholder="San Francisco, CA" maxLength={100} className={inputCls("hqLocation")} />
+                <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                  className={inputCls("hqLocation")} />
               </ProfileField>
             </div>
           </div>
