@@ -18,42 +18,24 @@ interface SECFiling {
 async function searchSECEdgar(companyName: string): Promise<SECFiling[]> {
   const results: SECFiling[] = [];
   try {
-    const q = encodeURIComponent(companyName);
-    const url = `https://efts.sec.gov/LATEST/search-index?q=${q}&dateRange=custom&startdt=2024-01-01&forms=D&hits.hits.total=10`;
-    // Use the full-text search API
-    const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=${q}&forms=D`;
-    
-    // SEC EDGAR full-text search
-    const ftUrl = `https://efts.sec.gov/LATEST/search-index?q=%22${q}%22&forms=D&dateRange=custom&startdt=2024-01-01`;
-    
-    // Try the EDGAR company search API
-    const companySearchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(companyName)}%22&forms=D`;
-    
-    // Use EDGAR full text search API
-    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(companyName)}%22&dateRange=custom&startdt=2024-01-01&forms=D`;
-    
     const resp = await fetch(
       `https://efts.sec.gov/LATEST/search-index?q=%22${encodeURIComponent(companyName)}%22&forms=D&dateRange=custom&startdt=2024-01-01`,
       { headers: { "User-Agent": "FounderCopilot/1.0 support@example.com", Accept: "application/json" } }
     );
 
     if (!resp.ok) {
-      // Fallback: try the simpler company search
       const resp2 = await fetch(
         `https://www.sec.gov/cgi-bin/browse-edgar?company=${encodeURIComponent(companyName)}&CIK=&type=D&dateb=&owner=include&count=10&search_text=&action=getcompany&output=atom`,
         { headers: { "User-Agent": "FounderCopilot/1.0 support@example.com" } }
       );
       if (!resp2.ok) return results;
-      // Parse Atom feed for basic filing info
       const text = await resp2.text();
       const filingMatches = text.matchAll(/<title[^>]*>([^<]+)<\/title>/g);
       const dateMatches = text.matchAll(/<updated>([^<]+)<\/updated>/g);
       const linkMatches = text.matchAll(/<link[^>]*href="([^"]+)"[^>]*\/>/g);
-      
       const titles = [...filingMatches].map(m => m[1]);
       const dates = [...dateMatches].map(m => m[1]);
       const links = [...linkMatches].map(m => m[1]);
-
       for (let i = 1; i < Math.min(titles.length, 5); i++) {
         results.push({
           investorName: titles[i]?.replace(/\s*-\s*Form D.*/, "").trim() || "Unknown Investor",
@@ -84,44 +66,123 @@ async function searchSECEdgar(companyName: string): Promise<SECFiling[]> {
   return results;
 }
 
-// ── Mock PredictLeads financing events ──
-function mockPredictLeads(companyDomain: string): Array<{
+// ── Firecrawl Domain-Led Deep Search ──
+async function firecrawlDeepSearch(
+  companyName: string,
+  companyDomain: string
+): Promise<Array<{
   investorName: string;
   entityType: string;
   amount: number;
   roundName: string;
   date: string;
   source: string;
-}> {
-  // In production, replace with real PredictLeads API call:
-  // GET https://predictleads.com/api/v2/companies/{domain}/financing_events
-  // Header: X-Api-Token: <PREDICTLEADS_API_KEY>
-  
-  // Return empty if no domain — real API would return actual data
-  if (!companyDomain) return [];
-  
-  // Mock: simulate finding a recent round for demo purposes
-  const now = new Date();
-  const recentDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  
-  return [
-    {
-      investorName: "Andreessen Horowitz",
-      entityType: "VC Firm",
-      amount: 5000000,
-      roundName: "Seed",
-      date: recentDate.toISOString().substring(0, 10),
-      source: `PredictLeads: TechCrunch Article ${recentDate.toISOString().substring(0, 10)}`,
-    },
-    {
-      investorName: "Y Combinator",
-      entityType: "Accelerator",
-      amount: 500000,
-      roundName: "Pre-Seed",
-      date: recentDate.toISOString().substring(0, 10),
-      source: `PredictLeads: Crunchbase ${recentDate.toISOString().substring(0, 10)}`,
-    },
+}>> {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) {
+    console.warn("FIRECRAWL_API_KEY not set, skipping domain-led search");
+    return [];
+  }
+
+  const results: Array<{
+    investorName: string;
+    entityType: string;
+    amount: number;
+    roundName: string;
+    date: string;
+    source: string;
+  }> = [];
+
+  // Search queries for funding news
+  const queries = [
+    `${companyName} fundraising`,
+    `${companyName} funding round`,
+    `${companyName} investors`,
   ];
+
+  for (const query of queries) {
+    try {
+      const resp = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query,
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"] },
+        }),
+      });
+
+      if (!resp.ok) {
+        console.warn(`Firecrawl search failed for "${query}": ${resp.status}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      const searchResults = data?.data || [];
+
+      for (const result of searchResults) {
+        const text = (result.markdown || result.description || "").toLowerCase();
+        
+        // Extract investor names from common patterns
+        const investorPatterns = [
+          /(?:led by|backed by|from|invested by)\s+([A-Z][A-Za-z\s&]+?)(?:\s*,|\s*and\s|\s*\.|$)/gi,
+          /([A-Z][A-Za-z\s&]+?)\s+(?:led|invested|participated|backed)/gi,
+          /(?:investors?|backers?)\s+(?:include|including|such as)\s+([A-Z][A-Za-z\s&,]+?)(?:\.|$)/gi,
+        ];
+
+        const fullText = result.markdown || result.description || "";
+        
+        for (const pattern of investorPatterns) {
+          const matches = fullText.matchAll(pattern);
+          for (const match of matches) {
+            const names = match[1].split(/\s*,\s*|\s+and\s+/).map((n: string) => n.trim()).filter((n: string) => n.length > 2 && n.length < 50);
+            for (const name of names) {
+              // Skip common false positives
+              if (/^(the|a|an|its|their|this|that|with|for|has|have|was|were|will|would|said|says)$/i.test(name)) continue;
+              if (results.some(r => r.investorName.toLowerCase() === name.toLowerCase())) continue;
+              
+              // Try to extract amount
+              let amount = 0;
+              const amountMatch = fullText.match(/\$(\d+(?:\.\d+)?)\s*(million|m|billion|b|k|thousand)/i);
+              if (amountMatch) {
+                const num = parseFloat(amountMatch[1]);
+                const unit = amountMatch[2].toLowerCase();
+                if (unit === "billion" || unit === "b") amount = num * 1_000_000_000;
+                else if (unit === "million" || unit === "m") amount = num * 1_000_000;
+                else if (unit === "thousand" || unit === "k") amount = num * 1_000;
+              }
+
+              // Try to extract round name
+              let roundName = "Unknown";
+              const roundMatch = fullText.match(/(seed|pre-seed|series\s*[a-e]|angel|bridge|growth)\s*(?:round|funding)?/i);
+              if (roundMatch) roundName = roundMatch[1].trim();
+
+              // Extract date
+              let date = "";
+              const dateMatch = fullText.match(/(\d{4}-\d{2}-\d{2})|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4})/i);
+              if (dateMatch) date = dateMatch[0];
+
+              results.push({
+                investorName: name,
+                entityType: "VC Firm",
+                amount,
+                roundName,
+                date,
+                source: `Firecrawl: ${result.title || result.url || query}`,
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Firecrawl search error for "${query}":`, e);
+    }
+  }
+
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -201,22 +262,22 @@ async function processCompany(
 
   const pendingInserts: any[] = [];
 
-  // 2. PredictLeads (mock)
-  const plResults = mockPredictLeads(companyDomain);
-  for (const pl of plResults) {
-    if (knownNames.has(pl.investorName.toLowerCase().trim())) continue;
-    knownNames.add(pl.investorName.toLowerCase().trim());
+  // 2. Firecrawl Domain-Led Deep Search (replaces mock PredictLeads)
+  const firecrawlResults = await firecrawlDeepSearch(companyName, companyDomain);
+  for (const fc of firecrawlResults) {
+    if (knownNames.has(fc.investorName.toLowerCase().trim())) continue;
+    knownNames.add(fc.investorName.toLowerCase().trim());
     pendingInserts.push({
       user_id: userId,
       company_analysis_id: companyId,
-      investor_name: pl.investorName,
-      entity_type: pl.entityType,
+      investor_name: fc.investorName,
+      entity_type: fc.entityType,
       instrument: "Equity",
-      amount: pl.amount,
-      round_name: pl.roundName,
-      source_type: "News / PredictLeads",
-      source_detail: pl.source,
-      source_date: pl.date,
+      amount: fc.amount,
+      round_name: fc.roundName,
+      source_type: "News / Firecrawl",
+      source_detail: fc.source,
+      source_date: fc.date || null,
       status: "pending",
     });
   }

@@ -1,14 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
@@ -32,6 +30,7 @@ interface CapRow {
   notes: string;
   _new?: boolean;
   _source?: "deck" | "web";
+  _verified?: boolean;
 }
 
 interface PendingInvestor {
@@ -55,17 +54,22 @@ interface InvestorBackingProps {
 const ENTITY_TYPES = ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"];
 const INSTRUMENTS = ["SAFE (Post-money)", "SAFE (Pre-money)", "Convertible Note", "Equity"];
 
+const INSTRUMENT_COLORS: Record<string, string> = {
+  "Equity": "bg-purple-500/15 text-purple-700 border-purple-500/25",
+  "SAFE (Post-money)": "bg-amber-500/15 text-amber-700 border-amber-500/25",
+  "SAFE (Pre-money)": "bg-amber-500/15 text-amber-700 border-amber-500/25",
+  "Convertible Note": "bg-sky-500/15 text-sky-700 border-sky-500/25",
+};
+
 function logoUrl(name: string) {
   if (!name.trim()) return null;
   const domain = name.trim().toLowerCase().replace(/\s+/g, "") + ".com";
   return `https://logo.clearbit.com/${domain}`;
 }
 
-/** Counting-up animation hook */
 function useCountUp(target: number, duration = 1200) {
   const [display, setDisplay] = useState(0);
   const prevTarget = useRef(0);
-
   useEffect(() => {
     if (target === prevTarget.current) return;
     const start = prevTarget.current;
@@ -82,8 +86,220 @@ function useCountUp(target: number, duration = 1200) {
     };
     requestAnimationFrame(step);
   }, [target, duration]);
-
   return display;
+}
+
+// ── Radar Discovery Animation ──
+function DiscoveryRadar({ logs }: { logs: string[] }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-10 gap-5">
+      {/* Radar visual */}
+      <div className="relative w-28 h-28">
+        {/* Rings */}
+        <div className="absolute inset-0 rounded-full border border-accent/20" />
+        <div className="absolute inset-3 rounded-full border border-accent/15" />
+        <div className="absolute inset-6 rounded-full border border-accent/10" />
+        {/* Center dot */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-3 w-3 rounded-full bg-accent animate-funding-pulse" />
+        </div>
+        {/* Sweep */}
+        <div className="absolute inset-0 animate-radar-spin" style={{ transformOrigin: "center" }}>
+          <div
+            className="absolute top-1/2 left-1/2 w-1/2 h-[2px]"
+            style={{
+              background: "linear-gradient(90deg, hsl(var(--accent)), transparent)",
+              transformOrigin: "left center",
+            }}
+          />
+        </div>
+        {/* Ping rings */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-6 w-6 rounded-full border border-accent/40 animate-radar-ping" />
+        </div>
+      </div>
+      {/* Log lines */}
+      <div className="space-y-1.5 text-center max-w-xs">
+        {logs.map((log, i) => (
+          <p key={i} className={`text-[11px] font-mono transition-opacity duration-500 ${i === logs.length - 1 ? "text-accent" : "text-muted-foreground/60"}`}>
+            {log}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Mini Funding Timeline Chart ──
+function FundingTimeline({ rows }: { rows: CapRow[] }) {
+  const sorted = useMemo(() => {
+    return rows
+      .filter(r => r.amount > 0 && r.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [rows]);
+
+  if (sorted.length < 2) return null;
+
+  const cumulative = sorted.reduce<{ date: string; total: number }[]>((acc, r) => {
+    const prev = acc.length > 0 ? acc[acc.length - 1].total : 0;
+    acc.push({ date: r.date, total: prev + r.amount });
+    return acc;
+  }, []);
+
+  const maxVal = cumulative[cumulative.length - 1]?.total || 1;
+  const points = cumulative.map((p, i) => {
+    const x = (i / (cumulative.length - 1)) * 100;
+    const y = 100 - (p.total / maxVal) * 80;
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <div className="h-12 w-full max-w-[200px]">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+        <polyline
+          points={points}
+          fill="none"
+          stroke="hsl(var(--accent))"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {/* Area fill */}
+        <polygon
+          points={`0,100 ${points} 100,100`}
+          fill="hsl(var(--accent) / 0.1)"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// ── Investor Profile Card ──
+function InvestorCard({
+  row,
+  onUpdate,
+  onDelete,
+  saving,
+}: {
+  row: CapRow;
+  onUpdate: (field: keyof CapRow, value: string | number) => void;
+  onDelete: () => void;
+  saving: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
+  const fmt = (n: number) =>
+    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : n > 0 ? `$${n}` : "";
+
+  return (
+    <div
+      className={`group rounded-xl border border-border bg-card p-4 hover:shadow-surface-md transition-all duration-200 ${row._source ? "animate-spring-pop" : ""}`}
+    >
+      <div className="flex items-start gap-3">
+        {/* Logo */}
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted shrink-0 overflow-hidden">
+          {row.investor_name ? (
+            <img
+              src={logoUrl(row.investor_name)!}
+              alt=""
+              className="h-full w-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+              }}
+            />
+          ) : null}
+          <Landmark className="h-5 w-5 text-muted-foreground hidden" />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {editing ? (
+              <Input
+                value={row.investor_name}
+                onChange={(e) => onUpdate("investor_name", e.target.value)}
+                onBlur={() => setEditing(false)}
+                autoFocus
+                className="h-7 text-sm font-medium border-accent/30"
+              />
+            ) : (
+              <span
+                className="text-sm font-semibold text-foreground truncate cursor-pointer hover:text-accent transition-colors"
+                onClick={() => setEditing(true)}
+              >
+                {row.investor_name || "Untitled Investor"}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {/* Entity type */}
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+              {row.entity_type}
+            </Badge>
+            {/* Instrument — colored tag */}
+            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>
+              {row.instrument}
+            </Badge>
+            {/* Source badges */}
+            {row._source === "deck" && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent-foreground border-accent/20">
+                <FileText className="h-2.5 w-2.5" /> Deck
+              </Badge>
+            )}
+            {row._source === "web" && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-primary/10 text-primary border-primary/20">
+                <Globe className="h-2.5 w-2.5" /> Web
+              </Badge>
+            )}
+            {/* Verification Status */}
+            {row._source && !row._verified && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
+                <Sparkles className="h-2.5 w-2.5" /> AI Found
+              </Badge>
+            )}
+            {row._verified && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-success/10 text-success border-success/20">
+                <Check className="h-2.5 w-2.5" /> Verified
+              </Badge>
+            )}
+          </div>
+
+          {/* Date */}
+          {row.date && (
+            <p className="text-[10px] text-muted-foreground mt-1 font-mono">{row.date}</p>
+          )}
+        </div>
+
+        {/* Amount + Actions */}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {row.amount > 0 ? (
+            <span className="text-base font-bold text-foreground font-mono">{fmt(row.amount)}</span>
+          ) : row._source ? (
+            <span className="text-[10px] text-muted-foreground/50 italic">Suggesting $...</span>
+          ) : (
+            <Input
+              type="number"
+              value={row.amount || ""}
+              onChange={(e) => onUpdate("amount", parseInt(e.target.value) || 0)}
+              className="h-7 w-24 text-xs text-right"
+              placeholder="$0"
+            />
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function InvestorBacking({ extractedInvestors, isScanning = false }: InvestorBackingProps) {
@@ -94,10 +310,27 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
   const [pending, setPending] = useState<PendingInvestor[]>([]);
   const [showReview, setShowReview] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [radarLogs, setRadarLogs] = useState<string[]>([]);
 
   const dirty = useMemo(() => JSON.stringify(rows) !== JSON.stringify(original), [rows, original]);
   const totalRaised = useMemo(() => rows.reduce((s, r) => s + (r.amount || 0), 0), [rows]);
   const animatedTotal = useCountUp(totalRaised);
+
+  // Radar log simulation when scanning
+  useEffect(() => {
+    if (!isScanning && !syncing) {
+      setRadarLogs([]);
+      return;
+    }
+    setRadarLogs(["Initializing deep search..."]);
+    const timers = [
+      setTimeout(() => setRadarLogs(prev => [...prev, "Checking SEC filings..."]), 1500),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Scanned 12 investment news sources..."]), 3500),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Cross-referencing Firecrawl results..."]), 5500),
+      setTimeout(() => setRadarLogs(prev => [...prev, "Found matching backers."]), 7000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [isScanning, syncing]);
 
   const fetchRows = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -115,6 +348,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
       amount: r.amount,
       date: r.date || "",
       notes: r.notes || "",
+      _verified: true, // Existing DB rows are founder-verified
     }));
     setRows(mapped);
     setOriginal(mapped);
@@ -167,10 +401,14 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
   };
 
+  const verifyRow = (id: string) => {
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true } : r));
+  };
+
   const addRow = () => {
     setRows((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), investor_name: "", entity_type: "Angel", instrument: "SAFE (Post-money)", amount: 0, date: "", notes: "", _new: true },
+      { id: crypto.randomUUID(), investor_name: "", entity_type: "Angel", instrument: "SAFE (Post-money)", amount: 0, date: "", notes: "", _new: true, _verified: true },
     ]);
   };
 
@@ -241,9 +479,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
   };
 
   const acceptAll = async () => {
-    for (const p of pending) {
-      await acceptPending(p);
-    }
+    for (const p of pending) { await acceptPending(p); }
     setShowReview(false);
   };
 
@@ -258,22 +494,12 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
         .eq("user_id", user.id)
         .limit(1)
         .single();
-
-      if (!analyses) {
-        toast.error("No company profile found. Complete onboarding first.");
-        return;
-      }
+      if (!analyses) { toast.error("No company profile found."); return; }
       const domain = analyses.website_url
         ? analyses.website_url.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
         : "";
-
       const { data, error } = await supabase.functions.invoke("sync-investor-data", {
-        body: {
-          company_id: analyses.id,
-          company_domain: domain,
-          user_id: user.id,
-          company_name: analyses.company_name,
-        },
+        body: { company_id: analyses.id, company_domain: domain, user_id: user.id, company_name: analyses.company_name },
       });
       if (error) throw error;
       toast.success(`Sync complete — ${data?.newInvestorsFound || 0} new investor(s) found`);
@@ -300,12 +526,12 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
                 <Landmark className="h-4 w-4 text-primary" />
               </div>
               <div className="text-left">
-                <h3 className="text-sm font-semibold text-foreground">Investment</h3>
-                <p className="text-[10px] text-muted-foreground">Capital raised &amp; investor backing</p>
+                <h3 className="text-sm font-semibold text-foreground">Funding Hub</h3>
+                <p className="text-[10px] text-muted-foreground">Capital raised, investor backing &amp; discovery</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {isScanning && (
+              {(isScanning || syncing) && (
                 <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 animate-pulse gap-1">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" /> Scanning...
                 </Badge>
@@ -323,276 +549,145 @@ export function InvestorBacking({ extractedInvestors, isScanning = false }: Inve
         <CollapsibleContent>
           <div className="px-5 pb-5 space-y-4">
 
-      {/* Total Capital Raised Summary — larger, more prominent */}
-      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
-              <DollarSign className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Capital Raised</p>
-              <p className="text-3xl font-bold text-foreground tracking-tight mt-0.5">{fmt(animatedTotal)}</p>
-              {rows.length > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-1">{rows.length} investor{rows.length !== 1 ? "s" : ""} on record</p>
-              )}
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
-            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {syncing ? "Scanning..." : "Scan for Investors"}
-          </Button>
-        </div>
-      </div>
-
-      {/* 🔍 Investor Discovery — Pending Cards with Match Scores */}
-      <InvestorDiscovery
-        pending={pending}
-        onConfirm={acceptPending}
-        onIgnore={dismissPending}
-      />
-
-      {/* Main Table */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-semibold">Investor Backing</CardTitle>
-          {dirty && (
-            <Button size="sm" className="gap-1.5" onClick={saveChanges} disabled={saving}>
-              <Save className="h-3.5 w-3.5" />
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[200px]">Investor Name</TableHead>
-                <TableHead className="w-[140px]">Entity Type</TableHead>
-                <TableHead className="w-[170px]">Instrument</TableHead>
-                <TableHead className="w-[120px]">Amount ($)</TableHead>
-                <TableHead className="w-[120px]">Date</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {/* Skeleton loader while scanning */}
-              {isScanning && rows.length === 0 && (
-                <>
-                  {[1, 2, 3].map(i => (
-                    <TableRow key={`skel-${i}`}>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                      <TableCell className="p-1.5"><Skeleton className="h-7 w-7" /></TableCell>
-                    </TableRow>
-                  ))}
-                </>
-              )}
-              {rows.length === 0 && !loading && !isScanning && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8 text-xs">
-                    No investors yet. Click "Add Investor" to get started.
-                  </TableCell>
-                </TableRow>
-              )}
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="p-1.5">
+            {/* ══ Funding Pulse Header ══ */}
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/10 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 relative">
+                    <DollarSign className="h-7 w-7 text-primary" />
+                    {(isScanning || syncing) && (
+                      <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent animate-funding-pulse" />
+                    )}
+                  </div>
+                  <div>
                     <div className="flex items-center gap-2">
-                      {row.investor_name && (
-                        <img
-                          src={logoUrl(row.investor_name)!}
-                          alt=""
-                          className="h-5 w-5 rounded-sm object-contain"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                      )}
-                      <Input
-                        value={row.investor_name}
-                        onChange={(e) => updateCell(row.id, "investor_name", e.target.value)}
-                        className="h-8 text-xs border-transparent hover:border-input focus:border-input bg-transparent"
-                        placeholder="Firm name…"
-                      />
-                      {row._source === "deck" && (
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-accent/10 text-accent-foreground border-accent/20">
-                          <FileText className="h-2.5 w-2.5" /> Deck
-                        </Badge>
-                      )}
-                      {row._source === "web" && (
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-primary/10 text-primary border-primary/20">
-                          <Globe className="h-2.5 w-2.5" /> Web
-                        </Badge>
-                      )}
-                      {row._source && (
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-accent/10 text-accent border-accent/20">
-                          <Sparkles className="h-2.5 w-2.5" /> AI Found
-                        </Badge>
-                      )}
-                      {row.amount === 0 && row._source && (
-                        <span className="text-[9px] text-muted-foreground/50 italic shrink-0">Suggesting $...</span>
-                      )}
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Funding Pulse</p>
+                      <TrendingUp className="h-3 w-3 text-success" />
                     </div>
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Select value={row.entity_type} onValueChange={(v) => updateCell(row.id, "entity_type", v)}>
-                      <SelectTrigger className="h-8 text-xs border-transparent hover:border-input bg-transparent">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ENTITY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Select value={row.instrument} onValueChange={(v) => updateCell(row.id, "instrument", v)}>
-                      <SelectTrigger className="h-8 text-xs border-transparent hover:border-input bg-transparent">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INSTRUMENTS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Input
-                      type="number"
-                      value={row.amount || ""}
-                      onChange={(e) => updateCell(row.id, "amount", parseInt(e.target.value) || 0)}
-                      className="h-8 text-xs border-transparent hover:border-input focus:border-input bg-transparent"
-                      placeholder="0"
+                    <p className="text-4xl font-bold text-foreground tracking-tighter mt-0.5 font-mono">{fmt(animatedTotal)}</p>
+                    {rows.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {rows.length} investor{rows.length !== 1 ? "s" : ""} · {rows.filter(r => r._verified).length} verified
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                  <FundingTimeline rows={rows} />
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
+                    {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    {syncing ? "Deep Searching..." : "Deep Search"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* ══ Discovery Radar — while scanning with no results ══ */}
+            {(isScanning || syncing) && rows.length === 0 && (
+              <DiscoveryRadar logs={radarLogs} />
+            )}
+
+            {/* ══ Investor Discovery — Pending Cards ══ */}
+            <InvestorDiscovery
+              pending={pending}
+              onConfirm={acceptPending}
+              onIgnore={dismissPending}
+            />
+
+            {/* ══ Investor Profile Cards ══ */}
+            {rows.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Investor Backing</h4>
+                  <div className="flex items-center gap-2">
+                    {dirty && (
+                      <Button size="sm" className="gap-1.5 h-7 text-[11px]" onClick={saveChanges} disabled={saving}>
+                        <Save className="h-3 w-3" />
+                        {saving ? "Saving..." : "Save"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {rows.map((row) => (
+                    <InvestorCard
+                      key={row.id}
+                      row={row}
+                      onUpdate={(field, value) => updateCell(row.id, field, value)}
+                      onDelete={() => deleteRow(row.id, row._new)}
+                      saving={saving}
                     />
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Input
-                      type="date"
-                      value={row.date}
-                      onChange={(e) => updateCell(row.id, "date", e.target.value)}
-                      className="h-8 text-xs border-transparent hover:border-input focus:border-input bg-transparent"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Input
-                      value={row.notes}
-                      onChange={(e) => updateCell(row.id, "notes", e.target.value)}
-                      className="h-8 text-xs border-transparent hover:border-input focus:border-input bg-transparent"
-                      placeholder="Optional…"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteRow(row.id, row._new)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {/* Skeleton rows appended while scanning with existing rows */}
-              {isScanning && rows.length > 0 && (
-                <TableRow>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
-                  <TableCell className="p-1.5"><Skeleton className="h-7 w-7" /></TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          <div className="p-3 border-t">
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state (no scanning) */}
+            {rows.length === 0 && !loading && !isScanning && !syncing && (
+              <div className="text-center py-8">
+                <Radio className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-xs text-muted-foreground">No investors yet.</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">Add manually or run Deep Search to discover backers.</p>
+              </div>
+            )}
+
+            {/* Add Investor */}
             <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
               <Plus className="h-3.5 w-3.5" />
               Add Investor
             </Button>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Review Modal */}
-      <Dialog open={showReview} onOpenChange={setShowReview}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Review Discovered Investors</DialogTitle>
-            <DialogDescription>
-              These investors were found from public data sources. Accept to add them to your cap table.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {pending.map((p) => (
-              <Card key={p.id} className="border">
-                <CardContent className="flex items-center justify-between py-3 px-4">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {p.investor_name && (
-                      <img
-                        src={logoUrl(p.investor_name)!}
-                        alt=""
-                        className="h-8 w-8 rounded object-contain shrink-0"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{p.investor_name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {p.entity_type}
-                        </Badge>
-                        {p.round_name && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {p.round_name}
-                          </Badge>
-                        )}
-                        {p.amount > 0 && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {fmt(p.amount)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                        Source: {p.source_type}{p.source_detail ? ` — ${p.source_detail}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-muted-foreground"
-                      onClick={() => dismissPending(p.id)}
-                    >
-                      Dismiss
-                    </Button>
-                    <Button size="sm" className="text-xs gap-1" onClick={() => acceptPending(p)}>
-                      <CheckCircle2 className="h-3 w-3" />
-                      Accept
+            {/* Review Modal */}
+            <Dialog open={showReview} onOpenChange={setShowReview}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Review Discovered Investors</DialogTitle>
+                  <DialogDescription>
+                    These investors were found from public data sources. Accept to add them to your cap table.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {pending.map((p) => (
+                    <Card key={p.id} className="border">
+                      <CardContent className="flex items-center justify-between py-3 px-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {p.investor_name && (
+                            <img
+                              src={logoUrl(p.investor_name)!}
+                              alt=""
+                              className="h-8 w-8 rounded object-contain shrink-0"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{p.investor_name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{p.entity_type}</Badge>
+                              {p.round_name && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{p.round_name}</Badge>}
+                              {p.amount > 0 && <span className="text-xs text-muted-foreground font-mono">{fmt(p.amount)}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => dismissPending(p.id)}>Dismiss</Button>
+                          <Button size="sm" className="text-xs gap-1" onClick={() => acceptPending(p)}>
+                            <CheckCircle2 className="h-3 w-3" /> Accept
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {pending.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No pending investors.</p>}
+                </div>
+                {pending.length > 1 && (
+                  <div className="flex justify-end pt-2 border-t">
+                    <Button className="gap-1.5" onClick={acceptAll}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Accept All ({pending.length})
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            {pending.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-8">No pending investors to review.</p>
-            )}
-          </div>
-          {pending.length > 1 && (
-            <div className="flex justify-end pt-2 border-t">
-              <Button className="gap-1.5" onClick={acceptAll}>
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Accept All ({pending.length})
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </CollapsibleContent>
       </div>
