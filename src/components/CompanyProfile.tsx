@@ -210,6 +210,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           setIsExpanded(false);
         }
       } catch {}
+      // Restore verified state
+      try {
+        if (localStorage.getItem("company-profile-verified") === "true" && confirmed) {
+          onProfileVerified?.(true);
+        }
+      } catch {}
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
