@@ -292,6 +292,11 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {saveIndicator && (
+            <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground animate-in fade-in">
+              <Check className="h-3 w-3" /> {saveIndicator}
+            </span>
+          )}
           {analysisComplete && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
               <Check className="h-3 w-3" /> Analyzed
