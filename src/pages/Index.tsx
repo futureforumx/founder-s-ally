@@ -175,8 +175,6 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-              {/* Investment — immediately after profile/metrics */}
-              <InvestorBacking extractedInvestors={analysisResult?.extractedInvestors} isScanning={isAnalysisRunning} companyName={companyData?.name} />
 
               {/* Strategy Room — at the bottom */}
               {stageClassification && (
