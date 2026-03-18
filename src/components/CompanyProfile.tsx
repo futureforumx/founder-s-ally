@@ -17,6 +17,13 @@ export interface CompanyData {
   teamSize: string;
 }
 
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export interface MetricWithConfidence {
+  value: string | null;
+  confidence: ConfidenceLevel;
+}
+
 export interface AnalysisResult {
   header: string;
   valueProposition: string;
@@ -24,18 +31,25 @@ export interface AnalysisResult {
   executiveSummary: string;
   healthScore: number;
   metrics: {
-    mrr: string | null;
-    burnRate: string | null;
-    cac: string | null;
-    ltv: string | null;
-    runway: string | null;
+    mrr: MetricWithConfidence;
+    burnRate: MetricWithConfidence;
+    cac: MetricWithConfidence;
+    ltv: MetricWithConfidence;
+    runway: MetricWithConfidence;
   };
   metricTable: {
     metric: string;
     value: string;
     benchmark: string;
     status: "healthy" | "warning" | "critical";
+    confidence: ConfidenceLevel;
   }[];
+  agentData?: {
+    teamSize?: string;
+    lastFunding?: string;
+    fundingAmount?: string;
+    sources: string[];
+  };
 }
 
 interface CompanyProfileProps {

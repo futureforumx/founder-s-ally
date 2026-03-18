@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.analyze-company]
 verify_jwt = false
+
+[functions.agent-lookup]
+verify_jwt = false

@@ -80,11 +80,51 @@ ${combinedText.slice(0, 40000)}`;
                   metrics: {
                     type: "object",
                     properties: {
-                      mrr: { type: "string", description: "Monthly Recurring Revenue value or null" },
-                      burnRate: { type: "string", description: "Burn rate value or null" },
-                      cac: { type: "string", description: "Customer Acquisition Cost or null" },
-                      ltv: { type: "string", description: "Lifetime Value or null" },
-                      runway: { type: "string", description: "Runway in months or null" },
+                      mrr: {
+                        type: "object",
+                        properties: {
+                          value: { type: "string", description: "Monthly Recurring Revenue value or null" },
+                          confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence in this metric extraction" },
+                        },
+                        required: ["value", "confidence"],
+                        additionalProperties: false,
+                      },
+                      burnRate: {
+                        type: "object",
+                        properties: {
+                          value: { type: "string", description: "Burn rate value or null" },
+                          confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence in this metric extraction" },
+                        },
+                        required: ["value", "confidence"],
+                        additionalProperties: false,
+                      },
+                      cac: {
+                        type: "object",
+                        properties: {
+                          value: { type: "string", description: "Customer Acquisition Cost or null" },
+                          confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence in this metric extraction" },
+                        },
+                        required: ["value", "confidence"],
+                        additionalProperties: false,
+                      },
+                      ltv: {
+                        type: "object",
+                        properties: {
+                          value: { type: "string", description: "Lifetime Value or null" },
+                          confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence in this metric extraction" },
+                        },
+                        required: ["value", "confidence"],
+                        additionalProperties: false,
+                      },
+                      runway: {
+                        type: "object",
+                        properties: {
+                          value: { type: "string", description: "Runway in months or null" },
+                          confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence in this metric extraction" },
+                        },
+                        required: ["value", "confidence"],
+                        additionalProperties: false,
+                      },
                     },
                     required: ["mrr", "burnRate", "cac", "ltv", "runway"],
                     additionalProperties: false,
@@ -98,11 +138,12 @@ ${combinedText.slice(0, 40000)}`;
                         value: { type: "string" },
                         benchmark: { type: "string" },
                         status: { type: "string", enum: ["healthy", "warning", "critical"] },
+                        confidence: { type: "string", enum: ["high", "medium", "low"] },
                       },
-                      required: ["metric", "value", "benchmark", "status"],
+                      required: ["metric", "value", "benchmark", "status", "confidence"],
                       additionalProperties: false,
                     },
-                    description: "Table of key metrics with their values, SaaS benchmarks, and health status",
+                    description: "Table of key metrics with their values, SaaS benchmarks, health status, and confidence level",
                   },
                 },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],

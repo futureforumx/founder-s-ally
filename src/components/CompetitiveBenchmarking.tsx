@@ -1,10 +1,12 @@
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, XCircle, Shield, ShieldAlert, ShieldQuestion } from "lucide-react";
+import type { ConfidenceLevel } from "./CompanyProfile";
 
 interface MetricRow {
   metric: string;
   value: string;
   benchmark: string;
   status: "healthy" | "warning" | "critical";
+  confidence?: ConfidenceLevel;
 }
 
 // 2026 SaaS benchmarks
@@ -51,6 +53,7 @@ export function CompetitiveBenchmarking({ metricTable }: CompetitiveBenchmarking
               <th className="px-4 py-3 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Metric</th>
               <th className="px-4 py-3 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Your Value</th>
               <th className="px-4 py-3 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">2026 Target</th>
+              <th className="px-4 py-3 text-center text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Confidence</th>
               <th className="px-4 py-3 text-right text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Status</th>
             </tr>
           </thead>
@@ -58,11 +61,24 @@ export function CompetitiveBenchmarking({ metricTable }: CompetitiveBenchmarking
             {displayMetrics.map((row, i) => {
               const cfg = statusConfig[row.status];
               const StatusIcon = cfg.icon;
+              const conf = row.confidence || "medium";
+              const confCfg = {
+                high: { icon: Shield, color: "text-success", label: "High" },
+                medium: { icon: ShieldAlert, color: "text-amber-500", label: "Med" },
+                low: { icon: ShieldQuestion, color: "text-destructive", label: "Low" },
+              }[conf];
+              const ConfIcon = confCfg.icon;
               return (
                 <tr key={i} className="border-b border-border/50 last:border-none hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{row.metric}</td>
                   <td className="px-4 py-3 text-sm font-mono text-foreground">{row.value}</td>
                   <td className="px-4 py-3 text-sm font-mono text-muted-foreground">{row.benchmark}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-mono ${confCfg.color}`}>
+                      <ConfIcon className="h-3 w-3" />
+                      {confCfg.label}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider ${cfg.bg} ${cfg.color}`}>
                       <StatusIcon className="h-3 w-3" />
