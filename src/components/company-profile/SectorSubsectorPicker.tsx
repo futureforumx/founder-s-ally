@@ -197,10 +197,12 @@ export function SectorSubsectorPicker({
   onSubsectorsChange,
   aiSuggestedSector,
   aiSuggestedSubsectors,
+  aiOverflowSubsectors,
   onApplyAiSector,
   isAiDraft,
   className,
 }: SectorSubsectorPickerProps) {
+  const [showOverflow, setShowOverflow] = useState(false);
   const [sectorOpen, setSectorOpen] = useState(false);
   const [subsectorOpen, setSubsectorOpen] = useState(false);
   const [search, setSearch] = useState("");
