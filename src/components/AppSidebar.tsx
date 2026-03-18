@@ -31,9 +31,23 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
       </div>
 
       <nav className="mt-4 flex flex-1 flex-col gap-1 px-3">
-        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Dashboard</div>
+        {topItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onViewChange(item.id)}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+              activeView === item.id
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </button>
+        ))}
         <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
-        {navItems.map((item) => (
+        {companyItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
