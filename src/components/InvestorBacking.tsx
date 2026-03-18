@@ -139,6 +139,8 @@ function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: s
 
 // ── Interactive Funding Area Chart ──
 function FundingAreaChart({ rows }: { rows: CapRow[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   const sorted = useMemo(() => {
     return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
   }, [rows]);
