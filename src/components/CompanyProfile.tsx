@@ -557,8 +557,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
               <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
                 isAiDraft={isFieldAiDraft("hqLocation")}
                 aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
-                <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                  className={inputCls("hqLocation")} />
+                <div className="flex items-center gap-1.5">
+                  <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                    className={inputCls("hqLocation")} />
+                  {renderVerificationBadge("hqLocation")}
+                </div>
               </ProfileField>
             </div>
           </div>
