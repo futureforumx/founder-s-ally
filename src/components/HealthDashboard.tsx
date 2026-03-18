@@ -220,6 +220,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">Key Metrics</h3>
           <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
+            <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60 mr-1">CONFIDENCE</span>
             <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
             <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
             <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
