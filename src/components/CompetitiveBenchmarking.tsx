@@ -43,6 +43,8 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
   const bizModel = company?.businessModel || "";
   const isMarketplace = bizModel === "Marketplace";
   const isSeedOrEarlier = !stage || stage === "Pre-Seed" || stage === "Seed";
+  const isSeriesB = stage === "Series B";
+  const isSeriesCPlus = stage === "Series C+";
 
   const metrics = analysis?.metrics;
   const arrStr = company?.currentARR;
