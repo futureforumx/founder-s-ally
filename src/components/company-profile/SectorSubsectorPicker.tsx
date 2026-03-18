@@ -496,8 +496,8 @@ export function SectorSubsectorPicker({
                 </button>
               </span>
             ))}
-            {/* AI suggested subsectors shown as ghost pills */}
-            {aiSuggestedSubsectors?.filter(s => !subsectors.includes(s)).map(sub => (
+            {/* AI suggested subsectors shown as ghost pills (case-insensitive dedup) */}
+            {aiSuggestedSubsectors?.filter(s => !subsectorExists(subsectors, s)).map(sub => (
               <button
                 key={`ai-${sub}`}
                 type="button"
@@ -508,6 +508,16 @@ export function SectorSubsectorPicker({
                 {sub}
               </button>
             ))}
+            {/* Overflow AI suggestions link */}
+            {aiOverflowSubsectors && aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length > 0 && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); setShowOverflow(!showOverflow); }}
+                className="text-[10px] text-accent/70 hover:text-accent hover:underline transition-colors"
+              >
+                View {aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length} other AI suggestion{aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length > 1 ? "s" : ""}
+              </button>
+            )}
             {subsectors.length < 3 && (
               <input
                 ref={subsearchInputRef}
