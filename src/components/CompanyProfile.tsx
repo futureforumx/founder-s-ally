@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -105,7 +105,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const editingCountRef = useRef(0);
+  const outputSectionsRef = useRef<HTMLDivElement>(null);
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -535,7 +535,28 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
     }`;
 
-  const canAnalyze = form.name.trim() && (form.website.trim() || deckText) && !isEditing;
+  const isEditableElement = (element: Element | null): boolean => {
+    if (!element) return false;
+    const editableSelector = "input, textarea, select, [contenteditable='true']";
+    return element.matches(editableSelector) || !!element.closest(editableSelector);
+  };
+
+  const handleOutputFocusCapture = (event: FocusEvent<HTMLDivElement>) => {
+    if (isEditableElement(event.target as Element)) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleOutputBlurCapture = () => {
+    requestAnimationFrame(() => {
+      const container = outputSectionsRef.current;
+      const activeElement = document.activeElement;
+      const stillEditing = !!container && container.contains(activeElement) && isEditableElement(activeElement);
+      setIsEditing(stillEditing);
+    });
+  };
+
+  const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
 
   // Verification badge renderer
   const renderVerificationBadge = (field: string) => {
@@ -888,8 +909,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               ═══════════════════════════════════════════════ */}
 
           <div
-            onFocusCapture={() => { editingCountRef.current++; setIsEditing(true); }}
-            onBlurCapture={() => { editingCountRef.current--; requestAnimationFrame(() => { if (editingCountRef.current <= 0) { editingCountRef.current = 0; setIsEditing(false); } }); }}
+            ref={outputSectionsRef}
+            onFocusCapture={handleOutputFocusCapture}
+            onBlurCapture={handleOutputBlurCapture}
             className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
