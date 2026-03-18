@@ -203,6 +203,18 @@ ${combinedText.slice(0, 40000)}`;
                     },
                     additionalProperties: false,
                   },
+                  stageClassification: {
+                    type: "object",
+                    description: "Linguistic heuristic-based stage classification",
+                    properties: {
+                      detected_stage: { type: "string", description: "Seed, Series A, or other detected stage" },
+                      confidence_score: { type: "number", description: "Confidence 0.0-1.0" },
+                      reasoning: { type: "string", description: "Brief explanation citing 2-3 specific phrases found" },
+                      conflicting_signals: { type: "string", description: "Data points that suggest a different stage" },
+                    },
+                    required: ["detected_stage", "confidence_score", "reasoning"],
+                    additionalProperties: false,
+                  },
                 },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
                 additionalProperties: false,
