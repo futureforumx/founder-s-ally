@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -59,8 +59,15 @@ interface CompanyProfileProps {
 
 export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [form, setForm] = useState<CompanyData>({
-    name: "", stage: "", sector: "", description: "", website: "", teamSize: "",
+  const [form, setForm] = useState<CompanyData>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { name: parsed.name || "", stage: parsed.stage || "", sector: parsed.sector || "", description: parsed.description || "", website: parsed.website || "", teamSize: parsed.teamSize || "" };
+      }
+    } catch {}
+    return { name: "", stage: "", sector: "", description: "", website: "", teamSize: "" };
   });
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState<string>("");
@@ -68,10 +75,55 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   const [analyzeStep, setAnalyzeStep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    try { return localStorage.getItem("company-logo-url"); } catch { return null; }
+  });
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-save form to localStorage with debounce
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem("company-profile", JSON.stringify(form));
+        if (form.name) {
+          setSaveIndicator("Saved");
+          setTimeout(() => setSaveIndicator(null), 1500);
+        }
+      } catch {}
+    }, 800);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [form]);
+
+  // Persist logo URL
+  useEffect(() => {
+    try {
+      if (logoUrl) localStorage.setItem("company-logo-url", logoUrl);
+      else localStorage.removeItem("company-logo-url");
+    } catch {}
+  }, [logoUrl]);
+
+  // Notify parent on mount if we have saved data
+  useEffect(() => {
+    if (form.name) {
+      onSave?.(form);
+      // Also restore analysis if available
+      try {
+        const savedAnalysis = localStorage.getItem("company-analysis");
+        if (savedAnalysis) {
+          const parsed = JSON.parse(savedAnalysis);
+          onAnalysis?.(parsed);
+          setAnalysisComplete(true);
+          setIsExpanded(false);
+        }
+      } catch {}
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -180,6 +232,7 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
       setIsExpanded(false);
       onSave?.(form);
       onAnalysis?.(analysisData as AnalysisResult);
+      try { localStorage.setItem("company-analysis", JSON.stringify(analysisData)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
@@ -239,6 +292,11 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {saveIndicator && (
+            <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground animate-in fade-in">
+              <Check className="h-3 w-3" /> {saveIndicator}
+            </span>
+          )}
           {analysisComplete && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
               <Check className="h-3 w-3" /> Analyzed
