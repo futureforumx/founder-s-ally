@@ -176,6 +176,62 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_investors: {
+        Row: {
+          amount: number
+          company_analysis_id: string | null
+          created_at: string
+          entity_type: string
+          id: string
+          instrument: string
+          investor_name: string
+          round_name: string | null
+          source_date: string | null
+          source_detail: string | null
+          source_type: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          company_analysis_id?: string | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          instrument?: string
+          investor_name: string
+          round_name?: string | null
+          source_date?: string | null
+          source_detail?: string | null
+          source_type?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          company_analysis_id?: string | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          instrument?: string
+          investor_name?: string
+          round_name?: string | null
+          source_date?: string | null
+          source_detail?: string | null
+          source_type?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_investors_company_analysis_id_fkey"
+            columns: ["company_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "company_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
