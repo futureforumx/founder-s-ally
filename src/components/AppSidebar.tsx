@@ -1,4 +1,4 @@
-import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake, Building2 } from "lucide-react";
+import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake, Building2, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
@@ -6,9 +6,12 @@ interface AppSidebarProps {
   onViewChange: (view: "company" | "dashboard" | "audit" | "benchmarks" | "investors") => void;
 }
 
-const navItems = [
+const topItems = [
+  { id: "dashboard" as const, label: "Dashboard", icon: Gauge },
+];
+
+const companyItems = [
   { id: "company" as const, label: "Mission Control", icon: Building2 },
-  { id: "dashboard" as const, label: "Health Dashboard", icon: LayoutDashboard },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investor Match", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
@@ -28,9 +31,23 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
       </div>
 
       <nav className="mt-4 flex flex-1 flex-col gap-1 px-3">
-        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Dashboard</div>
+        {topItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onViewChange(item.id)}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+              activeView === item.id
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.label}
+          </button>
+        ))}
         <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
-        {navItems.map((item) => (
+        {companyItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
