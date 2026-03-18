@@ -20,6 +20,7 @@ export interface CompanyData {
   name: string;
   stage: string;
   sector: string;
+  subsectors: string[];
   description: string;
   website: string;
   teamSize: string;
