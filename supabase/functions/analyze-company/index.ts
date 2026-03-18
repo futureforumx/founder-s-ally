@@ -29,6 +29,12 @@ const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extrac
    - description: 1-sentence company description
    - stage: funding stage if mentioned
    - sector: primary sector
+6. Semantic Sector Mapping: Analyze the content for domain-specific keywords and map to precise sectors with sub-tags. For example:
+   - Keywords like 'Ledger', 'Payment', 'Blockchain', 'Wallet' → Sector: "Fintech", Sub-tag: "Web3 Payments"
+   - Keywords like 'EHR', 'Telehealth', 'Patient' → Sector: "Health Tech", Sub-tag: "Digital Health"
+   - Keywords like 'LLM', 'Neural', 'Training', 'GPT' → Sector: "AI / ML", Sub-tag: "Foundation Models"
+   - Keywords like 'Carbon', 'Solar', 'Emission' → Sector: "Climate Tech", Sub-tag: "Clean Energy"
+   Return the sectorMapping with the detected sector, subTag, and the keywords that triggered the mapping.
 
 Be precise. If a metric is not found, return null for it. Write the summary in professional VC language.`;
 
@@ -181,6 +187,16 @@ ${combinedText.slice(0, 40000)}`;
                       currentARR: { type: "string", description: "Source of ARR data" },
                       yoyGrowth: { type: "string", description: "Source of growth data" },
                       totalHeadcount: { type: "string", description: "Source of headcount data" },
+                    },
+                    additionalProperties: false,
+                  },
+                  sectorMapping: {
+                    type: "object",
+                    description: "Semantic sector mapping based on detected keywords",
+                    properties: {
+                      sector: { type: "string", description: "Mapped sector (e.g. Fintech, Health Tech)" },
+                      subTag: { type: "string", description: "Specific sub-tag (e.g. Web3 Payments, Digital Health)" },
+                      keywords: { type: "array", items: { type: "string" }, description: "Keywords that triggered this mapping" },
                     },
                     additionalProperties: false,
                   },
