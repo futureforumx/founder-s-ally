@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, Trash2, Save, DollarSign, Bell, CheckCircle2, Eye, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
@@ -30,7 +31,7 @@ interface CapRow {
   date: string;
   notes: string;
   _new?: boolean;
-  _source?: "deck" | "web"; // AI source badge
+  _source?: "deck" | "web";
 }
 
 interface PendingInvestor {
@@ -48,6 +49,7 @@ interface PendingInvestor {
 
 interface InvestorBackingProps {
   extractedInvestors?: ExtractedInvestor[];
+  isScanning?: boolean;
 }
 
 const ENTITY_TYPES = ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"];
@@ -74,7 +76,6 @@ function useCountUp(target: number, duration = 1200) {
     const step = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(start + diff * eased));
       if (progress < 1) requestAnimationFrame(step);
@@ -85,7 +86,7 @@ function useCountUp(target: number, duration = 1200) {
   return display;
 }
 
-export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
+export function InvestorBacking({ extractedInvestors, isScanning = false }: InvestorBackingProps) {
   const [rows, setRows] = useState<CapRow[]>([]);
   const [original, setOriginal] = useState<CapRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,7 +214,6 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
     }
   };
 
-  // ── Accept a single pending investor ──
   const acceptPending = async (p: PendingInvestor) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -247,13 +247,11 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
     setShowReview(false);
   };
 
-  // ── Manual sync trigger ──
   const triggerSync = async () => {
     setSyncing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-      // Get the user's company analysis
       const { data: analyses } = await supabase
         .from("company_analyses")
         .select("id, company_name, website_url")
@@ -307,6 +305,11 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isScanning && (
+                <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 animate-pulse gap-1">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> Scanning...
+                </Badge>
+              )}
               {totalRaised > 0 && (
                 <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
                   {fmt(totalRaised)} raised
@@ -320,24 +323,27 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
         <CollapsibleContent>
           <div className="px-5 pb-5 space-y-4">
 
-      {/* Total Capital Raised Summary */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex items-center justify-between py-4 px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <DollarSign className="h-4 w-4 text-primary" />
+      {/* Total Capital Raised Summary — larger, more prominent */}
+      <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
+              <DollarSign className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">Total Capital Raised</p>
-              <p className="text-xl font-bold text-foreground tracking-tight">{fmt(animatedTotal)}</p>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Capital Raised</p>
+              <p className="text-3xl font-bold text-foreground tracking-tight mt-0.5">{fmt(animatedTotal)}</p>
+              {rows.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">{rows.length} investor{rows.length !== 1 ? "s" : ""} on record</p>
+              )}
             </div>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing}>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             {syncing ? "Scanning..." : "Scan for Investors"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* 🔍 Investor Discovery — Pending Cards with Match Scores */}
       <InvestorDiscovery
@@ -371,7 +377,23 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && !loading && (
+              {/* Skeleton loader while scanning */}
+              {isScanning && rows.length === 0 && (
+                <>
+                  {[1, 2, 3].map(i => (
+                    <TableRow key={`skel-${i}`}>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell className="p-1.5"><Skeleton className="h-7 w-7" /></TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              )}
+              {rows.length === 0 && !loading && !isScanning && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8 text-xs">
                     No investors yet. Click "Add Investor" to get started.
@@ -404,6 +426,11 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
                       {row._source === "web" && (
                         <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-primary/10 text-primary border-primary/20">
                           <Globe className="h-2.5 w-2.5" /> Web
+                        </Badge>
+                      )}
+                      {row._source && (
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 gap-1 bg-accent/10 text-accent border-accent/20">
+                          <Sparkles className="h-2.5 w-2.5" /> AI Found
                         </Badge>
                       )}
                       {row.amount === 0 && row._source && (
@@ -468,6 +495,18 @@ export function InvestorBacking({ extractedInvestors }: InvestorBackingProps) {
                   </TableCell>
                 </TableRow>
               ))}
+              {/* Skeleton rows appended while scanning with existing rows */}
+              {isScanning && rows.length > 0 && (
+                <TableRow>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-20" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-8 w-full" /></TableCell>
+                  <TableCell className="p-1.5"><Skeleton className="h-7 w-7" /></TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
           <div className="p-3 border-t">
