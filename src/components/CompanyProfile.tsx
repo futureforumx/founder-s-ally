@@ -847,17 +847,23 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 <div className="grid grid-cols-3 gap-4">
                   <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
                     aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
-                    <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
-                      <option value="" disabled>Select model</option>
-                      {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="flex items-center gap-1.5">
+                      <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
+                        <option value="" disabled>Select model</option>
+                        {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {renderVerificationBadge("businessModel")}
+                    </div>
                   </ProfileField>
                   <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
                     aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
-                    <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
-                      <option value="" disabled>Select type</option>
-                      {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <div className="flex items-center gap-1.5">
+                      <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
+                        <option value="" disabled>Select type</option>
+                        {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {renderVerificationBadge("targetCustomer")}
+                    </div>
                   </ProfileField>
                   <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
                     isAiDraft={isFieldAiDraft("hqLocation")}
