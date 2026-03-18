@@ -280,7 +280,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   const scoredInvestors = useMemo(() => {
     return investors
-      .map(inv => computeScore(inv, companyData, analysisResult))
+      .map(inv => computeScore(inv, companyData, analysisResult, sectorClassification || null))
       .filter(inv => {
         if (inv.max_check_size < checkSizeRange[0] || inv.min_check_size > checkSizeRange[1]) return false;
         if (leadFilter !== "all" && inv.lead_or_follow !== leadFilter) return false;
