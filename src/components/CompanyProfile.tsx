@@ -522,6 +522,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const renderVerificationBadge = (field: string) => {
     const v = sourceVerification[field];
     if (!v || !analysisComplete) return null;
+    if (userTouched.has(field as keyof CompanyData)) return null; // User edited → no badge
     if (v.status === "verified") {
       return (
         <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 gap-0.5">
@@ -531,22 +532,43 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     }
     if (v.status === "deck-only") {
       return (
-        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground gap-0.5">
-          <FileText className="h-2.5 w-2.5" /> Deck-Only
-        </Badge>
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-purple-500/10 text-purple-600 border-purple-500/20 gap-0.5 cursor-help">
+              📄 Deck-Verified
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[10px] max-w-[200px]">
+            {metricSources[field] || `Extracted from your Pitch Deck`}
+          </TooltipContent>
+        </Tooltip>
       );
     }
     if (v.status === "conflict") {
       return (
-        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-warning/10 text-warning border-warning/20 gap-0.5" title={v.conflictDetail}>
-          <AlertTriangle className="h-2.5 w-2.5" /> Conflict
-        </Badge>
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-warning/10 text-warning border-warning/20 gap-0.5 cursor-help">
+              <AlertTriangle className="h-2.5 w-2.5" /> Conflict
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[10px] max-w-[220px]">
+            {v.conflictDetail || "Sources disagree on this value"}
+          </TooltipContent>
+        </Tooltip>
       );
     }
     return (
-      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 gap-0.5">
-        <Eye className="h-2.5 w-2.5" /> Predictive
-      </Badge>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 gap-0.5 cursor-help">
+            ✨ Predictive
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-[10px] max-w-[200px]">
+          {metricSources[field] || `Inferred from website scrape & web search`}
+        </TooltipContent>
+      </Tooltip>
     );
   };
 
