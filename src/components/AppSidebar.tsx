@@ -1,9 +1,11 @@
-import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake, Building2, Gauge } from "lucide-react";
+import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
+
 interface AppSidebarProps {
-  activeView: "company" | "dashboard" | "audit" | "benchmarks" | "investors";
-  onViewChange: (view: "company" | "dashboard" | "audit" | "benchmarks" | "investors") => void;
+  activeView: ViewType;
+  onViewChange: (view: ViewType) => void;
 }
 
 const topItems = [
@@ -15,6 +17,13 @@ const companyItems = [
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investor Match", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
+];
+
+const communityItems = [
+  { id: "directory" as const, label: "Directory", icon: BookOpen },
+  { id: "connections" as const, label: "Connections", icon: Link2 },
+  { id: "messages" as const, label: "Messages", icon: MessageSquare },
+  { id: "events" as const, label: "Events", icon: CalendarDays },
 ];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
