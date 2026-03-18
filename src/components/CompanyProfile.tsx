@@ -21,11 +21,13 @@ interface CompanyProfileProps {
   onSectorChange?: (classification: SectorClassification) => void;
 }
 
-type AnalyzeStepKey = "scraping" | "analyzing" | "mapping" | "";
+type AnalyzeStepKey = "scraping" | "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
 const STEP_LABELS: Record<AnalyzeStepKey, string> = {
-  scraping: "Scraping Website...",
-  analyzing: "Analyzing Pitch Deck...",
-  mapping: "Mapping Competitors...",
+  scraping: "Parsing Deck Structure...",
+  analyzing: "Cross-referencing with live market data...",
+  deepSearch: "Running Deep Search for recent filings...",
+  verifying: "Verifying Headquarters via recent filings...",
+  mapping: "Mapping Competitive Landscape...",
   "": "",
 };
 
