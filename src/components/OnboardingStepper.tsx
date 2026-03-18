@@ -118,7 +118,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     setSynced(true);
     setTimeout(() => {
       const company: CompanyData = {
-        name: companyName, stage, sector, description: "", website, teamSize: "",
+        name: companyName, stage, sector, subsectors: [], description: "", website, teamSize: "",
         businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
         uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
       };
