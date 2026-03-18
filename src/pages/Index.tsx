@@ -12,6 +12,7 @@ import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
+import { AnalysisEngine } from "@/components/AnalysisEngine";
 import { PulseCards } from "@/components/PulseCards";
 import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
