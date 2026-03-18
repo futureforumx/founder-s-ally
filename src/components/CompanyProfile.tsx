@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorTags, SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +70,22 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Progressive disclosure state for Growth Metrics
+  const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
+    try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
+  });
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [scanningMetrics, setScanningMetrics] = useState(false);
+  const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("company-verified-fields");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [metricsConfirmed, setMetricsConfirmed] = useState(() => {
+    try { return localStorage.getItem("company-metrics-confirmed") === "true"; } catch { return false; }
+  });
+
   const completion = getCompletionPercent(form);
 
   // Auto-save
@@ -79,6 +95,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
+        localStorage.setItem("company-verified-fields", JSON.stringify([...verifiedFields]));
+        localStorage.setItem("company-metrics-unlocked", String(metricsUnlocked));
+        localStorage.setItem("company-metrics-confirmed", String(metricsConfirmed));
         if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
       } catch {}
     }, 800);
@@ -129,14 +148,31 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     } finally { setUploadingLogo(false); }
   };
 
+  const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+
   const update = (field: keyof CompanyData, value: string | string[]) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setUserTouched(prev => new Set(prev).add(field));
     setAnalysisComplete(false);
     setConfirmed(false);
-    // Clear AI suggestion for this field if user edits it
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
+    // Auto-verify metric fields on manual edit
+    if (METRIC_FIELDS.includes(field)) {
+      setVerifiedFields(prev => new Set(prev).add(field));
+    }
   };
+
+  const verifyField = (field: string) => {
+    setVerifiedFields(prev => new Set(prev).add(field));
+  };
+
+  const confirmAllMetrics = () => {
+    setMetricsConfirmed(true);
+    METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+  };
+
+  const isMetricPending = (field: keyof CompanyData) =>
+    metricsUnlocked && !metricsConfirmed && !verifiedFields.has(field) && !userTouched.has(field) && !!form[field];
 
   const handleFileSelect = useCallback(async (file: File) => {
     const name = file.name.toLowerCase();
@@ -158,6 +194,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         }
         setDeckText(pages.join("\n\n"));
       }
+      // Unlock and expand metrics on successful PDF parse
+      setMetricsUnlocked(true);
+      setMetricsExpanded(true);
+      setScanningMetrics(true);
+      // Simulate scanning pulse for 2s, actual extraction happens on "Run Analysis"
+      setTimeout(() => setScanningMetrics(false), 2500);
     } catch { setError("Failed to read file. Try a different format."); }
   }, []);
 
@@ -433,31 +475,108 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             </div>
           </div>
 
-          {/* === SECTION: Benchmarking Metrics === */}
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Benchmarking Metrics
-            </p>
-            <div className="grid grid-cols-3 gap-4">
-              <ProfileField label="Current ARR" icon={<DollarSign className="inline h-3 w-3" />}
-                isAiDraft={isFieldAiDraft("currentARR")}
-                aiSuggestion={aiSuggestions.currentARR} onApplySuggestion={() => update("currentARR", aiSuggestions.currentARR!)}>
-                <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value)}
-                  placeholder="$1.2M" className={inputCls("currentARR")} />
-              </ProfileField>
-              <ProfileField label="YoY Growth %" icon={<TrendingUp className="inline h-3 w-3" />}
-                isAiDraft={isFieldAiDraft("yoyGrowth")}
-                aiSuggestion={aiSuggestions.yoyGrowth} onApplySuggestion={() => update("yoyGrowth", aiSuggestions.yoyGrowth!)}>
-                <input type="text" value={form.yoyGrowth} onChange={e => update("yoyGrowth", e.target.value)}
-                  placeholder="150%" className={inputCls("yoyGrowth")} />
-              </ProfileField>
-              <ProfileField label="Total Headcount" icon={<Users className="inline h-3 w-3" />}
-                isAiDraft={isFieldAiDraft("totalHeadcount")}
-                aiSuggestion={aiSuggestions.totalHeadcount} onApplySuggestion={() => update("totalHeadcount", aiSuggestions.totalHeadcount!)}>
-                <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value)}
-                  placeholder="25" className={inputCls("totalHeadcount")} />
-              </ProfileField>
-            </div>
+          {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
+          <div className={`rounded-xl border transition-all duration-300 ${metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20 opacity-60"}`}>
+            {/* Section header — always visible */}
+            <button
+              type="button"
+              onClick={() => metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
+              className={`flex w-full items-center justify-between px-4 py-3 ${metricsUnlocked ? "cursor-pointer" : "cursor-default"}`}
+            >
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                {metricsUnlocked ? <TrendingUp className="h-3 w-3 text-accent" /> : <Lock className="h-3 w-3" />}
+                Growth Metrics
+                {metricsConfirmed && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 ml-1">Verified</Badge>
+                )}
+              </span>
+              {metricsUnlocked && (
+                metricsExpanded
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </button>
+
+            {/* Locked placeholder */}
+            {!metricsUnlocked && (
+              <div className="px-4 pb-4">
+                <p className="text-xs text-muted-foreground italic flex items-center gap-1.5">
+                  <Lock className="h-3 w-3" />
+                  Metrics will unlock once a Pitch Deck is uploaded.
+                </p>
+              </div>
+            )}
+
+            {/* Expanded content with slide animation */}
+            {metricsUnlocked && metricsExpanded && (
+              <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="grid grid-cols-3 gap-4">
+                  {([
+                    { field: "currentARR" as keyof CompanyData, label: "Current ARR", icon: <DollarSign className="inline h-3 w-3" />, placeholder: "$1.2M" },
+                    { field: "yoyGrowth" as keyof CompanyData, label: "YoY Growth %", icon: <TrendingUp className="inline h-3 w-3" />, placeholder: "150%" },
+                    { field: "totalHeadcount" as keyof CompanyData, label: "Total Headcount", icon: <Users className="inline h-3 w-3" />, placeholder: "25" },
+                  ]).map(({ field, label, icon, placeholder }) => {
+                    const pending = isMetricPending(field);
+                    const verified = verifiedFields.has(field);
+                    return (
+                      <ProfileField key={field} label={label} icon={icon}
+                        isAiDraft={isFieldAiDraft(field) && !verified}
+                        aiSuggestion={aiSuggestions[field]} onApplySuggestion={() => update(field, aiSuggestions[field]!)}>
+                        <div className="relative">
+                          {scanningMetrics && !form[field] ? (
+                            /* Scanning skeleton */
+                            <div className="w-full rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 h-[38px] flex items-center gap-2">
+                              <div className="h-3 w-3/4 rounded bg-accent/10 animate-pulse" />
+                              <Sparkles className="h-3 w-3 text-accent/40 animate-pulse" />
+                            </div>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                value={form[field] as string}
+                                onChange={e => update(field, e.target.value)}
+                                placeholder={placeholder}
+                                className={`${inputCls(field)} ${pending ? "!bg-accent/5 !border-accent/20" : ""} ${verified ? "!bg-background !border-input" : ""} pr-8`}
+                              />
+                              {/* Pending sparkle or verify checkmark */}
+                              {pending && !verified && (
+                                <button
+                                  type="button"
+                                  onClick={() => verifyField(field)}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-accent hover:bg-accent/10 transition-colors"
+                                  title="Verify this value"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              {verified && (
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-success">
+                                  <Check className="h-3.5 w-3.5" />
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </ProfileField>
+                    );
+                  })}
+                </div>
+
+                {/* Confirm All button — only after PDF uploaded */}
+                {!metricsConfirmed && METRIC_FIELDS.some(f => !!form[f]) && (
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={confirmAllMetrics}
+                      className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent/90"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Confirm All Extracted Data
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Error */}
