@@ -43,8 +43,8 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { default: lovableModule } = await import("@/integrations/lovable/index");
-      const { error } = await lovableModule.auth.signInWithOAuth("google", {
+      const { lovable } = await import("@/integrations/lovable/index");
+      const { error } = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
       if (error) throw error;
