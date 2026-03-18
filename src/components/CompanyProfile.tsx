@@ -217,7 +217,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         if (savedAnalysis) {
           onAnalysis?.(JSON.parse(savedAnalysis));
           setAnalysisComplete(true);
-          setIsExpanded(false);
+          setIsExpanded(true);
+          setSectorExpanded(true);
+          setCategorizationExpanded(true);
+          setCompetitiveExpanded(true);
+          setMetricsExpanded(true);
         }
       } catch {}
       // Restore verified state
@@ -466,7 +470,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       setScanningMetrics(false);
 
       setAnalysisComplete(true);
-      setIsExpanded(false);
+      setIsExpanded(true);
+      setSectorExpanded(true);
+      setCategorizationExpanded(true);
+      setCompetitiveExpanded(true);
+      setMetricsExpanded(true);
       // Auto-save will be handled by the useEffect below once form state settles
       onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
