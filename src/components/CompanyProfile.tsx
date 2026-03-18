@@ -99,6 +99,14 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
+  const [stageClassification, setStageClassification] = useState<{
+    detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-stage-classification");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   const completion = getCompletionPercent(form);
 
