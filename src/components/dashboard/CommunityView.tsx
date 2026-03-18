@@ -69,7 +69,7 @@ export function CommunityView() {
               <TrendingUp className="h-3.5 w-3.5 text-success" />
             </div>
             Trending Investors
-            <Star className="h-3 w-3 text-amber-500 ml-auto" />
+            <Star className="h-3 w-3 text-warning ml-auto" />
           </CardTitle>
         </CardHeader>
         <CardContent>
