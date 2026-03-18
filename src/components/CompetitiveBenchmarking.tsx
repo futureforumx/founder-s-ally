@@ -170,7 +170,7 @@ function buildRows(company: CompanyData | null, analysis: AnalysisResult | null)
   });
 
   // Burn Multiple
-  const burnTarget = isSeedOrEarlier ? 3 : 2;
+  const burnTarget = isSeedOrEarlier ? 3 : (isSeriesB || isSeriesCPlus) ? 1.5 : 2;
   rows.push({
     metric: "Burn Multiple",
     yourValue: burnMultiple != null ? `${burnMultiple.toFixed(1)}x` : null,
