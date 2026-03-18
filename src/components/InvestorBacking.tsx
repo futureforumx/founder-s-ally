@@ -4,9 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle, MoreHorizontal, Pencil, Inbox, X } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, Loader2, RefreshCw, ChevronDown, Landmark, Sparkles, Radio, TrendingUp, Check, ExternalLink, Pencil, Inbox, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -250,7 +249,7 @@ function CompactSuggestionCard({
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
 
   return (
-    <div className="min-w-[300px] max-w-[320px] snap-center shrink-0 rounded-xl border border-accent/15 bg-card p-4 shadow-surface relative group transition-all hover:border-accent/30 hover:shadow-surface-md">
+    <div className="min-w-[300px] max-w-[320px] snap-center shrink-0 rounded-xl border border-accent/15 bg-card p-4 relative group transition-all hover:border-accent/30">
       {/* Top row: Logo + Name + Amount */}
       <div className="flex items-center gap-2.5">
         <InvestorLogo name={row.investor_name} domain={row._domain} size="md" />
@@ -280,23 +279,31 @@ function CompactSuggestionCard({
             <Sparkles className="h-2 w-2" /> AI Sourced
           </Badge>
           {row._sourceUrl && (
-            <a href={row._sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors">
+            <a
+              href={row._sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
               <ExternalLink className="h-2.5 w-2.5" /> Source
             </a>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 relative z-10">
           <button
-            onClick={onReject}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-all"
+            onClick={(e) => { e.stopPropagation(); onReject(); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive hover:bg-destructive/10 hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Reject"
+            type="button"
           >
             <X className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={onApprove}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 text-success bg-success/5 hover:bg-success/15 hover:border-success/50 transition-all"
+            onClick={(e) => { e.stopPropagation(); onApprove(); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 text-success bg-success/5 hover:bg-success/20 hover:border-success/60 hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Approve"
+            type="button"
           >
             <Check className="h-3.5 w-3.5" />
           </button>
@@ -306,34 +313,89 @@ function CompactSuggestionCard({
   );
 }
 
-// ── Compact Verified Row ──
-function VerifiedRow({ row, onEdit, onDelete }: { row: CapRow; onEdit: () => void; onDelete: () => void }) {
+// ── Premium Ledger Row with Inline Editing ──
+function VerifiedRow({ row, onUpdate, onDelete }: { row: CapRow; onUpdate: (id: string, field: keyof CapRow, value: string | number) => void; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(row.investor_name);
+  const [editAmount, setEditAmount] = useState(String(row.amount));
+  const [editInstrument, setEditInstrument] = useState(row.instrument);
   const instrumentColor = INSTRUMENT_COLORS[row.instrument] || "bg-muted text-muted-foreground";
 
-  return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-muted/30 transition-colors group animate-drop-in">
-      <InvestorLogo name={row.investor_name} domain={row._domain} />
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-foreground truncate block">{row.investor_name}</span>
+  const handleSave = () => {
+    onUpdate(row.id, "investor_name", editName);
+    onUpdate(row.id, "amount", Number(editAmount) || 0);
+    onUpdate(row.id, "instrument", editInstrument);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-2.5 px-4 animate-fade-in">
+        <InvestorLogo name={editName} domain={row._domain} />
+        <Input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          className="h-7 text-xs flex-1 min-w-0"
+          placeholder="Investor name"
+        />
+        <select
+          value={editInstrument}
+          onChange={(e) => setEditInstrument(e.target.value)}
+          className="h-7 text-[10px] rounded-md border border-input bg-background px-2 text-foreground"
+        >
+          {INSTRUMENTS.map(i => <option key={i} value={i}>{i}</option>)}
+        </select>
+        <Input
+          value={editAmount}
+          onChange={(e) => setEditAmount(e.target.value)}
+          className="h-7 text-xs w-24 font-mono"
+          placeholder="Amount"
+          type="number"
+        />
+        <Button size="sm" className="h-7 text-[10px] gap-1 px-2" onClick={handleSave}>
+          <Save className="h-3 w-3" /> Save
+        </Button>
+        <button
+          onClick={() => setEditing(false)}
+          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
+          type="button"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor} hidden sm:inline-flex`}>{row.instrument}</Badge>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-4 hover:bg-muted/30 transition-colors group">
+      <InvestorLogo name={row.investor_name} domain={row._domain} />
+      <span className="text-sm font-semibold text-foreground truncate flex-1 min-w-0">{row.investor_name}</span>
+      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor} hidden sm:inline-flex`}>
+        {row.instrument}
+      </Badge>
       {row.date && <span className="text-[10px] text-muted-foreground font-mono hidden md:block">{row.date}</span>}
-      <span className="text-sm font-bold text-foreground font-mono min-w-[70px] text-right">{row.amount > 0 ? fmt(row.amount) : "—"}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-all">
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-32">
-          <DropdownMenuItem onClick={onEdit} className="gap-2 text-xs">
-            <Pencil className="h-3 w-3" /> Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onDelete} className="gap-2 text-xs text-destructive">
-            <Trash2 className="h-3 w-3" /> Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <span className="text-sm font-bold text-foreground font-mono min-w-[70px] text-right tabular-nums">
+        {row.amount > 0 ? fmt(row.amount) : "—"}
+      </span>
+      {/* Hover-reveal actions */}
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/50 transition-all cursor-pointer"
+          title="Edit"
+          type="button"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-all cursor-pointer"
+          title="Delete"
+          type="button"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -715,10 +777,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                     <VerifiedRow
                       key={row.id}
                       row={row}
-                      onEdit={() => {
-                        const newName = prompt("Investor name:", row.investor_name);
-                        if (newName !== null) updateCell(row.id, "investor_name", newName);
-                      }}
+                      onUpdate={updateCell}
                       onDelete={() => deleteRow(row.id, row._new)}
                     />
                   ))}
