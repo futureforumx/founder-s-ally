@@ -427,7 +427,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
       setAnalysisComplete(true);
       setIsExpanded(false);
-      onSave?.(form);
+      // Auto-save will be handled by the useEffect below once form state settles
       onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
     } catch (e) {
