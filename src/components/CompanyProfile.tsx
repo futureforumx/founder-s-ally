@@ -562,6 +562,19 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             {renderVerificationBadge("sector")}
           </div>
 
+          {/* Sector Heatmap & Market Context */}
+          {form.sector && (
+            <SectorHeatmap
+              sector={form.sector}
+              onNavigateBenchmarks={() => {
+                onSave?.(form);
+                // Navigate to benchmarks view via parent
+                const event = new CustomEvent("navigate-view", { detail: "benchmarks" });
+                window.dispatchEvent(event);
+              }}
+            />
+          )}
+
           {/* Website URL */}
           <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
             <input type="url" value={form.website} onChange={e => update("website", e.target.value)}
