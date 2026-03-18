@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { InvestorBacking } from "@/components/InvestorBacking";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
+import { StageClassificationCard } from "@/components/company-profile/StageClassificationCard";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
@@ -31,6 +32,14 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [stageClassification, setStageClassification] = useState<{
+    detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-stage-classification");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
     try {
       const saved = localStorage.getItem("company-sector-tags");
@@ -153,7 +162,15 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} />
+
+              {/* Stage Classification Card — shown after analysis */}
+              {stageClassification && (
+                <StageClassificationCard
+                  stageClassification={stageClassification}
+                  currentStage={companyData?.stage}
+                />
+              )}
 
 
               {/* Investor Backing */}

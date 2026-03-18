@@ -22,6 +22,7 @@ interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
   onAnalysis?: (result: AnalysisResult) => void;
   onSectorChange?: (classification: SectorClassification) => void;
+  onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
@@ -56,7 +57,7 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   "": "",
 };
 
-export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyProfileProps) {
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -164,6 +165,14 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [form, userTouched]);
+
+  // Auto-save profile to parent whenever form changes after analysis
+  useEffect(() => {
+    if (analysisComplete && form.name) {
+      onSave?.(form);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, analysisComplete]);
 
   useEffect(() => {
     try {
@@ -416,7 +425,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       // Capture stage classification
       if (analysisData.stageClassification) {
         setStageClassification(analysisData.stageClassification);
-        // If AI classified stage and user hasn't touched it, apply it
+        onStageClassification?.(analysisData.stageClassification);
         if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
           setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
         }
@@ -427,7 +436,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
 
       setAnalysisComplete(true);
       setIsExpanded(false);
-      onSave?.(form);
+      // Auto-save will be handled by the useEffect below once form state settles
       onAnalysis?.({ ...analysisData, sourceVerification: verification } as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify({ ...analysisData, sourceVerification: verification })); } catch {}
     } catch (e) {
@@ -591,27 +600,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                 </select>
                 {renderVerificationBadge("stage")}
               </div>
-              {/* Stage Classification Detail */}
-              {stageClassification && analysisComplete && (
-                <div className="mt-1.5 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 gap-0.5 ${
-                      stageClassification.confidence_score >= 0.8 ? "bg-success/10 text-success border-success/20" :
-                      stageClassification.confidence_score >= 0.5 ? "bg-accent/10 text-accent border-accent/20" :
-                      "bg-warning/10 text-warning border-warning/20"
-                    }`}>
-                      {Math.round(stageClassification.confidence_score * 100)}% confidence
-                    </Badge>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">{stageClassification.reasoning}</p>
-                  {stageClassification.conflicting_signals && (
-                    <div className="flex items-start gap-1 text-[10px] text-warning">
-                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                      <span>{stageClassification.conflicting_signals}</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </ProfileField>
           </div>
 
