@@ -95,6 +95,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
+        localStorage.setItem("company-verified-fields", JSON.stringify([...verifiedFields]));
+        localStorage.setItem("company-metrics-unlocked", String(metricsUnlocked));
+        localStorage.setItem("company-metrics-confirmed", String(metricsConfirmed));
         if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
       } catch {}
     }, 800);
