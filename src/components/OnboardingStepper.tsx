@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,24 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [synced, setSynced] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [faviconError, setFaviconError] = useState(false);
+
+  const faviconUrl = useMemo(() => {
+    if (!website.trim()) return null;
+    try {
+      const url = new URL(website.trim().startsWith("http") ? website.trim() : `https://${website.trim()}`);
+      return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=128`;
+    } catch {
+      return null;
+    }
+  }, [website]);
+
+  // Reset favicon error when URL changes
+  const prevFaviconUrl = useRef(faviconUrl);
+  if (prevFaviconUrl.current !== faviconUrl) {
+    prevFaviconUrl.current = faviconUrl;
+    setFaviconError(false);
+  }
 
   const scrapeWebsite = async () => {
     if (!website.trim()) return;
@@ -184,6 +202,23 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
         {!synced && (
           <>
+            {/* Brand continuity — favicon + company name */}
+            {step > 1 && companyName.trim() && (
+              <div className="flex items-center gap-2.5 px-6 pt-4 pb-0 animate-fade-in">
+                {faviconUrl && !faviconError && (
+                  <img
+                    src={faviconUrl}
+                    alt={`${companyName} icon`}
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 rounded-md shadow-sm object-contain"
+                    onError={() => setFaviconError(true)}
+                  />
+                )}
+                <span className="text-sm font-semibold text-foreground">{companyName}</span>
+              </div>
+            )}
+
             {/* Header */}
             <div className="border-b border-border px-6 py-4">
               <h2 className="text-base font-semibold text-foreground">Welcome to Founder Copilot</h2>
