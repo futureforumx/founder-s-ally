@@ -71,6 +71,13 @@ export interface AnalysisResult {
     stage?: string;
     sector?: string;
   };
+  // Source attribution for extracted metrics
+  metricSources?: {
+    currentARR?: string;
+    yoyGrowth?: string;
+    totalHeadcount?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 export const EMPTY_FORM: CompanyData = {

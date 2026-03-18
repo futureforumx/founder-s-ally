@@ -174,6 +174,16 @@ ${combinedText.slice(0, 40000)}`;
                     },
                     additionalProperties: false,
                   },
+                  metricSources: {
+                    type: "object",
+                    description: "For each extracted metric, indicate where it was found. E.g. 'Found on Slide 5 of Pitch Deck' or 'Extracted from website pricing page'. Keys: currentARR, yoyGrowth, totalHeadcount",
+                    properties: {
+                      currentARR: { type: "string", description: "Source of ARR data" },
+                      yoyGrowth: { type: "string", description: "Source of growth data" },
+                      totalHeadcount: { type: "string", description: "Source of headcount data" },
+                    },
+                    additionalProperties: false,
+                  },
                 },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
                 additionalProperties: false,
