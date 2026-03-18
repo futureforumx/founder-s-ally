@@ -1,57 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorTags, SectorClassification } from "@/components/SectorTags";
+import { Badge } from "@/components/ui/badge";
+import { ProfileField } from "./company-profile/ProfileField";
+import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
+import {
+  CompanyData, AnalysisResult, EMPTY_FORM,
+  stages, sectors, businessModels, targetCustomers,
+  getCompletionPercent,
+} from "./company-profile/types";
 
-const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
-const sectors = [
-  "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
-  "AI / ML", "Climate Tech", "Marketplace", "Developer Tools", "Edtech", "Other",
-];
-
-export interface CompanyData {
-  name: string;
-  stage: string;
-  sector: string;
-  description: string;
-  website: string;
-  teamSize: string;
-}
-
-export type ConfidenceLevel = "high" | "medium" | "low";
-
-export interface MetricWithConfidence {
-  value: string | null;
-  confidence: ConfidenceLevel;
-}
-
-export interface AnalysisResult {
-  header: string;
-  valueProposition: string;
-  pricingStructure?: string;
-  executiveSummary: string;
-  healthScore: number;
-  metrics: {
-    mrr: MetricWithConfidence;
-    burnRate: MetricWithConfidence;
-    cac: MetricWithConfidence;
-    ltv: MetricWithConfidence;
-    runway: MetricWithConfidence;
-  };
-  metricTable: {
-    metric: string;
-    value: string;
-    benchmark: string;
-    status: "healthy" | "warning" | "critical";
-    confidence: ConfidenceLevel;
-  }[];
-  agentData?: {
-    teamSize?: string;
-    lastFunding?: string;
-    fundingAmount?: string;
-    sources: string[];
-  };
-}
+// Re-export types for backward compat
+export type { CompanyData, AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./company-profile/types";
 
 interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
@@ -59,22 +20,42 @@ interface CompanyProfileProps {
   onSectorChange?: (classification: SectorClassification) => void;
 }
 
+type AnalyzeStepKey = "scraping" | "analyzing" | "mapping" | "";
+const STEP_LABELS: Record<AnalyzeStepKey, string> = {
+  scraping: "Scraping Website...",
+  analyzing: "Analyzing Pitch Deck...",
+  mapping: "Mapping Competitors...",
+  "": "",
+};
+
 export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { name: parsed.name || "", stage: parsed.stage || "", sector: parsed.sector || "", description: parsed.description || "", website: parsed.website || "", teamSize: parsed.teamSize || "" };
-      }
+      if (saved) { const p = JSON.parse(saved); return { ...EMPTY_FORM, ...p, competitors: p.competitors || [] }; }
     } catch {}
-    return { name: "", stage: "", sector: "", description: "", website: "", teamSize: "" };
+    return { ...EMPTY_FORM };
   });
+
+  // Track which fields were manually touched by user (not AI)
+  const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile-touched");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  // AI suggestions that differ from user input
+  const [aiSuggestions, setAiSuggestions] = useState<Partial<Record<keyof CompanyData, string>>>({});
+  const [confirmed, setConfirmed] = useState(() => {
+    try { return localStorage.getItem("company-profile-confirmed") === "true"; } catch { return false; }
+  });
+
   const [deckFile, setDeckFile] = useState<File | null>(null);
-  const [deckText, setDeckText] = useState<string>("");
+  const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzeStep, setAnalyzeStep] = useState("");
+  const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
@@ -82,28 +63,27 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
-  const [websiteMarkdown, setWebsiteMarkdown] = useState<string>("");
+  const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-save form to localStorage with debounce
+  const completion = getCompletionPercent(form);
+
+  // Auto-save
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
-        if (form.name) {
-          setSaveIndicator("Saved");
-          setTimeout(() => setSaveIndicator(null), 1500);
-        }
+        localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
+        if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form]);
+  }, [form, userTouched]);
 
-  // Persist logo URL
   useEffect(() => {
     try {
       if (logoUrl) localStorage.setItem("company-logo-url", logoUrl);
@@ -111,16 +91,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     } catch {}
   }, [logoUrl]);
 
-  // Notify parent on mount if we have saved data
+  useEffect(() => {
+    try { localStorage.setItem("company-profile-confirmed", String(confirmed)); } catch {}
+  }, [confirmed]);
+
+  // Restore on mount
   useEffect(() => {
     if (form.name) {
       onSave?.(form);
-      // Also restore analysis if available
       try {
         const savedAnalysis = localStorage.getItem("company-analysis");
         if (savedAnalysis) {
-          const parsed = JSON.parse(savedAnalysis);
-          onAnalysis?.(parsed);
+          onAnalysis?.(JSON.parse(savedAnalysis));
           setAnalysisComplete(true);
           setIsExpanded(false);
         }
@@ -143,50 +125,39 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       setLogoUrl(publicUrl);
     } catch (e: any) {
       setError(e.message || "Logo upload failed");
-    } finally {
-      setUploadingLogo(false);
-    }
+    } finally { setUploadingLogo(false); }
   };
 
-  const update = (field: keyof CompanyData, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const update = (field: keyof CompanyData, value: string | string[]) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    setUserTouched(prev => new Set(prev).add(field));
     setAnalysisComplete(false);
+    setConfirmed(false);
+    // Clear AI suggestion for this field if user edits it
+    setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
   };
 
   const handleFileSelect = useCallback(async (file: File) => {
     const name = file.name.toLowerCase();
-    if (!name.endsWith(".pdf") && !name.endsWith(".txt")) {
-      setError("Please upload a PDF or TXT file.");
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File too large. Maximum 50 MB.");
-      return;
-    }
+    if (!name.endsWith(".pdf") && !name.endsWith(".txt")) { setError("Please upload a PDF or TXT file."); return; }
+    if (file.size > 50 * 1024 * 1024) { setError("File too large. Maximum 50 MB."); return; }
     setError(null);
     setDeckFile(file);
-
-    // Extract text
     try {
-      if (name.endsWith(".txt")) {
-        setDeckText(await file.text());
-      } else {
+      if (name.endsWith(".txt")) { setDeckText(await file.text()); }
+      else {
         const pdfjsLib = await import("pdfjs-dist");
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
         const pages: string[] = [];
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
-          pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
+          pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ")}`);
         }
         setDeckText(pages.join("\n\n"));
       }
-    } catch {
-      setError("Failed to read file. Try a different format.");
-    }
+    } catch { setError("Failed to read file. Try a different format."); }
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -194,6 +165,49 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     const file = e.dataTransfer.files?.[0];
     if (file) handleFileSelect(file);
   }, [handleFileSelect]);
+
+  // Apply AI extracted data with "defer to user" rule
+  const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"]) => {
+    if (!aiExtracted) return;
+    const newSuggestions: Partial<Record<keyof CompanyData, string>> = {};
+    const fieldMap: { key: keyof CompanyData; aiKey: keyof NonNullable<AnalysisResult["aiExtracted"]> }[] = [
+      { key: "description", aiKey: "description" },
+      { key: "stage", aiKey: "stage" },
+      { key: "sector", aiKey: "sector" },
+      { key: "businessModel", aiKey: "businessModel" },
+      { key: "targetCustomer", aiKey: "targetCustomer" },
+      { key: "hqLocation", aiKey: "hqLocation" },
+      { key: "uniqueValueProp", aiKey: "uniqueValueProp" },
+      { key: "currentARR", aiKey: "currentARR" },
+      { key: "yoyGrowth", aiKey: "yoyGrowth" },
+      { key: "totalHeadcount", aiKey: "totalHeadcount" },
+    ];
+
+    setForm(prev => {
+      const next = { ...prev };
+      for (const { key, aiKey } of fieldMap) {
+        const aiVal = aiExtracted[aiKey];
+        if (!aiVal) continue;
+        const userVal = prev[key];
+        const touched = userTouched.has(key);
+        if (!touched && (!userVal || userVal === "")) {
+          // Empty + not touched → populate
+          (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+        } else if (touched && userVal && String(userVal) !== String(aiVal)) {
+          // User has data, AI differs → show suggestion
+          newSuggestions[key] = String(aiVal);
+        }
+      }
+      // Handle competitors array
+      if (aiExtracted.competitors?.length) {
+        if (!userTouched.has("competitors") && (!prev.competitors || prev.competitors.length === 0)) {
+          next.competitors = aiExtracted.competitors;
+        }
+      }
+      return next;
+    });
+    setAiSuggestions(newSuggestions);
+  };
 
   const handleAnalyze = async () => {
     if (!form.name.trim()) { setError("Company name is required."); return; }
@@ -204,34 +218,27 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     let scrapedMarkdown = "";
 
     try {
-      // Step 1: Scrape website if provided
       if (form.website.trim()) {
-        setAnalyzeStep("Scraping website...");
+        setAnalyzeStep("scraping");
         const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
           body: { url: form.website.trim() },
         });
-        if (scrapeError) {
-          console.error("Scrape error:", scrapeError);
-        } else if (scrapeData?.markdown) {
+        if (!scrapeError && scrapeData?.markdown) {
           scrapedMarkdown = scrapeData.markdown;
           setWebsiteMarkdown(scrapedMarkdown);
         }
       }
 
-      // Step 2: AI analysis
-      setAnalyzeStep("Running AI analysis...");
+      setAnalyzeStep("analyzing");
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
-        body: {
-          websiteText: scrapedMarkdown,
-          deckText,
-          companyName: form.name,
-          stage: form.stage,
-          sector: form.sector,
-        },
+        body: { websiteText: scrapedMarkdown, deckText, companyName: form.name, stage: form.stage, sector: form.sector },
       });
-
       if (analysisError) throw new Error(analysisError.message || "Analysis failed");
       if (analysisData?.error) throw new Error(analysisData.error);
+
+      setAnalyzeStep("mapping");
+      // Apply AI data with defer-to-user logic
+      applyAiData(analysisData.aiExtracted);
 
       setAnalysisComplete(true);
       setIsExpanded(false);
@@ -246,24 +253,44 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     }
   };
 
+  const handleConfirm = () => {
+    setConfirmed(true);
+    setAiSuggestions({});
+    // Mark all currently filled fields as touched
+    const allKeys = Object.keys(form) as (keyof CompanyData)[];
+    setUserTouched(new Set(allKeys.filter(k => {
+      const v = form[k];
+      return Array.isArray(v) ? v.length > 0 : !!v;
+    })));
+    onSave?.(form);
+    setIsExpanded(false);
+  };
+
+  const isFieldAiDraft = (field: keyof CompanyData) => !confirmed && !userTouched.has(field) && !!form[field];
+
+  const inputCls = (field: keyof CompanyData) =>
+    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${
+      isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
+    }`;
+
+  const selectCls = (field: keyof CompanyData) =>
+    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none ${
+      isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
+    }`;
+
   const canAnalyze = form.name.trim() && (form.website.trim() || deckText);
+
+  // Summary line for collapsed state
+  const summaryParts = [form.name, form.stage, form.sector].filter(Boolean);
 
   return (
     <div className="surface-card">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between p-5"
-      >
+      {/* Header — always visible */}
+      <button onClick={() => setIsExpanded(!isExpanded)} className="flex w-full items-center justify-between p-5">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
-            className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors hover:bg-accent/20"
-            title="Upload logo"
-          >
-            {uploadingLogo ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : logoUrl ? (
+          <button type="button" onClick={e => { e.stopPropagation(); logoInputRef.current?.click(); }}
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden group transition-colors hover:bg-accent/20" title="Upload logo">
+            {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : logoUrl ? (
               <>
                 <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
                 <div className="absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -277,29 +304,25 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
               </>
             )}
           </button>
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
-          />
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+            onClick={e => e.stopPropagation()} onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
           <div className="text-left">
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              {form.name || "Company Profile"}
-            </h2>
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">{form.name || "Company Profile"}</h2>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {form.stage && form.sector
-                ? `${form.stage} · ${form.sector}`
+              {!isExpanded && summaryParts.length > 1
+                ? summaryParts.join(" · ")
                 : "Add your company details to run AI analysis"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Completion badge */}
+          <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
+            {completion}% Complete
+          </Badge>
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
           </span>
           {saveIndicator && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground animate-in fade-in">
@@ -316,97 +339,159 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       </button>
 
       {isExpanded && (
-        <div className="border-t border-border px-5 pb-5 pt-4 space-y-4">
-          {/* Row 1: Name + Stage + Sector */}
+        <div className="border-t border-border px-5 pb-5 pt-4 space-y-5">
+          {/* === SECTION: Core Info === */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
-              <input type="text" value={form.name} onChange={(e) => update("name", e.target.value)}
-                placeholder="Acme Corp" maxLength={100}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-              <select value={form.stage} onChange={(e) => update("stage", e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none">
+            <ProfileField label="Company Name *">
+              <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
+            </ProfileField>
+            <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
+              aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
+              <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
                 <option value="" disabled>Select stage</option>
-                {stages.map((s) => <option key={s} value={s}>{s}</option>)}
+                {stages.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-              <select value={form.sector} onChange={(e) => update("sector", e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none">
+            </ProfileField>
+            <ProfileField label="Sector" isAiDraft={isFieldAiDraft("sector")}
+              aiSuggestion={aiSuggestions.sector} onApplySuggestion={() => update("sector", aiSuggestions.sector!)}>
+              <select value={form.sector} onChange={e => update("sector", e.target.value)} className={selectCls("sector")}>
                 <option value="" disabled>Select sector</option>
-                {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
+                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
+            </ProfileField>
           </div>
 
-          {/* Row 2: Website URL */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              <Globe className="inline h-3 w-3 mr-1" />Website URL
-            </label>
-            <input type="url" value={form.website} onChange={(e) => update("website", e.target.value)}
-              placeholder="https://acme.com" maxLength={255}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors" />
+          {/* Website URL */}
+          <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
+            <input type="url" value={form.website} onChange={e => update("website", e.target.value)}
+              placeholder="https://acme.com" maxLength={255} className={inputCls("website")} />
             <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop, pricing, and header info</p>
-          </div>
+          </ProfileField>
 
-          {/* Row 3: Pitch Deck Upload */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              <FileText className="inline h-3 w-3 mr-1" />Pitch Deck (PDF)
-            </label>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              className="flex items-center justify-between rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-3 transition-colors hover:border-accent/40"
-            >
+          {/* Pitch Deck */}
+          <ProfileField label="Pitch Deck (PDF)" icon={<FileText className="inline h-3 w-3" />}>
+            <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+              className="flex items-center justify-between rounded-lg border-2 border-dashed border-border bg-muted/30 px-4 py-3 transition-colors hover:border-accent/40">
               <div className="flex items-center gap-3">
                 <Upload className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {deckFile ? deckFile.name : "Drop PDF here or browse"}
-                </span>
-                {deckFile && deckText && (
-                  <span className="text-[10px] text-success font-mono">✓ Extracted</span>
-                )}
+                <span className="text-sm text-muted-foreground">{deckFile ? deckFile.name : "Drop PDF here or browse"}</span>
+                {deckFile && deckText && <span className="text-[10px] text-success font-mono">✓ Extracted</span>}
               </div>
               <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
               <button onClick={() => fileInputRef.current?.click()}
-                className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80">
-                Browse
-              </button>
+                className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80">Browse</button>
+            </div>
+          </ProfileField>
+
+          {/* === SECTION: Categorization === */}
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+              <Briefcase className="h-3 w-3" /> Categorization
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <ProfileField label="Business Model" isAiDraft={isFieldAiDraft("businessModel")}
+                aiSuggestion={aiSuggestions.businessModel} onApplySuggestion={() => update("businessModel", aiSuggestions.businessModel!)}>
+                <select value={form.businessModel} onChange={e => update("businessModel", e.target.value)} className={selectCls("businessModel")}>
+                  <option value="" disabled>Select model</option>
+                  {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </ProfileField>
+              <ProfileField label="Target Customer" isAiDraft={isFieldAiDraft("targetCustomer")}
+                aiSuggestion={aiSuggestions.targetCustomer} onApplySuggestion={() => update("targetCustomer", aiSuggestions.targetCustomer!)}>
+                <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
+                  <option value="" disabled>Select type</option>
+                  {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </ProfileField>
+              <ProfileField label="HQ Location" icon={<MapPin className="inline h-3 w-3" />}
+                isAiDraft={isFieldAiDraft("hqLocation")}
+                aiSuggestion={aiSuggestions.hqLocation} onApplySuggestion={() => update("hqLocation", aiSuggestions.hqLocation!)}>
+                <input type="text" value={form.hqLocation} onChange={e => update("hqLocation", e.target.value)}
+                  placeholder="San Francisco, CA" maxLength={100} className={inputCls("hqLocation")} />
+              </ProfileField>
             </div>
           </div>
 
+          {/* === SECTION: Competitive Landscape === */}
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+              <Target className="h-3 w-3" /> Competitive Landscape
+            </p>
+            <div className="space-y-4">
+              <ProfileField label="Direct Competitors" isAiDraft={isFieldAiDraft("competitors")}>
+                <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
+              </ProfileField>
+              <ProfileField label="Unique Value Proposition" isAiDraft={isFieldAiDraft("uniqueValueProp")}
+                aiSuggestion={aiSuggestions.uniqueValueProp} onApplySuggestion={() => update("uniqueValueProp", aiSuggestions.uniqueValueProp!)}>
+                <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
+                  placeholder="What makes your product uniquely defensible?"
+                  rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none`} />
+              </ProfileField>
+            </div>
+          </div>
+
+          {/* === SECTION: Benchmarking Metrics === */}
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" /> Benchmarking Metrics
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <ProfileField label="Current ARR" icon={<DollarSign className="inline h-3 w-3" />}
+                isAiDraft={isFieldAiDraft("currentARR")}
+                aiSuggestion={aiSuggestions.currentARR} onApplySuggestion={() => update("currentARR", aiSuggestions.currentARR!)}>
+                <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value)}
+                  placeholder="$1.2M" className={inputCls("currentARR")} />
+              </ProfileField>
+              <ProfileField label="YoY Growth %" icon={<TrendingUp className="inline h-3 w-3" />}
+                isAiDraft={isFieldAiDraft("yoyGrowth")}
+                aiSuggestion={aiSuggestions.yoyGrowth} onApplySuggestion={() => update("yoyGrowth", aiSuggestions.yoyGrowth!)}>
+                <input type="text" value={form.yoyGrowth} onChange={e => update("yoyGrowth", e.target.value)}
+                  placeholder="150%" className={inputCls("yoyGrowth")} />
+              </ProfileField>
+              <ProfileField label="Total Headcount" icon={<Users className="inline h-3 w-3" />}
+                isAiDraft={isFieldAiDraft("totalHeadcount")}
+                aiSuggestion={aiSuggestions.totalHeadcount} onApplySuggestion={() => update("totalHeadcount", aiSuggestions.totalHeadcount!)}>
+                <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value)}
+                  placeholder="25" className={inputCls("totalHeadcount")} />
+              </ProfileField>
+            </div>
+          </div>
+
+          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
             </div>
           )}
 
+          {/* Actions */}
           <div className="flex items-center justify-between pt-1">
             <p className="text-[10px] text-muted-foreground">
-              {isAnalyzing ? analyzeStep : "AI will extract metrics and generate an executive summary"}
+              {isAnalyzing ? STEP_LABELS[analyzeStep] : "AI will extract metrics and generate an executive summary"}
             </p>
-            <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
-              className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
-              {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {isAnalyzing ? "Analyzing..." : "Run Analysis"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={handleAnalyze} disabled={!canAnalyze || isAnalyzing}
+                className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
+                {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
+              </button>
+              <button onClick={handleConfirm}
+                className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {confirmed ? "Profile Confirmed" : "Confirm Profile"}
+              </button>
+            </div>
           </div>
 
-          {/* AI Sector Classification */}
+          {/* AI Sector Tags */}
           <SectorTags
             websiteText={websiteMarkdown}
             executiveSummary={analysisComplete ? (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary; } catch { return ""; } })() : ""}
             companyName={form.name}
-            onChange={(c) => { setSectorClassification(c); onSectorChange?.(c); }}
+            onChange={c => { setSectorClassification(c); onSectorChange?.(c); }}
           />
-
         </div>
       )}
     </div>

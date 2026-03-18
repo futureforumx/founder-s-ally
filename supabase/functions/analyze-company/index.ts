@@ -17,6 +17,18 @@ const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extrac
    - Team & execution signals (15 pts)
    - GTM strategy clarity (15 pts)
 4. Extract: company header/tagline, core value proposition, and pricing structure if found
+5. Also extract these company profile fields if you can find them:
+   - businessModel: one of SaaS, Marketplace, E-Commerce, Hardware, Services, Freemium, Usage-Based, Other
+   - targetCustomer: one of B2B, B2C, B2B2C, B2G
+   - hqLocation: city/state/country
+   - competitors: list of direct competitor company names (up to 5)
+   - uniqueValueProp: 1-2 sentence unique value proposition
+   - currentARR: annual recurring revenue if mentioned
+   - yoyGrowth: year-over-year growth percentage
+   - totalHeadcount: team size / number of employees
+   - description: 1-sentence company description
+   - stage: funding stage if mentioned
+   - sector: primary sector
 
 Be precise. If a metric is not found, return null for it. Write the summary in professional VC language.`;
 
@@ -144,6 +156,23 @@ ${combinedText.slice(0, 40000)}`;
                       additionalProperties: false,
                     },
                     description: "Table of key metrics with their values, SaaS benchmarks, health status, and confidence level",
+                  },
+                  aiExtracted: {
+                    type: "object",
+                    properties: {
+                      businessModel: { type: "string", description: "Business model type" },
+                      targetCustomer: { type: "string", description: "B2B, B2C, B2B2C, or B2G" },
+                      hqLocation: { type: "string", description: "HQ location" },
+                      competitors: { type: "array", items: { type: "string" }, description: "Direct competitors" },
+                      uniqueValueProp: { type: "string", description: "Unique value proposition" },
+                      currentARR: { type: "string", description: "Current ARR" },
+                      yoyGrowth: { type: "string", description: "YoY growth %" },
+                      totalHeadcount: { type: "string", description: "Total headcount" },
+                      description: { type: "string", description: "1-sentence company description" },
+                      stage: { type: "string", description: "Funding stage" },
+                      sector: { type: "string", description: "Primary sector" },
+                    },
+                    additionalProperties: false,
                   },
                 },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
