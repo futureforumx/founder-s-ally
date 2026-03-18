@@ -226,10 +226,6 @@ const Index = () => {
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <AgentMode companyData={companyData} onAgentData={handleAgentData} />
-                  <InvestorExport companyData={companyData} analysisResult={analysisResult} />
-                </div>
               </div>
 
               <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
