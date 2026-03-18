@@ -194,6 +194,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         }
         setDeckText(pages.join("\n\n"));
       }
+      // Unlock and expand metrics on successful PDF parse
+      setMetricsUnlocked(true);
+      setMetricsExpanded(true);
+      setScanningMetrics(true);
+      // Simulate scanning pulse for 2s, actual extraction happens on "Run Analysis"
+      setTimeout(() => setScanningMetrics(false), 2500);
     } catch { setError("Failed to read file. Try a different format."); }
   }, []);
 
