@@ -675,7 +675,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                   logoSyncDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
                     if (!domain) { setSuggestedLogoUrl(null); return; }
-                    const hdLogoUrl = `https://img.logo.dev/${domain}?token=pk_a8IM0ZFaRjOxNXcaUBOpHQ&size=128&format=png`;
+                    const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
                     const testImg = new Image();
                     testImg.onload = () => {
                       if (!logoUrl) {
