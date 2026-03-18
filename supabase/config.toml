@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.agent-lookup]
 verify_jwt = false
+
+[functions.market-updates]
+verify_jwt = false

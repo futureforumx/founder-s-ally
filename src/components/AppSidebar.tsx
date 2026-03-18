@@ -1,12 +1,13 @@
-import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake } from "lucide-react";
+import { Shield, LayoutDashboard, FileText, Settings, BarChart3, Handshake, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
-  activeView: "dashboard" | "audit" | "benchmarks" | "investors";
-  onViewChange: (view: "dashboard" | "audit" | "benchmarks" | "investors") => void;
+  activeView: "company" | "dashboard" | "audit" | "benchmarks" | "investors";
+  onViewChange: (view: "company" | "dashboard" | "audit" | "benchmarks" | "investors") => void;
 }
 
 const navItems = [
+  { id: "company" as const, label: "My Company", icon: Building2 },
   { id: "dashboard" as const, label: "Health Dashboard", icon: LayoutDashboard },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investor Match", icon: Handshake },

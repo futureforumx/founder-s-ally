@@ -7,11 +7,22 @@ import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorExport } from "@/components/InvestorExport";
 import { AgentMode } from "@/components/AgentMode";
 import { InvestorMatch } from "@/components/InvestorMatch";
+import { OnboardingStepper } from "@/components/OnboardingStepper";
+import { PulseCards } from "@/components/PulseCards";
+import { RefreshCw, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState<"dashboard" | "audit" | "benchmarks" | "investors">("dashboard");
+  const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const profileComplete = !!companyData && !!analysisResult;
 
   const handleMetricEdit = (key: string, value: string) => {
     if (!analysisResult) return;
@@ -29,21 +40,106 @@ const Index = () => {
     setAnalysisResult({ ...analysisResult, agentData });
   };
 
+  const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
+    setCompanyData(company);
+    setAnalysisResult(analysis);
+    setShowOnboarding(false);
+  };
+
+  const handleSyncNow = async () => {
+    if (!companyData) return;
+    setIsSyncing(true);
+    try {
+      let websiteMarkdown = "";
+      if (companyData.website?.trim()) {
+        const { data } = await supabase.functions.invoke("scrape-website", {
+          body: { url: companyData.website.trim() },
+        });
+        websiteMarkdown = data?.markdown || "";
+      }
+
+      const { data: analysisData, error } = await supabase.functions.invoke("analyze-company", {
+        body: {
+          websiteText: websiteMarkdown,
+          deckText: "",
+          companyName: companyData.name,
+          stage: companyData.stage,
+          sector: companyData.sector,
+        },
+      });
+      if (error) throw error;
+      if (analysisData?.error) throw new Error(analysisData.error);
+      setAnalysisResult(analysisData as AnalysisResult);
+    } catch (e) {
+      console.error("Sync failed:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleCompanyFieldEdit = (field: keyof CompanyData, value: string) => {
+    if (!companyData) return;
+    setCompanyData({ ...companyData, [field]: value });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Onboarding modal */}
+      {showOnboarding && !profileComplete && (
+        <OnboardingStepper
+          onComplete={handleOnboardingComplete}
+          onSkip={() => setShowOnboarding(false)}
+        />
+      )}
+
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto">
         <div className="px-8 py-6">
-          {activeView === "dashboard" ? (
+          {activeView === "company" ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div />
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-foreground">My Company</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSyncNow} disabled={isSyncing || !companyData}>
+                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    {isSyncing ? "Syncing..." : "Sync Now"}
+                  </Button>
+                  <AgentMode companyData={companyData} onAgentData={handleAgentData} />
+                  <InvestorExport companyData={companyData} analysisResult={analysisResult} />
+                </div>
+              </div>
+
+              {/* Company Profile - inline editable */}
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
+
+              {/* Pulse Cards */}
+              <PulseCards sector={companyData?.sector} />
+
+              {/* Health Dashboard below */}
+              {profileComplete && (
+                <HealthDashboard
+                  stage={companyData?.stage}
+                  sector={companyData?.sector}
+                  analysisResult={analysisResult}
+                  onMetricEdit={handleMetricEdit}
+                />
+              )}
+            </div>
+          ) : activeView === "dashboard" ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Health Dashboard</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Detailed health metrics and benchmarks</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <AgentMode companyData={companyData} onAgentData={handleAgentData} />
                   <InvestorExport companyData={companyData} analysisResult={analysisResult} />
                 </div>
               </div>
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
               <HealthDashboard
                 stage={companyData?.stage}
                 sector={companyData?.sector}
