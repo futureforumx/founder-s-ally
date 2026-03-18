@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle, ArrowRight } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,12 +23,20 @@ import {
 // Re-export types for backward compat
 export type { CompanyData, AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./company-profile/types";
 
+// ── Walkthrough types ──
+type WalkthroughMode = "idle" | "analyzing" | "walkthrough" | "done";
+
+// Section keys for the guided walkthrough
+const WALKTHROUGH_SECTIONS = ["sector", "categorization", "competitive", "metrics"] as const;
+type WalkthroughSection = typeof WALKTHROUGH_SECTIONS[number];
+
 interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
   onAnalysis?: (result: AnalysisResult) => void;
   onSectorChange?: (classification: SectorClassification) => void;
   onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
   onProfileVerified?: (verified: boolean) => void;
+  onWalkthroughComplete?: () => void;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
@@ -63,7 +71,46 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   "": "",
 };
 
-export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified }: CompanyProfileProps) {
+// Section processing spinner for focus mode
+function SectionProcessingIndicator({ isAnalyzing }: { isAnalyzing: boolean }) {
+  if (!isAnalyzing) return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      <Loader2 className="h-3 w-3 animate-spin text-accent" />
+      <span className="text-[9px] font-mono text-accent animate-pulse">Processing...</span>
+    </div>
+  );
+}
+
+// Approve & Continue button injected at the bottom of walkthrough sections
+function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void }) {
+  if (isFinal) {
+    return (
+      <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
+        <button
+          onClick={onConfirm}
+          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Confirm Profile
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
+      <button
+        onClick={onClick}
+        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm"
+      >
+        Approve & Continue
+        <ArrowRight className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -175,6 +222,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     } catch { return null; }
   });
 
+  // ── Walkthrough state ──
+  const [walkthroughMode, setWalkthroughMode] = useState<WalkthroughMode>("idle");
+  const [activeWalkthroughStep, setActiveWalkthroughStep] = useState(0);
+  // Track which fields AI updated in this analysis run (for highlighting)
+  const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
+
+  // Refs for scrolling sections into view
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const completion = getCompletionPercent(form);
 
   // Auto-save
@@ -276,6 +332,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     setUserTouched(prev => new Set(prev).add(field));
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
+    // Clear AI highlight on manual edit
+    setAiUpdatedFields(prev => { const n = new Set(prev); n.delete(field); return n; });
     // Auto-verify metric fields on manual edit
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
@@ -333,6 +391,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"], sectorMapping?: AnalysisResult["sectorMapping"]) => {
     if (!aiExtracted) return;
     const newSuggestions: Partial<Record<keyof CompanyData, string>> = {};
+    const updatedFields = new Set<string>();
     const fieldMap: { key: keyof CompanyData; aiKey: keyof NonNullable<AnalysisResult["aiExtracted"]> }[] = [
       { key: "description", aiKey: "description" },
       { key: "stage", aiKey: "stage" },
@@ -361,6 +420,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         const touched = userTouched.has(key);
         if (!touched && (!userVal || userVal === "")) {
           (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+          updatedFields.add(key);
         } else if (touched && userVal && String(userVal) !== String(aiVal)) {
           newSuggestions[key] = String(aiVal);
         }
@@ -370,20 +430,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       if (normalized.sector) {
         if (!userTouched.has("sector") && (!prev.sector || prev.sector === "")) {
           next.sector = normalized.sector;
-          console.log(`[AI Extraction] Sector auto-applied: "${normalized.sector}"`);
+          updatedFields.add("sector");
         } else if (userTouched.has("sector") && prev.sector !== normalized.sector) {
           newSuggestions.sector = normalized.sector;
-          console.log(`[AI Extraction] Sector suggested (user has different): "${normalized.sector}" vs user "${prev.sector}"`);
         }
       }
 
       // Apply normalized subsectors with deduplication
       if (normalized.subsectors.length > 0) {
-        // Deduplicate: case-insensitive, consolidate to canonical taxonomy names
         const deduped: string[] = [];
         const seenLower = new Set<string>();
         for (const sub of normalized.subsectors) {
-          // Find canonical name from taxonomy
           let canonical = sub;
           if (normalized.sector) {
             const match = subsectorsFor(normalized.sector).find(s => s.toLowerCase() === sub.toLowerCase());
@@ -396,11 +453,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           }
         }
 
-        // Also deduplicate against user's existing selections (case-insensitive)
         const userSubsLower = new Set(prev.subsectors.map(s => s.toLowerCase()));
         const newSubs = deduped.filter(s => !userSubsLower.has(s.toLowerCase()));
 
-        // If user already has a subsector that AI also found, mark user's as "verified" (keep user version)
         for (const sub of deduped) {
           const userMatch = prev.subsectors.find(existing => existing.toLowerCase() === sub.toLowerCase());
           if (userMatch) {
@@ -410,10 +465,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
 
         if (!userTouched.has("sector") && prev.subsectors.length === 0) {
           next.subsectors = deduped.slice(0, 3);
-          console.log(`[AI Extraction] Subsectors auto-applied: [${next.subsectors.join(", ")}]`);
+          updatedFields.add("subsectors");
         }
 
-        // Split into top 3 + overflow
         const allForSuggestion = [...newSubs];
         setAiSuggestedSubsectors(allForSuggestion.slice(0, 3));
         setAiOverflowSubsectors(allForSuggestion.slice(3));
@@ -426,6 +480,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       if (aiExtracted.competitors?.length) {
         if (!userTouched.has("competitors") && (!prev.competitors || prev.competitors.length === 0)) {
           next.competitors = aiExtracted.competitors;
+          updatedFields.add("competitors");
         }
         setAiCompetitors(aiExtracted.competitors);
         try { localStorage.setItem("company-ai-competitors", JSON.stringify(aiExtracted.competitors)); } catch {}
@@ -434,6 +489,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     });
 
     setAiSuggestions(newSuggestions);
+    setAiUpdatedFields(updatedFields);
   };
 
   const handleReclassify = async () => {
@@ -450,7 +506,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       setSectorClassification(classification);
       onSectorChange?.(classification);
 
-      // Auto-select primary sector if AI provides one
       if (classification.primary_sector) {
         const normalized = normalizeSector(classification.primary_sector);
         if (normalized.sector && !userTouched.has("sector")) {
@@ -458,19 +513,16 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Convert modern_tags to canonical subsectors and populate the picker
       if (classification.modern_tags?.length) {
         const resolvedSector = form.sector || (classification.primary_sector ? normalizeSector(classification.primary_sector).sector : "");
         const canonicalTags: string[] = [];
         const seenLower = new Set<string>();
         for (const tag of classification.modern_tags) {
-          // Snap non-taxonomy tags to closest match
           let canonical = tag;
           if (resolvedSector) {
             const match = subsectorsFor(resolvedSector).find(s => s.toLowerCase() === tag.toLowerCase());
             if (match) canonical = match;
           }
-          // Also check all sectors for a match
           if (canonical === tag) {
             for (const s of sectors) {
               const match = subsectorsFor(s).find(sub => sub.toLowerCase() === tag.toLowerCase() || sub.toLowerCase().includes(tag.toLowerCase()));
@@ -484,15 +536,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           }
         }
 
-        // Deduplicate against user's existing selections
         const userSubsLower = new Set(form.subsectors.map(s => s.toLowerCase()));
         const newTags = canonicalTags.filter(t => !userSubsLower.has(t.toLowerCase()));
 
-        // Top 3 as suggestions, rest as overflow
         setAiSuggestedSubsectors(newTags.slice(0, 3));
         setAiOverflowSubsectors(newTags.slice(3));
 
-        // Auto-populate if user has no subsectors
         if (form.subsectors.length === 0 && !userTouched.has("sector")) {
           setForm(prev => ({ ...prev, subsectors: newTags.slice(0, 3) }));
         }
@@ -501,6 +550,40 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       console.error("Re-classification failed:", e);
     } finally {
       setIsReclassifying(false);
+    }
+  };
+
+  // ── Walkthrough: expand a specific section, collapse others ──
+  const expandWalkthroughSection = (step: number) => {
+    const section = WALKTHROUGH_SECTIONS[step];
+    setSectorExpanded(section === "sector");
+    setCategorizationExpanded(section === "categorization");
+    setCompetitiveExpanded(section === "competitive");
+    setMetricsExpanded(section === "metrics");
+
+    // Scroll the section into view
+    setTimeout(() => {
+      const ref = sectionRefs.current[section];
+      if (ref) {
+        ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
+  };
+
+  const advanceWalkthrough = () => {
+    const nextStep = activeWalkthroughStep + 1;
+    if (nextStep >= WALKTHROUGH_SECTIONS.length) {
+      // Walkthrough complete — exit walkthrough mode
+      setWalkthroughMode("done");
+      // Expand all sections for normal use
+      setSectorExpanded(true);
+      setCategorizationExpanded(true);
+      setCompetitiveExpanded(true);
+      setMetricsExpanded(true);
+      onWalkthroughComplete?.();
+    } else {
+      setActiveWalkthroughStep(nextStep);
+      expandWalkthroughSection(nextStep);
     }
   };
 
@@ -513,11 +596,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     setError(null);
     let scrapedMarkdown = "";
 
+    // ── FOCUS MODE: Collapse all sections during analysis ──
+    setWalkthroughMode("analyzing");
+    setSectorExpanded(false);
+    setCategorizationExpanded(false);
+    setCompetitiveExpanded(false);
+    setMetricsExpanded(false);
+
     try {
       // Source A: Parse deck (if available)
       if (deckText) {
         setAnalyzeStep("scraping");
-        await new Promise(r => setTimeout(r, 800)); // Show step
+        await new Promise(r => setTimeout(r, 800));
       }
 
       // Source B: Scrape website
@@ -536,13 +626,9 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       setAnalyzeStep("deepSearch");
       let deepSearchInvestors: any[] = [];
       try {
-        console.log("[SEARCH] Cross-referencing SEC filings and funding news for investors...");
         const subsector = form.sector ? form.sector : "";
         const { data: exaData, error: exaError } = await supabase.functions.invoke("exa-search", {
-          body: {
-            companyName: form.name,
-            subsector,
-          },
+          body: { companyName: form.name, subsector },
         });
         if (!exaError && exaData?.investors?.length > 0) {
           deepSearchInvestors = exaData.investors.map((inv: any) => ({
@@ -556,10 +642,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             sourceUrl: inv.sourceUrl || "",
             domain: inv.domain || "",
           }));
-          console.log(`[SEARCH] Exa found ${deepSearchInvestors.length} investors (source: ${exaData.source})`);
         }
 
-        // Also run legacy sync-investor-data for SEC filings
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: existingAnalysis } = await supabase
@@ -598,7 +682,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               date: p.source_date || "",
               source: "web" as const,
             }));
-            // Merge, dedup by name
             const exaNames = new Set(deepSearchInvestors.map((i: any) => i.investorName.toLowerCase().trim()));
             for (const wi of webInvestors) {
               if (!exaNames.has(wi.investorName.toLowerCase().trim())) {
@@ -624,7 +707,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       // Apply AI data with defer-to-user logic + sector normalization
       applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
 
-      // Capture metric sources for attribution tooltips
+      // Capture metric sources
       if (analysisData.metricSources) {
         setMetricSources(analysisData.metricSources);
       }
@@ -637,7 +720,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         const aiVal = analysisData.aiExtracted?.[field];
         if (deckText && aiVal) sources.push("deck");
         if (scrapedMarkdown && aiVal) sources.push("website");
-        // Simulate real-time source for some fields
         if (aiVal) sources.push("realtime");
 
         if (sources.length >= 3) {
@@ -659,15 +741,16 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Stop scanning animation since real data arrived
       setScanningMetrics(false);
-
       setAnalysisComplete(true);
       setIsExpanded(true);
-      setSectorExpanded(true);
-      setCategorizationExpanded(true);
-      setCompetitiveExpanded(true);
-      setMetricsExpanded(true);
+      setMetricsUnlocked(true);
+
+      // ── WALKTHROUGH MODE: Start guided review ──
+      setWalkthroughMode("walkthrough");
+      setActiveWalkthroughStep(0);
+      expandWalkthroughSection(0);
+
       // Merge deck-extracted investors with deep search investors (deduplicated)
       const deckInvestors = analysisData.extractedInvestors || [];
       const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
@@ -677,11 +760,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       ];
 
       const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
-      // Auto-save will be handled by the useEffect below once form state settles
       onAnalysis?.(finalResult as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
+      setWalkthroughMode("idle");
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStep("");
@@ -689,33 +772,28 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const handleConfirm = () => {
-    // 1. Clear all AI suggestion flags
     setConfirmed(true);
     setAiSuggestions({});
     setAiSuggestedSubsectors([]);
+    setAiUpdatedFields(new Set());
     
-    // Mark all filled fields as user-touched (clears isAiDraft styling)
     const allKeys = Object.keys(form) as (keyof CompanyData)[];
     setUserTouched(new Set(allKeys.filter(k => {
       const v = form[k];
       return Array.isArray(v) ? v.length > 0 : !!v;
     })));
     
-    // Confirm all metrics too
     setMetricsConfirmed(true);
     METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
     
-    // 2. Collapse the profile accordion
+    setWalkthroughMode("done");
     setIsExpanded(false);
     
-    // 3. Save and notify parent
     onSave?.(form);
     onProfileVerified?.(true);
     
-    // Persist verified state
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
     
-    // 4. Show celebratory toast
     toast({
       title: "✅ Profile Verified",
       description: "Data locked. Investor Matching and Benchmarking are now live!",
@@ -723,16 +801,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const isFieldAiDraft = (field: keyof CompanyData) => !confirmed && !userTouched.has(field) && !!form[field];
+  const isFieldAiHighlighted = (field: string) => walkthroughMode === "walkthrough" && aiUpdatedFields.has(field);
 
   const inputCls = (field: keyof CompanyData) =>
-    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${
+    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 ${
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
-    }`;
+    } ${isFieldAiHighlighted(field) ? "!bg-accent/10 !border-accent/30 ring-1 ring-accent/20" : ""}`;
 
   const selectCls = (field: keyof CompanyData) =>
-    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors appearance-none ${
+    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 appearance-none ${
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
-    }`;
+    } ${isFieldAiHighlighted(field) ? "!bg-accent/10 !border-accent/30 ring-1 ring-accent/20" : ""}`;
 
   const isEditableElement = (element: Element | null): boolean => {
     if (!element) return false;
@@ -757,11 +836,25 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
 
   const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
 
+  // Whether a section can be manually toggled (disabled during analyzing or walkthrough)
+  const isSectionLocked = walkthroughMode === "analyzing";
+  const isWalkthrough = walkthroughMode === "walkthrough";
+
+  // Can this section be toggled in walkthrough mode?
+  const canToggleSection = (section: WalkthroughSection) => {
+    if (walkthroughMode === "analyzing") return false;
+    if (walkthroughMode === "walkthrough") {
+      // Only the active section can be toggled
+      return WALKTHROUGH_SECTIONS[activeWalkthroughStep] === section;
+    }
+    return true;
+  };
+
   // Verification badge renderer
   const renderVerificationBadge = (field: string) => {
     const v = sourceVerification[field];
     if (!v || !analysisComplete) return null;
-    if (userTouched.has(field as keyof CompanyData)) return null; // User edited → no badge
+    if (userTouched.has(field as keyof CompanyData)) return null;
     if (v.status === "verified") {
       return (
         <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 gap-0.5">
@@ -811,8 +904,25 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     );
   };
 
-  // Summary line for collapsed state
+  // AI Updated badge for walkthrough highlighting
+  const renderAiUpdatedBadge = (field: string) => {
+    if (!isFieldAiHighlighted(field)) return null;
+    return (
+      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 gap-0.5 animate-pulse">
+        <Sparkles className="h-2.5 w-2.5" /> AI Updated
+      </Badge>
+    );
+  };
+
   const summaryParts = [form.name, form.stage, form.sector].filter(Boolean);
+
+  // Section header classes for focus mode
+  const sectionHeaderClass = (section: WalkthroughSection) => {
+    const base = "flex w-full items-center justify-between px-4 py-3";
+    if (walkthroughMode === "analyzing") return `${base} cursor-not-allowed opacity-70`;
+    if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] !== section) return `${base} cursor-not-allowed opacity-50`;
+    return `${base} cursor-pointer`;
+  };
 
   return (
     <div className="surface-card">
@@ -834,14 +944,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 <Camera className="h-4 w-4 text-accent hidden group-hover:block" />
               </>
             )}
-            {/* Sync badge */}
             {logoSyncBadge && (
               <div className="absolute -bottom-1 -right-1 z-10 flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[8px] font-medium text-accent-foreground animate-in fade-in zoom-in duration-300 shadow-sm">
                 <Sparkles className="h-2.5 w-2.5" /> Synced
               </div>
             )}
           </button>
-          {/* Logo sync suggestion card */}
           {suggestedLogoUrl && (
             <div className="absolute top-full left-0 mt-1.5 z-20 flex items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-surface-md animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
               <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-md object-contain bg-muted" />
@@ -866,6 +974,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Walkthrough mode indicator */}
+          {isWalkthrough && (
+            <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 gap-1 animate-pulse">
+              <Eye className="h-2.5 w-2.5" /> Review {activeWalkthroughStep + 1}/{WALKTHROUGH_SECTIONS.length}
+            </Badge>
+          )}
           {/* Completion progress bar + badge */}
           <div className="flex items-center gap-2">
             <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -892,7 +1006,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               <Check className="h-3 w-3" /> {saveIndicator}
             </span>
           )}
-          {analysisComplete && (
+          {analysisComplete && walkthroughMode !== "walkthrough" && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
               <Check className="h-3 w-3" /> Analyzed
             </span>
@@ -921,6 +1035,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   <option value="" disabled>Select stage</option>
                   {stages.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                {renderAiUpdatedBadge("stage")}
                 {renderVerificationBadge("stage")}
                 {analysisComplete && <InsightIcon field="stage" label="Stage" />}
               </div>
@@ -947,7 +1062,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   const url = e.target.value;
                   update("website", url);
 
-                  // Debounced favicon + auto-fill
                   if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
                   faviconDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
@@ -960,7 +1074,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
                       img.src = fav;
 
-                      // Auto-fill company name if empty and not touched
                       if (!form.name.trim() && !userTouched.has("name")) {
                         const cleaned = cleanDomainToName(domain);
                         if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
@@ -971,7 +1084,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                     }
                   }, 300);
 
-                  // Debounced logo sync (500ms)
                   if (logoSyncDebounceRef.current) clearTimeout(logoSyncDebounceRef.current);
                   logoSyncDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
@@ -987,7 +1099,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                         setSuggestedLogoUrl(hdLogoUrl);
                       }
                     };
-                    testImg.onerror = () => { /* fail silently */ };
+                    testImg.onerror = () => {};
                     testImg.src = hdLogoUrl;
                   }, 500);
                 }}
@@ -1028,7 +1140,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               THE TRIGGER: Run Analysis
               ═══════════════════════════════════════════════ */}
 
-          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
@@ -1065,7 +1176,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </Tooltip>
           </div>
 
-          {/* Inline analysis terminal — visible while analyzing */}
+          {/* Inline analysis terminal */}
           {isAnalyzing && (
             <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
               style={{ background: "rgba(15, 20, 30, 0.6)" }}>
@@ -1105,7 +1216,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           )}
 
           {/* ═══════════════════════════════════════════════
-              OUTPUT SECTIONS (greyed out before analysis)
+              OUTPUT SECTIONS
               ═══════════════════════════════════════════════ */}
 
           <div
@@ -1121,12 +1232,19 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               </div>
             )}
 
-            {/* Sector & Subsector Picker (Collapsible) */}
-            <div className={`rounded-xl border transition-all duration-300 border-border bg-card`}>
+            {/* === SECTION: Sector & Subsectors === */}
+            <div
+              ref={el => { sectionRefs.current["sector"] = el; }}
+              className={`rounded-xl border transition-all duration-300 ${
+                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "sector"
+                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
+                  : "border-border bg-card"
+              }`}
+            >
               <button
                 type="button"
-                onClick={() => setSectorExpanded(!sectorExpanded)}
-                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+                onClick={() => canToggleSection("sector") && setSectorExpanded(!sectorExpanded)}
+                className={sectionHeaderClass("sector")}
               >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Briefcase className="h-3 w-3 text-accent" />
@@ -1136,10 +1254,13 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   )}
                   {analysisComplete && <InsightIcon field="sector" label="Sector" />}
                 </span>
-                {sectorExpanded
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                }
+                <div className="flex items-center gap-2">
+                  <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
+                  {sectorExpanded
+                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </div>
               </button>
               {sectorExpanded && (
                 <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -1174,18 +1295,30 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                         isReclassifying={isReclassifying}
                       />
                     </div>
+                    {renderAiUpdatedBadge("sector")}
                     {renderVerificationBadge("sector")}
                   </div>
+                  {/* Walkthrough: Approve & Continue */}
+                  {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "sector" && (
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                  )}
                 </div>
               )}
             </div>
 
             {/* === SECTION: Categorization === */}
-            <div className="rounded-xl border transition-all duration-300 border-border bg-card">
+            <div
+              ref={el => { sectionRefs.current["categorization"] = el; }}
+              className={`rounded-xl border transition-all duration-300 ${
+                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "categorization"
+                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
+                  : "border-border bg-card"
+              }`}
+            >
               <button
                 type="button"
-                onClick={() => setCategorizationExpanded(!categorizationExpanded)}
-                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+                onClick={() => canToggleSection("categorization") && setCategorizationExpanded(!categorizationExpanded)}
+                className={sectionHeaderClass("categorization")}
               >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Briefcase className="h-3 w-3 text-accent" />
@@ -1194,10 +1327,13 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.businessModel}</Badge>
                   )}
                 </span>
-                {categorizationExpanded
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                }
+                <div className="flex items-center gap-2">
+                  <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
+                  {categorizationExpanded
+                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </div>
               </button>
               {categorizationExpanded && (
                 <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -1209,6 +1345,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                           <option value="" disabled>Select model</option>
                           {businessModels.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                        {renderAiUpdatedBadge("businessModel")}
                         {renderVerificationBadge("businessModel")}
                       </div>
                     </ProfileField>
@@ -1219,6 +1356,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                           <option value="" disabled>Select type</option>
                           {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                        {renderAiUpdatedBadge("targetCustomer")}
                         {renderVerificationBadge("targetCustomer")}
                       </div>
                     </ProfileField>
@@ -1228,20 +1366,31 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       <div className="flex items-center gap-1.5">
                         <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
                           className={inputCls("hqLocation")} />
+                        {renderAiUpdatedBadge("hqLocation")}
                         {renderVerificationBadge("hqLocation")}
                       </div>
                     </ProfileField>
                   </div>
+                  {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "categorization" && (
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                  )}
                 </div>
               )}
             </div>
 
             {/* === SECTION: Competitive Landscape === */}
-            <div className="rounded-xl border transition-all duration-300 border-border bg-card">
+            <div
+              ref={el => { sectionRefs.current["competitive"] = el; }}
+              className={`rounded-xl border transition-all duration-300 ${
+                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "competitive"
+                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
+                  : "border-border bg-card"
+              }`}
+            >
               <button
                 type="button"
-                onClick={() => setCompetitiveExpanded(!competitiveExpanded)}
-                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer"
+                onClick={() => canToggleSection("competitive") && setCompetitiveExpanded(!competitiveExpanded)}
+                className={sectionHeaderClass("competitive")}
               >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Target className="h-3 w-3 text-accent" />
@@ -1250,10 +1399,13 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.competitors.length} competitors</Badge>
                   )}
                 </span>
-                {competitiveExpanded
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                }
+                <div className="flex items-center gap-2">
+                  <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
+                  {competitiveExpanded
+                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </div>
               </button>
               {competitiveExpanded && (
                 <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -1275,6 +1427,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                             }}
                           />
                         </div>
+                        {renderAiUpdatedBadge("competitors")}
                         {renderVerificationBadge("competitors")}
                       </div>
                     </ProfileField>
@@ -1284,24 +1437,34 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                         <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
                           placeholder="What makes your product uniquely defensible?"
                           rows={2} className={`${inputCls("uniqueValueProp")} min-h-[60px] resize-none flex-1`} />
+                        {renderAiUpdatedBadge("uniqueValueProp")}
                         {renderVerificationBadge("uniqueValueProp")}
                       </div>
                     </ProfileField>
                   </div>
+                  {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "competitive" && (
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                  )}
                 </div>
               )}
             </div>
 
             {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
-            <div className={`rounded-xl border transition-all duration-300 relative ${
-              scanningMetrics ? "laser-scan-border" : ""
-            } ${metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20"}`}>
-              {/* Section header — always visible */}
+            <div
+              ref={el => { sectionRefs.current["metrics"] = el; }}
+              className={`rounded-xl border transition-all duration-300 relative ${
+                scanningMetrics ? "laser-scan-border" : ""
+              } ${
+                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics"
+                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
+                  : metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20"
+              }`}
+            >
               <div className="relative z-10">
                 <button
                   type="button"
-                  onClick={() => metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
-                  className={`flex w-full items-center justify-between px-4 py-3 ${metricsUnlocked ? "cursor-pointer" : "cursor-default"}`}
+                  onClick={() => canToggleSection("metrics") && metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
+                  className={sectionHeaderClass("metrics")}
                 >
                   <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     {metricsUnlocked ? <TrendingUp className="h-3 w-3 text-accent" /> : <Lock className="h-3 w-3" />}
@@ -1313,14 +1476,17 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 ml-1">Verified</Badge>
                     )}
                   </span>
-                  {metricsUnlocked && (
-                    metricsExpanded
-                      ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                      : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
+                  <div className="flex items-center gap-2">
+                    <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
+                    {metricsUnlocked && (
+                      metricsExpanded
+                        ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                        : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </div>
                 </button>
 
-                {/* Locked state — greyed-out fields with overlay */}
+                {/* Locked state */}
                 {!metricsUnlocked && (
                   <div className="px-4 pb-4 relative">
                     <div className="grid grid-cols-3 gap-4 opacity-50 pointer-events-none select-none">
@@ -1340,7 +1506,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   </div>
                 )}
 
-                {/* Expanded content with slide animation */}
+                {/* Expanded content */}
                 {metricsUnlocked && metricsExpanded && (
                   <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
                     <div className="grid grid-cols-3 gap-4">
@@ -1401,8 +1567,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       })}
                     </div>
 
-                    {/* Confirm All Metrics button */}
-                    {!metricsConfirmed && METRIC_FIELDS.some(f => !!form[f]) && (
+                    {/* Confirm All Metrics button (only in non-walkthrough mode) */}
+                    {!metricsConfirmed && !isWalkthrough && METRIC_FIELDS.some(f => !!form[f]) && (
                       <div className="mt-4 flex justify-end">
                         <button
                           type="button"
@@ -1414,6 +1580,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                         </button>
                       </div>
                     )}
+
+                    {/* Walkthrough: Final step → Confirm Profile */}
+                    {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics" && (
+                      <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={activeWalkthroughStep === WALKTHROUGH_SECTIONS.length - 1} onConfirm={handleConfirm} />
+                    )}
                   </div>
                 )}
               </div>
@@ -1422,8 +1593,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
 
         </div>
       )}
-
-      {/* Confirm Profile moved to Index.tsx — below Strategy Room */}
 
       {/* Override warning dialog */}
       <AlertDialog open={showOverrideWarning} onOpenChange={setShowOverrideWarning}>
