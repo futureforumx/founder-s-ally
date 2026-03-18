@@ -9,6 +9,14 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extracted from a company's website and/or pitch deck. Your job is to:
 
 1. Search for these specific financial keywords and extract their values: MRR, Burn Rate, CAC, LTV, Runway
+8. **Investor / Cap Table Extraction**: Parse the pitch deck for any slide mentioning investors, cap table, funding rounds, or backers. For each investor found, extract:
+   - investorName: the firm or individual name
+   - entityType: one of "Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"
+   - instrument: one of "SAFE (Post-money)", "SAFE (Pre-money)", "Convertible Note", "Equity", or other if specified
+   - amount: dollar amount invested (0 if not specified)
+   - date: date of investment if mentioned (YYYY-MM-DD format)
+   - source: "deck" if found in pitch deck text, "web" if inferred from website/news context
+   Also look for total funding raised, round names (Seed, Series A, etc.).
 2. Generate an Executive Summary (exactly 150 words) covering the company's business model, market position, and key strengths/risks
 3. Produce a Health Score (0-100) based on:
    - Clarity of value proposition (20 pts)
@@ -226,6 +234,27 @@ ${combinedText.slice(0, 40000)}`;
                     additionalProperties: false,
                   },
                 },
+                  extractedInvestors: {
+                    type: "array",
+                    description: "Investors found in the pitch deck or website content",
+                    items: {
+                      type: "object",
+                      properties: {
+                        investorName: { type: "string", description: "Investor firm or individual name" },
+                        entityType: { type: "string", enum: ["Angel", "VC Firm", "Syndicate", "Accelerator", "CVC", "Family Office"], description: "Type of investor" },
+                        instrument: { type: "string", description: "Investment instrument (SAFE, Equity, Convertible Note, etc.)" },
+                        amount: { type: "number", description: "Amount invested in USD, 0 if unknown" },
+                        date: { type: "string", description: "Investment date YYYY-MM-DD if known, empty string if not" },
+                        source: { type: "string", enum: ["deck", "web"], description: "Where this investor was found" },
+                      },
+                      required: ["investorName", "entityType", "instrument", "amount", "source"],
+                      additionalProperties: false,
+                    },
+                  },
+                  totalFundingRaised: {
+                    type: "number",
+                    description: "Total funding raised in USD if mentioned, 0 if not found",
+                  },
                 required: ["header", "valueProposition", "executiveSummary", "healthScore", "metrics", "metricTable"],
                 additionalProperties: false,
               },
