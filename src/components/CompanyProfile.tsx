@@ -165,6 +165,14 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [form, userTouched]);
 
+  // Auto-save profile to parent whenever form changes after analysis
+  useEffect(() => {
+    if (analysisComplete && form.name) {
+      onSave?.(form);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, analysisComplete]);
+
   useEffect(() => {
     try {
       if (logoUrl) localStorage.setItem("company-logo-url", logoUrl);
