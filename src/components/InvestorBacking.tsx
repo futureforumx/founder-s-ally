@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Save, DollarSign, CheckCircle2, Loader2, RefreshCw, ChevronDown, Landmark, FileText, Globe, Sparkles, Radio, TrendingUp, Check, ExternalLink, XCircle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
@@ -137,47 +137,113 @@ function DiscoveryRadar({ logs, companyName }: { logs: string[]; companyName?: s
   );
 }
 
-// ── Mini Funding Timeline Chart ──
-function FundingTimeline({ rows }: { rows: CapRow[] }) {
+// ── Interactive Funding Area Chart ──
+function FundingAreaChart({ rows }: { rows: CapRow[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   const sorted = useMemo(() => {
     return rows.filter(r => r.amount > 0 && r.date).sort((a, b) => a.date.localeCompare(b.date));
   }, [rows]);
 
   if (sorted.length < 2) return null;
 
-  const cumulative = sorted.reduce<{ date: string; total: number }[]>((acc, r) => {
+  const cumulative = sorted.reduce<{ date: string; total: number; label: string }[]>((acc, r) => {
     const prev = acc.length > 0 ? acc[acc.length - 1].total : 0;
-    acc.push({ date: r.date, total: prev + r.amount });
+    acc.push({ date: r.date, total: prev + r.amount, label: r.investor_name });
     return acc;
   }, []);
 
   const maxVal = cumulative[cumulative.length - 1]?.total || 1;
+  const width = 280;
+  const height = 80;
+  const padX = 0;
+  const padY = 8;
+
   const points = cumulative.map((p, i) => {
-    const x = (i / (cumulative.length - 1)) * 100;
-    const y = 100 - (p.total / maxVal) * 80;
-    return `${x},${y}`;
+    const x = padX + (i / (cumulative.length - 1)) * (width - padX * 2);
+    const y = height - padY - ((p.total / maxVal) * (height - padY * 2));
+    return { x, y, ...p };
+  });
+
+  // Smooth monotone path
+  const pathD = points.map((p, i) => {
+    if (i === 0) return `M${p.x},${p.y}`;
+    const prev = points[i - 1];
+    const cpx = (prev.x + p.x) / 2;
+    return `C${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
   }).join(" ");
 
+  const areaD = `${pathD} L${points[points.length - 1].x},${height} L${points[0].x},${height} Z`;
+
+
+  const fmt = (n: number) =>
+    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : `$${n}`;
+
   return (
-    <div className="h-12 w-full max-w-[200px]">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <polyline points={points} fill="none" stroke="hsl(var(--accent))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <polygon points={`0,100 ${points} 100,100`} fill="hsl(var(--accent) / 0.1)" />
+    <div className="w-full max-w-[280px] relative">
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-20">
+        <defs>
+          <linearGradient id="colorFunding" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#colorFunding)" />
+        <path d={pathD} fill="none" stroke="hsl(var(--accent))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {/* Interactive hover dots */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle
+              cx={p.x} cy={p.y} r="8"
+              fill="transparent"
+              className="cursor-pointer"
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+            />
+            <circle
+              cx={p.x} cy={p.y}
+              r={hoverIdx === i ? 4 : 2.5}
+              fill={hoverIdx === i ? "hsl(var(--accent))" : "hsl(var(--background))"}
+              stroke="hsl(var(--accent))"
+              strokeWidth="1.5"
+              className="transition-all duration-150"
+            />
+          </g>
+        ))}
       </svg>
+      {/* Tooltip */}
+      {hoverIdx !== null && points[hoverIdx] && (
+        <div
+          className="absolute -top-10 px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg pointer-events-none whitespace-nowrap z-10"
+          style={{
+            left: `${(points[hoverIdx].x / width) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
+        >
+          <span className="font-semibold">{fmt(points[hoverIdx].total)}</span>
+          <span className="text-background/60 ml-1">· {points[hoverIdx].label}</span>
+          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-foreground" />
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ── Bento Investor Profile Card ──
 function InvestorCard({
   row,
   onUpdate,
   onDelete,
+  onVerify,
+  onReject,
   saving,
 }: {
   row: CapRow;
   onUpdate: (field: keyof CapRow, value: string | number) => void;
   onDelete: () => void;
+  onVerify?: () => void;
+  onReject?: () => void;
   saving: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -188,6 +254,8 @@ function InvestorCard({
   const logoSrc = row._domain
     ? faviconUrl(row._domain)
     : fallbackLogoUrl(row.investor_name);
+
+  const isAiPending = row._source && !row._verified;
 
   return (
     <div className={`group rounded-xl border border-border bg-card p-4 hover:shadow-lg hover:border-accent/20 transition-all duration-300 ${row._source ? "animate-spring-pop" : ""}`}>
@@ -232,7 +300,7 @@ function InvestorCard({
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{row.entity_type}</Badge>
             <Badge variant="outline" className={`text-[9px] px-1.5 py-0 border ${instrumentColor}`}>{row.instrument}</Badge>
-            {/* Source badges */}
+            {/* Single consolidated badge per state */}
             {row._source === "deck" && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent-foreground border-accent/20">
                 <FileText className="h-2.5 w-2.5" /> Deck
@@ -243,15 +311,9 @@ function InvestorCard({
                 <Globe className="h-2.5 w-2.5" /> Web
               </Badge>
             )}
-            {row._source === "exa" && (
+            {row._source === "exa" && !row._verified && (
               <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
                 <Sparkles className="h-2.5 w-2.5" /> AI Sourced
-              </Badge>
-            )}
-            {/* Verification */}
-            {row._source && !row._verified && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5 bg-accent/10 text-accent border-accent/20">
-                <Sparkles className="h-2.5 w-2.5" /> AI Found
               </Badge>
             )}
             {row._verified && (
@@ -301,14 +363,35 @@ function InvestorCard({
               placeholder="$0"
             />
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+
+          {/* Verify / Reject buttons for AI-sourced pending cards */}
+          {isAiPending && onVerify && onReject ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onVerify}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors"
+                title="Approve investor"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={onReject}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
+                title="Reject investor"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -433,6 +516,16 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     setRows((prev) => prev.filter((r) => r.id !== id));
     setOriginal((prev) => prev.filter((r) => r.id !== id));
     toast.success("Investor removed");
+  };
+
+  const verifyRow = (id: string) => {
+    setRows((prev) => prev.map((r) => r.id === id ? { ...r, _verified: true } : r));
+    toast.success("Investor verified");
+  };
+
+  const rejectRow = (id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    toast("Investor rejected");
   };
 
   const saveChanges = async () => {
@@ -586,7 +679,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
-                  <FundingTimeline rows={rows} />
+                  <FundingAreaChart rows={rows} />
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={triggerSync} disabled={syncing || isScanning}>
                     {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                     {syncing ? "Exa Searching..." : "Deep Search"}
@@ -628,6 +721,8 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
                       row={row}
                       onUpdate={(field, value) => updateCell(row.id, field, value)}
                       onDelete={() => deleteRow(row.id, row._new)}
+                      onVerify={row._source && !row._verified ? () => verifyRow(row.id) : undefined}
+                      onReject={row._source && !row._verified ? () => rejectRow(row.id) : undefined}
                       saving={saving}
                     />
                   ))}
