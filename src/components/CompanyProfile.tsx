@@ -533,7 +533,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
     }`;
 
-  const canAnalyze = form.name.trim() && (form.website.trim() || deckText);
+  const canAnalyze = form.name.trim() && (form.website.trim() || deckText) && !isEditing;
 
   // Verification badge renderer
   const renderVerificationBadge = (field: string) => {
