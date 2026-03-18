@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { InvestorBacking } from "@/components/InvestorBacking";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { HealthDashboard } from "@/components/HealthDashboard";
