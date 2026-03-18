@@ -99,6 +99,14 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
+  const [stageClassification, setStageClassification] = useState<{
+    detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-stage-classification");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   const completion = getCompletionPercent(form);
 
@@ -114,6 +122,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
         localStorage.setItem("company-metrics-confirmed", String(metricsConfirmed));
         localStorage.setItem("company-metric-sources", JSON.stringify(metricSources));
         localStorage.setItem("company-source-verification", JSON.stringify(sourceVerification));
+        if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
         if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
       } catch {}
     }, 800);
@@ -338,6 +347,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       }
       setSourceVerification(verification);
 
+      // Capture stage classification
+      if (analysisData.stageClassification) {
+        setStageClassification(analysisData.stageClassification);
+        // If AI classified stage and user hasn't touched it, apply it
+        if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
+          setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
+        }
+      }
+
       // Stop scanning animation since real data arrived
       setScanningMetrics(false);
 
@@ -488,6 +506,27 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
                 </select>
                 {renderVerificationBadge("stage")}
               </div>
+              {/* Stage Classification Detail */}
+              {stageClassification && analysisComplete && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 gap-0.5 ${
+                      stageClassification.confidence_score >= 0.8 ? "bg-success/10 text-success border-success/20" :
+                      stageClassification.confidence_score >= 0.5 ? "bg-accent/10 text-accent border-accent/20" :
+                      "bg-warning/10 text-warning border-warning/20"
+                    }`}>
+                      {Math.round(stageClassification.confidence_score * 100)}% confidence
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{stageClassification.reasoning}</p>
+                  {stageClassification.conflicting_signals && (
+                    <div className="flex items-start gap-1 text-[10px] text-warning">
+                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                      <span>{stageClassification.conflicting_signals}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </ProfileField>
             <ProfileField label="Sector" isAiDraft={isFieldAiDraft("sector")}
               aiSuggestion={aiSuggestions.sector} onApplySuggestion={() => update("sector", aiSuggestions.sector!)}>
