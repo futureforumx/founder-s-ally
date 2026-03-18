@@ -7,7 +7,7 @@ interface AppSidebarProps {
 }
 
 const navItems = [
-  { id: "company" as const, label: "My Company", icon: Building2 },
+  { id: "company" as const, label: "Mission Control", icon: Building2 },
   { id: "dashboard" as const, label: "Health Dashboard", icon: LayoutDashboard },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investor Match", icon: Handshake },
