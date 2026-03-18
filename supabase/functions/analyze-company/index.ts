@@ -186,7 +186,7 @@ ${combinedText.slice(0, 40000)}`;
                       totalHeadcount: { type: "string", description: "Total headcount" },
                       description: { type: "string", description: "1-sentence company description" },
                       stage: { type: "string", description: "Funding stage" },
-                      sector: { type: "string", description: "Primary sector" },
+                      sector: { type: "string", enum: ["Artificial Intelligence", "Fintech", "Climate & Energy", "Health & Biotech", "Enterprise Software", "Deep Tech & Space", "Consumer & Retail"], description: "Primary sector from taxonomy" },
                     },
                     additionalProperties: false,
                   },
