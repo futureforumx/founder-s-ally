@@ -132,6 +132,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const [categorizationExpanded, setCategorizationExpanded] = useState(false);
   const [competitiveExpanded, setCompetitiveExpanded] = useState(false);
   const [scanningMetrics, setScanningMetrics] = useState(false);
+  const [aiCompetitors, setAiCompetitors] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("company-ai-competitors");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("company-verified-fields");
@@ -363,6 +369,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         if (!userTouched.has("competitors") && (!prev.competitors || prev.competitors.length === 0)) {
           next.competitors = aiExtracted.competitors;
         }
+        setAiCompetitors(aiExtracted.competitors);
+        try { localStorage.setItem("company-ai-competitors", JSON.stringify(aiExtracted.competitors)); } catch {}
       }
       return next;
     });
@@ -1001,7 +1009,19 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                     <ProfileField label="Direct Competitors" isAiDraft={isFieldAiDraft("competitors")}>
                       <div className="flex items-center gap-1.5">
                         <div className="flex-1">
-                          <CompetitorTagInput tags={form.competitors} onChange={v => update("competitors", v)} isAiDraft={isFieldAiDraft("competitors")} />
+                          <CompetitorTagInput
+                            tags={form.competitors}
+                            onChange={v => update("competitors", v)}
+                            isAiDraft={isFieldAiDraft("competitors")}
+                            aiTags={aiCompetitors}
+                            onAiTagConfirm={(tag) => {
+                              setAiCompetitors(prev => {
+                                const next = prev.filter(t => t !== tag);
+                                try { localStorage.setItem("company-ai-competitors", JSON.stringify(next)); } catch {}
+                                return next;
+                              });
+                            }}
+                          />
                         </div>
                         {renderVerificationBadge("competitors")}
                       </div>
