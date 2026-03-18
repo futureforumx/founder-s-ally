@@ -327,10 +327,12 @@ export function SectorSubsectorPicker({
   };
 
   const toggleSubsector = (sub: string) => {
-    if (subsectors.includes(sub)) {
-      onSubsectorsChange(subsectors.filter(s => s !== sub));
+    const canonical = canonicalSubsector(sub, sector);
+    // Case-insensitive dedup check
+    if (subsectorExists(subsectors, canonical)) {
+      onSubsectorsChange(subsectors.filter(s => s.toLowerCase() !== canonical.toLowerCase()));
     } else if (subsectors.length < 3) {
-      onSubsectorsChange([...subsectors, sub]);
+      onSubsectorsChange([...subsectors, canonical]);
     }
   };
 
