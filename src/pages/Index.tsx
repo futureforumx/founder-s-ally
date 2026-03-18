@@ -32,6 +32,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isProfileVerified, setIsProfileVerified] = useState(() => {
+    try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
+  });
   const [stageClassification, setStageClassification] = useState<{
     detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
   } | null>(() => {
@@ -162,7 +165,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
               {/* Stage Classification Card — shown after analysis */}
               {stageClassification && (
@@ -231,9 +234,9 @@ const Index = () => {
               </div>
             </div>
           ) : activeView === "benchmarks" ? (
-            <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} />
+            <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} />
+            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} />
           ) : (
             <DeckAuditView />
           )}

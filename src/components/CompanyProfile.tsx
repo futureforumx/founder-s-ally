@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorTags, SectorClassification } from "@/components/SectorTags";
@@ -23,6 +24,7 @@ interface CompanyProfileProps {
   onAnalysis?: (result: AnalysisResult) => void;
   onSectorChange?: (classification: SectorClassification) => void;
   onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
+  onProfileVerified?: (verified: boolean) => void;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
@@ -57,7 +59,7 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   "": "",
 };
 
-export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification }: CompanyProfileProps) {
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -206,6 +208,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
           onAnalysis?.(JSON.parse(savedAnalysis));
           setAnalysisComplete(true);
           setIsExpanded(false);
+        }
+      } catch {}
+      // Restore verified state
+      try {
+        if (localStorage.getItem("company-profile-verified") === "true" && confirmed) {
+          onProfileVerified?.(true);
         }
       } catch {}
     }
@@ -459,16 +467,37 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   };
 
   const handleConfirm = () => {
+    // 1. Clear all AI suggestion flags
     setConfirmed(true);
     setAiSuggestions({});
-    // Mark all currently filled fields as touched
+    setAiSuggestedSubsectors([]);
+    
+    // Mark all filled fields as user-touched (clears isAiDraft styling)
     const allKeys = Object.keys(form) as (keyof CompanyData)[];
     setUserTouched(new Set(allKeys.filter(k => {
       const v = form[k];
       return Array.isArray(v) ? v.length > 0 : !!v;
     })));
-    onSave?.(form);
+    
+    // Confirm all metrics too
+    setMetricsConfirmed(true);
+    METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+    
+    // 2. Collapse the profile accordion
     setIsExpanded(false);
+    
+    // 3. Save and notify parent
+    onSave?.(form);
+    onProfileVerified?.(true);
+    
+    // Persist verified state
+    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    
+    // 4. Show celebratory toast
+    toast({
+      title: "✅ Profile Verified",
+      description: "Data locked. Investor Matching and Benchmarking are now live!",
+    });
   };
 
   const isFieldAiDraft = (field: keyof CompanyData) => !confirmed && !userTouched.has(field) && !!form[field];
@@ -965,11 +994,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                 {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
               </button>
-              <button onClick={handleConfirm}
-                className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {confirmed ? "Profile Confirmed" : "Confirm Profile"}
-              </button>
+              {confirmed ? (
+                <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                  <Check className="h-3.5 w-3.5" />
+                  Profile Verified
+                </div>
+              ) : (
+                <button onClick={handleConfirm}
+                  className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Confirm Profile
+                </button>
+              )}
             </div>
           </div>
 
