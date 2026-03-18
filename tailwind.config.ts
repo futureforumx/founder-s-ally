@@ -107,6 +107,22 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.6" },
         },
+        "swipe-out-left": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateX(-120%) rotate(-8deg)", opacity: "0" },
+        },
+        "swipe-out-right": {
+          "0%": { transform: "translateX(0) rotate(0deg)", opacity: "1" },
+          "100%": { transform: "translateX(120%) rotate(8deg)", opacity: "0" },
+        },
+        "slide-in-from-right": {
+          "0%": { transform: "translateX(40px) scale(0.95)", opacity: "0" },
+          "100%": { transform: "translateX(0) scale(1)", opacity: "1" },
+        },
+        "drop-in": {
+          "0%": { transform: "translateY(-10px) scale(0.97)", opacity: "0" },
+          "100%": { transform: "translateY(0) scale(1)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
