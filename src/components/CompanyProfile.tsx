@@ -7,6 +7,7 @@ import { ProfileField } from "./company-profile/ProfileField";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { SectorHeatmap } from "./company-profile/SectorHeatmap";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
