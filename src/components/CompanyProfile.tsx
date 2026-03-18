@@ -347,6 +347,15 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
       }
       setSourceVerification(verification);
 
+      // Capture stage classification
+      if (analysisData.stageClassification) {
+        setStageClassification(analysisData.stageClassification);
+        // If AI classified stage and user hasn't touched it, apply it
+        if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
+          setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
+        }
+      }
+
       // Stop scanning animation since real data arrived
       setScanningMetrics(false);
 
