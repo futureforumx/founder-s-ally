@@ -33,6 +33,24 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [synced, setSynced] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [faviconError, setFaviconError] = useState(false);
+
+  const faviconUrl = useMemo(() => {
+    if (!website.trim()) return null;
+    try {
+      const url = new URL(website.trim().startsWith("http") ? website.trim() : `https://${website.trim()}`);
+      return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=128`;
+    } catch {
+      return null;
+    }
+  }, [website]);
+
+  // Reset favicon error when URL changes
+  const prevFaviconUrl = useRef(faviconUrl);
+  if (prevFaviconUrl.current !== faviconUrl) {
+    prevFaviconUrl.current = faviconUrl;
+    setFaviconError(false);
+  }
 
   const scrapeWebsite = async () => {
     if (!website.trim()) return;
