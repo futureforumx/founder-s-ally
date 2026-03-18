@@ -259,9 +259,10 @@ function InvestorCard({ investor, healthScore, companyName }: { investor: Scored
 interface InvestorMatchProps {
   companyData: CompanyData | null;
   analysisResult: AnalysisResult | null;
+  sectorClassification?: SectorClassification | null;
 }
 
-export function InvestorMatch({ companyData, analysisResult }: InvestorMatchProps) {
+export function InvestorMatch({ companyData, analysisResult, sectorClassification }: InvestorMatchProps) {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkSizeRange, setCheckSizeRange] = useState<[number, number]>([250_000, 50_000_000]);
