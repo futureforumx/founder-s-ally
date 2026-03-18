@@ -85,6 +85,12 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   const [metricsConfirmed, setMetricsConfirmed] = useState(() => {
     try { return localStorage.getItem("company-metrics-confirmed") === "true"; } catch { return false; }
   });
+  const [metricSources, setMetricSources] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("company-metric-sources");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
 
   const completion = getCompletionPercent(form);
 
