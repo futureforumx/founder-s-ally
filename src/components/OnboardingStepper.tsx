@@ -282,41 +282,30 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 <>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      <FileText className="inline h-3 w-3 mr-1" />Upload Your Pitch Deck
+                      Upload Your Pitch Deck
                     </label>
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFileSelect(f); }}
-                      className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/30 py-8 transition-colors hover:border-accent/40 cursor-pointer"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-8 w-8 text-muted-foreground/50" />
-                      <span className="text-sm text-muted-foreground">
-                        {deckFile ? deckFile.name : "Drop PDF here or click to browse"}
-                      </span>
-                      {deckFile && deckText && <span className="text-[10px] text-success font-mono">✓ Text extracted</span>}
-                      <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">AI will extract key metrics from your deck</p>
+                    <EnhancedDropzone
+                      file={deckFile}
+                      hasExtractedText={!!deckText}
+                      onFileSelect={handleFileSelect}
+                      onRemove={() => { setDeckFile(null); setDeckText(""); }}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-                      <select value={stage} onChange={(e) => setStage(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select stage</option>
-                        {stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-                      <select value={sector} onChange={(e) => setSector(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select sector</option>
-                        {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
+                    <SmartSelect
+                      label="Stage"
+                      value={stage}
+                      onChange={setStage}
+                      options={stages}
+                      predictedValue={predictedStage}
+                    />
+                    <SmartSelect
+                      label="Sector"
+                      value={sector}
+                      onChange={setSector}
+                      options={sectors}
+                      predictedValue={predictedSector}
+                    />
                   </div>
                 </>
               )}
