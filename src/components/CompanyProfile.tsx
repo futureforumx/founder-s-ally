@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { SectorTags, SectorClassification } from "@/components/SectorTags";
+import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
