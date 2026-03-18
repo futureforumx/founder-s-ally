@@ -95,6 +95,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
     try { return localStorage.getItem("company-logo-url"); } catch { return null; }
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Logo sync state
+  const [suggestedLogoUrl, setSuggestedLogoUrl] = useState<string | null>(null);
+  const [logoSyncBadge, setLogoSyncBadge] = useState(false);
+  const logoSyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
