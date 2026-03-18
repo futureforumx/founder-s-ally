@@ -70,6 +70,22 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Progressive disclosure state for Growth Metrics
+  const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
+    try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
+  });
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [scanningMetrics, setScanningMetrics] = useState(false);
+  const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("company-verified-fields");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [metricsConfirmed, setMetricsConfirmed] = useState(() => {
+    try { return localStorage.getItem("company-metrics-confirmed") === "true"; } catch { return false; }
+  });
+
   const completion = getCompletionPercent(form);
 
   // Auto-save
