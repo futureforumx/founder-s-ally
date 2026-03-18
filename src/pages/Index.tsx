@@ -32,6 +32,16 @@ const Index = () => {
 
   const profileComplete = !!companyData && !!analysisResult;
 
+  // Listen for navigate-view events from child components
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const view = (e as CustomEvent).detail as ViewType;
+      if (view) setActiveView(view);
+    };
+    window.addEventListener("navigate-view", handler);
+    return () => window.removeEventListener("navigate-view", handler);
+  }, []);
+
   const handleMetricEdit = (key: string, value: string) => {
     if (!analysisResult) return;
     setAnalysisResult({

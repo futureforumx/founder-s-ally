@@ -7,6 +7,7 @@ import { ProfileField } from "./company-profile/ProfileField";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { SectorHeatmap } from "./company-profile/SectorHeatmap";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
@@ -560,6 +561,19 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyPr
             </div>
             {renderVerificationBadge("sector")}
           </div>
+
+          {/* Sector Heatmap & Market Context */}
+          {form.sector && (
+            <SectorHeatmap
+              sector={form.sector}
+              onNavigateBenchmarks={() => {
+                onSave?.(form);
+                // Navigate to benchmarks view via parent
+                const event = new CustomEvent("navigate-view", { detail: "benchmarks" });
+                window.dispatchEvent(event);
+              }}
+            />
+          )}
 
           {/* Website URL */}
           <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
