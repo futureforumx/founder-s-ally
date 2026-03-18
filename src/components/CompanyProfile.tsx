@@ -888,8 +888,8 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
               ═══════════════════════════════════════════════ */}
 
           <div
-            onFocusCapture={() => setIsEditing(true)}
-            onBlurCapture={() => setIsEditing(false)}
+            onFocusCapture={() => { editingCountRef.current++; setIsEditing(true); }}
+            onBlurCapture={() => { editingCountRef.current--; requestAnimationFrame(() => { if (editingCountRef.current <= 0) { editingCountRef.current = 0; setIsEditing(false); } }); }}
             className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
             {/* Pre-analysis placeholder */}
             {!analysisComplete && !isAnalyzing && (
