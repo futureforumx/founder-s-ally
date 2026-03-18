@@ -154,6 +154,28 @@ function findSynonymMatches(query: string): { sector: string; subsector?: string
   return results;
 }
 
+/** Case-insensitive check if a subsector already exists in a list */
+function subsectorExists(list: string[], candidate: string): boolean {
+  const lower = candidate.toLowerCase().trim();
+  return list.some(s => s.toLowerCase().trim() === lower);
+}
+
+/** Resolve a candidate subsector to its canonical taxonomy name */
+function canonicalSubsector(candidate: string, sectorName?: string): string {
+  const lower = candidate.toLowerCase().trim();
+  // Check within specific sector first
+  if (sectorName) {
+    const match = subsectorsFor(sectorName).find(s => s.toLowerCase() === lower);
+    if (match) return match;
+  }
+  // Check all sectors
+  for (const s of sectors) {
+    const match = subsectorsFor(s).find(sub => sub.toLowerCase() === lower);
+    if (match) return match;
+  }
+  return candidate;
+}
+
 interface SectorSubsectorPickerProps {
   sector: string;
   subsectors: string[];
@@ -161,6 +183,8 @@ interface SectorSubsectorPickerProps {
   onSubsectorsChange: (subsectors: string[]) => void;
   aiSuggestedSector?: string | null;
   aiSuggestedSubsectors?: string[];
+  /** All AI suggestions (including overflow beyond 3) */
+  aiOverflowSubsectors?: string[];
   onApplyAiSector?: () => void;
   isAiDraft?: boolean;
   className?: string;
@@ -173,10 +197,12 @@ export function SectorSubsectorPicker({
   onSubsectorsChange,
   aiSuggestedSector,
   aiSuggestedSubsectors,
+  aiOverflowSubsectors,
   onApplyAiSector,
   isAiDraft,
   className,
 }: SectorSubsectorPickerProps) {
+  const [showOverflow, setShowOverflow] = useState(false);
   const [sectorOpen, setSectorOpen] = useState(false);
   const [subsectorOpen, setSubsectorOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -301,10 +327,12 @@ export function SectorSubsectorPicker({
   };
 
   const toggleSubsector = (sub: string) => {
-    if (subsectors.includes(sub)) {
-      onSubsectorsChange(subsectors.filter(s => s !== sub));
+    const canonical = canonicalSubsector(sub, sector);
+    // Case-insensitive dedup check
+    if (subsectorExists(subsectors, canonical)) {
+      onSubsectorsChange(subsectors.filter(s => s.toLowerCase() !== canonical.toLowerCase()));
     } else if (subsectors.length < 3) {
-      onSubsectorsChange([...subsectors, sub]);
+      onSubsectorsChange([...subsectors, canonical]);
     }
   };
 
@@ -468,8 +496,8 @@ export function SectorSubsectorPicker({
                 </button>
               </span>
             ))}
-            {/* AI suggested subsectors shown as ghost pills */}
-            {aiSuggestedSubsectors?.filter(s => !subsectors.includes(s)).map(sub => (
+            {/* AI suggested subsectors shown as ghost pills (case-insensitive dedup) */}
+            {aiSuggestedSubsectors?.filter(s => !subsectorExists(subsectors, s)).map(sub => (
               <button
                 key={`ai-${sub}`}
                 type="button"
@@ -480,6 +508,16 @@ export function SectorSubsectorPicker({
                 {sub}
               </button>
             ))}
+            {/* Overflow AI suggestions link */}
+            {aiOverflowSubsectors && aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length > 0 && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); setShowOverflow(!showOverflow); }}
+                className="text-[10px] text-accent/70 hover:text-accent hover:underline transition-colors"
+              >
+                View {aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length} other AI suggestion{aiOverflowSubsectors.filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase())).length > 1 ? "s" : ""}
+              </button>
+            )}
             {subsectors.length < 3 && (
               <input
                 ref={subsearchInputRef}
@@ -492,6 +530,26 @@ export function SectorSubsectorPicker({
               />
             )}
           </div>
+
+          {/* Overflow AI suggestions panel */}
+          {showOverflow && aiOverflowSubsectors && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5 animate-in fade-in duration-200">
+              {aiOverflowSubsectors
+                .filter(s => !subsectorExists(subsectors, s) && !aiSuggestedSubsectors?.some(a => a.toLowerCase() === s.toLowerCase()))
+                .map(sub => (
+                  <button
+                    key={`overflow-${sub}`}
+                    type="button"
+                    disabled={subsectors.length >= 3}
+                    onClick={() => toggleSubsector(sub)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-2.5 py-0.5 text-[11px] text-muted-foreground hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="h-2.5 w-2.5" />
+                    {sub}
+                  </button>
+                ))}
+            </div>
+          )}
 
           {subsectorOpen && (
             <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">

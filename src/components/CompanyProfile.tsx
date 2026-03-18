@@ -16,7 +16,7 @@ import { normalizeSector } from "./company-profile/sectorNormalization";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
-  getCompletionPercent,
+  getCompletionPercent, subsectorsFor,
 } from "./company-profile/types";
 
 // Re-export types for backward compat
@@ -98,6 +98,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   // AI suggestions that differ from user input
   const [aiSuggestions, setAiSuggestions] = useState<Partial<Record<keyof CompanyData, string>>>({});
   const [aiSuggestedSubsectors, setAiSuggestedSubsectors] = useState<string[]>([]);
+  const [aiOverflowSubsectors, setAiOverflowSubsectors] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState(() => {
     try { return localStorage.getItem("company-profile-confirmed") === "true"; } catch { return false; }
   });
@@ -374,12 +375,49 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         }
       }
 
-      // Apply normalized subsectors
+      // Apply normalized subsectors with deduplication
       if (normalized.subsectors.length > 0) {
-        if (!userTouched.has("sector") && prev.subsectors.length === 0) {
-          next.subsectors = normalized.subsectors;
-          console.log(`[AI Extraction] Subsectors auto-applied: [${normalized.subsectors.join(", ")}]`);
+        // Deduplicate: case-insensitive, consolidate to canonical taxonomy names
+        const deduped: string[] = [];
+        const seenLower = new Set<string>();
+        for (const sub of normalized.subsectors) {
+          // Find canonical name from taxonomy
+          let canonical = sub;
+          if (normalized.sector) {
+            const match = subsectorsFor(normalized.sector).find(s => s.toLowerCase() === sub.toLowerCase());
+            if (match) canonical = match;
+          }
+          const lower = canonical.toLowerCase();
+          if (!seenLower.has(lower)) {
+            seenLower.add(lower);
+            deduped.push(canonical);
+          }
         }
+
+        // Also deduplicate against user's existing selections (case-insensitive)
+        const userSubsLower = new Set(prev.subsectors.map(s => s.toLowerCase()));
+        const newSubs = deduped.filter(s => !userSubsLower.has(s.toLowerCase()));
+
+        // If user already has a subsector that AI also found, mark user's as "verified" (keep user version)
+        for (const sub of deduped) {
+          const userMatch = prev.subsectors.find(existing => existing.toLowerCase() === sub.toLowerCase());
+          if (userMatch) {
+            setVerifiedFields(vf => new Set(vf).add("subsectors"));
+          }
+        }
+
+        if (!userTouched.has("sector") && prev.subsectors.length === 0) {
+          next.subsectors = deduped.slice(0, 3);
+          console.log(`[AI Extraction] Subsectors auto-applied: [${next.subsectors.join(", ")}]`);
+        }
+
+        // Split into top 3 + overflow
+        const allForSuggestion = [...newSubs];
+        setAiSuggestedSubsectors(allForSuggestion.slice(0, 3));
+        setAiOverflowSubsectors(allForSuggestion.slice(3));
+      } else {
+        setAiSuggestedSubsectors([]);
+        setAiOverflowSubsectors([]);
       }
 
       // Handle competitors array
@@ -393,10 +431,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
       return next;
     });
 
-    // Set AI suggested subsectors for ghost pills
-    if (normalized.subsectors.length > 0) {
-      setAiSuggestedSubsectors(normalized.subsectors);
-    }
 
     setAiSuggestions(newSuggestions);
   };
@@ -959,10 +993,23 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       <SectorSubsectorPicker
                         sector={form.sector}
                         subsectors={form.subsectors}
-                        onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
+                        onSectorChange={s => {
+                          const oldSector = form.sector;
+                          update("sector", s);
+                          setForm(prev => {
+                            const validSubs = prev.subsectors.filter(sub =>
+                              subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                            );
+                            if (validSubs.length < prev.subsectors.length && oldSector) {
+                              toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                            }
+                            return { ...prev, subsectors: validSubs };
+                          });
+                        }}
                         onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
                         aiSuggestedSector={aiSuggestions.sector}
                         aiSuggestedSubsectors={aiSuggestedSubsectors}
+                        aiOverflowSubsectors={aiOverflowSubsectors}
                         onApplyAiSector={aiSuggestions.sector ? () => {
                           update("sector", aiSuggestions.sector!);
                           if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
