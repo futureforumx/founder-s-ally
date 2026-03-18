@@ -36,6 +36,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [faviconError, setFaviconError] = useState(false);
+  const [predictedStage, setPredictedStage] = useState("");
+  const [predictedSector, setPredictedSector] = useState("");
 
   const faviconUrl = useMemo(() => {
     if (!website.trim()) return null;
