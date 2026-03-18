@@ -78,6 +78,20 @@ export interface AnalysisResult {
     totalHeadcount?: string;
     [key: string]: string | undefined;
   };
+  // Triple-source triangulation
+  sourceVerification?: {
+    [field: string]: {
+      sources: ("deck" | "website" | "realtime")[];
+      status: "verified" | "deck-only" | "predictive" | "conflict";
+      conflictDetail?: string;
+    };
+  };
+  // Semantic sector mapping
+  sectorMapping?: {
+    sector: string;
+    subTag: string;
+    keywords: string[];
+  };
 }
 
 export const EMPTY_FORM: CompanyData = {
