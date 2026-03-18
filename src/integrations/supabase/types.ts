@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      company_analyses: {
+        Row: {
+          burn_rate: string | null
+          cac: string | null
+          company_name: string
+          created_at: string
+          deck_file_path: string | null
+          deck_text: string | null
+          executive_summary: string | null
+          health_score: number | null
+          id: string
+          ltv: string | null
+          mrr: string | null
+          raw_ai_response: Json | null
+          runway: string | null
+          scraped_header: string | null
+          scraped_pricing: string | null
+          scraped_value_prop: string | null
+          sector: string | null
+          stage: string | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+        }
+        Insert: {
+          burn_rate?: string | null
+          cac?: string | null
+          company_name?: string
+          created_at?: string
+          deck_file_path?: string | null
+          deck_text?: string | null
+          executive_summary?: string | null
+          health_score?: number | null
+          id?: string
+          ltv?: string | null
+          mrr?: string | null
+          raw_ai_response?: Json | null
+          runway?: string | null
+          scraped_header?: string | null
+          scraped_pricing?: string | null
+          scraped_value_prop?: string | null
+          sector?: string | null
+          stage?: string | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+        }
+        Update: {
+          burn_rate?: string | null
+          cac?: string | null
+          company_name?: string
+          created_at?: string
+          deck_file_path?: string | null
+          deck_text?: string | null
+          executive_summary?: string | null
+          health_score?: number | null
+          id?: string
+          ltv?: string | null
+          mrr?: string | null
+          raw_ai_response?: Json | null
+          runway?: string | null
+          scraped_header?: string | null
+          scraped_pricing?: string | null
+          scraped_value_prop?: string | null
+          sector?: string | null
+          stage?: string | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

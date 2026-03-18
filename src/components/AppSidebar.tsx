@@ -1,13 +1,14 @@
-import { Shield, LayoutDashboard, FileText, Settings } from "lucide-react";
+import { Shield, LayoutDashboard, FileText, Settings, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
-  activeView: "dashboard" | "audit";
-  onViewChange: (view: "dashboard" | "audit") => void;
+  activeView: "dashboard" | "audit" | "benchmarks";
+  onViewChange: (view: "dashboard" | "audit" | "benchmarks") => void;
 }
 
 const navItems = [
   { id: "dashboard" as const, label: "Health Dashboard", icon: LayoutDashboard },
+  { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
 ];
 
