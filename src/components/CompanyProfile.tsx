@@ -960,10 +960,30 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                       <SectorSubsectorPicker
                         sector={form.sector}
                         subsectors={form.subsectors}
-                        onSectorChange={s => { update("sector", s); setForm(prev => ({ ...prev, subsectors: [] })); }}
+                        onSectorChange={s => {
+                          const oldSector = form.sector;
+                          update("sector", s);
+                          // Clear subsectors not relevant to new sector
+                          const newSectorSubs = new Set(
+                            (await import("./company-profile/types")).subsectorsFor(s).map((x: string) => x.toLowerCase())
+                          );
+                          // Actually use sync import since it's already imported
+                          const { subsectorsFor: subsFor } = await import("./company-profile/types");
+                          // Fallback to sync approach:
+                          setForm(prev => {
+                            const validSubs = prev.subsectors.filter(sub =>
+                              subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                            );
+                            if (validSubs.length < prev.subsectors.length && oldSector) {
+                              toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                            }
+                            return { ...prev, subsectors: validSubs };
+                          });
+                        }}
                         onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
                         aiSuggestedSector={aiSuggestions.sector}
                         aiSuggestedSubsectors={aiSuggestedSubsectors}
+                        aiOverflowSubsectors={aiOverflowSubsectors}
                         onApplyAiSector={aiSuggestions.sector ? () => {
                           update("sector", aiSuggestions.sector!);
                           if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
