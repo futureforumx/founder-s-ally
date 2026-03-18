@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, XCircle, Shield, ShieldAlert, ShieldQuestion, ArrowUpRight, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, XCircle, Shield, ShieldAlert, ShieldQuestion, ArrowUpRight, Minus, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { CompanyData, AnalysisResult, ConfidenceLevel } from "./company-profile/types";
 
