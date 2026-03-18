@@ -6,9 +6,10 @@ import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorExport } from "@/components/InvestorExport";
 import { AgentMode } from "@/components/AgentMode";
+import { InvestorMatch } from "@/components/InvestorMatch";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState<"dashboard" | "audit" | "benchmarks">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "audit" | "benchmarks" | "investors">("dashboard");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
@@ -52,6 +53,8 @@ const Index = () => {
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} />
+          ) : activeView === "investors" ? (
+            <InvestorMatch companyData={companyData} analysisResult={analysisResult} />
           ) : (
             <DeckAuditView />
           )}

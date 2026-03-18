@@ -86,6 +86,57 @@ export type Database = {
         }
         Relationships: []
       }
+      investor_database: {
+        Row: {
+          ca_sb54_compliant: boolean | null
+          created_at: string
+          firm_name: string
+          id: string
+          lead_or_follow: string | null
+          lead_partner: string | null
+          location: string | null
+          market_sentiment: string | null
+          max_check_size: number | null
+          min_check_size: number | null
+          preferred_stage: string | null
+          recent_deals: string[] | null
+          sentiment_detail: string | null
+          thesis_verticals: string[]
+        }
+        Insert: {
+          ca_sb54_compliant?: boolean | null
+          created_at?: string
+          firm_name: string
+          id?: string
+          lead_or_follow?: string | null
+          lead_partner?: string | null
+          location?: string | null
+          market_sentiment?: string | null
+          max_check_size?: number | null
+          min_check_size?: number | null
+          preferred_stage?: string | null
+          recent_deals?: string[] | null
+          sentiment_detail?: string | null
+          thesis_verticals?: string[]
+        }
+        Update: {
+          ca_sb54_compliant?: boolean | null
+          created_at?: string
+          firm_name?: string
+          id?: string
+          lead_or_follow?: string | null
+          lead_partner?: string | null
+          location?: string | null
+          market_sentiment?: string | null
+          max_check_size?: number | null
+          min_check_size?: number | null
+          preferred_stage?: string | null
+          recent_deals?: string[] | null
+          sentiment_detail?: string | null
+          thesis_verticals?: string[]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
