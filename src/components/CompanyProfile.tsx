@@ -1391,38 +1391,41 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════
-              BOTTOM ACTION: Confirm Profile
-              ═══════════════════════════════════════════════ */}
+        </div>
+      )}
 
-          {analysisComplete && (
-            <div className="border-t border-border pt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-muted-foreground">
-                  {confirmed ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
-                </p>
-                {confirmed ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
-                    <Check className="h-3.5 w-3.5" />
-                    Profile Verified
-                  </div>
-                ) : (
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <button onClick={handleConfirm}
-                        className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Confirm Profile
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[280px] text-xs">
-                      Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+      {/* ═══════════════════════════════════════════════
+          STICKY BOTTOM BAR: Confirm Profile
+          ═══════════════════════════════════════════════ */}
+
+      {analysisComplete && (
+        <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-5 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-muted-foreground">
+              {confirmed ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
+            </p>
+            {confirmed ? (
+              <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                <Check className="h-3.5 w-3.5" />
+                Profile Verified
               </div>
-            </div>
-          )}
+            ) : (
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button onClick={handleConfirm}
+                    className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Confirm Profile
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[280px] text-xs">
+                  Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      )
 
         </div>
       )}
