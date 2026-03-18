@@ -154,6 +154,28 @@ function findSynonymMatches(query: string): { sector: string; subsector?: string
   return results;
 }
 
+/** Case-insensitive check if a subsector already exists in a list */
+function subsectorExists(list: string[], candidate: string): boolean {
+  const lower = candidate.toLowerCase().trim();
+  return list.some(s => s.toLowerCase().trim() === lower);
+}
+
+/** Resolve a candidate subsector to its canonical taxonomy name */
+function canonicalSubsector(candidate: string, sectorName?: string): string {
+  const lower = candidate.toLowerCase().trim();
+  // Check within specific sector first
+  if (sectorName) {
+    const match = subsectorsFor(sectorName).find(s => s.toLowerCase() === lower);
+    if (match) return match;
+  }
+  // Check all sectors
+  for (const s of sectors) {
+    const match = subsectorsFor(s).find(sub => sub.toLowerCase() === lower);
+    if (match) return match;
+  }
+  return candidate;
+}
+
 interface SectorSubsectorPickerProps {
   sector: string;
   subsectors: string[];
@@ -161,6 +183,8 @@ interface SectorSubsectorPickerProps {
   onSubsectorsChange: (subsectors: string[]) => void;
   aiSuggestedSector?: string | null;
   aiSuggestedSubsectors?: string[];
+  /** All AI suggestions (including overflow beyond 3) */
+  aiOverflowSubsectors?: string[];
   onApplyAiSector?: () => void;
   isAiDraft?: boolean;
   className?: string;
