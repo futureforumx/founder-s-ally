@@ -217,7 +217,11 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
         if (savedAnalysis) {
           onAnalysis?.(JSON.parse(savedAnalysis));
           setAnalysisComplete(true);
-          setIsExpanded(false);
+          setIsExpanded(true);
+          setSectorExpanded(true);
+          setCategorizationExpanded(true);
+          setCompetitiveExpanded(true);
+          setMetricsExpanded(true);
         }
       } catch {}
       // Restore verified state
