@@ -92,6 +92,13 @@ export interface AnalysisResult {
     subTag: string;
     keywords: string[];
   };
+  // Stage classification
+  stageClassification?: {
+    detected_stage: string;
+    confidence_score: number;
+    reasoning: string;
+    conflicting_signals?: string;
+  };
 }
 
 export const EMPTY_FORM: CompanyData = {
