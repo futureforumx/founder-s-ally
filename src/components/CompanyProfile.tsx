@@ -67,8 +67,18 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
     return { ...EMPTY_FORM };
   });
 
-  // Favicon state
-  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  // Favicon state — restore from saved website on mount
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) {
+        const p = JSON.parse(saved);
+        const domain = p.website ? extractDomain(p.website) : null;
+        if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+      }
+    } catch {}
+    return null;
+  });
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
