@@ -32,6 +32,9 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isProfileVerified, setIsProfileVerified] = useState(() => {
+    try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
+  });
   const [stageClassification, setStageClassification] = useState<{
     detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
   } | null>(() => {
