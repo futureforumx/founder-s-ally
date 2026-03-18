@@ -1058,7 +1058,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
                     <>
                       <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
-                      <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Running deep search for filings...</div>
+                      <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Cross-referencing SEC filings and funding news for investors...</div>
                     </>
                   )}
                   {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
