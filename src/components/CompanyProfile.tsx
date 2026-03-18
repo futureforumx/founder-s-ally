@@ -271,7 +271,6 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
   const update = (field: keyof CompanyData, value: string | string[]) => {
     setForm(prev => ({ ...prev, [field]: value }));
     setUserTouched(prev => new Set(prev).add(field));
-    setAnalysisComplete(false);
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
     // Auto-verify metric fields on manual edit
