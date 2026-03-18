@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { InvestorBacking } from "@/components/InvestorBacking";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { StageClassificationCard } from "@/components/company-profile/StageClassificationCard";
+import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
@@ -167,9 +167,9 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-              {/* Stage Classification Card — shown after analysis */}
+              {/* Strategy Room — shown after analysis */}
               {stageClassification && (
-                <StageClassificationCard
+                <StrategyRoom
                   stageClassification={stageClassification}
                   currentStage={companyData?.stage}
                 />

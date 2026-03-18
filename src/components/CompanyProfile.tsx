@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle } from "lucide-react";
+import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -892,6 +893,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   {stages.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {renderVerificationBadge("stage")}
+                {analysisComplete && <InsightIcon field="stage" label="Stage" />}
               </div>
             </ProfileField>
           </div>
@@ -1103,6 +1105,7 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
                   {form.sector && (
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
                   )}
+                  {analysisComplete && <InsightIcon field="sector" label="Sector" />}
                 </span>
                 {sectorExpanded
                   ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1388,39 +1391,39 @@ export function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClas
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════
-              BOTTOM ACTION: Confirm Profile
-              ═══════════════════════════════════════════════ */}
+        </div>
+      )}
 
-          {analysisComplete && (
-            <div className="border-t border-border pt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-muted-foreground">
-                  {confirmed ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
-                </p>
-                {confirmed ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
-                    <Check className="h-3.5 w-3.5" />
-                    Profile Verified
-                  </div>
-                ) : (
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <button onClick={handleConfirm}
-                        className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Confirm Profile
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[280px] text-xs">
-                      Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+      {/* ═══════════════════════════════════════════════
+          STICKY BOTTOM BAR: Confirm Profile
+          ═══════════════════════════════════════════════ */}
+
+      {analysisComplete && (
+        <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-5 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-muted-foreground">
+              {confirmed ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
+            </p>
+            {confirmed ? (
+              <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
+                <Check className="h-3.5 w-3.5" />
+                Profile Verified
               </div>
-            </div>
-          )}
-
+            ) : (
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button onClick={handleConfirm}
+                    className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success transition-colors hover:bg-success/20">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Confirm Profile
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[280px] text-xs">
+                  Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       )}
 
