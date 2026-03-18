@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SectorTags, SectorClassification } from "@/components/SectorTags";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = [
@@ -55,9 +56,10 @@ export interface AnalysisResult {
 interface CompanyProfileProps {
   onSave?: (data: CompanyData) => void;
   onAnalysis?: (result: AnalysisResult) => void;
+  onSectorChange?: (classification: SectorClassification) => void;
 }
 
-export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
+export function CompanyProfile({ onSave, onAnalysis, onSectorChange }: CompanyProfileProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -80,6 +82,8 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
+  const [websiteMarkdown, setWebsiteMarkdown] = useState<string>("");
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -197,7 +201,7 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
 
     setIsAnalyzing(true);
     setError(null);
-    let websiteMarkdown = "";
+    let scrapedMarkdown = "";
 
     try {
       // Step 1: Scrape website if provided
@@ -209,7 +213,8 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
         if (scrapeError) {
           console.error("Scrape error:", scrapeError);
         } else if (scrapeData?.markdown) {
-          websiteMarkdown = scrapeData.markdown;
+          scrapedMarkdown = scrapeData.markdown;
+          setWebsiteMarkdown(scrapedMarkdown);
         }
       }
 
@@ -217,7 +222,7 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
       setAnalyzeStep("Running AI analysis...");
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
         body: {
-          websiteText: websiteMarkdown,
+          websiteText: scrapedMarkdown,
           deckText,
           companyName: form.name,
           stage: form.stage,
@@ -389,6 +394,15 @@ export function CompanyProfile({ onSave, onAnalysis }: CompanyProfileProps) {
               {isAnalyzing ? "Analyzing..." : "Run Analysis"}
             </button>
           </div>
+
+          {/* AI Sector Classification */}
+          <SectorTags
+            websiteText={websiteMarkdown}
+            executiveSummary={analysisComplete ? (() => { try { return JSON.parse(localStorage.getItem("company-analysis") || "{}").executiveSummary; } catch { return ""; } })() : ""}
+            companyName={form.name}
+            onChange={(c) => { setSectorClassification(c); onSectorChange?.(c); }}
+          />
+
           {/* Auto-save indicator */}
           <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-2">
             <span className="relative flex h-2 w-2">

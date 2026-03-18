@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { InvestorBacking } from "@/components/InvestorBacking";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
+import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
@@ -22,6 +23,12 @@ const Index = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-sector-tags");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
 
   const profileComplete = !!companyData && !!analysisResult;
 
@@ -114,7 +121,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={setAnalysisResult} onSectorChange={setSectorClassification} />
 
 
               {/* Investor Backing */}
@@ -161,7 +168,7 @@ const Index = () => {
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} />
+            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} />
           ) : (
             <DeckAuditView />
           )}

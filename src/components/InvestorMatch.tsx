@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { SectorClassification } from "@/components/SectorTags";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,14 +39,38 @@ function formatCheckSize(amount: number): string {
   return `$${amount}`;
 }
 
-function computeScore(investor: Investor, company: CompanyData | null, analysis: AnalysisResult | null): ScoredInvestor {
+function computeScore(investor: Investor, company: CompanyData | null, analysis: AnalysisResult | null, sectorClass: SectorClassification | null): ScoredInvestor {
   let score = 0;
   const reasons: string[] = [];
 
-  // Sector match → +40
-  if (company?.sector && investor.thesis_verticals.some(v => v === company.sector)) {
-    score += 40;
-    reasons.push(`${company.sector} focus`);
+  // Modern tags match → +25 each (max 50), prioritized over primary sector
+  if (sectorClass?.modern_tags?.length) {
+    const tagMatches = investor.thesis_verticals.filter(v =>
+      sectorClass.modern_tags.some(tag => {
+        const tLow = tag.toLowerCase();
+        const vLow = v.toLowerCase();
+        return vLow.includes(tLow) || tLow.includes(vLow) ||
+          tLow.split(/[\s\-\/]/).some(word => word.length > 2 && vLow.includes(word)) ||
+          vLow.split(/[\s\-\/]/).some(word => word.length > 2 && tLow.includes(word));
+      })
+    );
+    if (tagMatches.length > 0) {
+      const tagScore = Math.min(tagMatches.length * 25, 50);
+      score += tagScore;
+      reasons.push(`niche tag match: ${tagMatches.slice(0, 2).join(", ")}`);
+    }
+  }
+
+  // Primary sector match → +30 (reduced if tags already matched)
+  const sectorToMatch = sectorClass?.primary_sector || company?.sector;
+  if (sectorToMatch && investor.thesis_verticals.some(v => {
+    const vLow = v.toLowerCase();
+    const sLow = sectorToMatch.toLowerCase();
+    return vLow === sLow || vLow.includes(sLow) || sLow.includes(vLow);
+  })) {
+    const sectorPoints = score > 0 ? 20 : 40; // less if tags already scored
+    score += sectorPoints;
+    reasons.push(`${sectorToMatch} focus`);
   }
 
   // MRR within check range → +30
@@ -234,9 +259,10 @@ function InvestorCard({ investor, healthScore, companyName }: { investor: Scored
 interface InvestorMatchProps {
   companyData: CompanyData | null;
   analysisResult: AnalysisResult | null;
+  sectorClassification?: SectorClassification | null;
 }
 
-export function InvestorMatch({ companyData, analysisResult }: InvestorMatchProps) {
+export function InvestorMatch({ companyData, analysisResult, sectorClassification }: InvestorMatchProps) {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkSizeRange, setCheckSizeRange] = useState<[number, number]>([250_000, 50_000_000]);
@@ -254,7 +280,7 @@ export function InvestorMatch({ companyData, analysisResult }: InvestorMatchProp
 
   const scoredInvestors = useMemo(() => {
     return investors
-      .map(inv => computeScore(inv, companyData, analysisResult))
+      .map(inv => computeScore(inv, companyData, analysisResult, sectorClassification || null))
       .filter(inv => {
         if (inv.max_check_size < checkSizeRange[0] || inv.min_check_size > checkSizeRange[1]) return false;
         if (leadFilter !== "all" && inv.lead_or_follow !== leadFilter) return false;
@@ -262,7 +288,7 @@ export function InvestorMatch({ companyData, analysisResult }: InvestorMatchProp
         return true;
       })
       .sort((a, b) => b.score - a.score);
-  }, [investors, companyData, analysisResult, checkSizeRange, leadFilter, geoFilter]);
+  }, [investors, companyData, analysisResult, sectorClassification, checkSizeRange, leadFilter, geoFilter]);
 
   const locations = useMemo(() => {
     const set = new Set(investors.map(i => i.location).filter(Boolean) as string[]);
