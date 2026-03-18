@@ -73,9 +73,6 @@ const Index = () => {
     });
   };
 
-  const handleAgentData = (agentData: AnalysisResult["agentData"]) => {
-    if (!analysisResult) return;
-    setAnalysisResult({ ...analysisResult, agentData });
   };
 
   const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
