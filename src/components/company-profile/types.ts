@@ -20,6 +20,7 @@ export interface CompanyData {
   name: string;
   stage: string;
   sector: string;
+  subsectors: string[];
   description: string;
   website: string;
   teamSize: string;
@@ -112,7 +113,7 @@ export interface AnalysisResult {
 }
 
 export const EMPTY_FORM: CompanyData = {
-  name: "", stage: "", sector: "", description: "", website: "", teamSize: "",
+  name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
   businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
 };
