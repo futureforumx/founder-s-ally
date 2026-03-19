@@ -192,18 +192,29 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
       console.log(`[Onboarding Finalize] Sector: "${finalSector}" | Subsectors: [${finalSubsectors.join(", ")}]`);
 
+      const sanitize = (v: string | null | undefined) => (!v || v === "null") ? "" : v;
+
       const company: CompanyData = {
-        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors, description: "", website, teamSize: "",
-        businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
-        uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
+        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors,
+        description: sanitize(analysisResult?.aiExtracted?.description),
+        website,
+        teamSize: sanitize(analysisResult?.agentData?.teamSize),
+        businessModel: sanitize(analysisResult?.aiExtracted?.businessModel),
+        targetCustomer: sanitize(analysisResult?.aiExtracted?.targetCustomer),
+        hqLocation: sanitize(analysisResult?.aiExtracted?.hqLocation),
+        competitors: analysisResult?.aiExtracted?.competitors?.filter(Boolean) || [],
+        uniqueValueProp: sanitize(analysisResult?.aiExtracted?.uniqueValueProp),
+        currentARR: sanitize(analysisResult?.aiExtracted?.currentARR),
+        yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
+        totalHeadcount: sanitize(analysisResult?.aiExtracted?.totalHeadcount),
       };
       if (analysisResult) {
         onComplete(company, {
           ...analysisResult,
           metrics: {
             ...analysisResult.metrics,
-            mrr: { value: mrr || analysisResult.metrics.mrr.value, confidence: "high" },
-            burnRate: { value: burnRate || analysisResult.metrics.burnRate.value, confidence: "high" },
+            mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
+            burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
           },
         });
       }
