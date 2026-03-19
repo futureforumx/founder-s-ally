@@ -148,7 +148,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             sanitized[k] = v;
           }
         }
-        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [] };
+        const tc = sanitized.targetCustomer;
+        const targetCustomerArr = Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []);
+        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr };
       }
     } catch {}
     return { ...EMPTY_FORM };
