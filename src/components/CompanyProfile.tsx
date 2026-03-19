@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, ArrowRight, RefreshCw } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, ArrowRight, RefreshCw, RotateCcw, Pencil } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -131,7 +131,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
-      if (saved) { const p = JSON.parse(saved); return { ...EMPTY_FORM, ...p, competitors: p.competitors || [], subsectors: p.subsectors || [] }; }
+      if (saved) {
+        const p = JSON.parse(saved);
+        // Sanitize: replace null/undefined/"null" with empty strings
+        const sanitized: Record<string, any> = {};
+        for (const [k, v] of Object.entries(p)) {
+          if (v === null || v === undefined || v === "null") {
+            sanitized[k] = Array.isArray(EMPTY_FORM[k as keyof CompanyData]) ? [] : "";
+          } else {
+            sanitized[k] = v;
+          }
+        }
+        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [] };
+      }
     } catch {}
     return { ...EMPTY_FORM };
   });
@@ -334,6 +346,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+
+  // Data source state for tracking manual vs AI edits
+  const [dataSource, setDataSource] = useState<"ai" | "deck" | "manual">(() => {
+    try { return (localStorage.getItem("company-data-source") as any) || "ai"; } catch { return "ai"; }
+  });
+  const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem("company-data-source", dataSource); } catch {}
+  }, [dataSource]);
   const OUTPUT_FIELDS: (keyof CompanyData)[] = ["description", "stage", "sector", "businessModel", "targetCustomer", "hqLocation", "uniqueValueProp", "currentARR", "yoyGrowth", "totalHeadcount", "competitors"];
 
   const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
@@ -347,7 +369,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const update = (field: keyof CompanyData, value: string | string[]) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    // Sanitize: never store "null" string
+    const sanitized = value === "null" || value === null ? (Array.isArray(value) ? [] : "") : value;
+    setForm(prev => ({ ...prev, [field]: sanitized }));
     setUserTouched(prev => new Set(prev).add(field));
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
@@ -356,6 +380,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     // Auto-verify metric fields on manual edit
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
+    }
+    // Track manual data source for key fields
+    const manualTrackFields: (keyof CompanyData)[] = ["currentARR", "totalHeadcount", "stage", "sector"];
+    if (manualTrackFields.includes(field)) {
+      if (dataSource !== "manual") {
+        if (!originalFormSnapshot) setOriginalFormSnapshot({ ...form });
+        setDataSource("manual");
+      }
     }
   };
 
@@ -793,6 +825,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setAnalysisComplete(true);
       setIsExpanded(true);
       setMetricsUnlocked(true);
+      // Snapshot current form as the AI baseline for revert
+      setOriginalFormSnapshot(null);
+      setDataSource("ai");
 
       // ── WALKTHROUGH MODE: Start guided review ──
       setWalkthroughMode("walkthrough");
@@ -1259,6 +1294,30 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    {/* Data source badge & revert */}
+                    {dataSource === "manual" && originalFormSnapshot && (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => {
+                              setForm(originalFormSnapshot);
+                              setDataSource("ai");
+                              setOriginalFormSnapshot(null);
+                              toast({ title: "Reverted to AI data", description: "Manual changes have been undone." });
+                            }}
+                            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Revert
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-[10px]">Revert to original AI-extracted values</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {dataSource === "manual" && (
+                      <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-muted text-muted-foreground border-border">
+                        <Pencil className="h-2.5 w-2.5 mr-0.5" /> Manual
+                      </Badge>
+                    )}
                     {isAnalyzing ? (
                       <>
                         <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
