@@ -1174,11 +1174,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </button>
                   );
                 })()}
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-                    AI will scrape your website and parse your pitch deck to auto-fill all sections. (Estimated time: 10-15s).
-                  </TooltipContent>
-                </Tooltip>
                 <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
 
                 {/* Inline analysis terminal */}
