@@ -1,33 +1,24 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck } from "lucide-react";
 
-// ── Smart formatting helpers ──
+// ── Utilities ──
 
-/** Clean input, parse shorthand (k/m/b), return formatted string with commas */
-function formatSmartCurrency(inputValue: string): string {
-  if (!inputValue) return "";
-  const cleaned = inputValue.toString().toLowerCase().replace(/[\s,$]/g, "");
+function parseSmartNumber(value: string): number {
+  if (!value) return 0;
+  const cleaned = value.toString().toLowerCase().replace(/[^0-9.kmb]/g, "");
   const match = cleaned.match(/^([\d.]+)([kmb]?)$/);
-  if (!match) return cleaned.replace(/[^\d]/g, "");
+  if (!match) return 0;
   let num = parseFloat(match[1]);
   const suffix = match[2];
   if (suffix === "k") num *= 1_000;
   if (suffix === "m") num *= 1_000_000;
   if (suffix === "b") num *= 1_000_000_000;
+  return num;
+}
+
+function formatWithCommas(num: number): string {
+  if (isNaN(num) || num === 0) return "";
   return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-/** Parse a formatted/shorthand string back to a number */
-function parseSmartCurrency(raw: string): number | null {
-  const formatted = formatSmartCurrency(raw);
-  if (!formatted) return null;
-  const n = parseFloat(formatted.replace(/,/g, ""));
-  return isNaN(n) ? null : n;
-}
-
-/** Strip non-numeric chars except decimal point */
-function stripNonNumeric(s: string): string {
-  return s.replace(/[^0-9.]/g, "");
 }
 
 // ── Types ──
@@ -43,163 +34,171 @@ interface GrowthMetricsProps {
   defaultExpanded?: boolean;
 }
 
-// ── Smart Input sub-components ──
+interface FieldError {
+  arr: string;
+  yoy: string;
+  headcount: string;
+}
+
+const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
+
+// ── Smart Inputs ──
 
 function SmartCurrencyInput({
-  value,
-  onChange,
-  isValid,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  isValid: boolean;
-}) {
-  const [localValue, setLocalValue] = useState(value);
+  value, onChange, error,
+}: { value: string; onChange: (v: string) => void; error: string }) {
+  const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync external value changes
-  const displayValue = localValue !== value && document.activeElement !== inputRef.current ? value : localValue;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    // Allow digits, commas, dots, m, k, b
-    const filtered = raw.replace(/[^0-9.,mkbMKB]/g, "");
-    setLocalValue(filtered);
-  };
-
-  const handleBlur = () => {
-    const formatted = formatSmartCurrency(localValue);
-    if (formatted) {
-      setLocalValue(formatted);
-      onChange(formatted);
-    } else if (localValue.trim() === "") {
-      onChange("");
-      setLocalValue("");
-    }
-  };
+  const display = local !== value && document.activeElement !== inputRef.current ? value : local;
+  const hasError = !!error;
 
   return (
-    <div className="relative">
-      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={displayValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        onFocus={() => setLocalValue(value)}
-        placeholder="e.g. 1.2m or 1,200,000"
-        className="w-full rounded-lg border border-input bg-background pl-9 pr-9 py-2.5 text-sm text-foreground transition-all focus:ring-2 focus:ring-ring focus:outline-none"
-      />
-      {isValid && value && (
-        <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />
-      )}
+    <div>
+      <div className="relative">
+        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={display}
+          onChange={(e) => setLocal(e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+          onFocus={() => setLocal(value)}
+          onBlur={() => {
+            const raw = parseSmartNumber(local);
+            const capped = Math.min(raw, LIMITS.arr);
+            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            setLocal(formatted);
+            onChange(formatted);
+          }}
+          placeholder="e.g. 1.2m or 1,200,000"
+          className={`w-full rounded-lg border bg-background pl-9 pr-9 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 ${
+            hasError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
+          }`}
+        />
+        {!hasError && value && <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />}
+      </div>
+      {hasError && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 }
 
 function SmartPercentageInput({
-  value,
-  onChange,
-  isValid,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  isValid: boolean;
-}) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/[^0-9.]/g, "");
-    onChange(raw);
-  };
-
-  const handleBlur = () => {
-    if (!value) return;
-    const num = parseFloat(value);
-    if (isNaN(num)) { onChange(""); return; }
-    const clamped = Math.min(num, 10000);
-    onChange(String(clamped));
-  };
+  value, onChange, error,
+}: { value: string; onChange: (v: string) => void; error: string }) {
+  const [local, setLocal] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const display = local !== value && document.activeElement !== inputRef.current ? value : local;
+  const hasError = !!error;
 
   return (
-    <div className="relative">
-      <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-      <input
-        type="text"
-        value={value}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder="e.g. 150"
-        className="w-full rounded-lg border border-input bg-background pl-9 pr-14 py-2.5 text-sm text-foreground transition-all focus:ring-2 focus:ring-ring focus:outline-none"
-      />
-      <span className="absolute right-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
-      {isValid && value && (
-        <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />
-      )}
+    <div>
+      <div className="relative">
+        <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={display}
+          onChange={(e) => setLocal(e.target.value.replace(/[^0-9.kmKM]/g, ""))}
+          onFocus={() => setLocal(value)}
+          onBlur={() => {
+            const raw = parseSmartNumber(local);
+            const capped = Math.min(raw, LIMITS.yoy);
+            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            setLocal(formatted);
+            onChange(formatted);
+          }}
+          placeholder="e.g. 150"
+          className={`w-full rounded-lg border bg-background pl-9 pr-14 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 ${
+            hasError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
+          }`}
+        />
+        <span className="absolute right-9 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+        {!hasError && value && <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />}
+      </div>
+      {hasError && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 }
 
 function SmartIntegerInput({
-  value,
-  onChange,
-  isValid,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  isValid: boolean;
-}) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const stripped = stripNonNumeric(e.target.value).replace(".", "");
-    onChange(stripped);
-  };
-
-  const handleBlur = () => {
-    if (!value) return;
-    const num = parseInt(value, 10);
-    if (isNaN(num)) { onChange(""); return; }
-    const clamped = Math.min(num, 10000);
-    onChange(String(clamped));
-  };
+  value, onChange, error,
+}: { value: string; onChange: (v: string) => void; error: string }) {
+  const [local, setLocal] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const display = local !== value && document.activeElement !== inputRef.current ? value : local;
+  const hasError = !!error;
 
   return (
-    <div className="relative">
-      <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-      <input
-        type="text"
-        value={value}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder="e.g. 25"
-        className="w-full rounded-lg border border-input bg-background pl-9 pr-9 py-2.5 text-sm text-foreground transition-all focus:ring-2 focus:ring-ring focus:outline-none"
-      />
-      {isValid && value && (
-        <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />
-      )}
+    <div>
+      <div className="relative">
+        <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={display}
+          onChange={(e) => setLocal(e.target.value.replace(/[^0-9kmKM]/g, ""))}
+          onFocus={() => setLocal(value)}
+          onBlur={() => {
+            const raw = parseSmartNumber(local);
+            const capped = Math.min(raw, LIMITS.headcount);
+            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            setLocal(formatted);
+            onChange(formatted);
+          }}
+          placeholder="e.g. 25"
+          className={`w-full rounded-lg border bg-background pl-9 pr-9 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 ${
+            hasError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
+          }`}
+        />
+        {!hasError && value && <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-success" />}
+      </div>
+      {hasError && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 }
 
-// ── Main component ──
+// ── Main ──
 
 export function GrowthMetrics({
-  currentARR,
-  yoyGrowth,
-  totalHeadcount,
-  onChange,
-  onConfirm,
-  isVerified = false,
+  currentARR, yoyGrowth, totalHeadcount,
+  onChange, onConfirm, isVerified = false,
   sourceLabel = "Verified from Pitch Deck",
   defaultExpanded = true,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [errors, setErrors] = useState<FieldError>({ arr: "", yoy: "", headcount: "" });
 
-  const arrValid = !!currentARR && parseSmartCurrency(currentARR.replace(/,/g, "")) !== null;
-  const growthValid = !!yoyGrowth && !isNaN(parseFloat(yoyGrowth)) && parseFloat(yoyGrowth) <= 10000;
-  const headcountValid = !!totalHeadcount && !isNaN(parseInt(totalHeadcount, 10)) && parseInt(totalHeadcount, 10) <= 10000;
+  const handleARR = (v: string) => {
+    const raw = parseSmartNumber(v);
+    if (raw > LIMITS.arr) {
+      setErrors((p) => ({ ...p, arr: `Limit exceeded. Max is $${LIMITS.arr.toLocaleString()}.` }));
+    } else {
+      setErrors((p) => ({ ...p, arr: "" }));
+    }
+    onChange("currentARR", v);
+  };
+
+  const handleYoY = (v: string) => {
+    const raw = parseSmartNumber(v);
+    if (raw > LIMITS.yoy) {
+      setErrors((p) => ({ ...p, yoy: `Limit exceeded. Max is ${LIMITS.yoy.toLocaleString()}%.` }));
+    } else {
+      setErrors((p) => ({ ...p, yoy: "" }));
+    }
+    onChange("yoyGrowth", v);
+  };
+
+  const handleHeadcount = (v: string) => {
+    const raw = parseSmartNumber(v);
+    if (raw > LIMITS.headcount) {
+      setErrors((p) => ({ ...p, headcount: `Limit exceeded. Max is ${LIMITS.headcount.toLocaleString()}.` }));
+    } else {
+      setErrors((p) => ({ ...p, headcount: "" }));
+    }
+    onChange("totalHeadcount", v);
+  };
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
         <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <TrendingUp className="h-4 w-4 text-accent" />
@@ -224,46 +223,21 @@ export function GrowthMetrics({
 
       {expanded && (
         <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-          {/* Input Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Current ARR */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Current ARR
-              </label>
-              <SmartCurrencyInput
-                value={currentARR}
-                onChange={(v) => onChange("currentARR", v)}
-                isValid={arrValid}
-              />
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
+              <SmartCurrencyInput value={currentARR} onChange={handleARR} error={errors.arr} />
             </div>
-
-            {/* YoY Growth */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
-                YoY Growth
-              </label>
-              <SmartPercentageInput
-                value={yoyGrowth}
-                onChange={(v) => onChange("yoyGrowth", v)}
-                isValid={growthValid}
-              />
+              <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
+              <SmartPercentageInput value={yoyGrowth} onChange={handleYoY} error={errors.yoy} />
             </div>
-
-            {/* Total Headcount */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Total Headcount
-              </label>
-              <SmartIntegerInput
-                value={totalHeadcount}
-                onChange={(v) => onChange("totalHeadcount", v)}
-                isValid={headcountValid}
-              />
+              <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
+              <SmartIntegerInput value={totalHeadcount} onChange={handleHeadcount} error={errors.headcount} />
             </div>
           </div>
 
-          {/* Bottom Action */}
           {onConfirm && (
             <div className="flex justify-end mt-5">
               <button
