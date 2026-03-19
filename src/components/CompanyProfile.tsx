@@ -1213,14 +1213,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             <PopoverContent className="w-[260px] p-2" align="start">
                               <div className="space-y-1">
                                 {TARGET_CUSTOMER_OPTIONS.map(opt => {
-                                  const selected = form.targetCustomer.includes(opt.value);
+                                  const selected = form.targetCustomer.includes(opt.label);
                                   return (
-                                    <button key={opt.value} type="button"
+                                    <button key={opt.label} type="button"
                                       onClick={() => {
                                         if (selected) {
-                                          update("targetCustomer", form.targetCustomer.filter(t => t !== opt.value));
+                                          update("targetCustomer", form.targetCustomer.filter(t => t !== opt.label));
                                         } else {
-                                          update("targetCustomer", [...form.targetCustomer, opt.value]);
+                                          update("targetCustomer", [...form.targetCustomer, opt.label]);
                                         }
                                       }}
                                       className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
