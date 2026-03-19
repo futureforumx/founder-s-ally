@@ -943,7 +943,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   // 3-state status dot: red (empty), yellow pulsing (needs review), green pulsing (approved)
+  // IMPORTANT: Empty check comes FIRST — an empty section is always red regardless of prior approval
   const renderStatusDot = (section: string) => {
+    if (isSectionEmpty(section)) {
+      // Empty: static dull red
+      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
+    }
     if (sectionConfirmed[section]) {
       // Approved: pulsing green
       return (
@@ -952,10 +957,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
         </span>
       );
-    }
-    if (isSectionEmpty(section)) {
-      // Empty: static dull red
-      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
     }
     // Needs review: pulsing yellow
     return (
