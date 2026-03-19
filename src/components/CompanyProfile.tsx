@@ -931,10 +931,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (section === "overview") {
       const missing = getOverviewMissingFields();
       if (missing.length > 0) {
-        // Set validation errors with pulse
+        const fieldLabels: Record<string, string> = {
+          logo: "Company Logo", stage: "Stage", sector: "Sector",
+          businessModel: "Business Model", targetCustomer: "Target Customer", hqLocation: "HQ Location",
+        };
+        const missingNames = missing.map(f => fieldLabels[f] || f).join(", ");
         setOverviewValidationErrors(new Set(missing));
         setOverviewApproveLabel("Missing Required Fields");
-        toast({ title: "Cannot approve", description: "Fill all required fields before approving.", variant: "destructive" });
+        toast({ title: "Cannot approve", description: `Missing: ${missingNames}`, variant: "destructive" });
 
         // Pulse for 2s, then settle
         if (validationPulseTimerRef.current) clearTimeout(validationPulseTimerRef.current);
