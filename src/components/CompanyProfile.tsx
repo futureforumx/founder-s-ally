@@ -809,13 +809,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       {/* ═══════════════════════════════════════════════
           LEFT COLUMN: DATA SOURCES (col-span-4) — sticky
           ═══════════════════════════════════════════════ */}
-      <div className="lg:col-span-4">
+      <div className="lg:col-span-4 space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
         <div className={`rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 lg:sticky lg:top-6 transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
-          {/* Card header */}
-          <div className="flex items-center gap-2">
-            <Upload className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-          </div>
 
           {/* COMPANY NAME */}
           <div className="space-y-1.5">
