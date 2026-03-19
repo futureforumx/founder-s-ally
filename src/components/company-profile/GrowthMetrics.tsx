@@ -117,6 +117,7 @@ function SmartPercentageInput({
           ref={inputRef}
           type="text"
           value={display}
+          disabled={disabled}
           onChange={(e) => { setLocal(e.target.value.replace(/[^0-9.kmKM]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
@@ -133,7 +134,7 @@ function SmartPercentageInput({
             onChange(formatted);
           }}
           placeholder="e.g. 150"
-          className={`w-full rounded-lg border bg-background pl-9 pr-14 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 ${
+          className={`w-full rounded-lg border bg-background pl-9 pr-14 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
             hasError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
           }`}
         />
