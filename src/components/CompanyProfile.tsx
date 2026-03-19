@@ -369,7 +369,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const update = (field: keyof CompanyData, value: string | string[]) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    // Sanitize: never store "null" string
+    const sanitized = value === "null" || value === null ? (Array.isArray(value) ? [] : "") : value;
+    setForm(prev => ({ ...prev, [field]: sanitized }));
     setUserTouched(prev => new Set(prev).add(field));
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
@@ -378,6 +380,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     // Auto-verify metric fields on manual edit
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
+    }
+    // Track manual data source for key fields
+    const manualTrackFields: (keyof CompanyData)[] = ["currentARR", "totalHeadcount", "stage", "sector"];
+    if (manualTrackFields.includes(field)) {
+      if (dataSource !== "manual") {
+        if (!originalFormSnapshot) setOriginalFormSnapshot({ ...form });
+        setDataSource("manual");
+      }
     }
   };
 
