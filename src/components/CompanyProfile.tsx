@@ -1063,6 +1063,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             isAiDraft={isFieldAiDraft("sector")}
                             onReclassify={analysisComplete ? handleReclassify : undefined}
                             isReclassifying={isReclassifying}
+                            subsectorsOnly
                           />
                         </div>
                       </div>
