@@ -1632,6 +1632,30 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             {/* ─── Final Profile Confirmation ─── */}
             {analysisComplete && !confirmed && (
               <div className={`rounded-2xl border-2 border-dashed p-5 text-center space-y-3 transition-all duration-300 ${allSectionsConfirmed ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
+                {/* Value Exchange Callout */}
+                {completion < 100 && (
+                  <div className="rounded-lg border border-accent/20 bg-accent/5 p-4 mb-3 text-left">
+                    <div className="flex items-start gap-3">
+                      <Info className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Maximize your AI recommendations.</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Your profile is {completion}% complete. Providing the missing metrics and positioning data will drastically improve the accuracy of your investor matches and market insights.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenSections({ overview: true, positioning: true, metrics: true, social: true });
+                            setActiveReviewSection(null);
+                          }}
+                          className="text-xs font-semibold text-accent hover:underline cursor-pointer mt-2 inline-block"
+                        >
+                          Highlight missing fields →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {allSectionsConfirmed ? (
                   <button onClick={handleConfirmProfile}
                     className="inline-flex items-center gap-2 rounded-lg bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90 animate-in fade-in duration-300">
