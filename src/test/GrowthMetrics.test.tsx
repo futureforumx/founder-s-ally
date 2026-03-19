@@ -90,7 +90,6 @@ describe("GrowthMetrics Smart Inputs", () => {
     fireEvent.change(arrInput, { target: { value: "300m" } });
     fireEvent.blur(arrInput);
 
-    expect(screen.getByText(/Limit exceeded/)).toBeInTheDocument();
-    expect(screen.getByText(/Max is \$200,000,000/)).toBeInTheDocument();
+    expect(screen.getByText(/Limit exceeded.*Max is \$200,000,000/)).toBeInTheDocument();
   });
 });
