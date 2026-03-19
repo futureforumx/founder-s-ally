@@ -25,11 +25,6 @@ function parseSmartCurrency(raw: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-/** Format number with commas: 1000000 → "1,000,000" */
-function formatWithCommas(n: number): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
 /** Strip non-numeric chars except decimal point */
 function stripNonNumeric(s: string): string {
   return s.replace(/[^0-9.]/g, "");
