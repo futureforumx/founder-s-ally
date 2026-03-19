@@ -1401,8 +1401,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </div>
               </div>
 
-              {/* Divider */}
-              <hr className="border-border/50" />
+              {/* Divider with spacing */}
+              <hr className="border-border/50 my-1" />
 
               {/* ── Section 2: Unit Economics ── */}
               <div className="space-y-1.5">
