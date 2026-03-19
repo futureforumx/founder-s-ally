@@ -990,33 +990,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Walkthrough mode indicator */}
           {isWalkthrough && (
             <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 gap-1 animate-pulse">
               <Eye className="h-2.5 w-2.5" /> Review {activeWalkthroughStep + 1}/{WALKTHROUGH_SECTIONS.length}
             </Badge>
           )}
-          {/* Completion progress bar + badge */}
-          <div className="flex items-center gap-2">
-            <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${completion}%`,
-                  background: completion === 100
-                    ? "hsl(var(--success))"
-                    : "hsl(var(--accent))",
-                }}
-              />
-            </div>
-            <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
-              {completion}%
-            </Badge>
-          </div>
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-          </span>
           {saveIndicator && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground animate-in fade-in">
               <Check className="h-3 w-3" /> {saveIndicator}
@@ -1024,7 +1002,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           )}
           {analysisComplete && walkthroughMode !== "walkthrough" && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
-              <Check className="h-3 w-3" /> Analyzed
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+              </span>
+              Analyzed
             </span>
           )}
           {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
