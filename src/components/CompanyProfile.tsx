@@ -825,6 +825,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setAnalysisComplete(true);
       setIsExpanded(true);
       setMetricsUnlocked(true);
+      // Snapshot current form as the AI baseline for revert
+      setOriginalFormSnapshot(null);
+      setDataSource("ai");
 
       // ── WALKTHROUGH MODE: Start guided review ──
       setWalkthroughMode("walkthrough");
