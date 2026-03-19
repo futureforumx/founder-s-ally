@@ -12,11 +12,7 @@ import { InvestorMatch } from "@/components/InvestorMatch";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
 import { PulseCards } from "@/components/PulseCards";
-import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
-import { CompanyView } from "@/components/dashboard/CompanyView";
-import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
-import { IndustryView } from "@/components/dashboard/IndustryView";
-import { CommunityView } from "@/components/dashboard/CommunityView";
+import { MissionControlHub } from "@/components/dashboard/MissionControlHub";
 import { RefreshCw, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +23,7 @@ const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [dashboardView, setDashboardView] = useState<DashboardView>("company");
+  
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   
@@ -235,45 +231,10 @@ const Index = () => {
               )}
             </div>
           ) : activeView === "dashboard" ? (
-            <div className="space-y-0">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
-                </div>
-              </div>
-
-              <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
-
-              {/* Cross-fade content */}
-              <div className="mt-6 animate-fade-in" key={dashboardView}>
-                {dashboardView === "company" && (
-                  <CompanyView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onMetricEdit={handleMetricEdit}
-                    onNavigateProfile={() => setActiveView("company")}
-                  />
-                )}
-                {dashboardView === "competitive" && (
-                  <CompetitiveView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onNavigateProfile={() => setActiveView("company")}
-                  />
-                )}
-                {dashboardView === "industry" && (
-                  <IndustryView
-                    sector={companyData?.sector}
-                    onNavigateBenchmarks={() => setActiveView("benchmarks")}
-                    onNavigateProfile={() => setActiveView("company")}
-                  />
-                )}
-                {dashboardView === "community" && (
-                  <CommunityView />
-                )}
-              </div>
-            </div>
+            <MissionControlHub
+              onNavigate={(view) => setActiveView(view as ViewType)}
+              profileHealthScore={analysisResult ? 85 : 40}
+            />
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "investors" ? (
