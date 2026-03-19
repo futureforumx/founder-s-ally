@@ -191,6 +191,8 @@ interface SectorSubsectorPickerProps {
   isReclassifying?: boolean;
   isAiDraft?: boolean;
   className?: string;
+  /** When true, hides the sector combobox and only shows the subsector picker */
+  subsectorsOnly?: boolean;
 }
 
 export function SectorSubsectorPicker({
@@ -206,6 +208,7 @@ export function SectorSubsectorPicker({
   isReclassifying,
   isAiDraft,
   className,
+  subsectorsOnly = false,
 }: SectorSubsectorPickerProps) {
   const [showOverflow, setShowOverflow] = useState(false);
   const [sectorOpen, setSectorOpen] = useState(false);
@@ -375,7 +378,8 @@ export function SectorSubsectorPicker({
 
   return (
     <div className={`space-y-3 ${className || ""}`}>
-      {/* Sector Combobox */}
+      {/* Sector Combobox — hidden when subsectorsOnly */}
+      {!subsectorsOnly && (
       <div ref={sectorRef} className="relative">
         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
           Sector <span className="text-destructive">*</span>
@@ -498,6 +502,7 @@ export function SectorSubsectorPicker({
           </button>
         )}
       </div>
+      )}
 
       {/* Subsector Multi-select Combobox — supports cross-sector picks */}
       {sector && (

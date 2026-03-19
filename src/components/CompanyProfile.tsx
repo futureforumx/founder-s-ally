@@ -12,7 +12,12 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
 import { normalizeSector } from "./company-profile/sectorNormalization";
+import {
+  STAGE_OPTIONS, SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS,
+  type SectorOption,
+} from "@/constants/taxonomy";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
@@ -965,7 +970,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
+                      💼 Company Overview
                       {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -979,80 +984,125 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="px-6 pb-6 space-y-5">
+                  <div className="px-6 pb-6 space-y-4">
 
-              {/* Row 1: Stage | Sector | Subsectors */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Stage {renderFieldBadge("stage")}
-                  </label>
-                  <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
-                    <option value="" disabled>Select stage</option>
-                    {stages.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
+                    {/* Row 1: Stage (1col) | Sector (2col) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          Stage {renderFieldBadge("stage")}
+                        </label>
+                        <TaxonomyCombobox
+                          options={STAGE_OPTIONS}
+                          value={form.stage}
+                          onChange={v => update("stage", v)}
+                          placeholder="Search stage..."
+                          allowCustom={false}
+                          isAiDraft={isFieldAiDraft("stage")}
+                        />
+                      </div>
 
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Sector & Subsectors {renderFieldBadge("sector")}
-                  </label>
-                  <SectorSubsectorPicker
-                    sector={form.sector}
-                    subsectors={form.subsectors}
-                    onSectorChange={s => {
-                      const oldSector = form.sector;
-                      update("sector", s);
-                      setForm(prev => {
-                        const validSubs = prev.subsectors.filter(sub =>
-                          subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                        );
-                        if (validSubs.length < prev.subsectors.length && oldSector) {
-                          toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                        }
-                        return { ...prev, subsectors: validSubs };
-                      });
-                    }}
-                    onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                    aiSuggestedSector={aiSuggestions.sector}
-                    aiSuggestedSubsectors={aiSuggestedSubsectors}
-                    aiOverflowSubsectors={aiOverflowSubsectors}
-                    onApplyAiSector={aiSuggestions.sector ? () => {
-                      update("sector", aiSuggestions.sector!);
-                      if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                    } : undefined}
-                    isAiDraft={isFieldAiDraft("sector")}
-                    onReclassify={analysisComplete ? handleReclassify : undefined}
-                    isReclassifying={isReclassifying}
-                  />
-                </div>
-              </div>
+                      <div className="md:col-span-2 space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          Sector {renderFieldBadge("sector")}
+                        </label>
+                        <TaxonomyCombobox
+                          options={SECTOR_OPTIONS}
+                          value={form.sector}
+                          onChange={(v, opt) => {
+                            const oldSector = form.sector;
+                            update("sector", v);
+                            // Auto-populate subsectors from taxonomy default_subsectors
+                            if (opt && "default_subsectors" in opt) {
+                              const sectorOpt = opt as SectorOption;
+                              setForm(prev => {
+                                const validSubs = prev.subsectors.filter(sub =>
+                                  sectorOpt.default_subsectors.some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                                );
+                                if (validSubs.length < prev.subsectors.length && oldSector) {
+                                  toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                                }
+                                return { ...prev, subsectors: validSubs };
+                              });
+                            }
+                          }}
+                          placeholder="Search sectors..."
+                          isAiDraft={isFieldAiDraft("sector")}
+                        />
+                      </div>
+                    </div>
 
-              {/* Row 2: Business Model | Target Customer | HQ Location */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Business Model {renderFieldBadge("businessModel")}
-                  </label>
-                  <input type="text" value={form.businessModel} onChange={e => update("businessModel", e.target.value)}
-                    placeholder="e.g. SaaS, Marketplace" className={inputCls("businessModel")} />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Target Customer {renderFieldBadge("targetCustomer")}
-                  </label>
-                  <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
-                    <option value="" disabled>Select market</option>
-                    {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    HQ Location {renderFieldBadge("hqLocation")}
-                  </label>
-                  <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)} className={inputCls("hqLocation")} />
-                </div>
-              </div>
+                    {/* Row 2: Subsectors (full-width, aligned under sector) */}
+                    {form.sector && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-start-2 md:col-span-2">
+                          <SectorSubsectorPicker
+                            sector={form.sector}
+                            subsectors={form.subsectors}
+                            onSectorChange={s => {
+                              const oldSector = form.sector;
+                              update("sector", s);
+                              setForm(prev => {
+                                const validSubs = prev.subsectors.filter(sub =>
+                                  subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                                );
+                                if (validSubs.length < prev.subsectors.length && oldSector) {
+                                  toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                                }
+                                return { ...prev, subsectors: validSubs };
+                              });
+                            }}
+                            onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                            aiSuggestedSector={aiSuggestions.sector}
+                            aiSuggestedSubsectors={aiSuggestedSubsectors}
+                            aiOverflowSubsectors={aiOverflowSubsectors}
+                            onApplyAiSector={aiSuggestions.sector ? () => {
+                              update("sector", aiSuggestions.sector!);
+                              if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                            } : undefined}
+                            isAiDraft={isFieldAiDraft("sector")}
+                            onReclassify={analysisComplete ? handleReclassify : undefined}
+                            isReclassifying={isReclassifying}
+                            subsectorsOnly
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Row 3: Business Model | Target Customer | HQ Location */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          Business Model {renderFieldBadge("businessModel")}
+                        </label>
+                        <TaxonomyCombobox
+                          options={BUSINESS_MODEL_OPTIONS}
+                          value={form.businessModel}
+                          onChange={v => update("businessModel", v)}
+                          placeholder="Search model..."
+                          isAiDraft={isFieldAiDraft("businessModel")}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          Target Customer {renderFieldBadge("targetCustomer")}
+                        </label>
+                        <TaxonomyCombobox
+                          options={TARGET_CUSTOMER_OPTIONS}
+                          value={form.targetCustomer}
+                          onChange={v => update("targetCustomer", v)}
+                          placeholder="Search market..."
+                          isAiDraft={isFieldAiDraft("targetCustomer")}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          HQ Location {renderFieldBadge("hqLocation")}
+                        </label>
+                        <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                          className={`h-9 ${inputCls("hqLocation")}`} />
+                      </div>
+                    </div>
 
               {/* Approve button */}
               {analysisComplete && !confirmed && (
