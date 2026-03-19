@@ -40,8 +40,8 @@ interface DynamicRow {
 
 function buildRows(company: CompanyData | null, analysis: AnalysisResult | null): DynamicRow[] {
   const stage = company?.stage || "";
-  const bizModel = company?.businessModel || "";
-  const isMarketplace = bizModel === "Marketplace";
+  const bizModel = company?.businessModel || [];
+  const isMarketplace = bizModel.includes("Marketplace");
   const isSeedOrEarlier = !stage || stage === "Pre-Seed" || stage === "Seed";
   const isSeriesB = stage === "Series B";
   const isSeriesCPlus = stage === "Series C+";

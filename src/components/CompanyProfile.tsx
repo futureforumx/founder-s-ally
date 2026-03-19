@@ -1528,13 +1528,70 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Business Model {renderFieldBadge("businessModel")}
                         </label>
-                        <TaxonomyCombobox
-                          options={BUSINESS_MODEL_OPTIONS}
-                          value={form.businessModel}
-                          onChange={v => update("businessModel", v)}
-                          placeholder="Search model..."
-                          isAiDraft={isFieldAiDraft("businessModel")}
-                        />
+                        <div className="relative">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button type="button" className={`w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center gap-1.5 overflow-hidden transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${form.businessModel.length ? 'border-input' : 'border-input text-muted-foreground'}`}>
+                                {form.businessModel.length > 0 ? (
+                                  <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0">
+                                    {form.businessModel.slice(0, 3).map(bm => (
+                                      <span key={bm} className="inline-flex items-center rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0 text-[11px] font-medium text-accent whitespace-nowrap">
+                                        {bm}
+                                      </span>
+                                    ))}
+                                    {form.businessModel.length > 3 && (
+                                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">+{form.businessModel.length - 3}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span>Select model...</span>
+                                )}
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[260px] p-2" align="start">
+                              <div className="space-y-1">
+                                {BUSINESS_MODEL_OPTIONS.map(opt => {
+                                  const selected = form.businessModel.includes(opt.label);
+                                  return (
+                                    <button key={opt.label} type="button"
+                                      onClick={() => {
+                                        if (selected) {
+                                          update("businessModel", form.businessModel.filter(t => t !== opt.label));
+                                        } else {
+                                          update("businessModel", [...form.businessModel, opt.label]);
+                                        }
+                                      }}
+                                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
+                                        selected ? "bg-accent/10 text-accent font-medium" : "text-foreground hover:bg-muted"
+                                      }`}>
+                                      {opt.label}
+                                      {selected && <Check className="h-3 w-3 text-accent" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {form.businessModel.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-border">
+                                  <div className="flex flex-wrap gap-1">
+                                    {form.businessModel.map(bm => (
+                                      <span key={bm} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
+                                        {bm}
+                                        <button type="button" onClick={() => update("businessModel", form.businessModel.filter(t => t !== bm))} className="text-accent/60 hover:text-accent transition-colors">
+                                          <X className="h-2.5 w-2.5" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <button type="button" onClick={() => update("businessModel", [])}
+                                    className="w-full mt-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors py-1 text-center">
+                                    Clear all
+                                  </button>
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
                       <div className="space-y-1">
                          <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
