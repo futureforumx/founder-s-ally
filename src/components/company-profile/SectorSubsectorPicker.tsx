@@ -208,6 +208,7 @@ export function SectorSubsectorPicker({
   isReclassifying,
   isAiDraft,
   className,
+  subsectorsOnly = false,
 }: SectorSubsectorPickerProps) {
   const [showOverflow, setShowOverflow] = useState(false);
   const [sectorOpen, setSectorOpen] = useState(false);
