@@ -273,12 +273,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-sources", JSON.stringify(metricSources));
         localStorage.setItem("company-source-verification", JSON.stringify(sourceVerification));
         localStorage.setItem("company-metric-period", metricPeriod);
+        localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
         if (form.name) { setSaveIndicator("Auto-saving"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed]);
 
   useEffect(() => {
     if (analysisComplete && form.name) onSave?.(form);
