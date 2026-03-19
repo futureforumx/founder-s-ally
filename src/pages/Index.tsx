@@ -270,29 +270,16 @@ const Index = () => {
                     <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {/* Last synced timecode */}
-                  {isSyncing ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                      Syncing...
-                    </span>
-                  ) : lastSyncedAt ? (
+                <div className="flex items-center">
+                  {/* Last analyzed timecode */}
+                  {lastSyncedAt ? (
                     <span
                       className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
                       title={lastSyncedAt.toLocaleString()}
                     >
-                      {syncFlash ? "Synced just now" : `Last synced ${relativeTime}`}
+                      {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime}`}
                     </span>
                   ) : null}
-                  <button
-                    onClick={handleResync}
-                    disabled={isSyncing}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                    Re-sync Data
-                  </button>
                 </div>
               </div>
 
