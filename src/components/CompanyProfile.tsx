@@ -169,7 +169,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
+  // Preload favicon on mount for saved website
+  useEffect(() => {
+    if (faviconUrl && !faviconLoaded) {
+      const img = new Image();
+      img.onload = () => setFaviconLoaded(true);
+      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
+      img.src = faviconUrl;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     try {
       const saved = localStorage.getItem("company-profile-touched");
       return saved ? new Set(JSON.parse(saved)) : new Set();
