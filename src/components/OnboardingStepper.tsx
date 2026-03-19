@@ -9,11 +9,10 @@ import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
+import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
+
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
-const sectors = [
-  "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
-  "AI / ML", "Climate Tech", "Marketplace", "Developer Tools", "Edtech", "Other",
-];
+const sectors = Object.keys(SECTOR_TAXONOMY);
 
 interface OnboardingStepperProps {
   onComplete: (company: CompanyData, analysis: AnalysisResult) => void;
@@ -165,9 +164,11 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
       }
 
-      // Pre-fill confirmed values
-      if (analysisData?.metrics?.mrr?.value) setMrr(analysisData.metrics.mrr.value);
-      if (analysisData?.metrics?.burnRate?.value) setBurnRate(analysisData.metrics.burnRate.value);
+      // Pre-fill confirmed values (sanitize nulls)
+      const mrrVal = analysisData?.metrics?.mrr?.value;
+      if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
+      const burnVal = analysisData?.metrics?.burnRate?.value;
+      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -191,18 +192,29 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
       console.log(`[Onboarding Finalize] Sector: "${finalSector}" | Subsectors: [${finalSubsectors.join(", ")}]`);
 
+      const sanitize = (v: string | null | undefined) => (!v || v === "null") ? "" : v;
+
       const company: CompanyData = {
-        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors, description: "", website, teamSize: "",
-        businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
-        uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
+        name: companyName, stage, sector: finalSector, subsectors: finalSubsectors,
+        description: sanitize(analysisResult?.aiExtracted?.description),
+        website,
+        teamSize: sanitize(analysisResult?.agentData?.teamSize),
+        businessModel: sanitize(analysisResult?.aiExtracted?.businessModel),
+        targetCustomer: sanitize(analysisResult?.aiExtracted?.targetCustomer),
+        hqLocation: sanitize(analysisResult?.aiExtracted?.hqLocation),
+        competitors: analysisResult?.aiExtracted?.competitors?.filter(Boolean) || [],
+        uniqueValueProp: sanitize(analysisResult?.aiExtracted?.uniqueValueProp),
+        currentARR: sanitize(analysisResult?.aiExtracted?.currentARR),
+        yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
+        totalHeadcount: sanitize(analysisResult?.aiExtracted?.totalHeadcount),
       };
       if (analysisResult) {
         onComplete(company, {
           ...analysisResult,
           metrics: {
             ...analysisResult.metrics,
-            mrr: { value: mrr || analysisResult.metrics.mrr.value, confidence: "high" },
-            burnRate: { value: burnRate || analysisResult.metrics.burnRate.value, confidence: "high" },
+            mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
+            burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
           },
         });
       }
