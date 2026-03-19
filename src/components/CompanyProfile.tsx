@@ -350,9 +350,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [activeReviewSection, setActiveReviewSection] = useState<string | null>(null);
   const isInReviewMode = activeReviewSection !== null;
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    overview: true, positioning: true, metrics: true, social: true,
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    // Will be computed properly by the smart resumption useEffect on mount
+    return { overview: false, positioning: false, metrics: false, social: false };
   });
+  const hasRunSmartResumption = useRef(false);
 
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
@@ -418,6 +420,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           onProfileVerified?.(true);
         }
       } catch {}
+    }
+  }, []);
+
+  // Smart Resumption: determine initial accordion state based on approval status
+  useEffect(() => {
+    if (hasRunSmartResumption.current) return;
+    hasRunSmartResumption.current = true;
+
+    const allApproved = REVIEW_ORDER.every(s => sectionConfirmed[s]);
+    if (allApproved) {
+      // Fully complete → all collapsed for a clean dashboard view
+      setOpenSections({ overview: false, positioning: false, metrics: false, social: false });
+    } else {
+      // Find first unapproved section and expand only that one
+      const newOpen: Record<string, boolean> = {};
+      let foundFirst = false;
+      for (const s of REVIEW_ORDER) {
+        if (!sectionConfirmed[s] && !foundFirst) {
+          newOpen[s] = true;
+          foundFirst = true;
+        } else {
+          newOpen[s] = false;
+        }
+      }
+      setOpenSections(newOpen);
     }
   }, []);
 
