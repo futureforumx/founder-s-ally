@@ -1291,6 +1291,30 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    {/* Data source badge & revert */}
+                    {dataSource === "manual" && originalFormSnapshot && (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => {
+                              setForm(originalFormSnapshot);
+                              setDataSource("ai");
+                              setOriginalFormSnapshot(null);
+                              toast({ title: "Reverted to AI data", description: "Manual changes have been undone." });
+                            }}
+                            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Revert
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-[10px]">Revert to original AI-extracted values</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {dataSource === "manual" && (
+                      <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-muted text-muted-foreground border-border">
+                        <Pencil className="h-2.5 w-2.5 mr-0.5" /> Manual
+                      </Badge>
+                    )}
                     {isAnalyzing ? (
                       <>
                         <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
