@@ -1546,7 +1546,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
                         }`} />
                       {!ltvCacOverride && autoLtvCacRatio && (
-                        <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
+                        <PhosphorSparkle className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
                       )}
                     </div>
                   </div>
