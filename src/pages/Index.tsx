@@ -203,6 +203,12 @@ const Index = () => {
   const handleAnalysis = (result: AnalysisResult) => {
     setAnalysisResult(result);
     setIsAnalysisRunning(false);
+    // Update sync timestamp on every analysis completion
+    const now = new Date();
+    setLastSyncedAt(now);
+    try { localStorage.setItem("last-synced-at", now.toISOString()); } catch {}
+    setSyncFlash(true);
+    setTimeout(() => setSyncFlash(false), 1500);
   };
 
   return (
