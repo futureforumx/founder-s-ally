@@ -877,8 +877,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
                   const testImg = new Image();
                   testImg.onload = () => {
-                    if (!logoUrl) { setLogoUrl(hdLogoUrl); setLogoSyncBadge(true); setTimeout(() => setLogoSyncBadge(false), 3000); }
-                    else if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
+                    if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
                   };
                   testImg.onerror = () => {};
                   testImg.src = hdLogoUrl;
