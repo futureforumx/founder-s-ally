@@ -975,16 +975,30 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
-          {/* Re-run Analysis Button */}
-          <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
-            {isAnalyzing ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
-            ) : (
-              <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Re-run Analysis" : "Run AI Analysis"}</>
-            )}
-          </button>
-          <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
+          {/* Smart Analysis Button */}
+          {(() => {
+            const isUpToDate = analysisComplete && !dataSourcesChanged;
+            const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
+            return (
+              <>
+                <button onClick={handleAnalyzeClick} disabled={isDisabled}
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[13px] font-medium transition-colors ${
+                    isAnalyzing ? "bg-accent text-accent-foreground"
+                    : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
+                    : "bg-accent text-accent-foreground hover:bg-accent/90"
+                  } disabled:cursor-not-allowed`}>
+                  {isAnalyzing ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
+                  ) : isUpToDate ? (
+                    <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
+                  ) : (
+                    <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Run New Analysis" : "Run AI Analysis"}</>
+                  )}
+                </button>
+                <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
+              </>
+            );
+          })()}
         </div>
       </div>
 
