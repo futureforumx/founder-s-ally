@@ -890,6 +890,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const handleConfirm = async () => {
+    // Validate required fields first
+    if (!validateRequiredFields()) return;
     // Validate metrics errors
     if (metricsHasErrors) {
       const ref = sectionRefs.current["metrics"];
