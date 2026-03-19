@@ -973,6 +973,53 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </span>
     );
   };
+
+  // Guided walkthrough: find first section with empty/unapproved fields, open it, scroll, pulse
+  const triggerWalkthrough = useCallback(() => {
+    const targetSection = REVIEW_ORDER.find(s => !sectionConfirmed[s] || isSectionEmpty(s))
+      || REVIEW_ORDER.find(s => !sectionConfirmed[s]);
+    if (!targetSection) return;
+
+    const newOpen: Record<string, boolean> = {};
+    for (const s of REVIEW_ORDER) newOpen[s] = s === targetSection;
+    setOpenSections(newOpen);
+    setWalkthroughActive(true);
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        sectionRefs.current[targetSection]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    });
+
+    if (walkthroughTimerRef.current) clearTimeout(walkthroughTimerRef.current);
+    walkthroughTimerRef.current = setTimeout(() => setWalkthroughActive(false), 3000);
+  }, [sectionConfirmed, form]);
+
+  // Helper: CSS class for empty inputs during walkthrough
+  const emptyFieldPulseClass = (field: keyof CompanyData) => {
+    if (!walkthroughActive) return "";
+    const v = form[field];
+    const isEmpty = !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+    return isEmpty ? "ring-2 ring-primary/60 ring-offset-1 animate-pulse" : "";
+  };
+
+  // Circular progress ring
+  const CircularProgress = ({ percent }: { percent: number }) => {
+    const radius = 28;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percent / 100) * circumference;
+    return (
+      <svg width="72" height="72" viewBox="0 0 72 72" className="shrink-0">
+        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
+        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--primary))" strokeWidth="5"
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+          transform="rotate(-90 36 36)" className="transition-all duration-700 ease-out" />
+        <text x="36" y="36" textAnchor="middle" dominantBaseline="central"
+          className="fill-foreground text-[14px] font-bold">{percent}%</text>
+      </svg>
+    );
+  };
+
   const handleConfirmProfile = () => {
     setConfirmed(true);
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
