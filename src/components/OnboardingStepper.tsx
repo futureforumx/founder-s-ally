@@ -169,8 +169,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       // Pre-fill confirmed values (sanitize nulls)
       const mrrVal = analysisData?.metrics?.mrr?.value;
       if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
-      const burnVal = analysisData?.metrics?.burnRate?.value;
-      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
+      const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
+      if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
