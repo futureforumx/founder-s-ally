@@ -314,21 +314,25 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       </div>
 
       {/* ═══════ Carousel: Suggested Founders ═══════ */}
-      <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
-        {SUGGESTED_FOUNDERS.map((founder, i) => (
-          <CarouselCard key={`suggested-${i}`} founder={founder} />
-        ))}
-      </FounderCarousel>
+      <div className="pt-4">
+        <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
+          {SUGGESTED_FOUNDERS.map((founder, i) => (
+            <CarouselCard key={`suggested-${i}`} founder={founder} />
+          ))}
+        </FounderCarousel>
+      </div>
 
       {/* ═══════ Carousel: Trending Profiles ═══════ */}
-      <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
-        {TRENDING_FOUNDERS.map((founder, i) => (
-          <CarouselCard key={`trending-${i}`} founder={founder} trending />
-        ))}
-      </FounderCarousel>
+      <div className="pt-8">
+        <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
+          {TRENDING_FOUNDERS.map((founder, i) => (
+            <CarouselCard key={`trending-${i}`} founder={founder} trending />
+          ))}
+        </FounderCarousel>
+      </div>
 
       {/* ═══════ All Founders Grid ═══════ */}
-      <div className="space-y-3 pt-2">
+      <div className="space-y-3 pt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
           <span className="text-[10px] text-muted-foreground font-mono">
