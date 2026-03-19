@@ -1896,8 +1896,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                   {/* LTV/CAC Ratio (manual override or auto-calculated) */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LTV / CAC Ratio</label>
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Scale className="h-3.5 w-3.5 text-accent" /> LTV / CAC Ratio
+                    </label>
                     <div className="relative">
+                      <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
                         onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x]/g, ""))}
