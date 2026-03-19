@@ -472,6 +472,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
       setLogoUrl(publicUrl);
+      // Clear logo validation error and revoke section confirmation
+      setOverviewValidationErrors(prev => { const n = new Set(prev); n.delete("logo"); return n; });
+      if (sectionConfirmed.overview) setSectionConfirmed(prev => ({ ...prev, overview: false }));
     } catch (e: any) {
       setError(e.message || "Logo upload failed");
     } finally { setUploadingLogo(false); }
