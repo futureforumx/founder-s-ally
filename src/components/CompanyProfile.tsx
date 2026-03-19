@@ -1574,13 +1574,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <TrendingUp className="h-3 w-3 text-accent" />
                   Growth Metrics
-                  {(() => {
-                    const ds = metricsConfirmed ? "deck" : "ai";
-                    const badgeCfg = { deck: { label: "Verified from Pitch Deck", cls: "border-success/30 bg-success/10 text-success" }, ai: { label: "AI Predicted", cls: "border-accent/30 bg-accent/10 text-accent" }, manual: { label: "Manually Updated", cls: "border-border bg-muted text-muted-foreground" } }[ds];
-                    return (
-                      <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 ml-1 ${badgeCfg.cls}`}>{badgeCfg.label}</Badge>
-                    );
-                  })()}
                 </span>
                 <div className="flex items-center gap-2">
                   <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
