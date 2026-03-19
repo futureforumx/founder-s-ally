@@ -32,14 +32,16 @@ function useShake() {
 
 // ── Types ──
 
+export type DataSource = "deck" | "ai" | "manual";
+
 interface GrowthMetricsProps {
   currentARR: string;
   yoyGrowth: string;
   totalHeadcount: string;
   onChange: (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => void;
   onConfirm?: () => void;
-  isVerified?: boolean;
-  sourceLabel?: string;
+  dataSource?: DataSource;
+  onDataSourceChange?: (source: DataSource) => void;
   defaultExpanded?: boolean;
 }
 
