@@ -667,22 +667,32 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return null;
   };
 
-  // Period toggle handler with auto-conversion
+  // Period toggle handler with auto-conversion (revenue & burn only, growth fields are independent)
   const handlePeriodToggle = (period: "monthly" | "annual") => {
     if (period === metricPeriod) return;
-    const prev = metricPeriod;
     setMetricPeriod(period);
     // Auto-convert revenue
     if (form.currentARR) {
       const converted = period === "annual" ? mrrToArr(form.currentARR) : arrToMrr(form.currentARR);
       if (converted) setForm(f => ({ ...f, currentARR: converted }));
     }
-    // Auto-convert growth
-    if (form.yoyGrowth) {
-      const converted = period === "annual" ? momToYoy(form.yoyGrowth) : yoyToMom(form.yoyGrowth);
-      if (converted) setForm(f => ({ ...f, yoyGrowth: converted }));
+    // Auto-convert burn rate
+    if (form.burnRate) {
+      const n = parseSmartNumber(form.burnRate);
+      if (n) {
+        const converted = period === "annual" ? formatWithCommas(n * 12) : formatWithCommas(Math.round(n / 12));
+        setForm(f => ({ ...f, burnRate: converted }));
+      }
     }
   };
+
+  // Auto-calculated LTV/CAC ratio
+  const ltvCacRatio = (() => {
+    const ltv = parseSmartNumber(form.ltv);
+    const cac = parseSmartNumber(form.cac);
+    if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
+    return "—";
+  })();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
