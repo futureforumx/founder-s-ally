@@ -238,7 +238,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck;
+  const [fieldsEditedSinceAnalysis, setFieldsEditedSinceAnalysis] = useState(false);
+  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck || fieldsEditedSinceAnalysis;
 
   const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
     try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
