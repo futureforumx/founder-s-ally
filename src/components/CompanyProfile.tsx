@@ -662,6 +662,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setMetricsUnlocked(true);
       setOriginalFormSnapshot(null);
       setDataSource("ai");
+      // Reset section confirmations and enter review mode
+      setSectionConfirmed({});
+      enterReviewMode("overview");
 
       const deckInvestors = analysisData.extractedInvestors || [];
       const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
