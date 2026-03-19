@@ -1557,19 +1557,56 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               )}
             </div>
 
-            {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
-            <div ref={el => { sectionRefs.current["metrics"] = el; }}>
-              <GrowthMetrics
-                currentARR={form.currentARR}
-                yoyGrowth={form.yoyGrowth}
-                totalHeadcount={form.totalHeadcount}
-                onChange={(field, value) => update(field, value)}
-                onConfirm={!metricsConfirmed ? () => { confirmAllMetrics(); if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics") handleConfirm(); } : undefined}
-                dataSource={metricsConfirmed ? "deck" : "ai"}
-                defaultExpanded={metricsExpanded}
-                isProcessing={isAnalyzing}
-                onErrorStateChange={setMetricsHasErrors}
-              />
+            {/* === SECTION: Growth Metrics === */}
+            <div
+              ref={el => { sectionRefs.current["metrics"] = el; }}
+              className={`rounded-xl border transition-all duration-300 ${
+                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics"
+                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
+                  : "border-border bg-card"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => canToggleSection("metrics") && setMetricsExpanded(!metricsExpanded)}
+                className={sectionHeaderClass("metrics")}
+              >
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <TrendingUp className="h-3 w-3 text-accent" />
+                  Growth Metrics
+                  {(() => {
+                    const ds = metricsConfirmed ? "deck" : "ai";
+                    const badgeCfg = { deck: { label: "Verified from Pitch Deck", cls: "border-success/30 bg-success/10 text-success" }, ai: { label: "AI Predicted", cls: "border-accent/30 bg-accent/10 text-accent" }, manual: { label: "Manually Updated", cls: "border-border bg-muted text-muted-foreground" } }[ds];
+                    return (
+                      <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 ml-1 ${badgeCfg.cls}`}>{badgeCfg.label}</Badge>
+                    );
+                  })()}
+                </span>
+                <div className="flex items-center gap-2">
+                  <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
+                  {metricsExpanded
+                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  }
+                </div>
+              </button>
+              {metricsExpanded && !isAnalyzing && (
+                <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <GrowthMetrics
+                    currentARR={form.currentARR}
+                    yoyGrowth={form.yoyGrowth}
+                    totalHeadcount={form.totalHeadcount}
+                    onChange={(field, value) => update(field, value)}
+                    dataSource={metricsConfirmed ? "deck" : "ai"}
+                    disabled={isAnalyzing}
+                    onErrorStateChange={setMetricsHasErrors}
+                  />
+                  {/* Walkthrough: Approve & Continue (final step) */}
+                  {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics" && (
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={true} onConfirm={handleConfirm} isSaving={isSaving} />
+                  )}
+                </div>
+              )}
             </div>
                 </div>
               </div>
