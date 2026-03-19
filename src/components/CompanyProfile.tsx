@@ -710,8 +710,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setMetricsUnlocked(true);
       setOriginalFormSnapshot(null);
       setDataSource("ai");
-      // Reset section confirmations and enter review mode
+      // Reset section confirmations and field edit tracking, enter review mode
       setSectionConfirmed({});
+      setFieldsEditedSinceAnalysis(false);
       enterReviewMode("overview");
 
       const deckInvestors = analysisData.extractedInvestors || [];
