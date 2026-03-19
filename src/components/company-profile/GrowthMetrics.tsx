@@ -217,6 +217,7 @@ export function GrowthMetrics({
   onDataSourceChange,
   originalDataSource = "deck",
   defaultExpanded = true,
+  isProcessing = false,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [errors, setErrors] = useState({ arr: "", yoy: "", headcount: "" });
@@ -227,6 +228,9 @@ export function GrowthMetrics({
   const [originalMetrics] = useState<OriginalMetrics>({
     currentARR, yoyGrowth, totalHeadcount,
   });
+
+  // Force collapse when processing
+  const isExpanded = isProcessing ? false : expanded;
 
   const handleChange = (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => {
     onChange(field, value);
@@ -254,31 +258,42 @@ export function GrowthMetrics({
           Growth Metrics
         </span>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-200 ${badge.className}`}>
-            <BadgeIcon className="h-3 w-3" />
-            {badge.label}
-          </span>
-          {dataSource === "manual" && (
-            <button
-              type="button"
-              title="Revert to original data"
-              onClick={handleRevert}
-              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
+          {isProcessing ? (
+            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground animate-in fade-in duration-300">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Processing...
+            </span>
+          ) : (
+            <>
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-200 ${badge.className}`}>
+                <BadgeIcon className="h-3 w-3" />
+                {badge.label}
+              </span>
+              {dataSource === "manual" && (
+                <button
+                  type="button"
+                  title="Revert to original data"
+                  onClick={handleRevert}
+                  disabled={isProcessing}
+                  className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              )}
+            </>
           )}
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
+            disabled={isProcessing}
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {expanded && (
+      {isExpanded && (
         <div className="animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
@@ -291,6 +306,7 @@ export function GrowthMetrics({
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
                 shaking={arrShake.shaking}
                 onShake={arrShake.trigger}
+                disabled={isProcessing}
               />
             </div>
             <div className="space-y-1.5">
@@ -303,6 +319,7 @@ export function GrowthMetrics({
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
                 shaking={yoyShake.shaking}
                 onShake={yoyShake.trigger}
+                disabled={isProcessing}
               />
             </div>
             <div className="space-y-1.5">
@@ -315,6 +332,7 @@ export function GrowthMetrics({
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
                 shaking={headcountShake.shaking}
                 onShake={headcountShake.trigger}
+                disabled={isProcessing}
               />
             </div>
           </div>
@@ -324,7 +342,8 @@ export function GrowthMetrics({
               <button
                 type="button"
                 onClick={onConfirm}
-                className="inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20"
+                disabled={isProcessing}
+                className="inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Confirm Profile

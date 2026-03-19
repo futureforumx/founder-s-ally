@@ -1507,6 +1507,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 onConfirm={!metricsConfirmed ? () => { confirmAllMetrics(); if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics") handleConfirm(); } : undefined}
                 dataSource={metricsConfirmed ? "deck" : "ai"}
                 defaultExpanded={metricsExpanded}
+                isProcessing={isAnalyzing}
               />
             </div>
                 </div>
