@@ -423,6 +423,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   }, []);
 
+  // Smart Resumption: determine initial accordion state based on approval status
+  useEffect(() => {
+    if (hasRunSmartResumption.current) return;
+    hasRunSmartResumption.current = true;
+
+    const allApproved = REVIEW_ORDER.every(s => sectionConfirmed[s]);
+    if (allApproved) {
+      // Fully complete → all collapsed for a clean dashboard view
+      setOpenSections({ overview: false, positioning: false, metrics: false, social: false });
+    } else {
+      // Find first unapproved section and expand only that one
+      const newOpen: Record<string, boolean> = {};
+      let foundFirst = false;
+      for (const s of REVIEW_ORDER) {
+        if (!sectionConfirmed[s] && !foundFirst) {
+          newOpen[s] = true;
+          foundFirst = true;
+        } else {
+          newOpen[s] = false;
+        }
+      }
+      setOpenSections(newOpen);
+    }
+  }, []);
+
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) { setError("Logo must be under 5 MB."); return; }
