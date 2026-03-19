@@ -1035,6 +1035,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)} className={inputCls("hqLocation")} />
                 </div>
               </div>
+
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-2 border-t border-border/50">
+                  {sectionConfirmed.overview ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("overview")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Company Overview
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
