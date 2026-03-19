@@ -159,7 +159,7 @@ function SmartIntegerInput({
           ref={inputRef}
           type="text"
           value={display}
-          onChange={(e) => setLocal(e.target.value.replace(/[^0-9kmKM]/g, ""))}
+          onChange={(e) => { setLocal(e.target.value.replace(/[^0-9kmKM]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
