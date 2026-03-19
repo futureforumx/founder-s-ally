@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Search, Users, Building2, MapPin, Globe, Sparkles,
-  TrendingUp, ArrowRight, LayoutGrid,
+  Search, Users, Building2, MapPin, Sparkles,
+  TrendingUp, ArrowRight, LayoutGrid, Flame,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
+import { FounderCarousel } from "./FounderCarousel";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -14,8 +15,20 @@ interface CommunityViewProps {
   onNavigateProfile?: () => void;
 }
 
-// ── Mock directory entries ──
-const MOCK_FOUNDERS = [
+// ── Types ──
+interface FounderEntry {
+  name: string;
+  sector: string;
+  stage: string;
+  description: string;
+  location: string;
+  model: string;
+  initial: string;
+  matchReason: string | null;
+}
+
+// ── Mock data: Suggested ──
+const SUGGESTED_FOUNDERS: FounderEntry[] = [
   { name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null },
   { name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage" },
   { name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null },
@@ -23,6 +36,19 @@ const MOCK_FOUNDERS = [
   { name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null },
   { name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null },
 ];
+
+// ── Mock data: Trending ──
+const TRENDING_FOUNDERS: FounderEntry[] = [
+  { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null },
+  { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null },
+  { name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null },
+  { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null },
+  { name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null },
+  { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null },
+];
+
+// ── All founders (combined) ──
+const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDERS];
 
 const QUICK_FILTERS = [
   "Series A", "B2B SaaS", "Recently Updated", "Matching My Sector", "Pre-Seed", "AI / ML", "Climate",
@@ -70,7 +96,7 @@ function useTypingPlaceholder(phrases: string[], speed = 60, pause = 2200) {
 // ── Skeleton card ──
 function FounderCardSkeleton() {
   return (
-    <Card className="surface-card overflow-hidden">
+    <Card className="surface-card overflow-hidden min-w-[300px] snap-start shrink-0">
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between">
           <Skeleton className="h-10 w-10 rounded-xl" />
@@ -93,15 +119,22 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
-function FounderCard({ founder }: { founder: typeof MOCK_FOUNDERS[0] }) {
+function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
   return (
-    <Card className="surface-card overflow-hidden group hover:shadow-md transition-all duration-200 cursor-pointer border-border/60 hover:border-accent/30">
+    <Card className={`surface-card overflow-hidden group hover:shadow-md transition-all duration-200 cursor-pointer ${
+      trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
+    }`}>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-start justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted border border-border text-sm font-bold text-muted-foreground shrink-0">
             {founder.initial}
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end">
+            {trending && (
+              <Badge className="text-[9px] font-medium px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
+                <Flame className="h-2.5 w-2.5 mr-0.5" /> Trending
+              </Badge>
+            )}
             <Badge variant="outline" className="text-[9px] font-medium px-2 py-0.5">{founder.stage}</Badge>
             <Badge variant="secondary" className="text-[9px] font-normal px-2 py-0.5 max-w-[120px] truncate">{founder.sector}</Badge>
           </div>
@@ -124,6 +157,15 @@ function FounderCard({ founder }: { founder: typeof MOCK_FOUNDERS[0] }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Carousel-ready card wrapper ──
+function CarouselCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
+  return (
+    <div className="min-w-[300px] w-80 shrink-0 snap-start">
+      <FounderCard founder={founder} trending={trending} />
+    </div>
   );
 }
 
@@ -161,7 +203,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
     setIsSearching(false);
   }, [searchQuery]);
 
-  const filteredFounders = MOCK_FOUNDERS.filter((f) => {
+  const filteredAll = ALL_FOUNDERS.filter((f) => {
     const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
     const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model]
@@ -179,7 +221,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   return (
     <div className="space-y-2">
-      {/* Header row: Title left, Your Company box right */}
+      {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Founder Directory</h1>
@@ -218,7 +260,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         )}
       </div>
 
-      {/* Smart Search Hero */}
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
         <input
@@ -269,36 +311,49 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         ))}
       </div>
 
-      {/* Section Title */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">
-          {searchQuery ? "Search Results" : "Suggested Founders"}
-        </h2>
-        <span className="text-[10px] text-muted-foreground font-mono">
-          {isSearching ? "Matching..." : `${filteredFounders.length} founders`}
-        </span>
-      </div>
+      {/* ═══════ Carousel: Suggested Founders ═══════ */}
+      <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
+        {SUGGESTED_FOUNDERS.map((founder, i) => (
+          <CarouselCard key={`suggested-${i}`} founder={founder} />
+        ))}
+      </FounderCarousel>
 
-      {/* Results Grid — full width */}
-      {isSearching ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <FounderCardSkeleton key={i} />
-          ))}
+      {/* ═══════ Carousel: Trending Profiles ═══════ */}
+      <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
+        {TRENDING_FOUNDERS.map((founder, i) => (
+          <CarouselCard key={`trending-${i}`} founder={founder} trending />
+        ))}
+      </FounderCarousel>
+
+      {/* ═══════ All Founders Grid ═══════ */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {isSearching ? "Matching..." : `${filteredAll.length} founders`}
+          </span>
         </div>
-      ) : filteredFounders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {filteredFounders.map((founder, i) => (
-            <FounderCard key={i} founder={founder} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">No founders match your search.</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
-        </div>
-      )}
+
+        {isSearching ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <FounderCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredAll.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredAll.map((founder, i) => (
+              <FounderCard key={`all-${i}`} founder={founder} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">No founders match your search.</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
