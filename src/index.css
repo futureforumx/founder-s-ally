@@ -204,4 +204,35 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* Center-stage terminal glow pulse */
+  @keyframes terminal-glow-pulse {
+    0%, 100% { box-shadow: 0 0 20px hsl(217 91% 60% / 0.15), 0 0 40px hsl(217 91% 60% / 0.08); }
+    50% { box-shadow: 0 0 30px hsl(217 91% 60% / 0.25), 0 0 60px hsl(217 91% 60% / 0.12); }
+  }
+
+  .terminal-glow {
+    animation: terminal-glow-pulse 3s ease-in-out infinite;
+  }
+
+  /* Data particle float */
+  @keyframes particle-float {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    60% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateY(-60px) scale(0.4); }
+  }
+
+  .animate-particle-float {
+    animation: particle-float 2s ease-out forwards;
+  }
+
+  /* Smooth progress bar fill */
+  @keyframes progress-fill-90 {
+    from { width: 0%; }
+    to { width: 90%; }
+  }
+
+  .animate-progress-fill {
+    animation: progress-fill-90 8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
 }
