@@ -28,7 +28,7 @@ export interface CompanyData {
   description: string;
   website: string;
   teamSize: string;
-  // New expanded fields
+  // Expanded fields
   businessModel: string;
   targetCustomer: string;
   hqLocation: string;
@@ -37,6 +37,14 @@ export interface CompanyData {
   currentARR: string;
   yoyGrowth: string;
   totalHeadcount: string;
+  // Social & additional metrics
+  socialTwitter: string;
+  socialLinkedin: string;
+  socialInstagram: string;
+  burnRate: string;
+  crr: string;
+  cac: string;
+  ltv: string;
 }
 
 export type ConfidenceLevel = "high" | "medium" | "low";
