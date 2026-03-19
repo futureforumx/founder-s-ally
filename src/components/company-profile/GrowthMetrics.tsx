@@ -50,6 +50,7 @@ interface GrowthMetricsProps {
   onDataSourceChange?: (source: DataSource) => void;
   originalDataSource?: DataSource;
   defaultExpanded?: boolean;
+  isProcessing?: boolean;
 }
 
 const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
