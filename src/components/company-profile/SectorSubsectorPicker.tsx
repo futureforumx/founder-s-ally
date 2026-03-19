@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, ChevronDown, Sparkles, Search, Loader2 } from "lucide-react";
+import { X, ChevronDown, ChevronUp, Sparkles, Search, Loader2 } from "lucide-react";
 import { SECTOR_TAXONOMY, sectors, subsectorsFor } from "./types";
 import { Badge } from "@/components/ui/badge";
 
