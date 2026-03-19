@@ -1770,7 +1770,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   />
                   {/* Walkthrough: Approve & Continue (final step) */}
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={true} onConfirm={handleConfirm} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={true} onConfirm={handleConfirm} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}
