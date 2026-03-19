@@ -48,6 +48,10 @@ function extractDomain(url: string): string | null {
   } catch { return null; }
 }
 
+function faviconSrc(domain: string): string {
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+}
+
 function cleanDomainToName(domain: string): string {
   let name = domain.replace(/^www\./, "");
   for (const tld of TLDS) {
@@ -157,7 +161,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (saved) {
         const p = JSON.parse(saved);
         const domain = p.website ? extractDomain(p.website) : null;
-        if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+        if (domain) return faviconSrc(domain);
       }
     } catch {}
     return null;
@@ -165,7 +169,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
+  // Preload favicon on mount for saved website
+  useEffect(() => {
+    if (faviconUrl && !faviconLoaded) {
+      const img = new Image();
+      img.onload = () => setFaviconLoaded(true);
+      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
+      img.src = faviconUrl;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     try {
       const saved = localStorage.getItem("company-profile-touched");
       return saved ? new Set(JSON.parse(saved)) : new Set();
@@ -795,7 +808,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   faviconDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
                     if (domain) {
-                      const fav = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                      const fav = faviconSrc(domain);
                       setFaviconUrl(fav); setFaviconLoaded(false);
                       const img = new Image();
                       img.onload = () => setFaviconLoaded(true);
