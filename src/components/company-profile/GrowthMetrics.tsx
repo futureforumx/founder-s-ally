@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck } from "lucide-react";
 
 // ── Utilities ──
@@ -21,6 +21,15 @@ function formatWithCommas(num: number): string {
   return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
+function useShake() {
+  const [shaking, setShaking] = useState(false);
+  const trigger = useCallback(() => {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 400);
+  }, []);
+  return { shaking, trigger };
+}
+
 // ── Types ──
 
 interface GrowthMetricsProps {
@@ -34,19 +43,13 @@ interface GrowthMetricsProps {
   defaultExpanded?: boolean;
 }
 
-interface FieldError {
-  arr: string;
-  yoy: string;
-  headcount: string;
-}
-
 const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
 
 // ── Smart Inputs ──
 
 function SmartCurrencyInput({
-  value, onChange, error, onError,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
+  value, onChange, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -54,7 +57,7 @@ function SmartCurrencyInput({
 
   return (
     <div>
-      <div className="relative">
+      <div className={`relative ${shaking ? "animate-shake" : ""}`}>
         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           ref={inputRef}
@@ -66,6 +69,7 @@ function SmartCurrencyInput({
             const raw = parseSmartNumber(local);
             if (raw > LIMITS.arr) {
               onError(`Limit exceeded. Max is $${LIMITS.arr.toLocaleString()}.`);
+              onShake();
             } else {
               onError("");
             }
@@ -87,8 +91,8 @@ function SmartCurrencyInput({
 }
 
 function SmartPercentageInput({
-  value, onChange, error, onError,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
+  value, onChange, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -96,7 +100,7 @@ function SmartPercentageInput({
 
   return (
     <div>
-      <div className="relative">
+      <div className={`relative ${shaking ? "animate-shake" : ""}`}>
         <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           ref={inputRef}
@@ -108,6 +112,7 @@ function SmartPercentageInput({
             const raw = parseSmartNumber(local);
             if (raw > LIMITS.yoy) {
               onError(`Limit exceeded. Max is ${LIMITS.yoy.toLocaleString()}%.`);
+              onShake();
             } else {
               onError("");
             }
@@ -130,8 +135,8 @@ function SmartPercentageInput({
 }
 
 function SmartIntegerInput({
-  value, onChange, error, onError,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
+  value, onChange, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -139,7 +144,7 @@ function SmartIntegerInput({
 
   return (
     <div>
-      <div className="relative">
+      <div className={`relative ${shaking ? "animate-shake" : ""}`}>
         <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           ref={inputRef}
@@ -151,6 +156,7 @@ function SmartIntegerInput({
             const raw = parseSmartNumber(local);
             if (raw > LIMITS.headcount) {
               onError(`Limit exceeded. Max is ${LIMITS.headcount.toLocaleString()}.`);
+              onShake();
             } else {
               onError("");
             }
@@ -180,7 +186,10 @@ export function GrowthMetrics({
   defaultExpanded = true,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const [errors, setErrors] = useState<FieldError>({ arr: "", yoy: "", headcount: "" });
+  const [errors, setErrors] = useState({ arr: "", yoy: "", headcount: "" });
+  const arrShake = useShake();
+  const yoyShake = useShake();
+  const headcountShake = useShake();
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
@@ -216,6 +225,8 @@ export function GrowthMetrics({
                 onChange={(v) => onChange("currentARR", v)}
                 error={errors.arr}
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
+                shaking={arrShake.shaking}
+                onShake={arrShake.trigger}
               />
             </div>
             <div className="space-y-1.5">
@@ -225,6 +236,8 @@ export function GrowthMetrics({
                 onChange={(v) => onChange("yoyGrowth", v)}
                 error={errors.yoy}
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
+                shaking={yoyShake.shaking}
+                onShake={yoyShake.trigger}
               />
             </div>
             <div className="space-y-1.5">
@@ -234,6 +247,8 @@ export function GrowthMetrics({
                 onChange={(v) => onChange("totalHeadcount", v)}
                 error={errors.headcount}
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
+                shaking={headcountShake.shaking}
+                onShake={headcountShake.trigger}
               />
             </div>
           </div>
