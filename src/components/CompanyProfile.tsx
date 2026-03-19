@@ -590,18 +590,45 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }, 150);
   };
 
-  const advanceWalkthrough = () => {
+  const advanceWalkthrough = async () => {
+    // Validation: check for metric errors on the metrics step
+    const currentSection = WALKTHROUGH_SECTIONS[activeWalkthroughStep];
+    if (currentSection === "metrics" && metricsHasErrors) {
+      const ref = sectionRefs.current["metrics"];
+      if (ref) ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({
+        title: "⚠️ Fix errors before continuing",
+        description: "Please correct the highlighted fields in Growth Metrics.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show saving state
+    setIsSaving(true);
+
+    // Persist current form state
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(form));
+      localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
+      onSave?.(form);
+    } catch {}
+
+    // Brief visual delay for saving feedback
+    await new Promise(r => setTimeout(r, 400));
+    setIsSaving(false);
+
     const nextStep = activeWalkthroughStep + 1;
     if (nextStep >= WALKTHROUGH_SECTIONS.length) {
-      // Walkthrough complete — exit walkthrough mode
+      // Walkthrough complete — collapse all and exit
       setWalkthroughMode("done");
-      // Expand all sections for normal use
-      setSectorExpanded(true);
-      setCategorizationExpanded(true);
-      setCompetitiveExpanded(true);
-      setMetricsExpanded(true);
+      setSectorExpanded(false);
+      setCategorizationExpanded(false);
+      setCompetitiveExpanded(false);
+      setMetricsExpanded(false);
       onWalkthroughComplete?.();
     } else {
+      // Collapse current section, advance to next
       setActiveWalkthroughStep(nextStep);
       expandWalkthroughSection(nextStep);
     }
