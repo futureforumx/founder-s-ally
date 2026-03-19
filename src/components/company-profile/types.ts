@@ -30,7 +30,7 @@ export interface CompanyData {
   teamSize: string;
   // Expanded fields
   businessModel: string;
-  targetCustomer: string;
+  targetCustomer: string[];
   hqLocation: string;
   competitors: string[];
   uniqueValueProp: string;
