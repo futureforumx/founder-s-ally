@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
