@@ -1522,18 +1522,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       <AlertDialog open={showOverrideWarning} onOpenChange={setShowOverrideWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              AI will override your edits
+            <AlertDialogTitle className="text-lg font-semibold">
+              Overwrite manual edits?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              You've manually edited some fields. Running analysis will replace them with AI-generated values. Your changes may be lost.
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              You've made manual changes to this profile. Re-running the AI will overwrite your custom data with new AI predictions.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}>
-              Continue anyway
+            <AlertDialogAction
+              onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Overwrite & Run
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
