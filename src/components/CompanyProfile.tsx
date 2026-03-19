@@ -1647,7 +1647,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      Social Links
+                      <PhosphorShareNetwork className="h-3.5 w-3.5 text-accent" /> Social Links
                       {sectionConfirmed.social && <Check className="h-3.5 w-3.5 text-success" />}
                       {analysisComplete && !sectionConfirmed.social && !confirmed && (
                         <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
