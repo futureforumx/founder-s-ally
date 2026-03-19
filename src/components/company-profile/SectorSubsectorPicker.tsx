@@ -191,6 +191,8 @@ interface SectorSubsectorPickerProps {
   isReclassifying?: boolean;
   isAiDraft?: boolean;
   className?: string;
+  /** When true, hides the sector combobox and only shows the subsector picker */
+  subsectorsOnly?: boolean;
 }
 
 export function SectorSubsectorPicker({
