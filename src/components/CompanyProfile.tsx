@@ -415,6 +415,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       { key: "currentARR", aiKey: "currentARR" },
       { key: "yoyGrowth", aiKey: "yoyGrowth" },
       { key: "totalHeadcount", aiKey: "totalHeadcount" },
+      { key: "socialTwitter", aiKey: "socialTwitter" },
+      { key: "socialLinkedin", aiKey: "socialLinkedin" },
+      { key: "socialInstagram", aiKey: "socialInstagram" },
     ];
 
     const normalized = normalizeSector(aiExtracted.sector, sectorMapping?.subTag, sectorMapping?.keywords);
