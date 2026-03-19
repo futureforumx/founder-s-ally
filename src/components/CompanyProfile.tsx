@@ -48,6 +48,10 @@ function extractDomain(url: string): string | null {
   } catch { return null; }
 }
 
+function faviconSrc(domain: string): string {
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+}
+
 function cleanDomainToName(domain: string): string {
   let name = domain.replace(/^www\./, "");
   for (const tld of TLDS) {
