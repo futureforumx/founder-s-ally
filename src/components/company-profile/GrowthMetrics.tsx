@@ -306,6 +306,7 @@ export function GrowthMetrics({
               <SmartIntegerInput
                 value={totalHeadcount}
                 onChange={(v) => handleChange("totalHeadcount", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.headcount}
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
                 shaking={headcountShake.shaking}
