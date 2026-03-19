@@ -28,7 +28,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [stage, setStage] = useState("");
   const [sector, setSector] = useState("");
   const [mrr, setMrr] = useState("");
-  const [burnRate, setBurnRate] = useState("");
+  const [headcount, setHeadcount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStep, setProcessStep] = useState("");
   const [error, setError] = useState<string | null>(null);
