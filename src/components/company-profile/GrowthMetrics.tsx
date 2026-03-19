@@ -34,6 +34,12 @@ function useShake() {
 
 export type DataSource = "deck" | "ai" | "manual";
 
+interface OriginalMetrics {
+  currentARR: string;
+  yoyGrowth: string;
+  totalHeadcount: string;
+}
+
 interface GrowthMetricsProps {
   currentARR: string;
   yoyGrowth: string;
@@ -42,6 +48,7 @@ interface GrowthMetricsProps {
   onConfirm?: () => void;
   dataSource?: DataSource;
   onDataSourceChange?: (source: DataSource) => void;
+  originalDataSource?: DataSource;
   defaultExpanded?: boolean;
 }
 
