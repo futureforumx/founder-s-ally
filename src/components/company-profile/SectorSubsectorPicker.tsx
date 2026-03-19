@@ -378,7 +378,7 @@ export function SectorSubsectorPicker({
       {/* Sector Combobox */}
       <div ref={sectorRef} className="relative">
         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
-          Sector
+          Sector <span className="text-destructive">*</span>
           {isAiDraft && (
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 ml-1 bg-accent/10 text-accent border-accent/20 gap-0.5">
               <Sparkles className="h-2 w-2" /> AI Suggested
