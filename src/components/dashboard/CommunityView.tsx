@@ -196,7 +196,29 @@ export function CommunityView({ companyData, analysisResult }: CommunityViewProp
         <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-4">
+      {/* Directory Tab Toggle */}
+      <div className="flex items-center gap-1 rounded-xl bg-secondary/60 p-1 w-fit">
+        {DIRECTORY_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all ${
+                isActive
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ═══════ Main Content (3 cols) ═══════ */}
         <div className="lg:col-span-3 space-y-5">
           {/* Smart Search Hero */}
