@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { Globe, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { normalizeSector } from "@/components/company-profile/sectorNormalization";
 import { SmartSelect } from "@/components/onboarding/SmartSelect";
@@ -39,6 +40,24 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [faviconError, setFaviconError] = useState(false);
   const [predictedStage, setPredictedStage] = useState("");
   const [predictedSector, setPredictedSector] = useState("");
+  const [shakeStep2, setShakeStep2] = useState(false);
+
+  const validateStep2 = (): boolean => {
+    const missing: string[] = [];
+    if (!stage) missing.push("Stage");
+    if (!sector) missing.push("Sector");
+    if (missing.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Missing Required Fields",
+        description: `Please select: ${missing.join(", ")}`,
+      });
+      setShakeStep2(true);
+      setTimeout(() => setShakeStep2(false), 600);
+      return false;
+    }
+    return true;
+  };
 
   const faviconUrl = useMemo(() => {
     if (!website.trim()) return null;
@@ -376,13 +395,13 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                   </Button>
                 )}
                 {step === 2 && !deckFile && (
-                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={runAnalysis}>
+                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue with Web Data"}
                   </Button>
                 )}
                 {step === 2 && deckFile && (
-                  <Button size="sm" disabled={isProcessing} onClick={runAnalysis} className="animate-pulse hover:animate-none">
+                  <Button size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }} className={`animate-pulse hover:animate-none ${shakeStep2 ? "animate-shake" : ""}`}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Analyze Deck & Continue"}
                   </Button>
