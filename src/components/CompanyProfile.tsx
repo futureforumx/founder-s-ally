@@ -63,6 +63,24 @@ function cleanDomainToName(domain: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+function formatSocialUrl(platform: "x" | "instagram" | "linkedin", value: string): string {
+  if (!value || value.trim() === "") return "";
+  let cleaned = value.trim().replace(/^(https?:\/\/)?(www\.)?/, "");
+  switch (platform) {
+    case "x":
+      cleaned = cleaned.replace(/^(twitter\.com\/|x\.com\/)/, "").replace(/^@/, "");
+      return `https://x.com/${cleaned}`;
+    case "instagram":
+      cleaned = cleaned.replace(/^instagram\.com\//, "").replace(/^@/, "");
+      return `https://instagram.com/${cleaned}`;
+    case "linkedin":
+      cleaned = cleaned.replace(/^linkedin\.com\/(company\/|in\/)?/, "").replace(/\/$/, "");
+      return `https://linkedin.com/company/${cleaned}`;
+    default:
+      return value;
+  }
+}
+
 function parseSmartNumber(value: string): number {
   if (!value) return 0;
   const cleaned = value.toString().toLowerCase().replace(/[^0-9.kmb]/g, "");
@@ -2005,6 +2023,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="relative">
                           <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
+                            onBlur={e => { const f = formatSocialUrl("x", e.target.value); if (f !== e.target.value) update("socialTwitter", f); }}
                             placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
                         </div>
                       </div>
@@ -2015,6 +2034,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="relative">
                           <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
+                            onBlur={e => { const f = formatSocialUrl("linkedin", e.target.value); if (f !== e.target.value) update("socialLinkedin", f); }}
                             placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
                         </div>
                       </div>
@@ -2025,6 +2045,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="relative">
                           <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
+                            onBlur={e => { const f = formatSocialUrl("instagram", e.target.value); if (f !== e.target.value) update("socialInstagram", f); }}
                             placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                         </div>
                       </div>
