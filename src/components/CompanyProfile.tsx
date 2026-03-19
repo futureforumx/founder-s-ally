@@ -1079,7 +1079,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       💼 Company Overview
                       {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
                       {analysisComplete && !sectionConfirmed.overview && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
                       )}
                     </h3>
                     <div className="flex items-center gap-2">
