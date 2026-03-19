@@ -854,17 +854,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     analyzeStepLabel: isAnalyzing ? (STEP_LABELS[analyzeStep] || "Analyzing...") : "Run Analysis",
   }), [handleAnalyzeClick, isAnalyzing, canAnalyze, analyzeStep]);
 
-  // Whether a section can be manually toggled (disabled during analyzing or walkthrough)
+  // Whether a section can be manually toggled (disabled only during analyzing)
   const isSectionLocked = walkthroughMode === "analyzing";
   const isWalkthrough = walkthroughMode === "walkthrough";
 
-  // Can this section be toggled in walkthrough mode?
-  const canToggleSection = (section: WalkthroughSection) => {
+  // Sections are only locked during active analysis — fully interactive otherwise
+  const canToggleSection = (_section: WalkthroughSection) => {
     if (walkthroughMode === "analyzing") return false;
-    if (walkthroughMode === "walkthrough") {
-      // Only the active section can be toggled
-      return WALKTHROUGH_SECTIONS[activeWalkthroughStep] === section;
-    }
     return true;
   };
 
