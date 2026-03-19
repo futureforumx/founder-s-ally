@@ -266,7 +266,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-source-verification", JSON.stringify(sourceVerification));
         localStorage.setItem("company-metric-period", metricPeriod);
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
-        if (form.name) { setSaveIndicator("Saved"); setTimeout(() => setSaveIndicator(null), 1500); }
+        if (form.name) { setSaveIndicator("Auto-saving"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
