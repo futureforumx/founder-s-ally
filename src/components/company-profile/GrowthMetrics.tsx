@@ -72,7 +72,7 @@ function SmartCurrencyInput({
           ref={inputRef}
           type="text"
           value={display}
-          onChange={(e) => setLocal(e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+          onChange={(e) => { setLocal(e.target.value.replace(/[^0-9.,mkbMKB]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
