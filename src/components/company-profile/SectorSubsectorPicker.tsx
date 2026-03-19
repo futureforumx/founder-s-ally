@@ -355,11 +355,19 @@ export function SectorSubsectorPicker({
 
   const handleSectorKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") { setSectorOpen(false); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx(prev => Math.min(prev + 1, filteredSectors.length - 1)); }
+    const totalItems = filteredSectors.length + (search.trim() && !filteredSectors.some(s => s.toLowerCase() === search.trim().toLowerCase()) ? 1 : 0);
+    if (e.key === "ArrowDown") { e.preventDefault(); setFocusIdx(prev => Math.min(prev + 1, totalItems - 1)); }
     if (e.key === "ArrowUp") { e.preventDefault(); setFocusIdx(prev => Math.max(prev - 1, 0)); }
-    if (e.key === "Enter" && focusIdx >= 0 && focusIdx < filteredSectors.length) {
+    if (e.key === "Enter" && focusIdx >= 0) {
       e.preventDefault();
-      handleSectorSelect(filteredSectors[focusIdx]);
+      // Custom entry is at index 0 when shown
+      const hasCustom = search.trim() && !filteredSectors.some(s => s.toLowerCase() === search.trim().toLowerCase());
+      if (hasCustom && focusIdx === 0) {
+        handleSectorSelect(search.trim());
+      } else {
+        const idx = hasCustom ? focusIdx - 1 : focusIdx;
+        if (idx >= 0 && idx < filteredSectors.length) handleSectorSelect(filteredSectors[idx]);
+      }
     }
   };
 
