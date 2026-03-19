@@ -1313,8 +1313,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                 </div>
               </div>
-            </div>
-
               {/* Approve button */}
               {analysisComplete && !confirmed && (
                 <div className="pt-2 border-t border-border/50">
@@ -1328,7 +1326,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   )}
                 </div>
               )}
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── CARD 4: Social Links ─── */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
