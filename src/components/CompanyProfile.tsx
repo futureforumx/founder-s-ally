@@ -1068,6 +1068,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       onChange={e => {
                         const url = e.target.value;
                         update("website", url);
+                        if (analysisComplete) setHasNewInputs(true);
 
                         if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
                         faviconDebounceRef.current = setTimeout(() => {
