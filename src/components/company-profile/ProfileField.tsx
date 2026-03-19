@@ -2,7 +2,7 @@ import { AISuggestionIcon } from "./AISuggestionIcon";
 import { Badge } from "@/components/ui/badge";
 
 interface ProfileFieldProps {
-  label: string;
+  label: React.ReactNode;
   icon?: React.ReactNode;
   children: React.ReactNode;
   isAiDraft?: boolean;

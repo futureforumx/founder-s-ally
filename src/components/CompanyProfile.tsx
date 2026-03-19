@@ -91,14 +91,14 @@ function SectionProcessingIndicator({ isAnalyzing }: { isAnalyzing: boolean }) {
 }
 
 // Approve & Continue button injected at the bottom of walkthrough sections
-function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean }) {
+function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving, shaking }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean; shaking?: boolean }) {
   if (isFinal) {
     return (
       <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
         <button
           onClick={onConfirm}
           disabled={isSaving}
-          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${shaking ? "animate-shake" : ""}`}
         >
           {isSaving ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
@@ -114,7 +114,7 @@ function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { o
       <button
         onClick={onClick}
         disabled={isSaving}
-        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${shaking ? "animate-shake" : ""}`}
       >
         {isSaving ? (
           <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
@@ -256,6 +256,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [activeWalkthroughStep, setActiveWalkthroughStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [metricsHasErrors, setMetricsHasErrors] = useState(false);
+  // Required field validation errors
+  const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
+  const [approveShaking, setApproveShaking] = useState(false);
   // Track which fields AI updated in this analysis run (for highlighting)
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
@@ -387,6 +390,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (dataSource !== "manual") {
         if (!originalFormSnapshot) setOriginalFormSnapshot({ ...form });
         setDataSource("manual");
+      }
+    }
+    // Smart recovery: clear required error when field gets a value
+    const requiredFields: (keyof CompanyData)[] = ["sector", "stage", "totalHeadcount"];
+    if (requiredFields.includes(field)) {
+      const val = typeof sanitized === "string" ? sanitized.trim() : (Array.isArray(sanitized) ? sanitized.length > 0 : !!sanitized);
+      if (val) {
+        setRequiredErrors(prev => { const n = new Set(prev); n.delete(field); return n; });
       }
     }
   };
@@ -622,7 +633,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }, 150);
   };
 
+  const validateRequiredFields = (): boolean => {
+    const missing: string[] = [];
+    const errors = new Set<string>();
+    if (!form.sector.trim()) { missing.push("Sector"); errors.add("sector"); }
+    if (!form.stage.trim()) { missing.push("Stage"); errors.add("stage"); }
+    if (!form.totalHeadcount.trim()) { missing.push("Headcount"); errors.add("totalHeadcount"); }
+    if (missing.length > 0) {
+      setRequiredErrors(errors);
+      setApproveShaking(true);
+      setTimeout(() => setApproveShaking(false), 500);
+      toast({
+        title: "Missing Required Fields",
+        description: `Please provide ${missing.join(", ")} to continue.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    setRequiredErrors(new Set());
+    return true;
+  };
+
   const advanceWalkthrough = async () => {
+    // Validation: check required fields
+    if (!validateRequiredFields()) return;
+
     // Validation: check for metric errors on the metrics step
     const currentSection = WALKTHROUGH_SECTIONS[activeWalkthroughStep];
     if (currentSection === "metrics" && metricsHasErrors) {
@@ -855,6 +890,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const handleConfirm = async () => {
+    // Validate required fields first
+    if (!validateRequiredFields()) return;
     // Validate metrics errors
     if (metricsHasErrors) {
       const ref = sectionRefs.current["metrics"];
@@ -915,13 +952,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const isFieldAiHighlighted = (field: string) => walkthroughMode === "walkthrough" && aiUpdatedFields.has(field);
 
   const inputCls = (field: keyof CompanyData) =>
-    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 ${
-      isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
+    `w-full rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 ${
+      requiredErrors.has(field) ? "!border-destructive/60 focus:!ring-destructive/30" :
+      isFieldAiDraft(field) ? "border-accent/20 bg-accent/5" : "border-input bg-background"
     } ${isFieldAiHighlighted(field) ? "!bg-accent/10 !border-accent/30 ring-1 ring-accent/20" : ""}`;
 
   const selectCls = (field: keyof CompanyData) =>
-    `w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 appearance-none ${
-      isFieldAiDraft(field) ? "bg-accent/5 border-accent/20" : "bg-background"
+    `w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-300 appearance-none ${
+      requiredErrors.has(field) ? "!border-destructive/60 focus:!ring-destructive/30" :
+      isFieldAiDraft(field) ? "border-accent/20 bg-accent/5" : "border-input bg-background"
     } ${isFieldAiHighlighted(field) ? "!bg-accent/10 !border-accent/30 ring-1 ring-accent/20" : ""}`;
 
   const isEditableElement = (element: Element | null): boolean => {
@@ -1132,17 +1171,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
                       placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
                   </ProfileField>
-                  <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
+                  <ProfileField label={<>Stage <span className="text-destructive">*</span></>} isAiDraft={isFieldAiDraft("stage")}
                     aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
                     <div className="flex items-center gap-1.5">
                       <select value={form.stage} onChange={e => update("stage", e.target.value)} disabled={isAnalyzing} className={selectCls("stage")}>
-                        <option value="" disabled>Select stage</option>
+                        <option value="" disabled>Required for analysis...</option>
                         {stages.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       {renderAiUpdatedBadge("stage")}
                       {renderVerificationBadge("stage")}
                       {analysisComplete && <InsightIcon field="stage" label="Stage" />}
                     </div>
+                    {requiredErrors.has("stage") && <p className="text-[10px] text-destructive mt-1">This field is required</p>}
                   </ProfileField>
                 </div>
 
@@ -1489,7 +1529,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Briefcase className="h-3 w-3 text-accent" />
-                  Sector & Subsectors
+                  Sector & Subsectors <span className="text-destructive">*</span>
                   {form.sector && (
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
                   )}
@@ -1539,9 +1579,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     {renderAiUpdatedBadge("sector")}
                     {renderVerificationBadge("sector")}
                   </div>
+                  {requiredErrors.has("sector") && <p className="text-[10px] text-destructive mt-2">This field is required</p>}
                   {/* Walkthrough: Approve & Continue */}
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "sector" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}
@@ -1613,7 +1654,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </ProfileField>
                   </div>
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "categorization" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}
@@ -1684,7 +1725,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </ProfileField>
                   </div>
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "competitive" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}
@@ -1729,7 +1770,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   />
                   {/* Walkthrough: Approve & Continue (final step) */}
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={true} onConfirm={handleConfirm} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={true} onConfirm={handleConfirm} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}

@@ -177,7 +177,7 @@ function SmartIntegerInput({
             setLocal(formatted);
             onChange(formatted);
           }}
-          placeholder="e.g. 25"
+          placeholder="Required for analysis..."
           className={`w-full rounded-lg border bg-background pl-9 pr-9 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
             hasError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
           }`}
@@ -272,7 +272,7 @@ export function GrowthMetrics({
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Headcount</label>
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Headcount <span className="text-destructive">*</span></label>
           <SmartIntegerInput
             value={totalHeadcount}
             onChange={(v) => handleChange("totalHeadcount", v)}
