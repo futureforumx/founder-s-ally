@@ -922,11 +922,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       {/* ═══════════════════════════════════════════════
           RIGHT COLUMN: GENERATED PROFILE (col-span-8) — scrollable
           ═══════════════════════════════════════════════ */}
-      <div className="lg:col-span-8 space-y-6" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
+      <div className="lg:col-span-8 space-y-3" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
 
         {/* Right column header: Generated Profile + autosave + progress */}
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Generated Profile</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Generated Profile</h3>
           <div className="flex items-center gap-4">
             {/* Completion progress */}
             <div className="flex items-center gap-2">
