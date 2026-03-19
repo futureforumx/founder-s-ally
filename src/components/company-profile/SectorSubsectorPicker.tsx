@@ -378,7 +378,8 @@ export function SectorSubsectorPicker({
 
   return (
     <div className={`space-y-3 ${className || ""}`}>
-      {/* Sector Combobox */}
+      {/* Sector Combobox — hidden when subsectorsOnly */}
+      {!subsectorsOnly && (
       <div ref={sectorRef} className="relative">
         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1.5">
           Sector <span className="text-destructive">*</span>
