@@ -374,8 +374,18 @@ const Index = () => {
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "investors" ? (
             <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} />
-          ) : (
+          ) : activeView === "directory" ? (
+            <div className="space-y-2">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Directory</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Browse the founder community</p>
+              </div>
+              <CommunityView companyData={companyData} analysisResult={analysisResult} />
+            </div>
+          ) : activeView === "audit" ? (
             <DeckAuditView />
+          ) : (
+            <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
         </div>
       </main>
