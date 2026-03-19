@@ -17,7 +17,8 @@ export const sectors = Object.keys(SECTOR_TAXONOMY);
 export const subsectorsFor = (sector: string): string[] =>
   (SECTOR_TAXONOMY[sector as keyof typeof SECTOR_TAXONOMY] as unknown as string[]) ?? [];
 export const businessModels = ["SaaS", "Marketplace", "E-Commerce", "Hardware", "Services", "Freemium", "Usage-Based", "Other"];
-export const targetCustomers = ["B2B", "B2C", "B2B2C", "B2G"];
+export const targetCustomers = ["B2C", "B2B2C", "SMB", "Enterprise", "Government"];
+export const targetMarkets = targetCustomers;
 
 export interface CompanyData {
   name: string;
