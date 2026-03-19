@@ -36,13 +36,14 @@ export interface CompanyData {
   uniqueValueProp: string;
   currentARR: string;
   yoyGrowth: string;
+  momGrowth: string;
   totalHeadcount: string;
   // Social & additional metrics
   socialTwitter: string;
   socialLinkedin: string;
   socialInstagram: string;
   burnRate: string;
-  crr: string;
+  nrr: string;
   cac: string;
   ltv: string;
 }
@@ -140,9 +141,9 @@ export interface AnalysisResult {
 export const EMPTY_FORM: CompanyData = {
   name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
   businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
-  uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
+  uniqueValueProp: "", currentARR: "", yoyGrowth: "", momGrowth: "", totalHeadcount: "",
   socialTwitter: "", socialLinkedin: "", socialInstagram: "",
-  burnRate: "", crr: "", cac: "", ltv: "",
+  burnRate: "", nrr: "", cac: "", ltv: "",
 };
 
 export function getCompletionPercent(form: CompanyData): number {

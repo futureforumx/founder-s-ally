@@ -210,7 +210,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
         totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
         socialTwitter: "", socialLinkedin: "", socialInstagram: "",
-        burnRate: "", crr: "", cac: "", ltv: "",
+        burnRate: "", nrr: "", cac: "", ltv: "", momGrowth: "",
       };
       if (analysisResult) {
         onComplete(company, {

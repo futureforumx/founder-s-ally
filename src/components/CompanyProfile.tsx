@@ -667,22 +667,32 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return null;
   };
 
-  // Period toggle handler with auto-conversion
+  // Period toggle handler with auto-conversion (revenue & burn only, growth fields are independent)
   const handlePeriodToggle = (period: "monthly" | "annual") => {
     if (period === metricPeriod) return;
-    const prev = metricPeriod;
     setMetricPeriod(period);
     // Auto-convert revenue
     if (form.currentARR) {
       const converted = period === "annual" ? mrrToArr(form.currentARR) : arrToMrr(form.currentARR);
       if (converted) setForm(f => ({ ...f, currentARR: converted }));
     }
-    // Auto-convert growth
-    if (form.yoyGrowth) {
-      const converted = period === "annual" ? momToYoy(form.yoyGrowth) : yoyToMom(form.yoyGrowth);
-      if (converted) setForm(f => ({ ...f, yoyGrowth: converted }));
+    // Auto-convert burn rate
+    if (form.burnRate) {
+      const n = parseSmartNumber(form.burnRate);
+      if (n) {
+        const converted = period === "annual" ? formatWithCommas(n * 12) : formatWithCommas(Math.round(n / 12));
+        setForm(f => ({ ...f, burnRate: converted }));
+      }
     }
   };
+
+  // Auto-calculated LTV/CAC ratio
+  const ltvCacRatio = (() => {
+    const ltv = parseSmartNumber(form.ltv);
+    const cac = parseSmartNumber(form.cac);
+    if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
+    return "—";
+  })();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1062,8 +1072,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </div>
               </div>
 
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* ── Section 1: Topline ── */}
+              <div className="grid grid-cols-3 gap-4">
                 {/* Revenue (MRR/ARR) */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -1076,47 +1086,37 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         const n = parseSmartNumber(e.target.value);
                         if (n) update("currentARR", formatWithCommas(n));
                       }}
-                      placeholder="e.g. 1.2m" className={`${inputCls("currentARR")} pl-9`} />
+                      placeholder={metricPeriod === "annual" ? "e.g. 14.4m" : "e.g. 1.2m"} className={`${inputCls("currentARR")} pl-9`} />
                   </div>
                 </div>
 
-                {/* Growth (MoM/YoY) */}
+                {/* Growth (MoM/YoY — independent fields) */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge("yoyGrowth")}
+                    {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge(metricPeriod === "annual" ? "yoyGrowth" : "momGrowth")}
                   </label>
                   <div className="relative">
                     <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.yoyGrowth} onChange={e => update("yoyGrowth", e.target.value.replace(/[^0-9.kmKM]/g, ""))}
+                    <input type="text"
+                      value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
+                      onChange={e => {
+                        const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
+                        update(field, e.target.value.replace(/[^0-9.kmKM]/g, ""));
+                      }}
                       onBlur={e => {
                         const n = parseSmartNumber(e.target.value);
-                        if (n) update("yoyGrowth", formatWithCommas(Math.round(n)));
+                        const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
+                        if (n) update(field, formatWithCommas(Math.round(n)));
                       }}
-                      placeholder="e.g. 150" className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
+                      placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                {/* Headcount */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Headcount {renderFieldBadge("totalHeadcount")}
-                  </label>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM]/g, ""))}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        if (n) update("totalHeadcount", formatWithCommas(n));
-                      }}
-                      placeholder="e.g. 25" className={`${inputCls("totalHeadcount")} pl-9`} />
                   </div>
                 </div>
 
                 {/* Burn Rate */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    Burn Rate {renderFieldBadge("burnRate")}
+                    {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
                   </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -1125,51 +1125,97 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         const n = parseSmartNumber(e.target.value);
                         if (n) update("burnRate", formatWithCommas(n));
                       }}
-                      placeholder="e.g. 50k/mo" className={`${inputCls("burnRate")} pl-9`} />
+                      placeholder={metricPeriod === "annual" ? "e.g. 600k" : "e.g. 50k"} className={`${inputCls("burnRate")} pl-9`} />
                   </div>
                 </div>
+              </div>
 
-                {/* CRR */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    CRR (%) {renderFieldBadge("crr")}
-                  </label>
-                  <div className="relative">
-                    <input type="text" value={form.crr} onChange={e => update("crr", e.target.value.replace(/[^0-9.]/g, ""))}
-                      placeholder="e.g. 95" className={`${inputCls("crr")} pr-8`} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+              {/* Divider */}
+              <hr className="border-border/50" />
+
+              {/* ── Section 2: Unit Economics ── */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Unit Economics</label>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* CAC */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      CAC {renderFieldBadge("cac")}
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                        onBlur={e => {
+                          const n = parseSmartNumber(e.target.value);
+                          if (n) update("cac", formatWithCommas(n));
+                        }}
+                        placeholder="e.g. 250" className={`${inputCls("cac")} pl-9`} />
+                    </div>
+                  </div>
+
+                  {/* LTV */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      LTV {renderFieldBadge("ltv")}
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                        onBlur={e => {
+                          const n = parseSmartNumber(e.target.value);
+                          if (n) update("ltv", formatWithCommas(n));
+                        }}
+                        placeholder="e.g. 5,000" className={`${inputCls("ltv")} pl-9`} />
+                    </div>
+                  </div>
+
+                  {/* LTV/CAC Ratio (auto-calculated, disabled) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LTV / CAC Ratio</label>
+                    <div className="relative">
+                      <input type="text" value={ltvCacRatio} disabled
+                        className="w-full rounded-lg border border-border bg-accent/5 px-3 py-2.5 text-sm font-semibold text-accent/80 cursor-not-allowed" />
+                      {ltvCacRatio !== "—" && (
+                        <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
+                      )}
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {/* CAC */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    CAC ($) {renderFieldBadge("cac")}
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        if (n) update("cac", formatWithCommas(n));
-                      }}
-                      placeholder="e.g. 250" className={`${inputCls("cac")} pl-9`} />
+              {/* Divider */}
+              <hr className="border-border/50" />
+
+              {/* ── Section 3: Health & Ops ── */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Health & Ops</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* NRR */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      NRR {renderFieldBadge("nrr")}
+                    </label>
+                    <div className="relative">
+                      <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="e.g. 110" className={`${inputCls("nrr")} pr-8`} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                    </div>
                   </div>
-                </div>
 
-                {/* LTV */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    LTV ($) {renderFieldBadge("ltv")}
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        if (n) update("ltv", formatWithCommas(n));
-                      }}
-                      placeholder="e.g. 5,000" className={`${inputCls("ltv")} pl-9`} />
+                  {/* Headcount */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Headcount {renderFieldBadge("totalHeadcount")}
+                    </label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM]/g, ""))}
+                        onBlur={e => {
+                          const n = parseSmartNumber(e.target.value);
+                          if (n) update("totalHeadcount", formatWithCommas(n));
+                        }}
+                        placeholder="e.g. 25" className={`${inputCls("totalHeadcount")} pl-9`} />
+                    </div>
                   </div>
                 </div>
               </div>
