@@ -3,27 +3,26 @@ import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldChe
 
 // ── Smart formatting helpers ──
 
-/** Parse shorthand like "1m", "2.5k", "1,000,000" → raw number */
-function parseSmartCurrency(raw: string): number | null {
-  const cleaned = raw.replace(/[^0-9.mkMK]/g, "");
-  if (!cleaned) return null;
-  const match = cleaned.match(/^([0-9]*\.?[0-9]+)\s*([mkMK]?)$/);
-  if (!match) {
-    const numOnly = cleaned.replace(/[mkMK]/g, "");
-    const n = parseFloat(numOnly);
-    return isNaN(n) ? null : n;
-  }
-  const num = parseFloat(match[1]);
-  if (isNaN(num)) return null;
-  const suffix = match[2].toLowerCase();
-  if (suffix === "m") return num * 1_000_000;
-  if (suffix === "k") return num * 1_000;
-  return num;
+/** Clean input, parse shorthand (k/m/b), return formatted string with commas */
+function formatSmartCurrency(inputValue: string): string {
+  if (!inputValue) return "";
+  const cleaned = inputValue.toString().toLowerCase().replace(/[\s,$]/g, "");
+  const match = cleaned.match(/^([\d.]+)([kmb]?)$/);
+  if (!match) return cleaned.replace(/[^\d]/g, "");
+  let num = parseFloat(match[1]);
+  const suffix = match[2];
+  if (suffix === "k") num *= 1_000;
+  if (suffix === "m") num *= 1_000_000;
+  if (suffix === "b") num *= 1_000_000_000;
+  return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-/** Format number with commas: 1000000 → "1,000,000" */
-function formatWithCommas(n: number): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+/** Parse a formatted/shorthand string back to a number */
+function parseSmartCurrency(raw: string): number | null {
+  const formatted = formatSmartCurrency(raw);
+  if (!formatted) return null;
+  const n = parseFloat(formatted.replace(/,/g, ""));
+  return isNaN(n) ? null : n;
 }
 
 /** Strip non-numeric chars except decimal point */
@@ -63,15 +62,14 @@ function SmartCurrencyInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    // Allow digits, commas, dots, m, k
-    const filtered = raw.replace(/[^0-9.,mkMK]/g, "");
+    // Allow digits, commas, dots, m, k, b
+    const filtered = raw.replace(/[^0-9.,mkbMKB]/g, "");
     setLocalValue(filtered);
   };
 
   const handleBlur = () => {
-    const parsed = parseSmartCurrency(localValue);
-    if (parsed !== null) {
-      const formatted = formatWithCommas(parsed);
+    const formatted = formatSmartCurrency(localValue);
+    if (formatted) {
       setLocalValue(formatted);
       onChange(formatted);
     } else if (localValue.trim() === "") {
