@@ -99,6 +99,79 @@ function formatWithCommas(num: number): string {
   return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
+function evaluateSmartMath(input: string): number | null {
+  if (!input || typeof input !== "string") return null;
+  // Check if it contains math operators (beyond just a number)
+  const hasMathOps = /[+\-*/()]/.test(input.replace(/^\$/, "").replace(/^-/, ""));
+  let cleanExpression = input.replace(/[$,kKmM]/g, (match) => {
+    if (match.toLowerCase() === "k") return "*1000";
+    if (match.toLowerCase() === "m") return "*1000000";
+    return "";
+  }).replace(/[^0-9.+\-*/()]/g, "");
+  if (!cleanExpression) return null;
+  try {
+    const result = new Function(`return ${cleanExpression}`)();
+    return isFinite(result) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+// Smart onBlur: evaluate math expressions, then format
+function smartBlurCurrency(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(n) : null;
+}
+
+function smartBlurPercent(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(Math.round(n)) : null;
+}
+
+function smartBlurInteger(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(n) : null;
+}
+
+// Metric tooltip definitions
+const METRIC_TOOLTIPS: Record<string, { definition: string; formula?: string }> = {
+  mrr: { definition: "Monthly Recurring Revenue — predictable revenue earned each month from subscriptions.", formula: "Total active subscriptions × price" },
+  arr: { definition: "Annual Recurring Revenue — your MRR extrapolated over 12 months.", formula: "MRR × 12" },
+  momGrowth: { definition: "Month-over-Month growth rate of your key revenue metric.", formula: "((This Month − Last Month) / Last Month) × 100" },
+  yoyGrowth: { definition: "Year-over-Year growth rate comparing the same period across years.", formula: "((This Year − Last Year) / Last Year) × 100" },
+  burnRate: { definition: "How much cash you spend per period beyond what you earn.", formula: "Total Expenses − Total Revenue" },
+  cac: { definition: "Customer Acquisition Cost — average spend to acquire one new customer.", formula: "Total Sales & Marketing Spend / New Customers" },
+  ltv: { definition: "Lifetime Value — total revenue expected from a single customer over their lifetime.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan" },
+  ltvCac: { definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is healthy.", formula: "LTV / CAC" },
+  nrr: { definition: "Net Revenue Retention — measures expansion & churn within existing customers. 100%+ means net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR × 100" },
+  headcount: { definition: "Total number of full-time employees across all departments." },
+};
+
+function MetricTooltip({ metricKey }: { metricKey: string }) {
+  const tip = METRIC_TOOLTIPS[metricKey];
+  if (!tip) return null;
+  return (
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-help">
+          <Info className="h-3 w-3 text-muted-foreground/40 hover:text-accent transition-colors" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="bg-slate-900 text-white p-3 rounded-lg text-xs shadow-xl max-w-[220px] border-slate-700 space-y-1.5">
+        <p className="font-medium">{tip.definition}</p>
+        {tip.formula && <p className="text-slate-300 font-mono text-[10px]">Formula: {tip.formula}</p>}
+        <p className="text-slate-400 text-[10px] italic">💡 Tip: You can enter formulas here (e.g. 5000/250) and we'll calculate the result!</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 // ── Metric period conversion helpers ──
 function mrrToArr(mrr: string): string {
   const n = parseSmartNumber(mrr);
@@ -1822,13 +1895,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "ARR" : "MRR"} {renderFieldBadge("currentARR")}
+                            <MetricTooltip metricKey={metricPeriod === "annual" ? "arr" : "mrr"} />
                           </label>
                           <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                            <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                            <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
-                                if (n) update("currentARR", formatWithCommas(n));
+                                const result = smartBlurCurrency(e.target.value);
+                                if (result) update("currentARR", result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 14.4m" : "e.g. 1.2m"} className={`${inputCls("currentARR")} pl-9`} />
                           </div>
@@ -1838,6 +1912,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge(metricPeriod === "annual" ? "yoyGrowth" : "momGrowth")}
+                            <MetricTooltip metricKey={metricPeriod === "annual" ? "yoyGrowth" : "momGrowth"} />
                           </label>
                           <div className="relative">
                             <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -1845,12 +1920,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                               value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
                               onChange={e => {
                                 const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                                update(field, e.target.value.replace(/[^0-9.kmKM]/g, ""));
+                                update(field, e.target.value.replace(/[^0-9.kmKM+\-*/()]/g, ""));
                               }}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
                                 const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                                if (n) update(field, formatWithCommas(Math.round(n)));
+                                const result = smartBlurPercent(e.target.value);
+                                if (result) update(field, result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
@@ -1861,13 +1936,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
+                            <MetricTooltip metricKey="burnRate" />
                           </label>
                           <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                            <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                            <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
-                                if (n) update("burnRate", formatWithCommas(n));
+                                const result = smartBlurCurrency(e.target.value);
+                                if (result) update("burnRate", result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 600k" : "e.g. 50k"} className={`${inputCls("burnRate")} pl-9`} />
                           </div>
@@ -1883,13 +1959,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       CAC {renderFieldBadge("cac")}
+                      <MetricTooltip metricKey="cac" />
                     </label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                      <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("cac", formatWithCommas(n));
+                          const result = smartBlurCurrency(e.target.value);
+                          if (result) update("cac", result);
                         }}
                         placeholder="e.g. 250" className={`${inputCls("cac")} pl-9`} />
                     </div>
@@ -1899,31 +1976,44 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       LTV {renderFieldBadge("ltv")}
+                      <MetricTooltip metricKey="ltv" />
                     </label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                      <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("ltv", formatWithCommas(n));
+                          const result = smartBlurCurrency(e.target.value);
+                          if (result) update("ltv", result);
                         }}
                         placeholder="e.g. 5,000" className={`${inputCls("ltv")} pl-9`} />
                     </div>
                   </div>
 
-                  {/* LTV/CAC Ratio (manual override or auto-calculated) */}
+                  {/* LTV/CAC Ratio (reactive auto-calculated) */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <Scale className="h-3.5 w-3.5 text-accent" /> LTV / CAC Ratio
+                      <MetricTooltip metricKey="ltvCac" />
+                      {ltvCacOverride && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
+                          <Pencil className="h-2 w-2" /> Edited
+                        </span>
+                      )}
                     </label>
                     <div className="relative">
                       <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
-                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x]/g, ""))}
+                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x+\-*/()]/g, ""))}
                         onBlur={e => {
                           const raw = e.target.value.trim().replace(/x$/i, "");
                           if (!raw) { setLtvCacOverride(""); return; }
+                          // Try math evaluation first
+                          const mathResult = evaluateSmartMath(raw);
+                          if (mathResult !== null && mathResult > 0) {
+                            setLtvCacOverride(mathResult % 1 === 0 ? mathResult + "x" : mathResult.toFixed(1) + "x");
+                            return;
+                          }
                           const ratioMatch = raw.match(/^([\d.]+)\s*:\s*([\d.]+)$/);
                           if (ratioMatch) {
                             const num = parseFloat(ratioMatch[1]);
@@ -1939,6 +2029,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         }`} />
                       {!ltvCacOverride && autoLtvCacRatio && (
                         <PhosphorSparkle className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
+                      )}
+                      {ltvCacOverride && (
+                        <button onClick={() => setLtvCacOverride("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1956,10 +2051,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <RefreshCw className="h-3.5 w-3.5 text-accent" /> NRR {renderFieldBadge("nrr")}
+                      <MetricTooltip metricKey="nrr" />
                     </label>
                     <div className="relative">
                       <RefreshCw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.]/g, ""))}
+                      <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.+\-*/()]/g, ""))}
+                        onBlur={e => {
+                          const result = smartBlurPercent(e.target.value);
+                          if (result) update("nrr", result);
+                        }}
                         placeholder="e.g. 110" className={`${inputCls("nrr")} pl-9 pr-8`} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                     </div>
@@ -1969,13 +2069,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       Headcount {renderFieldBadge("totalHeadcount")}
+                      <MetricTooltip metricKey="headcount" />
                     </label>
                     <div className="relative">
                       <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM]/g, ""))}
+                      <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM+\-*/()]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("totalHeadcount", formatWithCommas(n));
+                          const result = smartBlurInteger(e.target.value);
+                          if (result) update("totalHeadcount", result);
                         }}
                         placeholder="e.g. 25" className={`${inputCls("totalHeadcount")} pl-9`} />
                     </div>
