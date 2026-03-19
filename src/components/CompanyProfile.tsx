@@ -372,6 +372,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     else handleAnalyze();
   };
 
+  // Map fields to their confirmation sections
+  const fieldToSection: Record<string, string> = {
+    stage: "overview", sector: "overview", subsectors: "overview", businessModel: "overview", targetCustomer: "overview", location: "overview",
+    uvp: "positioning", competitors: "positioning",
+    currentARR: "metrics", revenueGrowth: "metrics", totalHeadcount: "metrics", burnRate: "metrics", ltv: "metrics", cac: "metrics", runway: "metrics",
+    twitterUrl: "social", linkedinUrl: "social", instagramUrl: "social",
+  };
+
   const update = (field: keyof CompanyData, value: string | string[]) => {
     const sanitized = value === "null" || value === null ? (Array.isArray(value) ? [] : "") : value;
     setForm(prev => ({ ...prev, [field]: sanitized }));
@@ -379,6 +387,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
     setAiUpdatedFields(prev => { const n = new Set(prev); n.delete(field); return n; });
+    // Reset section confirmation if field is cleared
+    const isEmpty = Array.isArray(sanitized) ? sanitized.length === 0 : !sanitized || !sanitized.toString().trim();
+    if (isEmpty) {
+      const section = fieldToSection[field as string];
+      if (section && sectionConfirmed[section]) {
+        setSectionConfirmed(prev => ({ ...prev, [section]: false }));
+      }
+    }
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
     }
