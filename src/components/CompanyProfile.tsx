@@ -785,13 +785,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  // Auto-calculated LTV/CAC ratio
-  const ltvCacRatio = (() => {
+  // LTV/CAC ratio: manual override or auto-calculated
+  const [ltvCacOverride, setLtvCacOverride] = useState("");
+  const autoLtvCacRatio = (() => {
     const ltv = parseSmartNumber(form.ltv);
     const cac = parseSmartNumber(form.cac);
     if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
-    return "—";
+    return "";
   })();
+  const ltvCacRatio = ltvCacOverride || autoLtvCacRatio || "—";
 
   // Section confirmation helpers
   const confirmSection = (section: string) => {
@@ -1440,13 +1442,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
 
-                  {/* LTV/CAC Ratio (auto-calculated, disabled) */}
+                  {/* LTV/CAC Ratio (manual override or auto-calculated) */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LTV / CAC Ratio</label>
                     <div className="relative">
-                      <input type="text" value={ltvCacRatio} disabled
-                        className="w-full rounded-lg border border-border bg-accent/5 px-3 py-2.5 text-sm font-semibold text-accent/80 cursor-not-allowed" />
-                      {ltvCacRatio !== "—" && (
+                      <input type="text"
+                        value={ltvCacOverride || autoLtvCacRatio}
+                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.x]/g, ""))}
+                        placeholder="Auto or e.g. 3.5x"
+                        className={`w-full rounded-lg border border-border px-3 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
+                          ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
+                        }`} />
+                      {!ltvCacOverride && autoLtvCacRatio && (
                         <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
                       )}
                     </div>
