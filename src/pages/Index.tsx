@@ -52,6 +52,41 @@ const Index = () => {
   const profileComplete = !!companyData && !!analysisResult;
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
 
+  // Last synced state
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
+    try {
+      const saved = localStorage.getItem("last-synced-at");
+      return saved ? new Date(saved) : null;
+    } catch { return null; }
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFlash, setSyncFlash] = useState(false);
+  const [relativeTime, setRelativeTime] = useState("");
+
+  // Update relative time every 30s
+  useEffect(() => {
+    const update = () => {
+      if (lastSyncedAt) {
+        setRelativeTime(formatDistanceToNow(lastSyncedAt, { addSuffix: true }));
+      }
+    };
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [lastSyncedAt]);
+
+  const handleResync = useCallback(async () => {
+    setIsSyncing(true);
+    // Simulate re-sync (in production this would trigger actual re-analysis)
+    await new Promise(r => setTimeout(r, 2000));
+    const now = new Date();
+    setLastSyncedAt(now);
+    try { localStorage.setItem("last-synced-at", now.toISOString()); } catch {}
+    setIsSyncing(false);
+    setSyncFlash(true);
+    setTimeout(() => setSyncFlash(false), 1500);
+  }, []);
+
   // Listen for navigate-view events from child components
   useEffect(() => {
     const handler = (e: Event) => {
