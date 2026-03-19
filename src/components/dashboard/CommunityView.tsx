@@ -15,6 +15,7 @@ import { SECTOR_OPTIONS, STAGE_OPTIONS, BUSINESS_MODEL_OPTIONS } from "@/constan
 interface CommunityViewProps {
   companyData?: CompanyData | null;
   analysisResult?: AnalysisResult | null;
+  onNavigateProfile?: () => void;
 }
 
 // ── Mock directory entries ──
