@@ -179,6 +179,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
       const saved = localStorage.getItem("company-profile-touched");
       return saved ? new Set(JSON.parse(saved)) : new Set();
