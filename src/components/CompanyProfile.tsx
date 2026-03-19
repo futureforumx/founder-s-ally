@@ -1310,36 +1310,38 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             {/* ─── CARD 3: Health & Unit Economics ─── */}
             <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
               <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
-                <div className="flex items-center justify-between p-6">
-                  <CollapsibleTrigger asChild>
-                    <button className="flex items-center gap-2 text-left">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
-                        {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
-                        {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
-                          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
-                        )}
-                      </h3>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
-                    <button
-                      onClick={() => handlePeriodToggle("monthly")}
-                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                        metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >Monthly</button>
-                    <button
-                      onClick={() => handlePeriodToggle("annual")}
-                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                        metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >Annual</button>
-                  </div>
-                </div>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
+                      {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
+                      {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                      )}
+                    </h3>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-5">
+
+                    {/* Monthly / Annual toggle */}
+                    <div className="flex justify-end">
+                      <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+                        <button
+                          onClick={() => handlePeriodToggle("monthly")}
+                          className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                            metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >Monthly</button>
+                        <button
+                          onClick={() => handlePeriodToggle("annual")}
+                          className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                            metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >Annual</button>
+                      </div>
+                    </div>
 
               {/* ── Section 1: Topline ── */}
               <div className="grid grid-cols-3 gap-4">
