@@ -1131,7 +1131,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <div className="flex items-center gap-2">
                       {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
-                          <Sparkles className="h-2.5 w-2.5" /> AI Categorized
+                          <PhosphorSparkle className="h-2.5 w-2.5" /> AI Categorized
                         </span>
                       )}
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.overview ? 'rotate-180' : ''}`} />
