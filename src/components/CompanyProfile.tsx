@@ -1126,7 +1126,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <Globe className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
-                    <input type="url" value={form.website}
+                    <input type="url" value={form.website} disabled={isAnalyzing}
                       onChange={e => {
                         const url = e.target.value;
                         update("website", url);
