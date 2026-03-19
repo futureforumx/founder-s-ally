@@ -602,7 +602,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
       setAnalyzeStep("mapping");
       applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
-      if (analysisData.metricSources) setMetricSources(analysisData.metricSources);
+      applyMetricsFromResult(analysisData.metrics);
 
       const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
       const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount", "businessModel", "targetCustomer", "uniqueValueProp", "competitors"];
