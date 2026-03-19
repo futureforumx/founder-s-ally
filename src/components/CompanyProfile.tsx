@@ -350,9 +350,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [activeReviewSection, setActiveReviewSection] = useState<string | null>(null);
   const isInReviewMode = activeReviewSection !== null;
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    overview: true, positioning: true, metrics: true, social: true,
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    // Will be computed properly by the smart resumption useEffect on mount
+    return { overview: false, positioning: false, metrics: false, social: false };
   });
+  const hasRunSmartResumption = useRef(false);
 
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
