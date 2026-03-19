@@ -161,7 +161,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (saved) {
         const p = JSON.parse(saved);
         const domain = p.website ? extractDomain(p.website) : null;
-        if (domain) return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+        if (domain) return faviconSrc(domain);
       }
     } catch {}
     return null;
