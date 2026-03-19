@@ -91,14 +91,14 @@ function SectionProcessingIndicator({ isAnalyzing }: { isAnalyzing: boolean }) {
 }
 
 // Approve & Continue button injected at the bottom of walkthrough sections
-function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean }) {
+function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving, shaking }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean; shaking?: boolean }) {
   if (isFinal) {
     return (
       <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
         <button
           onClick={onConfirm}
           disabled={isSaving}
-          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${shaking ? "animate-shake" : ""}`}
         >
           {isSaving ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
@@ -114,7 +114,7 @@ function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { o
       <button
         onClick={onClick}
         disabled={isSaving}
-        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${shaking ? "animate-shake" : ""}`}
       >
         {isSaving ? (
           <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
