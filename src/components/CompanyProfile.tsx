@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, ArrowRight } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, ArrowRight, RefreshCw } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -167,6 +167,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [analyzeStep, setAnalyzeStep] = useState<AnalyzeStepKey>("");
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [hasNewInputs, setHasNewInputs] = useState(false);
   const [showOverrideWarning, setShowOverrideWarning] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
     try { return localStorage.getItem("company-logo-url"); } catch { return null; }
@@ -366,6 +367,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (file.size > 50 * 1024 * 1024) { setError("File too large. Maximum 50 MB."); return; }
     setError(null);
     setDeckFile(file);
+    if (analysisComplete) setHasNewInputs(true);
     try {
       if (name.endsWith(".txt")) { setDeckText(await file.text()); }
       else {
@@ -602,6 +604,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
     setIsAnalyzing(true);
     setError(null);
+    setHasNewInputs(false);
     let scrapedMarkdown = "";
 
     // ── FOCUS MODE: Collapse all sections during analysis ──
@@ -1067,6 +1070,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       onChange={e => {
                         const url = e.target.value;
                         update("website", url);
+                        if (analysisComplete) setHasNewInputs(true);
 
                         if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
                         faviconDebounceRef.current = setTimeout(() => {
@@ -1148,18 +1152,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 )}
 
                 {/* Run Analysis Button */}
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2">
+                {(() => {
+                  const isReady = !analysisComplete;
+                  const isAnalyzedIdle = analysisComplete && !hasNewInputs;
+                  // hasNewInputs state already tracked
+                  const btnClass = isAnalyzedIdle
+                    ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+                    : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
+                  const btnLabel = isAnalyzing
+                    ? STEP_LABELS[analyzeStep] || "Analyzing..."
+                    : hasNewInputs
+                      ? "Update AI Analysis"
+                      : isAnalyzedIdle
+                        ? "Re-run Analysis"
+                        : "Run AI Analysis";
+                  return (
+                    <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing} className={btnClass}>
                       {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run AI Analysis"}
+                      {!isAnalyzing && isAnalyzedIdle && <RefreshCw className="h-3.5 w-3.5" />}
+                      {btnLabel}
                     </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-                    AI will scrape your website and parse your pitch deck to auto-fill all sections. (Estimated time: 10-15s).
-                  </TooltipContent>
-                </Tooltip>
+                  );
+                })()}
                 <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
 
                 {/* Inline analysis terminal */}
@@ -1508,18 +1522,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       <AlertDialog open={showOverrideWarning} onOpenChange={setShowOverrideWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-              AI will override your edits
+            <AlertDialogTitle className="text-lg font-semibold">
+              Overwrite manual edits?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              You've manually edited some fields. Running analysis will replace them with AI-generated values. Your changes may be lost.
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              You've made manual changes to this profile. Re-running the AI will overwrite your custom data with new AI predictions.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}>
-              Continue anyway
+            <AlertDialogAction
+              onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Overwrite & Run
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
