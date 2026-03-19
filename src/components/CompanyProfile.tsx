@@ -126,7 +126,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <span className="inline-flex cursor-default">
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <PhSparkle className="h-3.5 w-3.5 text-muted-foreground/60" weight="fill" />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">✨ AI Suggested (Review to approve)</TooltipContent>
@@ -137,10 +137,10 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <span className="inline-flex cursor-default">
-          <Pencil className="h-3.5 w-3.5 text-primary" />
+          <PhCheck className="h-3.5 w-3.5 text-muted-foreground" weight="bold" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">✏️ Manually modified by you</TooltipContent>
+      <TooltipContent side="top" className="text-xs text-muted-foreground">Manually modified by you</TooltipContent>
     </Tooltip>
   );
 }
