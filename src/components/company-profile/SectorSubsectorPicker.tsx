@@ -502,6 +502,7 @@ export function SectorSubsectorPicker({
           </button>
         )}
       </div>
+      )}
 
       {/* Subsector Multi-select Combobox — supports cross-sector picks */}
       {sector && (
