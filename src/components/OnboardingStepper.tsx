@@ -403,7 +403,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                   </Button>
                 )}
                 {step === 3 && (
-                  <Button size="sm" onClick={finalize} className="gap-1.5">
+                  <Button size="sm" onClick={() => { if (validateStep3()) finalize(); }} className={`gap-1.5 ${shakeStep3 ? "animate-shake" : ""}`}>
                     <Sparkles className="h-3.5 w-3.5" /> Sync & Launch Dashboard
                   </Button>
                 )}
