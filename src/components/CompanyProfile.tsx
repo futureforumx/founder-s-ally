@@ -1959,13 +1959,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       CAC {renderFieldBadge("cac")}
+                      <MetricTooltip metricKey="cac" />
                     </label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                      <input type="text" value={form.cac} onChange={e => update("cac", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("cac", formatWithCommas(n));
+                          const result = smartBlurCurrency(e.target.value);
+                          if (result) update("cac", result);
                         }}
                         placeholder="e.g. 250" className={`${inputCls("cac")} pl-9`} />
                     </div>
@@ -1975,31 +1976,44 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       LTV {renderFieldBadge("ltv")}
+                      <MetricTooltip metricKey="ltv" />
                     </label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                      <input type="text" value={form.ltv} onChange={e => update("ltv", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("ltv", formatWithCommas(n));
+                          const result = smartBlurCurrency(e.target.value);
+                          if (result) update("ltv", result);
                         }}
                         placeholder="e.g. 5,000" className={`${inputCls("ltv")} pl-9`} />
                     </div>
                   </div>
 
-                  {/* LTV/CAC Ratio (manual override or auto-calculated) */}
+                  {/* LTV/CAC Ratio (reactive auto-calculated) */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <Scale className="h-3.5 w-3.5 text-accent" /> LTV / CAC Ratio
+                      <MetricTooltip metricKey="ltvCac" />
+                      {ltvCacOverride && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
+                          <Pencil className="h-2 w-2" /> Edited
+                        </span>
+                      )}
                     </label>
                     <div className="relative">
                       <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
-                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x]/g, ""))}
+                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x+\-*/()]/g, ""))}
                         onBlur={e => {
                           const raw = e.target.value.trim().replace(/x$/i, "");
                           if (!raw) { setLtvCacOverride(""); return; }
+                          // Try math evaluation first
+                          const mathResult = evaluateSmartMath(raw);
+                          if (mathResult !== null && mathResult > 0) {
+                            setLtvCacOverride(mathResult % 1 === 0 ? mathResult + "x" : mathResult.toFixed(1) + "x");
+                            return;
+                          }
                           const ratioMatch = raw.match(/^([\d.]+)\s*:\s*([\d.]+)$/);
                           if (ratioMatch) {
                             const num = parseFloat(ratioMatch[1]);
@@ -2015,6 +2029,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         }`} />
                       {!ltvCacOverride && autoLtvCacRatio && (
                         <PhosphorSparkle className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
+                      )}
+                      {ltvCacOverride && (
+                        <button onClick={() => setLtvCacOverride("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -2032,10 +2051,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <RefreshCw className="h-3.5 w-3.5 text-accent" /> NRR {renderFieldBadge("nrr")}
+                      <MetricTooltip metricKey="nrr" />
                     </label>
                     <div className="relative">
                       <RefreshCw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.]/g, ""))}
+                      <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.+\-*/()]/g, ""))}
+                        onBlur={e => {
+                          const result = smartBlurPercent(e.target.value);
+                          if (result) update("nrr", result);
+                        }}
                         placeholder="e.g. 110" className={`${inputCls("nrr")} pl-9 pr-8`} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                     </div>
@@ -2045,13 +2069,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       Headcount {renderFieldBadge("totalHeadcount")}
+                      <MetricTooltip metricKey="headcount" />
                     </label>
                     <div className="relative">
                       <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM]/g, ""))}
+                      <input type="text" value={form.totalHeadcount} onChange={e => update("totalHeadcount", e.target.value.replace(/[^0-9kmKM+\-*/()]/g, ""))}
                         onBlur={e => {
-                          const n = parseSmartNumber(e.target.value);
-                          if (n) update("totalHeadcount", formatWithCommas(n));
+                          const result = smartBlurInteger(e.target.value);
+                          if (result) update("totalHeadcount", result);
                         }}
                         placeholder="e.g. 25" className={`${inputCls("totalHeadcount")} pl-9`} />
                     </div>
