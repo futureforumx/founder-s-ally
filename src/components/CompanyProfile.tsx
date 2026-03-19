@@ -387,7 +387,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   // Map fields to their confirmation sections
   const fieldToSection: Record<string, string> = {
-    stage: "overview", sector: "overview", subsectors: "overview", businessModel: "overview", targetCustomer: "overview", location: "overview",
+    stage: "overview", sector: "overview", subsectors: "overview", businessModel: "overview", targetCustomer: "overview", hqLocation: "overview",
     uvp: "positioning", competitors: "positioning",
     currentARR: "metrics", revenueGrowth: "metrics", totalHeadcount: "metrics", burnRate: "metrics", ltv: "metrics", cac: "metrics", runway: "metrics",
     twitterUrl: "social", linkedinUrl: "social", instagramUrl: "social",
