@@ -854,17 +854,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     analyzeStepLabel: isAnalyzing ? (STEP_LABELS[analyzeStep] || "Analyzing...") : "Run Analysis",
   }), [handleAnalyzeClick, isAnalyzing, canAnalyze, analyzeStep]);
 
-  // Whether a section can be manually toggled (disabled during analyzing or walkthrough)
+  // Whether a section can be manually toggled (disabled only during analyzing)
   const isSectionLocked = walkthroughMode === "analyzing";
   const isWalkthrough = walkthroughMode === "walkthrough";
 
-  // Can this section be toggled in walkthrough mode?
-  const canToggleSection = (section: WalkthroughSection) => {
+  // Sections are only locked during active analysis — fully interactive otherwise
+  const canToggleSection = (_section: WalkthroughSection) => {
     if (walkthroughMode === "analyzing") return false;
-    if (walkthroughMode === "walkthrough") {
-      // Only the active section can be toggled
-      return WALKTHROUGH_SECTIONS[activeWalkthroughStep] === section;
-    }
     return true;
   };
 
@@ -935,11 +931,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const summaryParts = [form.name, form.stage, form.sector].filter(Boolean);
 
   // Section header classes for focus mode
-  const sectionHeaderClass = (section: WalkthroughSection) => {
+  const sectionHeaderClass = (_section: WalkthroughSection) => {
     const base = "flex w-full items-center justify-between px-4 py-3";
     if (walkthroughMode === "analyzing") return `${base} cursor-not-allowed opacity-70`;
-    if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] !== section) return `${base} cursor-not-allowed opacity-50`;
-    return `${base} cursor-pointer`;
+    return `${base} cursor-pointer hover:bg-muted/30 transition-colors`;
   };
 
   return (
