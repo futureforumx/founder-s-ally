@@ -1652,13 +1652,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
               {/* Approve button */}
               {analysisComplete && !confirmed && (
-                <div className="pt-2 border-t border-border/50">
+                <div className="pt-2 border-t border-border/50 flex justify-end">
                   {sectionConfirmed.metrics ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
                   ) : (
                     <button onClick={() => confirmSection("metrics")}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
-                      <Check className="h-3.5 w-3.5" /> Approve Metrics
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+                      <Check className="h-3.5 w-3.5" /> Approve Section
                     </button>
                   )}
                 </div>
