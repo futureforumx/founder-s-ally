@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
@@ -252,6 +253,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     } catch { return {}; }
   });
 
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    overview: true, positioning: true, metrics: true, social: true,
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
@@ -410,6 +415,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       { key: "currentARR", aiKey: "currentARR" },
       { key: "yoyGrowth", aiKey: "yoyGrowth" },
       { key: "totalHeadcount", aiKey: "totalHeadcount" },
+      { key: "socialTwitter", aiKey: "socialTwitter" },
+      { key: "socialLinkedin", aiKey: "socialLinkedin" },
+      { key: "socialInstagram", aiKey: "socialInstagram" },
     ];
 
     const normalized = normalizeSector(aiExtracted.sector, sectorMapping?.subTag, sectorMapping?.keywords);
@@ -729,6 +737,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Section confirmation helpers
   const confirmSection = (section: string) => {
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
+    setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
@@ -951,17 +960,26 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
-                </h3>
-                {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
-                    <Sparkles className="h-2.5 w-2.5" /> AI Categorized
-                  </span>
-                )}
-              </div>
+            <Collapsible open={openSections.overview} onOpenChange={v => setOpenSections(p => ({...p, overview: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
+                      {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                          <Sparkles className="h-2.5 w-2.5" /> AI Categorized
+                        </span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.overview ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* Row 1: Stage | Sector | Subsectors */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1049,13 +1067,25 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   )}
                 </div>
               )}
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Target className="h-3.5 w-3.5 text-accent" /> Positioning & Links
-              </h3>
+            <Collapsible open={openSections.positioning} onOpenChange={v => setOpenSections(p => ({...p, positioning: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Target className="h-3.5 w-3.5 text-accent" /> Positioning & Links
+                      {sectionConfirmed.positioning && <Check className="h-3.5 w-3.5 text-success" />}
+                    </h3>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.positioning ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* UVP */}
               <div className="space-y-1.5">
@@ -1100,30 +1130,41 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   )}
                 </div>
               )}
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              {/* Header with segmented control */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
-                </h3>
-                <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
-                  <button
-                    onClick={() => handlePeriodToggle("monthly")}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                      metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >Monthly</button>
-                  <button
-                    onClick={() => handlePeriodToggle("annual")}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                      metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >Annual</button>
+            <Collapsible open={openSections.metrics} onOpenChange={v => setOpenSections(p => ({...p, metrics: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between p-6">
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 text-left">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
+                        {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
+                      </h3>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+                    <button
+                      onClick={() => handlePeriodToggle("monthly")}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                        metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >Monthly</button>
+                    <button
+                      onClick={() => handlePeriodToggle("annual")}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                        metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >Annual</button>
+                  </div>
                 </div>
-              </div>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* ── Section 1: Topline ── */}
               <div className="grid grid-cols-3 gap-4">
@@ -1272,8 +1313,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                 </div>
               </div>
-            </div>
-
               {/* Approve button */}
               {analysisComplete && !confirmed && (
                 <div className="pt-2 border-t border-border/50">
@@ -1287,43 +1326,75 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   )}
                 </div>
               )}
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── CARD 4: Social Links ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Links</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="relative">
-                  <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
-                    placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
-                </div>
-                <div className="relative">
-                  <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
-                    placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
-                </div>
-                <div className="relative">
-                  <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
-                    placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
-                </div>
-              </div>
+            <Collapsible open={openSections.social} onOpenChange={v => setOpenSections(p => ({...p, social: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      Social Links
+                      {sectionConfirmed.social && <Check className="h-3.5 w-3.5 text-success" />}
+                    </h3>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.social ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          X / Twitter {renderFieldBadge("socialTwitter")}
+                        </label>
+                        <div className="relative">
+                          <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
+                            placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          LinkedIn {renderFieldBadge("socialLinkedin")}
+                        </label>
+                        <div className="relative">
+                          <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
+                            placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          Instagram {renderFieldBadge("socialInstagram")}
+                        </label>
+                        <div className="relative">
+                          <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
+                            placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Approve button */}
-              {analysisComplete && !confirmed && (
-                <div className="pt-3 border-t border-border/50">
-                  {sectionConfirmed.social ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
-                  ) : (
-                    <button onClick={() => confirmSection("social")}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
-                      <Check className="h-3.5 w-3.5" /> Approve Social Links
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                    {/* Approve button */}
+                    {analysisComplete && !confirmed && (
+                      <div className="pt-3 border-t border-border/50">
+                        {sectionConfirmed.social ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                        ) : (
+                          <button onClick={() => confirmSection("social")}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                            <Check className="h-3.5 w-3.5" /> Approve Social Links
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── Final Profile Confirmation ─── */}
             {analysisComplete && !confirmed && (

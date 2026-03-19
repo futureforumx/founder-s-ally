@@ -94,6 +94,9 @@ export interface AnalysisResult {
     description?: string;
     stage?: string;
     sector?: string;
+    socialTwitter?: string;
+    socialLinkedin?: string;
+    socialInstagram?: string;
   };
   // Source attribution for extracted metrics
   metricSources?: {
