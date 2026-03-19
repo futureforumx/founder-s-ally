@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1896,8 +1896,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                   {/* LTV/CAC Ratio (manual override or auto-calculated) */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LTV / CAC Ratio</label>
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Scale className="h-3.5 w-3.5 text-accent" /> LTV / CAC Ratio
+                    </label>
                     <div className="relative">
+                      <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
                         onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x]/g, ""))}
@@ -1914,7 +1917,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + "x" : num.toFixed(1) + "x");
                         }}
                         placeholder="Auto or e.g. 3.5x"
-                        className={`w-full rounded-lg border border-border px-3 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
+                        className={`w-full rounded-lg border border-border pl-9 pr-9 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
                           ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
                         }`} />
                       {!ltvCacOverride && autoLtvCacRatio && (
@@ -1935,11 +1938,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* NRR */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      NRR {renderFieldBadge("nrr")}
+                      <RefreshCw className="h-3.5 w-3.5 text-accent" /> NRR {renderFieldBadge("nrr")}
                     </label>
                     <div className="relative">
+                      <RefreshCw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.]/g, ""))}
-                        placeholder="e.g. 110" className={`${inputCls("nrr")} pr-8`} />
+                        placeholder="e.g. 110" className={`${inputCls("nrr")} pl-9 pr-8`} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                     </div>
                   </div>
