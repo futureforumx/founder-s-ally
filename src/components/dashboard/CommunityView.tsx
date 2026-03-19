@@ -148,7 +148,7 @@ const DIRECTORY_TABS = [
 
 type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
 
-export function CommunityView({ companyData, analysisResult }: CommunityViewProps) {
+export function CommunityView({ companyData, analysisResult, onNavigateProfile }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);

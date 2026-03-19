@@ -375,7 +375,7 @@ const Index = () => {
           ) : activeView === "investors" ? (
             <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} />
           ) : activeView === "directory" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} />
+            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (
