@@ -799,7 +799,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   faviconDebounceRef.current = setTimeout(() => {
                     const domain = extractDomain(url);
                     if (domain) {
-                      const fav = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                      const fav = faviconSrc(domain);
                       setFaviconUrl(fav); setFaviconLoaded(false);
                       const img = new Image();
                       img.onload = () => setFaviconLoaded(true);
