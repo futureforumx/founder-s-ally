@@ -505,6 +505,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (section && sectionConfirmed[section]) {
       setSectionConfirmed(prev => ({ ...prev, [section]: false }));
     }
+    // Clear validation error for this field
+    if (overviewValidationErrors.has(field)) {
+      setOverviewValidationErrors(prev => { const n = new Set(prev); n.delete(field); return n; });
+    }
     // Mark that fields have been manually edited since last analysis
     if (analysisComplete) {
       setFieldsEditedSinceAnalysis(true);
