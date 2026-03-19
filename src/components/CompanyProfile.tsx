@@ -1286,7 +1286,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       <Target className="h-3.5 w-3.5 text-accent" /> Positioning
                       {sectionConfirmed.positioning && <Check className="h-3.5 w-3.5 text-success" />}
                       {analysisComplete && !sectionConfirmed.positioning && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
                       )}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.positioning ? 'rotate-180' : ''}`} />
