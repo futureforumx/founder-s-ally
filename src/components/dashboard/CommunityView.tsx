@@ -1,14 +1,12 @@
-import { Users, TrendingUp, ArrowUpRight, Star, Building2 } from "lucide-react";
+import { Users, TrendingUp, ArrowUpRight, Star, Building2, MapPin, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 
-const directoryPreview = [
-  { name: "BuildAI Labs", sector: "Artificial Intelligence", stage: "Seed", score: 82 },
-  { name: "GreenGrid Energy", sector: "Climate & Energy", stage: "Series A", score: 75 },
-  { name: "StructFlow", sector: "Construction & Real Estate", stage: "Pre-Seed", score: 68 },
-  { name: "PayStack Africa", sector: "Fintech", stage: "Series B", score: 91 },
-  { name: "DroneForge", sector: "Defense & GovTech", stage: "Seed", score: 77 },
-];
+interface CommunityViewProps {
+  companyData?: CompanyData | null;
+  analysisResult?: AnalysisResult | null;
+}
 
 const trendingInvestors = [
   { name: "Sequoia Capital", focus: "AI, Enterprise SaaS", activity: "5 deals this month" },
@@ -17,47 +15,129 @@ const trendingInvestors = [
   { name: "Founders Fund", focus: "Deep Tech, Defense", activity: "Raising Fund VIII" },
 ];
 
-export function CommunityView() {
+export function CommunityView({ companyData, analysisResult }: CommunityViewProps) {
+  const hasProfile = !!companyData?.name;
+
+  // Build the user's directory entry from their profile
+  const userEntry = hasProfile ? {
+    name: companyData.name,
+    sector: companyData.sector || "Uncategorized",
+    stage: companyData.stage || "—",
+    description: companyData.description || companyData.uniqueValueProp || "",
+    location: companyData.hqLocation || "",
+    website: companyData.website || "",
+    businessModel: companyData.businessModel || "",
+    teamSize: companyData.totalHeadcount || companyData.teamSize || "",
+    arr: companyData.currentARR || "",
+    score: analysisResult?.healthScore ?? null,
+    subsectors: companyData.subsectors || [],
+    logoUrl: (() => {
+      try { return localStorage.getItem("company-logo-url") || null; } catch { return null; }
+    })(),
+  } : null;
+
   return (
     <div className="space-y-6">
-      {/* Directory Preview */}
+      {/* Your Company Directory Card */}
       <Card className="surface-card">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10">
               <Building2 className="h-3.5 w-3.5 text-accent" />
             </div>
-            Directory Preview
-            <Badge variant="secondary" className="text-[10px] font-normal ml-auto">
-              {directoryPreview.length} companies
-            </Badge>
+            Your Directory Listing
+            {hasProfile && (
+              <Badge variant="secondary" className="text-[10px] font-normal ml-auto">
+                Live
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {directoryPreview.map((company, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2.5 group hover:bg-muted/60 transition-colors cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-card border border-border text-[10px] font-bold text-muted-foreground">
-                    {company.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-foreground">{company.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{company.sector}</p>
-                  </div>
+          {userEntry ? (
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+              {/* Header row */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border border-border overflow-hidden shrink-0">
+                  {userEntry.logoUrl ? (
+                    <img src={userEntry.logoUrl} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-sm font-bold text-muted-foreground">
+                      {userEntry.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-[9px] font-normal">{company.stage}</Badge>
-                  <span className={`text-[10px] font-mono font-semibold ${
-                    company.score >= 80 ? "text-success" : company.score >= 60 ? "text-accent" : "text-muted-foreground"
-                  }`}>
-                    {company.score}
-                  </span>
-                  <ArrowUpRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground truncate">{userEntry.name}</h3>
+                    {userEntry.score !== null && (
+                      <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${
+                        userEntry.score >= 80 ? "bg-success/10 text-success" : userEntry.score >= 60 ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"
+                      }`}>
+                        {userEntry.score}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <Badge variant="outline" className="text-[9px] font-normal">{userEntry.stage}</Badge>
+                    <span className="text-[10px] text-muted-foreground">{userEntry.sector}</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Description */}
+              {userEntry.description && (
+                <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                  {userEntry.description}
+                </p>
+              )}
+
+              {/* Metadata chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {userEntry.location && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 rounded-md px-2 py-1">
+                    <MapPin className="h-2.5 w-2.5" /> {userEntry.location}
+                  </span>
+                )}
+                {userEntry.businessModel && (
+                  <span className="text-[10px] text-muted-foreground bg-muted/60 rounded-md px-2 py-1">
+                    {userEntry.businessModel}
+                  </span>
+                )}
+                {userEntry.teamSize && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 rounded-md px-2 py-1">
+                    <Users className="h-2.5 w-2.5" /> {userEntry.teamSize}
+                  </span>
+                )}
+                {userEntry.arr && (
+                  <span className="text-[10px] text-muted-foreground bg-muted/60 rounded-md px-2 py-1">
+                    ARR: {userEntry.arr}
+                  </span>
+                )}
+                {userEntry.website && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-accent bg-accent/5 rounded-md px-2 py-1">
+                    <Globe className="h-2.5 w-2.5" /> Website
+                  </span>
+                )}
+              </div>
+
+              {/* Subsector tags */}
+              {userEntry.subsectors.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {userEntry.subsectors.map((sub, i) => (
+                    <Badge key={i} variant="secondary" className="text-[9px] font-normal">
+                      {sub}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center">
+              <Building2 className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">Complete your company profile to appear in the directory.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
