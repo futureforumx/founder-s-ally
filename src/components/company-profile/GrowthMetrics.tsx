@@ -151,7 +151,7 @@ function SmartIntegerInput({
           type="text"
           value={display}
           onChange={(e) => setLocal(e.target.value.replace(/[^0-9kmKM]/g, ""))}
-          onFocus={() => setLocal(value)}
+          onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
             if (raw > LIMITS.headcount) {
