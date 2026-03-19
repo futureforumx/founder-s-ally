@@ -902,7 +902,43 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const ltvCacRatio = ltvCacOverride || autoLtvCacRatio || "—";
 
   // Section confirmation helpers
+  // Overview required fields for strict validation
+  const OVERVIEW_REQUIRED_FIELDS = ["stage", "sector", "businessModel", "targetCustomer", "hqLocation"] as const;
+
+  const getOverviewMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!logoUrl) missing.push("logo");
+    for (const f of OVERVIEW_REQUIRED_FIELDS) {
+      const v = form[f];
+      if (!v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "")) {
+        missing.push(f);
+      }
+    }
+    return missing;
+  };
+
+  const isOverviewComplete = () => getOverviewMissingFields().length === 0;
+
   const confirmSection = (section: string) => {
+    // Strict validation for overview
+    if (section === "overview") {
+      const missing = getOverviewMissingFields();
+      if (missing.length > 0) {
+        // Set validation errors with pulse
+        setOverviewValidationErrors(new Set(missing));
+        setOverviewApproveLabel("Missing Required Fields");
+        toast({ title: "Cannot approve", description: "Fill all required fields before approving.", variant: "destructive" });
+
+        // Pulse for 2s, then settle
+        if (validationPulseTimerRef.current) clearTimeout(validationPulseTimerRef.current);
+        validationPulseTimerRef.current = setTimeout(() => {
+          setOverviewValidationErrors(new Set());
+          setOverviewApproveLabel(null);
+        }, 2000);
+        return; // Do NOT approve
+      }
+    }
+
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
     setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
