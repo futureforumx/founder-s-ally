@@ -14,7 +14,6 @@ import { AnalysisTerminal } from "@/components/AnalysisTerminal";
 import { PulseCards } from "@/components/PulseCards";
 import { MissionControlHub } from "@/components/dashboard/MissionControlHub";
 import { RefreshCw, ShieldCheck, Check } from "lucide-react";
-import { RefreshCw, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
