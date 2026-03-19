@@ -273,7 +273,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
               <SmartIntegerInput
                 value={totalHeadcount}
-                onChange={(v) => onChange("totalHeadcount", v)}
+                onChange={(v) => handleChange("totalHeadcount", v)}
                 error={errors.headcount}
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
                 shaking={headcountShake.shaking}
