@@ -415,6 +415,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (section && sectionConfirmed[section]) {
       setSectionConfirmed(prev => ({ ...prev, [section]: false }));
     }
+    // Mark that fields have been manually edited since last analysis
+    if (analysisComplete) {
+      setFieldsEditedSinceAnalysis(true);
+    }
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
     }
