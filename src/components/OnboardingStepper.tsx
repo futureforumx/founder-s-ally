@@ -332,6 +332,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 <>
                   <p className="text-xs text-muted-foreground">Confirm the metrics AI extracted. You can edit any value below.</p>
                   <div className="grid grid-cols-2 gap-3">
+                    <SmartSelect
+                      label="Stage *"
+                      value={stage}
+                      onChange={setStage}
+                      options={stages}
+                      predictedValue={predictedStage}
+                    />
+                    <SectorCombobox
+                      value={sector}
+                      onChange={setSector}
+                      predictedValue={predictedSector}
+                    />
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">MRR</label>
                       <input type="text" value={mrr} onChange={(e) => setMrr(e.target.value)}
@@ -339,26 +351,10 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Burn Rate</label>
-                      <input type="text" value={burnRate} onChange={(e) => setBurnRate(e.target.value)}
-                        placeholder="e.g. $30K/mo"
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Headcount</label>
+                      <input type="text" value={headcount} onChange={(e) => setHeadcount(e.target.value)}
+                        placeholder="e.g. 25"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-                      <select value={stage} onChange={(e) => setStage(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select stage</option>
-                        {stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-                      <select value={sector} onChange={(e) => setSector(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select sector</option>
-                        {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
                     </div>
                   </div>
                   {analysisResult?.healthScore && (
