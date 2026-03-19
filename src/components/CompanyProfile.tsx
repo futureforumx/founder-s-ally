@@ -1034,44 +1034,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
-
-                    {/* Row 1 (Identity): Logo + HQ Location */}
-                    <div className="flex items-end gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold">Company Logo</label>
-                        <button
-                          type="button"
-                          onClick={() => logoInputRef.current?.click()}
-                          className="relative w-14 h-14 rounded-xl border border-border bg-muted/30 shadow-sm hover:ring-2 hover:ring-accent/20 transition-all cursor-pointer flex items-center justify-center overflow-hidden group"
-                        >
-                          {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded-xl" />
-                          ) : (
-                            <Camera className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                          )}
-                          {logoUrl && (
-                            <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-                              <Camera className="h-4 w-4 text-foreground" />
-                            </div>
-                          )}
-                          {logoSyncBadge && (
-                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-accent-foreground font-bold shadow">
-                              <Sparkles className="h-2.5 w-2.5" />
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          HQ Location {renderFieldBadge("hqLocation")}
-                        </label>
-                        <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                          className={`h-9 ${inputCls("hqLocation")}`} />
-                      </div>
-                    </div>
-
-                    {/* Row 2 (Fundamentals): Stage | Sector */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Row 1: Stage | Sector */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Stage {renderFieldBadge("stage")}
@@ -1085,8 +1049,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           isAiDraft={isFieldAiDraft("stage")}
                         />
                       </div>
-
-                      <div className="md:col-span-2 space-y-1">
+                      <div className="space-y-1">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Sector {renderFieldBadge("sector")}
                         </label>
@@ -1115,44 +1078,40 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       </div>
                     </div>
 
-                    {/* Subsectors (aligned under sector) */}
+                    {/* Subsectors (full width) */}
                     {form.sector && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-start-2 md:col-span-2">
-                          <SectorSubsectorPicker
-                            sector={form.sector}
-                            subsectors={form.subsectors}
-                            onSectorChange={s => {
-                              const oldSector = form.sector;
-                              update("sector", s);
-                              setForm(prev => {
-                                const validSubs = prev.subsectors.filter(sub =>
-                                  subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                                );
-                                if (validSubs.length < prev.subsectors.length && oldSector) {
-                                  toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                                }
-                                return { ...prev, subsectors: validSubs };
-                              });
-                            }}
-                            onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                            aiSuggestedSector={aiSuggestions.sector}
-                            aiSuggestedSubsectors={aiSuggestedSubsectors}
-                            aiOverflowSubsectors={aiOverflowSubsectors}
-                            onApplyAiSector={aiSuggestions.sector ? () => {
-                              update("sector", aiSuggestions.sector!);
-                              if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                            } : undefined}
-                            isAiDraft={isFieldAiDraft("sector")}
-                            onReclassify={analysisComplete ? handleReclassify : undefined}
-                            isReclassifying={isReclassifying}
-                            subsectorsOnly
-                          />
-                        </div>
-                      </div>
+                      <SectorSubsectorPicker
+                        sector={form.sector}
+                        subsectors={form.subsectors}
+                        onSectorChange={s => {
+                          const oldSector = form.sector;
+                          update("sector", s);
+                          setForm(prev => {
+                            const validSubs = prev.subsectors.filter(sub =>
+                              subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                            );
+                            if (validSubs.length < prev.subsectors.length && oldSector) {
+                              toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                            }
+                            return { ...prev, subsectors: validSubs };
+                          });
+                        }}
+                        onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                        aiSuggestedSector={aiSuggestions.sector}
+                        aiSuggestedSubsectors={aiSuggestedSubsectors}
+                        aiOverflowSubsectors={aiOverflowSubsectors}
+                        onApplyAiSector={aiSuggestions.sector ? () => {
+                          update("sector", aiSuggestions.sector!);
+                          if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                        } : undefined}
+                        isAiDraft={isFieldAiDraft("sector")}
+                        onReclassify={analysisComplete ? handleReclassify : undefined}
+                        isReclassifying={isReclassifying}
+                        subsectorsOnly
+                      />
                     )}
 
-                    {/* Row 3 (Positioning): Business Model | Target Customer */}
+                    {/* Row 2: Business Model | Target Customer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
@@ -1178,6 +1137,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           isAiDraft={isFieldAiDraft("targetCustomer")}
                         />
                       </div>
+                    </div>
+
+                    {/* Row 3: HQ Location (full width) */}
+                    <div className="space-y-1">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                        HQ Location {renderFieldBadge("hqLocation")}
+                      </label>
+                      <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                        className={`h-9 ${inputCls("hqLocation")}`} />
                     </div>
 
               {/* Approve button */}
