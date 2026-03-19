@@ -1136,27 +1136,35 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              {/* Header with segmented control */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
-                </h3>
-                <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
-                  <button
-                    onClick={() => handlePeriodToggle("monthly")}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                      metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >Monthly</button>
-                  <button
-                    onClick={() => handlePeriodToggle("annual")}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                      metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >Annual</button>
+            <Collapsible open={openSections.metrics} onOpenChange={v => setOpenSections(p => ({...p, metrics: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between p-6">
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 text-left">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
+                        {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
+                      </h3>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+                    <button
+                      onClick={() => handlePeriodToggle("monthly")}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                        metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >Monthly</button>
+                    <button
+                      onClick={() => handlePeriodToggle("annual")}
+                      className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                        metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >Annual</button>
+                  </div>
                 </div>
-              </div>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* ── Section 1: Topline ── */}
               <div className="grid grid-cols-3 gap-4">
