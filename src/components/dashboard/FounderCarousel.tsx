@@ -45,10 +45,12 @@ export function FounderCarousel({ title, subtitle, children }: FounderCarouselPr
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
         </div>
+        <button className="text-xs text-muted-foreground hover:text-accent font-medium transition-colors inline-flex items-center gap-1">
+          View All <ChevronRight className="h-3 w-3" />
+        </button>
       </div>
 
       <div className="relative group">
-        {/* Left scroll button */}
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
@@ -58,7 +60,6 @@ export function FounderCarousel({ title, subtitle, children }: FounderCarouselPr
           </button>
         )}
 
-        {/* Right scroll button */}
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}
@@ -68,20 +69,17 @@ export function FounderCarousel({ title, subtitle, children }: FounderCarouselPr
           </button>
         )}
 
-        {/* Right edge fade */}
         {canScrollRight && (
-          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-[5] pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-[5] pointer-events-none" />
         )}
 
-        {/* Left edge fade */}
         {canScrollLeft && (
-          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-[5] pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent z-[5] pointer-events-none" />
         )}
 
-        {/* Scrollable track */}
         <div
           ref={scrollRef}
-          className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-4 pb-4 scrollbar-hide"
+          className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-4 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {children}
         </div>

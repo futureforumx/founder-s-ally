@@ -121,15 +121,17 @@ function FounderCardSkeleton() {
 // ── Founder Card ──
 function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
   return (
-    <Card className={`surface-card overflow-hidden group hover:shadow-md transition-all duration-200 cursor-pointer ${
+    <Card className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
     }`}>
-      <CardContent className="p-5 space-y-3">
+      {/* Color banner */}
+      <div className={`h-10 ${trending ? "bg-gradient-to-r from-accent/10 to-primary/5" : "bg-gradient-to-r from-muted to-secondary/30"}`} />
+      <CardContent className="p-5 -mt-5 space-y-3">
         <div className="flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted border border-border text-sm font-bold text-muted-foreground shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border-2 border-background shadow-sm text-sm font-bold text-muted-foreground shrink-0">
             {founder.initial}
           </div>
-          <div className="flex gap-1.5 flex-wrap justify-end">
+          <div className="flex gap-1.5 flex-wrap justify-end mt-2">
             {trending && (
               <Badge className="text-[9px] font-medium px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
                 <Flame className="h-2.5 w-2.5 mr-0.5" /> Trending
@@ -150,9 +152,9 @@ function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: 
             </span>
           )}
           {founder.matchReason && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-accent font-medium">
-              <Sparkles className="h-2.5 w-2.5" /> {founder.matchReason}
-            </span>
+            <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
+            </Badge>
           )}
         </div>
       </CardContent>
@@ -312,21 +314,25 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       </div>
 
       {/* ═══════ Carousel: Suggested Founders ═══════ */}
-      <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
-        {SUGGESTED_FOUNDERS.map((founder, i) => (
-          <CarouselCard key={`suggested-${i}`} founder={founder} />
-        ))}
-      </FounderCarousel>
+      <div className="pt-4">
+        <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
+          {SUGGESTED_FOUNDERS.map((founder, i) => (
+            <CarouselCard key={`suggested-${i}`} founder={founder} />
+          ))}
+        </FounderCarousel>
+      </div>
 
       {/* ═══════ Carousel: Trending Profiles ═══════ */}
-      <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
-        {TRENDING_FOUNDERS.map((founder, i) => (
-          <CarouselCard key={`trending-${i}`} founder={founder} trending />
-        ))}
-      </FounderCarousel>
+      <div className="pt-8">
+        <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
+          {TRENDING_FOUNDERS.map((founder, i) => (
+            <CarouselCard key={`trending-${i}`} founder={founder} trending />
+          ))}
+        </FounderCarousel>
+      </div>
 
       {/* ═══════ All Founders Grid ═══════ */}
-      <div className="space-y-3 pt-2">
+      <div className="space-y-3 pt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
           <span className="text-[10px] text-muted-foreground font-mono">
