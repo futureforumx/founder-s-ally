@@ -3,22 +3,26 @@ import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldChe
 
 // ── Smart formatting helpers ──
 
-/** Parse shorthand like "1m", "2.5k", "1,000,000" → raw number */
+/** Clean input, parse shorthand (k/m/b), return formatted string with commas */
+function formatSmartCurrency(inputValue: string): string {
+  if (!inputValue) return "";
+  const cleaned = inputValue.toString().toLowerCase().replace(/[\s,$]/g, "");
+  const match = cleaned.match(/^([\d.]+)([kmb]?)$/);
+  if (!match) return cleaned.replace(/[^\d]/g, "");
+  let num = parseFloat(match[1]);
+  const suffix = match[2];
+  if (suffix === "k") num *= 1_000;
+  if (suffix === "m") num *= 1_000_000;
+  if (suffix === "b") num *= 1_000_000_000;
+  return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+/** Parse a formatted/shorthand string back to a number */
 function parseSmartCurrency(raw: string): number | null {
-  const cleaned = raw.replace(/[^0-9.mkMK]/g, "");
-  if (!cleaned) return null;
-  const match = cleaned.match(/^([0-9]*\.?[0-9]+)\s*([mkMK]?)$/);
-  if (!match) {
-    const numOnly = cleaned.replace(/[mkMK]/g, "");
-    const n = parseFloat(numOnly);
-    return isNaN(n) ? null : n;
-  }
-  const num = parseFloat(match[1]);
-  if (isNaN(num)) return null;
-  const suffix = match[2].toLowerCase();
-  if (suffix === "m") return num * 1_000_000;
-  if (suffix === "k") return num * 1_000;
-  return num;
+  const formatted = formatSmartCurrency(raw);
+  if (!formatted) return null;
+  const n = parseFloat(formatted.replace(/,/g, ""));
+  return isNaN(n) ? null : n;
 }
 
 /** Format number with commas: 1000000 → "1,000,000" */
