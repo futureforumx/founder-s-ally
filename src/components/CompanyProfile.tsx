@@ -925,6 +925,46 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setOpenSections(prev => ({ ...prev, [section]: value }));
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+
+  // Section fields for emptiness check
+  const sectionFields: Record<string, (keyof CompanyData)[]> = {
+    overview: ["stage", "sector", "businessModel", "targetCustomer", "hqLocation"],
+    positioning: ["uniqueValueProp", "competitors"],
+    metrics: ["currentARR", "yoyGrowth", "totalHeadcount", "burnRate", "cac", "ltv", "nrr"],
+    social: ["socialTwitter", "socialLinkedin", "socialInstagram"],
+  };
+
+  const isSectionEmpty = (section: string) => {
+    const fields = sectionFields[section] || [];
+    return fields.every(f => {
+      const v = form[f];
+      return !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+    });
+  };
+
+  // 3-state status dot: red (empty), yellow pulsing (needs review), green pulsing (approved)
+  const renderStatusDot = (section: string) => {
+    if (sectionConfirmed[section]) {
+      // Approved: pulsing green
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+        </span>
+      );
+    }
+    if (isSectionEmpty(section)) {
+      // Empty: static dull red
+      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
+    }
+    // Needs review: pulsing yellow
+    return (
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+      </span>
+    );
+  };
   const handleConfirmProfile = () => {
     setConfirmed(true);
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
