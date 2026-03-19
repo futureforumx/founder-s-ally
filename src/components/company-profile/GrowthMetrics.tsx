@@ -211,6 +211,7 @@ export function GrowthMetrics({
   onChange, onConfirm,
   dataSource = "deck",
   onDataSourceChange,
+  originalDataSource = "deck",
   defaultExpanded = true,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -219,11 +220,23 @@ export function GrowthMetrics({
   const yoyShake = useShake();
   const headcountShake = useShake();
 
+  const [originalMetrics] = useState<OriginalMetrics>({
+    currentARR, yoyGrowth, totalHeadcount,
+  });
+
   const handleChange = (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => {
     onChange(field, value);
     if (dataSource !== "manual") {
       onDataSourceChange?.("manual");
     }
+  };
+
+  const handleRevert = () => {
+    onChange("currentARR", originalMetrics.currentARR);
+    onChange("yoyGrowth", originalMetrics.yoyGrowth);
+    onChange("totalHeadcount", originalMetrics.totalHeadcount);
+    onDataSourceChange?.(originalDataSource);
+    setErrors({ arr: "", yoy: "", headcount: "" });
   };
 
   const badge = SOURCE_BADGE_CONFIG[dataSource];
