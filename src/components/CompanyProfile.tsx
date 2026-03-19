@@ -1085,7 +1085,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 LEFT COLUMN: DATA SOURCES (col-span-4)
                 ═══════════════════════════════════════════════ */}
             <div className="lg:col-span-4">
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 sticky top-6">
+              <div className={`rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 sticky top-6 transition-opacity duration-300 ${isAnalyzing ? "opacity-70" : ""}`}>
                 <div className="flex items-center gap-2 mb-4">
                   <Upload className="h-4 w-4 text-muted-foreground" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
@@ -1095,12 +1095,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <div className="space-y-4">
                   <ProfileField label="Company Name *">
                     <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                      placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
+                      placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
                   </ProfileField>
                   <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
                     aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
                     <div className="flex items-center gap-1.5">
-                      <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
+                      <select value={form.stage} onChange={e => update("stage", e.target.value)} disabled={isAnalyzing} className={selectCls("stage")}>
                         <option value="" disabled>Select stage</option>
                         {stages.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -1126,7 +1126,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <Globe className="h-4 w-4 text-muted-foreground" />
                       )}
                     </div>
-                    <input type="url" value={form.website}
+                    <input type="url" value={form.website} disabled={isAnalyzing}
                       onChange={e => {
                         const url = e.target.value;
                         update("website", url);
@@ -1213,14 +1213,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                 {/* Run Analysis Button */}
                 {(() => {
-                  const isReady = !analysisComplete;
                   const isAnalyzedIdle = analysisComplete && !hasNewInputs;
-                  // hasNewInputs state already tracked
-                  const btnClass = isAnalyzedIdle
-                    ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
-                    : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
+                  const btnClass = isAnalyzing
+                    ? "flex w-full items-center justify-center gap-2 rounded-lg bg-accent/80 px-5 py-3 text-[13px] font-medium text-accent-foreground opacity-80 cursor-not-allowed mt-2"
+                    : isAnalyzedIdle
+                      ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+                      : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
                   const btnLabel = isAnalyzing
-                    ? STEP_LABELS[analyzeStep] || "Analyzing..."
+                    ? "Analyzing Data..."
                     : hasNewInputs
                       ? "Update AI Analysis"
                       : isAnalyzedIdle
@@ -1235,45 +1235,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   );
                 })()}
                 <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
-
-                {/* Inline analysis terminal */}
-                {isAnalyzing && (
-                  <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
-                    style={{ background: "rgba(15, 20, 30, 0.6)" }}>
-                    <div className="px-4 py-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                        <span className="font-mono text-[11px] text-accent">ANALYSIS ENGINE</span>
-                      </div>
-                      <div className="font-mono text-[10px] leading-relaxed space-y-1 max-h-28 overflow-y-auto" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
-                        {analyzeStep === "scraping" && (
-                          <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400">[PDF]</span> Parsing Deck Structure...</div>
-                        )}
-                        {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-purple-400">[PDF]</span> Deck layers extracted ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400">[WEB]</span> Scraping website content...</div>
-                          </>
-                        )}
-                        {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Cross-referencing SEC filings and funding news...</div>
-                          </>
-                        )}
-                        {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-yellow-400">[SEARCH]</span> Real-time data captured ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400">[AI]</span> Cross-referencing sources & mapping sectors...</div>
-                          </>
-                        )}
-                        {analyzeStep === "mapping" && (
-                          <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400">[MAP]</span> Mapping competitive landscape...</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1298,30 +1259,43 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500 ease-out"
-                          style={{
-                            width: `${completion}%`,
-                            background: completion === 100
-                              ? "hsl(var(--success))"
-                              : "hsl(var(--accent))",
-                          }}
-                        />
-                      </div>
-                      <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
-                        {completion}%
-                      </Badge>
-                    </div>
-                    {analysisComplete && walkthroughMode !== "walkthrough" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-success">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-                        </span>
-                        Analyzed
-                      </span>
+                    {isAnalyzing ? (
+                      <>
+                        <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full animate-progress-fill" style={{ background: "hsl(var(--warning))" }} />
+                        </div>
+                        <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-warning/10 text-warning border-warning/20">
+                          In Progress
+                        </Badge>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500 ease-out"
+                              style={{
+                                width: `${completion}%`,
+                                background: completion === 100
+                                  ? "hsl(var(--success))"
+                                  : "hsl(var(--accent))",
+                              }}
+                            />
+                          </div>
+                          <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
+                            {completion}%
+                          </Badge>
+                        </div>
+                        {analysisComplete && walkthroughMode !== "walkthrough" && (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-success">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                            </span>
+                            Analyzed
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1332,6 +1306,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   onFocusCapture={handleOutputFocusCapture}
                   onBlurCapture={handleOutputBlurCapture}
                   className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+
                   {/* Pre-analysis placeholder */}
                   {!analysisComplete && !isAnalyzing && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10">
@@ -1340,6 +1315,105 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   )}
 
+                  {/* === CENTER STAGE TERMINAL (during analysis) === */}
+                  {isAnalyzing && (
+                    <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
+                      <div className="w-full max-w-lg rounded-2xl border border-accent/30 overflow-hidden terminal-glow"
+                        style={{ background: "linear-gradient(145deg, hsl(222 47% 8%), hsl(222 47% 12%))" }}>
+                        {/* Terminal header */}
+                        <div className="flex items-center gap-2 px-5 py-3 border-b border-accent/15">
+                          <div className="flex gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
+                          </div>
+                          <div className="flex-1 flex items-center justify-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                            <span className="font-mono text-[11px] text-accent font-medium tracking-wider">ANALYSIS ENGINE</span>
+                          </div>
+                        </div>
+
+                        {/* Terminal body */}
+                        <div className="px-5 py-5 space-y-3 relative">
+                          {/* Laser scan overlay */}
+                          <div className="absolute inset-0 pointer-events-none deck-scan-line" />
+
+                          <div className="font-mono text-[11px] leading-loose space-y-2 relative z-10" style={{ color: "rgba(226, 232, 240, 0.75)" }}>
+                            {analyzeStep === "scraping" && (
+                              <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <span className="text-purple-400 font-semibold">[PDF]</span>
+                                <span>Parsing Deck Structure...</span>
+                                <Loader2 className="h-3 w-3 animate-spin text-purple-400 ml-auto mt-0.5" />
+                              </div>
+                            )}
+                            {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-purple-400 font-semibold">[PDF]</span> Deck layers extracted ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-cyan-400 font-semibold">[WEB]</span>
+                                  <span>Scraping website content...</span>
+                                  {analyzeStep === "analyzing" && <Loader2 className="h-3 w-3 animate-spin text-cyan-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-cyan-400 font-semibold">[WEB]</span> Website scraped ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-yellow-400 font-semibold">[SEARCH]</span>
+                                  <span>Cross-referencing SEC filings and funding news...</span>
+                                  {analyzeStep === "deepSearch" && <Loader2 className="h-3 w-3 animate-spin text-yellow-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-yellow-400 font-semibold">[SEARCH]</span> Real-time data captured ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-emerald-400 font-semibold">[AI]</span>
+                                  <span>Cross-referencing sources & mapping sectors...</span>
+                                  {analyzeStep === "verifying" && <Loader2 className="h-3 w-3 animate-spin text-emerald-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {analyzeStep === "mapping" && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-emerald-400 font-semibold">[AI]</span> Sectors mapped ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-orange-400 font-semibold">[MAP]</span>
+                                  <span>Mapping competitive landscape...</span>
+                                  <Loader2 className="h-3 w-3 animate-spin text-orange-400 ml-auto mt-0.5" />
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Data particles */}
+                          <div className="flex justify-center gap-6 pt-4 overflow-hidden h-16">
+                            {["$ARR", "Growth", "Sector", "Stage", "HQ"].map((label, i) => (
+                              <div key={label} className="animate-particle-float text-[9px] font-mono text-accent/60 px-2 py-0.5 rounded-full border border-accent/20 bg-accent/5"
+                                style={{ animationDelay: `${i * 0.4}s`, animationIterationCount: "infinite" }}>
+                                {label}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Terminal footer */}
+                        <div className="px-5 py-3 border-t border-accent/15 flex items-center justify-between">
+                          <span className="font-mono text-[9px] text-accent/40">Triple-source triangulation active</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                            <span className="font-mono text-[9px] text-accent/60">LIVE</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+            {/* Accordion sections — hidden during analysis, fade in when done */}
+            {!isAnalyzing && (
+            <>
             {/* === SECTION: Sector & Subsectors === */}
             <div
               ref={el => { sectionRefs.current["sector"] = el; }}
@@ -1601,6 +1675,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </div>
               )}
             </div>
+            </>
+            )}
                 </div>
               </div>
             </div>
