@@ -1130,7 +1130,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   )}
                 </div>
               )}
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
