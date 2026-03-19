@@ -960,17 +960,26 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
-                </h3>
-                {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
-                    <Sparkles className="h-2.5 w-2.5" /> AI Categorized
-                  </span>
-                )}
-              </div>
+            <Collapsible open={openSections.overview} onOpenChange={v => setOpenSections(p => ({...p, overview: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
+                      {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                          <Sparkles className="h-2.5 w-2.5" /> AI Categorized
+                        </span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.overview ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* Row 1: Stage | Sector | Subsectors */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
