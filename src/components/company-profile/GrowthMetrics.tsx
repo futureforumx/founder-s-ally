@@ -254,6 +254,16 @@ export function GrowthMetrics({
             <BadgeIcon className="h-3 w-3" />
             {badge.label}
           </span>
+          {dataSource === "manual" && (
+            <button
+              type="button"
+              title="Revert to original data"
+              onClick={handleRevert}
+              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
