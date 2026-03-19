@@ -1054,13 +1054,22 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     walkthroughTimerRef.current = setTimeout(() => setWalkthroughActive(false), 3000);
   }, [sectionConfirmed, form]);
 
-  // Helper: CSS class for empty inputs during walkthrough
+  // Helper: CSS class for empty inputs during walkthrough OR validation errors
   const emptyFieldPulseClass = (field: keyof CompanyData) => {
+    // Validation error pulse (overview approve failed)
+    if (overviewValidationErrors.has(field)) {
+      return "ring-2 ring-red-400 ring-offset-1 animate-pulse";
+    }
     if (!walkthroughActive) return "";
     const v = form[field];
     const isEmpty = !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
     return isEmpty ? "ring-2 ring-primary/60 ring-offset-1 animate-pulse" : "";
   };
+
+  // Helper: CSS class for logo avatar validation error
+  const logoValidationClass = overviewValidationErrors.has("logo")
+    ? "ring-2 ring-red-400 ring-offset-1 animate-pulse"
+    : "";
 
   // Circular progress ring
   const CircularProgress = ({ percent }: { percent: number }) => {
