@@ -1863,7 +1863,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
                           </label>
                           <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                            <Flame className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                             <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
                               onBlur={e => {
                                 const n = parseSmartNumber(e.target.value);
