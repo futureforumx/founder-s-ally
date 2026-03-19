@@ -219,6 +219,7 @@ export function GrowthMetrics({
   originalDataSource = "deck",
   defaultExpanded = true,
   isProcessing = false,
+  onErrorStateChange,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [errors, setErrors] = useState({ arr: "", yoy: "", headcount: "" });
