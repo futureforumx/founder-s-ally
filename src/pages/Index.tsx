@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { formatDistanceToNow } from "date-fns";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
