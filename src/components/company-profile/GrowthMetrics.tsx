@@ -67,15 +67,14 @@ function SmartCurrencyInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    // Allow digits, commas, dots, m, k
-    const filtered = raw.replace(/[^0-9.,mkMK]/g, "");
+    // Allow digits, commas, dots, m, k, b
+    const filtered = raw.replace(/[^0-9.,mkbMKB]/g, "");
     setLocalValue(filtered);
   };
 
   const handleBlur = () => {
-    const parsed = parseSmartCurrency(localValue);
-    if (parsed !== null) {
-      const formatted = formatWithCommas(parsed);
+    const formatted = formatSmartCurrency(localValue);
+    if (formatted) {
       setLocalValue(formatted);
       onChange(formatted);
     } else if (localValue.trim() === "") {
