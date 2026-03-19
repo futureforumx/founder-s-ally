@@ -1797,84 +1797,83 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-5">
 
-                    {/* Monthly / Annual toggle */}
-                    <div className="flex justify-end">
-                      <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
-                        <button
-                          onClick={() => handlePeriodToggle("monthly")}
-                          className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                            metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >Monthly</button>
-                        <button
-                          onClick={() => handlePeriodToggle("annual")}
-                          className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
-                            metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >Annual</button>
+                    {/* ── Financials Sub-Surface ── */}
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-5 mb-1">
+                      <div className="flex justify-between items-center mb-4">
+                        <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">Financials</label>
+                        <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+                          <button
+                            onClick={() => handlePeriodToggle("monthly")}
+                            className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                              metricPeriod === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >Monthly</button>
+                          <button
+                            onClick={() => handlePeriodToggle("annual")}
+                            className={`px-3 py-1 text-[11px] font-medium rounded-md transition-all ${
+                              metricPeriod === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >Annual</button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        {/* Revenue (MRR/ARR) */}
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            {metricPeriod === "annual" ? "ARR" : "MRR"} {renderFieldBadge("currentARR")}
+                          </label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                            <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                              onBlur={e => {
+                                const n = parseSmartNumber(e.target.value);
+                                if (n) update("currentARR", formatWithCommas(n));
+                              }}
+                              placeholder={metricPeriod === "annual" ? "e.g. 14.4m" : "e.g. 1.2m"} className={`${inputCls("currentARR")} pl-9`} />
+                          </div>
+                        </div>
+
+                        {/* Growth (MoM/YoY) */}
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge(metricPeriod === "annual" ? "yoyGrowth" : "momGrowth")}
+                          </label>
+                          <div className="relative">
+                            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                            <input type="text"
+                              value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
+                              onChange={e => {
+                                const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
+                                update(field, e.target.value.replace(/[^0-9.kmKM]/g, ""));
+                              }}
+                              onBlur={e => {
+                                const n = parseSmartNumber(e.target.value);
+                                const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
+                                if (n) update(field, formatWithCommas(Math.round(n)));
+                              }}
+                              placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                          </div>
+                        </div>
+
+                        {/* Burn Rate */}
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
+                          </label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                            <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                              onBlur={e => {
+                                const n = parseSmartNumber(e.target.value);
+                                if (n) update("burnRate", formatWithCommas(n));
+                              }}
+                              placeholder={metricPeriod === "annual" ? "e.g. 600k" : "e.g. 50k"} className={`${inputCls("burnRate")} pl-9`} />
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-              {/* ── Section 1: Topline ── */}
-              <div className="grid grid-cols-3 gap-4">
-                {/* Revenue (MRR/ARR) */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    {metricPeriod === "annual" ? "ARR" : "MRR"} {renderFieldBadge("currentARR")}
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        if (n) update("currentARR", formatWithCommas(n));
-                      }}
-                      placeholder={metricPeriod === "annual" ? "e.g. 14.4m" : "e.g. 1.2m"} className={`${inputCls("currentARR")} pl-9`} />
-                  </div>
-                </div>
-
-                {/* Growth (MoM/YoY — independent fields) */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge(metricPeriod === "annual" ? "yoyGrowth" : "momGrowth")}
-                  </label>
-                  <div className="relative">
-                    <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text"
-                      value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
-                      onChange={e => {
-                        const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                        update(field, e.target.value.replace(/[^0-9.kmKM]/g, ""));
-                      }}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                        if (n) update(field, formatWithCommas(Math.round(n)));
-                      }}
-                      placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                {/* Burn Rate */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
-                  </label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
-                      onBlur={e => {
-                        const n = parseSmartNumber(e.target.value);
-                        if (n) update("burnRate", formatWithCommas(n));
-                      }}
-                      placeholder={metricPeriod === "annual" ? "e.g. 600k" : "e.g. 50k"} className={`${inputCls("burnRate")} pl-9`} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider with spacing */}
-              <hr className="border-border/50 my-1" />
 
               {/* ── Section 2: Unit Economics ── */}
               <div className="space-y-1.5">
