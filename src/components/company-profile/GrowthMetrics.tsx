@@ -251,7 +251,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
               <SmartCurrencyInput
                 value={currentARR}
-                onChange={(v) => onChange("currentARR", v)}
+                onChange={(v) => handleChange("currentARR", v)}
                 error={errors.arr}
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
                 shaking={arrShake.shaking}
