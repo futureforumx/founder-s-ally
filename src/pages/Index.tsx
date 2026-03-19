@@ -114,6 +114,29 @@ const Index = () => {
     setAnalysisResult(analysis);
     setShowOnboarding(false);
     setShowTerminal(true);
+
+    // Persist to localStorage so CompanyProfile picks it up on mount
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(company));
+      localStorage.setItem("company-analysis", JSON.stringify(analysis));
+      // Mark analysis-related state
+      if (analysis.stageClassification) {
+        localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
+      }
+      if (analysis.sectorMapping) {
+        localStorage.setItem("company-sector-tags", JSON.stringify(analysis.sectorMapping));
+      }
+      if (analysis.sourceVerification) {
+        localStorage.setItem("company-source-verification", JSON.stringify(analysis.sourceVerification));
+      }
+      if (analysis.metricSources) {
+        localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
+      }
+      // Sync timestamp
+      const now = new Date();
+      setLastSyncedAt(now);
+      localStorage.setItem("last-synced-at", now.toISOString());
+    } catch {}
   };
 
   const handleTerminalComplete = () => {
