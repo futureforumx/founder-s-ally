@@ -1085,7 +1085,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 LEFT COLUMN: DATA SOURCES (col-span-4)
                 ═══════════════════════════════════════════════ */}
             <div className="lg:col-span-4">
-              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 sticky top-6">
+              <div className={`rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 sticky top-6 transition-opacity duration-300 ${isAnalyzing ? "opacity-70" : ""}`}>
                 <div className="flex items-center gap-2 mb-4">
                   <Upload className="h-4 w-4 text-muted-foreground" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
