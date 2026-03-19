@@ -63,6 +63,24 @@ function cleanDomainToName(domain: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+function formatSocialUrl(platform: "x" | "instagram" | "linkedin", value: string): string {
+  if (!value || value.trim() === "") return "";
+  let cleaned = value.trim().replace(/^(https?:\/\/)?(www\.)?/, "");
+  switch (platform) {
+    case "x":
+      cleaned = cleaned.replace(/^(twitter\.com\/|x\.com\/)/, "").replace(/^@/, "");
+      return `https://x.com/${cleaned}`;
+    case "instagram":
+      cleaned = cleaned.replace(/^instagram\.com\//, "").replace(/^@/, "");
+      return `https://instagram.com/${cleaned}`;
+    case "linkedin":
+      cleaned = cleaned.replace(/^linkedin\.com\/(company\/|in\/)?/, "").replace(/\/$/, "");
+      return `https://linkedin.com/company/${cleaned}`;
+    default:
+      return value;
+  }
+}
+
 function parseSmartNumber(value: string): number {
   if (!value) return 0;
   const cleaned = value.toString().toLowerCase().replace(/[^0-9.kmb]/g, "");
