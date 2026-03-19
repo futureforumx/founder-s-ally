@@ -137,11 +137,21 @@ function FounderCard({ founder }: { founder: typeof MOCK_FOUNDERS[0] }) {
   );
 }
 
+const DIRECTORY_TABS = [
+  { id: "companies" as const, label: "Companies", icon: Building2 },
+  { id: "members" as const, label: "Members", icon: Users },
+  { id: "investors" as const, label: "Investors", icon: TrendingUp },
+  { id: "locations" as const, label: "Locations", icon: MapPin },
+] as const;
+
+type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
+
 export function CommunityView({ companyData, analysisResult }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
 
   const hasProfile = !!companyData?.name;
 
@@ -186,7 +196,29 @@ export function CommunityView({ companyData, analysisResult }: CommunityViewProp
         <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-4">
+      {/* Directory Tab Toggle */}
+      <div className="flex items-center gap-1 rounded-xl bg-secondary/60 p-1 w-fit">
+        {DIRECTORY_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all ${
+                isActive
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ═══════ Main Content (3 cols) ═══════ */}
         <div className="lg:col-span-3 space-y-5">
           {/* Smart Search Hero */}
