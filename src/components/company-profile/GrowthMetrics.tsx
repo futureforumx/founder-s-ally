@@ -272,7 +272,7 @@ export function GrowthMetrics({
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Headcount</label>
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Headcount <span className="text-destructive">*</span></label>
           <SmartIntegerInput
             value={totalHeadcount}
             onChange={(v) => handleChange("totalHeadcount", v)}
