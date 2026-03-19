@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 
 // ── Utilities ──
@@ -51,6 +51,7 @@ interface GrowthMetricsProps {
   originalDataSource?: DataSource;
   defaultExpanded?: boolean;
   isProcessing?: boolean;
+  onErrorStateChange?: (hasErrors: boolean) => void;
 }
 
 const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
@@ -218,6 +219,7 @@ export function GrowthMetrics({
   originalDataSource = "deck",
   defaultExpanded = true,
   isProcessing = false,
+  onErrorStateChange,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [errors, setErrors] = useState({ arr: "", yoy: "", headcount: "" });
@@ -228,6 +230,12 @@ export function GrowthMetrics({
   const [originalMetrics] = useState<OriginalMetrics>({
     currentARR, yoyGrowth, totalHeadcount,
   });
+
+  // Report error state to parent
+  useEffect(() => {
+    const hasErrors = !!(errors.arr || errors.yoy || errors.headcount);
+    onErrorStateChange?.(hasErrors);
+  }, [errors, onErrorStateChange]);
 
   // Force collapse when processing
   const isExpanded = isProcessing ? false : expanded;

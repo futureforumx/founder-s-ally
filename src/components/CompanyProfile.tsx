@@ -91,16 +91,20 @@ function SectionProcessingIndicator({ isAnalyzing }: { isAnalyzing: boolean }) {
 }
 
 // Approve & Continue button injected at the bottom of walkthrough sections
-function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void }) {
+function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean }) {
   if (isFinal) {
     return (
       <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
         <button
           onClick={onConfirm}
-          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm"
+          disabled={isSaving}
+          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShieldCheck className="h-4 w-4" />
-          Confirm Profile
+          {isSaving ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+          ) : (
+            <><ShieldCheck className="h-4 w-4" /> Confirm Profile</>
+          )}
         </button>
       </div>
     );
@@ -109,10 +113,14 @@ function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: ()
     <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
       <button
         onClick={onClick}
-        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm"
+        disabled={isSaving}
+        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Approve & Continue
-        <ArrowRight className="h-3.5 w-3.5" />
+        {isSaving ? (
+          <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+        ) : (
+          <>Approve & Continue <ArrowRight className="h-3.5 w-3.5" /></>
+        )}
       </button>
     </div>
   );
@@ -234,6 +242,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // ── Walkthrough state ──
   const [walkthroughMode, setWalkthroughMode] = useState<WalkthroughMode>("idle");
   const [activeWalkthroughStep, setActiveWalkthroughStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [metricsHasErrors, setMetricsHasErrors] = useState(false);
   // Track which fields AI updated in this analysis run (for highlighting)
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
@@ -580,18 +590,45 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }, 150);
   };
 
-  const advanceWalkthrough = () => {
+  const advanceWalkthrough = async () => {
+    // Validation: check for metric errors on the metrics step
+    const currentSection = WALKTHROUGH_SECTIONS[activeWalkthroughStep];
+    if (currentSection === "metrics" && metricsHasErrors) {
+      const ref = sectionRefs.current["metrics"];
+      if (ref) ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({
+        title: "⚠️ Fix errors before continuing",
+        description: "Please correct the highlighted fields in Growth Metrics.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show saving state
+    setIsSaving(true);
+
+    // Persist current form state
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(form));
+      localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
+      onSave?.(form);
+    } catch {}
+
+    // Brief visual delay for saving feedback
+    await new Promise(r => setTimeout(r, 400));
+    setIsSaving(false);
+
     const nextStep = activeWalkthroughStep + 1;
     if (nextStep >= WALKTHROUGH_SECTIONS.length) {
-      // Walkthrough complete — exit walkthrough mode
+      // Walkthrough complete — collapse all and exit
       setWalkthroughMode("done");
-      // Expand all sections for normal use
-      setSectorExpanded(true);
-      setCategorizationExpanded(true);
-      setCompetitiveExpanded(true);
-      setMetricsExpanded(true);
+      setSectorExpanded(false);
+      setCategorizationExpanded(false);
+      setCompetitiveExpanded(false);
+      setMetricsExpanded(false);
       onWalkthroughComplete?.();
     } else {
+      // Collapse current section, advance to next
       setActiveWalkthroughStep(nextStep);
       expandWalkthroughSection(nextStep);
     }
@@ -782,7 +819,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    // Validate metrics errors
+    if (metricsHasErrors) {
+      const ref = sectionRefs.current["metrics"];
+      if (ref) ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({
+        title: "⚠️ Fix errors before confirming",
+        description: "Please correct the highlighted fields in Growth Metrics.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
     setConfirmed(true);
     setAiSuggestions({});
     setAiSuggestedSubsectors([]);
@@ -796,14 +847,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     
     setMetricsConfirmed(true);
     METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+
+    // Collapse all sections
+    setSectorExpanded(false);
+    setCategorizationExpanded(false);
+    setCompetitiveExpanded(false);
+    setMetricsExpanded(false);
     
-    setWalkthroughMode("done");
-    setIsExpanded(false);
+    // Persist
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(form));
+      localStorage.setItem("company-profile-verified", "true");
+    } catch {}
     
     onSave?.(form);
     onProfileVerified?.(true);
+
+    // Brief saving feedback
+    await new Promise(r => setTimeout(r, 400));
+    setIsSaving(false);
     
-    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    setWalkthroughMode("done");
+    setIsExpanded(false);
     
     toast({
       title: "✅ Profile Verified",
@@ -1343,7 +1408,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                   {/* Walkthrough: Approve & Continue */}
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "sector" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
                   )}
                 </div>
               )}
@@ -1415,7 +1480,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </ProfileField>
                   </div>
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "categorization" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
                   )}
                 </div>
               )}
@@ -1486,7 +1551,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </ProfileField>
                   </div>
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "competitive" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
                   )}
                 </div>
               )}
@@ -1503,6 +1568,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 dataSource={metricsConfirmed ? "deck" : "ai"}
                 defaultExpanded={metricsExpanded}
                 isProcessing={isAnalyzing}
+                onErrorStateChange={setMetricsHasErrors}
               />
             </div>
                 </div>
