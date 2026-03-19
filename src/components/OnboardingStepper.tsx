@@ -325,20 +325,6 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       onRemove={() => { setDeckFile(null); setDeckText(""); }}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <SmartSelect
-                      label="Stage"
-                      value={stage}
-                      onChange={setStage}
-                      options={stages}
-                      predictedValue={predictedStage}
-                    />
-                    <SectorCombobox
-                      value={sector}
-                      onChange={setSector}
-                      predictedValue={predictedSector}
-                    />
-                  </div>
                 </>
               )}
 
