@@ -1448,7 +1448,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <div className="relative">
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
-                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.x]/g, ""))}
+                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x]/g, ""))}
+                        onBlur={e => {
+                          const raw = e.target.value.trim().replace(/x$/i, "");
+                          if (!raw) { setLtvCacOverride(""); return; }
+                          const ratioMatch = raw.match(/^([\d.]+)\s*:\s*([\d.]+)$/);
+                          if (ratioMatch) {
+                            const num = parseFloat(ratioMatch[1]);
+                            const den = parseFloat(ratioMatch[2]);
+                            if (den > 0) { setLtvCacOverride((num / den).toFixed(1) + "x"); return; }
+                          }
+                          const num = parseFloat(raw);
+                          if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + "x" : num.toFixed(1) + "x");
+                        }}
                         placeholder="Auto or e.g. 3.5x"
                         className={`w-full rounded-lg border border-border px-3 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
                           ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
