@@ -25,10 +25,31 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
-  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
+  });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-analysis");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.name) return false; // Already onboarded
+      }
+    } catch {}
+    return true;
+  });
   const [showTerminal, setShowTerminal] = useState(false);
   
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
@@ -114,6 +135,29 @@ const Index = () => {
     setAnalysisResult(analysis);
     setShowOnboarding(false);
     setShowTerminal(true);
+
+    // Persist to localStorage so CompanyProfile picks it up on mount
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(company));
+      localStorage.setItem("company-analysis", JSON.stringify(analysis));
+      // Mark analysis-related state
+      if (analysis.stageClassification) {
+        localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
+      }
+      if (analysis.sectorMapping) {
+        localStorage.setItem("company-sector-tags", JSON.stringify(analysis.sectorMapping));
+      }
+      if (analysis.sourceVerification) {
+        localStorage.setItem("company-source-verification", JSON.stringify(analysis.sourceVerification));
+      }
+      if (analysis.metricSources) {
+        localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
+      }
+      // Sync timestamp
+      const now = new Date();
+      setLastSyncedAt(now);
+      localStorage.setItem("last-synced-at", now.toISOString());
+    } catch {}
   };
 
   const handleTerminalComplete = () => {
