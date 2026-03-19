@@ -392,6 +392,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         setDataSource("manual");
       }
     }
+    // Smart recovery: clear required error when field gets a value
+    const requiredFields: (keyof CompanyData)[] = ["sector", "stage", "totalHeadcount"];
+    if (requiredFields.includes(field)) {
+      const val = typeof sanitized === "string" ? sanitized.trim() : (Array.isArray(sanitized) ? sanitized.length > 0 : !!sanitized);
+      if (val) {
+        setRequiredErrors(prev => { const n = new Set(prev); n.delete(field); return n; });
+      }
+    }
   };
 
   const verifyField = (field: string) => {
