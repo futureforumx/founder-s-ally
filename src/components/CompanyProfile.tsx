@@ -272,6 +272,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     } catch { return {}; }
   });
 
+  const REVIEW_ORDER = ["overview", "positioning", "metrics", "social"] as const;
+  const [activeReviewSection, setActiveReviewSection] = useState<string | null>(null);
+  const isInReviewMode = activeReviewSection !== null;
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     overview: true, positioning: true, metrics: true, social: true,
   });
