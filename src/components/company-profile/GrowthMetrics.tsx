@@ -57,8 +57,8 @@ const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
 // ── Smart Inputs ──
 
 function SmartCurrencyInput({
-  value, onChange, error, onError, shaking, onShake,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
+  value, onChange, onStartEdit, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -72,7 +72,7 @@ function SmartCurrencyInput({
           ref={inputRef}
           type="text"
           value={display}
-          onChange={(e) => setLocal(e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+          onChange={(e) => { setLocal(e.target.value.replace(/[^0-9.,mkbMKB]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
@@ -100,8 +100,8 @@ function SmartCurrencyInput({
 }
 
 function SmartPercentageInput({
-  value, onChange, error, onError, shaking, onShake,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
+  value, onChange, onStartEdit, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -115,7 +115,7 @@ function SmartPercentageInput({
           ref={inputRef}
           type="text"
           value={display}
-          onChange={(e) => setLocal(e.target.value.replace(/[^0-9.kmKM]/g, ""))}
+          onChange={(e) => { setLocal(e.target.value.replace(/[^0-9.kmKM]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
@@ -144,8 +144,8 @@ function SmartPercentageInput({
 }
 
 function SmartIntegerInput({
-  value, onChange, error, onError, shaking, onShake,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
+  value, onChange, onStartEdit, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -159,7 +159,7 @@ function SmartIntegerInput({
           ref={inputRef}
           type="text"
           value={display}
-          onChange={(e) => setLocal(e.target.value.replace(/[^0-9kmKM]/g, ""))}
+          onChange={(e) => { setLocal(e.target.value.replace(/[^0-9kmKM]/g, "")); onStartEdit?.(); }}
           onFocus={() => { onError(""); setLocal(value); }}
           onBlur={() => {
             const raw = parseSmartNumber(local);
@@ -282,6 +282,7 @@ export function GrowthMetrics({
               <SmartCurrencyInput
                 value={currentARR}
                 onChange={(v) => handleChange("currentARR", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.arr}
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
                 shaking={arrShake.shaking}
@@ -293,6 +294,7 @@ export function GrowthMetrics({
               <SmartPercentageInput
                 value={yoyGrowth}
                 onChange={(v) => handleChange("yoyGrowth", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.yoy}
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
                 shaking={yoyShake.shaking}
@@ -304,6 +306,7 @@ export function GrowthMetrics({
               <SmartIntegerInput
                 value={totalHeadcount}
                 onChange={(v) => handleChange("totalHeadcount", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.headcount}
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
                 shaking={headcountShake.shaking}
