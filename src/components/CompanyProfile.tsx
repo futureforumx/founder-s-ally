@@ -1274,6 +1274,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </div>
 
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-2 border-t border-border/50">
+                  {sectionConfirmed.metrics ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("metrics")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Metrics
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* ─── CARD 4: Social Links ─── */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Links</h3>
@@ -1294,7 +1309,48 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                 </div>
               </div>
+
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-3 border-t border-border/50">
+                  {sectionConfirmed.social ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("social")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Social Links
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* ─── Final Profile Confirmation ─── */}
+            {analysisComplete && !confirmed && (
+              <div className={`rounded-2xl border-2 border-dashed p-5 text-center space-y-3 transition-all duration-300 ${allSectionsConfirmed ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
+                {allSectionsConfirmed ? (
+                  <button onClick={handleConfirmProfile}
+                    className="inline-flex items-center gap-2 rounded-lg bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90 animate-in fade-in duration-300">
+                    <CheckCircle2 className="h-4 w-4" /> Confirm Entire Profile
+                  </button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Approve all sections above to finalize your profile
+                    <span className="ml-2 font-mono text-[10px]">
+                      ({Object.values(sectionConfirmed).filter(Boolean).length}/4 sections)
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {confirmed && (
+              <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-success">
+                  <CheckCircle2 className="h-4 w-4" /> Profile Verified
+                </span>
+              </div>
+            )}
           </>
         )}
       </div>
