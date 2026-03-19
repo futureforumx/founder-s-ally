@@ -29,7 +29,7 @@ export interface CompanyData {
   website: string;
   teamSize: string;
   // Expanded fields
-  businessModel: string;
+  businessModel: string[];
   targetCustomer: string[];
   hqLocation: string;
   competitors: string[];
@@ -143,7 +143,7 @@ export interface AnalysisResult {
 
 export const EMPTY_FORM: CompanyData = {
   name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
-  businessModel: "", targetCustomer: [], hqLocation: "", competitors: [],
+  businessModel: [], targetCustomer: [], hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", momGrowth: "", totalHeadcount: "",
   socialTwitter: "", socialLinkedin: "", socialInstagram: "",
   burnRate: "", nrr: "", cac: "", ltv: "",
