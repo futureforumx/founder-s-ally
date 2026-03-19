@@ -1484,144 +1484,17 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
 
             {/* === SECTION: Growth Metrics (Progressive Disclosure) === */}
-            <div
-              ref={el => { sectionRefs.current["metrics"] = el; }}
-              className={`rounded-xl border transition-all duration-300 relative ${
-                scanningMetrics ? "laser-scan-border" : ""
-              } ${
-                isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics"
-                  ? "border-accent/40 bg-card shadow-surface-md ring-1 ring-accent/10"
-                  : metricsUnlocked ? "border-border bg-card" : "border-border/50 bg-muted/20"
-              }`}
-            >
-              <div className="relative z-10">
-                <button
-                  type="button"
-                  onClick={() => canToggleSection("metrics") && metricsUnlocked && setMetricsExpanded(!metricsExpanded)}
-                  className={sectionHeaderClass("metrics")}
-                >
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    {metricsUnlocked ? <TrendingUp className="h-3 w-3 text-accent" /> : <Lock className="h-3 w-3" />}
-                    Growth Metrics
-                    {scanningMetrics && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1 animate-pulse">Scanning...</Badge>
-                    )}
-                    {metricsConfirmed && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20 ml-1">Verified</Badge>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <SectionProcessingIndicator isAnalyzing={walkthroughMode === "analyzing"} />
-                    {metricsUnlocked && (
-                      metricsExpanded
-                        ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                        : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
-
-                {/* Locked state */}
-                {!metricsUnlocked && (
-                  <div className="px-4 pb-4 relative">
-                    <div className="grid grid-cols-3 gap-4 opacity-50 pointer-events-none select-none">
-                      {["Current ARR", "YoY Growth %", "Total Headcount"].map(label => (
-                        <div key={label} className="space-y-1.5">
-                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{label}</label>
-                          <div className="w-full rounded-lg border border-input bg-muted/40 px-3 py-2 h-[38px]" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex items-center gap-2 rounded-lg bg-card/90 border border-border px-4 py-2.5 shadow-sm">
-                        <Lock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground">Upload a Pitch Deck to unlock and auto-fill these metrics.</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Expanded content */}
-                {metricsUnlocked && metricsExpanded && (
-                  <div className="border-t border-border px-4 pb-4 pt-3 animate-in fade-in slide-in-from-top-1 duration-300">
-                    <div className="grid grid-cols-3 gap-4">
-                      {([
-                        { field: "currentARR" as keyof CompanyData, label: "Current ARR", icon: <DollarSign className="inline h-3 w-3" />, placeholder: "$1.2M" },
-                        { field: "yoyGrowth" as keyof CompanyData, label: "YoY Growth %", icon: <TrendingUp className="inline h-3 w-3" />, placeholder: "150%" },
-                        { field: "totalHeadcount" as keyof CompanyData, label: "Total Headcount", icon: <Users className="inline h-3 w-3" />, placeholder: "25" },
-                      ]).map(({ field, label, icon, placeholder }) => {
-                        const pending = isMetricPending(field);
-                        const verified = verifiedFields.has(field);
-                        const source = metricSources[field];
-                        const showSource = pending && source && !userTouched.has(field);
-                        return (
-                          <ProfileField key={field} label={label} icon={icon}
-                            isAiDraft={isFieldAiDraft(field) && !verified}
-                            aiSuggestion={aiSuggestions[field]} onApplySuggestion={() => update(field, aiSuggestions[field]!)}>
-                            <div className="relative group">
-                              {scanningMetrics && !form[field] ? (
-                                <div className="w-full rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 h-[38px] flex items-center gap-2">
-                                  <div className="h-3 w-3/4 rounded bg-accent/10 animate-pulse" />
-                                  <Sparkles className="h-3 w-3 text-accent/40 animate-pulse" />
-                                </div>
-                              ) : (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={form[field] as string}
-                                    onChange={e => update(field, e.target.value)}
-                                    placeholder={placeholder}
-                                    className={`${inputCls(field)} ${pending ? "!bg-accent/5 !border-accent/20" : ""} ${verified ? "!bg-background !border-input" : ""} pr-8`}
-                                  />
-                                  {pending && !verified && (
-                                    <button
-                                      type="button"
-                                      onClick={() => verifyField(field)}
-                                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-accent hover:bg-accent/10 transition-colors"
-                                      title="Accept this value"
-                                    >
-                                      <Sparkles className="h-3.5 w-3.5" />
-                                    </button>
-                                  )}
-                                  {verified && (
-                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-success">
-                                      <Check className="h-3.5 w-3.5" />
-                                    </span>
-                                  )}
-                                  {showSource && (
-                                    <div className="absolute left-0 -bottom-7 z-50 hidden group-hover:flex items-center gap-1 rounded-md bg-foreground text-background px-2 py-1 text-[10px] font-mono whitespace-nowrap shadow-lg animate-in fade-in duration-150">
-                                      <FileText className="h-3 w-3 shrink-0" />
-                                      {source}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </ProfileField>
-                        );
-                      })}
-                    </div>
-
-                    {/* Confirm All Metrics button (only in non-walkthrough mode) */}
-                    {!metricsConfirmed && !isWalkthrough && METRIC_FIELDS.some(f => !!form[f]) && (
-                      <div className="mt-4 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={confirmAllMetrics}
-                          className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[12px] font-medium text-accent-foreground transition-colors hover:bg-accent/90"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Confirm All Metrics
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Walkthrough: Final step → Confirm Profile */}
-                    {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics" && (
-                      <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={activeWalkthroughStep === WALKTHROUGH_SECTIONS.length - 1} onConfirm={handleConfirm} />
-                    )}
-                  </div>
-                )}
-              </div>
+            <div ref={el => { sectionRefs.current["metrics"] = el; }}>
+              <GrowthMetrics
+                currentARR={form.currentARR}
+                yoyGrowth={form.yoyGrowth}
+                totalHeadcount={form.totalHeadcount}
+                onChange={(field, value) => update(field, value)}
+                onConfirm={!metricsConfirmed ? () => { confirmAllMetrics(); if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics") handleConfirm(); } : undefined}
+                isVerified={metricsConfirmed}
+                sourceLabel="Verified from Pitch Deck"
+                defaultExpanded={metricsExpanded}
+              />
             </div>
                 </div>
               </div>
