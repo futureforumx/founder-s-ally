@@ -136,6 +136,40 @@ function PhosphorPencilSimple({ className }: { className?: string }) {
   );
 }
 
+// ── Phosphor-thin section header icons ──
+function PhosphorBriefcase({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M216,60H172V48a20,20,0,0,0-20-20H104A20,20,0,0,0,84,48V60H40A12,12,0,0,0,28,72V208a12,12,0,0,0,12,12H216a12,12,0,0,0,12-12V72A12,12,0,0,0,216,60ZM92,48a12,12,0,0,1,12-12h48a12,12,0,0,1,12,12V60H92ZM220,72V116.43A180,180,0,0,1,128,140a180,180,0,0,1-92-23.57V72a4,4,0,0,1,4-4H216A4,4,0,0,1,220,72Zm0,136a4,4,0,0,1-4,4H40a4,4,0,0,1-4-4V125.45A188.14,188.14,0,0,0,128,148a188.14,188.14,0,0,0,92-22.55ZM108,112a4,4,0,0,1,4-4h32a4,4,0,0,1,0,8H112A4,4,0,0,1,108,112Z"/>
+    </svg>
+  );
+}
+
+function PhosphorCrosshair({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M228,128a4,4,0,0,1-4,4H196.1A68.1,68.1,0,0,1,132,195.9V224a4,4,0,0,1-8,0V195.9A68.1,68.1,0,0,1,59.9,132H32a4,4,0,0,1,0-8H59.9A68.1,68.1,0,0,1,124,60.1V32a4,4,0,0,1,8,0V60.1A68.1,68.1,0,0,1,196.1,124H224A4,4,0,0,1,228,128Zm-100,60a60,60,0,1,0-60-60A60.07,60.07,0,0,0,128,188Zm0-112a52,52,0,1,0,52,52A52.06,52.06,0,0,0,128,76Z"/>
+    </svg>
+  );
+}
+
+function PhosphorChartLine({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M228,128a4,4,0,0,1-4,4H132v96a4,4,0,0,1-8,0V132H28a4,4,0,0,1,0-8h96V28a4,4,0,0,1,8,0v96h96A4,4,0,0,1,228,128Z" opacity="0"/>
+      <path d="M228,56V208a12,12,0,0,1-12,12H40a12,12,0,0,1-12-12V48a4,4,0,0,1,8,0V208a4,4,0,0,0,4,4H216a4,4,0,0,0,4-4V56a4,4,0,0,1,8,0ZM72,192a4,4,0,0,0,4-4V112a4,4,0,0,0-8,0v76A4,4,0,0,0,72,192Zm40,0a4,4,0,0,0,4-4V80a4,4,0,0,0-8,0V188A4,4,0,0,0,112,192Zm40,0a4,4,0,0,0,4-4V104a4,4,0,0,0-8,0v84A4,4,0,0,0,152,192Zm40,0a4,4,0,0,0,4-4V72a4,4,0,0,0-8,0V188A4,4,0,0,0,192,192Z"/>
+    </svg>
+  );
+}
+
+function PhosphorShareNetwork({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M176,164a36,36,0,0,0-27.86,13.17L95.2,144.85a35.92,35.92,0,0,0,0-33.7l52.94-32.32A36,36,0,1,0,140.2,68.85L87.26,101.17a36,36,0,1,0,0,53.66l52.94,32.32A36,36,0,1,0,176,164Zm0-136a28,28,0,1,1-28,28A28,28,0,0,1,176,28ZM64,156a28,28,0,1,1,28-28A28,28,0,0,1,64,156Zm112,72a28,28,0,1,1,28-28A28,28,0,0,1,176,228Z"/>
+    </svg>
+  );
+}
+
 // ── Field provenance icon: AI vs Edited ──
 function FieldBadge({ isAi }: { isAi: boolean }) {
   if (isAi) {
