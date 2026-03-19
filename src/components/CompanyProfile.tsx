@@ -1282,17 +1282,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
                     </div>
                   )}
-            ref={outputSectionsRef}
-            onFocusCapture={handleOutputFocusCapture}
-            onBlurCapture={handleOutputBlurCapture}
-            className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
-            {/* Pre-analysis placeholder */}
-            {!analysisComplete && !isAnalyzing && (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
-              </div>
-            )}
 
             {/* === SECTION: Sector & Subsectors === */}
             <div
