@@ -238,7 +238,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck;
+  const [fieldsEditedSinceAnalysis, setFieldsEditedSinceAnalysis] = useState(false);
+  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck || fieldsEditedSinceAnalysis;
 
   const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
     try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
@@ -413,6 +414,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     const section = fieldToSection[field as string];
     if (section && sectionConfirmed[section]) {
       setSectionConfirmed(prev => ({ ...prev, [section]: false }));
+    }
+    // Mark that fields have been manually edited since last analysis
+    if (analysisComplete) {
+      setFieldsEditedSinceAnalysis(true);
     }
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
@@ -705,8 +710,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setMetricsUnlocked(true);
       setOriginalFormSnapshot(null);
       setDataSource("ai");
-      // Reset section confirmations and enter review mode
+      // Reset section confirmations and field edit tracking, enter review mode
       setSectionConfirmed({});
+      setFieldsEditedSinceAnalysis(false);
       enterReviewMode("overview");
 
       const deckInvestors = analysisData.extractedInvestors || [];
