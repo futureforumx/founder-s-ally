@@ -244,6 +244,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
+  // Per-section confirmation state
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem("company-section-confirmed");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
@@ -265,12 +273,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-sources", JSON.stringify(metricSources));
         localStorage.setItem("company-source-verification", JSON.stringify(sourceVerification));
         localStorage.setItem("company-metric-period", metricPeriod);
+        localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
         if (form.name) { setSaveIndicator("Auto-saving"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed]);
 
   useEffect(() => {
     if (analysisComplete && form.name) onSave?.(form);
@@ -463,6 +472,29 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     });
     setAiSuggestions(newSuggestions);
     setAiUpdatedFields(updatedFields);
+    // Reset section confirmations on new analysis
+    setSectionConfirmed({});
+  };
+
+  // Apply structured metrics (burnRate, cac, ltv) from analysis result
+  const applyMetricsFromResult = (metrics: AnalysisResult["metrics"]) => {
+    if (!metrics) return;
+    setForm(prev => {
+      const next = { ...prev };
+      if (metrics.burnRate?.value && !userTouched.has("burnRate") && !prev.burnRate) {
+        next.burnRate = metrics.burnRate.value;
+        setAiUpdatedFields(f => new Set(f).add("burnRate"));
+      }
+      if (metrics.cac?.value && !userTouched.has("cac") && !prev.cac) {
+        next.cac = metrics.cac.value;
+        setAiUpdatedFields(f => new Set(f).add("cac"));
+      }
+      if (metrics.ltv?.value && !userTouched.has("ltv") && !prev.ltv) {
+        next.ltv = metrics.ltv.value;
+        setAiUpdatedFields(f => new Set(f).add("ltv"));
+      }
+      return next;
+    });
   };
 
   const handleReclassify = async () => {
@@ -570,7 +602,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
       setAnalyzeStep("mapping");
       applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
-      if (analysisData.metricSources) setMetricSources(analysisData.metricSources);
+      applyMetricsFromResult(analysisData.metrics);
 
       const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
       const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount", "businessModel", "targetCustomer", "uniqueValueProp", "competitors"];
@@ -693,6 +725,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
     return "—";
   })();
+
+  // Section confirmation helpers
+  const confirmSection = (section: string) => {
+    setSectionConfirmed(prev => ({ ...prev, [section]: true }));
+    toast({ title: `${section} confirmed`, description: "Section verified and saved." });
+  };
+  const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+  const handleConfirmProfile = () => {
+    setConfirmed(true);
+    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    onProfileVerified?.(true);
+    toast({ title: "✅ Profile Verified", description: "Your company profile has been confirmed." });
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -990,6 +1035,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)} className={inputCls("hqLocation")} />
                 </div>
               </div>
+
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-2 border-t border-border/50">
+                  {sectionConfirmed.overview ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("overview")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Company Overview
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
@@ -1028,6 +1087,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 />
               </div>
 
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-2 border-t border-border/50">
+                  {sectionConfirmed.positioning ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("positioning")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Positioning
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
@@ -1202,6 +1274,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </div>
 
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-2 border-t border-border/50">
+                  {sectionConfirmed.metrics ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("metrics")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Metrics
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* ─── CARD 4: Social Links ─── */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Links</h3>
@@ -1222,7 +1309,48 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                 </div>
               </div>
+
+              {/* Approve button */}
+              {analysisComplete && !confirmed && (
+                <div className="pt-3 border-t border-border/50">
+                  {sectionConfirmed.social ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><Check className="h-3.5 w-3.5" /> Section Confirmed</span>
+                  ) : (
+                    <button onClick={() => confirmSection("social")}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-2 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20">
+                      <Check className="h-3.5 w-3.5" /> Approve Social Links
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* ─── Final Profile Confirmation ─── */}
+            {analysisComplete && !confirmed && (
+              <div className={`rounded-2xl border-2 border-dashed p-5 text-center space-y-3 transition-all duration-300 ${allSectionsConfirmed ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
+                {allSectionsConfirmed ? (
+                  <button onClick={handleConfirmProfile}
+                    className="inline-flex items-center gap-2 rounded-lg bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90 animate-in fade-in duration-300">
+                    <CheckCircle2 className="h-4 w-4" /> Confirm Entire Profile
+                  </button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Approve all sections above to finalize your profile
+                    <span className="ml-2 font-mono text-[10px]">
+                      ({Object.values(sectionConfirmed).filter(Boolean).length}/4 sections)
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {confirmed && (
+              <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-success">
+                  <CheckCircle2 className="h-4 w-4" /> Profile Verified
+                </span>
+              </div>
+            )}
           </>
         )}
       </div>
