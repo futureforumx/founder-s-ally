@@ -990,15 +990,34 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     });
   };
 
-  // 3-state status dot: red (empty), yellow pulsing (needs review), green pulsing (approved)
-  // IMPORTANT: Empty check comes FIRST — an empty section is always red regardless of prior approval
+  // 3-state status dot logic
+  // Overview uses strict validation: grey (missing required), amber (data present, unapproved), green (approved + complete)
+  // Other sections: red (empty), yellow (needs review), green (approved)
   const renderStatusDot = (section: string) => {
+    if (section === "overview") {
+      const complete = isOverviewComplete();
+      if (sectionConfirmed[section] && complete) {
+        // Approved + all filled: static green
+        return <span className="inline-flex rounded-full h-2 w-2 bg-success" />;
+      }
+      if (!complete) {
+        // Missing required fields: static grey
+        return <span className="inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />;
+      }
+      // All fields filled but not approved: pulsing amber
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+        </span>
+      );
+    }
+
+    // Other sections keep existing logic
     if (isSectionEmpty(section)) {
-      // Empty: static dull red
       return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
     }
     if (sectionConfirmed[section]) {
-      // Approved: pulsing green
       return (
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
@@ -1006,7 +1025,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         </span>
       );
     }
-    // Needs review: pulsing yellow
     return (
       <span className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
