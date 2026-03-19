@@ -1015,13 +1015,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
-            <Collapsible open={openSections.overview} onOpenChange={v => setOpenSections(p => ({...p, overview: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       💼 Company Overview
                       {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
+                      {analysisComplete && !sectionConfirmed.overview && !confirmed && (
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                      )}
                     </h3>
                     <div className="flex items-center gap-2">
                       {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
