@@ -1171,11 +1171,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
                       placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
                   </ProfileField>
-                  <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
+                  <ProfileField label={<>Stage <span className="text-destructive">*</span></>} isAiDraft={isFieldAiDraft("stage")}
                     aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
                     <div className="flex items-center gap-1.5">
                       <select value={form.stage} onChange={e => update("stage", e.target.value)} disabled={isAnalyzing} className={selectCls("stage")}>
-                        <option value="" disabled>Select stage</option>
+                        <option value="" disabled>Required for analysis...</option>
                         {stages.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                       {renderAiUpdatedBadge("stage")}
