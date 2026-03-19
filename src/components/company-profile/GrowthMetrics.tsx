@@ -246,7 +246,7 @@ export function GrowthMetrics({
     <div className="animate-in fade-in slide-in-from-top-1 duration-200">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
+          <label className="text-xs font-semibold uppercase text-muted-foreground">MRR</label>
           <SmartCurrencyInput
             value={currentARR}
             onChange={(v) => handleChange("currentARR", v)}
