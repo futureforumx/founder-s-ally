@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Check, Sparkles, Pencil, RotateCcw } from "lucide-react";
 
 // ── Utilities ──
 
@@ -40,17 +40,15 @@ interface OriginalMetrics {
   totalHeadcount: string;
 }
 
-interface GrowthMetricsProps {
+export interface GrowthMetricsProps {
   currentARR: string;
   yoyGrowth: string;
   totalHeadcount: string;
   onChange: (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => void;
-  onConfirm?: () => void;
   dataSource?: DataSource;
   onDataSourceChange?: (source: DataSource) => void;
   originalDataSource?: DataSource;
-  defaultExpanded?: boolean;
-  isProcessing?: boolean;
+  disabled?: boolean;
   onErrorStateChange?: (hasErrors: boolean) => void;
 }
 
@@ -191,9 +189,9 @@ function SmartIntegerInput({
   );
 }
 
-// ── Main ──
+// ── Badge config (exported for parent to use in header) ──
 
-const SOURCE_BADGE_CONFIG: Record<DataSource, { icon: typeof Check; label: string; className: string }> = {
+export const SOURCE_BADGE_CONFIG: Record<DataSource, { icon: typeof Check; label: string; className: string }> = {
   deck: {
     icon: Check,
     label: "Verified from Pitch Deck",
@@ -211,17 +209,17 @@ const SOURCE_BADGE_CONFIG: Record<DataSource, { icon: typeof Check; label: strin
   },
 };
 
+// ── Main Component (renders only the input fields, no outer wrapper) ──
+
 export function GrowthMetrics({
   currentARR, yoyGrowth, totalHeadcount,
-  onChange, onConfirm,
+  onChange,
   dataSource = "deck",
   onDataSourceChange,
   originalDataSource = "deck",
-  defaultExpanded = true,
-  isProcessing = false,
+  disabled = false,
   onErrorStateChange,
 }: GrowthMetricsProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
   const [errors, setErrors] = useState({ arr: "", yoy: "", headcount: "" });
   const arrShake = useShake();
   const yoyShake = useShake();
@@ -237,9 +235,6 @@ export function GrowthMetrics({
     onErrorStateChange?.(hasErrors);
   }, [errors, onErrorStateChange]);
 
-  // Force collapse when processing
-  const isExpanded = isProcessing ? false : expanded;
-
   const handleChange = (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => {
     onChange(field, value);
     if (dataSource !== "manual") {
@@ -247,126 +242,49 @@ export function GrowthMetrics({
     }
   };
 
-  const handleRevert = () => {
-    onChange("currentARR", originalMetrics.currentARR);
-    onChange("yoyGrowth", originalMetrics.yoyGrowth);
-    onChange("totalHeadcount", originalMetrics.totalHeadcount);
-    onDataSourceChange?.(originalDataSource);
-    setErrors({ arr: "", yoy: "", headcount: "" });
-  };
-
-  const badge = SOURCE_BADGE_CONFIG[dataSource];
-  const BadgeIcon = badge.icon;
-
   return (
-    <div className={`rounded-xl border border-border bg-card transition-all duration-300 ${isProcessing ? "" : "p-5 shadow-surface"}`}>
-      <div className={`flex items-center justify-between ${
-        isProcessing
-          ? "px-4 py-3 cursor-not-allowed opacity-70"
-          : "border-b border-border pb-3 mb-5"
-      }`}>
-        <span className={`flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground ${
-          isProcessing ? "text-[10px] font-mono" : "text-xs font-semibold tracking-wide"
-        }`}>
-          <TrendingUp className={isProcessing ? "h-3 w-3 text-accent" : "h-4 w-4 text-accent"} />
-          Growth Metrics
-        </span>
-        <div className="flex items-center gap-2">
-          {isProcessing ? (
-            <>
-              <div className="flex items-center gap-1.5">
-                <Loader2 className="h-3 w-3 animate-spin text-accent" />
-                <span className="text-[9px] font-mono text-accent animate-pulse">Processing...</span>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </>
-          ) : (
-            <>
-              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-200 ${badge.className}`}>
-                <BadgeIcon className="h-3 w-3" />
-                {badge.label}
-              </span>
-              {dataSource === "manual" && (
-                <button
-                  type="button"
-                  title="Revert to original data"
-                  onClick={handleRevert}
-                  className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setExpanded(!expanded)}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
-              >
-                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-            </>
-          )}
+    <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
+          <SmartCurrencyInput
+            value={currentARR}
+            onChange={(v) => handleChange("currentARR", v)}
+            onStartEdit={() => onDataSourceChange?.("manual")}
+            error={errors.arr}
+            onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
+            shaking={arrShake.shaking}
+            onShake={arrShake.trigger}
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
+          <SmartPercentageInput
+            value={yoyGrowth}
+            onChange={(v) => handleChange("yoyGrowth", v)}
+            onStartEdit={() => onDataSourceChange?.("manual")}
+            error={errors.yoy}
+            onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
+            shaking={yoyShake.shaking}
+            onShake={yoyShake.trigger}
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
+          <SmartIntegerInput
+            value={totalHeadcount}
+            onChange={(v) => handleChange("totalHeadcount", v)}
+            onStartEdit={() => onDataSourceChange?.("manual")}
+            error={errors.headcount}
+            onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
+            shaking={headcountShake.shaking}
+            onShake={headcountShake.trigger}
+            disabled={disabled}
+          />
         </div>
       </div>
-
-      {isExpanded && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
-              <SmartCurrencyInput
-                value={currentARR}
-                onChange={(v) => handleChange("currentARR", v)}
-                onStartEdit={() => onDataSourceChange?.("manual")}
-                error={errors.arr}
-                onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
-                shaking={arrShake.shaking}
-                onShake={arrShake.trigger}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
-              <SmartPercentageInput
-                value={yoyGrowth}
-                onChange={(v) => handleChange("yoyGrowth", v)}
-                onStartEdit={() => onDataSourceChange?.("manual")}
-                error={errors.yoy}
-                onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
-                shaking={yoyShake.shaking}
-                onShake={yoyShake.trigger}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
-              <SmartIntegerInput
-                value={totalHeadcount}
-                onChange={(v) => handleChange("totalHeadcount", v)}
-                onStartEdit={() => onDataSourceChange?.("manual")}
-                error={errors.headcount}
-                onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
-                shaking={headcountShake.shaking}
-                onShake={headcountShake.trigger}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-
-          {onConfirm && (
-            <div className="flex justify-end mt-5">
-              <button
-                type="button"
-                onClick={onConfirm}
-                disabled={isProcessing}
-                className="inline-flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Confirm Profile
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
