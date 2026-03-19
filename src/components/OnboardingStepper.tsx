@@ -208,7 +208,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         uniqueValueProp: sanitize(analysisResult?.aiExtracted?.uniqueValueProp),
         currentARR: sanitize(analysisResult?.aiExtracted?.currentARR),
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
-        totalHeadcount: sanitize(analysisResult?.aiExtracted?.totalHeadcount),
+        totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
       };
       if (analysisResult) {
         onComplete(company, {
