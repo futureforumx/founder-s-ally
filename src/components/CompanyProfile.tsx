@@ -1554,8 +1554,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
                   ) : (
                     <button onClick={() => confirmSection("overview")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-                      <Check className="h-3.5 w-3.5" /> Approve Section
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-[11px] font-medium transition-colors ${
+                        overviewApproveLabel
+                          ? "border-destructive/30 bg-destructive/5 text-destructive cursor-not-allowed"
+                          : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                      }`}>
+                      {overviewApproveLabel ? (
+                        <><AlertCircle className="h-3.5 w-3.5" /> {overviewApproveLabel}</>
+                      ) : (
+                        <><Check className="h-3.5 w-3.5" /> Approve Company Overview</>
+                      )}
                     </button>
                   )}
                 </div>
