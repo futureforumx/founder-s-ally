@@ -142,7 +142,10 @@ const Index = () => {
       setStageClassification(analysis.stageClassification);
     }
     if (analysis.sectorMapping) {
-      setSectorClassification(analysis.sectorMapping as SectorClassification);
+      setSectorClassification({
+        primary_sector: analysis.sectorMapping.sector,
+        modern_tags: analysis.sectorMapping.keywords || [],
+      });
     }
 
     // Persist to localStorage so CompanyProfile picks it up on remount
