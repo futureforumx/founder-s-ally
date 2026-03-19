@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles } from "lucide-react";
 
 // ── Utilities ──
 
@@ -32,14 +32,16 @@ function useShake() {
 
 // ── Types ──
 
+export type DataSource = "deck" | "ai" | "manual";
+
 interface GrowthMetricsProps {
   currentARR: string;
   yoyGrowth: string;
   totalHeadcount: string;
   onChange: (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => void;
   onConfirm?: () => void;
-  isVerified?: boolean;
-  sourceLabel?: string;
+  dataSource?: DataSource;
+  onDataSourceChange?: (source: DataSource) => void;
   defaultExpanded?: boolean;
 }
 
@@ -179,10 +181,29 @@ function SmartIntegerInput({
 
 // ── Main ──
 
+const SOURCE_BADGE_CONFIG: Record<DataSource, { icon: typeof Check; label: string; className: string }> = {
+  deck: {
+    icon: Check,
+    label: "Verified from Pitch Deck",
+    className: "border-success/30 bg-success/10 text-success",
+  },
+  manual: {
+    icon: Pencil,
+    label: "Manually Updated",
+    className: "border-border bg-muted text-muted-foreground",
+  },
+  ai: {
+    icon: Sparkles,
+    label: "AI Predicted",
+    className: "border-accent/30 bg-accent/10 text-accent",
+  },
+};
+
 export function GrowthMetrics({
   currentARR, yoyGrowth, totalHeadcount,
-  onChange, onConfirm, isVerified = false,
-  sourceLabel = "Verified from Pitch Deck",
+  onChange, onConfirm,
+  dataSource = "deck",
+  onDataSourceChange,
   defaultExpanded = true,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -190,6 +211,16 @@ export function GrowthMetrics({
   const arrShake = useShake();
   const yoyShake = useShake();
   const headcountShake = useShake();
+
+  const handleChange = (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => {
+    onChange(field, value);
+    if (dataSource !== "manual") {
+      onDataSourceChange?.("manual");
+    }
+  };
+
+  const badge = SOURCE_BADGE_CONFIG[dataSource];
+  const BadgeIcon = badge.icon;
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
@@ -199,12 +230,10 @@ export function GrowthMetrics({
           Growth Metrics
         </span>
         <div className="flex items-center gap-2">
-          {isVerified && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
-              <Check className="h-3 w-3" />
-              {sourceLabel}
-            </span>
-          )}
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-200 ${badge.className}`}>
+            <BadgeIcon className="h-3 w-3" />
+            {badge.label}
+          </span>
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
@@ -222,7 +251,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
               <SmartCurrencyInput
                 value={currentARR}
-                onChange={(v) => onChange("currentARR", v)}
+                onChange={(v) => handleChange("currentARR", v)}
                 error={errors.arr}
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
                 shaking={arrShake.shaking}
@@ -233,7 +262,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
               <SmartPercentageInput
                 value={yoyGrowth}
-                onChange={(v) => onChange("yoyGrowth", v)}
+                onChange={(v) => handleChange("yoyGrowth", v)}
                 error={errors.yoy}
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
                 shaking={yoyShake.shaking}
@@ -244,7 +273,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
               <SmartIntegerInput
                 value={totalHeadcount}
-                onChange={(v) => onChange("totalHeadcount", v)}
+                onChange={(v) => handleChange("totalHeadcount", v)}
                 error={errors.headcount}
                 onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
                 shaking={headcountShake.shaking}

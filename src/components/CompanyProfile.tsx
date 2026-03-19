@@ -1505,8 +1505,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 totalHeadcount={form.totalHeadcount}
                 onChange={(field, value) => update(field, value)}
                 onConfirm={!metricsConfirmed ? () => { confirmAllMetrics(); if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "metrics") handleConfirm(); } : undefined}
-                isVerified={metricsConfirmed}
-                sourceLabel="Verified from Pitch Deck"
+                dataSource={metricsConfirmed ? "deck" : "ai"}
                 defaultExpanded={metricsExpanded}
               />
             </div>
