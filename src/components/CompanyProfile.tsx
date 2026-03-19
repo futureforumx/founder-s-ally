@@ -231,6 +231,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track last-analyzed data sources for smart button state
+  const [lastAnalyzedInputs, setLastAnalyzedInputs] = useState<{ url: string; hasDeck: boolean } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-last-analyzed-inputs");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck;
+
   const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
     try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
   });
