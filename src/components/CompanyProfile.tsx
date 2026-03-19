@@ -821,19 +821,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       }
                     } else { setFaviconUrl(null); setFaviconLoaded(false); }
                   }, 300);
-                  if (logoSyncDebounceRef.current) clearTimeout(logoSyncDebounceRef.current);
-                  logoSyncDebounceRef.current = setTimeout(() => {
-                    const domain = extractDomain(url);
-                    if (!domain) { setSuggestedLogoUrl(null); return; }
-                    const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
-                    const testImg = new Image();
-                    testImg.onload = () => {
-                      if (!logoUrl) { setLogoUrl(hdLogoUrl); setLogoSyncBadge(true); setTimeout(() => setLogoSyncBadge(false), 3000); }
-                      else if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
-                    };
-                    testImg.onerror = () => {};
-                    testImg.src = hdLogoUrl;
-                  }, 500);
+                }}
+                onBlur={() => {
+                  const domain = extractDomain(form.website);
+                  if (!domain) return;
+                  // Auto-fetch logo on blur
+                  const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+                  const testImg = new Image();
+                  testImg.onload = () => {
+                    if (!logoUrl) { setLogoUrl(hdLogoUrl); setLogoSyncBadge(true); setTimeout(() => setLogoSyncBadge(false), 3000); }
+                    else if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
+                  };
+                  testImg.onerror = () => {};
+                  testImg.src = hdLogoUrl;
                 }}
                 placeholder="https://acme.com" maxLength={255}
                 className={`${inputCls("website")} pl-10`}
