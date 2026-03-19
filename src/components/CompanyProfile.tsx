@@ -696,15 +696,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           <div className="flex items-center gap-2">
             <Upload className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-            {saveIndicator && (
-              <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium text-success animate-in fade-in duration-300">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                </span>
-                {saveIndicator}
-              </span>
-            )}
           </div>
 
           {/* COMPANY NAME */}
