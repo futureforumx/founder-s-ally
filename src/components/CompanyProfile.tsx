@@ -1100,7 +1100,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
                     aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
                     <div className="flex items-center gap-1.5">
-                      <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
+                      <select value={form.stage} onChange={e => update("stage", e.target.value)} disabled={isAnalyzing} className={selectCls("stage")}>
                         <option value="" disabled>Select stage</option>
                         {stages.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
