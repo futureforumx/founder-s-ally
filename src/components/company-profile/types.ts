@@ -141,6 +141,8 @@ export const EMPTY_FORM: CompanyData = {
   name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
   businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
+  socialTwitter: "", socialLinkedin: "", socialInstagram: "",
+  burnRate: "", crr: "", cac: "", ltv: "",
 };
 
 export function getCompletionPercent(form: CompanyData): number {
