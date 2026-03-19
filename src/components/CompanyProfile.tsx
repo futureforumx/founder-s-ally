@@ -633,7 +633,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }, 150);
   };
 
+  const validateRequiredFields = (): boolean => {
+    const missing: string[] = [];
+    const errors = new Set<string>();
+    if (!form.sector.trim()) { missing.push("Sector"); errors.add("sector"); }
+    if (!form.stage.trim()) { missing.push("Stage"); errors.add("stage"); }
+    if (!form.totalHeadcount.trim()) { missing.push("Headcount"); errors.add("totalHeadcount"); }
+    if (missing.length > 0) {
+      setRequiredErrors(errors);
+      setApproveShaking(true);
+      setTimeout(() => setApproveShaking(false), 500);
+      toast({
+        title: "Missing Required Fields",
+        description: `Please provide ${missing.join(", ")} to continue.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    setRequiredErrors(new Set());
+    return true;
+  };
+
   const advanceWalkthrough = async () => {
+    // Validation: check required fields
+    if (!validateRequiredFields()) return;
+
     // Validation: check for metric errors on the metrics step
     const currentSection = WALKTHROUGH_SECTIONS[activeWalkthroughStep];
     if (currentSection === "metrics" && metricsHasErrors) {
