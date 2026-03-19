@@ -12,7 +12,12 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
 import { normalizeSector } from "./company-profile/sectorNormalization";
+import {
+  STAGE_OPTIONS, SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS,
+  type SectorOption,
+} from "@/constants/taxonomy";
 import {
   CompanyData, AnalysisResult, EMPTY_FORM,
   stages, sectors, businessModels, targetCustomers,
