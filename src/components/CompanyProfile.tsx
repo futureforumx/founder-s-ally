@@ -737,6 +737,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Section confirmation helpers
   const confirmSection = (section: string) => {
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
+    setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
