@@ -1917,7 +1917,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + "x" : num.toFixed(1) + "x");
                         }}
                         placeholder="Auto or e.g. 3.5x"
-                        className={`w-full rounded-lg border border-border px-3 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
+                        className={`w-full rounded-lg border border-border pl-9 pr-9 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
                           ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
                         }`} />
                       {!ltvCacOverride && autoLtvCacRatio && (
