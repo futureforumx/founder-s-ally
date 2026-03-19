@@ -118,19 +118,29 @@ export interface CompanyProfileHandle {
   analyzeStepLabel: string;
 }
 
-// ── Field badge: AI vs Edited ──
+// ── Field provenance icon: AI vs Edited ──
 function FieldBadge({ isAi }: { isAi: boolean }) {
   if (isAi) {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-accent/10 border border-accent/20 px-1.5 py-0 text-[9px] font-semibold text-accent">
-        <Sparkles className="h-2.5 w-2.5" /> AI
-      </span>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <span className="inline-flex cursor-default">
+            <Sparkles className="h-3.5 w-3.5 text-muted-foreground/60" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">✨ AI Suggested (Review to approve)</TooltipContent>
+      </Tooltip>
     );
   }
   return (
-    <span className="inline-flex items-center gap-0.5 rounded-full bg-muted border border-border px-1.5 py-0 text-[9px] font-semibold text-muted-foreground">
-      <Pencil className="h-2.5 w-2.5" /> Edited
-    </span>
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-default">
+          <Pencil className="h-3.5 w-3.5 text-primary" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">✏️ Manually modified by you</TooltipContent>
+    </Tooltip>
   );
 }
 
