@@ -1941,8 +1941,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       NRR {renderFieldBadge("nrr")}
                     </label>
                     <div className="relative">
+                      <RefreshCw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text" value={form.nrr} onChange={e => update("nrr", e.target.value.replace(/[^0-9.]/g, ""))}
-                        placeholder="e.g. 110" className={`${inputCls("nrr")} pr-8`} />
+                        placeholder="e.g. 110" className={`${inputCls("nrr")} pl-9 pr-8`} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                     </div>
                   </div>
