@@ -137,11 +137,18 @@ const Index = () => {
     setShowOnboarding(false);
     setShowTerminal(true);
 
-    // Persist to localStorage so CompanyProfile picks it up on mount
+    // Update Index-level state directly from analysis
+    if (analysis.stageClassification) {
+      setStageClassification(analysis.stageClassification);
+    }
+    if (analysis.sectorMapping) {
+      setSectorClassification(analysis.sectorMapping as SectorClassification);
+    }
+
+    // Persist to localStorage so CompanyProfile picks it up on remount
     try {
       localStorage.setItem("company-profile", JSON.stringify(company));
       localStorage.setItem("company-analysis", JSON.stringify(analysis));
-      // Mark analysis-related state
       if (analysis.stageClassification) {
         localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
       }
@@ -154,11 +161,28 @@ const Index = () => {
       if (analysis.metricSources) {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
+      // Persist logo URL from website
+      if (company.website) {
+        const domain = (() => {
+          try {
+            let u = company.website.trim();
+            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+            return new URL(u).hostname.replace(/^www\./, "");
+          } catch { return null; }
+        })();
+        if (domain) {
+          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          localStorage.setItem("company-logo-url", logoUrl);
+        }
+      }
       // Sync timestamp
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("last-synced-at", now.toISOString());
     } catch {}
+
+    // Force CompanyProfile to remount with fresh localStorage data
+    setProfileKey(k => k + 1);
   };
 
   const handleTerminalComplete = () => {
