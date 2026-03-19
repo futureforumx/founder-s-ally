@@ -17,7 +17,8 @@ export const sectors = Object.keys(SECTOR_TAXONOMY);
 export const subsectorsFor = (sector: string): string[] =>
   (SECTOR_TAXONOMY[sector as keyof typeof SECTOR_TAXONOMY] as unknown as string[]) ?? [];
 export const businessModels = ["SaaS", "Marketplace", "E-Commerce", "Hardware", "Services", "Freemium", "Usage-Based", "Other"];
-export const targetCustomers = ["B2B", "B2C", "B2B2C", "B2G"];
+export const targetCustomers = ["B2C", "B2B2C", "SMB", "Enterprise", "Government"];
+export const targetMarkets = targetCustomers;
 
 export interface CompanyData {
   name: string;
@@ -27,7 +28,7 @@ export interface CompanyData {
   description: string;
   website: string;
   teamSize: string;
-  // New expanded fields
+  // Expanded fields
   businessModel: string;
   targetCustomer: string;
   hqLocation: string;
@@ -36,6 +37,14 @@ export interface CompanyData {
   currentARR: string;
   yoyGrowth: string;
   totalHeadcount: string;
+  // Social & additional metrics
+  socialTwitter: string;
+  socialLinkedin: string;
+  socialInstagram: string;
+  burnRate: string;
+  crr: string;
+  cac: string;
+  ltv: string;
 }
 
 export type ConfidenceLevel = "high" | "medium" | "low";
@@ -132,6 +141,8 @@ export const EMPTY_FORM: CompanyData = {
   name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
   businessModel: "", targetCustomer: "", hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", totalHeadcount: "",
+  socialTwitter: "", socialLinkedin: "", socialInstagram: "",
+  burnRate: "", crr: "", cac: "", ltv: "",
 };
 
 export function getCompletionPercent(form: CompanyData): number {
