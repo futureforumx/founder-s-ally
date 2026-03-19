@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, Users, Building2, MapPin, Globe, Sparkles, Eye, EyeOff, Pencil,
-  TrendingUp, Star, ArrowRight,
+  TrendingUp, Star, ArrowRight, LayoutGrid,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +142,7 @@ const DIRECTORY_TABS = [
   { id: "members" as const, label: "Members", icon: Users },
   { id: "investors" as const, label: "Investors", icon: TrendingUp },
   { id: "locations" as const, label: "Locations", icon: MapPin },
+  { id: "all" as const, label: "All", icon: LayoutGrid },
 ] as const;
 
 type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
@@ -196,6 +197,18 @@ export function CommunityView({ companyData, analysisResult }: CommunityViewProp
         <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
       </div>
 
+      {/* Smart Search Hero */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={placeholder}
+          className="flex h-14 w-full rounded-2xl border border-border bg-card pl-12 pr-4 text-base shadow-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-shadow"
+        />
+      </div>
+
       {/* Directory Tab Toggle */}
       <div className="flex items-center gap-1 rounded-xl bg-secondary/60 p-1 w-fit">
         {DIRECTORY_TABS.map((tab) => {
@@ -221,20 +234,8 @@ export function CommunityView({ companyData, analysisResult }: CommunityViewProp
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* ═══════ Main Content (3 cols) ═══════ */}
         <div className="lg:col-span-3 space-y-5">
-          {/* Smart Search Hero */}
+          {/* Quick Filters */}
           <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={placeholder}
-                className="flex h-14 w-full rounded-2xl border border-border bg-card pl-12 pr-4 text-base shadow-sm ring-offset-background placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-shadow"
-              />
-            </div>
-
-            {/* Quick Filters */}
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {QUICK_FILTERS.map((filter) => (
                 <button
