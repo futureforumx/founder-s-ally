@@ -99,6 +99,79 @@ function formatWithCommas(num: number): string {
   return num.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
+function evaluateSmartMath(input: string): number | null {
+  if (!input || typeof input !== "string") return null;
+  // Check if it contains math operators (beyond just a number)
+  const hasMathOps = /[+\-*/()]/.test(input.replace(/^\$/, "").replace(/^-/, ""));
+  let cleanExpression = input.replace(/[$,kKmM]/g, (match) => {
+    if (match.toLowerCase() === "k") return "*1000";
+    if (match.toLowerCase() === "m") return "*1000000";
+    return "";
+  }).replace(/[^0-9.+\-*/()]/g, "");
+  if (!cleanExpression) return null;
+  try {
+    const result = new Function(`return ${cleanExpression}`)();
+    return isFinite(result) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+// Smart onBlur: evaluate math expressions, then format
+function smartBlurCurrency(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(n) : null;
+}
+
+function smartBlurPercent(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(Math.round(n)) : null;
+}
+
+function smartBlurInteger(raw: string): string | null {
+  const mathResult = evaluateSmartMath(raw);
+  if (mathResult !== null && mathResult > 0) return formatWithCommas(Math.round(mathResult));
+  const n = parseSmartNumber(raw);
+  return n ? formatWithCommas(n) : null;
+}
+
+// Metric tooltip definitions
+const METRIC_TOOLTIPS: Record<string, { definition: string; formula?: string }> = {
+  mrr: { definition: "Monthly Recurring Revenue — predictable revenue earned each month from subscriptions.", formula: "Total active subscriptions × price" },
+  arr: { definition: "Annual Recurring Revenue — your MRR extrapolated over 12 months.", formula: "MRR × 12" },
+  momGrowth: { definition: "Month-over-Month growth rate of your key revenue metric.", formula: "((This Month − Last Month) / Last Month) × 100" },
+  yoyGrowth: { definition: "Year-over-Year growth rate comparing the same period across years.", formula: "((This Year − Last Year) / Last Year) × 100" },
+  burnRate: { definition: "How much cash you spend per period beyond what you earn.", formula: "Total Expenses − Total Revenue" },
+  cac: { definition: "Customer Acquisition Cost — average spend to acquire one new customer.", formula: "Total Sales & Marketing Spend / New Customers" },
+  ltv: { definition: "Lifetime Value — total revenue expected from a single customer over their lifetime.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan" },
+  ltvCac: { definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is healthy.", formula: "LTV / CAC" },
+  nrr: { definition: "Net Revenue Retention — measures expansion & churn within existing customers. 100%+ means net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR × 100" },
+  headcount: { definition: "Total number of full-time employees across all departments." },
+};
+
+function MetricTooltip({ metricKey }: { metricKey: string }) {
+  const tip = METRIC_TOOLTIPS[metricKey];
+  if (!tip) return null;
+  return (
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-help">
+          <Info className="h-3 w-3 text-muted-foreground/40 hover:text-accent transition-colors" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="bg-slate-900 text-white p-3 rounded-lg text-xs shadow-xl max-w-[220px] border-slate-700 space-y-1.5">
+        <p className="font-medium">{tip.definition}</p>
+        {tip.formula && <p className="text-slate-300 font-mono text-[10px]">Formula: {tip.formula}</p>}
+        <p className="text-slate-400 text-[10px] italic">💡 Tip: You can enter formulas here (e.g. 5000/250) and we'll calculate the result!</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 // ── Metric period conversion helpers ──
 function mrrToArr(mrr: string): string {
   const n = parseSmartNumber(mrr);
