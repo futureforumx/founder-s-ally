@@ -272,6 +272,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     } catch { return {}; }
   });
 
+  const REVIEW_ORDER = ["overview", "positioning", "metrics", "social"] as const;
+  const [activeReviewSection, setActiveReviewSection] = useState<string | null>(null);
+  const isInReviewMode = activeReviewSection !== null;
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     overview: true, positioning: true, metrics: true, social: true,
   });
@@ -658,6 +662,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setMetricsUnlocked(true);
       setOriginalFormSnapshot(null);
       setDataSource("ai");
+      // Reset section confirmations and enter review mode
+      setSectionConfirmed({});
+      enterReviewMode("overview");
 
       const deckInvestors = analysisData.extractedInvestors || [];
       const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
@@ -758,6 +765,35 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
     setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
+
+    // Auto-advance to next section in review mode
+    if (isInReviewMode) {
+      const currentIdx = REVIEW_ORDER.indexOf(section as typeof REVIEW_ORDER[number]);
+      const nextSection = REVIEW_ORDER[currentIdx + 1];
+      if (nextSection) {
+        setTimeout(() => {
+          setActiveReviewSection(nextSection);
+          setOpenSections(prev => ({ ...prev, [nextSection]: true }));
+        }, 200);
+      } else {
+        // All sections reviewed — exit review mode
+        setActiveReviewSection(null);
+      }
+    }
+  };
+
+  // Enter review mode: collapse all except the target section
+  const enterReviewMode = (startSection: string) => {
+    setActiveReviewSection(startSection);
+    const newOpen: Record<string, boolean> = {};
+    REVIEW_ORDER.forEach(s => { newOpen[s] = s === startSection; });
+    setOpenSections(newOpen);
+  };
+
+  // Manual accordion toggle exits strict review mode
+  const handleManualToggle = (section: string, value: boolean) => {
+    if (isInReviewMode) setActiveReviewSection(null);
+    setOpenSections(prev => ({ ...prev, [section]: value }));
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
   const handleConfirmProfile = () => {
@@ -979,13 +1015,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
-            <Collapsible open={openSections.overview} onOpenChange={v => setOpenSections(p => ({...p, overview: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       💼 Company Overview
                       {sectionConfirmed.overview && <Check className="h-3.5 w-3.5 text-success" />}
+                      {analysisComplete && !sectionConfirmed.overview && !confirmed && (
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                      )}
                     </h3>
                     <div className="flex items-center gap-2">
                       {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
@@ -1164,13 +1203,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
-            <Collapsible open={openSections.positioning} onOpenChange={v => setOpenSections(p => ({...p, positioning: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "positioning" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <Target className="h-3.5 w-3.5 text-accent" /> Positioning
                       {sectionConfirmed.positioning && <Check className="h-3.5 w-3.5 text-success" />}
+                      {analysisComplete && !sectionConfirmed.positioning && !confirmed && (
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                      )}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.positioning ? 'rotate-180' : ''}`} />
                   </button>
@@ -1227,14 +1269,17 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
-            <Collapsible open={openSections.metrics} onOpenChange={v => setOpenSections(p => ({...p, metrics: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <div className="flex items-center justify-between p-6">
                   <CollapsibleTrigger asChild>
                     <button className="flex items-center gap-2 text-left">
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
                         {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
+                        {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
+                          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                        )}
                       </h3>
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
                     </button>
@@ -1423,13 +1468,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 4: Social Links ─── */}
-            <Collapsible open={openSections.social} onOpenChange={v => setOpenSections(p => ({...p, social: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.social} onOpenChange={v => handleManualToggle("social", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       Social Links
                       {sectionConfirmed.social && <Check className="h-3.5 w-3.5 text-success" />}
+                      {analysisComplete && !sectionConfirmed.social && !confirmed && (
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                      )}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.social ? 'rotate-180' : ''}`} />
                   </button>
