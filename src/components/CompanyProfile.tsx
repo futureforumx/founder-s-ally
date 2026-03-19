@@ -1523,7 +1523,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </ProfileField>
                   </div>
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "competitive" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
                   )}
                 </div>
               )}
