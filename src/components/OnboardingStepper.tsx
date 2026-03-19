@@ -40,6 +40,24 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [faviconError, setFaviconError] = useState(false);
   const [predictedStage, setPredictedStage] = useState("");
   const [predictedSector, setPredictedSector] = useState("");
+  const [shakeStep2, setShakeStep2] = useState(false);
+
+  const validateStep2 = (): boolean => {
+    const missing: string[] = [];
+    if (!stage) missing.push("Stage");
+    if (!sector) missing.push("Sector");
+    if (missing.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Missing Required Fields",
+        description: `Please select: ${missing.join(", ")}`,
+      });
+      setShakeStep2(true);
+      setTimeout(() => setShakeStep2(false), 600);
+      return false;
+    }
+    return true;
+  };
 
   const faviconUrl = useMemo(() => {
     if (!website.trim()) return null;
