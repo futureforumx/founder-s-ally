@@ -1185,33 +1185,66 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Target Customer {renderFieldBadge("targetCustomer")}
                         </label>
-                        <div className="space-y-2">
-                          <TaxonomyCombobox
-                            options={TARGET_CUSTOMER_OPTIONS}
-                            value=""
-                            onChange={v => {
-                              if (v && !form.targetCustomer.includes(v)) {
-                                update("targetCustomer", [...form.targetCustomer, v]);
-                              }
-                            }}
-                            placeholder="Search market..."
-                            isAiDraft={isFieldAiDraft("targetCustomer")}
-                          />
-                          {form.targetCustomer.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {form.targetCustomer.map(tc => (
-                                <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground">
-                                  {tc}
-                                  <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-muted-foreground hover:text-foreground transition-colors">
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                        <div className="relative">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button type="button" className={`w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center gap-1.5 overflow-hidden transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${form.targetCustomer.length ? 'border-input' : 'border-input text-muted-foreground'}`}>
+                                {form.targetCustomer.length > 0 ? (
+                                  <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0">
+                                    {form.targetCustomer.slice(0, 3).map(tc => (
+                                      <span key={tc} className="inline-flex items-center rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0 text-[11px] font-medium text-accent whitespace-nowrap">
+                                        {tc}
+                                      </span>
+                                    ))}
+                                    {form.targetCustomer.length > 3 && (
+                                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">+{form.targetCustomer.length - 3}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span>Select markets...</span>
+                                )}
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[260px] p-2" align="start">
+                              <div className="space-y-1">
+                                {TARGET_CUSTOMER_OPTIONS.map(opt => {
+                                  const selected = form.targetCustomer.includes(opt.value);
+                                  return (
+                                    <button key={opt.value} type="button"
+                                      onClick={() => {
+                                        if (selected) {
+                                          update("targetCustomer", form.targetCustomer.filter(t => t !== opt.value));
+                                        } else {
+                                          update("targetCustomer", [...form.targetCustomer, opt.value]);
+                                        }
+                                      }}
+                                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
+                                        selected ? "bg-accent/10 text-accent font-medium" : "text-foreground hover:bg-muted"
+                                      }`}>
+                                      {opt.label}
+                                      {selected && <Check className="h-3 w-3 text-accent" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {form.targetCustomer.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-border flex flex-wrap gap-1">
+                                  {form.targetCustomer.map(tc => (
+                                    <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
+                                      {tc}
+                                      <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-accent/60 hover:text-accent transition-colors">
+                                        <X className="h-2.5 w-2.5" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                     </div>
