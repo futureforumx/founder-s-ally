@@ -1213,14 +1213,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                 {/* Run Analysis Button */}
                 {(() => {
-                  const isReady = !analysisComplete;
                   const isAnalyzedIdle = analysisComplete && !hasNewInputs;
-                  // hasNewInputs state already tracked
-                  const btnClass = isAnalyzedIdle
-                    ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
-                    : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
+                  const btnClass = isAnalyzing
+                    ? "flex w-full items-center justify-center gap-2 rounded-lg bg-accent/80 px-5 py-3 text-[13px] font-medium text-accent-foreground opacity-80 cursor-not-allowed mt-2"
+                    : isAnalyzedIdle
+                      ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+                      : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
                   const btnLabel = isAnalyzing
-                    ? STEP_LABELS[analyzeStep] || "Analyzing..."
+                    ? "Analyzing Data..."
                     : hasNewInputs
                       ? "Update AI Analysis"
                       : isAnalyzedIdle
@@ -1235,45 +1235,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   );
                 })()}
                 <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
-
-                {/* Inline analysis terminal */}
-                {isAnalyzing && (
-                  <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
-                    style={{ background: "rgba(15, 20, 30, 0.6)" }}>
-                    <div className="px-4 py-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                        <span className="font-mono text-[11px] text-accent">ANALYSIS ENGINE</span>
-                      </div>
-                      <div className="font-mono text-[10px] leading-relaxed space-y-1 max-h-28 overflow-y-auto" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
-                        {analyzeStep === "scraping" && (
-                          <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400">[PDF]</span> Parsing Deck Structure...</div>
-                        )}
-                        {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-purple-400">[PDF]</span> Deck layers extracted ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400">[WEB]</span> Scraping website content...</div>
-                          </>
-                        )}
-                        {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Cross-referencing SEC filings and funding news...</div>
-                          </>
-                        )}
-                        {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                          <>
-                            <div className="flex gap-2"><span className="text-yellow-400">[SEARCH]</span> Real-time data captured ✓</div>
-                            <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400">[AI]</span> Cross-referencing sources & mapping sectors...</div>
-                          </>
-                        )}
-                        {analyzeStep === "mapping" && (
-                          <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400">[MAP]</span> Mapping competitive landscape...</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
