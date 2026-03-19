@@ -45,8 +45,8 @@ const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
 // ── Smart Inputs ──
 
 function SmartCurrencyInput({
-  value, onChange, error,
-}: { value: string; onChange: (v: string) => void; error: string }) {
+  value, onChange, error, onError,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -64,8 +64,13 @@ function SmartCurrencyInput({
           onFocus={() => setLocal(value)}
           onBlur={() => {
             const raw = parseSmartNumber(local);
+            if (raw > LIMITS.arr) {
+              onError(`Limit exceeded. Max is $${LIMITS.arr.toLocaleString()}.`);
+            } else {
+              onError("");
+            }
             const capped = Math.min(raw, LIMITS.arr);
-            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            const formatted = formatWithCommas(capped);
             setLocal(formatted);
             onChange(formatted);
           }}
@@ -82,8 +87,8 @@ function SmartCurrencyInput({
 }
 
 function SmartPercentageInput({
-  value, onChange, error,
-}: { value: string; onChange: (v: string) => void; error: string }) {
+  value, onChange, error, onError,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -101,8 +106,13 @@ function SmartPercentageInput({
           onFocus={() => setLocal(value)}
           onBlur={() => {
             const raw = parseSmartNumber(local);
+            if (raw > LIMITS.yoy) {
+              onError(`Limit exceeded. Max is ${LIMITS.yoy.toLocaleString()}%.`);
+            } else {
+              onError("");
+            }
             const capped = Math.min(raw, LIMITS.yoy);
-            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            const formatted = formatWithCommas(capped);
             setLocal(formatted);
             onChange(formatted);
           }}
@@ -120,8 +130,8 @@ function SmartPercentageInput({
 }
 
 function SmartIntegerInput({
-  value, onChange, error,
-}: { value: string; onChange: (v: string) => void; error: string }) {
+  value, onChange, error, onError,
+}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
@@ -139,8 +149,13 @@ function SmartIntegerInput({
           onFocus={() => setLocal(value)}
           onBlur={() => {
             const raw = parseSmartNumber(local);
+            if (raw > LIMITS.headcount) {
+              onError(`Limit exceeded. Max is ${LIMITS.headcount.toLocaleString()}.`);
+            } else {
+              onError("");
+            }
             const capped = Math.min(raw, LIMITS.headcount);
-            const formatted = formatWithCommas(capped || parseSmartNumber(local));
+            const formatted = formatWithCommas(capped);
             setLocal(formatted);
             onChange(formatted);
           }}
@@ -166,36 +181,6 @@ export function GrowthMetrics({
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [errors, setErrors] = useState<FieldError>({ arr: "", yoy: "", headcount: "" });
-
-  const handleARR = (v: string) => {
-    const raw = parseSmartNumber(v);
-    if (raw > LIMITS.arr) {
-      setErrors((p) => ({ ...p, arr: `Limit exceeded. Max is $${LIMITS.arr.toLocaleString()}.` }));
-    } else {
-      setErrors((p) => ({ ...p, arr: "" }));
-    }
-    onChange("currentARR", v);
-  };
-
-  const handleYoY = (v: string) => {
-    const raw = parseSmartNumber(v);
-    if (raw > LIMITS.yoy) {
-      setErrors((p) => ({ ...p, yoy: `Limit exceeded. Max is ${LIMITS.yoy.toLocaleString()}%.` }));
-    } else {
-      setErrors((p) => ({ ...p, yoy: "" }));
-    }
-    onChange("yoyGrowth", v);
-  };
-
-  const handleHeadcount = (v: string) => {
-    const raw = parseSmartNumber(v);
-    if (raw > LIMITS.headcount) {
-      setErrors((p) => ({ ...p, headcount: `Limit exceeded. Max is ${LIMITS.headcount.toLocaleString()}.` }));
-    } else {
-      setErrors((p) => ({ ...p, headcount: "" }));
-    }
-    onChange("totalHeadcount", v);
-  };
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
@@ -226,15 +211,30 @@ export function GrowthMetrics({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase text-muted-foreground">Current ARR</label>
-              <SmartCurrencyInput value={currentARR} onChange={handleARR} error={errors.arr} />
+              <SmartCurrencyInput
+                value={currentARR}
+                onChange={(v) => onChange("currentARR", v)}
+                error={errors.arr}
+                onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
-              <SmartPercentageInput value={yoyGrowth} onChange={handleYoY} error={errors.yoy} />
+              <SmartPercentageInput
+                value={yoyGrowth}
+                onChange={(v) => onChange("yoyGrowth", v)}
+                error={errors.yoy}
+                onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase text-muted-foreground">Total Headcount</label>
-              <SmartIntegerInput value={totalHeadcount} onChange={handleHeadcount} error={errors.headcount} />
+              <SmartIntegerInput
+                value={totalHeadcount}
+                onChange={(v) => onChange("totalHeadcount", v)}
+                error={errors.headcount}
+                onError={(msg) => setErrors((p) => ({ ...p, headcount: msg }))}
+              />
             </div>
           </div>
 
