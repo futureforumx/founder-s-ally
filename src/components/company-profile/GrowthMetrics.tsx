@@ -100,8 +100,8 @@ function SmartCurrencyInput({
 }
 
 function SmartPercentageInput({
-  value, onChange, error, onError, shaking, onShake,
-}: { value: string; onChange: (v: string) => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
+  value, onChange, onStartEdit, error, onError, shaking, onShake,
+}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
