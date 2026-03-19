@@ -472,6 +472,29 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     });
     setAiSuggestions(newSuggestions);
     setAiUpdatedFields(updatedFields);
+    // Reset section confirmations on new analysis
+    setSectionConfirmed({});
+  };
+
+  // Apply structured metrics (burnRate, cac, ltv) from analysis result
+  const applyMetricsFromResult = (metrics: AnalysisResult["metrics"]) => {
+    if (!metrics) return;
+    setForm(prev => {
+      const next = { ...prev };
+      if (metrics.burnRate?.value && !userTouched.has("burnRate") && !prev.burnRate) {
+        next.burnRate = metrics.burnRate.value;
+        setAiUpdatedFields(f => new Set(f).add("burnRate"));
+      }
+      if (metrics.cac?.value && !userTouched.has("cac") && !prev.cac) {
+        next.cac = metrics.cac.value;
+        setAiUpdatedFields(f => new Set(f).add("cac"));
+      }
+      if (metrics.ltv?.value && !userTouched.has("ltv") && !prev.ltv) {
+        next.ltv = metrics.ltv.value;
+        setAiUpdatedFields(f => new Set(f).add("ltv"));
+      }
+      return next;
+    });
   };
 
   const handleReclassify = async () => {
