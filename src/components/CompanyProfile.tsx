@@ -925,6 +925,46 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setOpenSections(prev => ({ ...prev, [section]: value }));
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+
+  // Section fields for emptiness check
+  const sectionFields: Record<string, (keyof CompanyData)[]> = {
+    overview: ["stage", "sector", "businessModel", "targetCustomer", "hqLocation"],
+    positioning: ["uniqueValueProp", "competitors"],
+    metrics: ["currentARR", "yoyGrowth", "totalHeadcount", "burnRate", "cac", "ltv", "nrr"],
+    social: ["socialTwitter", "socialLinkedin", "socialInstagram"],
+  };
+
+  const isSectionEmpty = (section: string) => {
+    const fields = sectionFields[section] || [];
+    return fields.every(f => {
+      const v = form[f];
+      return !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+    });
+  };
+
+  // 3-state status dot: red (empty), yellow pulsing (needs review), green pulsing (approved)
+  const renderStatusDot = (section: string) => {
+    if (sectionConfirmed[section]) {
+      // Approved: pulsing green
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+        </span>
+      );
+    }
+    if (isSectionEmpty(section)) {
+      // Empty: static dull red
+      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
+    }
+    // Needs review: pulsing yellow
+    return (
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+      </span>
+    );
+  };
   const handleConfirmProfile = () => {
     setConfirmed(true);
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
@@ -1184,10 +1224,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <PhosphorBriefcase className="h-3.5 w-3.5 text-accent" /> Company Overview
-                      {sectionConfirmed.overview && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {analysisComplete && !sectionConfirmed.overview && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
-                      )}
+                      {renderStatusDot("overview")}
                     </h3>
                     <div className="flex items-center gap-2">
                       {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
@@ -1391,10 +1428,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <PhosphorCrosshair className="h-3.5 w-3.5 text-accent" /> Positioning
-                      {sectionConfirmed.positioning && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {analysisComplete && !sectionConfirmed.positioning && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
-                      )}
+                      {renderStatusDot("positioning")}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.positioning ? 'rotate-180' : ''}`} />
                   </button>
@@ -1457,10 +1491,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <PhosphorChartLine className="h-3.5 w-3.5 text-accent" /> Metrics
-                      {sectionConfirmed.metrics && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
-                      )}
+                      {renderStatusDot("metrics")}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
                   </button>
@@ -1675,10 +1706,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <PhosphorShareNetwork className="h-3.5 w-3.5 text-accent" /> Social Links
-                      {sectionConfirmed.social && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {analysisComplete && !sectionConfirmed.social && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
-                      )}
+                      {renderStatusDot("social")}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.social ? 'rotate-180' : ''}`} />
                   </button>
