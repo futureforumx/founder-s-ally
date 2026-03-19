@@ -165,9 +165,11 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
       }
 
-      // Pre-fill confirmed values
-      if (analysisData?.metrics?.mrr?.value) setMrr(analysisData.metrics.mrr.value);
-      if (analysisData?.metrics?.burnRate?.value) setBurnRate(analysisData.metrics.burnRate.value);
+      // Pre-fill confirmed values (sanitize nulls)
+      const mrrVal = analysisData?.metrics?.mrr?.value;
+      if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
+      const burnVal = analysisData?.metrics?.burnRate?.value;
+      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
