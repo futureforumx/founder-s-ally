@@ -229,9 +229,40 @@ const Index = () => {
           {activeView === "company" ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">My Company</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById("page-logo-input") as HTMLInputElement;
+                      input?.click();
+                    }}
+                    className="relative w-12 h-12 rounded-xl border border-border bg-muted/30 shadow-sm hover:ring-2 hover:ring-accent/20 transition-all cursor-pointer flex items-center justify-center overflow-hidden group shrink-0"
+                  >
+                    {(() => {
+                      try {
+                        const url = localStorage.getItem("company-logo-url");
+                        if (url) return <img src={url} alt="" className="w-full h-full object-contain rounded-xl" />;
+                      } catch {}
+                      const name = companyData?.name || "";
+                      if (name) return <span className="text-lg font-bold text-muted-foreground">{name.charAt(0).toUpperCase()}</span>;
+                      return <span className="text-lg font-bold text-muted-foreground">?</span>;
+                    })()}
+                  </button>
+                  <input id="page-logo-input" type="file" accept="image/*" className="hidden" onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f && f.type.startsWith("image/")) {
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const url = ev.target?.result as string;
+                        try { localStorage.setItem("company-logo-url", url); } catch {}
+                        setProfileKey(k => k + 1); // force re-render
+                      };
+                      reader.readAsDataURL(f);
+                    }
+                  }} />
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground">{companyData?.name || "My Company"}</h1>
+                    <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Last synced timecode */}
