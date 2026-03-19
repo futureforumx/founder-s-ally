@@ -415,8 +415,8 @@ export function SectorSubsectorPicker({
         </div>
 
         {sectorOpen && (
-          <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="p-2 border-b border-border">
+          <div className="absolute z-50 mt-1.5 w-full rounded-xl border border-border bg-popover shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="p-2.5 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <input
@@ -425,15 +425,33 @@ export function SectorSubsectorPicker({
                   onChange={e => { setSearch(e.target.value); setFocusIdx(-1); }}
                   onKeyDown={handleSectorKeyDown}
                   placeholder="Search 'SaaS', 'Construction', 'Crypto'..."
-                  className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring/30"
+                  className="w-full rounded-lg border border-input bg-background pl-8 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30"
                 />
+                <Sparkles className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent" />
               </div>
             </div>
-            <div className="max-h-52 overflow-y-auto p-1">
-              {filteredSectors.length === 0 ? (
+            <div className="max-h-52 overflow-y-auto p-1.5">
+              {/* Custom sector option */}
+              {search.trim() && !filteredSectors.some(s => s.toLowerCase() === search.trim().toLowerCase()) && (
+                <button
+                  type="button"
+                  onClick={() => handleSectorSelect(search.trim())}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-colors mb-0.5 ${
+                    focusIdx === 0 ? "bg-accent/10 text-accent" : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-accent" />
+                    <span>Use &lsquo;<span className="font-semibold text-accent">{search.trim()}</span>&rsquo; as custom sector</span>
+                  </span>
+                </button>
+              )}
+              {filteredSectors.length === 0 && !search.trim() ? (
                 <p className="px-3 py-2 text-xs text-muted-foreground">No matching sectors</p>
               ) : (
                 filteredSectors.map((s, i) => {
+                  const hasCustom = search.trim() && !filteredSectors.some(sec => sec.toLowerCase() === search.trim().toLowerCase());
+                  const adjustedIdx = hasCustom ? i + 1 : i;
                   // Highlight matching subsectors in the preview
                   const q = search.toLowerCase().trim();
                   const synonymMatches = q ? findSynonymMatches(q) : [];
@@ -449,8 +467,8 @@ export function SectorSubsectorPicker({
                       key={s}
                       type="button"
                       onClick={() => handleSectorSelect(s)}
-                      className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors ${
-                        i === focusIdx ? "bg-accent/10 text-foreground" :
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                        adjustedIdx === focusIdx ? "bg-accent/10 text-accent font-medium" :
                         s === sector ? "bg-accent/5 text-foreground font-medium" :
                         "text-foreground hover:bg-muted"
                       }`}
