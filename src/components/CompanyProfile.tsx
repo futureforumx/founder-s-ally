@@ -1073,10 +1073,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Target className="h-3.5 w-3.5 text-accent" /> Positioning & Links
-              </h3>
+            <Collapsible open={openSections.positioning} onOpenChange={v => setOpenSections(p => ({...p, positioning: v}))}>
+              <div className="rounded-2xl border border-border bg-card shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-6 text-left">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Target className="h-3.5 w-3.5 text-accent" /> Positioning & Links
+                      {sectionConfirmed.positioning && <Check className="h-3.5 w-3.5 text-success" />}
+                    </h3>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.positioning ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-6 pb-6 space-y-5">
 
               {/* UVP */}
               <div className="space-y-1.5">
