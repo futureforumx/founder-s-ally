@@ -91,16 +91,20 @@ function SectionProcessingIndicator({ isAnalyzing }: { isAnalyzing: boolean }) {
 }
 
 // Approve & Continue button injected at the bottom of walkthrough sections
-function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void }) {
+function ApproveAndContinueButton({ onClick, isFinal, onConfirm, isSaving }: { onClick: () => void; isFinal: boolean; onConfirm?: () => void; isSaving?: boolean }) {
   if (isFinal) {
     return (
       <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
         <button
           onClick={onConfirm}
-          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm"
+          disabled={isSaving}
+          className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/30 px-5 py-2.5 text-[13px] font-semibold text-success transition-all hover:bg-success/20 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShieldCheck className="h-4 w-4" />
-          Confirm Profile
+          {isSaving ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+          ) : (
+            <><ShieldCheck className="h-4 w-4" /> Confirm Profile</>
+          )}
         </button>
       </div>
     );
@@ -109,10 +113,14 @@ function ApproveAndContinueButton({ onClick, isFinal, onConfirm }: { onClick: ()
     <div className="flex justify-end pt-3 mt-3 border-t border-border/50">
       <button
         onClick={onClick}
-        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm"
+        disabled={isSaving}
+        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-[13px] font-medium text-accent-foreground transition-all hover:bg-accent/90 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Approve & Continue
-        <ArrowRight className="h-3.5 w-3.5" />
+        {isSaving ? (
+          <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+        ) : (
+          <>Approve & Continue <ArrowRight className="h-3.5 w-3.5" /></>
+        )}
       </button>
     </div>
   );
