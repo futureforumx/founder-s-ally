@@ -34,9 +34,12 @@ const SYSTEM_PROMPT = `You are a senior VC analyst. You will receive text extrac
    - currentARR: annual recurring revenue if mentioned
    - yoyGrowth: year-over-year growth percentage
    - totalHeadcount: team size / number of employees
-   - description: 1-sentence company description
+    - description: 1-sentence company description
     - stage: funding stage if mentioned
     - sector: primary sector — IMPORTANT: Prioritize INDUSTRY VERTICAL over business model. A SaaS company serving construction should be "Construction & Real Estate", not "Enterprise Software & SaaS". A fintech tool for healthcare should be "Health & Biotech", not "Fintech". Only use horizontal categories like "Enterprise Software & SaaS" or "Artificial Intelligence" when the company is truly horizontal/platform-agnostic. (MUST be one of: Construction & Real Estate, Industrial & Manufacturing, Enterprise Software & SaaS, Artificial Intelligence, Fintech, Climate & Energy, Health & Biotech, Consumer & Retail, Deep Tech & Space, Defense & GovTech)
+    - socialTwitter: Twitter/X profile URL if found on the website or deck (look for social media links, footer links, or icons linking to twitter.com or x.com)
+    - socialLinkedin: LinkedIn company page URL if found (look for linkedin.com/company/ links)
+    - socialInstagram: Instagram profile URL if found (look for instagram.com links)
 6. Semantic Sector Mapping using this taxonomy:
    - Construction & Real Estate: ConTech (Construction Tech), PropTech, Sustainable Materials, Infrastructure & Civil Engineering, Digital Twins & BIM, Residential Construction
    - Industrial & Manufacturing: Industrial Tech (Industry 4.0), Robotics & Automation, Supply Chain Tech, Warehousing Tech, Advanced Manufacturing, 3D Printing
