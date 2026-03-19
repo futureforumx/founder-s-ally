@@ -1540,6 +1540,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 dataSource={metricsConfirmed ? "deck" : "ai"}
                 defaultExpanded={metricsExpanded}
                 isProcessing={isAnalyzing}
+                onErrorStateChange={setMetricsHasErrors}
               />
             </div>
                 </div>
