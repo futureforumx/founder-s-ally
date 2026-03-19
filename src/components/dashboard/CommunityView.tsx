@@ -204,6 +204,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasProfile = !!companyData?.name;
 
@@ -223,6 +226,11 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
     setIsSearching(false);
   }, [searchQuery]);
 
+  // Reset pagination on filter/search change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery, activeFilter]);
+
   const filteredAll = ALL_FOUNDERS.filter((f) => {
     const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
@@ -234,6 +242,33 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       f.model.toLowerCase().includes(filterQ);
     return matchesSearch && matchesFilter;
   });
+
+  const hasMore = visibleCount < filteredAll.length;
+  const visibleFounders = filteredAll.slice(0, visibleCount);
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoadingMore) return;
+    setIsLoadingMore(true);
+    // Simulate network delay for smooth UX
+    setTimeout(() => {
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredAll.length));
+      setIsLoadingMore(false);
+    }, 400);
+  }, [hasMore, isLoadingMore, filteredAll.length]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const logoUrl = (() => {
     try { return localStorage.getItem("company-logo-url") || null; } catch { return null; }
