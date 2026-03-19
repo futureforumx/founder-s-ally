@@ -23,7 +23,7 @@ const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [dashboardView, setDashboardView] = useState<DashboardView>("company");
+  
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   
