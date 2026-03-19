@@ -699,6 +699,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
       setScanningMetrics(false);
       setAnalysisComplete(true);
+      const analyzedInputs = { url: form.website, hasDeck: !!deckText };
+      setLastAnalyzedInputs(analyzedInputs);
+      try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
       setMetricsUnlocked(true);
       setOriginalFormSnapshot(null);
       setDataSource("ai");
