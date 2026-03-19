@@ -346,6 +346,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
+
+  // Data source state for tracking manual vs AI edits
+  const [dataSource, setDataSource] = useState<"ai" | "deck" | "manual">(() => {
+    try { return (localStorage.getItem("company-data-source") as any) || "ai"; } catch { return "ai"; }
+  });
+  const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem("company-data-source", dataSource); } catch {}
+  }, [dataSource]);
   const OUTPUT_FIELDS: (keyof CompanyData)[] = ["description", "stage", "sector", "businessModel", "targetCustomer", "hqLocation", "uniqueValueProp", "currentARR", "yoyGrowth", "totalHeadcount", "competitors"];
 
   const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
