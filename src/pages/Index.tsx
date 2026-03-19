@@ -28,7 +28,16 @@ const Index = () => {
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.name) return false; // Already onboarded
+      }
+    } catch {}
+    return true;
+  });
   const [showTerminal, setShowTerminal] = useState(false);
   
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
