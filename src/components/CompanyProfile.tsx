@@ -1269,14 +1269,17 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
-            <Collapsible open={openSections.metrics} onOpenChange={v => setOpenSections(p => ({...p, metrics: v}))}>
-              <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
+              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <div className="flex items-center justify-between p-6">
                   <CollapsibleTrigger asChild>
                     <button className="flex items-center gap-2 text-left">
                       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         <TrendingUp className="h-3.5 w-3.5 text-accent" /> Metrics
                         {sectionConfirmed.metrics && <Check className="h-3.5 w-3.5 text-success" />}
+                        {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
+                          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-accent" /></span>
+                        )}
                       </h3>
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
                     </button>
