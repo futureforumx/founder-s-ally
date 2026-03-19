@@ -131,7 +131,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
-      if (saved) { const p = JSON.parse(saved); return { ...EMPTY_FORM, ...p, competitors: p.competitors || [], subsectors: p.subsectors || [] }; }
+      if (saved) {
+        const p = JSON.parse(saved);
+        // Sanitize: replace null/undefined/"null" with empty strings
+        const sanitized: Record<string, any> = {};
+        for (const [k, v] of Object.entries(p)) {
+          if (v === null || v === undefined || v === "null") {
+            sanitized[k] = Array.isArray(EMPTY_FORM[k as keyof CompanyData]) ? [] : "";
+          } else {
+            sanitized[k] = v;
+          }
+        }
+        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [] };
+      }
     } catch {}
     return { ...EMPTY_FORM };
   });
