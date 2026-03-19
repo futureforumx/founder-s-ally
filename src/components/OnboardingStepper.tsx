@@ -391,13 +391,13 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                   </Button>
                 )}
                 {step === 2 && !deckFile && (
-                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }}>
+                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={() => runAnalysis()}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue with Web Data"}
                   </Button>
                 )}
                 {step === 2 && deckFile && (
-                  <Button size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }} className={`animate-pulse hover:animate-none ${shakeStep2 ? "animate-shake" : ""}`}>
+                  <Button size="sm" disabled={isProcessing} onClick={() => runAnalysis()} className="animate-pulse hover:animate-none">
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Analyze Deck & Continue"}
                   </Button>
