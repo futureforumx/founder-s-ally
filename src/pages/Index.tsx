@@ -150,8 +150,8 @@ const Index = () => {
 
               {/* Confirm Profile — below everything */}
               {analysisResult && (
-                <div className="sticky bottom-0 z-20 border-t border-border bg-card/95 backdrop-blur-sm px-5 py-3 -mx-8 -mb-6" style={{ width: "calc(100% + 4rem)" }}>
-                  <div className="flex items-center justify-between px-3">
+                <div className="rounded-xl border border-border bg-card/95 backdrop-blur-sm px-5 py-3 shadow-sm">
+                  <div className="flex items-center justify-between">
                     <p className="text-[10px] text-muted-foreground">
                       {isProfileVerified ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
                     </p>
