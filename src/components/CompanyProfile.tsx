@@ -819,7 +819,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    // Validate metrics errors
+    if (metricsHasErrors) {
+      const ref = sectionRefs.current["metrics"];
+      if (ref) ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast({
+        title: "⚠️ Fix errors before confirming",
+        description: "Please correct the highlighted fields in Growth Metrics.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
     setConfirmed(true);
     setAiSuggestions({});
     setAiSuggestedSubsectors([]);
@@ -833,14 +847,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     
     setMetricsConfirmed(true);
     METRIC_FIELDS.forEach(f => setVerifiedFields(prev => new Set(prev).add(f)));
+
+    // Collapse all sections
+    setSectorExpanded(false);
+    setCategorizationExpanded(false);
+    setCompetitiveExpanded(false);
+    setMetricsExpanded(false);
     
-    setWalkthroughMode("done");
-    setIsExpanded(false);
+    // Persist
+    try {
+      localStorage.setItem("company-profile", JSON.stringify(form));
+      localStorage.setItem("company-profile-verified", "true");
+    } catch {}
     
     onSave?.(form);
     onProfileVerified?.(true);
+
+    // Brief saving feedback
+    await new Promise(r => setTimeout(r, 400));
+    setIsSaving(false);
     
-    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    setWalkthroughMode("done");
+    setIsExpanded(false);
     
     toast({
       title: "✅ Profile Verified",
