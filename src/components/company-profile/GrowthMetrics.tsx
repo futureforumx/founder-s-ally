@@ -262,7 +262,7 @@ export function GrowthMetrics({
               <label className="text-xs font-semibold uppercase text-muted-foreground">YoY Growth</label>
               <SmartPercentageInput
                 value={yoyGrowth}
-                onChange={(v) => onChange("yoyGrowth", v)}
+                onChange={(v) => handleChange("yoyGrowth", v)}
                 error={errors.yoy}
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
                 shaking={yoyShake.shaking}
