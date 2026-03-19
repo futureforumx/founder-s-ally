@@ -1675,6 +1675,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </div>
               )}
             </div>
+            </>
+            )}
                 </div>
               </div>
             </div>
