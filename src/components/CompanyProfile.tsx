@@ -762,6 +762,35 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
     setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
+
+    // Auto-advance to next section in review mode
+    if (isInReviewMode) {
+      const currentIdx = REVIEW_ORDER.indexOf(section as typeof REVIEW_ORDER[number]);
+      const nextSection = REVIEW_ORDER[currentIdx + 1];
+      if (nextSection) {
+        setTimeout(() => {
+          setActiveReviewSection(nextSection);
+          setOpenSections(prev => ({ ...prev, [nextSection]: true }));
+        }, 200);
+      } else {
+        // All sections reviewed — exit review mode
+        setActiveReviewSection(null);
+      }
+    }
+  };
+
+  // Enter review mode: collapse all except the target section
+  const enterReviewMode = (startSection: string) => {
+    setActiveReviewSection(startSection);
+    const newOpen: Record<string, boolean> = {};
+    REVIEW_ORDER.forEach(s => { newOpen[s] = s === startSection; });
+    setOpenSections(newOpen);
+  };
+
+  // Manual accordion toggle exits strict review mode
+  const handleManualToggle = (section: string, value: boolean) => {
+    if (isInReviewMode) setActiveReviewSection(null);
+    setOpenSections(prev => ({ ...prev, [section]: value }));
   };
   const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
   const handleConfirmProfile = () => {
