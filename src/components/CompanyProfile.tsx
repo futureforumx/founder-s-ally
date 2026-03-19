@@ -726,6 +726,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return "—";
   })();
 
+  // Section confirmation helpers
+  const confirmSection = (section: string) => {
+    setSectionConfirmed(prev => ({ ...prev, [section]: true }));
+    toast({ title: `${section} confirmed`, description: "Section verified and saved." });
+  };
+  const allSectionsConfirmed = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+  const handleConfirmProfile = () => {
+    setConfirmed(true);
+    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+    onProfileVerified?.(true);
+    toast({ title: "✅ Profile Verified", description: "Your company profile has been confirmed." });
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
