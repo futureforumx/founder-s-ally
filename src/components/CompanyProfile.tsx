@@ -1938,7 +1938,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* NRR */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      NRR {renderFieldBadge("nrr")}
+                      <RefreshCw className="h-3.5 w-3.5 text-accent" /> NRR {renderFieldBadge("nrr")}
                     </label>
                     <div className="relative">
                       <RefreshCw className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
