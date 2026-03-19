@@ -144,6 +144,7 @@ export default {
         "swipe-out-right": "swipe-out-right 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards",
         "slide-in-from-right": "slide-in-from-right 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
         "drop-in": "drop-in 0.3s ease-out forwards",
+        "shake": "shake 0.4s ease-in-out",
       },
     },
   },
