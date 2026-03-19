@@ -1095,7 +1095,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <div className="space-y-4">
                   <ProfileField label="Company Name *">
                     <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                      placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
+                      placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
                   </ProfileField>
                   <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
                     aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
