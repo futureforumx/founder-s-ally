@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { normalizeSector } from "@/components/company-profile/sectorNormalization";
 import { SmartSelect } from "@/components/onboarding/SmartSelect";
+import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
@@ -299,11 +300,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       options={stages}
                       predictedValue={predictedStage}
                     />
-                    <SmartSelect
-                      label="Sector"
+                    <SectorCombobox
                       value={sector}
                       onChange={setSector}
-                      options={sectors}
                       predictedValue={predictedSector}
                     />
                   </div>
