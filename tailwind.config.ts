@@ -123,6 +123,15 @@ export default {
           "0%": { transform: "translateY(-10px) scale(0.97)", opacity: "0" },
           "100%": { transform: "translateY(0) scale(1)", opacity: "1" },
         },
+        "shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "15%": { transform: "translateX(-4px)" },
+          "30%": { transform: "translateX(4px)" },
+          "45%": { transform: "translateX(-3px)" },
+          "60%": { transform: "translateX(3px)" },
+          "75%": { transform: "translateX(-2px)" },
+          "90%": { transform: "translateX(2px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
