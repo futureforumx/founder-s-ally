@@ -2045,6 +2045,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="relative">
                           <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
+                            onBlur={e => { const f = formatSocialUrl("instagram", e.target.value); if (f !== e.target.value) update("socialInstagram", f); }}
                             placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                         </div>
                       </div>
