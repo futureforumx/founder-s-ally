@@ -1259,30 +1259,43 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500 ease-out"
-                          style={{
-                            width: `${completion}%`,
-                            background: completion === 100
-                              ? "hsl(var(--success))"
-                              : "hsl(var(--accent))",
-                          }}
-                        />
-                      </div>
-                      <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
-                        {completion}%
-                      </Badge>
-                    </div>
-                    {analysisComplete && walkthroughMode !== "walkthrough" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-success">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-                        </span>
-                        Analyzed
-                      </span>
+                    {isAnalyzing ? (
+                      <>
+                        <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full animate-progress-fill" style={{ background: "hsl(var(--warning))" }} />
+                        </div>
+                        <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5 bg-warning/10 text-warning border-warning/20">
+                          In Progress
+                        </Badge>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500 ease-out"
+                              style={{
+                                width: `${completion}%`,
+                                background: completion === 100
+                                  ? "hsl(var(--success))"
+                                  : "hsl(var(--accent))",
+                              }}
+                            />
+                          </div>
+                          <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
+                            {completion}%
+                          </Badge>
+                        </div>
+                        {analysisComplete && walkthroughMode !== "walkthrough" && (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-success">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                            </span>
+                            Analyzed
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1293,11 +1306,108 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   onFocusCapture={handleOutputFocusCapture}
                   onBlurCapture={handleOutputBlurCapture}
                   className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+
                   {/* Pre-analysis placeholder */}
                   {!analysisComplete && !isAnalyzing && (
                     <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10">
                       <Lock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
+                    </div>
+                  )}
+
+                  {/* === CENTER STAGE TERMINAL (during analysis) === */}
+                  {isAnalyzing && (
+                    <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
+                      <div className="w-full max-w-lg rounded-2xl border border-accent/30 overflow-hidden terminal-glow"
+                        style={{ background: "linear-gradient(145deg, hsl(222 47% 8%), hsl(222 47% 12%))" }}>
+                        {/* Terminal header */}
+                        <div className="flex items-center gap-2 px-5 py-3 border-b border-accent/15">
+                          <div className="flex gap-1.5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
+                            <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
+                          </div>
+                          <div className="flex-1 flex items-center justify-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                            <span className="font-mono text-[11px] text-accent font-medium tracking-wider">ANALYSIS ENGINE</span>
+                          </div>
+                        </div>
+
+                        {/* Terminal body */}
+                        <div className="px-5 py-5 space-y-3 relative">
+                          {/* Laser scan overlay */}
+                          <div className="absolute inset-0 pointer-events-none deck-scan-line" />
+
+                          <div className="font-mono text-[11px] leading-loose space-y-2 relative z-10" style={{ color: "rgba(226, 232, 240, 0.75)" }}>
+                            {analyzeStep === "scraping" && (
+                              <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                <span className="text-purple-400 font-semibold">[PDF]</span>
+                                <span>Parsing Deck Structure...</span>
+                                <Loader2 className="h-3 w-3 animate-spin text-purple-400 ml-auto mt-0.5" />
+                              </div>
+                            )}
+                            {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-purple-400 font-semibold">[PDF]</span> Deck layers extracted ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-cyan-400 font-semibold">[WEB]</span>
+                                  <span>Scraping website content...</span>
+                                  {analyzeStep === "analyzing" && <Loader2 className="h-3 w-3 animate-spin text-cyan-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-cyan-400 font-semibold">[WEB]</span> Website scraped ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-yellow-400 font-semibold">[SEARCH]</span>
+                                  <span>Cross-referencing SEC filings and funding news...</span>
+                                  {analyzeStep === "deepSearch" && <Loader2 className="h-3 w-3 animate-spin text-yellow-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-yellow-400 font-semibold">[SEARCH]</span> Real-time data captured ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-emerald-400 font-semibold">[AI]</span>
+                                  <span>Cross-referencing sources & mapping sectors...</span>
+                                  {analyzeStep === "verifying" && <Loader2 className="h-3 w-3 animate-spin text-emerald-400 ml-auto mt-0.5" />}
+                                </div>
+                              </>
+                            )}
+                            {analyzeStep === "mapping" && (
+                              <>
+                                <div className="flex gap-2 opacity-50"><span className="text-emerald-400 font-semibold">[AI]</span> Sectors mapped ✓</div>
+                                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                  <span className="text-orange-400 font-semibold">[MAP]</span>
+                                  <span>Mapping competitive landscape...</span>
+                                  <Loader2 className="h-3 w-3 animate-spin text-orange-400 ml-auto mt-0.5" />
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Data particles */}
+                          <div className="flex justify-center gap-6 pt-4 overflow-hidden h-16">
+                            {["$ARR", "Growth", "Sector", "Stage", "HQ"].map((label, i) => (
+                              <div key={label} className="animate-particle-float text-[9px] font-mono text-accent/60 px-2 py-0.5 rounded-full border border-accent/20 bg-accent/5"
+                                style={{ animationDelay: `${i * 0.4}s`, animationIterationCount: "infinite" }}>
+                                {label}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Terminal footer */}
+                        <div className="px-5 py-3 border-t border-accent/15 flex items-center justify-between">
+                          <span className="font-mono text-[9px] text-accent/40">Triple-source triangulation active</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                            <span className="font-mono text-[9px] text-accent/60">LIVE</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
