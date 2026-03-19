@@ -36,13 +36,14 @@ export interface CompanyData {
   uniqueValueProp: string;
   currentARR: string;
   yoyGrowth: string;
+  momGrowth: string;
   totalHeadcount: string;
   // Social & additional metrics
   socialTwitter: string;
   socialLinkedin: string;
   socialInstagram: string;
   burnRate: string;
-  crr: string;
+  nrr: string;
   cac: string;
   ltv: string;
 }
