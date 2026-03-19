@@ -389,14 +389,19 @@ export function SectorSubsectorPicker({
           <button
             type="button"
             onClick={() => setSectorOpen(!sectorOpen)}
-            className={`flex-1 flex items-center justify-between rounded-lg border px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+            className={`flex-1 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 ${
               isAiDraft ? "bg-accent/5 border-accent/20" : "bg-background border-input"
             }`}
           >
-            <span className={sector ? "text-foreground" : "text-muted-foreground/50"}>
-              {sector || "Select sector"}
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className={`flex-1 ${sector ? "text-foreground" : "text-muted-foreground/50"}`}>
+              {sector || "Search or enter sector..."}
             </span>
-            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${sectorOpen ? "rotate-180" : ""}`} />
+            <Sparkles className="h-3.5 w-3.5 text-accent shrink-0" />
+            {sectorOpen
+              ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            }
           </button>
           {isAiDraft && sector && (
             <button
