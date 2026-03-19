@@ -604,6 +604,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
     setIsAnalyzing(true);
     setError(null);
+    setHasNewInputs(false);
     let scrapedMarkdown = "";
 
     // ── FOCUS MODE: Collapse all sections during analysis ──
