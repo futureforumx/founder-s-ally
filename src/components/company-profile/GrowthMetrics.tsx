@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 
 // ── Utilities ──
