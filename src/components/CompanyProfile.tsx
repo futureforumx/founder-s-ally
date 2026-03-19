@@ -1641,15 +1641,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                 })}
                               </div>
                               {form.targetCustomer.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-border flex flex-wrap gap-1">
-                                  {form.targetCustomer.map(tc => (
-                                    <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
-                                      {tc}
-                                      <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-accent/60 hover:text-accent transition-colors">
-                                        <X className="h-2.5 w-2.5" />
-                                      </button>
-                                    </span>
-                                  ))}
+                                <div className="mt-2 pt-2 border-t border-border">
+                                  <div className="flex flex-wrap gap-1">
+                                    {form.targetCustomer.map(tc => (
+                                      <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
+                                        {tc}
+                                        <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-accent/60 hover:text-accent transition-colors">
+                                          <X className="h-2.5 w-2.5" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <button type="button" onClick={() => update("targetCustomer", [])}
+                                    className="w-full mt-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors py-1 text-center">
+                                    Clear all
+                                  </button>
                                 </div>
                               )}
                             </PopoverContent>
