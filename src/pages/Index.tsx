@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { CompanyProfile, CompanyData, AnalysisResult, CompanyProfileHandle } from "@/components/CompanyProfile";
+import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
@@ -16,14 +16,13 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { Loader2, ShieldCheck, Check } from "lucide-react";
+import { RefreshCw, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
 
 const Index = () => {
-  const profileRef = useRef<CompanyProfileHandle>(null);
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -128,18 +127,17 @@ const Index = () => {
                 </div>
                 <div>
                   <button
-                    onClick={() => profileRef.current?.triggerAnalysis()}
-                    disabled={!profileRef.current?.canAnalyze || profileRef.current?.isAnalyzing}
-                    className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => {/* Re-sync triggers profile re-analysis */}}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
                   >
-                    {profileRef.current?.isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {profileRef.current?.analyzeStepLabel || "Run Analysis"}
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Re-sync Data
                   </button>
                 </div>
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile ref={profileRef} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
 
               {/* Strategy Room — at the bottom */}

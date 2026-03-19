@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, Search, HelpCircle, ArrowRight } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, ChevronDown, ChevronUp, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, ShieldCheck, Sparkles, Lock, AlertTriangle, CheckCircle2, Eye, ArrowRight } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { SectorClassification } from "@/components/SectorTags";
@@ -990,33 +990,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Walkthrough mode indicator */}
           {isWalkthrough && (
             <Badge variant="secondary" className="text-[9px] px-2 py-0.5 bg-accent/10 text-accent border-accent/20 gap-1 animate-pulse">
               <Eye className="h-2.5 w-2.5" /> Review {activeWalkthroughStep + 1}/{WALKTHROUGH_SECTIONS.length}
             </Badge>
           )}
-          {/* Completion progress bar + badge */}
-          <div className="flex items-center gap-2">
-            <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${completion}%`,
-                  background: completion === 100
-                    ? "hsl(var(--success))"
-                    : "hsl(var(--accent))",
-                }}
-              />
-            </div>
-            <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
-              {completion}%
-            </Badge>
-          </div>
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-          </span>
           {saveIndicator && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground animate-in fade-in">
               <Check className="h-3 w-3" /> {saveIndicator}
@@ -1024,7 +1002,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           )}
           {analysisComplete && walkthroughMode !== "walkthrough" && (
             <span className="flex items-center gap-1 text-[11px] font-medium text-success">
-              <Check className="h-3 w-3" /> Analyzed
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+              </span>
+              Analyzed
             </span>
           )}
           {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -1032,221 +1014,256 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </button>
 
       {isExpanded && (
-        <div className="border-t border-border px-5 pb-5 pt-4 space-y-5">
+        <div className="border-t border-border px-5 pb-5 pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* ═══════════════════════════════════════════════
-              TOP SECTION: INPUTS
-              ═══════════════════════════════════════════════ */}
-
-          {/* === Core Info === */}
-          <div className="grid grid-cols-2 gap-4">
-            <ProfileField label="Company Name *">
-              <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
-            </ProfileField>
-            <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
-              aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
-              <div className="flex items-center gap-1.5">
-                <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
-                  <option value="" disabled>Select stage</option>
-                  {stages.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                {renderAiUpdatedBadge("stage")}
-                {renderVerificationBadge("stage")}
-                {analysisComplete && <InsightIcon field="stage" label="Stage" />}
-              </div>
-            </ProfileField>
-          </div>
-
-          {/* Website URL */}
-          <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5">
-                {faviconUrl && faviconLoaded ? (
-                  <img
-                    src={faviconUrl}
-                    alt=""
-                    className="w-5 h-5 rounded-sm animate-in fade-in duration-300"
-                    onError={() => { setFaviconLoaded(false); setFaviconUrl(null); }}
-                  />
-                ) : (
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-              <input type="url" value={form.website}
-                onChange={e => {
-                  const url = e.target.value;
-                  update("website", url);
-
-                  if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
-                  faviconDebounceRef.current = setTimeout(() => {
-                    const domain = extractDomain(url);
-                    if (domain) {
-                      const fav = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-                      setFaviconUrl(fav);
-                      setFaviconLoaded(false);
-                      const img = new Image();
-                      img.onload = () => setFaviconLoaded(true);
-                      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
-                      img.src = fav;
-
-                      if (!form.name.trim() && !userTouched.has("name")) {
-                        const cleaned = cleanDomainToName(domain);
-                        if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
-                      }
-                    } else {
-                      setFaviconUrl(null);
-                      setFaviconLoaded(false);
-                    }
-                  }, 300);
-
-                  if (logoSyncDebounceRef.current) clearTimeout(logoSyncDebounceRef.current);
-                  logoSyncDebounceRef.current = setTimeout(() => {
-                    const domain = extractDomain(url);
-                    if (!domain) { setSuggestedLogoUrl(null); return; }
-                    const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
-                    const testImg = new Image();
-                    testImg.onload = () => {
-                      if (!logoUrl) {
-                        setLogoUrl(hdLogoUrl);
-                        setLogoSyncBadge(true);
-                        setTimeout(() => setLogoSyncBadge(false), 3000);
-                      } else if (logoUrl !== hdLogoUrl) {
-                        setSuggestedLogoUrl(hdLogoUrl);
-                      }
-                    };
-                    testImg.onerror = () => {};
-                    testImg.src = hdLogoUrl;
-                  }, 500);
-                }}
-                placeholder="https://acme.com" maxLength={255}
-                className={`${inputCls("website")} pl-10`}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop, pricing, and header info</p>
-          </ProfileField>
-
-          {/* Pitch Deck */}
-          <ProfileField label="Pitch Deck (PDF)" icon={<FileText className="inline h-3 w-3" />}>
-            <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-              className={`relative flex items-center justify-between rounded-lg border-2 border-dashed px-4 py-3 transition-colors ${
-                scanningMetrics
-                  ? "border-accent/60 bg-accent/5 deck-scan-line"
-                  : "border-border bg-muted/30 hover:border-accent/40"
-              }`}>
-              <div className="flex items-center gap-3">
-                {scanningMetrics ? (
-                  <Loader2 className="h-4 w-4 text-accent animate-spin" />
-                ) : (
+            {/* ═══════════════════════════════════════════════
+                LEFT COLUMN: DATA SOURCES (col-span-4)
+                ═══════════════════════════════════════════════ */}
+            <div className="lg:col-span-4">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5 sticky top-6">
+                <div className="flex items-center gap-2 mb-4">
                   <Upload className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
+                </div>
+
+                {/* === Core Info === */}
+                <div className="space-y-4">
+                  <ProfileField label="Company Name *">
+                    <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                      placeholder="Acme Corp" maxLength={100} className={inputCls("name")} />
+                  </ProfileField>
+                  <ProfileField label="Stage" isAiDraft={isFieldAiDraft("stage")}
+                    aiSuggestion={aiSuggestions.stage} onApplySuggestion={() => update("stage", aiSuggestions.stage!)}>
+                    <div className="flex items-center gap-1.5">
+                      <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
+                        <option value="" disabled>Select stage</option>
+                        {stages.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {renderAiUpdatedBadge("stage")}
+                      {renderVerificationBadge("stage")}
+                      {analysisComplete && <InsightIcon field="stage" label="Stage" />}
+                    </div>
+                  </ProfileField>
+                </div>
+
+                {/* Website URL */}
+                <ProfileField label="Website URL" icon={<Globe className="inline h-3 w-3" />}>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5">
+                      {faviconUrl && faviconLoaded ? (
+                        <img
+                          src={faviconUrl}
+                          alt=""
+                          className="w-5 h-5 rounded-sm animate-in fade-in duration-300"
+                          onError={() => { setFaviconLoaded(false); setFaviconUrl(null); }}
+                        />
+                      ) : (
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <input type="url" value={form.website}
+                      onChange={e => {
+                        const url = e.target.value;
+                        update("website", url);
+
+                        if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
+                        faviconDebounceRef.current = setTimeout(() => {
+                          const domain = extractDomain(url);
+                          if (domain) {
+                            const fav = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                            setFaviconUrl(fav);
+                            setFaviconLoaded(false);
+                            const img = new Image();
+                            img.onload = () => setFaviconLoaded(true);
+                            img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
+                            img.src = fav;
+
+                            if (!form.name.trim() && !userTouched.has("name")) {
+                              const cleaned = cleanDomainToName(domain);
+                              if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
+                            }
+                          } else {
+                            setFaviconUrl(null);
+                            setFaviconLoaded(false);
+                          }
+                        }, 300);
+
+                        if (logoSyncDebounceRef.current) clearTimeout(logoSyncDebounceRef.current);
+                        logoSyncDebounceRef.current = setTimeout(() => {
+                          const domain = extractDomain(url);
+                          if (!domain) { setSuggestedLogoUrl(null); return; }
+                          const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+                          const testImg = new Image();
+                          testImg.onload = () => {
+                            if (!logoUrl) {
+                              setLogoUrl(hdLogoUrl);
+                              setLogoSyncBadge(true);
+                              setTimeout(() => setLogoSyncBadge(false), 3000);
+                            } else if (logoUrl !== hdLogoUrl) {
+                              setSuggestedLogoUrl(hdLogoUrl);
+                            }
+                          };
+                          testImg.onerror = () => {};
+                          testImg.src = hdLogoUrl;
+                        }, 500);
+                      }}
+                      placeholder="https://acme.com" maxLength={255}
+                      className={`${inputCls("website")} pl-10`}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
+                </ProfileField>
+
+                {/* Pitch Deck */}
+                <ProfileField label="Pitch Deck (PDF)" icon={<FileText className="inline h-3 w-3" />}>
+                  <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+                    className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 transition-colors ${
+                      scanningMetrics
+                        ? "border-accent/60 bg-accent/5 deck-scan-line"
+                        : "border-border bg-muted/30 hover:border-accent/40"
+                    }`}>
+                    {scanningMetrics ? (
+                      <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
+                    ) : (
+                      <Upload className="h-5 w-5 text-muted-foreground mb-2" />
+                    )}
+                    <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                      {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
+                    </span>
+                    {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
+                    <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+                  </div>
+                </ProfileField>
+
+                {/* Error */}
+                {error && (
+                  <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+                  </div>
                 )}
-                <span className={`text-sm ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                  {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
-                </span>
-                {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono">✓ Extracted</span>}
+
+                {/* Run Analysis Button */}
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2">
+                      {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run AI Analysis"}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                    AI will scrape your website and parse your pitch deck to auto-fill all sections. (Estimated time: 10-15s).
+                  </TooltipContent>
+                </Tooltip>
+                <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
+
+                {/* Inline analysis terminal */}
+                {isAnalyzing && (
+                  <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
+                    style={{ background: "rgba(15, 20, 30, 0.6)" }}>
+                    <div className="px-4 py-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                        <span className="font-mono text-[11px] text-accent">ANALYSIS ENGINE</span>
+                      </div>
+                      <div className="font-mono text-[10px] leading-relaxed space-y-1 max-h-28 overflow-y-auto" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
+                        {analyzeStep === "scraping" && (
+                          <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400">[PDF]</span> Parsing Deck Structure...</div>
+                        )}
+                        {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                          <>
+                            <div className="flex gap-2"><span className="text-purple-400">[PDF]</span> Deck layers extracted ✓</div>
+                            <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400">[WEB]</span> Scraping website content...</div>
+                          </>
+                        )}
+                        {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                          <>
+                            <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
+                            <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Cross-referencing SEC filings and funding news...</div>
+                          </>
+                        )}
+                        {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
+                          <>
+                            <div className="flex gap-2"><span className="text-yellow-400">[SEARCH]</span> Real-time data captured ✓</div>
+                            <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400">[AI]</span> Cross-referencing sources & mapping sectors...</div>
+                          </>
+                        )}
+                        {analyzeStep === "mapping" && (
+                          <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400">[MAP]</span> Mapping competitive landscape...</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-              <button onClick={() => fileInputRef.current?.click()}
-                className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80">Browse</button>
             </div>
-          </ProfileField>
 
-          {/* ═══════════════════════════════════════════════
-              THE TRIGGER: Run Analysis
-              ═══════════════════════════════════════════════ */}
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-1">
-              <p className="text-[10px] text-muted-foreground">
-                Triple-source triangulation: Deck + Website + Deep Search
-              </p>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-                    <HelpCircle className="h-3.5 w-3.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent side="top" className="w-64 text-xs p-3">
-                  We cross-reference your PDF, website, and live market data to ensure 95%+ accuracy in your profile.
-                </PopoverContent>
-              </Popover>
-            </div>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
-                  className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed">
-                  {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run Analysis"}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[280px] text-xs">
-                AI will scrape your website and parse your pitch deck to auto-fill all sections below. (Estimated time: 10-15s).
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Inline analysis terminal */}
-          {isAnalyzing && (
-            <div className="rounded-xl border border-accent/20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-300"
-              style={{ background: "rgba(15, 20, 30, 0.6)" }}>
-              <div className="px-4 py-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                  <span className="font-mono text-[11px] text-accent">ANALYSIS ENGINE</span>
+            {/* ═══════════════════════════════════════════════
+                RIGHT COLUMN: AI PROFILE (col-span-8)
+                ═══════════════════════════════════════════════ */}
+            <div className="lg:col-span-8">
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                {/* Right column header */}
+                <div className="flex items-center justify-between border-b border-border pb-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 overflow-hidden">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-accent" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">{form.name || "Company"} Profile</h3>
+                      <p className="text-[10px] text-muted-foreground">AI-populated from your data sources</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{
+                            width: `${completion}%`,
+                            background: completion === 100
+                              ? "hsl(var(--success))"
+                              : "hsl(var(--accent))",
+                          }}
+                        />
+                      </div>
+                      <Badge variant="secondary" className={`text-[10px] font-mono px-2 py-0.5 ${completion === 100 ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}`}>
+                        {completion}%
+                      </Badge>
+                    </div>
+                    {analysisComplete && walkthroughMode !== "walkthrough" && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-success">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                        </span>
+                        Analyzed
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="font-mono text-[10px] leading-relaxed space-y-1 max-h-28 overflow-y-auto" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
-                  {analyzeStep === "scraping" && (
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400">[PDF]</span> Parsing Deck Structure...</div>
-                  )}
-                  {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <>
-                      <div className="flex gap-2"><span className="text-purple-400">[PDF]</span> Deck layers extracted ✓</div>
-                      <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400">[WEB]</span> Scraping website content...</div>
-                    </>
-                  )}
-                  {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <>
-                      <div className="flex gap-2"><span className="text-cyan-400">[WEB]</span> Website scraped ✓</div>
-                      <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400">[SEARCH]</span> Cross-referencing SEC filings and funding news for investors...</div>
-                    </>
-                  )}
-                  {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <>
-                      <div className="flex gap-2"><span className="text-yellow-400">[SEARCH]</span> Real-time data captured ✓</div>
-                      <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400">[AI]</span> Cross-referencing sources & mapping sectors...</div>
-                    </>
-                  )}
-                  {analyzeStep === "mapping" && (
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400">[MAP]</span> Mapping competitive landscape...</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* ═══════════════════════════════════════════════
-              OUTPUT SECTIONS
-              ═══════════════════════════════════════════════ */}
-
-          <div
-            ref={outputSectionsRef}
-            onFocusCapture={handleOutputFocusCapture}
-            onBlurCapture={handleOutputBlurCapture}
-            className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
-            {/* Pre-analysis placeholder */}
-            {!analysisComplete && !isAnalyzing && (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
-              </div>
-            )}
+                {/* AI Profile Content */}
+                <div
+                  ref={outputSectionsRef}
+                  onFocusCapture={handleOutputFocusCapture}
+                  onBlurCapture={handleOutputBlurCapture}
+                  className={`space-y-4 transition-all duration-500 ${!analysisComplete && !isAnalyzing ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+                  {/* Pre-analysis placeholder */}
+                  {!analysisComplete && !isAnalyzing && (
+                    <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Run analysis to auto-populate these fields</span>
+                    </div>
+                  )}
 
             {/* === SECTION: Sector & Subsectors === */}
             <div
@@ -1605,8 +1622,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 )}
               </div>
             </div>
-          </div>
+                </div>
+              </div>
+            </div>
 
+          </div>
         </div>
       )}
 
