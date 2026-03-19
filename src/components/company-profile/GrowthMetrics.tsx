@@ -251,18 +251,27 @@ export function GrowthMetrics({
   const BadgeIcon = badge.icon;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-surface">
-      <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
-        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <TrendingUp className="h-4 w-4 text-accent" />
+    <div className={`rounded-xl border border-border bg-card transition-all duration-300 ${isProcessing ? "" : "p-5 shadow-surface"}`}>
+      <div className={`flex items-center justify-between ${
+        isProcessing
+          ? "px-4 py-3 cursor-not-allowed opacity-70"
+          : "border-b border-border pb-3 mb-5"
+      }`}>
+        <span className={`flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground ${
+          isProcessing ? "text-[10px] font-mono" : "text-xs font-semibold tracking-wide"
+        }`}>
+          <TrendingUp className={isProcessing ? "h-3 w-3 text-accent" : "h-4 w-4 text-accent"} />
           Growth Metrics
         </span>
         <div className="flex items-center gap-2">
           {isProcessing ? (
-            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground animate-in fade-in duration-300">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Processing...
-            </span>
+            <>
+              <div className="flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin text-accent" />
+                <span className="text-[9px] font-mono text-accent animate-pulse">Processing...</span>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </>
           ) : (
             <>
               <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-all duration-200 ${badge.className}`}>
@@ -274,22 +283,20 @@ export function GrowthMetrics({
                   type="button"
                   title="Revert to original data"
                   onClick={handleRevert}
-                  disabled={isProcessing}
-                  className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
+              >
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            disabled={isProcessing}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
         </div>
       </div>
 
