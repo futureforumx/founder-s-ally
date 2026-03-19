@@ -1028,27 +1028,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 />
               </div>
 
-              {/* Social Links */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Social Links</label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="relative">
-                    <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
-                      placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
-                  </div>
-                  <div className="relative">
-                    <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
-                      placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
-                  </div>
-                  <div className="relative">
-                    <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
-                      placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
@@ -1219,6 +1198,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         placeholder="e.g. 25" className={`${inputCls("totalHeadcount")} pl-9`} />
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── CARD 4: Social Links ─── */}
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social Links</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="relative">
+                  <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
+                    placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
+                </div>
+                <div className="relative">
+                  <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
+                    placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
+                </div>
+                <div className="relative">
+                  <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
+                    placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                 </div>
               </div>
             </div>
