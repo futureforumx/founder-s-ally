@@ -363,6 +363,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     overview: null, positioning: null, metrics: null, social: null,
   });
 
+  // Validation error state for overview fields
+  const [overviewValidationErrors, setOverviewValidationErrors] = useState<Set<string>>(new Set());
+  const validationPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [overviewApproveLabel, setOverviewApproveLabel] = useState<string | null>(null);
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
@@ -467,6 +472,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
       setLogoUrl(publicUrl);
+      // Clear logo validation error and revoke section confirmation
+      setOverviewValidationErrors(prev => { const n = new Set(prev); n.delete("logo"); return n; });
+      if (sectionConfirmed.overview) setSectionConfirmed(prev => ({ ...prev, overview: false }));
     } catch (e: any) {
       setError(e.message || "Logo upload failed");
     } finally { setUploadingLogo(false); }
@@ -499,6 +507,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     const section = fieldToSection[field as string];
     if (section && sectionConfirmed[section]) {
       setSectionConfirmed(prev => ({ ...prev, [section]: false }));
+    }
+    // Clear validation error for this field
+    if (overviewValidationErrors.has(field)) {
+      setOverviewValidationErrors(prev => { const n = new Set(prev); n.delete(field); return n; });
     }
     // Mark that fields have been manually edited since last analysis
     if (analysisComplete) {
@@ -897,7 +909,43 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const ltvCacRatio = ltvCacOverride || autoLtvCacRatio || "—";
 
   // Section confirmation helpers
+  // Overview required fields for strict validation
+  const OVERVIEW_REQUIRED_FIELDS = ["stage", "sector", "businessModel", "targetCustomer", "hqLocation"] as const;
+
+  const getOverviewMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!logoUrl) missing.push("logo");
+    for (const f of OVERVIEW_REQUIRED_FIELDS) {
+      const v = form[f];
+      if (!v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "")) {
+        missing.push(f);
+      }
+    }
+    return missing;
+  };
+
+  const isOverviewComplete = () => getOverviewMissingFields().length === 0;
+
   const confirmSection = (section: string) => {
+    // Strict validation for overview
+    if (section === "overview") {
+      const missing = getOverviewMissingFields();
+      if (missing.length > 0) {
+        // Set validation errors with pulse
+        setOverviewValidationErrors(new Set(missing));
+        setOverviewApproveLabel("Missing Required Fields");
+        toast({ title: "Cannot approve", description: "Fill all required fields before approving.", variant: "destructive" });
+
+        // Pulse for 2s, then settle
+        if (validationPulseTimerRef.current) clearTimeout(validationPulseTimerRef.current);
+        validationPulseTimerRef.current = setTimeout(() => {
+          setOverviewValidationErrors(new Set());
+          setOverviewApproveLabel(null);
+        }, 2000);
+        return; // Do NOT approve
+      }
+    }
+
     setSectionConfirmed(prev => ({ ...prev, [section]: true }));
     setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
@@ -949,15 +997,34 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     });
   };
 
-  // 3-state status dot: red (empty), yellow pulsing (needs review), green pulsing (approved)
-  // IMPORTANT: Empty check comes FIRST — an empty section is always red regardless of prior approval
+  // 3-state status dot logic
+  // Overview uses strict validation: grey (missing required), amber (data present, unapproved), green (approved + complete)
+  // Other sections: red (empty), yellow (needs review), green (approved)
   const renderStatusDot = (section: string) => {
+    if (section === "overview") {
+      const complete = isOverviewComplete();
+      if (sectionConfirmed[section] && complete) {
+        // Approved + all filled: static green
+        return <span className="inline-flex rounded-full h-2 w-2 bg-success" />;
+      }
+      if (!complete) {
+        // Missing required fields: static grey
+        return <span className="inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />;
+      }
+      // All fields filled but not approved: pulsing amber
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+        </span>
+      );
+    }
+
+    // Other sections keep existing logic
     if (isSectionEmpty(section)) {
-      // Empty: static dull red
       return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
     }
     if (sectionConfirmed[section]) {
-      // Approved: pulsing green
       return (
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
@@ -965,7 +1032,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         </span>
       );
     }
-    // Needs review: pulsing yellow
     return (
       <span className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
@@ -995,13 +1061,22 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     walkthroughTimerRef.current = setTimeout(() => setWalkthroughActive(false), 3000);
   }, [sectionConfirmed, form]);
 
-  // Helper: CSS class for empty inputs during walkthrough
+  // Helper: CSS class for empty inputs during walkthrough OR validation errors
   const emptyFieldPulseClass = (field: keyof CompanyData) => {
+    // Validation error pulse (overview approve failed)
+    if (overviewValidationErrors.has(field)) {
+      return "ring-2 ring-red-400 ring-offset-1 animate-pulse";
+    }
     if (!walkthroughActive) return "";
     const v = form[field];
     const isEmpty = !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
     return isEmpty ? "ring-2 ring-primary/60 ring-offset-1 animate-pulse" : "";
   };
+
+  // Helper: CSS class for logo avatar validation error
+  const logoValidationClass = overviewValidationErrors.has("logo")
+    ? "ring-2 ring-red-400 ring-offset-1 animate-pulse"
+    : "";
 
   // Circular progress ring
   const CircularProgress = ({ percent }: { percent: number }) => {
@@ -1293,6 +1368,27 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
+                    {/* Company Logo */}
+                    <div className="space-y-1">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold">Company Logo</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-border bg-muted/30 overflow-hidden transition-all hover:border-accent/40 ${logoValidationClass}`}
+                        >
+                          {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="h-full w-full object-cover rounded-full" />
+                          ) : uploadingLogo ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          ) : (
+                            <Camera className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </button>
+                        <span className="text-[11px] text-muted-foreground">{logoUrl ? "Click to change" : "Upload a logo"}</span>
+                      </div>
+                    </div>
+
                     {/* Row 1: Stage | Sector */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
@@ -1465,8 +1561,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
                   ) : (
                     <button onClick={() => confirmSection("overview")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-                      <Check className="h-3.5 w-3.5" /> Approve Section
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-[11px] font-medium transition-colors ${
+                        overviewApproveLabel
+                          ? "border-destructive/30 bg-destructive/5 text-destructive cursor-not-allowed"
+                          : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                      }`}>
+                      {overviewApproveLabel ? (
+                        <><AlertCircle className="h-3.5 w-3.5" /> {overviewApproveLabel}</>
+                      ) : (
+                        <><Check className="h-3.5 w-3.5" /> Approve Company Overview</>
+                      )}
                     </button>
                   )}
                 </div>
