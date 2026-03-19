@@ -1491,10 +1491,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                       <PhosphorChartLine className="h-3.5 w-3.5 text-accent" /> Metrics
-                      {sectionConfirmed.metrics && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {analysisComplete && !sectionConfirmed.metrics && !confirmed && (
-                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-success" /></span>
-                      )}
+                      {renderStatusDot("metrics")}
                     </h3>
                     <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.metrics ? 'rotate-180' : ''}`} />
                   </button>
