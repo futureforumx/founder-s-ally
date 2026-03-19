@@ -142,6 +142,7 @@ const DIRECTORY_TABS = [
   { id: "members" as const, label: "Members", icon: Users },
   { id: "investors" as const, label: "Investors", icon: TrendingUp },
   { id: "locations" as const, label: "Locations", icon: MapPin },
+  { id: "all" as const, label: "All", icon: LayoutGrid },
 ] as const;
 
 type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
