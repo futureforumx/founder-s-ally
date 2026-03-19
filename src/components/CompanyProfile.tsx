@@ -356,6 +356,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   });
   const hasRunSmartResumption = useRef(false);
 
+  // Walkthrough mode: highlights empty fields with pulse
+  const [walkthroughActive, setWalkthroughActive] = useState(false);
+  const walkthroughTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({
+    overview: null, positioning: null, metrics: null, social: null,
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
@@ -813,7 +820,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const inputCls = (field: keyof CompanyData) =>
     `w-full rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-200 ${
       isFieldAiDraft(field) ? "border-accent/20 bg-accent/5" : "border-input bg-background"
-    }`;
+    } ${emptyFieldPulseClass(field)}`;
 
   const selectCls = (field: keyof CompanyData) =>
     `w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-200 appearance-none ${
@@ -966,6 +973,53 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </span>
     );
   };
+
+  // Guided walkthrough: find first section with empty/unapproved fields, open it, scroll, pulse
+  const triggerWalkthrough = useCallback(() => {
+    const targetSection = REVIEW_ORDER.find(s => !sectionConfirmed[s] || isSectionEmpty(s))
+      || REVIEW_ORDER.find(s => !sectionConfirmed[s]);
+    if (!targetSection) return;
+
+    const newOpen: Record<string, boolean> = {};
+    for (const s of REVIEW_ORDER) newOpen[s] = s === targetSection;
+    setOpenSections(newOpen);
+    setWalkthroughActive(true);
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        sectionRefs.current[targetSection]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    });
+
+    if (walkthroughTimerRef.current) clearTimeout(walkthroughTimerRef.current);
+    walkthroughTimerRef.current = setTimeout(() => setWalkthroughActive(false), 3000);
+  }, [sectionConfirmed, form]);
+
+  // Helper: CSS class for empty inputs during walkthrough
+  const emptyFieldPulseClass = (field: keyof CompanyData) => {
+    if (!walkthroughActive) return "";
+    const v = form[field];
+    const isEmpty = !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+    return isEmpty ? "ring-2 ring-primary/60 ring-offset-1 animate-pulse" : "";
+  };
+
+  // Circular progress ring
+  const CircularProgress = ({ percent }: { percent: number }) => {
+    const radius = 28;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percent / 100) * circumference;
+    return (
+      <svg width="72" height="72" viewBox="0 0 72 72" className="shrink-0">
+        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
+        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--primary))" strokeWidth="5"
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+          transform="rotate(-90 36 36)" className="transition-all duration-700 ease-out" />
+        <text x="36" y="36" textAnchor="middle" dominantBaseline="central"
+          className="fill-foreground text-[14px] font-bold">{percent}%</text>
+      </svg>
+    );
+  };
+
   const handleConfirmProfile = () => {
     setConfirmed(true);
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
@@ -1220,7 +1274,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
             <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
-              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <div ref={el => { sectionRefs.current.overview = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -1424,7 +1478,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
             {/* ─── CARD 2: Positioning & Links ─── */}
             <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>
-              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "positioning" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <div ref={el => { sectionRefs.current.positioning = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "positioning" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -1487,7 +1541,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
             <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
-              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <div ref={el => { sectionRefs.current.metrics = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -1702,7 +1756,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
             {/* ─── CARD 4: Social Links ─── */}
             <Collapsible open={openSections.social} onOpenChange={v => handleManualToggle("social", v)}>
-              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <div ref={el => { sectionRefs.current.social = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -1765,47 +1819,50 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
 
-            {/* ─── Final Profile Confirmation ─── */}
+            {/* ─── Profile Completion Card ─── */}
             {analysisComplete && !confirmed && (
-              <div className={`rounded-2xl border-2 border-dashed p-5 text-center space-y-3 transition-all duration-300 ${allSectionsConfirmed ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
-                {/* Value Exchange Callout */}
-                {completion < 100 && (
-                  <div className="rounded-lg border border-accent/20 bg-accent/5 p-4 mb-3 text-left">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">Maximize your AI recommendations.</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Your profile is {completion}% complete. Providing the missing metrics and positioning data will drastically improve the accuracy of your investor matches and market insights.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenSections({ overview: true, positioning: true, metrics: true, social: true });
-                            setActiveReviewSection(null);
-                          }}
-                          className="text-xs font-semibold text-accent hover:underline cursor-pointer mt-2 inline-block"
-                        >
-                          Highlight missing fields →
-                        </button>
+              <>
+                {allSectionsConfirmed && completion >= 100 ? (
+                  <div className="rounded-xl border border-success/30 bg-success/5 p-6 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-foreground">Profile 100% Complete & Live</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
+                        </div>
                       </div>
+                      <button onClick={handleConfirmProfile}
+                        className="inline-flex items-center gap-2 rounded-lg bg-success px-5 py-2.5 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90">
+                        <Check className="h-4 w-4" /> Confirm Profile
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border bg-card shadow-sm p-6 animate-fade-in">
+                    <div className="flex items-center gap-6">
+                      <CircularProgress percent={completion} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-bold text-foreground">Maximize your AI matches</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Complete the missing metrics and positioning data to unlock highly accurate investor recommendations.
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+                          {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
+                        </p>
+                      </div>
+                      <button
+                        onClick={triggerWalkthrough}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shrink-0 shadow-sm"
+                      >
+                        <PhosphorSparkle className="h-4 w-4" /> Complete Profile
+                      </button>
                     </div>
                   </div>
                 )}
-                {allSectionsConfirmed ? (
-                  <button onClick={handleConfirmProfile}
-                    className="inline-flex items-center gap-2 rounded-lg bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90 animate-in fade-in duration-300">
-                    <CheckCircle2 className="h-4 w-4" /> Confirm Entire Profile
-                  </button>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Approve all sections above to finalize your profile
-                    <span className="ml-2 font-mono text-[10px]">
-                      ({Object.values(sectionConfirmed).filter(Boolean).length}/4 sections)
-                    </span>
-                  </p>
-                )}
-              </div>
+              </>
             )}
 
             {confirmed && (
