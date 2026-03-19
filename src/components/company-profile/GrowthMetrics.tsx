@@ -282,6 +282,7 @@ export function GrowthMetrics({
               <SmartCurrencyInput
                 value={currentARR}
                 onChange={(v) => handleChange("currentARR", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.arr}
                 onError={(msg) => setErrors((p) => ({ ...p, arr: msg }))}
                 shaking={arrShake.shaking}
