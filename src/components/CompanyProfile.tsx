@@ -1152,13 +1152,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 )}
 
                 {/* Run Analysis Button */}
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2">
+                {(() => {
+                  const isReady = !analysisComplete;
+                  const isAnalyzedIdle = analysisComplete && !hasNewInputs;
+                  // hasNewInputs state already tracked
+                  const btnClass = isAnalyzedIdle
+                    ? "flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 py-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+                    : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed mt-2";
+                  const btnLabel = isAnalyzing
+                    ? STEP_LABELS[analyzeStep] || "Analyzing..."
+                    : hasNewInputs
+                      ? "Update AI Analysis"
+                      : isAnalyzedIdle
+                        ? "Re-run Analysis"
+                        : "Run AI Analysis";
+                  return (
+                    <button onClick={handleAnalyzeClick} disabled={!canAnalyze || isAnalyzing} className={btnClass}>
                       {isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {isAnalyzing ? STEP_LABELS[analyzeStep] || "Analyzing..." : "Run AI Analysis"}
+                      {!isAnalyzing && isAnalyzedIdle && <RefreshCw className="h-3.5 w-3.5" />}
+                      {btnLabel}
                     </button>
+                  );
+                })()}
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[280px] text-xs">
                     AI will scrape your website and parse your pitch deck to auto-fill all sections. (Estimated time: 10-15s).
