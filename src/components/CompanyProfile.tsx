@@ -242,6 +242,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // ── Walkthrough state ──
   const [walkthroughMode, setWalkthroughMode] = useState<WalkthroughMode>("idle");
   const [activeWalkthroughStep, setActiveWalkthroughStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [metricsHasErrors, setMetricsHasErrors] = useState(false);
   // Track which fields AI updated in this analysis run (for highlighting)
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
