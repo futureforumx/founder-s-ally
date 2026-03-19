@@ -1772,47 +1772,50 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
 
-            {/* ─── Final Profile Confirmation ─── */}
+            {/* ─── Profile Completion Card ─── */}
             {analysisComplete && !confirmed && (
-              <div className={`rounded-2xl border-2 border-dashed p-5 text-center space-y-3 transition-all duration-300 ${allSectionsConfirmed ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
-                {/* Value Exchange Callout */}
-                {completion < 100 && (
-                  <div className="rounded-lg border border-accent/20 bg-accent/5 p-4 mb-3 text-left">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">Maximize your AI recommendations.</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Your profile is {completion}% complete. Providing the missing metrics and positioning data will drastically improve the accuracy of your investor matches and market insights.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenSections({ overview: true, positioning: true, metrics: true, social: true });
-                            setActiveReviewSection(null);
-                          }}
-                          className="text-xs font-semibold text-accent hover:underline cursor-pointer mt-2 inline-block"
-                        >
-                          Highlight missing fields →
-                        </button>
+              <>
+                {allSectionsConfirmed && completion >= 100 ? (
+                  <div className="rounded-xl border border-success/30 bg-success/5 p-6 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-foreground">Profile 100% Complete & Live</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
+                        </div>
                       </div>
+                      <button onClick={handleConfirmProfile}
+                        className="inline-flex items-center gap-2 rounded-lg bg-success px-5 py-2.5 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90">
+                        <Check className="h-4 w-4" /> Confirm Profile
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border bg-card shadow-sm p-6 animate-fade-in">
+                    <div className="flex items-center gap-6">
+                      <CircularProgress percent={completion} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-bold text-foreground">Maximize your AI matches</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Complete the missing metrics and positioning data to unlock highly accurate investor recommendations.
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+                          {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
+                        </p>
+                      </div>
+                      <button
+                        onClick={triggerWalkthrough}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shrink-0 shadow-sm"
+                      >
+                        <PhosphorSparkle className="h-4 w-4" /> Complete Profile
+                      </button>
                     </div>
                   </div>
                 )}
-                {allSectionsConfirmed ? (
-                  <button onClick={handleConfirmProfile}
-                    className="inline-flex items-center gap-2 rounded-lg bg-success px-6 py-3 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90 animate-in fade-in duration-300">
-                    <CheckCircle2 className="h-4 w-4" /> Confirm Entire Profile
-                  </button>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Approve all sections above to finalize your profile
-                    <span className="ml-2 font-mono text-[10px]">
-                      ({Object.values(sectionConfirmed).filter(Boolean).length}/4 sections)
-                    </span>
-                  </p>
-                )}
-              </div>
+              </>
             )}
 
             {confirmed && (
