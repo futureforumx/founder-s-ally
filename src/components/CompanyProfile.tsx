@@ -256,6 +256,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [activeWalkthroughStep, setActiveWalkthroughStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [metricsHasErrors, setMetricsHasErrors] = useState(false);
+  // Required field validation errors
+  const [requiredErrors, setRequiredErrors] = useState<Set<string>>(new Set());
+  const [approveShaking, setApproveShaking] = useState(false);
   // Track which fields AI updated in this analysis run (for highlighting)
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
