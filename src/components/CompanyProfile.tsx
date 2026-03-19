@@ -468,8 +468,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         if (!aiVal) continue;
         const userVal = prev[key];
         const touched = userTouched.has(key);
-        if (!touched && (!userVal || userVal === "")) {
-          (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+        if (!touched && (!userVal || userVal === "" || (Array.isArray(userVal) && userVal.length === 0))) {
+          // Convert AI string to array for targetCustomer
+          if (key === "targetCustomer" && typeof aiVal === "string") {
+            (next as any)[key] = [aiVal];
+          } else {
+            (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+          }
           updatedFields.add(key);
         } else if (touched && userVal && String(userVal) !== String(aiVal)) {
           newSuggestions[key] = String(aiVal);
