@@ -356,6 +356,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   });
   const hasRunSmartResumption = useRef(false);
 
+  // Walkthrough mode: highlights empty fields with pulse
+  const [walkthroughActive, setWalkthroughActive] = useState(false);
+  const walkthroughTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({
+    overview: null, positioning: null, metrics: null, social: null,
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
