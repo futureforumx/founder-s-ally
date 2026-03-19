@@ -137,11 +137,21 @@ function FounderCard({ founder }: { founder: typeof MOCK_FOUNDERS[0] }) {
   );
 }
 
+const DIRECTORY_TABS = [
+  { id: "companies" as const, label: "Companies", icon: Building2 },
+  { id: "members" as const, label: "Members", icon: Users },
+  { id: "investors" as const, label: "Investors", icon: TrendingUp },
+  { id: "locations" as const, label: "Locations", icon: MapPin },
+] as const;
+
+type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
+
 export function CommunityView({ companyData, analysisResult }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
 
   const hasProfile = !!companyData?.name;
 
