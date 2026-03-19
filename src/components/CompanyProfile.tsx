@@ -1529,7 +1529,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Briefcase className="h-3 w-3 text-accent" />
-                  Sector & Subsectors
+                  Sector & Subsectors <span className="text-destructive">*</span>
                   {form.sector && (
                     <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 ml-1">{form.sector}</Badge>
                   )}
