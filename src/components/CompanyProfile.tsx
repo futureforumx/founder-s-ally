@@ -400,13 +400,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setConfirmed(false);
     setAiSuggestions(prev => { const n = { ...prev }; delete n[field]; return n; });
     setAiUpdatedFields(prev => { const n = new Set(prev); n.delete(field); return n; });
-    // Reset section confirmation if field is cleared
-    const isEmpty = Array.isArray(sanitized) ? sanitized.length === 0 : !sanitized || !sanitized.toString().trim();
-    if (isEmpty) {
-      const section = fieldToSection[field as string];
-      if (section && sectionConfirmed[section]) {
-        setSectionConfirmed(prev => ({ ...prev, [section]: false }));
-      }
+    // Reset section confirmation when any field in that section is edited
+    const section = fieldToSection[field as string];
+    if (section && sectionConfirmed[section]) {
+      setSectionConfirmed(prev => ({ ...prev, [section]: false }));
     }
     if (METRIC_FIELDS.includes(field)) {
       setVerifiedFields(prev => new Set(prev).add(field));
