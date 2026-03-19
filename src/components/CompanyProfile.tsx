@@ -363,6 +363,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     overview: null, positioning: null, metrics: null, social: null,
   });
 
+  // Validation error state for overview fields
+  const [overviewValidationErrors, setOverviewValidationErrors] = useState<Set<string>>(new Set());
+  const validationPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [overviewApproveLabel, setOverviewApproveLabel] = useState<string | null>(null);
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
