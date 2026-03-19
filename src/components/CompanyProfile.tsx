@@ -820,6 +820,36 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           ═══════════════════════════════════════════════ */}
       <div className="lg:col-span-8 space-y-6" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
 
+        {/* Right column header: Generated Profile + autosave + progress */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Generated Profile</h3>
+          <div className="flex items-center gap-4">
+            {/* Completion progress */}
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${completion}%`,
+                    background: completion >= 80 ? 'hsl(var(--success))' : completion >= 40 ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))',
+                  }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground">{completion}%</span>
+            </div>
+            {/* Autosave indicator — always visible when form has a name */}
+            {form.name && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                </span>
+                Auto-saving
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Analysis Terminal (during analysis) */}
         {isAnalyzing && (
           <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
