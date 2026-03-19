@@ -25,8 +25,20 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("company");
-  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
+  });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-analysis");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
