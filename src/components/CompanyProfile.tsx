@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info } from "lucide-react";
+import { Sparkle as PhSparkle, Check as PhCheck } from "@phosphor-icons/react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -126,7 +127,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <span className="inline-flex cursor-default">
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <PhSparkle className="h-3.5 w-3.5 text-muted-foreground/60" weight="fill" />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">✨ AI Suggested (Review to approve)</TooltipContent>
@@ -137,10 +138,10 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <span className="inline-flex cursor-default">
-          <Pencil className="h-3.5 w-3.5 text-primary" />
+          <PhCheck className="h-3.5 w-3.5 text-muted-foreground" weight="bold" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">✏️ Manually modified by you</TooltipContent>
+      <TooltipContent side="top" className="text-xs text-muted-foreground">Manually modified by you</TooltipContent>
     </Tooltip>
   );
 }
