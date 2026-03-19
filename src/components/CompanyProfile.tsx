@@ -1000,7 +1000,42 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
 
-                    {/* Row 1: Stage (1col) | Sector (2col) */}
+                    {/* Row 1 (Identity): Logo + HQ Location */}
+                    <div className="flex items-end gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold">Company Logo</label>
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="relative w-14 h-14 rounded-xl border border-border bg-muted/30 shadow-sm hover:ring-2 hover:ring-accent/20 transition-all cursor-pointer flex items-center justify-center overflow-hidden group"
+                        >
+                          {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                          ) : (
+                            <Camera className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                          )}
+                          {logoUrl && (
+                            <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                              <Camera className="h-4 w-4 text-foreground" />
+                            </div>
+                          )}
+                          {logoSyncBadge && (
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-accent-foreground font-bold shadow">
+                              <Sparkles className="h-2.5 w-2.5" />
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                          HQ Location {renderFieldBadge("hqLocation")}
+                        </label>
+                        <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                          className={`h-9 ${inputCls("hqLocation")}`} />
+                      </div>
+                    </div>
+
+                    {/* Row 2 (Fundamentals): Stage | Sector */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
@@ -1026,7 +1061,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           onChange={(v, opt) => {
                             const oldSector = form.sector;
                             update("sector", v);
-                            // Auto-populate subsectors from taxonomy default_subsectors
                             if (opt && "default_subsectors" in opt) {
                               const sectorOpt = opt as SectorOption;
                               setForm(prev => {
@@ -1046,7 +1080,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       </div>
                     </div>
 
-                    {/* Row 2: Subsectors (full-width, aligned under sector) */}
+                    {/* Subsectors (aligned under sector) */}
                     {form.sector && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-start-2 md:col-span-2">
@@ -1083,8 +1117,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       </div>
                     )}
 
-                    {/* Row 3: Business Model | Target Customer | HQ Location */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Row 3 (Positioning): Business Model | Target Customer */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Business Model {renderFieldBadge("businessModel")}
@@ -1108,13 +1142,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           placeholder="Search market..."
                           isAiDraft={isFieldAiDraft("targetCustomer")}
                         />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          HQ Location {renderFieldBadge("hqLocation")}
-                        </label>
-                        <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                          className={`h-9 ${inputCls("hqLocation")}`} />
                       </div>
                     </div>
 
