@@ -294,6 +294,7 @@ export function GrowthMetrics({
               <SmartPercentageInput
                 value={yoyGrowth}
                 onChange={(v) => handleChange("yoyGrowth", v)}
+                onStartEdit={() => onDataSourceChange?.("manual")}
                 error={errors.yoy}
                 onError={(msg) => setErrors((p) => ({ ...p, yoy: msg }))}
                 shaking={yoyShake.shaking}
