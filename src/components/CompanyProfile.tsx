@@ -1182,6 +1182,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       {renderVerificationBadge("stage")}
                       {analysisComplete && <InsightIcon field="stage" label="Stage" />}
                     </div>
+                    {requiredErrors.has("stage") && <p className="text-[10px] text-destructive mt-1">This field is required</p>}
                   </ProfileField>
                 </div>
 
