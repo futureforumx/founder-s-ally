@@ -366,7 +366,7 @@ const Index = () => {
                   />
                 )}
                 {dashboardView === "community" && (
-                  <CommunityView companyData={companyData} analysisResult={analysisResult} />
+                  <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
                 )}
               </div>
             </div>
