@@ -51,6 +51,7 @@ const Index = () => {
     return true;
   });
   const [showTerminal, setShowTerminal] = useState(false);
+  const [profileKey, setProfileKey] = useState(0);
   
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
