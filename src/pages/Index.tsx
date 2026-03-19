@@ -366,7 +366,7 @@ const Index = () => {
                   />
                 )}
                 {dashboardView === "community" && (
-                  <CommunityView />
+                  <CommunityView companyData={companyData} analysisResult={analysisResult} />
                 )}
               </div>
             </div>
