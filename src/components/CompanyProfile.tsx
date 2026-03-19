@@ -119,6 +119,23 @@ export interface CompanyProfileHandle {
   analyzeStepLabel: string;
 }
 
+// ── Thin Phosphor-style provenance icons ──
+function PhosphorSparkle({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M197.58,129.06l-51.61-19-19-51.65a4,4,0,0,0-7.5,0l-19,51.65-51.65,19a4,4,0,0,0,0,7.5l51.65,19,19,51.61a4,4,0,0,0,7.5,0l19-51.61,51.61-19a4,4,0,0,0,0-7.5Zm-54.08,20a4,4,0,0,0-2.47,2.47L128,185.09l-13-33.56a4,4,0,0,0-2.47-2.47L79,136l33.56-13a4,4,0,0,0,2.47-2.47L128,87l13,33.56a4,4,0,0,0,2.47,2.47L177.05,136ZM144,40a4,4,0,0,1-4,4,4,4,0,0,0-4,4,4,4,0,0,1-8,0,12,12,0,0,1,12-12,4,4,0,0,1,4,4Zm4,4a12,12,0,0,1,12-12,4,4,0,0,1,0,8,4,4,0,0,0-4,4,4,4,0,0,1-8,0Zm-12,12a4,4,0,0,1,4,4,12,12,0,0,1-12,12,4,4,0,0,1,0-8,4,4,0,0,0,4-4A4,4,0,0,1,136,56Zm-8,0a4,4,0,0,1-4,4,4,4,0,0,0-4,4,4,4,0,0,1-8,0,12,12,0,0,1,12-12A4,4,0,0,1,128,56ZM220,92a4,4,0,0,1-4,4,4,4,0,0,0-4,4,4,4,0,0,1-8,0,12,12,0,0,1,12-12A4,4,0,0,1,220,92Zm4,4a12,12,0,0,1,12-12,4,4,0,0,1,0,8,4,4,0,0,0-4,4,4,4,0,0,1-8,0Zm-12,12a4,4,0,0,1,4,4,12,12,0,0,1-12,12,4,4,0,0,1,0-8,4,4,0,0,0,4-4A4,4,0,0,1,212,108Zm-8,0a4,4,0,0,1-4,4,4,4,0,0,0-4,4,4,4,0,0,1-8,0,12,12,0,0,1,12-12A4,4,0,0,1,204,108Z"/>
+    </svg>
+  );
+}
+
+function PhosphorPencilSimple({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M225.9,74.78,181.21,30.09a14,14,0,0,0-19.8,0L38.1,153.41a13.94,13.94,0,0,0-4.1,9.9V208a14,14,0,0,0,14,14H92.69a13.94,13.94,0,0,0,9.9-4.1L225.9,94.58a14,14,0,0,0,0-19.8ZM94.1,209.41a2,2,0,0,1-1.41.59H48a2,2,0,0,1-2-2V163.31a2,2,0,0,1,.59-1.41L136,72.49,183.51,120ZM217.41,86.1,192,111.51,144.49,64,169.9,38.58a2,2,0,0,1,2.83,0l44.68,44.69a2,2,0,0,1,0,2.83Z"/>
+    </svg>
+  );
+}
+
 // ── Field provenance icon: AI vs Edited ──
 function FieldBadge({ isAi }: { isAi: boolean }) {
   if (isAi) {
@@ -126,7 +143,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <span className="inline-flex cursor-default">
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <PhosphorSparkle className="h-3.5 w-3.5 text-muted-foreground/60" />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">✨ AI Suggested (Review to approve)</TooltipContent>
@@ -137,7 +154,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <span className="inline-flex cursor-default">
-          <Pencil className="h-3.5 w-3.5 text-primary" />
+          <PhosphorPencilSimple className="h-3.5 w-3.5 text-primary" />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="text-xs">✏️ Manually modified by you</TooltipContent>
