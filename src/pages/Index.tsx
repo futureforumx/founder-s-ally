@@ -16,7 +16,7 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { Loader2, ShieldCheck, Check } from "lucide-react";
+import { RefreshCw, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
