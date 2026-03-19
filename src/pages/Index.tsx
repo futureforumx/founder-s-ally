@@ -23,7 +23,6 @@ import { supabase } from "@/integrations/supabase/client";
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
 
 const Index = () => {
-  const profileRef = useRef<CompanyProfileHandle>(null);
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
