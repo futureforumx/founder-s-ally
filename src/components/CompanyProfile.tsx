@@ -367,6 +367,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (file.size > 50 * 1024 * 1024) { setError("File too large. Maximum 50 MB."); return; }
     setError(null);
     setDeckFile(file);
+    if (analysisComplete) setHasNewInputs(true);
     try {
       if (name.endsWith(".txt")) { setDeckText(await file.text()); }
       else {
