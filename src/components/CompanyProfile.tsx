@@ -877,8 +877,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
                   const testImg = new Image();
                   testImg.onload = () => {
-                    if (!logoUrl) { setLogoUrl(hdLogoUrl); setLogoSyncBadge(true); setTimeout(() => setLogoSyncBadge(false), 3000); }
-                    else if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
+                    if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
                   };
                   testImg.onerror = () => {};
                   testImg.src = hdLogoUrl;
@@ -888,6 +887,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               />
             </div>
             <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
+            {/* Logo suggestion banner */}
+            {suggestedLogoUrl && (
+              <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
+                <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
+                <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
+                <button
+                  onClick={() => {
+                    setLogoUrl(suggestedLogoUrl);
+                    try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
+                    setSuggestedLogoUrl(null);
+                    setLogoSyncBadge(true);
+                    setTimeout(() => setLogoSyncBadge(false), 3000);
+                  }}
+                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => setSuggestedLogoUrl(null)}
+                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </div>
 
           {/* PITCH DECK */}
