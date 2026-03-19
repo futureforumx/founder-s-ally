@@ -931,11 +931,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const summaryParts = [form.name, form.stage, form.sector].filter(Boolean);
 
   // Section header classes for focus mode
-  const sectionHeaderClass = (section: WalkthroughSection) => {
+  const sectionHeaderClass = (_section: WalkthroughSection) => {
     const base = "flex w-full items-center justify-between px-4 py-3";
     if (walkthroughMode === "analyzing") return `${base} cursor-not-allowed opacity-70`;
-    if (isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] !== section) return `${base} cursor-not-allowed opacity-50`;
-    return `${base} cursor-pointer`;
+    return `${base} cursor-pointer hover:bg-muted/30 transition-colors`;
   };
 
   return (
