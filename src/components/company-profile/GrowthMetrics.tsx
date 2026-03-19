@@ -58,8 +58,8 @@ const LIMITS = { arr: 200_000_000, yoy: 500_000, headcount: 100_000 } as const;
 // ── Smart Inputs ──
 
 function SmartCurrencyInput({
-  value, onChange, onStartEdit, error, onError, shaking, onShake,
-}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void }) {
+  value, onChange, onStartEdit, error, onError, shaking, onShake, disabled,
+}: { value: string; onChange: (v: string) => void; onStartEdit?: () => void; error: string; onError: (msg: string) => void; shaking: boolean; onShake: () => void; disabled?: boolean }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const display = local !== value && document.activeElement !== inputRef.current ? value : local;
