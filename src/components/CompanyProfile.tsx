@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Sparkles, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X } from "lucide-react";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -148,7 +148,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             sanitized[k] = v;
           }
         }
-        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [] };
+        const tc = sanitized.targetCustomer;
+        const targetCustomerArr = Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []);
+        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr };
       }
     } catch {}
     return { ...EMPTY_FORM };
@@ -468,8 +470,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         if (!aiVal) continue;
         const userVal = prev[key];
         const touched = userTouched.has(key);
-        if (!touched && (!userVal || userVal === "")) {
-          (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+        if (!touched && (!userVal || userVal === "" || (Array.isArray(userVal) && userVal.length === 0))) {
+          // Convert AI string to array for targetCustomer
+          if (key === "targetCustomer" && typeof aiVal === "string") {
+            (next as any)[key] = [aiVal];
+          } else {
+            (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
+          }
           updatedFields.add(key);
         } else if (touched && userVal && String(userVal) !== String(aiVal)) {
           newSuggestions[key] = String(aiVal);
@@ -1169,13 +1176,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Target Customer {renderFieldBadge("targetCustomer")}
                         </label>
-                        <TaxonomyCombobox
-                          options={TARGET_CUSTOMER_OPTIONS}
-                          value={form.targetCustomer}
-                          onChange={v => update("targetCustomer", v)}
-                          placeholder="Search market..."
-                          isAiDraft={isFieldAiDraft("targetCustomer")}
-                        />
+                        <div className="space-y-2">
+                          <TaxonomyCombobox
+                            options={TARGET_CUSTOMER_OPTIONS}
+                            value=""
+                            onChange={v => {
+                              if (v && !form.targetCustomer.includes(v)) {
+                                update("targetCustomer", [...form.targetCustomer, v]);
+                              }
+                            }}
+                            placeholder="Search market..."
+                            isAiDraft={isFieldAiDraft("targetCustomer")}
+                          />
+                          {form.targetCustomer.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {form.targetCustomer.map(tc => (
+                                <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground">
+                                  {tc}
+                                  <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-muted-foreground hover:text-foreground transition-colors">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
