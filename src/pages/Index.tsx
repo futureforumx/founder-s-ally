@@ -127,12 +127,11 @@ const Index = () => {
                 </div>
                 <div>
                   <button
-                    onClick={() => profileRef.current?.triggerAnalysis()}
-                    disabled={!profileRef.current?.canAnalyze || profileRef.current?.isAnalyzing}
-                    className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    onClick={() => {/* Re-sync triggers profile re-analysis */}}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
                   >
-                    {profileRef.current?.isAnalyzing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {profileRef.current?.analyzeStepLabel || "Run Analysis"}
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Re-sync Data
                   </button>
                 </div>
               </div>
