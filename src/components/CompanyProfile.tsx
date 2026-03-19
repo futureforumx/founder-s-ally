@@ -253,6 +253,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     } catch { return {}; }
   });
 
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    overview: true, positioning: true, metrics: true, social: true,
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
