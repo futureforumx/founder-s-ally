@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles } from "lucide-react";
+import { TrendingUp, DollarSign, Users, Check, ChevronUp, ChevronDown, ShieldCheck, Pencil, Sparkles, RotateCcw } from "lucide-react";
 
 // ── Utilities ──
 
@@ -34,6 +34,12 @@ function useShake() {
 
 export type DataSource = "deck" | "ai" | "manual";
 
+interface OriginalMetrics {
+  currentARR: string;
+  yoyGrowth: string;
+  totalHeadcount: string;
+}
+
 interface GrowthMetricsProps {
   currentARR: string;
   yoyGrowth: string;
@@ -42,6 +48,7 @@ interface GrowthMetricsProps {
   onConfirm?: () => void;
   dataSource?: DataSource;
   onDataSourceChange?: (source: DataSource) => void;
+  originalDataSource?: DataSource;
   defaultExpanded?: boolean;
 }
 
@@ -204,6 +211,7 @@ export function GrowthMetrics({
   onChange, onConfirm,
   dataSource = "deck",
   onDataSourceChange,
+  originalDataSource = "deck",
   defaultExpanded = true,
 }: GrowthMetricsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -212,11 +220,23 @@ export function GrowthMetrics({
   const yoyShake = useShake();
   const headcountShake = useShake();
 
+  const [originalMetrics] = useState<OriginalMetrics>({
+    currentARR, yoyGrowth, totalHeadcount,
+  });
+
   const handleChange = (field: "currentARR" | "yoyGrowth" | "totalHeadcount", value: string) => {
     onChange(field, value);
     if (dataSource !== "manual") {
       onDataSourceChange?.("manual");
     }
+  };
+
+  const handleRevert = () => {
+    onChange("currentARR", originalMetrics.currentARR);
+    onChange("yoyGrowth", originalMetrics.yoyGrowth);
+    onChange("totalHeadcount", originalMetrics.totalHeadcount);
+    onDataSourceChange?.(originalDataSource);
+    setErrors({ arr: "", yoy: "", headcount: "" });
   };
 
   const badge = SOURCE_BADGE_CONFIG[dataSource];
@@ -234,6 +254,16 @@ export function GrowthMetrics({
             <BadgeIcon className="h-3 w-3" />
             {badge.label}
           </span>
+          {dataSource === "manual" && (
+            <button
+              type="button"
+              title="Revert to original data"
+              onClick={handleRevert}
+              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
