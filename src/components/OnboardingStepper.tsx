@@ -28,7 +28,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [stage, setStage] = useState("");
   const [sector, setSector] = useState("");
   const [mrr, setMrr] = useState("");
-  const [burnRate, setBurnRate] = useState("");
+  const [headcount, setHeadcount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStep, setProcessStep] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [predictedSector, setPredictedSector] = useState("");
   const [shakeStep2, setShakeStep2] = useState(false);
 
-  const validateStep2 = (): boolean => {
+  const [shakeStep3, setShakeStep3] = useState(false);
+
+  const validateStep3 = (): boolean => {
     const missing: string[] = [];
     if (!stage) missing.push("Stage");
     if (!sector) missing.push("Sector");
@@ -51,8 +53,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         title: "Missing Required Fields",
         description: `Please select: ${missing.join(", ")}`,
       });
-      setShakeStep2(true);
-      setTimeout(() => setShakeStep2(false), 600);
+      setShakeStep3(true);
+      setTimeout(() => setShakeStep3(false), 600);
       return false;
     }
     return true;
@@ -167,8 +169,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       // Pre-fill confirmed values (sanitize nulls)
       const mrrVal = analysisData?.metrics?.mrr?.value;
       if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
-      const burnVal = analysisData?.metrics?.burnRate?.value;
-      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
+      const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
+      if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -206,7 +208,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         uniqueValueProp: sanitize(analysisResult?.aiExtracted?.uniqueValueProp),
         currentARR: sanitize(analysisResult?.aiExtracted?.currentARR),
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
-        totalHeadcount: sanitize(analysisResult?.aiExtracted?.totalHeadcount),
+        totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
       };
       if (analysisResult) {
         onComplete(company, {
@@ -214,7 +216,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
           metrics: {
             ...analysisResult.metrics,
             mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
-            burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
+            burnRate: { value: sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
           },
         });
       }
@@ -323,9 +325,15 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       onRemove={() => { setDeckFile(null); setDeckText(""); }}
                     />
                   </div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <p className="text-xs text-muted-foreground">Confirm the metrics AI extracted. You can edit any value below.</p>
                   <div className="grid grid-cols-2 gap-3">
                     <SmartSelect
-                      label="Stage"
+                      label="Stage *"
                       value={stage}
                       onChange={setStage}
                       options={stages}
@@ -336,14 +344,6 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       onChange={setSector}
                       predictedValue={predictedSector}
                     />
-                  </div>
-                </>
-              )}
-
-              {step === 3 && (
-                <>
-                  <p className="text-xs text-muted-foreground">Confirm the metrics AI extracted. You can edit any value below.</p>
-                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">MRR</label>
                       <input type="text" value={mrr} onChange={(e) => setMrr(e.target.value)}
@@ -351,26 +351,10 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Burn Rate</label>
-                      <input type="text" value={burnRate} onChange={(e) => setBurnRate(e.target.value)}
-                        placeholder="e.g. $30K/mo"
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Headcount</label>
+                      <input type="text" value={headcount} onChange={(e) => setHeadcount(e.target.value)}
+                        placeholder="e.g. 25"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-                      <select value={stage} onChange={(e) => setStage(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select stage</option>
-                        {stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-                      <select value={sector} onChange={(e) => setSector(e.target.value)}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 appearance-none">
-                        <option value="">Select sector</option>
-                        {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
                     </div>
                   </div>
                   {analysisResult?.healthScore && (
@@ -407,19 +391,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                   </Button>
                 )}
                 {step === 2 && !deckFile && (
-                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }}>
+                  <Button variant="outline" size="sm" disabled={isProcessing} onClick={() => runAnalysis()}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue with Web Data"}
                   </Button>
                 )}
                 {step === 2 && deckFile && (
-                  <Button size="sm" disabled={isProcessing} onClick={() => { if (validateStep2()) runAnalysis(); }} className={`animate-pulse hover:animate-none ${shakeStep2 ? "animate-shake" : ""}`}>
+                  <Button size="sm" disabled={isProcessing} onClick={() => runAnalysis()} className="animate-pulse hover:animate-none">
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Analyze Deck & Continue"}
                   </Button>
                 )}
                 {step === 3 && (
-                  <Button size="sm" onClick={finalize} className="gap-1.5">
+                  <Button size="sm" onClick={() => { if (validateStep3()) finalize(); }} className={`gap-1.5 ${shakeStep3 ? "animate-shake" : ""}`}>
                     <Sparkles className="h-3.5 w-3.5" /> Sync & Launch Dashboard
                   </Button>
                 )}
