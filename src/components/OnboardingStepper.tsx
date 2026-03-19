@@ -9,11 +9,10 @@ import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
+import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
+
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
-const sectors = [
-  "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
-  "AI / ML", "Climate Tech", "Marketplace", "Developer Tools", "Edtech", "Other",
-];
+const sectors = Object.keys(SECTOR_TAXONOMY);
 
 interface OnboardingStepperProps {
   onComplete: (company: CompanyData, analysis: AnalysisResult) => void;
