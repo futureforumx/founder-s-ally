@@ -715,17 +715,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
           </div>
 
-          {/* STAGE */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              Stage *
-              {isFieldAiDraft("stage") && <Sparkles className="h-3 w-3 text-accent" />}
-            </label>
-            <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")} disabled={isAnalyzing}>
-              <option value="" disabled>Select stage</option>
-              {stages.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
 
           {/* WEBSITE URL */}
           <div className="space-y-1.5">
@@ -916,18 +905,127 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         {/* ═══ Cards only shown after analysis or when data exists ═══ */}
         {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
           <>
-            {/* ─── CARD 1: Overview & Links ─── */}
+            {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Briefcase className="h-3.5 w-3.5 text-accent" /> 💼 Company Overview
+                </h3>
+                {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                    <Sparkles className="h-2.5 w-2.5" /> AI Categorized
+                  </span>
+                )}
+              </div>
+
+              {/* Row 1: Stage | Sector | Subsectors */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    Stage {renderFieldBadge("stage")}
+                  </label>
+                  <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")}>
+                    <option value="" disabled>Select stage</option>
+                    {stages.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    Sector & Subsectors {renderFieldBadge("sector")}
+                  </label>
+                  <SectorSubsectorPicker
+                    sector={form.sector}
+                    subsectors={form.subsectors}
+                    onSectorChange={s => {
+                      const oldSector = form.sector;
+                      update("sector", s);
+                      setForm(prev => {
+                        const validSubs = prev.subsectors.filter(sub =>
+                          subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
+                        );
+                        if (validSubs.length < prev.subsectors.length && oldSector) {
+                          toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
+                        }
+                        return { ...prev, subsectors: validSubs };
+                      });
+                    }}
+                    onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
+                    aiSuggestedSector={aiSuggestions.sector}
+                    aiSuggestedSubsectors={aiSuggestedSubsectors}
+                    aiOverflowSubsectors={aiOverflowSubsectors}
+                    onApplyAiSector={aiSuggestions.sector ? () => {
+                      update("sector", aiSuggestions.sector!);
+                      if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
+                    } : undefined}
+                    isAiDraft={isFieldAiDraft("sector")}
+                    onReclassify={analysisComplete ? handleReclassify : undefined}
+                    isReclassifying={isReclassifying}
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Business Model | Target Customer | HQ Location */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    Business Model {renderFieldBadge("businessModel")}
+                  </label>
+                  <input type="text" value={form.businessModel} onChange={e => update("businessModel", e.target.value)}
+                    placeholder="e.g. SaaS, Marketplace" className={inputCls("businessModel")} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    Target Customer {renderFieldBadge("targetCustomer")}
+                  </label>
+                  <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
+                    <option value="" disabled>Select market</option>
+                    {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    HQ Location {renderFieldBadge("hqLocation")}
+                  </label>
+                  <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)} className={inputCls("hqLocation")} />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── CARD 2: Positioning & Links ─── */}
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-accent" /> Overview & Links
+                <Target className="h-3.5 w-3.5 text-accent" /> Positioning & Links
               </h3>
 
-              {/* HQ Location */}
+              {/* UVP */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  HQ Location {renderFieldBadge("hqLocation")}
+                  Unique Value Proposition {renderFieldBadge("uniqueValueProp")}
                 </label>
-                <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)} className={inputCls("hqLocation")} />
+                <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
+                  placeholder="What makes your product uniquely defensible?"
+                  rows={3} className={`${inputCls("uniqueValueProp")} min-h-[72px] resize-none`} />
+              </div>
+
+              {/* Competitors */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  Direct Competitors {renderFieldBadge("competitors")}
+                </label>
+                <CompetitorTagInput
+                  tags={form.competitors}
+                  onChange={v => update("competitors", v)}
+                  isAiDraft={isFieldAiDraft("competitors")}
+                  aiTags={aiCompetitors}
+                  onAiTagConfirm={(tag) => {
+                    setAiCompetitors(prev => {
+                      const next = prev.filter(t => t !== tag);
+                      try { localStorage.setItem("company-ai-competitors", JSON.stringify(next)); } catch {}
+                      return next;
+                    });
+                  }}
+                />
               </div>
 
               {/* Social Links */}
@@ -950,102 +1048,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* ─── CARD 2: Market Positioning ─── */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Briefcase className="h-3.5 w-3.5 text-accent" /> Market Positioning
-              </h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Left: Sector + Subsector */}
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Sector {renderFieldBadge("sector")}
-                    </label>
-                    <SectorSubsectorPicker
-                      sector={form.sector}
-                      subsectors={form.subsectors}
-                      onSectorChange={s => {
-                        const oldSector = form.sector;
-                        update("sector", s);
-                        setForm(prev => {
-                          const validSubs = prev.subsectors.filter(sub =>
-                            subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                          );
-                          if (validSubs.length < prev.subsectors.length && oldSector) {
-                            toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                          }
-                          return { ...prev, subsectors: validSubs };
-                        });
-                      }}
-                      onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                      aiSuggestedSector={aiSuggestions.sector}
-                      aiSuggestedSubsectors={aiSuggestedSubsectors}
-                      aiOverflowSubsectors={aiOverflowSubsectors}
-                      onApplyAiSector={aiSuggestions.sector ? () => {
-                        update("sector", aiSuggestions.sector!);
-                        if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                      } : undefined}
-                      isAiDraft={isFieldAiDraft("sector")}
-                      onReclassify={analysisComplete ? handleReclassify : undefined}
-                      isReclassifying={isReclassifying}
-                    />
-                  </div>
-                </div>
-
-                {/* Right: Business Model + Target Market */}
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Business Model {renderFieldBadge("businessModel")}
-                    </label>
-                    <input type="text" value={form.businessModel} onChange={e => update("businessModel", e.target.value)}
-                      placeholder="e.g. SaaS, Marketplace" className={inputCls("businessModel")} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Target Market {renderFieldBadge("targetCustomer")}
-                    </label>
-                    <select value={form.targetCustomer} onChange={e => update("targetCustomer", e.target.value)} className={selectCls("targetCustomer")}>
-                      <option value="" disabled>Select market</option>
-                      {targetCustomers.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Full width: UVP */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  Unique Value Proposition {renderFieldBadge("uniqueValueProp")}
-                </label>
-                <textarea value={form.uniqueValueProp} onChange={e => update("uniqueValueProp", e.target.value)}
-                  placeholder="What makes your product uniquely defensible?"
-                  rows={3} className={`${inputCls("uniqueValueProp")} min-h-[72px] resize-none`} />
-              </div>
-
-              {/* Full width: Competitors */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  Direct Competitors {renderFieldBadge("competitors")}
-                </label>
-                <CompetitorTagInput
-                  tags={form.competitors}
-                  onChange={v => update("competitors", v)}
-                  isAiDraft={isFieldAiDraft("competitors")}
-                  aiTags={aiCompetitors}
-                  onAiTagConfirm={(tag) => {
-                    setAiCompetitors(prev => {
-                      const next = prev.filter(t => t !== tag);
-                      try { localStorage.setItem("company-ai-competitors", JSON.stringify(next)); } catch {}
-                      return next;
-                    });
-                  }}
-                />
               </div>
             </div>
 
