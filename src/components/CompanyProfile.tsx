@@ -2005,20 +2005,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <div className="flex items-center gap-6">
                       <CircularProgress percent={completion} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-foreground">Maximize your AI matches</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Complete the missing metrics and positioning data to unlock highly accurate investor recommendations.
-                        </p>
+                        <p className="text-base font-bold text-foreground">{tier.title}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{tier.subtitle}</p>
                         <p className="text-[10px] text-muted-foreground mt-2 font-mono">
                           {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
                         </p>
                       </div>
-                      <button
-                        onClick={triggerWalkthrough}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shrink-0 shadow-sm"
-                      >
-                        <PhosphorSparkle className="h-4 w-4" /> Complete Profile
-                      </button>
+                      {tier.btnVariant === "solid" ? (
+                        <button
+                          onClick={triggerWalkthrough}
+                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-all bg-success text-success-foreground hover:bg-success/90 shadow-lg hover:-translate-y-0.5"
+                        >
+                          <PhosphorSparkle className="h-4 w-4" /> Finalize Profile
+                        </button>
+                      ) : (
+                        <button
+                          onClick={triggerWalkthrough}
+                          style={{ borderColor: tier.stroke, color: tier.stroke }}
+                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-colors border-2 bg-transparent hover:bg-accent/10"
+                        >
+                          <PhosphorSparkle className="h-4 w-4" /> Complete Profile
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
