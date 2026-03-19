@@ -1756,7 +1756,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
             {/* ─── CARD 4: Social Links ─── */}
             <Collapsible open={openSections.social} onOpenChange={v => handleManualToggle("social", v)}>
-              <div className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <div ref={el => { sectionRefs.current.social = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center justify-between p-6 text-left">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
