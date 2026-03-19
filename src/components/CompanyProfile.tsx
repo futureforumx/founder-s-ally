@@ -1169,13 +1169,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Target Customer {renderFieldBadge("targetCustomer")}
                         </label>
-                        <TaxonomyCombobox
-                          options={TARGET_CUSTOMER_OPTIONS}
-                          value={form.targetCustomer}
-                          onChange={v => update("targetCustomer", v)}
-                          placeholder="Search market..."
-                          isAiDraft={isFieldAiDraft("targetCustomer")}
-                        />
+                        <div className="space-y-2">
+                          <TaxonomyCombobox
+                            options={TARGET_CUSTOMER_OPTIONS}
+                            value=""
+                            onChange={v => {
+                              if (v && !form.targetCustomer.includes(v)) {
+                                update("targetCustomer", [...form.targetCustomer, v]);
+                              }
+                            }}
+                            placeholder="Search market..."
+                            isAiDraft={isFieldAiDraft("targetCustomer")}
+                          />
+                          {form.targetCustomer.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {form.targetCustomer.map(tc => (
+                                <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-foreground">
+                                  {tc}
+                                  <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-muted-foreground hover:text-foreground transition-colors">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 

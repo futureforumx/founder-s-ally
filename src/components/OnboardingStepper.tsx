@@ -202,7 +202,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         website,
         teamSize: sanitize(analysisResult?.agentData?.teamSize),
         businessModel: sanitize(analysisResult?.aiExtracted?.businessModel),
-        targetCustomer: sanitize(analysisResult?.aiExtracted?.targetCustomer),
+        targetCustomer: sanitize(analysisResult?.aiExtracted?.targetCustomer) ? [sanitize(analysisResult?.aiExtracted?.targetCustomer)] : [],
         hqLocation: sanitize(analysisResult?.aiExtracted?.hqLocation),
         competitors: analysisResult?.aiExtracted?.competitors?.filter(Boolean) || [],
         uniqueValueProp: sanitize(analysisResult?.aiExtracted?.uniqueValueProp),
