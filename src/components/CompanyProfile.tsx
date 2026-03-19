@@ -820,7 +820,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const inputCls = (field: keyof CompanyData) =>
     `w-full rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-200 ${
       isFieldAiDraft(field) ? "border-accent/20 bg-accent/5" : "border-input bg-background"
-    }`;
+    } ${emptyFieldPulseClass(field)}`;
 
   const selectCls = (field: keyof CompanyData) =>
     `w-full rounded-lg border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all duration-200 appearance-none ${
