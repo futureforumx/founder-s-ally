@@ -1082,6 +1082,58 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     ? "ring-2 ring-red-400 ring-offset-1 animate-pulse"
     : "";
 
+  // Dynamic tier logic
+  const getProgressTier = (percent: number) => {
+    if (percent >= 90) return {
+      stroke: "hsl(var(--success))",
+      ringClass: "drop-shadow-[0_0_8px_hsl(var(--success)/0.5)]",
+      title: "Ready for launch.",
+      subtitle: "Your profile is looking great. Finish the last details to finalize your data room.",
+      btnVariant: "solid" as const,
+    };
+    if (percent >= 50) return {
+      stroke: "hsl(38 92% 50%)",
+      ringClass: "drop-shadow-[0_0_8px_hsl(38_92%_50%/0.5)]",
+      title: "You're almost there.",
+      subtitle: "Just a few more fields to unlock highly accurate investor matches.",
+      btnVariant: "outline" as const,
+    };
+    return {
+      stroke: "hsl(var(--destructive))",
+      ringClass: "drop-shadow-[0_0_8px_hsl(var(--destructive)/0.5)]",
+      title: "Let's build your foundation.",
+      subtitle: "Complete your core metrics to start generating AI insights.",
+      btnVariant: "outline" as const,
+    };
+  };
+
+  const tier = getProgressTier(completion);
+
+  // Animated counter hook
+  const useAnimatedNumber = (target: number) => {
+    const [display, setDisplay] = useState(target);
+    const rafRef = useRef<number>();
+    useEffect(() => {
+      const start = display;
+      const diff = target - start;
+      if (diff === 0) return;
+      const duration = 600;
+      const startTime = performance.now();
+      const step = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setDisplay(Math.round(start + diff * eased));
+        if (progress < 1) rafRef.current = requestAnimationFrame(step);
+      };
+      rafRef.current = requestAnimationFrame(step);
+      return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [target]);
+    return display;
+  };
+
+  const animatedCompletion = useAnimatedNumber(completion);
+
   // Circular progress ring
   const CircularProgress = ({ percent }: { percent: number }) => {
     const radius = 28;
@@ -1090,11 +1142,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return (
       <svg width="72" height="72" viewBox="0 0 72 72" className="shrink-0">
         <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
-        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--primary))" strokeWidth="5"
+        <circle cx="36" cy="36" r={radius} fill="none" stroke={tier.stroke} strokeWidth="5"
           strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
-          transform="rotate(-90 36 36)" className="transition-all duration-700 ease-out" />
+          transform="rotate(-90 36 36)" className={`transition-all duration-700 ease-out animate-pulse ${tier.ringClass}`} />
         <text x="36" y="36" textAnchor="middle" dominantBaseline="central"
-          className="fill-foreground text-[14px] font-bold">{percent}%</text>
+          className="fill-foreground text-[14px] font-bold">{animatedCompletion}%</text>
       </svg>
     );
   };
@@ -1953,20 +2005,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     <div className="flex items-center gap-6">
                       <CircularProgress percent={completion} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-foreground">Maximize your AI matches</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Complete the missing metrics and positioning data to unlock highly accurate investor recommendations.
-                        </p>
+                        <p className="text-base font-bold text-foreground">{tier.title}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{tier.subtitle}</p>
                         <p className="text-[10px] text-muted-foreground mt-2 font-mono">
                           {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
                         </p>
                       </div>
-                      <button
-                        onClick={triggerWalkthrough}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shrink-0 shadow-sm"
-                      >
-                        <PhosphorSparkle className="h-4 w-4" /> Complete Profile
-                      </button>
+                      {tier.btnVariant === "solid" ? (
+                        <button
+                          onClick={triggerWalkthrough}
+                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-all bg-success text-success-foreground hover:bg-success/90 shadow-lg hover:-translate-y-0.5"
+                        >
+                          <PhosphorSparkle className="h-4 w-4" /> Finalize Profile
+                        </button>
+                      ) : (
+                        <button
+                          onClick={triggerWalkthrough}
+                          style={{ borderColor: tier.stroke, color: tier.stroke }}
+                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-colors border-2 bg-transparent hover:bg-accent/10"
+                        >
+                          <PhosphorSparkle className="h-4 w-4" /> Complete Profile
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
