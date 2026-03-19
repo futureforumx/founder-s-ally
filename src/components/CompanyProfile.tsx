@@ -715,17 +715,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
           </div>
 
-          {/* STAGE */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              Stage *
-              {isFieldAiDraft("stage") && <Sparkles className="h-3 w-3 text-accent" />}
-            </label>
-            <select value={form.stage} onChange={e => update("stage", e.target.value)} className={selectCls("stage")} disabled={isAnalyzing}>
-              <option value="" disabled>Select stage</option>
-              {stages.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
 
           {/* WEBSITE URL */}
           <div className="space-y-1.5">
