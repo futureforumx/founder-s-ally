@@ -785,13 +785,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  // Auto-calculated LTV/CAC ratio
-  const ltvCacRatio = (() => {
+  // LTV/CAC ratio: manual override or auto-calculated
+  const [ltvCacOverride, setLtvCacOverride] = useState("");
+  const autoLtvCacRatio = (() => {
     const ltv = parseSmartNumber(form.ltv);
     const cac = parseSmartNumber(form.cac);
     if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
-    return "—";
+    return "";
   })();
+  const ltvCacRatio = ltvCacOverride || autoLtvCacRatio || "—";
 
   // Section confirmation helpers
   const confirmSection = (section: string) => {
