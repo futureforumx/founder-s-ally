@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, Users, Building2, MapPin, Globe, Sparkles, Eye, EyeOff, Pencil,
-  TrendingUp, Star, ArrowRight,
+  TrendingUp, Star, ArrowRight, LayoutGrid,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
