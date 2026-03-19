@@ -1579,9 +1579,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     {renderAiUpdatedBadge("sector")}
                     {renderVerificationBadge("sector")}
                   </div>
+                  {requiredErrors.has("sector") && <p className="text-[10px] text-destructive mt-2">This field is required</p>}
                   {/* Walkthrough: Approve & Continue */}
                   {isWalkthrough && WALKTHROUGH_SECTIONS[activeWalkthroughStep] === "sector" && (
-                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} />
+                    <ApproveAndContinueButton onClick={advanceWalkthrough} isFinal={false} isSaving={isSaving} shaking={approveShaking} />
                   )}
                 </div>
               )}
