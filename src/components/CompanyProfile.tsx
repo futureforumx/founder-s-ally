@@ -1411,6 +1411,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   )}
 
+            {/* Accordion sections — hidden during analysis, fade in when done */}
+            {!isAnalyzing && (
+            <>
             {/* === SECTION: Sector & Subsectors === */}
             <div
               ref={el => { sectionRefs.current["sector"] = el; }}
