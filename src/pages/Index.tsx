@@ -260,7 +260,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
 
               {/* Strategy Room — at the bottom */}
