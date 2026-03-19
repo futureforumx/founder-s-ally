@@ -231,6 +231,12 @@ export function GrowthMetrics({
     currentARR, yoyGrowth, totalHeadcount,
   });
 
+  // Report error state to parent
+  useEffect(() => {
+    const hasErrors = !!(errors.arr || errors.yoy || errors.headcount);
+    onErrorStateChange?.(hasErrors);
+  }, [errors, onErrorStateChange]);
+
   // Force collapse when processing
   const isExpanded = isProcessing ? false : expanded;
 
