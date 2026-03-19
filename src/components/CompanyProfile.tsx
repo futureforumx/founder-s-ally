@@ -244,6 +244,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
+  // Per-section confirmation state
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem("company-section-confirmed");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
     try { return (localStorage.getItem("company-metric-period") as any) || "monthly"; } catch { return "monthly"; }
