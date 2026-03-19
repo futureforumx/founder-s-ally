@@ -300,11 +300,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       options={stages}
                       predictedValue={predictedStage}
                     />
-                    <SmartSelect
-                      label="Sector"
+                    <SectorCombobox
                       value={sector}
                       onChange={setSector}
-                      options={sectors}
                       predictedValue={predictedSector}
                     />
                   </div>
