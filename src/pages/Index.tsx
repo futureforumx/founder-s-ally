@@ -51,6 +51,7 @@ const Index = () => {
     return true;
   });
   const [showTerminal, setShowTerminal] = useState(false);
+  const [profileKey, setProfileKey] = useState(0);
   
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
@@ -136,11 +137,21 @@ const Index = () => {
     setShowOnboarding(false);
     setShowTerminal(true);
 
-    // Persist to localStorage so CompanyProfile picks it up on mount
+    // Update Index-level state directly from analysis
+    if (analysis.stageClassification) {
+      setStageClassification(analysis.stageClassification);
+    }
+    if (analysis.sectorMapping) {
+      setSectorClassification({
+        primary_sector: analysis.sectorMapping.sector,
+        modern_tags: analysis.sectorMapping.keywords || [],
+      });
+    }
+
+    // Persist to localStorage so CompanyProfile picks it up on remount
     try {
       localStorage.setItem("company-profile", JSON.stringify(company));
       localStorage.setItem("company-analysis", JSON.stringify(analysis));
-      // Mark analysis-related state
       if (analysis.stageClassification) {
         localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
       }
@@ -153,11 +164,28 @@ const Index = () => {
       if (analysis.metricSources) {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
+      // Persist logo URL from website
+      if (company.website) {
+        const domain = (() => {
+          try {
+            let u = company.website.trim();
+            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+            return new URL(u).hostname.replace(/^www\./, "");
+          } catch { return null; }
+        })();
+        if (domain) {
+          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          localStorage.setItem("company-logo-url", logoUrl);
+        }
+      }
       // Sync timestamp
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("last-synced-at", now.toISOString());
     } catch {}
+
+    // Force CompanyProfile to remount with fresh localStorage data
+    setProfileKey(k => k + 1);
   };
 
   const handleTerminalComplete = () => {
@@ -232,7 +260,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
 
               {/* Strategy Room — at the bottom */}
