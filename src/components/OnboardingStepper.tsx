@@ -41,7 +41,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [predictedSector, setPredictedSector] = useState("");
   const [shakeStep2, setShakeStep2] = useState(false);
 
-  const validateStep2 = (): boolean => {
+  const [shakeStep3, setShakeStep3] = useState(false);
+
+  const validateStep3 = (): boolean => {
     const missing: string[] = [];
     if (!stage) missing.push("Stage");
     if (!sector) missing.push("Sector");
@@ -51,8 +53,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         title: "Missing Required Fields",
         description: `Please select: ${missing.join(", ")}`,
       });
-      setShakeStep2(true);
-      setTimeout(() => setShakeStep2(false), 600);
+      setShakeStep3(true);
+      setTimeout(() => setShakeStep3(false), 600);
       return false;
     }
     return true;
