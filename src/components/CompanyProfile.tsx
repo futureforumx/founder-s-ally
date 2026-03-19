@@ -1895,13 +1895,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "ARR" : "MRR"} {renderFieldBadge("currentARR")}
+                            <MetricTooltip metricKey={metricPeriod === "annual" ? "arr" : "mrr"} />
                           </label>
                           <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                            <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                            <input type="text" value={form.currentARR} onChange={e => update("currentARR", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
-                                if (n) update("currentARR", formatWithCommas(n));
+                                const result = smartBlurCurrency(e.target.value);
+                                if (result) update("currentARR", result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 14.4m" : "e.g. 1.2m"} className={`${inputCls("currentARR")} pl-9`} />
                           </div>
@@ -1911,6 +1912,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "YoY Growth" : "MoM Growth"} {renderFieldBadge(metricPeriod === "annual" ? "yoyGrowth" : "momGrowth")}
+                            <MetricTooltip metricKey={metricPeriod === "annual" ? "yoyGrowth" : "momGrowth"} />
                           </label>
                           <div className="relative">
                             <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -1918,12 +1920,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                               value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
                               onChange={e => {
                                 const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                                update(field, e.target.value.replace(/[^0-9.kmKM]/g, ""));
+                                update(field, e.target.value.replace(/[^0-9.kmKM+\-*/()]/g, ""));
                               }}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
                                 const field = metricPeriod === "annual" ? "yoyGrowth" : "momGrowth";
-                                if (n) update(field, formatWithCommas(Math.round(n)));
+                                const result = smartBlurPercent(e.target.value);
+                                if (result) update(field, result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
@@ -1934,13 +1936,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "Annual Burn" : "Monthly Burn"} {renderFieldBadge("burnRate")}
+                            <MetricTooltip metricKey="burnRate" />
                           </label>
                           <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                            <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB]/g, ""))}
+                            <input type="text" value={form.burnRate} onChange={e => update("burnRate", e.target.value.replace(/[^0-9.,mkbMKB+\-*/()$]/g, ""))}
                               onBlur={e => {
-                                const n = parseSmartNumber(e.target.value);
-                                if (n) update("burnRate", formatWithCommas(n));
+                                const result = smartBlurCurrency(e.target.value);
+                                if (result) update("burnRate", result);
                               }}
                               placeholder={metricPeriod === "annual" ? "e.g. 600k" : "e.g. 50k"} className={`${inputCls("burnRate")} pl-9`} />
                           </div>
