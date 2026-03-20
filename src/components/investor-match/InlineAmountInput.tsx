@@ -130,16 +130,16 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
 
   if (!editing) {
     return (
-      <button
-        onClick={startEdit}
-        className="w-full flex items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-ring cursor-pointer"
-      >
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="font-mono font-medium">{value > 0 ? formatWithCommas(value) : "0"}</span>
-        </div>
-        {value > 0 && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
-      </button>
+      <div className="relative">
+        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          onFocus={startEdit}
+          readOnly
+          value={value > 0 ? formatWithCommas(value) : "0"}
+          className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-1.5 text-sm font-mono text-foreground cursor-pointer hover:border-ring transition-all"
+        />
+      </div>
     );
   }
 
