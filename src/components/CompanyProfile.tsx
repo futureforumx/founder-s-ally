@@ -684,7 +684,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           const content = await page.getTextContent();
           pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ")}`);
         }
-        setDeckText(pages.join("\n\n"));
+        const extractedText = pages.join("\n\n");
+        setDeckText(extractedText);
+        try { sessionStorage.setItem("pending-deck-audit", extractedText); } catch {}
       }
       setMetricsUnlocked(true);
       setScanningMetrics(true);
