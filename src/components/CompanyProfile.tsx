@@ -1098,8 +1098,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           setOpenSections(prev => ({ ...prev, [nextSection]: true }));
         }, 200);
       } else {
-        // All sections reviewed — exit review mode
+        // All profile sections reviewed — exit review mode and scroll to investors
         setActiveReviewSection(null);
+        // Dispatch event so Index can auto-scroll to Investors
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("scroll-to-investors"));
+        }, 400);
       }
     }
   };
