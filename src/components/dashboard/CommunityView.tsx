@@ -508,8 +508,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">No founders match your search.</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+            <p className="text-sm text-muted-foreground">No {labels.plural} match your search.</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
             </div>
           )}
         </div>
