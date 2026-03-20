@@ -26,6 +26,7 @@ interface ManageTabProps {
   confirmedBackers: CapBacker[];
   totalRaised: number;
   formatCurrency: (n: number) => string;
+  enrichCache?: Record<string, EnrichResult>;
 }
 
 // ── Debounce Hook ──
