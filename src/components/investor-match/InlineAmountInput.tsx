@@ -160,11 +160,10 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
             onBlur={tryConfirm}
             onKeyDown={handleKeyDown}
             placeholder="e.g. 1.5m or 50k"
-            className={`w-full rounded-lg border bg-background pl-9 pr-9 py-2 text-sm font-mono text-foreground transition-all focus:outline-none focus:ring-2 ${
+            className={`w-full rounded-md border bg-background pl-9 pr-3 py-1.5 text-sm font-mono text-foreground transition-all focus:outline-none focus:ring-2 ${
               hasError ? "border-destructive focus:ring-destructive" : "border-ring ring-2 ring-ring/30"
             }`}
           />
-          {!hasError && text && <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />}
         </div>
       </div>
       {errorTooltip}
