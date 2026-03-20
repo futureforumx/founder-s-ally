@@ -1304,7 +1304,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
 
           {/* WEBSITE URL */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
