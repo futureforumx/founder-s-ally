@@ -292,6 +292,20 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
   const competitors = companyData?.competitors || [];
 
+  const avgOverlap = useMemo(() => {
+    if (competitors.length === 0) return 0;
+    const overlaps = competitors.map(n => getIntel(n).overlap);
+    return Math.round(overlaps.reduce((a, b) => a + b, 0) / overlaps.length);
+  }, [competitors]);
+
+  const directCount = useMemo(() => competitors.filter(n => getIntel(n).status === "Direct Competitor").length, [competitors]);
+
+  const topThreat = useMemo(() => {
+    let max = { name: "", overlap: 0 };
+    competitors.forEach(n => { const o = getIntel(n).overlap; if (o > max.overlap) max = { name: n, overlap: o }; });
+    return max;
+  }, [competitors]);
+
   if (!companyData || competitors.length === 0) {
     return (
       <div className="space-y-6">
@@ -314,19 +328,6 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
       </div>
     );
   }
-
-  // Compute analytics
-  const avgOverlap = useMemo(() => {
-    const overlaps = competitors.map(n => getIntel(n).overlap);
-    return Math.round(overlaps.reduce((a, b) => a + b, 0) / overlaps.length);
-  }, [competitors]);
-
-  const directCount = useMemo(() => competitors.filter(n => getIntel(n).status === "Direct Competitor").length, [competitors]);
-  const topThreat = useMemo(() => {
-    let max = { name: "", overlap: 0 };
-    competitors.forEach(n => { const o = getIntel(n).overlap; if (o > max.overlap) max = { name: n, overlap: o }; });
-    return max;
-  }, [competitors]);
 
   return (
     <>
