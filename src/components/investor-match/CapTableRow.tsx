@@ -24,6 +24,14 @@ export function CapTableRow({ backer, isHighlighted, formatCurrency }: CapTableR
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
 
+  // Auto-enter edit mode when this row is highlighted (newly inserted)
+  useEffect(() => {
+    if (isHighlighted) {
+      setEditing(true);
+      setEditValue("");
+    }
+  }, [isHighlighted]);
+
   const startEdit = () => {
     setEditing(true);
     setEditValue(String(backer.amount));
