@@ -164,6 +164,8 @@ interface InvestorMatchProps {
   analysisResult: AnalysisResult | null;
   sectorClassification?: SectorClassification | null;
   isLocked?: boolean;
+  externalBackers?: CapBacker[];
+  externalTotalRaised?: number;
 }
 
 export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked }: InvestorMatchProps) {
