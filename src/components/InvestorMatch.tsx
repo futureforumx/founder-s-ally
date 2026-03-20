@@ -42,6 +42,7 @@ interface CapBacker {
   instrument: string;
   logoLetter: string;
   date: string;
+  ownershipPct: number;
 }
 
 type TabKey = "updates" | "matches" | "activity" | "manage";
