@@ -568,14 +568,18 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   }, [dbCompetitors]);
 
   const handleAddCompetitor = useCallback(async (name: string) => {
-    await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`);
+    // Format website for the edge function
+    let website = newCompWebsite.trim();
+    if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`, website || undefined);
     onAddCompetitor?.(name);
     setNewCompName("");
+    setNewCompWebsite("");
     setNewCompType("Direct");
     setNewCompIntent("Threat");
     setShowAddModal(false);
     setSearchResults([]);
-  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType]);
+  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType, newCompWebsite]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
