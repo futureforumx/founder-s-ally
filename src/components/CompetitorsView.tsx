@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X } from "lucide-react";
+import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CompanyData } from "@/components/CompanyProfile";
 
@@ -292,6 +292,20 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
   const competitors = companyData?.competitors || [];
 
+  const avgOverlap = useMemo(() => {
+    if (competitors.length === 0) return 0;
+    const overlaps = competitors.map(n => getIntel(n).overlap);
+    return Math.round(overlaps.reduce((a, b) => a + b, 0) / overlaps.length);
+  }, [competitors]);
+
+  const directCount = useMemo(() => competitors.filter(n => getIntel(n).status === "Direct Competitor").length, [competitors]);
+
+  const topThreat = useMemo(() => {
+    let max = { name: "", overlap: 0 };
+    competitors.forEach(n => { const o = getIntel(n).overlap; if (o > max.overlap) max = { name: n, overlap: o }; });
+    return max;
+  }, [competitors]);
+
   if (!companyData || competitors.length === 0) {
     return (
       <div className="space-y-6">
@@ -330,6 +344,88 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
             <Sparkles className="h-2.5 w-2.5" />
             AI-Enriched
           </Badge>
+        </div>
+
+        {/* ── Intelligence Cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Competitors Tracked */}
+          <div
+            className="relative rounded-[24px] p-8 backdrop-blur-xl"
+            style={{
+              background: "hsla(0, 0%, 100%, 0.70)",
+              border: "1px solid hsla(var(--border), 0.5)",
+              borderTop: "1px solid hsla(0, 0%, 100%, 0.8)",
+              boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">Competitors Tracked</p>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-accent-foreground bg-foreground px-3 py-1 rounded-full">
+                <Swords className="h-2.5 w-2.5 text-accent" />
+                {directCount} Direct
+              </span>
+            </div>
+            <span className="inline-flex font-mono text-5xl font-extrabold text-foreground tracking-tight">{competitors.length}</span>
+            <p className="text-xs text-muted-foreground mt-3">Active competitors in your landscape.</p>
+          </div>
+
+          {/* Market Overlap */}
+          <div
+            className="relative rounded-[24px] p-8 backdrop-blur-xl"
+            style={{
+              background: "hsla(0, 0%, 100%, 0.70)",
+              border: "1px solid hsla(var(--border), 0.5)",
+              borderTop: "1px solid hsla(0, 0%, 100%, 0.8)",
+              boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">Avg. Market Overlap</p>
+              <Badge variant="secondary" className={`text-[10px] font-medium border-0 rounded-full px-2.5 py-0.5 ${avgOverlap >= 60 ? "bg-destructive/10 text-destructive" : avgOverlap >= 40 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
+                {avgOverlap >= 60 ? "High Risk" : avgOverlap >= 40 ? "Moderate" : "Low Risk"}
+              </Badge>
+            </div>
+            <span className="inline-flex font-mono text-5xl font-extrabold text-foreground tracking-tight">{avgOverlap}%</span>
+            <div className="mt-4">
+              <div className="relative w-full h-2 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${avgOverlap}%`,
+                    background: avgOverlap >= 60
+                      ? "linear-gradient(90deg, hsl(var(--warning)), hsl(var(--destructive)))"
+                      : "linear-gradient(90deg, hsl(var(--success)), hsl(var(--accent)))",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Top Threat */}
+          <div
+            className="relative rounded-[24px] p-8 backdrop-blur-xl"
+            style={{
+              background: "hsla(0, 0%, 100%, 0.70)",
+              border: "1px solid hsla(var(--border), 0.5)",
+              borderTop: "1px solid hsla(0, 0%, 100%, 0.8)",
+              boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">Top Threat</p>
+              <AlertTriangle className="h-4 w-4 text-warning" />
+            </div>
+            <p className="font-mono text-2xl font-extrabold text-foreground tracking-tight truncate">{topThreat.name}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge className="text-[10px] font-semibold border-0 rounded-full px-2.5 py-0.5 bg-destructive/10 text-destructive">{topThreat.overlap}% overlap</Badge>
+            </div>
+            <button
+              onClick={() => setActiveCompetitor(topThreat.name)}
+              className="mt-4 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+            >
+              View battlecard →
+            </button>
+          </div>
         </div>
 
         {/* Grid */}
