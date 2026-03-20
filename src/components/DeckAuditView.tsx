@@ -71,18 +71,6 @@ export function DeckAuditView() {
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Listen for auto-audit events from Mission Control deck uploads
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { deckText } = (e as CustomEvent).detail ?? {};
-      if (deckText && typeof deckText === "string") {
-        handleUpload(deckText);
-      }
-    };
-    window.addEventListener("auto-audit-deck", handler);
-    return () => window.removeEventListener("auto-audit-deck", handler);
-  }, []);
-
   const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
     try {
@@ -97,6 +85,18 @@ export function DeckAuditView() {
       setState("upload");
     }
   }, []);
+
+  // Listen for auto-audit events from Mission Control deck uploads
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { deckText } = (e as CustomEvent).detail ?? {};
+      if (deckText && typeof deckText === "string") {
+        handleUpload(deckText);
+      }
+    };
+    window.addEventListener("auto-audit-deck", handler);
+    return () => window.removeEventListener("auto-audit-deck", handler);
+  }, [handleUpload]);
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
 
