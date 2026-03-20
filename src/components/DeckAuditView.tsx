@@ -84,6 +84,8 @@ export function DeckAuditView() {
   const [isRerunning, setIsRerunning] = useState(false);
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [pendingDeckText, setPendingDeckText] = useState<string | null>(null);
 
   const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
