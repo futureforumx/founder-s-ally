@@ -4,6 +4,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Pencil, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { InlineCellCombobox } from "./InlineCellCombobox";
+
+export const INVESTMENT_TYPES = [
+  "Equity (Priced Round)",
+  "SAFE (Post-Money)",
+  "SAFE (Pre-Money)",
+  "Convertible Note",
+  "Venture Debt",
+  "Grant",
+  "Secondary",
+];
+
+export const FUNDING_ROUNDS = [
+  "Accelerator / Incubator",
+  "Angel",
+  "Pre-Seed",
+  "Seed",
+  "Series A",
+  "Series B",
+  "Series C+",
+  "Bridge",
+];
 
 export interface CapBacker {
   id: string;
@@ -24,31 +46,11 @@ interface CapTableRowProps {
   formatCurrency: (n: number) => string;
   onOwnershipChange: (id: string, pct: number) => void;
   onAmountChange: (id: string, amount: number) => void;
+  onInstrumentChange?: (id: string, instrument: string) => void;
+  onRoundChange?: (id: string, round: string) => void;
 }
 
-/** Generate a short ID from the backer id */
-function shortId(id: string): string {
-  return `#TS-${id.slice(0, 4).toUpperCase()}`;
-}
-
-/** Format a date string into the transaction table style */
-function formatDateTime(dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOwnershipChange, onAmountChange }: CapTableRowProps) {
+export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOwnershipChange, onAmountChange, onInstrumentChange, onRoundChange }: CapTableRowProps) {
   const [editingField, setEditingField] = useState<"amount" | "ownership" | null>(null);
   const [editValue, setEditValue] = useState("");
 
@@ -92,13 +94,29 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
     setEditValue("");
   }, [editingField, editValue, backer.id, onOwnershipChange, onAmountChange]);
 
+  const handleInstrumentSelect = useCallback(async (val: string) => {
+    onInstrumentChange?.(backer.id, val);
+    try {
+      await supabase.from("cap_table").update({ instrument: val }).eq("id", backer.id);
+    } catch {
+      toast.error("Failed to save type.");
+    }
+  }, [backer.id, onInstrumentChange]);
+
+  const handleRoundSelect = useCallback(async (val: string) => {
+    onRoundChange?.(backer.id, val);
+    try {
+      await supabase.from("cap_table").update({ entity_type: val }).eq("id", backer.id);
+    } catch {
+      toast.error("Failed to save round.");
+    }
+  }, [backer.id, onRoundChange]);
+
   const isEven = index % 2 === 0;
-  const statusLabel = backer.amount > 0 ? "Success" : "Pending";
-  const isSuccess = statusLabel === "Success";
 
   return (
     <tr
-      className={`transition-all duration-300 ${
+      className={`group/row transition-all duration-300 ${
         isHighlighted ? "bg-accent/10" : ""
       }`}
       style={!isHighlighted ? { background: isEven ? "hsl(var(--background))" : "hsl(var(--secondary))" } : undefined}
@@ -121,14 +139,22 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
         <span className="text-sm font-medium text-foreground truncate">{backer.name}</span>
       </td>
 
-      {/* Type (Instrument) */}
+      {/* Type (Instrument) — Combobox */}
       <td className="py-3.5 px-4">
-        <span className="text-sm text-muted-foreground">{backer.instrument}</span>
+        <InlineCellCombobox
+          value={backer.instrument}
+          options={INVESTMENT_TYPES}
+          onSelect={handleInstrumentSelect}
+        />
       </td>
 
-      {/* Round */}
+      {/* Round — Combobox */}
       <td className="py-3.5 px-4">
-        <span className="text-sm text-muted-foreground">{backer.date}</span>
+        <InlineCellCombobox
+          value={backer.date}
+          options={FUNDING_ROUNDS}
+          onSelect={handleRoundSelect}
+        />
       </td>
 
       {/* Amount */}
