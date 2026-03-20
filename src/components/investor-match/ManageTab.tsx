@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Plus, Search, Settings2, DollarSign, Pencil, Check, X, UserPlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface CapBacker {
   id: string;
@@ -32,62 +33,80 @@ interface ManageTabProps {
   formatCurrency: (n: number) => string;
 }
 
+// ── Debounce Hook ──
+
+function useDebounce(value: string, delay: number): string {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 // ── NFX Search Hook (calls edge function) ──
 
 function useNFXSearch(query: string) {
   const [results, setResults] = useState<NFXResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isFallback, setIsFallback] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef<AbortController>();
+  const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
-    if (query.length < 2) {
+    // Clear results for short queries
+    if (debouncedQuery.length < 2) {
       setResults([]);
       setIsFallback(false);
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    clearTimeout(debounceRef.current);
+    // Abort previous in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    debounceRef.current = setTimeout(async () => {
-      // Abort previous in-flight request
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
+    const fetchResults = async () => {
+      setLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke("nfx-search", {
-          body: { query: query.trim() },
+          body: { query: debouncedQuery.trim() },
         });
 
         if (controller.signal.aborted) return;
 
         if (error) {
           console.error("NFX search error:", error);
+          toast.error("Failed to search investors. Please try again.");
           setResults([]);
         } else {
           setResults(data?.results || []);
           setIsFallback(data?.fallback === true);
         }
       } catch (err) {
-        if (!(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("NFX search fetch error:", err);
-        }
+        if (controller.signal.aborted) return;
+        console.error("NFX search fetch error:", err);
+        toast.error("Failed to load investors. Please try again.");
         setResults([]);
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
-    }, 350);
+    };
+
+    fetchResults();
 
     return () => {
-      clearTimeout(debounceRef.current);
-      abortRef.current?.abort();
+      controller.abort();
     };
-  }, [query]);
+  }, [debouncedQuery]);
 
-  return { results, loading, isFallback };
+  // Show a "typing" loading state when input differs from debounced value
+  const isTyping = query.length >= 2 && query !== debouncedQuery;
+
+  return { results, loading: loading || isTyping, isFallback };
 }
 
 // ── Cap Table Panel ──
