@@ -1,14 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, DollarSign, CalendarIcon, ExternalLink, X } from "lucide-react";
-import { format } from "date-fns";
+import { Trash2, DollarSign, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { INVESTMENT_TYPES, FUNDING_ROUNDS, type CapBacker } from "./CapTableRow";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,7 +43,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
   const [amountError, setAmountError] = useState<string | null>(null);
   const [instrument, setInstrument] = useState("");
   const [round, setRound] = useState("");
-  const [closingDate, setClosingDate] = useState<Date | undefined>();
+  const [closingMonth, setClosingMonth] = useState("");
+  const [closingYear, setClosingYear] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,7 +52,21 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
       setAmount(backer.amount > 0 ? formatWithCommas(backer.amount) : "");
       setInstrument(backer.instrument);
       setRound(backer.date);
-      setClosingDate(undefined);
+      // Try to parse existing date like "Mar 2026"
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      if (backer.date) {
+        const parts = backer.date.split(" ");
+        if (parts.length === 2 && MONTHS.includes(parts[0])) {
+          setClosingMonth(parts[0]);
+          setClosingYear(parts[1]);
+        } else {
+          setClosingMonth("");
+          setClosingYear("");
+        }
+      } else {
+        setClosingMonth("");
+        setClosingYear("");
+      }
       setAmountError(null);
     }
   }, [backer]);
@@ -84,13 +94,14 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
 
     setSaving(true);
     try {
+      const closingDateStr = closingMonth && closingYear ? `${closingMonth} ${closingYear}` : null;
       const updates: Record<string, unknown> = {
         amount: parsedAmount,
         instrument,
         entity_type: round,
       };
-      if (closingDate) {
-        updates.date = format(closingDate, "MMM yyyy");
+      if (closingDateStr) {
+        updates.date = closingDateStr;
       }
 
       const { error } = await supabase
@@ -104,7 +115,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
         amount: parsedAmount,
         amountLabel: `$${parsedAmount.toLocaleString()}`,
         instrument,
-        date: closingDate ? format(closingDate, "MMM yyyy") : round,
+        date: closingDateStr || round,
       });
 
       onOpenChange(false);
@@ -114,7 +125,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     } finally {
       setSaving(false);
     }
-  }, [backer, amount, instrument, round, closingDate, onSave, onOpenChange]);
+  }, [backer, amount, instrument, round, closingMonth, closingYear, onSave, onOpenChange]);
 
   const handleRemove = useCallback(async () => {
     if (!backer) return;
@@ -252,31 +263,31 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   </div>
                 </div>
 
-                {/* Closing Date */}
+                {/* Closing Date – Month & Year */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Closing Date</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={cn(
-                          "w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-left flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40",
-                          !closingDate && "text-muted-foreground/50"
-                        )}
-                      >
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-                        {closingDate ? format(closingDate, "PPP") : "Pick a date"}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[99999]" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={closingDate}
-                        onSelect={setClosingDate}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={closingMonth} onValueChange={setClosingMonth}>
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-[99999]">
+                        {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={closingYear} onValueChange={setClosingYear}>
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-[99999]">
+                        {Array.from({ length: 11 }, (_, i) => String(2020 + i)).map(y => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
