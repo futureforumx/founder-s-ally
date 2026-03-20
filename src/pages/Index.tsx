@@ -3,7 +3,8 @@ import { formatDistanceToNow } from "date-fns";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
+import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
+import { useCapTable } from "@/hooks/useCapTable";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
@@ -25,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors";
 
 const Index = () => {
+  const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
@@ -287,7 +289,16 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-
+              {/* Investors Section */}
+              <MissionControlInvestors
+                backers={capTable.backers}
+                totalRaised={capTable.totalRaised}
+                formatCurrency={capTable.formatCurrency}
+                addInvestor={capTable.addInvestor}
+                onNavigateInvestors={() => setActiveView("investors")}
+                analysisResult={analysisResult}
+                companyData={companyData}
+              />
 
 
               {/* Confirm Profile — below everything */}
@@ -387,7 +398,7 @@ const Index = () => {
               }
             }} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} />
+            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
           ) : activeView === "directory" ? (
             <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
           ) : activeView === "audit" ? (
