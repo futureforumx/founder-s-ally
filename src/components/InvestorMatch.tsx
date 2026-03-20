@@ -293,6 +293,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         sectorClassification={sectorClassification}
         companyData={companyData}
         formatCurrency={fmt}
+        timeRange={timeRange}
+        selectedHeatCell={selectedHeatCell}
+        onHeatCellSelect={setSelectedHeatCell}
       />
 
       {/* Sticky Tab Bar */}
