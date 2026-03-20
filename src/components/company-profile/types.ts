@@ -151,9 +151,18 @@ export const EMPTY_FORM: CompanyData = {
 
 export function getCompletionPercent(form: CompanyData): number {
   const fields: (keyof CompanyData)[] = [
-    "name", "stage", "sector", "website", "description",
-    "businessModel", "targetCustomer", "hqLocation",
-    "uniqueValueProp", "currentARR", "totalHeadcount",
+    // Overview
+    "name", "stage", "sector", "website", "description", "hqLocation",
+    // Positioning
+    "businessModel", "targetCustomer", "uniqueValueProp",
+    // Metrics — Financials
+    "currentARR", "momGrowth", "burnRate",
+    // Metrics — Unit Economics
+    "cac", "ltv",
+    // Metrics — Health & Ops
+    "nrr", "totalHeadcount",
+    // Social Links
+    "socialTwitter", "socialLinkedin", "socialInstagram",
   ];
   const filled = fields.filter(k => {
     const v = form[k];
