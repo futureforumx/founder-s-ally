@@ -605,7 +605,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleFounders.map((founder, i) =>
-            <FounderCard key={`search-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
             )}
                 {isLoadingMore &&
             Array.from({ length: 3 }).map((_, i) =>
