@@ -230,6 +230,7 @@ interface CompanyProfileProps {
   onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
   onProfileVerified?: (verified: boolean) => void;
   onWalkthroughComplete?: () => void;
+  onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
 }
 
 export interface CompanyProfileHandle {
@@ -316,7 +317,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange }, ref) {
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -519,7 +520,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [form, userTouched, metricPeriod, sectionConfirmed]);
 
+  // Notify parent of section confirmation changes
   useEffect(() => {
+    onSectionConfirmedChange?.(sectionConfirmed);
+  }, [sectionConfirmed, onSectionConfirmedChange]);
+
+
     if (analysisComplete && form.name) onSave?.(form);
   }, [form, analysisComplete]);
 

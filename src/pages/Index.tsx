@@ -76,6 +76,7 @@ const Index = () => {
 
   const profileComplete = !!companyData && !!analysisResult;
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
 
   // Last synced state
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
@@ -287,7 +288,7 @@ const Index = () => {
               </div>
 
               {/* Company Profile - inline editable */}
-              <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
+              <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} onSectionConfirmedChange={setSectionConfirmed} />
 
               {/* Investors Section */}
               <MissionControlInvestors
@@ -298,6 +299,7 @@ const Index = () => {
                 onNavigateInvestors={() => setActiveView("investors")}
                 analysisResult={analysisResult}
                 companyData={companyData}
+                previousSectionApproved={!!sectionConfirmed.social}
               />
 
 
