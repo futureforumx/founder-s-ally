@@ -366,27 +366,19 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
   const visible = showAll ? filtered : filtered.slice(0, 4);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Competitor Updates</h2>
+          <h2 className="text-lg font-bold text-foreground">Updates Feed</h2>
           <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
             {filtered.length} signals
           </Badge>
         </div>
-        {filtered.length > 4 && (
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-          >
-            {showAll ? "Show less" : `View all ${filtered.length}`}
-          </button>
-        )}
       </div>
 
-      {/* Segmented Control */}
-      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
+      {/* Segmented Control — outside scroll area */}
+      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
         {SIGNAL_TABS.map(tab => (
           <button
             key={tab.key}
@@ -402,10 +394,10 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
         ))}
       </div>
 
-      {/* Feed Items */}
-      <div className="space-y-2">
+      {/* Scrollable Feed Items */}
+      <div className="max-h-[620px] overflow-y-auto pr-2 flex flex-col gap-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
         <AnimatePresence initial={false} mode="popLayout">
-          {visible.map((update, i) => {
+          {filtered.map((update, i) => {
             const meta = UPDATE_TYPE_META[update.type];
             const isVulnerability = update.type === "vulnerability";
             const Icon = meta.icon;
@@ -471,7 +463,7 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
             );
           })}
         </AnimatePresence>
-        {visible.length === 0 && (
+        {filtered.length === 0 && (
           <div className="text-center py-10">
             <p className="text-xs text-muted-foreground">No signals in this category.</p>
           </div>
@@ -623,62 +615,63 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
           </div>
         </div>
 
-        {/* ── Competitor Updates Feed ── */}
-        <CompetitorUpdatesFeed competitors={competitors} onOpenBattlecard={setActiveCompetitor} />
+        {/* ── Two-Column Layout: Battlecards + Updates Feed ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-2">
+          {/* Left Column: Tracked Competitors */}
+          <div className="lg:col-span-4">
+            <h2 className="text-lg font-bold text-foreground mb-4">Tracked Competitors</h2>
+            <div className="flex flex-col gap-4">
+              {competitors.map((name) => {
+                const intel = getIntel(name);
+                const domain = domainFromName(name);
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {competitors.map((name) => {
-            const intel = getIntel(name);
-            const domain = domainFromName(name);
-
-            return (
-              <button
-                key={name}
-                onClick={() => setActiveCompetitor(name)}
-                className="text-left rounded-2xl border border-border bg-card p-6 shadow-surface transition-all duration-300 hover:shadow-surface-md hover:-translate-y-1 hover:border-accent/20 group"
-              >
-                {/* Card Header */}
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary shrink-0 overflow-hidden">
-                    <img
-                      src={faviconSrc(domain)}
-                      alt=""
-                      className="h-7 w-7 rounded-lg object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-lg font-bold text-muted-foreground">${name.charAt(0).toUpperCase()}</span>`;
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-foreground truncate">{name}</h3>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setActiveCompetitor(name)}
+                    className="text-left rounded-2xl border border-border bg-card p-5 shadow-surface transition-all duration-300 hover:shadow-surface-md hover:-translate-y-1 hover:border-accent/20 group"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary shrink-0 overflow-hidden">
+                        <img
+                          src={faviconSrc(domain)}
+                          alt=""
+                          className="h-6 w-6 rounded-lg object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-lg font-bold text-muted-foreground">${name.charAt(0).toUpperCase()}</span>`;
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-foreground truncate">{name}</h3>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
+                        </div>
+                        <Badge variant="secondary" className="text-[9px] font-normal mt-1 border-0 px-2 py-0">
+                          {intel.funding} Raised
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge variant="secondary" className="text-[9px] font-normal mt-1 border-0 px-2 py-0">
-                      {intel.funding} Raised
-                    </Badge>
-                  </div>
-                </div>
 
-                {/* Description */}
-                <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2 mb-4">
-                  {intel.description}
-                </p>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+                      {intel.description}
+                    </p>
 
-                {/* Advantage Kicker */}
-                <div className="rounded-xl bg-success/5 border border-success/10 px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-success mb-1">
-                    ⚡ Our Advantage
-                  </p>
-                  <p className="text-[11px] text-success/80 leading-relaxed">
-                    {intel.advantage}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+                    <div className="rounded-xl bg-success/5 border border-success/10 px-3 py-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-success mb-0.5">⚡ Our Advantage</p>
+                      <p className="text-[11px] text-success/80 leading-relaxed">{intel.advantage}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Column: Updates Feed */}
+          <div className="lg:col-span-8">
+            <CompetitorUpdatesFeed competitors={competitors} onOpenBattlecard={setActiveCompetitor} />
+          </div>
         </div>
       </div>
 
