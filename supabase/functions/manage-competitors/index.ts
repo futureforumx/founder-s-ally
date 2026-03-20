@@ -90,7 +90,7 @@ serve(async (req) => {
         competitorRecord = existing;
       } else {
         // Create new global competitor entry
-        const website = `https://${trimmedName.toLowerCase().replace(/\s+/g, "")}.com`;
+        const website = providedWebsite || `https://${trimmedName.toLowerCase().replace(/\s+/g, "")}.com`;
 
         // Try AI enrichment
         let description = `${trimmedName} operates in the market. Add industry tags for better intelligence.`;
