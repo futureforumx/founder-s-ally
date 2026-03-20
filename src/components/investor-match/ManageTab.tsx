@@ -119,6 +119,18 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
     );
   }, [formatCurrency]);
 
+  const handleInstrumentChange = useCallback((id: string, instrument: string) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, instrument } : b)
+    );
+  }, []);
+
+  const handleRoundChange = useCallback((id: string, round: string) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, date: round } : b)
+    );
+  }, []);
+
   const filteredBackers = searchQuery && !showSuggestions
     ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allBackers;
