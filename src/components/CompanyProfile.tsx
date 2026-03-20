@@ -1171,11 +1171,23 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     );
   };
 
-  // Guided walkthrough: find first section with empty/unapproved fields, open it, scroll, pulse
+  // Guided walkthrough: find first section with empty fields, open it, scroll to & focus the first empty input
   const triggerWalkthrough = useCallback(() => {
-    const targetSection = REVIEW_ORDER.find(s => !sectionConfirmed[s] || isSectionEmpty(s))
+    const hasEmptyField = (section: string) => {
+      const fields = sectionFields[section] || [];
+      return fields.some(f => {
+        const v = form[f];
+        return !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+      });
+    };
+    const targetSection = REVIEW_ORDER.find(s => hasEmptyField(s))
       || REVIEW_ORDER.find(s => !sectionConfirmed[s]);
     if (!targetSection) return;
+
+    const firstEmptyField = (sectionFields[targetSection] || []).find(f => {
+      const v = form[f];
+      return !v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
+    });
 
     const newOpen: Record<string, boolean> = {};
     for (const s of REVIEW_ORDER) newOpen[s] = s === targetSection;
@@ -1184,7 +1196,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
     requestAnimationFrame(() => {
       setTimeout(() => {
-        sectionRefs.current[targetSection]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Find the section container, then locate the first empty visible input inside it
+        const sectionEl = sectionRefs.current[targetSection];
+        if (sectionEl && firstEmptyField) {
+          const inputs = sectionEl.querySelectorAll("input, textarea, select");
+          for (const inp of inputs) {
+            const htmlInp = inp as HTMLInputElement;
+            if (htmlInp.value === "" || htmlInp.value === undefined) {
+              htmlInp.scrollIntoView({ behavior: "smooth", block: "center" });
+              setTimeout(() => htmlInp.focus(), 400);
+              return;
+            }
+          }
+        }
+        sectionEl?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 150);
     });
 
