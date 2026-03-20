@@ -102,7 +102,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const { results: nfxResults, loading: nfxLoading, isFallback } = useNFXSearch(searchQuery);
+  const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
   const allBackers = [...confirmedBackers, ...optimisticBackers];
 
