@@ -1,18 +1,71 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Lightbulb, MessageSquareWarning, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, Lightbulb, MessageSquareWarning, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SlideAnalysis } from "./types";
 
 interface SlideCoachingViewProps {
   slides: SlideAnalysis[];
+  deckUrl?: string | null;
 }
 
-export function SlideCoachingView({ slides }: SlideCoachingViewProps) {
+export function SlideCoachingView({ slides, deckUrl }: SlideCoachingViewProps) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [slideImages, setSlideImages] = useState<Record<number, string>>({});
+  const [renderingSlides, setRenderingSlides] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderedRef = useRef(false);
+
+  // Render PDF pages to images
+  const renderPdfSlides = useCallback(async (url: string) => {
+    if (renderedRef.current) return;
+    renderedRef.current = true;
+    setRenderingSlides(true);
+
+    try {
+      const pdfjsLib = await import("pdfjs-dist");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const images: Record<number, string> = {};
+      const maxPages = Math.min(pdf.numPages, slides.length);
+
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        images[i] = canvas.toDataURL("image/jpeg", 0.85);
+      }
+
+      setSlideImages(images);
+    } catch (err) {
+      console.error("Failed to render PDF slides:", err);
+    } finally {
+      setRenderingSlides(false);
+    }
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (deckUrl) {
+      renderedRef.current = false;
+      renderPdfSlides(deckUrl);
+    }
+  }, [deckUrl, renderPdfSlides]);
 
   if (slides.length === 0) return null;
 
   const slide = slides[activeSlide];
+  const slideImage = slideImages[slide.slide_number];
 
   const getRiskColor = (risk: number) =>
     risk >= 30 ? "text-destructive bg-destructive/10" :
@@ -25,11 +78,24 @@ export function SlideCoachingView({ slides }: SlideCoachingViewProps) {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground">Slide Preview</h3>
         <div className="relative rounded-xl border border-border bg-card overflow-hidden">
-          <div className="aspect-[16/9] bg-muted/30 flex items-center justify-center relative">
-            <div className="text-center">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Slide {slide.slide_number}</span>
-              <p className="text-lg font-bold text-foreground mt-1">{slide.detected_intent}</p>
-            </div>
+          <div className="aspect-[16/9] bg-muted/30 flex items-center justify-center relative overflow-hidden">
+            {slideImage ? (
+              <img
+                src={slideImage}
+                alt={`Slide ${slide.slide_number}`}
+                className="w-full h-full object-contain"
+              />
+            ) : renderingSlides ? (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-[10px] font-medium">Rendering slides…</span>
+              </div>
+            ) : (
+              <div className="text-center">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Slide {slide.slide_number}</span>
+                <p className="text-lg font-bold text-foreground mt-1">{slide.detected_intent}</p>
+              </div>
+            )}
             <div className={cn("absolute top-3 right-3 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums", getRiskColor(slide.predicted_dropoff_risk))}>
               {slide.predicted_dropoff_risk}% drop-off
             </div>
@@ -66,20 +132,30 @@ export function SlideCoachingView({ slides }: SlideCoachingViewProps) {
 
         {/* Slide thumbnails */}
         <div className="flex gap-1.5 w-full pb-1">
-          {slides.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveSlide(i)}
-              className={cn(
-                "flex-1 min-w-0 h-9 rounded-md border text-[9px] font-medium flex items-center justify-center transition-all",
-                i === activeSlide
-                  ? "border-accent bg-accent/5 text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-accent/40"
-              )}
-            >
-              {s.slide_number}
-            </button>
-          ))}
+          {slides.map((s, i) => {
+            const thumbImg = slideImages[s.slide_number];
+            return (
+              <button
+                key={i}
+                onClick={() => setActiveSlide(i)}
+                className={cn(
+                  "flex-1 min-w-0 rounded-md border overflow-hidden transition-all",
+                  thumbImg ? "h-14" : "h-9",
+                  i === activeSlide
+                    ? "border-accent bg-accent/5 ring-1 ring-accent/30"
+                    : "border-border bg-card hover:border-accent/40"
+                )}
+              >
+                {thumbImg ? (
+                  <img src={thumbImg} alt={`Slide ${s.slide_number}`} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-medium text-muted-foreground flex items-center justify-center h-full">
+                    {s.slide_number}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

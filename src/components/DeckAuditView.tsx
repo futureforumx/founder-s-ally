@@ -80,10 +80,20 @@ export function DeckAuditView() {
   });
   const [compareMode, setCompareMode] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
-  const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
+  const { decks, activeDeck, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingDeckText, setPendingDeckText] = useState<string | null>(null);
+  const [activeDeckSignedUrl, setActiveDeckSignedUrl] = useState<string | null>(null);
+
+  // Get signed URL for active deck to render slide previews
+  useEffect(() => {
+    if (!activeDeck) return;
+    (async () => {
+      const url = await getDownloadUrl(activeDeck.file_url);
+      if (url) setActiveDeckSignedUrl(url);
+    })();
+  }, [activeDeck, getDownloadUrl]);
 
   const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
@@ -233,7 +243,7 @@ export function DeckAuditView() {
         {result.slide_analysis.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Slide-Level Coaching</h3>
-            <SlideCoachingView slides={result.slide_analysis} />
+            <SlideCoachingView slides={result.slide_analysis} deckUrl={activeDeckSignedUrl} />
           </div>
         )}
 
