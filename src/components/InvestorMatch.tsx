@@ -171,6 +171,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
+  const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
 
   const totalRaised = useMemo(() => confirmedBackers.reduce((sum, b) => sum + b.amount, 0), [confirmedBackers]);
   const animatedTotal = useCountUp(totalRaised);
@@ -223,7 +224,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
     top5.forEach(async (inv) => {
       const key = inv.firm_name.toLowerCase().trim();
       if (enrichedData[key]) return;
+      setEnrichingKeys(prev => new Set(prev).add(key));
       const result = await enrich(inv.firm_name);
+      setEnrichingKeys(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
       if (result) {
         setEnrichedData(prev => ({ ...prev, [key]: result }));
       }
@@ -293,8 +300,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} />}
-      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
+      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (
         <ManageTab

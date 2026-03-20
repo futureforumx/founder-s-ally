@@ -25,6 +25,7 @@ interface EnrichResult {
 interface UpdatesTabProps {
   topMatches: ScoredInvestor[];
   enrichedData?: Record<string, EnrichResult>;
+  enrichingKeys?: Set<string>;
 }
 
 const ACTIVITY_FEED = [
@@ -50,22 +51,31 @@ function scoreColor(score: number): string {
 function SourceBadge({ source }: { source: "exa" | "gemini_grounded" | "local_db" }) {
   if (source === "exa") {
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 animate-fade-in">
         <Zap className="h-2.5 w-2.5" /> Live Signal
       </span>
     );
   }
   if (source === "gemini_grounded") {
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 animate-fade-in">
         <ShieldCheck className="h-2.5 w-2.5" /> Grounding Verified
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground animate-fade-in">
       <Database className="h-2.5 w-2.5" /> Verified Directory
     </span>
+  );
+}
+
+function EnrichShimmer() {
+  return (
+    <div className="animate-pulse flex items-center gap-2 mt-1">
+      <div className="h-3 w-16 rounded-full bg-secondary" />
+      <div className="h-3 w-24 rounded-full bg-secondary/70" />
+    </div>
   );
 }
 
@@ -78,7 +88,7 @@ function formatVerifiedDate(iso: string): string {
   }
 }
 
-export function UpdatesTab({ topMatches, enrichedData }: UpdatesTabProps) {
+export function UpdatesTab({ topMatches, enrichedData, enrichingKeys }: UpdatesTabProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Card 1: New Matches */}
@@ -89,7 +99,9 @@ export function UpdatesTab({ topMatches, enrichedData }: UpdatesTabProps) {
         </div>
         <div className="space-y-3">
           {topMatches.slice(0, 3).map(inv => {
-            const enriched = enrichedData?.[inv.firm_name.toLowerCase().trim()];
+            const key = inv.firm_name.toLowerCase().trim();
+            const enriched = enrichedData?.[key];
+            const isEnriching = enrichingKeys?.has(key);
             return (
               <div
                 key={inv.id}
@@ -106,8 +118,9 @@ export function UpdatesTab({ topMatches, enrichedData }: UpdatesTabProps) {
                   <p className="text-[11px] text-muted-foreground">
                     {inv.preferred_stage} · {inv.thesis_verticals.slice(0, 2).join(", ")}
                   </p>
+                  {isEnriching && !enriched && <EnrichShimmer />}
                   {enriched && (
-                    <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
+                    <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5 animate-fade-in">
                       <Clock className="h-2.5 w-2.5" />
                       Last Verified: {formatVerifiedDate(enriched.profile.lastVerified)}
                     </p>
