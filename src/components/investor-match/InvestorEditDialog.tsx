@@ -54,7 +54,21 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
       setAmount(backer.amount > 0 ? formatWithCommas(backer.amount) : "");
       setInstrument(backer.instrument);
       setRound(backer.date);
-      setClosingDate(undefined);
+      // Try to parse existing date like "Mar 2026"
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      if (backer.date) {
+        const parts = backer.date.split(" ");
+        if (parts.length === 2 && MONTHS.includes(parts[0])) {
+          setClosingMonth(parts[0]);
+          setClosingYear(parts[1]);
+        } else {
+          setClosingMonth("");
+          setClosingYear("");
+        }
+      } else {
+        setClosingMonth("");
+        setClosingYear("");
+      }
       setAmountError(null);
     }
   }, [backer]);
