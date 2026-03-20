@@ -693,8 +693,8 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
         </div>
       )}
 
-      {/* Slide-Over Edit Panel */}
-      <InvestorEditSheet
+      {/* Edit Dialog */}
+      <InvestorEditDialog
         backer={editingBacker}
         open={sheetOpen}
         onOpenChange={setSheetOpen}

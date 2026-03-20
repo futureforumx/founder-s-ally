@@ -450,7 +450,7 @@ export function MissionControlInvestors({
         </div>
       </CollapsibleContent>
 
-      <InvestorEditSheet
+      <InvestorEditDialog
         backer={editingBacker}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
