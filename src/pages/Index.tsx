@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors";
 
 const Index = () => {
+  const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
