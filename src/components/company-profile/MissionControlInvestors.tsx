@@ -159,15 +159,43 @@ export function MissionControlInvestors({
     });
   }, []);
 
-  // Extracted investors from analysis
-  const extractedInvestors = analysisResult?.extractedInvestors || [];
-  const existingNames = new Set(backers.map(b => b.name.toLowerCase()));
-  const pendingExtracted = extractedInvestors.filter(e => !existingNames.has(e.investorName.toLowerCase()));
+  // Revoke confirmed status when backers change
+  const backersKey = backers.map(b => b.id).join(",");
+  useEffect(() => {
+    setConfirmed(false);
+  }, [backersKey]);
 
-  const allBackers = backers.map(b => ({ ...b, ...overrides[b.id] }));
+  // Status dot logic: empty (red), has data (yellow pulse), confirmed (green pulse)
+  const isEmpty = backers.length === 0;
+  const renderStatusDot = () => {
+    if (isEmpty) {
+      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
+    }
+    if (confirmed) {
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+        </span>
+      );
+    }
+    return (
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+      </span>
+    );
+  };
 
-  return (
-    <div className="surface-card border border-border">
+  const handleConfirm = () => {
+    if (isEmpty) {
+      toast.error("Add at least one investor before confirming.");
+      return;
+    }
+    setConfirmed(true);
+    setIsOpen(false);
+    toast.success("Investors confirmed and saved.");
+  };
       {/* Header */}
       <div className="p-5 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-2">
