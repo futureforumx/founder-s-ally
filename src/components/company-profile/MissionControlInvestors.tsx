@@ -196,26 +196,27 @@ export function MissionControlInvestors({
     setIsOpen(false);
     toast.success("Investors confirmed and saved.");
   };
-      {/* Header */}
-      <div className="p-5 flex items-center justify-between border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
-            <Users className="h-4 w-4 text-accent" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Investors</h3>
-            <p className="text-[10px] text-muted-foreground">
-              {backers.length} investor{backers.length !== 1 ? "s" : ""} · {formatCurrency(totalRaised)} raised
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onNavigateInvestors}
-          className="flex items-center gap-1 text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-        >
-          View all <ArrowRight className="h-3 w-3" />
+
+  // Extracted investors from analysis
+  const extractedInvestors = analysisResult?.extractedInvestors || [];
+  const existingNames = new Set(backers.map(b => b.name.toLowerCase()));
+  const pendingExtracted = extractedInvestors.filter(e => !existingNames.has(e.investorName.toLowerCase()));
+
+  const allBackers = backers.map(b => ({ ...b, ...overrides[b.id] }));
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="rounded-xl border border-border bg-card">
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-center justify-between p-6 text-left">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <PhosphorHandshake className="h-3.5 w-3.5 text-accent" /> Investors
+            {renderStatusDot()}
+          </h3>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
-      </div>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
 
       <div className="p-5 space-y-4">
         {/* Search */}
