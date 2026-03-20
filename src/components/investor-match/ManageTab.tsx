@@ -117,9 +117,20 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
   ];
 
   const handleRowClick = useCallback((backer: CapBacker) => {
-    setEditingBacker(backer);
+    // Enrich backer with cached metadata (slogan, website, logoUrl)
+    const key = backer.name.toLowerCase().trim();
+    const enriched = enrichCache[key];
+    const enrichedBacker = enriched
+      ? {
+          ...backer,
+          slogan: backer.slogan || enriched.profile.currentThesis || undefined,
+          website: backer.website || (enriched.profile.logoUrl && enriched.profile.logoUrl.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : undefined),
+          logoUrl: backer.logoUrl || enriched.profile.logoUrl || undefined,
+        }
+      : backer;
+    setEditingBacker(enrichedBacker);
     setSheetOpen(true);
-  }, []);
+  }, [enrichCache]);
 
   const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
     setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
