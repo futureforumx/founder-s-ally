@@ -2295,4 +2295,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   );
 });
 
+  // Pitch deck versioning
+  const { activeDeck, uploadDeck } = usePitchDecks();
+  const [showReplaceDeck, setShowReplaceDeck] = useState(false);
+
+  const handleFileSelectAndVersion = useCallback(async (file: File) => {
+    await uploadDeck(file);
+    setShowReplaceDeck(false);
+    handleFileSelect(file);
+  }, [uploadDeck, handleFileSelect]);
+
 
