@@ -48,39 +48,74 @@ interface SearchResult {
   stage?: string;
 }
 
-// ── Searchable Combobox for partners/firms ──
+// ── Searchable Combobox with live API search ──
 function EntityCombobox({
   value,
   onChange,
   placeholder,
-  options,
   label,
+  searchType = "firm",
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  options: { name: string; avatar?: string; logo?: string }[];
   label: string;
+  searchType?: "firm" | "person";
 }) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const filtered = options.filter(o =>
-    o.name.toLowerCase().includes(query.toLowerCase())
-  );
-
-  // Simulate API search delay
+  // Live search via nfx-search edge function
   useEffect(() => {
-    if (query.length > 0) {
-      setIsSearching(true);
-      const t = setTimeout(() => setIsSearching(false), 600);
-      return () => clearTimeout(t);
+    if (query.length < 2) {
+      setResults([]);
+      setIsSearching(false);
+      return;
     }
-    setIsSearching(false);
+
+    setIsSearching(true);
+    clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const { data, error } = await supabase.functions.invoke("nfx-search", {
+          body: { query: query.trim() },
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (!error && data?.results) {
+          setResults(data.results.slice(0, 6).map((r: any) => ({
+            name: r.name || "Unknown",
+            location: r.location || "",
+            logoUrl: r.logoUrl || "",
+            stage: r.stage || "",
+          })));
+        } else {
+          setResults([]);
+        }
+      } catch {
+        if (!controller.signal.aborted) setResults([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
   }, [query]);
 
   // Close on outside click
