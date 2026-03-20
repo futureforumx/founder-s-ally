@@ -169,6 +169,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [loading, setLoading] = useState(true);
   const [confirmedBackers, setConfirmedBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
+  const { enrich, cache: enrichCache } = useInvestorEnrich();
+  const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
 
   const totalRaised = useMemo(() => confirmedBackers.reduce((sum, b) => sum + b.amount, 0), [confirmedBackers]);
   const animatedTotal = useCountUp(totalRaised);
