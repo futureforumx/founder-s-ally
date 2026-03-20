@@ -343,8 +343,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             <TableRow className="border-0 hover:bg-transparent">
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3 w-10"></TableHead>
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Investor</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Type</TableHead>
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Round</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Type</TableHead>
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Amount</TableHead>
             </TableRow>
           </TableHeader>
