@@ -383,7 +383,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       <div className="pt-8">
         <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
           {TRENDING_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`trending-${i}`} founder={founder} trending />
+            <CarouselCard key={`trending-${i}`} founder={founder} trending onClick={() => setSelectedFounder(founder)} />
           ))}
         </FounderCarousel>
       </div>
