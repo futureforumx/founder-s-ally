@@ -2247,25 +2247,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
 
-            {/* ─── Profile Completion Card ─── */}
+            {/* ─── Profile Completion Card (no CTA — moved to sticky footer) ─── */}
             {analysisComplete && !confirmed && (
               <>
                 {allSectionsConfirmed && completion >= 100 ? (
                   <div className="rounded-xl border border-success/30 bg-success/5 p-6 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                        </div>
-                        <div>
-                          <p className="text-base font-bold text-foreground">Profile 100% Complete & Live</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                        <CheckCircle2 className="h-5 w-5 text-success" />
                       </div>
-                      <button onClick={handleConfirmProfile}
-                        className="inline-flex items-center gap-2 rounded-lg bg-success px-5 py-2.5 text-sm font-semibold text-success-foreground transition-colors hover:bg-success/90">
-                        <Check className="h-4 w-4" /> Confirm Profile
-                      </button>
+                      <div>
+                        <p className="text-base font-bold text-foreground">100% — Ready for Matching</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -2279,22 +2273,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
                         </p>
                       </div>
-                      {tier.btnVariant === "solid" ? (
-                        <button
-                          onClick={triggerWalkthrough}
-                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-all bg-success text-success-foreground hover:bg-success/90 shadow-lg hover:-translate-y-0.5"
-                        >
-                          <PhosphorSparkle className="h-4 w-4" /> Finalize Profile
-                        </button>
-                      ) : (
-                        <button
-                          onClick={triggerWalkthrough}
-                          style={{ borderColor: tier.stroke, color: tier.stroke }}
-                          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shrink-0 transition-colors border-2 bg-transparent hover:bg-accent/10"
-                        >
-                          <PhosphorSparkle className="h-4 w-4" /> Complete Profile
-                        </button>
-                      )}
                     </div>
                   </div>
                 )}
