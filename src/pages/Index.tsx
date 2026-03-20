@@ -76,6 +76,7 @@ const Index = () => {
 
   const profileComplete = !!companyData && !!analysisResult;
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
 
   // Last synced state
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
