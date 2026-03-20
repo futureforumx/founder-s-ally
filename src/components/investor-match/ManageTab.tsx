@@ -469,9 +469,9 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                   <p className="text-xs text-muted-foreground mb-2">
                     No investors found matching "{searchQuery}"
                   </p>
-                  <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+                  <button onClick={() => handleManualAdd()} className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
                     <UserPlus className="h-3 w-3" />
-                    Add them manually
+                    Add "{searchQuery}" manually
                   </button>
                 </div>
               ) : null}
