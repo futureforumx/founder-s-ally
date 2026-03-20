@@ -526,6 +526,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     onSectionConfirmedChange?.(sectionConfirmed);
   }, [sectionConfirmed, onSectionConfirmedChange]);
 
+  // Notify parent of completion changes
+  useEffect(() => {
+    const approved = Object.values(sectionConfirmed).filter(Boolean).length;
+    const allDone = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+    onCompletionChange?.({ percent: completion, sectionsApproved: approved, totalSections: 4, allDone: !!allDone });
+  }, [completion, sectionConfirmed, onCompletionChange]);
+
   useEffect(() => {
     if (analysisComplete && form.name) onSave?.(form);
   }, [form, analysisComplete]);
