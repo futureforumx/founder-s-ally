@@ -304,52 +304,19 @@ const Index = () => {
               <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} onSectionConfirmedChange={setSectionConfirmed} />
 
               {/* Investors Section */}
-              <MissionControlInvestors
-                backers={capTable.backers}
-                totalRaised={capTable.totalRaised}
-                formatCurrency={capTable.formatCurrency}
-                addInvestor={capTable.addInvestor}
-                onNavigateInvestors={() => setActiveView("investors")}
-                analysisResult={analysisResult}
-                companyData={companyData}
-                previousSectionApproved={!!sectionConfirmed.social}
-              />
-
-
-              {/* Confirm Profile — below everything */}
-              {analysisResult && (
-                <div className="rounded-xl border border-border bg-card/95 backdrop-blur-sm px-5 py-3 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-muted-foreground">
-                      {isProfileVerified ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
-                    </p>
-                    {isProfileVerified ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
-                        <Check className="h-3.5 w-3.5" />
-                        Profile Verified
-                      </div>
-                    ) : (
-                      <Tooltip delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success hover:bg-success/20 transition-colors"
-                            onClick={() => {
-                              setIsProfileVerified(true);
-                              try { localStorage.setItem("company-profile-verified", "true"); } catch {}
-                            }}
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Confirm Profile
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px] text-xs">
-                          Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div ref={investorSectionRef}>
+                <MissionControlInvestors
+                  backers={capTable.backers}
+                  totalRaised={capTable.totalRaised}
+                  formatCurrency={capTable.formatCurrency}
+                  addInvestor={capTable.addInvestor}
+                  onNavigateInvestors={() => setActiveView("investors")}
+                  analysisResult={analysisResult}
+                  companyData={companyData}
+                  previousSectionApproved={!!sectionConfirmed.social}
+                  onConfirmedChange={setInvestorsConfirmed}
+                />
+              </div>
             </div>
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
