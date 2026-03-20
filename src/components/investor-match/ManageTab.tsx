@@ -103,6 +103,19 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const { results: nfxResults, loading: nfxLoading, isFallback } = useNFXSearch(searchQuery);
 
   const allBackers = [...confirmedBackers, ...optimisticBackers];
+
+  const handleOwnershipChange = useCallback((id: string, pct: number) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, ownershipPct: pct } : b)
+    );
+  }, []);
+
+  const handleAmountChange = useCallback((id: string, amount: number) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, amount, amountLabel: formatCurrency(amount) } : b)
+    );
+  }, [formatCurrency]);
+
   const filteredBackers = searchQuery && !showSuggestions
     ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allBackers;
