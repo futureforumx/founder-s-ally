@@ -2333,3 +2333,4 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     </div>
   );
 });
+
