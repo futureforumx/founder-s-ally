@@ -61,7 +61,7 @@ export function useCompetitors() {
       competitor: {
         id: tempId,
         name,
-        website: `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
+        website: website || `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
         description: null,
         industry_tags: [],
         logo_url: null,
