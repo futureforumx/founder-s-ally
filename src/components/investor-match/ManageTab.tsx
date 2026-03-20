@@ -336,6 +336,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             backer={b}
             isHighlighted={b.id === highlightedId}
             formatCurrency={formatCurrency}
+            onOwnershipChange={handleOwnershipChange}
+            onAmountChange={handleAmountChange}
           />
         ))}
 
@@ -355,6 +357,12 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
           </div>
         )}
       </div>
+
+      {/* Auto-Sum Footer */}
+      <CapTableFooter
+        backers={allBackers}
+        onSave={() => toast.success("Cap table saved.")}
+      />
     </div>
   );
 }
