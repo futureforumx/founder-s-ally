@@ -541,7 +541,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       {!searchQuery && (
         <div className="space-y-3 pt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
+            <h2 className="text-sm font-semibold text-foreground">All {labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}</h2>
             <span className="text-[10px] text-muted-foreground font-mono">
               {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} founders`}
             </span>
