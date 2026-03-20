@@ -274,10 +274,35 @@ export function MissionControlInvestors({
                       <UserPlus className="h-3 w-3 text-muted-foreground shrink-0" />
                     </button>
                   ))}
+                  {/* Manual add at bottom of results */}
+                  <button
+                    onClick={handleManualAdd}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-secondary/60 border-t border-border"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
+                      <UserPlus className="h-3 w-3 text-accent" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
+                      <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
+                    </div>
+                  </button>
                 </div>
               ) : !(nfxLoading || isTyping) ? (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-[10px] text-muted-foreground">No results for "{searchQuery}"</p>
+                <div className="px-3 py-3">
+                  <p className="text-[10px] text-muted-foreground text-center mb-2">No results for "{searchQuery}"</p>
+                  <button
+                    onClick={handleManualAdd}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left transition-colors hover:bg-secondary/60"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
+                      <UserPlus className="h-3 w-3 text-accent" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
+                      <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
+                    </div>
+                  </button>
                 </div>
               ) : null}
             </div>
