@@ -111,7 +111,14 @@ function EntityCombobox({
           "flex items-center gap-2 w-full rounded-xl border bg-secondary/30 px-3 py-2.5 text-sm transition-all cursor-text",
           isOpen ? "border-accent/40 ring-2 ring-accent/30" : "border-border hover:border-border/80"
         )}
-        onClick={() => { setIsOpen(true); inputRef.current?.focus(); }}
+        onClick={() => {
+          setIsOpen(true);
+          inputRef.current?.focus();
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+          }
+        }}
       >
         {value && selectedOption ? (
           <>
