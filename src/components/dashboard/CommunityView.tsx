@@ -307,12 +307,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
     if (!searchQuery) setShowMagicPrompts(true);
   }, [searchQuery]);
 
-  // Reset pagination on filter/search change
+  // Reset pagination on filter/search/scope change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery, activeFilter, activeScope]);
 
-  const filteredAll = ALL_ENTRIES.filter((f) => {
+  const scopedAll = filterByScope(ALL_ENTRIES, activeScope);
+
+  const filteredAll = scopedAll.filter((f) => {
     const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
     const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model]
@@ -326,6 +328,11 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   const hasMore = visibleCount < filteredAll.length;
   const visibleFounders = filteredAll.slice(0, visibleCount);
+
+  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope);
+  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope);
+  const labels = SCOPE_LABELS[activeScope];
+  const carouselTitles = CAROUSEL_TITLES[activeScope];
 
   const loadMore = useCallback(() => {
     if (!hasMore || isLoadingMore) return;
