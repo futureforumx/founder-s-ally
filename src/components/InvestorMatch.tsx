@@ -275,11 +275,14 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       )}
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Investor Match</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          AI-driven investor discovery based on your profile and current cap table.
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Investor Match</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            AI-driven investor discovery based on your profile and current cap table.
+          </p>
+        </div>
+        <TimeRangeControl value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* Intelligence Cards */}
