@@ -25,6 +25,53 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
+// ── Sticky Profile Footer ──
+function StickyProfileFooter({
+  sectionConfirmed,
+  investorsConfirmed,
+  onComplete,
+}: {
+  sectionConfirmed: Record<string, boolean>;
+  investorsConfirmed: boolean;
+  onComplete: () => void;
+}) {
+  const profileSections = ["overview", "positioning", "metrics", "social"];
+  const approvedCount = profileSections.filter(s => sectionConfirmed[s]).length + (investorsConfirmed ? 1 : 0);
+  const totalSteps = 5;
+  const allReady = approvedCount === totalSteps;
+  const progressPercent = (approvedCount / totalSteps) * 100;
+
+  return (
+    <div className="sticky bottom-0 left-0 w-full bg-background/90 backdrop-blur-md border-t border-border p-4 z-50 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center gap-4">
+        <span className="text-xs font-semibold text-foreground">Profile Setup</span>
+        <div className="flex items-center gap-2">
+          <div className="w-32 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${allReady ? "bg-success" : "bg-accent"}`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            Step {approvedCount} of {totalSteps}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={allReady ? onComplete : undefined}
+        disabled={!allReady}
+        className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${
+          allReady
+            ? "bg-accent text-accent-foreground shadow-lg hover:-translate-y-0.5 hover:bg-accent/90"
+            : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+        }`}
+      >
+        Complete Profile <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 const Index = () => {
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>("company");
