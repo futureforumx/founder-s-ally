@@ -19,17 +19,39 @@ export interface CapBacker {
 
 interface CapTableRowProps {
   backer: CapBacker;
+  index: number;
   isHighlighted: boolean;
   formatCurrency: (n: number) => string;
   onOwnershipChange: (id: string, pct: number) => void;
   onAmountChange: (id: string, amount: number) => void;
 }
 
-export function CapTableRow({ backer, isHighlighted, formatCurrency, onOwnershipChange, onAmountChange }: CapTableRowProps) {
+/** Generate a short ID from the backer id */
+function shortId(id: string): string {
+  return `#TS-${id.slice(0, 4).toUpperCase()}`;
+}
+
+/** Format a date string into the transaction table style */
+function formatDateTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOwnershipChange, onAmountChange }: CapTableRowProps) {
   const [editingField, setEditingField] = useState<"amount" | "ownership" | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Auto-enter edit mode when this row is highlighted (newly inserted)
   useEffect(() => {
     if (isHighlighted) {
       setEditingField("amount");
@@ -40,11 +62,6 @@ export function CapTableRow({ backer, isHighlighted, formatCurrency, onOwnership
   const startEditAmount = () => {
     setEditingField("amount");
     setEditValue(backer.amount > 0 ? String(backer.amount) : "");
-  };
-
-  const startEditOwnership = () => {
-    setEditingField("ownership");
-    setEditValue(backer.ownershipPct > 0 ? String(backer.ownershipPct) : "");
   };
 
   const cancelEdit = () => {
@@ -75,109 +92,87 @@ export function CapTableRow({ backer, isHighlighted, formatCurrency, onOwnership
     setEditValue("");
   }, [editingField, editValue, backer.id, onOwnershipChange, onAmountChange]);
 
-  const handleOwnershipKeyStroke = (val: string) => {
-    setEditValue(val);
-    const pct = parseFloat(val) || 0;
-    onOwnershipChange(backer.id, pct);
-  };
+  const isEven = index % 2 === 0;
+  const statusLabel = backer.amount > 0 ? "Success" : "Pending";
+  const isSuccess = statusLabel === "Success";
 
   return (
-    <div
-      className={`flex items-center justify-between gap-4 rounded-2xl px-4 py-3.5 transition-all duration-500 group ${
-        isHighlighted ? "bg-accent/10" : "hover:bg-secondary/40"
+    <tr
+      className={`transition-all duration-300 ${
+        isHighlighted ? "bg-accent/10" : ""
       }`}
+      style={!isHighlighted ? { background: isEven ? "hsl(var(--background))" : "hsl(var(--secondary))" } : undefined}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <Avatar className="h-10 w-10 shrink-0">
-          {backer.logoUrl ? <AvatarImage src={backer.logoUrl} alt={backer.name} /> : null}
-          <AvatarFallback
-            className="text-sm font-semibold"
-            style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-          >
-            {backer.logoLetter}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{backer.name}</p>
-          <p className="text-[11px] text-muted-foreground">{backer.instrument} · {backer.date}</p>
-        </div>
-      </div>
+      {/* ID */}
+      <td className="py-3.5 px-4">
+        <span className="text-xs text-muted-foreground font-mono">{shortId(backer.id)}</span>
+      </td>
 
-      <div className="flex items-center gap-4 shrink-0">
-        {/* Ownership % */}
-        <div className="flex items-center gap-1">
-          {editingField === "ownership" ? (
-            <div className="flex items-center gap-1">
-              <Input
-                value={editValue}
-                onChange={e => handleOwnershipKeyStroke(e.target.value)}
-                placeholder="0"
-                className="h-8 w-20 text-sm font-mono rounded-xl text-right"
-                autoFocus
-                onKeyDown={e => e.key === "Enter" && confirmEdit()}
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-              />
-              <span className="text-xs text-muted-foreground">%</span>
-              <button onClick={confirmEdit} className="h-7 w-7 flex items-center justify-center rounded-lg" style={{ color: "hsl(var(--accent))" }}>
-                <Check className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={cancelEdit} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground">
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={startEditOwnership}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group/own"
+      {/* Transaction (Avatar + Name) */}
+      <td className="py-3.5 px-4">
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-7 w-7 shrink-0">
+            {backer.logoUrl ? <AvatarImage src={backer.logoUrl} alt={backer.name} /> : null}
+            <AvatarFallback
+              className="text-[10px] font-semibold"
+              style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
             >
-              <span className="font-mono font-medium" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                {backer.ownershipPct > 0 ? `${backer.ownershipPct}%` : "—%"}
-              </span>
-              <Pencil className="h-3 w-3 opacity-0 group-hover/own:opacity-100 transition-opacity" />
-            </button>
-          )}
+              {backer.logoLetter}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium text-foreground truncate">{backer.name}</span>
         </div>
+      </td>
 
-        {/* Amount */}
-        <div className="flex items-center gap-1.5">
-          {editingField === "amount" ? (
-            <div className="flex items-center gap-1.5">
-              <Input
-                id={`amount-input-${backer.id}`}
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                placeholder="$0"
-                className="h-8 w-28 text-sm font-mono rounded-xl"
-                autoFocus
-                onKeyDown={e => e.key === "Enter" && confirmEdit()}
-                type="number"
-                min="0"
-              />
-              <button onClick={confirmEdit} className="h-8 w-8 flex items-center justify-center rounded-xl" style={{ color: "hsl(var(--accent))" }}>
-                <Check className="h-4 w-4" />
-              </button>
-              <button onClick={cancelEdit} className="h-8 w-8 flex items-center justify-center rounded-xl text-muted-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <span className="text-base font-bold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                {backer.amountLabel}
-              </span>
-              <button
-                onClick={startEditAmount}
-                className="h-8 w-8 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground transition-all"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+      {/* Activity (Instrument) */}
+      <td className="py-3.5 px-4">
+        <span className="text-sm text-muted-foreground">{backer.instrument}</span>
+      </td>
+
+      {/* Date Time */}
+      <td className="py-3.5 px-4">
+        <span className="text-sm text-muted-foreground">{formatDateTime(backer.date)}</span>
+      </td>
+
+      {/* Cost (Amount) */}
+      <td className="py-3.5 px-4">
+        {editingField === "amount" ? (
+          <div className="flex items-center gap-1">
+            <Input
+              id={`amount-input-${backer.id}`}
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              placeholder="$0"
+              className="h-7 w-24 text-xs font-mono rounded-lg border-border"
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && confirmEdit()}
+              type="number"
+              min="0"
+            />
+            <button onClick={confirmEdit} className="text-accent"><Check className="h-3.5 w-3.5" /></button>
+            <button onClick={cancelEdit} className="text-muted-foreground"><X className="h-3 w-3" /></button>
+          </div>
+        ) : (
+          <button onClick={startEditAmount} className="group/cost flex items-center gap-1">
+            <span className="text-sm font-bold text-foreground font-mono">{backer.amountLabel}</span>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/cost:opacity-100 transition-opacity" />
+          </button>
+        )}
+      </td>
+
+      {/* Status */}
+      <td className="py-3.5 px-4">
+        <span
+          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+          style={
+            isSuccess
+              ? { background: "hsla(var(--success), 0.15)", color: "hsl(var(--success))" }
+              : { background: "hsla(var(--warning), 0.15)", color: "hsl(var(--warning))" }
+          }
+        >
+          {statusLabel}
+        </span>
+      </td>
+    </tr>
   );
 }
