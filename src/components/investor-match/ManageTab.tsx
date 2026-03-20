@@ -524,22 +524,45 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                 boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
               }}
             >
-              {/* Header: Logo + Name */}
-              <div className="flex items-center gap-3">
-                <Avatar className="h-14 w-14 shrink-0 rounded-xl border border-border shadow-sm">
-                  {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                  <AvatarFallback
-                    className="text-base font-bold rounded-xl"
-                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                  >
-                    {b.logoLetter}
-                  </AvatarFallback>
-                </Avatar>
-                <p className="text-sm font-bold text-foreground truncate min-w-0 flex-1">{b.name}</p>
+              {/* Bloomberg-style header row: Logo | Name | Round */}
+              <div className="flex items-stretch gap-0 rounded-lg overflow-hidden border border-border mb-4">
+                {/* Logo cell */}
+                <div
+                  className="flex items-center justify-center w-12 shrink-0 border-r border-border"
+                  style={{ background: "hsl(var(--secondary))" }}
+                >
+                  <Avatar className="h-8 w-8 rounded-none">
+                    {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                    <AvatarFallback
+                      className="text-xs font-bold rounded-none"
+                      style={{ background: "transparent", color: "hsl(var(--foreground))" }}
+                    >
+                      {b.logoLetter}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                {/* Name cell */}
+                <div
+                  className="flex items-center flex-1 min-w-0 px-3 py-2.5 border-r border-border"
+                  style={{ background: "hsl(var(--background))" }}
+                >
+                  <p className="text-sm font-bold text-foreground truncate" style={{ fontFamily: "'Geist Mono', monospace" }}>
+                    {b.name}
+                  </p>
+                </div>
+                {/* Round cell */}
+                <div
+                  className="flex items-center px-3 py-2.5 shrink-0"
+                  style={{ background: "hsl(var(--secondary))" }}
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                    {b.instrument?.split("(")[0].trim() || "—"}
+                  </span>
+                </div>
               </div>
 
               {/* Description / Slogan */}
-              <p className="text-[13px] text-muted-foreground leading-relaxed mt-3 line-clamp-2 min-h-[2.6em]">
+              <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-2 min-h-[2.6em]">
                 {slogan || (b.amount > 0
                   ? `Committed ${formatCompactCurrency(b.amount)} via ${b.instrument || "SAFE"}.`
                   : "No details available yet.")}
@@ -547,14 +570,6 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
 
               {/* Tag Pills */}
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {b.instrument && (
-                  <span
-                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
-                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                  >
-                    {b.instrument.split("(")[0].trim()}
-                  </span>
-                )}
                 {b.date && (
                   <span
                     className="text-[11px] px-2.5 py-1 rounded-md font-medium"
