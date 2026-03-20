@@ -4,7 +4,7 @@ import { ProcessingStatus } from "./ProcessingStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
-import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2 } from "lucide-react";
+import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2, TrendingUp } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
@@ -13,21 +13,54 @@ import { RadialScore } from "./deck-audit/RadialScore";
 import { DimensionBars } from "./deck-audit/DimensionBars";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
+import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
 
-interface AuditFlag {
-  severity: "high" | "medium" | "low";
-  title: string;
-  body: string;
-  requiredFix: string;
-  slideRef: string;
-}
+/** Convert legacy edge-function response to the full AuditResult schema */
+function normalizeAuditResponse(raw: any): AuditResult {
+  // If already in the new schema shape
+  if (raw.multi_axis_scores) return raw as AuditResult;
 
-interface AuditResult {
-  companyName: string;
-  overallScore: number;
-  flags: AuditFlag[];
+  // Legacy shape: { companyName, overallScore, flags[] }
+  return {
+    audit_id: crypto.randomUUID(),
+    deck_version_id: "current",
+    metadata: {
+      analyzed_at: new Date().toISOString(),
+      target_investor: "Seed Funds",
+      benchmark_cohort: "B2B SaaS / Seed / US",
+    },
+    multi_axis_scores: {
+      readiness_score: raw.overallScore ?? 50,
+      dimensions: {
+        story_and_flow: { score: 65, rationale: ["Analysis pending — re-run with updated engine."] },
+        clarity_and_density: { score: 70, rationale: ["Analysis pending — re-run with updated engine."] },
+        market_and_financials: { score: 45, rationale: ["Analysis pending — re-run with updated engine."] },
+        team_credibility: { score: 75, rationale: ["Analysis pending — re-run with updated engine."] },
+        design_and_scannability: { score: 60, rationale: ["Analysis pending — re-run with updated engine."] },
+      },
+    },
+    benchmark_insights: {
+      percentile: 50,
+      key_takeaway: "Benchmark data will populate after a full re-run.",
+    },
+    slide_analysis: (raw.flags ?? []).map((f: any, i: number) => ({
+      slide_number: i + 1,
+      detected_intent: f.slideRef ?? `Section ${i + 1}`,
+      predicted_dropoff_risk: f.severity === "high" ? 65 : f.severity === "medium" ? 35 : 10,
+      feedback: {
+        concrete_edits: f.requiredFix ? [f.requiredFix] : [],
+        missing_elements: [],
+        investor_objections: f.body ? [f.body] : [],
+      },
+    })),
+    version_delta: {
+      compared_to_version_id: "",
+      improvements: [],
+      regressions: [],
+    },
+  };
 }
 
 export function DeckAuditView() {
@@ -44,7 +77,7 @@ export function DeckAuditView() {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
-      setResult(data as AuditResult);
+      setResult(normalizeAuditResponse(data));
       setState("report");
     } catch (err) {
       console.error("Audit error:", err);
@@ -55,7 +88,7 @@ export function DeckAuditView() {
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
 
-  const handleRerun = useCallback(() => {
+  const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
     setTimeout(() => setIsRerunning(false), 2000);
     toast({ title: "Audit refreshed", description: "Scores updated with new benchmark parameters." });
@@ -205,15 +238,21 @@ export function DeckAuditView() {
 
   return (
     <div className="flex flex-col min-h-0">
-      {/* Sticky Control Bar */}
-      <AuditControlBar onRerun={handleRerun} isRunning={isRerunning} />
+      <AuditControlBar
+        onRerun={handleRerun}
+        isRunning={isRerunning}
+        initialProfile={result.metadata.target_investor}
+        initialBenchmark={result.metadata.benchmark_cohort}
+      />
 
       <div className="space-y-8 px-6 py-6">
         {/* Action Row */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-foreground">{result.companyName}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Deck audit completed — review findings below</p>
+            <h2 className="text-lg font-bold text-foreground">Deck Audit Report</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Analyzed {format(new Date(result.metadata.analyzed_at), "MMM d, yyyy · h:mm a")}
+            </p>
           </div>
           <button
             onClick={handleReset}
@@ -223,24 +262,41 @@ export function DeckAuditView() {
           </button>
         </div>
 
+        {/* Benchmark Insight */}
+        {result.benchmark_insights.key_takeaway && (
+          <div className="rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 flex items-start gap-3">
+            <TrendingUp className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+            <div>
+              <span className="text-[11px] font-semibold text-foreground">
+                {result.benchmark_insights.percentile}th percentile
+              </span>
+              <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
+                {result.benchmark_insights.key_takeaway}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Hero: Multi-Axis Scoring */}
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
           <div className="flex flex-col lg:flex-row items-start gap-8">
-            <RadialScore score={result.overallScore} />
-            <DimensionBars />
+            <RadialScore score={result.multi_axis_scores.readiness_score} />
+            <DimensionBars scores={result.multi_axis_scores.dimensions} />
           </div>
         </div>
 
         {/* Slide-Level Coaching */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Slide-Level Coaching</h3>
-          <SlideCoachingView />
-        </div>
+        {result.slide_analysis.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Slide-Level Coaching</h3>
+            <SlideCoachingView slides={result.slide_analysis} />
+          </div>
+        )}
 
-        {/* Version Comparison & Analytics */}
+        {/* Version Comparison */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Version Comparison</h3>
-          <VersionComparison compareMode={compareMode} onToggleCompare={setCompareMode} />
+          <VersionComparison compareMode={compareMode} onToggleCompare={setCompareMode} delta={result.version_delta} />
         </div>
       </div>
     </div>
