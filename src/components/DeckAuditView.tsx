@@ -89,7 +89,9 @@ export function DeckAuditView() {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
-      setResult(normalizeAuditResponse(data));
+      const normalized = normalizeAuditResponse(data);
+      setResult(normalized);
+      try { sessionStorage.setItem("deck-audit-result", JSON.stringify(normalized)); } catch {}
       setState("report");
     } catch (err) {
       console.error("Audit error:", err);
