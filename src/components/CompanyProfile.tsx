@@ -178,9 +178,9 @@ function MetricTooltip({ metricKey }: { metricKey: string }) {
         sideOffset={8}
         className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-xl text-xs shadow-2xl max-w-[240px] border border-slate-700/50 space-y-2.5 animate-scale-in origin-bottom"
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="text-blue-400">{iconMap[tip.icon || "dollar"]}</span>
-          <span className="font-semibold text-sm text-white">{tip.title}</span>
+          <span className="font-semibold text-xs text-white">{tip.title}</span>
         </div>
         <p className="text-slate-300 text-xs leading-relaxed">{tip.definition}</p>
         {tip.formula && (
@@ -192,10 +192,10 @@ function MetricTooltip({ metricKey }: { metricKey: string }) {
             </p>
           </div>
         )}
-        <p className="text-slate-400 text-[10px] italic flex items-center gap-1">
+        <div className="flex items-center gap-1.5 border border-blue-500/40 bg-blue-500/5 rounded-md px-2 py-1.5">
           <Sparkles className="h-3 w-3 text-blue-400 flex-shrink-0" />
-          You can enter formulas directly here!
-        </p>
+          <span className="text-blue-300 text-[10px]">You can enter formulas directly here!</span>
+        </div>
       </TooltipContent>
     </Tooltip>
   );
