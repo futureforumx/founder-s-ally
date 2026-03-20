@@ -64,7 +64,7 @@ serve(async (req) => {
 
     // ── ADD: Add a competitor (create global entry if needed, then link) ──
     if (action === "add") {
-      const { name, status = "Tracked", user_defined_advantage } = payload;
+      const { name, status = "Tracked", user_defined_advantage, notes } = payload;
       if (!name?.trim()) {
         return new Response(JSON.stringify({ error: "Name is required" }), {
           status: 400,
@@ -171,6 +171,7 @@ serve(async (req) => {
           competitor_id: competitorId,
           status,
           user_defined_advantage: user_defined_advantage || null,
+          notes: notes || null,
         })
         .select("*, competitor:competitors(*)")
         .single();

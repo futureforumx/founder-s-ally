@@ -497,6 +497,8 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
+  const [newCompType, setNewCompType] = useState<"Direct" | "Indirect">("Direct");
+  const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [seeded, setSeeded] = useState(false);
 
@@ -564,12 +566,14 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   }, [dbCompetitors]);
 
   const handleAddCompetitor = useCallback(async (name: string) => {
-    await dbAddCompetitor(name);
+    await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`);
     onAddCompetitor?.(name);
     setNewCompName("");
+    setNewCompType("Direct");
+    setNewCompIntent("Threat");
     setShowAddModal(false);
     setSearchResults([]);
-  }, [dbAddCompetitor, onAddCompetitor]);
+  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
@@ -827,7 +831,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+              onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
             />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
               <motion.div
@@ -844,7 +848,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     <p className="text-xs text-muted-foreground mt-0.5">Track a new competitor for AI-powered intelligence</p>
                   </div>
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
                     className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary transition-colors"
                   >
                     <X className="h-4 w-4 text-muted-foreground" />
@@ -873,7 +877,46 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     </div>
                   </div>
 
-                  {/* Search Results from DB */}
+                  {/* Classification */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Relationship</label>
+                      <div className="flex gap-1.5">
+                        {(["Direct", "Indirect"] as const).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => setNewCompType(t)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
+                              newCompType === t
+                                ? "border-accent bg-accent/10 text-accent"
+                                : "border-border bg-card text-muted-foreground hover:bg-secondary/50"
+                            }`}
+                          >
+                            {t === "Direct" ? <><Target className="h-3 w-3 inline mr-1" />{t}</> : <><Globe className="h-3 w-3 inline mr-1" />{t}</>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Intent</label>
+                      <div className="flex gap-1.5">
+                        {(["Threat", "Watch"] as const).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => setNewCompIntent(t)}
+                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
+                              newCompIntent === t
+                                ? t === "Threat" ? "border-destructive/50 bg-destructive/10 text-destructive" : "border-accent/50 bg-accent/10 text-accent"
+                                : "border-border bg-card text-muted-foreground hover:bg-secondary/50"
+                            }`}
+                          >
+                            {t === "Threat" ? <><AlertTriangle className="h-3 w-3 inline mr-1" />{t}</> : <><Shield className="h-3 w-3 inline mr-1" />{t}</>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {searchResults.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Existing Competitors</p>
@@ -933,7 +976,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/50 bg-secondary/20">
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); setSearchResults([]); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); setSearchResults([]); }}
                     className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors"
                   >
                     Cancel
