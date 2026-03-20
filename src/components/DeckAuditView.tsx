@@ -263,14 +263,13 @@ export function DeckAuditView() {
     );
   }
 
-  // ── Processing State ──
+  // ── Processing State (Analysis Terminal overlay) ──
   if (state === "processing") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-full max-w-md">
-          <ProcessingStatus />
-        </div>
-      </div>
+      <AnalysisTerminal
+        companyName="DECK"
+        onComplete={pendingDeckText ? handleTerminalComplete : () => {}}
+      />
     );
   }
 
