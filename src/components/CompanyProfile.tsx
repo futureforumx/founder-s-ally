@@ -1990,8 +1990,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                   {/* LTV/CAC Ratio (reactive auto-calculated) */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Scale className="h-3.5 w-3.5 text-accent" /> LTV / CAC Ratio
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 whitespace-nowrap">
+                      <Scale className="h-3.5 w-3.5 text-accent flex-shrink-0" /> LTV/CAC Ratio
                       <MetricTooltip metricKey="ltvCac" />
                       {ltvCacOverride && (
                         <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
