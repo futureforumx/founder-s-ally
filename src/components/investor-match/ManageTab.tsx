@@ -41,14 +41,14 @@ function useDebounce(value: string, delay: number): string {
 function useNFXSearch(query: string) {
   const [results, setResults] = useState<NFXResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isFallback, setIsFallback] = useState(false);
+  const [source, setSource] = useState<"none" | "nfx" | "global" | "error">("none");
   const abortRef = useRef<AbortController>();
   const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
       setResults([]);
-      setIsFallback(false);
+      setSource("none");
       setLoading(false);
       return;
     }
@@ -68,15 +68,17 @@ function useNFXSearch(query: string) {
           console.error("NFX search error:", error);
           toast.error("Failed to search investors. Please try again.");
           setResults([]);
+          setSource("error");
         } else {
           setResults(data?.results || []);
-          setIsFallback(data?.fallback === true);
+          setSource(data?.source || "global");
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("NFX search fetch error:", err);
         toast.error("Failed to load investors. Please try again.");
         setResults([]);
+        setSource("error");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -87,7 +89,7 @@ function useNFXSearch(query: string) {
   }, [debouncedQuery]);
 
   const isTyping = query.length >= 2 && query !== debouncedQuery;
-  return { results, loading: loading || isTyping, isFallback };
+  return { results, loading: loading || isTyping, source };
 }
 
 // ── Cap Table Panel ──
