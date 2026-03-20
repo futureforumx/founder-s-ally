@@ -428,6 +428,9 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
           </div>
         </div>
 
+        {/* ── Competitor Updates Feed ── */}
+        <CompetitorUpdatesFeed competitors={competitors} onOpenBattlecard={setActiveCompetitor} />
+
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {competitors.map((name) => {
