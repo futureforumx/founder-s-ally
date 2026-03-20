@@ -289,7 +289,16 @@ const Index = () => {
               {/* Company Profile - inline editable */}
               <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
-
+              {/* Investors Section */}
+              <MissionControlInvestors
+                backers={capTable.backers}
+                totalRaised={capTable.totalRaised}
+                formatCurrency={capTable.formatCurrency}
+                addInvestor={capTable.addInvestor}
+                onNavigateInvestors={() => setActiveView("investors")}
+                analysisResult={analysisResult}
+                companyData={companyData}
+              />
 
 
               {/* Confirm Profile — below everything */}
