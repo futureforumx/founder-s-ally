@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 const LOG_LINES = [
   { tag: "INIT", text: "Initializing Neural Parser v3.4...", delay: 400, progressLabel: "Initializing...", progress: 8 },
@@ -56,7 +57,6 @@ const TAG_STYLES: Record<string, { color: string; glow: string }> = {
   OK: { color: "#4ade80", glow: "0 0 10px rgba(74,222,128,0.6)" },
 };
 
-/* ── Particle burst component ── */
 function ParticleBurst({ active }: { active: boolean }) {
   if (!active) return null;
   const particles = Array.from({ length: 5 }, (_, i) => {
@@ -82,7 +82,6 @@ function ParticleBurst({ active }: { active: boolean }) {
   return <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">{particles}</span>;
 }
 
-/* ── Ghost tag floating upward ── */
 function GhostTag({ label }: { label: string }) {
   return (
     <span
@@ -118,22 +117,17 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
   const logRef = useRef<HTMLDivElement>(null);
   const ghostId = useRef(0);
 
-  // Log lines with synced progress
   useEffect(() => {
     const timers = LOG_LINES.map((line, i) =>
       setTimeout(() => {
         setVisibleLogs((prev) => [...prev, line]);
         setProgress(line.progress);
         setProgressLabel(line.progressLabel);
-
-        // Mark previous line as completed + trigger burst
         if (i > 0) {
           setCompletedIndices((prev) => new Set(prev).add(i - 1));
           setBurstIndex(i - 1);
           setTimeout(() => setBurstIndex(null), 600);
         }
-
-        // Ghost tags
         if (line.ghostTags) {
           line.ghostTags.forEach((tag, ti) => {
             setTimeout(() => {
@@ -148,12 +142,10 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  // Auto-scroll logs
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [visibleLogs]);
 
-  // Completion trigger
   useEffect(() => {
     if (progress >= 100 && visibleLogs.length === LOG_LINES.length && !complete) {
       const timer = setTimeout(() => {
@@ -174,289 +166,186 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
   }, [progress, visibleLogs, complete, onComplete]);
 
   return (
-    <div
-      className={`fixed inset-0 z-[60] flex items-center justify-center transition-all duration-300 ${
-        glitch ? "animate-terminal-glitch" : ""
-      }`}
-      style={{ background: "#0B0E14" }}
-    >
-      {/* Inline styles for custom animations */}
-      <style>{`
-        @keyframes terminal-scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(1000%); }
-        }
-        .laser-scan {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 80px;
-          background: linear-gradient(
-            to bottom,
-            transparent 0%,
-            rgba(59, 130, 246, 0.04) 50%,
-            rgba(59, 130, 246, 0.15) 95%,
-            transparent 100%
-          );
-          animation: terminal-scan 3s linear infinite;
-          pointer-events: none;
-          z-index: 10;
-        }
-        @keyframes particle-burst {
-          0% { opacity: 1; transform: translate(0, 0) scale(1); }
-          100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
-        }
-        @keyframes ghost-float {
-          0% { opacity: 0; transform: translateY(0); }
-          15% { opacity: 1; }
-          70% { opacity: 0.6; }
-          100% { opacity: 0; transform: translateY(-120px); }
-        }
-        .terminal-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .terminal-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .terminal-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(96, 165, 250, 0.15);
-          border-radius: 4px;
-        }
-        .terminal-scrollbar:hover::-webkit-scrollbar-thumb {
-          background: rgba(96, 165, 250, 0.35);
-        }
-        .terminal-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(96,165,250,0.15) transparent;
-        }
-      `}</style>
+    <DialogPrimitive.Root open modal>
+      <DialogPrimitive.Portal>
+        {/* Glassmorphism backdrop */}
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        />
 
-      {/* Grid overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
-
-      {/* Terminal card — Glass aesthetic */}
-      <div className="relative w-full max-w-2xl mx-4">
-        {/* Outer glow */}
-        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-500/20 via-cyan-500/10 to-blue-500/20 blur-xl" />
-
-        <div
-          className="relative rounded-2xl overflow-hidden"
-          style={{
-            background: "rgba(15, 20, 30, 0.55)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-            border: "1px solid rgba(148, 163, 184, 0.12)",
-          }}
+        {/* Centered modal terminal — no close button */}
+        <DialogPrimitive.Content
+          className={`fixed left-[50%] top-[50%] z-50 w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ${
+            glitch ? "animate-terminal-glitch" : ""
+          }`}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
-          {/* Scanline */}
-          {!complete && <div className="laser-scan" />}
+          {/* Suppress default title/description for a11y */}
+          <DialogPrimitive.Title className="sr-only">Analysis in progress</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">Please wait while the analysis engine processes your data.</DialogPrimitive.Description>
 
-          {/* Title bar */}
-          <div
-            className="flex items-center gap-3 px-4 py-3 border-b"
-            style={{ borderColor: "rgba(148, 163, 184, 0.08)" }}
-          >
-            <div className="flex gap-1.5">
-              <div className="h-3 w-3 rounded-full" style={{ background: "#FF5F57" }} />
-              <div className="h-3 w-3 rounded-full" style={{ background: "#FEBD2E" }} />
-              <div className="h-3 w-3 rounded-full" style={{ background: "#27C840" }} />
-            </div>
-            <span className="font-mono text-[11px] tracking-wider" style={{ color: "rgba(148, 163, 184, 0.6)" }}>
-              COPILOT_ANALYSIS_ENGINE — {companyName || "STARTUP"}.exec
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="font-mono text-[10px]" style={{ color: "rgba(148, 163, 184, 0.4)" }}>
-                Technical View
-              </span>
-              <Switch
-                checked={showTechView}
-                onCheckedChange={setShowTechView}
-                className="scale-75 data-[state=checked]:bg-blue-500"
-              />
-            </div>
-          </div>
+          <style>{`
+            @keyframes terminal-scan {
+              0% { transform: translateY(-100%); }
+              100% { transform: translateY(1000%); }
+            }
+            .laser-scan {
+              position: absolute; top: 0; left: 0; width: 100%; height: 80px;
+              background: linear-gradient(to bottom, transparent 0%, rgba(59,130,246,0.04) 50%, rgba(59,130,246,0.15) 95%, transparent 100%);
+              animation: terminal-scan 3s linear infinite;
+              pointer-events: none; z-index: 10;
+            }
+            @keyframes particle-burst {
+              0% { opacity: 1; transform: translate(0, 0) scale(1); }
+              100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+            }
+            @keyframes ghost-float {
+              0% { opacity: 0; transform: translateY(0); }
+              15% { opacity: 1; }
+              70% { opacity: 0.6; }
+              100% { opacity: 0; transform: translateY(-120px); }
+            }
+            .terminal-scrollbar::-webkit-scrollbar { width: 4px; }
+            .terminal-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .terminal-scrollbar::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.15); border-radius: 4px; }
+            .terminal-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.35); }
+            .terminal-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(96,165,250,0.15) transparent; }
+          `}</style>
 
-          <div className="relative p-6 space-y-6">
-            {/* Radar animation */}
-            <div className="flex justify-center">
-              <div className="relative h-28 w-28">
-                <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "8s" }}>
-                  <circle cx="56" cy="56" r="52" fill="none" stroke="rgba(56, 130, 246, 0.1)" strokeWidth="1" />
-                  <circle cx="56" cy="56" r="40" fill="none" stroke="rgba(56, 130, 246, 0.07)" strokeWidth="1" />
-                  <circle cx="56" cy="56" r="28" fill="none" stroke="rgba(56, 130, 246, 0.05)" strokeWidth="1" />
-                </svg>
-                <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "3s" }}>
-                  <defs>
-                    <linearGradient id="sweep" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="rgba(56, 130, 246, 0)" />
-                      <stop offset="100%" stopColor="rgba(56, 130, 246, 0.6)" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="56" y1="56" x2="56" y2="4" stroke="url(#sweep)" strokeWidth="2" />
-                </svg>
-                <div
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full animate-pulse"
-                  style={{ background: "rgba(56, 130, 246, 0.8)", boxShadow: "0 0 20px rgba(56, 130, 246, 0.5)" }}
-                />
-                {[
-                  { x: 30, y: 20, delay: "0s" },
-                  { x: 75, y: 35, delay: "1s" },
-                  { x: 45, y: 80, delay: "2s" },
-                ].map((dot, i) => (
-                  <div
-                    key={i}
-                    className="absolute h-1.5 w-1.5 rounded-full animate-pulse"
-                    style={{
-                      left: dot.x,
-                      top: dot.y,
-                      background: "rgba(34, 211, 238, 0.7)",
-                      animationDelay: dot.delay,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+          {/* Terminal card */}
+          <div className="relative mx-4">
+            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-500/20 via-cyan-500/10 to-blue-500/20 blur-xl" />
 
-            {/* Status text */}
-            <div className="text-center">
-              <p className="font-mono text-sm" style={{ color: "rgba(96, 165, 250, 0.9)" }}>
-                {complete ? "SYSTEM ONLINE" : "ANALYZING…"}
-              </p>
-              <p className="font-mono text-[10px] mt-1" style={{ color: "rgba(148, 163, 184, 0.5)" }}>
-                {complete ? "All systems nominal. Launching dashboard." : progressLabel}
-              </p>
-            </div>
+            <div
+              className="relative rounded-2xl overflow-hidden"
+              style={{
+                background: "#0B1120",
+                border: "1px solid hsl(var(--border) / 0.3)",
+                boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+              }}
+            >
+              {!complete && <div className="laser-scan" />}
 
-            {/* Log output — Glass container with custom scrollbar */}
-            <div className="relative">
-              <div
-                ref={logRef}
-                className="rounded-lg p-3 max-h-44 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1 terminal-scrollbar"
-                style={{
-                  background: "rgba(0, 0, 0, 0.25)",
-                  border: "1px solid rgba(148, 163, 184, 0.06)",
-                }}
-              >
-                {visibleLogs.map((line, i) => {
-                  const isDimmed = completedIndices.has(i);
-                  const isActive = i === visibleLogs.length - 1 && !complete;
-                  const tagStyle = TAG_STYLES[line.tag] || TAG_STYLES.INIT;
-                  return (
-                    <div
-                      key={i}
-                      className="relative flex gap-2 transition-opacity duration-500"
-                      style={{ opacity: isDimmed ? 0.4 : 1 }}
-                    >
-                      <span className="shrink-0" style={{ color: "rgba(148, 163, 184, 0.25)" }}>
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="shrink-0" style={{ color: "rgba(148,163,184,0.3)" }}>&gt;</span>
-                      <span
-                        className="shrink-0 font-semibold"
-                        style={{
-                          color: tagStyle.color,
-                          textShadow: isActive ? tagStyle.glow : "none",
-                        }}
-                      >
-                        [{line.tag}]
-                      </span>
-                      <span style={{ color: isActive ? "rgba(226, 232, 240, 0.95)" : "rgba(226, 232, 240, 0.7)" }}>
-                        {line.text}
-                        {isActive && !complete && <span className="animate-pulse ml-0.5">▊</span>}
-                      </span>
-                      {isDimmed && (
-                        <span className="ml-auto shrink-0" style={{ color: "rgba(74, 222, 128, 0.5)" }}>✓</span>
-                      )}
-                      <ParticleBurst active={burstIndex === i} />
-                    </div>
-                  );
-                })}
-                {visibleLogs.length === 0 && (
-                  <span style={{ color: "rgba(148, 163, 184, 0.4)" }} className="animate-pulse">
-                    &gt; Booting analysis engine...▊
-                  </span>
-                )}
-              </div>
-
-              {/* Ghost tags floating up */}
-              {ghostTags.map((g) => (
-                <GhostTag key={g.id} label={g.label} />
-              ))}
-            </div>
-
-            {/* Technical / raw JSON view */}
-            {showTechView && (
-              <div
-                className="rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-[10px] leading-relaxed animate-fade-in terminal-scrollbar"
-                style={{
-                  background: "rgba(0, 0, 0, 0.3)",
-                  border: "1px solid rgba(148, 163, 184, 0.06)",
-                  color: "rgba(34, 211, 238, 0.6)",
-                }}
-              >
-                <pre className="whitespace-pre-wrap">{RAW_JSON}</pre>
-              </div>
-            )}
-
-            {/* Synced progress bar with label */}
-            <div className="space-y-2">
-              {/* Button-style progress indicator */}
-              <div
-                className="relative h-9 rounded-lg overflow-hidden font-mono text-[11px] flex items-center justify-center"
-                style={{
-                  background: "rgba(0, 0, 0, 0.3)",
-                  border: "1px solid rgba(148, 163, 184, 0.08)",
-                }}
-              >
-                <div
-                  className="absolute inset-0 transition-all duration-700 ease-out"
-                  style={{
-                    width: `${progress}%`,
-                    background: complete
-                      ? "rgba(34, 197, 94, 0.25)"
-                      : "linear-gradient(90deg, rgba(56, 130, 246, 0.15), rgba(34, 211, 238, 0.25))",
-                  }}
-                />
-                <span
-                  className="relative z-10 tracking-wide"
-                  style={{
-                    color: complete ? "rgba(74, 222, 128, 0.9)" : "rgba(148, 163, 184, 0.7)",
-                  }}
-                >
-                  {complete ? "✓ Analysis Complete" : `${progressLabel} — ${Math.round(progress)}%`}
+              {/* Title bar */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: "rgba(148,163,184,0.08)" }}>
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full" style={{ background: "#FF5F57" }} />
+                  <div className="h-3 w-3 rounded-full" style={{ background: "#FEBD2E" }} />
+                  <div className="h-3 w-3 rounded-full" style={{ background: "#27C840" }} />
+                </div>
+                <span className="font-mono text-[11px] tracking-wider" style={{ color: "rgba(148,163,184,0.6)" }}>
+                  ANALYSIS_ENGINE — {companyName || "STARTUP"}.exec
                 </span>
+                <div className="ml-auto flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px]" style={{ color: "rgba(148,163,184,0.4)" }}>Technical View</span>
+                    <Switch checked={showTechView} onCheckedChange={setShowTechView} className="scale-75 data-[state=checked]:bg-blue-500" />
+                  </div>
+                  {!complete && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+                      <span className="font-mono text-[10px] font-semibold" style={{ color: "rgba(96,165,250,0.8)" }}>LIVE</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Thin progress rail */}
-              <div
-                className="h-1 w-full rounded-full overflow-hidden"
-                style={{ background: "rgba(148, 163, 184, 0.06)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: `${progress}%`,
-                    background: complete
-                      ? "rgba(34, 197, 94, 0.7)"
-                      : "linear-gradient(90deg, rgba(56, 130, 246, 0.5), rgba(34, 211, 238, 0.7))",
-                    boxShadow: complete
-                      ? "0 0 10px rgba(34, 197, 94, 0.4)"
-                      : "0 0 10px rgba(56, 130, 246, 0.3)",
-                  }}
-                />
+              <div className="relative p-6 space-y-6">
+                {/* Radar */}
+                <div className="flex justify-center">
+                  <div className="relative h-28 w-28">
+                    <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "8s" }}>
+                      <circle cx="56" cy="56" r="52" fill="none" stroke="rgba(56,130,246,0.1)" strokeWidth="1" />
+                      <circle cx="56" cy="56" r="40" fill="none" stroke="rgba(56,130,246,0.07)" strokeWidth="1" />
+                      <circle cx="56" cy="56" r="28" fill="none" stroke="rgba(56,130,246,0.05)" strokeWidth="1" />
+                    </svg>
+                    <svg className="absolute inset-0 h-full w-full animate-spin" style={{ animationDuration: "3s" }}>
+                      <defs>
+                        <linearGradient id="sweep" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="rgba(56,130,246,0)" />
+                          <stop offset="100%" stopColor="rgba(56,130,246,0.6)" />
+                        </linearGradient>
+                      </defs>
+                      <line x1="56" y1="56" x2="56" y2="4" stroke="url(#sweep)" strokeWidth="2" />
+                    </svg>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full animate-pulse" style={{ background: "rgba(56,130,246,0.8)", boxShadow: "0 0 20px rgba(56,130,246,0.5)" }} />
+                    {[{ x: 30, y: 20, delay: "0s" }, { x: 75, y: 35, delay: "1s" }, { x: 45, y: 80, delay: "2s" }].map((dot, i) => (
+                      <div key={i} className="absolute h-1.5 w-1.5 rounded-full animate-pulse" style={{ left: dot.x, top: dot.y, background: "rgba(34,211,238,0.7)", animationDelay: dot.delay }} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="text-center">
+                  <p className="font-mono text-sm" style={{ color: "rgba(96,165,250,0.9)" }}>
+                    {complete ? "SYSTEM ONLINE" : "ANALYZING…"}
+                  </p>
+                  <p className="font-mono text-[10px] mt-1" style={{ color: "rgba(148,163,184,0.5)" }}>
+                    {complete ? "All systems nominal. Launching dashboard." : progressLabel}
+                  </p>
+                </div>
+
+                {/* Log output */}
+                <div className="relative">
+                  <div
+                    ref={logRef}
+                    className="rounded-lg p-3 max-h-44 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-1 terminal-scrollbar"
+                    style={{ background: "rgba(0,0,0,0.25)", border: "1px solid rgba(148,163,184,0.06)" }}
+                  >
+                    {visibleLogs.map((line, i) => {
+                      const isDimmed = completedIndices.has(i);
+                      const isActive = i === visibleLogs.length - 1 && !complete;
+                      const tagStyle = TAG_STYLES[line.tag] || TAG_STYLES.INIT;
+                      return (
+                        <div key={i} className="relative flex gap-2 transition-opacity duration-500" style={{ opacity: isDimmed ? 0.4 : 1 }}>
+                          <span className="shrink-0" style={{ color: "rgba(148,163,184,0.25)" }}>{String(i + 1).padStart(2, "0")}</span>
+                          <span className="shrink-0" style={{ color: "rgba(148,163,184,0.3)" }}>&gt;</span>
+                          <span className="shrink-0 font-semibold" style={{ color: tagStyle.color, textShadow: isActive ? tagStyle.glow : "none" }}>[{line.tag}]</span>
+                          <span style={{ color: isActive ? "rgba(226,232,240,0.95)" : "rgba(226,232,240,0.7)" }}>
+                            {line.text}
+                            {isActive && !complete && <span className="animate-pulse ml-0.5">▊</span>}
+                          </span>
+                          {isDimmed && <span className="ml-auto shrink-0" style={{ color: "rgba(74,222,128,0.5)" }}>✓</span>}
+                          <ParticleBurst active={burstIndex === i} />
+                        </div>
+                      );
+                    })}
+                    {visibleLogs.length === 0 && (
+                      <span style={{ color: "rgba(148,163,184,0.4)" }} className="animate-pulse">&gt; Booting analysis engine...▊</span>
+                    )}
+                  </div>
+                  {ghostTags.map((g) => <GhostTag key={g.id} label={g.label} />)}
+                </div>
+
+                {/* Tech view */}
+                {showTechView && (
+                  <div
+                    className="rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-[10px] leading-relaxed animate-fade-in terminal-scrollbar"
+                    style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(148,163,184,0.06)", color: "rgba(34,211,238,0.6)" }}
+                  >
+                    <pre className="whitespace-pre-wrap">{RAW_JSON}</pre>
+                  </div>
+                )}
+
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="relative h-9 rounded-lg overflow-hidden font-mono text-[11px] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(148,163,184,0.08)" }}>
+                    <div className="absolute inset-0 transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: complete ? "rgba(34,197,94,0.25)" : "linear-gradient(90deg, rgba(56,130,246,0.15), rgba(34,211,238,0.25))" }} />
+                    <span className="relative z-10 tracking-wide" style={{ color: complete ? "rgba(74,222,128,0.9)" : "rgba(148,163,184,0.7)" }}>
+                      {complete ? "✓ Analysis Complete" : `${progressLabel} — ${Math.round(progress)}%`}
+                    </span>
+                  </div>
+                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.06)" }}>
+                    <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: complete ? "rgba(34,197,94,0.7)" : "linear-gradient(90deg, rgba(56,130,246,0.5), rgba(34,211,238,0.7))", boxShadow: complete ? "0 0 10px rgba(34,197,94,0.4)" : "0 0 10px rgba(56,130,246,0.3)" }} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
