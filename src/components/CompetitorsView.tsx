@@ -380,19 +380,25 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
 
       {/* Segmented Control — outside scroll area */}
       <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
-        {SIGNAL_TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setShowAll(false); }}
-            className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
-              activeTab === tab.key
-                ? "bg-card shadow-sm text-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {SIGNAL_TABS.map(tab => {
+          const count = tab.key === "all" ? allUpdates.length : allUpdates.filter(u => u.signalTab === tab.key).length;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setShowAll(false); }}
+              className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 inline-flex items-center gap-1.5 ${
+                activeTab === tab.key
+                  ? "bg-card shadow-sm text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              <span className={`text-[10px] font-medium rounded-full px-1.5 py-0 min-w-[18px] text-center ${
+                activeTab === tab.key ? "bg-secondary text-foreground" : "bg-secondary/70 text-muted-foreground"
+              }`}>{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Scrollable Feed Items */}
