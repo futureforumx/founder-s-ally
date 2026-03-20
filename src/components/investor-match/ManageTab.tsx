@@ -236,10 +236,9 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
       <div className="flex items-center gap-2 mb-6">
         <div ref={searchRef} className="relative flex-1">
           <div
-            className="relative rounded-2xl overflow-hidden"
+            className="relative rounded-2xl overflow-hidden border border-border"
             style={{
-              background: "hsla(var(--secondary), 0.5)",
-              border: "1px solid hsla(var(--border), 0.5)",
+              background: "hsla(var(--secondary), 0.3)",
             }}
           >
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
