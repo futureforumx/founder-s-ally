@@ -417,7 +417,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
                 {hasProfile ? companyData!.name : "My Company"}
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your company profile and real-time pulse
+                Investor search &amp; discovery
               </p>
             </div>
           </button>
