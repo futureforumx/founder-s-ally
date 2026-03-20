@@ -1,10 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, DollarSign, CalendarIcon, ExternalLink, X } from "lucide-react";
+import { Trash2, DollarSign, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INVESTMENT_TYPES, FUNDING_ROUNDS, type CapBacker } from "./CapTableRow";
 import { supabase } from "@/integrations/supabase/client";
