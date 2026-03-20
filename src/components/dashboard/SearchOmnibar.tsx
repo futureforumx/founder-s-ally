@@ -1,7 +1,16 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Users, Briefcase, Building2, LayoutGrid, Sparkles, MapPin, Clock, X } from "lucide-react";
+import { Search, Users, Briefcase, Building2, LayoutGrid, Sparkles, Clock, X, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type EntityScope = "founders" | "investors" | "companies" | "all";
+
+interface SearchResult {
+  name: string;
+  subtitle: string;
+  category: "founder" | "investor" | "company";
+  matchReason: string;
+}
 
 interface SearchOmnibarProps {
   value: string;
@@ -17,35 +26,11 @@ const SCOPE_PILLS: { id: EntityScope; label: string; icon: typeof Users }[] = [
   { id: "all", label: "All", icon: LayoutGrid },
 ];
 
-// Mock results per scope for live filtering
-const MOCK_RESULTS: Record<EntityScope, { name: string; subtitle: string; icon: typeof Users }[]> = {
-  founders: [
-    { name: "Constructiv AI", subtitle: "Construction & Real Estate · Seed · San Francisco, CA", icon: Users },
-    { name: "GridShift Energy", subtitle: "Climate & Energy · Series A · Austin, TX", icon: Users },
-    { name: "VaultMed", subtitle: "Health & Biotech · Pre-Seed · Boston, MA", icon: Users },
-    { name: "Mosaic Retail", subtitle: "Consumer & Retail · Series B · New York, NY", icon: Users },
-    { name: "DefenseKit", subtitle: "Defense & GovTech · Seed · Arlington, VA", icon: Users },
-    { name: "QuantumForge", subtitle: "Deep Tech & Space · Series A · Boulder, CO", icon: Users },
-  ],
-  investors: [
-    { name: "Sequoia Capital", subtitle: "Multi-stage · $1M–$50M · San Francisco, CA", icon: Briefcase },
-    { name: "a16z", subtitle: "Seed to Growth · $500K–$100M · Menlo Park, CA", icon: Briefcase },
-    { name: "Lux Capital", subtitle: "Deep Tech · $1M–$25M · New York, NY", icon: Briefcase },
-    { name: "Founders Fund", subtitle: "Seed to Growth · $500K–$50M · San Francisco, CA", icon: Briefcase },
-    { name: "First Round Capital", subtitle: "Seed · $500K–$3M · San Francisco, CA", icon: Briefcase },
-  ],
-  companies: [
-    { name: "NovaBuild", subtitle: "PropTech · Series A · Denver, CO", icon: Building2 },
-    { name: "ClearPath Logistics", subtitle: "Supply Chain · Seed · Chicago, IL", icon: Building2 },
-    { name: "Synthara Bio", subtitle: "Health & Biotech · Series B · Cambridge, MA", icon: Building2 },
-    { name: "Canopy Finance", subtitle: "Fintech · Seed · Miami, FL", icon: Building2 },
-    { name: "AeroMind", subtitle: "Deep Tech & Space · Pre-Seed · Los Angeles, CA", icon: Building2 },
-  ],
-  all: [],
+const CATEGORY_ICONS: Record<string, typeof Users> = {
+  founder: Users,
+  investor: Briefcase,
+  company: Building2,
 };
-
-// Merge all for "all" scope
-MOCK_RESULTS.all = [...MOCK_RESULTS.founders, ...MOCK_RESULTS.investors, ...MOCK_RESULTS.companies];
 
 const DEFAULT_RECOMMENDATIONS = [
   "Seed stage B2B SaaS founders in New York",
@@ -75,31 +60,82 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<EntityScope>("all");
   const [highlightIdx, setHighlightIdx] = useState(-1);
+  const [aiResults, setAiResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const isTyping = value.trim().length > 0;
 
-  // Filter mock results based on query
-  const filteredResults = useMemo(() => {
-    if (!isTyping) return [];
-    const q = value.toLowerCase();
-    return MOCK_RESULTS[scope].filter(
-      (r) => r.name.toLowerCase().includes(q) || r.subtitle.toLowerCase().includes(q)
-    ).slice(0, 6);
+  // Debounced semantic search
+  useEffect(() => {
+    if (!isTyping) {
+      setAiResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      // Cancel previous request
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const { data, error } = await supabase.functions.invoke("semantic-search", {
+          body: { query: value.trim(), scope },
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (error) {
+          console.error("Semantic search error:", error);
+          setAiResults([]);
+        } else if (data?.results) {
+          setAiResults(data.results);
+        } else if (data?.error) {
+          if (data.error.includes("Rate limit")) {
+            toast.error("Search rate limited. Please wait a moment.");
+          } else if (data.error.includes("Credits")) {
+            toast.error("AI credits exhausted. Add funds in Settings > Workspace > Usage.");
+          }
+          setAiResults([]);
+        }
+      } catch (e) {
+        if (!controller.signal.aborted) {
+          console.error("Search failed:", e);
+          setAiResults([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(debounceRef.current);
   }, [value, scope, isTyping]);
 
-  // Build recommendations from history + defaults
+  // Re-trigger search when scope changes while typing
+  const prevScopeRef = useRef(scope);
+  useEffect(() => {
+    if (prevScopeRef.current !== scope && isTyping) {
+      // The dependency on scope in the above effect handles this
+    }
+    prevScopeRef.current = scope;
+  }, [scope, isTyping]);
+
   const recommendations = useMemo(() => {
     const history = getSearchHistory();
     if (history.length === 0) return DEFAULT_RECOMMENDATIONS;
-    // Mix recent history with defaults, deduped
     const combined = [...history, ...DEFAULT_RECOMMENDATIONS.filter((d) => !history.includes(d))];
     return combined.slice(0, 5);
-  }, [open, value]); // re-evaluate when dropdown opens or value clears
+  }, [open, value]);
 
-  const listItems = isTyping ? filteredResults : recommendations;
-  const listCount = isTyping ? filteredResults.length : recommendations.length;
+  const listCount = isTyping ? aiResults.length : recommendations.length;
 
   // Close on outside click
   useEffect(() => {
@@ -127,6 +163,7 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
   const handleClear = useCallback(() => {
     onChange("");
     setHighlightIdx(-1);
+    setAiResults([]);
     inputRef.current?.focus();
   }, [onChange]);
 
@@ -150,8 +187,8 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
         setHighlightIdx((prev) => (prev > 0 ? prev - 1 : listCount - 1));
       } else if (e.key === "Enter" && highlightIdx >= 0) {
         e.preventDefault();
-        if (isTyping && filteredResults[highlightIdx]) {
-          selectItem(filteredResults[highlightIdx].name);
+        if (isTyping && aiResults[highlightIdx]) {
+          selectItem(aiResults[highlightIdx].name);
         } else if (!isTyping && recommendations[highlightIdx]) {
           selectItem(recommendations[highlightIdx]);
         }
@@ -160,7 +197,7 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
         setHighlightIdx(-1);
       }
     },
-    [open, highlightIdx, listCount, isTyping, filteredResults, recommendations, selectItem]
+    [open, highlightIdx, listCount, isTyping, aiResults, recommendations, selectItem]
   );
 
   return (
@@ -225,14 +262,37 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
           {isTyping ? (
             <>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                <Search className="h-3 w-3" />
-                {scope === "all" ? "Results" : SCOPE_PILLS.find((p) => p.id === scope)?.label}
-                <span className="text-muted-foreground/50 ml-1">{filteredResults.length}</span>
+                {isSearching ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3 text-accent" />
+                )}
+                {isSearching
+                  ? "Searching…"
+                  : scope === "all"
+                    ? `Results`
+                    : SCOPE_PILLS.find((p) => p.id === scope)?.label}
+                {!isSearching && (
+                  <span className="text-muted-foreground/50 ml-1">{aiResults.length}</span>
+                )}
               </p>
-              {filteredResults.length > 0 ? (
+
+              {isSearching && aiResults.length === 0 ? (
+                <div className="space-y-2 py-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-pulse">
+                      <div className="h-8 w-8 rounded-lg bg-muted" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3.5 w-1/3 rounded bg-muted" />
+                        <div className="h-3 w-2/3 rounded bg-muted" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : aiResults.length > 0 ? (
                 <div className="space-y-0.5">
-                  {filteredResults.map((result, i) => {
-                    const RIcon = result.icon;
+                  {aiResults.map((result, i) => {
+                    const CatIcon = CATEGORY_ICONS[result.category] || Building2;
                     return (
                       <button
                         key={i}
@@ -244,22 +304,33 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         }`}
                       >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                          <RIcon className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary shrink-0">
+                          <CatIcon className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground truncate">{result.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground truncate">{result.name}</p>
+                            <span className="text-[9px] font-medium text-muted-foreground/60 bg-secondary rounded px-1.5 py-0.5 capitalize shrink-0">
+                              {result.category}
+                            </span>
+                          </div>
                           <p className="text-[11px] text-muted-foreground truncate">{result.subtitle}</p>
+                          {result.matchReason && (
+                            <p className="text-[10px] text-accent mt-0.5 flex items-center gap-1 truncate">
+                              <Sparkles className="h-2.5 w-2.5 shrink-0" />
+                              {result.matchReason}
+                            </p>
+                          )}
                         </div>
                       </button>
                     );
                   })}
                 </div>
-              ) : (
+              ) : !isSearching ? (
                 <p className="text-sm text-muted-foreground/60 px-3 py-4 text-center">
                   No matches for "{value}" in {scope === "all" ? "all categories" : scope}
                 </p>
-              )}
+              ) : null}
             </>
           ) : (
             <>
