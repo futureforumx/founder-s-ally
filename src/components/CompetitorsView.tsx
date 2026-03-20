@@ -475,8 +475,17 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
 
 // ── Main Component ──
 
+type CompetitorTab = "all" | "threats" | "watch";
+
+const COMPETITOR_TABS: { key: CompetitorTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "threats", label: "Threats" },
+  { key: "watch", label: "Watch" },
+];
+
 export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsViewProps) {
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
+  const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const competitors = companyData?.competitors || [];
 
   const avgOverlap = useMemo(() => {
@@ -618,10 +627,31 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
         {/* ── Two-Column Layout: Battlecards + Updates Feed ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-2">
           {/* Left Column: Tracked Competitors */}
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-4 flex flex-col">
             <h2 className="text-lg font-bold text-foreground mb-4">Tracked Competitors</h2>
-            <div className="flex flex-col gap-4">
-              {competitors.map((name) => {
+            {/* Segmented Control — aligned with right column tabs */}
+            <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
+              {COMPETITOR_TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setCompTab(tab.key)}
+                  className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
+                    compTab === tab.key
+                      ? "bg-card shadow-sm text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col gap-4 max-h-[620px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
+              {competitors.filter(name => {
+                if (compTab === "all") return true;
+                const status = getIntel(name).status;
+                if (compTab === "threats") return status === "Direct Competitor";
+                return status === "Indirect" || status === "Legacy Incumbent";
+              }).map((name) => {
                 const intel = getIntel(name);
                 const domain = domainFromName(name);
 
