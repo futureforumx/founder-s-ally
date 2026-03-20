@@ -41,14 +41,14 @@ function useDebounce(value: string, delay: number): string {
 function useNFXSearch(query: string) {
   const [results, setResults] = useState<NFXResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isFallback, setIsFallback] = useState(false);
+  const [source, setSource] = useState<"none" | "nfx" | "global" | "error">("none");
   const abortRef = useRef<AbortController>();
   const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
     if (debouncedQuery.length < 2) {
       setResults([]);
-      setIsFallback(false);
+      setSource("none");
       setLoading(false);
       return;
     }
@@ -68,15 +68,17 @@ function useNFXSearch(query: string) {
           console.error("NFX search error:", error);
           toast.error("Failed to search investors. Please try again.");
           setResults([]);
+          setSource("error");
         } else {
           setResults(data?.results || []);
-          setIsFallback(data?.fallback === true);
+          setSource(data?.source || "global");
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error("NFX search fetch error:", err);
         toast.error("Failed to load investors. Please try again.");
         setResults([]);
+        setSource("error");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -87,7 +89,7 @@ function useNFXSearch(query: string) {
   }, [debouncedQuery]);
 
   const isTyping = query.length >= 2 && query !== debouncedQuery;
-  return { results, loading: loading || isTyping, isFallback };
+  return { results, loading: loading || isTyping, source };
 }
 
 // ── Cap Table Panel ──
@@ -100,7 +102,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const { results: nfxResults, loading: nfxLoading, isFallback } = useNFXSearch(searchQuery);
+  const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
   const allBackers = [...confirmedBackers, ...optimisticBackers];
 
@@ -250,7 +252,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         >
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search the NFX Signal database..."
+            placeholder="Search global investor database..."
             value={searchQuery}
             onChange={e => {
               setSearchQuery(e.target.value);
@@ -279,9 +281,18 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                 {nfxLoading ? "Searching…" : "Live Suggestions"}
               </p>
-              {isFallback && !nfxLoading && (
-                <span className="text-[9px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                  Local results
+              {!nfxLoading && searchSource !== "none" && (
+                <span
+                  className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+                  style={
+                    searchSource === "nfx"
+                      ? { background: "hsla(152, 60%, 92%, 1)", color: "hsl(152, 60%, 35%)" }
+                      : searchSource === "global"
+                      ? { background: "hsla(210, 60%, 92%, 1)", color: "hsl(210, 60%, 35%)" }
+                      : { background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }
+                  }
+                >
+                  {searchSource === "nfx" ? "NFX Network" : searchSource === "global" ? "Global Database" : "Search"}
                 </span>
               )}
             </div>
