@@ -603,6 +603,24 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       searchType="person"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Who is your point of contact or board member at this firm?</p>
+
+                    {/* Inline Value Nudge — collapses when lead partner is filled */}
+                    <AnimatePresence>
+                      {!leadPartner && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                          animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                          exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-start gap-2">
+                            <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                            <span className="text-sm text-indigo-900"><strong>Who championed this deal?</strong> Add the lead partner to unlock smarter network matches.</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
