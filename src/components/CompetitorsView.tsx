@@ -632,21 +632,30 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
           {/* Left Column: Tracked Competitors */}
           <div className="lg:col-span-4 flex flex-col">
             <h2 className="text-lg font-bold text-foreground mb-4">Tracked Competitors</h2>
-            {/* Segmented Control — aligned with right column tabs */}
-            <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
-              {COMPETITOR_TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setCompTab(tab.key)}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
-                    compTab === tab.key
-                      ? "bg-card shadow-sm text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            {/* Segmented Control + Add Button */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
+                {COMPETITOR_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setCompTab(tab.key)}
+                    className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
+                      compTab === tab.key
+                        ? "bg-card shadow-sm text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </button>
             </div>
             <div className="flex flex-col gap-4 max-h-[620px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
               {competitors.filter(name => {
