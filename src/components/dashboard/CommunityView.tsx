@@ -260,12 +260,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   const hasProfile = !!companyData?.name;
 
-  const placeholder = useTypingPlaceholder([
-    'Try "Seed stage industrial tech in California..."',
-    'Try "B2B SaaS with $1M+ ARR..."',
-    'Try "Climate founders in New York..."',
-    'Try "AI agents for healthcare..."',
-  ]);
+  const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
 
   useEffect(() => {
     if (searchQuery.length > 0) {
