@@ -33,6 +33,7 @@ interface UpdatesTabProps {
   enrichingKeys?: Set<string>;
   timeRange: TimeRange;
   selectedHeatCell: number | null;
+  onViewAllMatches?: () => void;
 }
 
 // ── Live Signal Data ──
