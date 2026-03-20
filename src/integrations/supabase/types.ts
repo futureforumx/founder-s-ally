@@ -128,6 +128,89 @@ export type Database = {
         }
         Relationships: []
       }
+      company_competitors: {
+        Row: {
+          competitor_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+          updated_at: string
+          user_defined_advantage: string | null
+          user_id: string
+        }
+        Insert: {
+          competitor_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_defined_advantage?: string | null
+          user_id: string
+        }
+        Update: {
+          competitor_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_defined_advantage?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_competitors_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitors: {
+        Row: {
+          created_at: string
+          description: string | null
+          employee_count: string | null
+          funding: string | null
+          id: string
+          industry_tags: string[]
+          logo_url: string | null
+          name: string
+          stage: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          employee_count?: string | null
+          funding?: string | null
+          id?: string
+          industry_tags?: string[]
+          logo_url?: string | null
+          name: string
+          stage?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          employee_count?: string | null
+          funding?: string | null
+          id?: string
+          industry_tags?: string[]
+          logo_url?: string | null
+          name?: string
+          stage?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       investor_database: {
         Row: {
           ca_sb54_compliant: boolean | null
@@ -240,7 +323,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recommend_competitors: {
+        Args: { _industry_tags: string[]; _limit?: number; _user_id: string }
+        Returns: {
+          competitor_id: string
+          competitor_name: string
+          description: string
+          industry_tags: string[]
+          tag_overlap: number
+          tracking_count: number
+          website: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
