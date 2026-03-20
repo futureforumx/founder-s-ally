@@ -128,6 +128,7 @@ const Index = () => {
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
   const [investorsConfirmed, setInvestorsConfirmed] = useState(false);
   const investorSectionRef = useRef<HTMLDivElement>(null);
+  const [profileCompletion, setProfileCompletion] = useState({ percent: 0, sectionsApproved: 0, totalSections: 4, allDone: false });
 
   // Auto-scroll to investors section when all profile sections are confirmed
   useEffect(() => {
