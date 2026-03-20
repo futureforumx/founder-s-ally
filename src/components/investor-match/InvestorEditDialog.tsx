@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -72,6 +73,7 @@ function EntityCombobox({
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -109,7 +111,14 @@ function EntityCombobox({
           "flex items-center gap-2 w-full rounded-xl border bg-secondary/30 px-3 py-2.5 text-sm transition-all cursor-text",
           isOpen ? "border-accent/40 ring-2 ring-accent/30" : "border-border hover:border-border/80"
         )}
-        onClick={() => { setIsOpen(true); inputRef.current?.focus(); }}
+        onClick={() => {
+          setIsOpen(true);
+          inputRef.current?.focus();
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+          }
+        }}
       >
         {value && selectedOption ? (
           <>
@@ -132,7 +141,13 @@ function EntityCombobox({
               ref={inputRef}
               value={query}
               onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
-              onFocus={() => setIsOpen(true)}
+              onFocus={() => {
+                setIsOpen(true);
+                if (containerRef.current) {
+                  const rect = containerRef.current.getBoundingClientRect();
+                  setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+                }
+              }}
               placeholder={placeholder}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
             />
@@ -142,13 +157,14 @@ function EntityCombobox({
       </div>
 
       <AnimatePresence>
-        {isOpen && !value && (
+        {isOpen && !value && createPortal(
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-1 z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+            className="z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
           >
             {filtered.length > 0 ? (
               filtered.map(opt => (
@@ -178,7 +194,8 @@ function EntityCombobox({
             {!query.trim() && filtered.length === 0 && (
               <div className="px-3 py-3 text-xs text-muted-foreground text-center">Start typing to search…</div>
             )}
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
