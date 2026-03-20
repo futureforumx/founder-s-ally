@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3 } from "lucide-react";
+import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CompanyData } from "@/components/CompanyProfile";
 
@@ -286,6 +286,139 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
   );
 }
 
+// ── Update Types & Mock Data ──
+
+type UpdateType = "funding" | "press" | "product" | "hire" | "social";
+
+interface CompetitorUpdate {
+  id: string;
+  competitor: string;
+  type: UpdateType;
+  headline: string;
+  detail: string;
+  timeAgo: string;
+}
+
+const UPDATE_TYPE_META: Record<UpdateType, { icon: typeof DollarSign; label: string; color: string }> = {
+  funding: { icon: DollarSign, label: "New Investor", color: "text-success bg-success/10" },
+  press: { icon: Newspaper, label: "Press Release", color: "text-accent bg-accent/10" },
+  product: { icon: Rocket, label: "Product Launch", color: "text-primary bg-primary/10" },
+  hire: { icon: UserPlus, label: "New Hire", color: "text-warning bg-warning/10" },
+  social: { icon: Megaphone, label: "Social", color: "text-destructive bg-destructive/10" },
+};
+
+function generateUpdates(competitors: string[]): CompetitorUpdate[] {
+  const templates: { type: UpdateType; headline: (name: string) => string; detail: (name: string) => string }[] = [
+    { type: "funding", headline: (n) => `${n} closes $45M Series C led by Sequoia`, detail: () => "New round values the company at $800M post-money. Capital earmarked for international expansion." },
+    { type: "press", headline: (n) => `${n} featured in TechCrunch for AI-first strategy`, detail: () => "Coverage highlights pivot to AI-native workflows and potential disruption to incumbent players." },
+    { type: "product", headline: (n) => `${n} launches real-time analytics dashboard`, detail: () => "New product directly competes with your core value proposition. Early reviews are positive." },
+    { type: "hire", headline: (n) => `${n} hires ex-Google VP of Engineering`, detail: () => "Senior engineering leadership hire signals investment in platform scalability and developer experience." },
+    { type: "social", headline: (n) => `${n} CEO tweets about upcoming enterprise launch`, detail: () => "Thread hints at enterprise-tier pricing and SOC 2 compliance, moving upmarket." },
+    { type: "funding", headline: (n) => `${n} raises bridge round from existing investors`, detail: () => "Extension round suggests strong insider conviction ahead of a potential Series D." },
+    { type: "product", headline: (n) => `${n} ships API v3 with breaking changes`, detail: () => "Migration required for existing customers — potential churn window to target their user base." },
+    { type: "hire", headline: (n) => `${n} poaches head of sales from Datadog`, detail: () => "Aggressive GTM hire indicates push into enterprise sales motions." },
+    { type: "press", headline: (n) => `${n} named to Forbes Fintech 50 list`, detail: () => "Industry recognition strengthens their positioning with enterprise prospects." },
+    { type: "social", headline: (n) => `${n} announces partnership with AWS at re:Invent`, detail: () => "Cloud marketplace listing could accelerate their enterprise pipeline significantly." },
+  ];
+
+  const times = ["2h ago", "5h ago", "1d ago", "2d ago", "3d ago", "4d ago", "5d ago", "1w ago", "1w ago", "2w ago"];
+
+  const updates: CompetitorUpdate[] = [];
+  let idx = 0;
+  for (const t of templates) {
+    const comp = competitors[idx % competitors.length];
+    updates.push({
+      id: `update-${idx}`,
+      competitor: comp,
+      type: t.type,
+      headline: t.headline(comp),
+      detail: t.detail(comp),
+      timeAgo: times[idx % times.length],
+    });
+    idx++;
+  }
+  return updates;
+}
+
+function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors: string[]; onOpenBattlecard: (name: string) => void }) {
+  const [showAll, setShowAll] = useState(false);
+  const updates = useMemo(() => generateUpdates(competitors), [competitors]);
+  const visible = showAll ? updates : updates.slice(0, 4);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Megaphone className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Competitor Updates</h2>
+          <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
+            {updates.length} signals
+          </Badge>
+        </div>
+        {updates.length > 4 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
+          >
+            {showAll ? "Show less" : `View all ${updates.length}`}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <AnimatePresence initial={false}>
+          {visible.map((update, i) => {
+            const meta = UPDATE_TYPE_META[update.type];
+            const Icon = meta.icon;
+            const domain = domainFromName(update.competitor);
+
+            return (
+              <motion.div
+                key={update.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, delay: i * 0.03 }}
+                className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card p-4 hover:border-accent/20 hover:shadow-surface transition-all duration-200 cursor-pointer"
+                onClick={() => onOpenBattlecard(update.competitor)}
+              >
+                {/* Type Icon */}
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${meta.color}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <img
+                      src={faviconSrc(domain)}
+                      alt=""
+                      className="h-3.5 w-3.5 rounded-sm"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{update.competitor}</span>
+                    <Badge className={`text-[8px] font-medium border-0 rounded-full px-1.5 py-0 ${meta.color}`}>
+                      {meta.label}
+                    </Badge>
+                  </div>
+                  <p className="text-[13px] font-medium text-foreground leading-snug truncate">{update.headline}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5 line-clamp-1">{update.detail}</p>
+                </div>
+
+                {/* Time */}
+                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                  <Clock className="h-3 w-3 text-muted-foreground/50" />
+                  <span className="text-[10px] text-muted-foreground/60 font-medium">{update.timeAgo}</span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ──
 
 export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsViewProps) {
@@ -427,6 +560,9 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
             </button>
           </div>
         </div>
+
+        {/* ── Competitor Updates Feed ── */}
+        <CompetitorUpdatesFeed competitors={competitors} onOpenBattlecard={setActiveCompetitor} />
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
