@@ -1484,9 +1484,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </div>
 
       {/* ═══════════════════════════════════════════════
-          RIGHT COLUMN: GENERATED PROFILE (col-span-8) — scrollable
+          GENERATED PROFILE — scrollable
           ═══════════════════════════════════════════════ */}
-      <div className="lg:col-span-8 space-y-3" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
+      <div className="space-y-3" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
 
         {/* Right column header: Generated Profile + autosave + progress */}
         <div className="flex items-center justify-between">
