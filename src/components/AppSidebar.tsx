@@ -20,8 +20,11 @@ const companyItems = [
   { id: "competitors" as const, label: "Competitors", icon: Swords },
   { id: "sector" as const, label: "Sector", icon: Layers },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
-  { id: "investors" as const, label: "Investors", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
+];
+
+const investorItems = [
+  { id: "investors" as const, label: "Matches", icon: Handshake },
 ];
 
 const communityItems = [
@@ -69,6 +72,22 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           ))}
           <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
           {companyItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => onViewChange(item.id)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                activeView === item.id
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Investors</div>
+          {investorItems.map((item) => (
             <button
               key={item.id}
               onClick={() => onViewChange(item.id)}
