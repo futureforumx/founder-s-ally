@@ -520,7 +520,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [form, userTouched, metricPeriod, sectionConfirmed]);
 
+  // Notify parent of section confirmation changes
   useEffect(() => {
+    onSectionConfirmedChange?.(sectionConfirmed);
+  }, [sectionConfirmed, onSectionConfirmedChange]);
+
+
     if (analysisComplete && form.name) onSave?.(form);
   }, [form, analysisComplete]);
 
