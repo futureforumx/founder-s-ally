@@ -502,8 +502,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       value={associatedFirm}
                       onChange={setAssociatedFirm}
                       placeholder="Are they investing via a specific entity? (Optional)"
-                      options={MOCK_SYNDICATES}
                       label="Firm"
+                      searchType="firm"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Optional — link this person to an investing entity.</p>
                   </div>
