@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  Search, Users, Building2, MapPin, Sparkles, Briefcase,
+  Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp } from
 "lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
