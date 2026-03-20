@@ -497,9 +497,11 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
+  const [newCompWebsite, setNewCompWebsite] = useState("");
   const [newCompType, setNewCompType] = useState<"Direct" | "Indirect">("Direct");
   const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [enriching, setEnriching] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
   const {
@@ -566,14 +568,18 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   }, [dbCompetitors]);
 
   const handleAddCompetitor = useCallback(async (name: string) => {
-    await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`);
+    // Format website for the edge function
+    let website = newCompWebsite.trim();
+    if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`, website || undefined);
     onAddCompetitor?.(name);
     setNewCompName("");
+    setNewCompWebsite("");
     setNewCompType("Direct");
     setNewCompIntent("Threat");
     setShowAddModal(false);
     setSearchResults([]);
-  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType]);
+  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType, newCompWebsite]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
@@ -831,7 +837,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
+              onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
             />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
               <motion.div
@@ -848,34 +854,63 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     <p className="text-xs text-muted-foreground mt-0.5">Track a new competitor for AI-powered intelligence</p>
                   </div>
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
                     className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary transition-colors"
                   >
                     <X className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </div>
 
-                {/* Body */}
                 <div className="px-6 py-5 space-y-4">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Company Name</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Website</label>
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                       <input
                         type="text"
-                        value={newCompName}
-                        onChange={(e) => setNewCompName(e.target.value)}
+                        value={newCompWebsite}
+                        onChange={(e) => {
+                          setNewCompWebsite(e.target.value);
+                          // Auto-derive company name from domain
+                          const val = e.target.value.trim();
+                          if (val) {
+                            try {
+                              let url = val;
+                              if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+                              const hostname = new URL(url).hostname.replace(/^www\./, "");
+                              const derived = hostname.split(".")[0];
+                              setNewCompName(derived.charAt(0).toUpperCase() + derived.slice(1));
+                            } catch {
+                              setNewCompName(val);
+                            }
+                          } else {
+                            setNewCompName("");
+                          }
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newCompName.trim()) {
                             handleAddCompetitor(newCompName.trim());
                           }
                         }}
-                        placeholder="e.g. Stripe, Brex, Mercury..."
+                        placeholder="e.g. stripe.com, brex.com..."
                         className="w-full rounded-xl border border-border bg-secondary/30 pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
                         autoFocus
                       />
                     </div>
                   </div>
+
+                  {/* Auto-derived company name (editable) */}
+                  {newCompName && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Company Name</label>
+                      <input
+                        type="text"
+                        value={newCompName}
+                        onChange={(e) => setNewCompName(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                      />
+                    </div>
+                  )}
 
                   {/* Classification */}
                   <div className="grid grid-cols-2 gap-3">
@@ -947,7 +982,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                   )}
 
                   {/* New competitor preview */}
-                  {newCompName.trim() && searchResults.length === 0 && (
+                  {newCompWebsite.trim() && newCompName.trim() && searchResults.length === 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -955,7 +990,13 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     >
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-card border border-border/50 overflow-hidden shrink-0">
                         <img
-                          src={faviconSrc(domainFromName(newCompName.trim()))}
+                          src={faviconSrc((() => {
+                            try {
+                              let u = newCompWebsite.trim();
+                              if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+                              return new URL(u).hostname.replace(/^www\./, "");
+                            } catch { return domainFromName(newCompName.trim()); }
+                          })())}
                           alt=""
                           className="h-5 w-5"
                           onError={(e) => {
@@ -966,9 +1007,8 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground">{newCompName.trim()}</p>
-                        <p className="text-[10px] text-muted-foreground">New entry · will be AI-enriched</p>
+                        <p className="text-[10px] text-muted-foreground">{newCompWebsite.trim()} · will be AI-enriched</p>
                       </div>
-                      <Badge className="text-[9px] shrink-0 bg-accent/10 text-accent border-0">+ New</Badge>
                     </motion.div>
                   )}
                 </div>
@@ -976,7 +1016,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/50 bg-secondary/20">
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); setSearchResults([]); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); setSearchResults([]); }}
                     className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors"
                   >
                     Cancel

@@ -50,7 +50,7 @@ export function useCompetitors() {
     }
   }, []);
 
-  const addCompetitor = useCallback(async (name: string, status: string = "Tracked", notes?: string) => {
+  const addCompetitor = useCallback(async (name: string, status: string = "Tracked", notes?: string, website?: string) => {
     // Optimistic: add a placeholder
     const tempId = `temp-${Date.now()}`;
     const optimistic: TrackedCompetitor = {
@@ -61,7 +61,7 @@ export function useCompetitors() {
       competitor: {
         id: tempId,
         name,
-        website: `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
+        website: website || `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
         description: null,
         industry_tags: [],
         logo_url: null,
@@ -75,7 +75,7 @@ export function useCompetitors() {
 
     try {
       const { data, error } = await supabase.functions.invoke("manage-competitors", {
-        body: { action: "add", name, status, notes },
+        body: { action: "add", name, status, notes, website },
       });
       if (error) throw error;
       if (data.error) {

@@ -64,7 +64,7 @@ serve(async (req) => {
 
     // ── ADD: Add a competitor (create global entry if needed, then link) ──
     if (action === "add") {
-      const { name, status = "Tracked", user_defined_advantage, notes } = payload;
+      const { name, status = "Tracked", user_defined_advantage, notes, website: providedWebsite } = payload;
       if (!name?.trim()) {
         return new Response(JSON.stringify({ error: "Name is required" }), {
           status: 400,
@@ -90,7 +90,7 @@ serve(async (req) => {
         competitorRecord = existing;
       } else {
         // Create new global competitor entry
-        const website = `https://${trimmedName.toLowerCase().replace(/\s+/g, "")}.com`;
+        const website = providedWebsite || `https://${trimmedName.toLowerCase().replace(/\s+/g, "")}.com`;
 
         // Try AI enrichment
         let description = `${trimmedName} operates in the market. Add industry tags for better intelligence.`;
