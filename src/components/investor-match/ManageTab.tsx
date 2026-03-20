@@ -149,6 +149,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       logoLetter: result.name.charAt(0).toUpperCase(),
       date: dateLabel,
       logoUrl: result.logoUrl || undefined,
+      ownershipPct: 0,
     };
 
     // 3. Optimistic insert into local state
