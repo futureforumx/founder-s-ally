@@ -2255,38 +2255,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
 
-            {/* ─── Profile Completion Card (no CTA — moved to sticky footer) ─── */}
-            {analysisComplete && !confirmed && (
-              <>
-                {allSectionsConfirmed && completion >= 100 ? (
-                  <div className="rounded-xl border border-success/30 bg-success/5 p-6 animate-fade-in">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
-                        <CheckCircle2 className="h-5 w-5 text-success" />
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-foreground">100% — Ready for Matching</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border bg-card shadow-sm p-6 animate-fade-in">
-                    <div className="flex items-center gap-6">
-                      <CircularProgress percent={completion} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-foreground">{tier.title}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{tier.subtitle}</p>
-                        <p className="text-[10px] text-muted-foreground mt-2 font-mono">
-                          {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
             {confirmed && (
               <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
                 <span className="inline-flex items-center gap-2 text-sm font-semibold text-success">
