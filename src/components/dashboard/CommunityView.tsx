@@ -18,7 +18,9 @@ interface CommunityViewProps {
 }
 
 // ── Types ──
-interface FounderEntry {
+type EntryCategory = "founder" | "investor" | "company";
+
+interface DirectoryEntry {
   name: string;
   sector: string;
   stage: string;
@@ -27,46 +29,79 @@ interface FounderEntry {
   model: string;
   initial: string;
   matchReason: string | null;
+  category: EntryCategory;
 }
 
 // ── Mock data: Suggested ──
-const SUGGESTED_FOUNDERS: FounderEntry[] = [
-  { name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null },
-  { name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage" },
-  { name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null },
-  { name: "Mosaic Retail", sector: "Consumer & Retail", stage: "Series B", description: "AI visual merchandising engine for e-commerce brands. Increases conversion by dynamically optimizing product layouts.", location: "New York, NY", model: "Marketplace", initial: "M", matchReason: "Matches your sector" },
-  { name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null },
-  { name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null },
+const SUGGESTED_ENTRIES: DirectoryEntry[] = [
+  // Founders
+  { name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null, category: "founder" },
+  { name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage", category: "founder" },
+  { name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
+  { name: "Mosaic Retail", sector: "Consumer & Retail", stage: "Series B", description: "AI visual merchandising engine for e-commerce brands. Increases conversion by dynamically optimizing product layouts.", location: "New York, NY", model: "Marketplace", initial: "M", matchReason: "Matches your sector", category: "founder" },
+  // Investors
+  { name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor" },
+  { name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor" },
+  { name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor" },
+  // Companies
+  { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
+  { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
+  { name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" },
 ];
 
 // ── Mock data: Trending ──
-const TRENDING_FOUNDERS: FounderEntry[] = [
-  { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null },
-  { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null },
-  { name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null },
-  { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null },
-  { name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null },
-  { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null },
+const TRENDING_ENTRIES: DirectoryEntry[] = [
+  // Founders
+  { name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null, category: "founder" },
+  { name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null, category: "founder" },
+  { name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null, category: "founder" },
+  // Investors
+  { name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor" },
+  { name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
+  // Companies
+  { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
+  { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
 ];
 
-// ── Extended founders for grid ──
-const EXTRA_FOUNDERS: FounderEntry[] = [
-  { name: "Lumen Health", sector: "Health & Biotech", stage: "Seed", description: "Remote patient monitoring platform using wearable biosensors and predictive AI for chronic disease management.", location: "Nashville, TN", model: "B2B SaaS", initial: "L", matchReason: null },
-  { name: "TerraFlow", sector: "Climate & Energy", stage: "Series A", description: "Carbon capture marketplace connecting industrial emitters with verified offset projects using blockchain verification.", location: "Portland, OR", model: "Marketplace", initial: "T", matchReason: "Matches your stage" },
-  { name: "CodeVault", sector: "Developer Tools", stage: "Pre-Seed", description: "AI-powered code review platform that detects security vulnerabilities and suggests fixes in real-time during PR reviews.", location: "Seattle, WA", model: "B2B SaaS", initial: "C", matchReason: null },
-  { name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null },
-  { name: "Nucleus AI", sector: "Enterprise AI", stage: "Series B", description: "Enterprise knowledge graph platform that unifies siloed data across departments for AI-ready organizational intelligence.", location: "San Jose, CA", model: "B2B SaaS", initial: "N", matchReason: null },
-  { name: "BridgeEd", sector: "EdTech", stage: "Seed", description: "Adaptive learning platform for workforce upskilling. Uses competency mapping to create personalized learning paths.", location: "Washington, DC", model: "B2B SaaS", initial: "B", matchReason: "Matches your sector" },
-  { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null },
-  { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null },
-  { name: "Vega Legal", sector: "LegalTech", stage: "Seed", description: "AI contract analysis tool that identifies risk clauses and suggests negotiation strategies for in-house legal teams.", location: "Philadelphia, PA", model: "B2B SaaS", initial: "V", matchReason: null },
-  { name: "Orion Cyber", sector: "Cybersecurity", stage: "Series A", description: "Zero-trust network access platform with continuous authentication using behavioral biometrics and device posture analysis.", location: "Reston, VA", model: "B2B SaaS", initial: "O", matchReason: null },
-  { name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null },
-  { name: "DataForge", sector: "Enterprise AI", stage: "Seed", description: "Synthetic data generation platform for ML training. Creates privacy-compliant datasets that mirror production data distributions.", location: "Toronto, ON", model: "Usage-Based", initial: "D", matchReason: null },
+// ── Extended entries for grid ──
+const EXTRA_ENTRIES: DirectoryEntry[] = [
+  { name: "Lumen Health", sector: "Health & Biotech", stage: "Seed", description: "Remote patient monitoring platform using wearable biosensors and predictive AI for chronic disease management.", location: "Nashville, TN", model: "B2B SaaS", initial: "L", matchReason: null, category: "founder" },
+  { name: "TerraFlow", sector: "Climate & Energy", stage: "Series A", description: "Carbon capture marketplace connecting industrial emitters with verified offset projects using blockchain verification.", location: "Portland, OR", model: "Marketplace", initial: "T", matchReason: "Matches your stage", category: "company" },
+  { name: "CodeVault", sector: "Developer Tools", stage: "Pre-Seed", description: "AI-powered code review platform that detects security vulnerabilities and suggests fixes in real-time during PR reviews.", location: "Seattle, WA", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
+  { name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
+  { name: "Nucleus AI", sector: "Enterprise AI", stage: "Series B", description: "Enterprise knowledge graph platform that unifies siloed data across departments for AI-ready organizational intelligence.", location: "San Jose, CA", model: "B2B SaaS", initial: "N", matchReason: null, category: "founder" },
+  { name: "BridgeEd", sector: "EdTech", stage: "Seed", description: "Adaptive learning platform for workforce upskilling. Uses competency mapping to create personalized learning paths.", location: "Washington, DC", model: "B2B SaaS", initial: "B", matchReason: "Matches your sector", category: "founder" },
+  { name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor" },
+  { name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor" },
+  { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company" },
+  { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
+  { name: "Vega Legal", sector: "LegalTech", stage: "Seed", description: "AI contract analysis tool that identifies risk clauses and suggests negotiation strategies for in-house legal teams.", location: "Philadelphia, PA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
+  { name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" },
 ];
 
-// ── All founders (combined) ──
-const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDERS, ...EXTRA_FOUNDERS];
+// ── All entries (combined) ──
+const ALL_ENTRIES: DirectoryEntry[] = [...SUGGESTED_ENTRIES, ...TRENDING_ENTRIES, ...EXTRA_ENTRIES];
+
+function filterByScope(entries: DirectoryEntry[], scope: EntityScope): DirectoryEntry[] {
+  if (scope === "all") return entries;
+  const catMap: Record<string, EntryCategory> = { founders: "founder", investors: "investor", companies: "company" };
+  const cat = catMap[scope];
+  return entries.filter((e) => e.category === cat);
+}
+
+const SCOPE_LABELS: Record<EntityScope, { singular: string; plural: string }> = {
+  all: { singular: "entry", plural: "entries" },
+  founders: { singular: "founder", plural: "founders" },
+  investors: { singular: "investor", plural: "investors" },
+  companies: { singular: "company", plural: "companies" },
+};
+
+const CAROUSEL_TITLES: Record<EntityScope, { suggested: string; trending: string }> = {
+  all: { suggested: "Suggested for You", trending: "Trending Now" },
+  founders: { suggested: "Suggested Founders", trending: "Trending Founders" },
+  investors: { suggested: "Suggested Investors", trending: "Trending Investors" },
+  companies: { suggested: "Suggested Companies", trending: "Trending Companies" },
+};
 
 const PAGE_SIZE = 9;
 
