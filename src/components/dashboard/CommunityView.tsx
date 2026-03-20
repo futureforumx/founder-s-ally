@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase,
-  ArrowRight, Flame, Loader2, LayoutGrid,
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp,
 } from "lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -297,6 +297,34 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
 
+  // ── Smart Cohort data ──
+  const cohorts = useMemo(() => {
+    const userLocation = companyData?.hqLocation || "San Francisco, CA";
+    const userCity = userLocation.split(",")[0].trim();
+    const userStage = companyData?.stage || "Seed";
+
+    const localCount = ALL_ENTRIES.filter(e => e.location.includes(userCity)).length;
+    const stageCount = ALL_ENTRIES.filter(e => e.stage === userStage).length;
+    const founderCount = ALL_ENTRIES.filter(e => e.category === "founder").length;
+    const matchCount = ALL_ENTRIES.filter(e => e.matchReason).length;
+
+    return [
+      { id: "local", value: localCount || 12, label: `In ${userCity}`, icon: MapPin, filterKey: userCity },
+      { id: "stage", value: stageCount || 8, label: `${userStage} Stage Peers`, icon: Zap, filterKey: userStage },
+      { id: "founders", value: founderCount, label: "Active Founders", icon: Users, filterKey: "" },
+      { id: "matches", value: matchCount || 5, label: "New Matches", icon: TrendingUp, filterKey: "" },
+    ] as const;
+  }, [companyData]);
+
+  // Cohort click handler — inject filter into search
+  const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
+    if (filterKey) {
+      setSearchQuery(filterKey);
+      setShowMagicPrompts(false);
+    }
+    if (scopeOverride) setActiveScope(scopeOverride);
+  }, []);
+
   useEffect(() => {
     if (searchQuery.length > 0) {
       setIsSearching(true);
@@ -401,6 +429,31 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
             <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
           </button>
         )}
+      </div>
+
+      {/* ── Smart Cohort Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+        {cohorts.map((cohort) => {
+          const Icon = cohort.icon;
+          return (
+            <button
+              key={cohort.id}
+              onClick={() => handleCohortClick(
+                cohort.filterKey,
+                cohort.id === "founders" ? "founders" : undefined
+              )}
+              className="relative overflow-hidden bg-card border border-border rounded-xl p-4 flex flex-col text-left cursor-pointer hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+            >
+              <span className="text-2xl font-bold text-foreground group-hover:text-accent transition-colors">
+                {cohort.value}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium mt-0.5">
+                {cohort.label}
+              </span>
+              <Icon className="absolute -bottom-1.5 -right-1.5 w-10 h-10 text-muted/60 group-hover:text-accent/10 transition-colors" />
+            </button>
+          );
+        })}
       </div>
 
       {/* Global Entity Tabs */}
