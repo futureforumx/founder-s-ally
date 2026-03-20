@@ -100,35 +100,37 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [optimisticBackers, setOptimisticBackers] = useState<CapBacker[]>([]);
+  const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
-  const allBackers = [...confirmedBackers, ...optimisticBackers];
+  // Merge confirmed backers with overrides, then append optimistic
+  const allBackers = [
+    ...confirmedBackers.map(b => ({ ...b, ...overrides[b.id] })),
+    ...optimisticBackers,
+  ];
 
   const handleOwnershipChange = useCallback((id: string, pct: number) => {
-    setOptimisticBackers(prev =>
-      prev.map(b => b.id === id ? { ...b, ownershipPct: pct } : b)
-    );
+    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ownershipPct: pct } : b));
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ownershipPct: pct } }));
   }, []);
 
   const handleAmountChange = useCallback((id: string, amount: number) => {
-    setOptimisticBackers(prev =>
-      prev.map(b => b.id === id ? { ...b, amount, amountLabel: formatCurrency(amount) } : b)
-    );
+    const patch = { amount, amountLabel: formatCurrency(amount) };
+    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, [formatCurrency]);
 
   const handleInstrumentChange = useCallback((id: string, instrument: string) => {
-    setOptimisticBackers(prev =>
-      prev.map(b => b.id === id ? { ...b, instrument } : b)
-    );
+    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, instrument } : b));
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], instrument } }));
   }, []);
 
   const handleRoundChange = useCallback((id: string, round: string) => {
-    setOptimisticBackers(prev =>
-      prev.map(b => b.id === id ? { ...b, date: round } : b)
-    );
+    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, date: round } : b));
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], date: round } }));
   }, []);
 
   const filteredBackers = searchQuery && !showSuggestions
