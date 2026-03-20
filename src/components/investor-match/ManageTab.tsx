@@ -323,10 +323,6 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
         boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-foreground">My Investors</h3>
-      </div>
 
       {/* Search + Filters Row */}
       <div className="flex items-center gap-2 mb-6">
