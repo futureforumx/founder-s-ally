@@ -494,7 +494,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         })}
       </div>
 
-      {/* Global Entity Tabs */}
+      {/* Global Entity Tabs — hidden for investor-search */}
+      {!isInvestorSearch && (
       <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
         {GLOBAL_TABS.map((tab) => {
           const Icon = tab.icon;
@@ -518,6 +519,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
         })}
       </div>
+      )}
 
       {/* Search Omnibar */}
       <SearchOmnibar
