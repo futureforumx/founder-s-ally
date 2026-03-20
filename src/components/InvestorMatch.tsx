@@ -216,6 +216,20 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       .slice(0, 10);
   }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers]);
 
+  // Enrich top investors via waterfall
+  useEffect(() => {
+    if (scoredInvestors.length === 0) return;
+    const top5 = scoredInvestors.slice(0, 5);
+    top5.forEach(async (inv) => {
+      const key = inv.firm_name.toLowerCase().trim();
+      if (enrichedData[key]) return;
+      const result = await enrich(inv.firm_name);
+      if (result) {
+        setEnrichedData(prev => ({ ...prev, [key]: result }));
+      }
+    });
+  }, [scoredInvestors]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
