@@ -64,8 +64,20 @@ function normalizeAuditResponse(raw: any): AuditResult {
 }
 
 export function DeckAuditView() {
-  const [state, setState] = useState<AuditState>("upload");
-  const [result, setResult] = useState<AuditResult | null>(null);
+  const [state, setState] = useState<AuditState>(() => {
+    try {
+      const cached = sessionStorage.getItem("deck-audit-result");
+      if (cached) return "report";
+    } catch {}
+    return "upload";
+  });
+  const [result, setResult] = useState<AuditResult | null>(() => {
+    try {
+      const cached = sessionStorage.getItem("deck-audit-result");
+      if (cached) return JSON.parse(cached) as AuditResult;
+    } catch {}
+    return null;
+  });
   const [compareMode, setCompareMode] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
@@ -77,7 +89,9 @@ export function DeckAuditView() {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
-      setResult(normalizeAuditResponse(data));
+      const normalized = normalizeAuditResponse(data);
+      setResult(normalized);
+      try { sessionStorage.setItem("deck-audit-result", JSON.stringify(normalized)); } catch {}
       setState("report");
     } catch (err) {
       console.error("Audit error:", err);
@@ -97,7 +111,7 @@ export function DeckAuditView() {
     } catch {}
   }, [handleUpload]);
 
-  const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
+  const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
   const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
