@@ -300,8 +300,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} />}
-      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
+      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (
         <ManageTab
