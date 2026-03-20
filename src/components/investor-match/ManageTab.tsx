@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { CapTableRow, type CapBacker } from "./CapTableRow";
 import { InvestorEditSheet } from "./InvestorEditSheet";
+import type { EnrichResult } from "@/hooks/useInvestorEnrich";
 
 
 interface NFXResult {
