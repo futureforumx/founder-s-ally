@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
