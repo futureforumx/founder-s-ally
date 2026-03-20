@@ -138,9 +138,11 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
-function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
+function FounderCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
   return (
-    <Card className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
+    <Card
+      onClick={onClick}
+      className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
     }`}>
       {/* Color banner */}
