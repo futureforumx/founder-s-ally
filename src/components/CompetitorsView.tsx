@@ -566,12 +566,15 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   }, [dbCompetitors]);
 
   const handleAddCompetitor = useCallback(async (name: string) => {
-    await dbAddCompetitor(name);
+    const status = newCompIntent; // Threat or Watch
+    await dbAddCompetitor(name, status);
     onAddCompetitor?.(name);
     setNewCompName("");
+    setNewCompType("Direct");
+    setNewCompIntent("Threat");
     setShowAddModal(false);
     setSearchResults([]);
-  }, [dbAddCompetitor, onAddCompetitor]);
+  }, [dbAddCompetitor, onAddCompetitor, newCompIntent]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
