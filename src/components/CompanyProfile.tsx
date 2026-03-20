@@ -1056,7 +1056,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   const getOverviewMissingFields = (): string[] => {
     const missing: string[] = [];
-    if (!logoUrl) missing.push("logo");
     for (const f of OVERVIEW_REQUIRED_FIELDS) {
       const v = form[f];
       if (!v || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "")) {
