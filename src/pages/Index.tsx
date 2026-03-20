@@ -19,9 +19,11 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { RefreshCw, ShieldCheck, Check, ArrowRight } from "lucide-react";
+import { RefreshCw, ShieldCheck, Check, ArrowRight, Eye, Zap, CheckCircle2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+
+
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
@@ -126,6 +128,7 @@ const Index = () => {
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
   const [investorsConfirmed, setInvestorsConfirmed] = useState(false);
   const investorSectionRef = useRef<HTMLDivElement>(null);
+  const [profileCompletion, setProfileCompletion] = useState({ percent: 0, sectionsApproved: 0, totalSections: 4, allDone: false });
 
   // Auto-scroll to investors section when all profile sections are confirmed
   useEffect(() => {
@@ -298,6 +301,7 @@ const Index = () => {
         <div className={`px-8 py-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
             <div className="space-y-6">
+              {/* Page Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <button
@@ -324,7 +328,7 @@ const Index = () => {
                       reader.onload = ev => {
                         const url = ev.target?.result as string;
                         try { localStorage.setItem("company-logo-url", url); } catch {}
-                        setProfileKey(k => k + 1); // force re-render
+                        setProfileKey(k => k + 1);
                       };
                       reader.readAsDataURL(f);
                     }
@@ -335,7 +339,6 @@ const Index = () => {
                   </div>
                 </div>
                 <div className="flex items-center">
-                  {/* Last analyzed timecode */}
                   {lastSyncedAt ? (
                     <span
                       className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
@@ -347,22 +350,103 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Company Profile - inline editable */}
-              <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} onSectionConfirmedChange={setSectionConfirmed} />
+              {/* ═══ Asymmetric 2-Column Grid ═══ */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-              {/* Investors Section */}
-              <div ref={investorSectionRef}>
-                <MissionControlInvestors
-                  backers={capTable.backers}
-                  totalRaised={capTable.totalRaised}
-                  formatCurrency={capTable.formatCurrency}
-                  addInvestor={capTable.addInvestor}
-                  onNavigateInvestors={() => setActiveView("investors")}
-                  analysisResult={analysisResult}
-                  companyData={companyData}
-                  previousSectionApproved={!!sectionConfirmed.social}
-                  onConfirmedChange={setInvestorsConfirmed}
-                />
+                {/* ── Left Column: Performance & Status (sticky) ── */}
+                <div className="lg:col-span-4 sticky top-8 flex flex-col gap-6">
+                  {/* Profile Analytics placeholder */}
+                  <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-muted-foreground" /> Profile Analytics
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Views this week</p>
+                        <p className="text-lg font-bold text-foreground">—</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Matches</p>
+                        <p className="text-lg font-bold text-foreground">—</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Complete your profile to unlock analytics.</p>
+                  </div>
+
+                  {/* Progress Banner */}
+                  {analysisResult && !isProfileVerified && (
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-5 animate-fade-in">
+                      {profileCompletion.allDone && investorsConfirmed ? (
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
+                            <CheckCircle2 className="h-5 w-5 text-success" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">100% — Ready for Matching</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">All sections verified.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                              <Zap className="h-4 w-4 text-accent" /> Profile Progress
+                            </h3>
+                            <span className="text-[10px] font-mono text-muted-foreground">
+                              {profileCompletion.sectionsApproved + (investorsConfirmed ? 1 : 0)}/5 approved
+                            </span>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-700 ease-out"
+                              style={{
+                                width: `${profileCompletion.percent}%`,
+                                background: profileCompletion.percent >= 80 ? 'hsl(var(--success))' : profileCompletion.percent >= 40 ? 'hsl(var(--accent))' : 'hsl(var(--muted-foreground))',
+                              }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {profileCompletion.percent >= 90
+                              ? "Almost there — finalize the last details."
+                              : profileCompletion.percent >= 50
+                              ? "You're making great progress."
+                              : "Complete your core metrics to start generating AI insights."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Right Column: The Payload/Editor ── */}
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                  {/* Company Profile (Data Sources + Generated Profile) */}
+                  <CompanyProfile
+                    key={profileKey}
+                    onSave={setCompanyData}
+                    onAnalysis={handleAnalysis}
+                    onSectorChange={setSectorClassification}
+                    onStageClassification={setStageClassification}
+                    onProfileVerified={setIsProfileVerified}
+                    onSectionConfirmedChange={setSectionConfirmed}
+                    onCompletionChange={setProfileCompletion}
+                  />
+
+                  {/* Investors Section */}
+                  <div ref={investorSectionRef}>
+                    <MissionControlInvestors
+                      backers={capTable.backers}
+                      totalRaised={capTable.totalRaised}
+                      formatCurrency={capTable.formatCurrency}
+                      addInvestor={capTable.addInvestor}
+                      onNavigateInvestors={() => setActiveView("investors")}
+                      analysisResult={analysisResult}
+                      companyData={companyData}
+                      previousSectionApproved={!!sectionConfirmed.social}
+                      onConfirmedChange={setInvestorsConfirmed}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ) : activeView === "dashboard" ? (

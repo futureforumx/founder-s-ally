@@ -231,6 +231,7 @@ interface CompanyProfileProps {
   onProfileVerified?: (verified: boolean) => void;
   onWalkthroughComplete?: () => void;
   onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
+  onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
 }
 
 export interface CompanyProfileHandle {
@@ -317,7 +318,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange }, ref) {
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -524,6 +525,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   useEffect(() => {
     onSectionConfirmedChange?.(sectionConfirmed);
   }, [sectionConfirmed, onSectionConfirmedChange]);
+
+  // Notify parent of completion changes
+  useEffect(() => {
+    const approved = Object.values(sectionConfirmed).filter(Boolean).length;
+    const allDone = sectionConfirmed.overview && sectionConfirmed.positioning && sectionConfirmed.metrics && sectionConfirmed.social;
+    onCompletionChange?.({ percent: completion, sectionsApproved: approved, totalSections: 4, allDone: !!allDone });
+  }, [completion, sectionConfirmed, onCompletionChange]);
 
   useEffect(() => {
     if (analysisComplete && form.name) onSave?.(form);
@@ -1322,14 +1330,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="space-y-6">
 
       {/* ═══════════════════════════════════════════════
-          LEFT COLUMN: DATA SOURCES (col-span-4) — sticky
+          DATA SOURCES
           ═══════════════════════════════════════════════ */}
-      <div className="lg:col-span-4 space-y-3">
+      <div className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm space-y-2.5 lg:sticky lg:top-6 transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
+        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm space-y-2.5 transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
 
           {/* COMPANY NAME */}
           <div className="space-y-1">
@@ -1476,9 +1484,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       </div>
 
       {/* ═══════════════════════════════════════════════
-          RIGHT COLUMN: GENERATED PROFILE (col-span-8) — scrollable
+          GENERATED PROFILE — scrollable
           ═══════════════════════════════════════════════ */}
-      <div className="lg:col-span-8 space-y-3" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
+      <div className="space-y-3" ref={outputSectionsRef} onFocusCapture={handleOutputFocusCapture} onBlurCapture={handleOutputBlurCapture}>
 
         {/* Right column header: Generated Profile + autosave + progress */}
         <div className="flex items-center justify-between">
@@ -2246,38 +2254,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
-
-            {/* ─── Profile Completion Card (no CTA — moved to sticky footer) ─── */}
-            {analysisComplete && !confirmed && (
-              <>
-                {allSectionsConfirmed && completion >= 100 ? (
-                  <div className="rounded-xl border border-success/30 bg-success/5 p-6 animate-fade-in">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-success/10">
-                        <CheckCircle2 className="h-5 w-5 text-success" />
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-foreground">100% — Ready for Matching</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">All sections verified. Your AI matches are fully optimized.</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border bg-card shadow-sm p-6 animate-fade-in">
-                    <div className="flex items-center gap-6">
-                      <CircularProgress percent={completion} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-foreground">{tier.title}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{tier.subtitle}</p>
-                        <p className="text-[10px] text-muted-foreground mt-2 font-mono">
-                          {Object.values(sectionConfirmed).filter(Boolean).length}/4 sections approved
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
 
             {confirmed && (
               <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
