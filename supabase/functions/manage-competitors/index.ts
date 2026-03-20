@@ -171,6 +171,7 @@ serve(async (req) => {
           competitor_id: competitorId,
           status,
           user_defined_advantage: user_defined_advantage || null,
+          notes: notes || null,
         })
         .select("*, competitor:competitors(*)")
         .single();
