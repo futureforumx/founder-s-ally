@@ -426,12 +426,76 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           )}
         </div>
 
-        <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-          Recent <ChevronDown className="h-3 w-3" />
-        </button>
-        <button className="inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-        </button>
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+              {sortLabels[sortKey]} <ChevronDown className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[160px]">
+            {(Object.entries(sortLabels) as [SortKey, string][]).map(([key, label]) => (
+              <DropdownMenuItem
+                key={key}
+                onClick={() => setSortKey(key)}
+                className={sortKey === key ? "font-semibold text-primary" : ""}
+              >
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Filter Popover */}
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger asChild>
+            <button className={`inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0 ${hasActiveFilters ? "border-primary text-primary" : ""}`} style={!hasActiveFilters ? { borderColor: "hsla(var(--border), 0.6)" } : {}}>
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-4">
+            <div className="space-y-4">
+              {/* Type filter */}
+              {uniqueTypes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">Type</p>
+                  <div className="space-y-2">
+                    {uniqueTypes.map(type => (
+                      <label key={type} className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                        <Checkbox
+                          checked={filterTypes.has(type)}
+                          onCheckedChange={() => toggleFilterType(type)}
+                          className="h-3.5 w-3.5"
+                        />
+                        {type}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Min Amount */}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">Min Amount ($)</p>
+                <Input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  value={filterMinAmount}
+                  onChange={e => setFilterMinAmount(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => { setFilterTypes(new Set()); setFilterMinAmount(""); }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <Button
           size="sm"
           className="gap-1.5 text-xs h-9 rounded-lg shrink-0"
