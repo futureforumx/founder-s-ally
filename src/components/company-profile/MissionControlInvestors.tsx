@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Users, Search, UserPlus, Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "@/components/investor-match/InlineAmountInput";
 import { InvestorEditSheet } from "@/components/investor-match/InvestorEditSheet";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { CapBacker } from "@/components/investor-match/CapTableRow";
 import type { AnalysisResult } from "@/components/company-profile/types";
+
+// Phosphor-thin Handshake icon to match section header style
+function PhosphorHandshake({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M252.31,121.31l-28-28A4,4,0,0,0,221.49,92H198.83l-27.42-27.41a4,4,0,0,0-5.65,0L141.49,88.85,116.83,64.18a12,12,0,0,0-17,0L72.69,91.34a4,4,0,0,0,0,5.66L97.17,121.49,76,142.66a4,4,0,0,0,0,5.66l30.34,30.34a4,4,0,0,0,5.66,0L133.17,157.49,155.34,179.66a12,12,0,0,0,17,0l27.14-27.14a4,4,0,0,0,5.66,0l2.83-2.83h13.52a4,4,0,0,0,2.83-1.17l28-28A4,4,0,0,0,252.31,121.31ZM109,170.34,84.66,146l21.17-21.17a4,4,0,0,0,0-5.66L81.34,94.66l24-24a4,4,0,0,1,5.66,0l24.66,24.66a4,4,0,0,0,5.66,0l24.27-24.26L188,94.34V96a4,4,0,0,0,1.17,2.83L214.34,124,192,146.34l-25.17-25.17a4,4,0,0,0-5.66,0Zm58.31,4a4,4,0,0,1-5.66,0L139.49,152.17l-25.17,25.17L92.66,155.66l25.17-25.17L139.49,152.17ZM244.69,124.69,217.52,151.86H204.48l-2.83,2.83L183.49,136.51l25.17-25.17a4,4,0,0,0,0-5.66L185.17,82.2A4,4,0,0,0,182.34,81H168.48l-2.83-2.83ZM220.69,144H208a4,4,0,0,0-2.83,1.17L204,146.34Z"/>
+    </svg>
+  );
+}
 
 interface NFXResult {
   name: string;
