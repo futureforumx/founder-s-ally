@@ -355,7 +355,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
 
       {/* Investor Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-        {filteredBackers.map((b) => {
+        {paginatedBackers.map((b) => {
           const key = b.name.toLowerCase().trim();
           const enriched = enrichCache?.[key];
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
