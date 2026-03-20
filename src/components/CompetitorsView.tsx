@@ -496,7 +496,55 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
-  const competitors = companyData?.competitors || [];
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  const {
+    competitors: dbCompetitors,
+    loading: dbLoading,
+    adding: dbAdding,
+    addCompetitor: dbAddCompetitor,
+    searchCompetitors,
+    updateStatus,
+    removeCompetitor,
+  } = useCompetitors();
+
+  // Use DB competitors if available, otherwise fall back to companyData
+  const hasDbData = dbCompetitors.length > 0 || !dbLoading;
+  const competitors = hasDbData
+    ? dbCompetitors.map(tc => tc.competitor.name)
+    : (companyData?.competitors || []);
+
+  // Search debounce for add modal
+  useEffect(() => {
+    if (!newCompName.trim() || newCompName.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const results = await searchCompetitors(newCompName.trim());
+      setSearchResults(results);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [newCompName, searchCompetitors]);
+
+  // Map DB status to view status
+  const getDbStatus = useCallback((name: string): "Direct Competitor" | "Indirect" | "Legacy Incumbent" => {
+    const tc = dbCompetitors.find(c => c.competitor.name.toLowerCase() === name.toLowerCase());
+    if (!tc) return "Direct Competitor";
+    if (tc.status === "Threat") return "Direct Competitor";
+    if (tc.status === "Watch") return "Indirect";
+    return "Direct Competitor";
+  }, [dbCompetitors]);
+
+  const handleAddCompetitor = useCallback(async (name: string) => {
+    // Add to DB
+    await dbAddCompetitor(name);
+    // Also sync with legacy companyData
+    onAddCompetitor?.(name);
+    setNewCompName("");
+    setShowAddModal(false);
+    setSearchResults([]);
+  }, [dbAddCompetitor, onAddCompetitor]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
