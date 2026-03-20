@@ -709,11 +709,15 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         </div>
       }
 
-      {/* Slide-over Detail Panel */}
+      {/* Detail Panels */}
       <FounderDetailPanel
         founder={selectedFounder}
         companyName={companyData?.name}
         onClose={() => setSelectedFounder(null)} />
+      <InvestorDetailPanel
+        investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
+        companyName={companyData?.name}
+        onClose={() => setSelectedInvestor(null)} />
       
     </div>);
 
