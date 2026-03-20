@@ -698,6 +698,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (file) handleFileSelect(file);
   }, [handleFileSelect]);
 
+  // Pitch deck versioning
+  const { activeDeck, uploadDeck } = usePitchDecks();
+  const [showReplaceDeck, setShowReplaceDeck] = useState(false);
+
+  const handleFileSelectAndVersion = useCallback(async (file: File) => {
+    await uploadDeck(file);
+    setShowReplaceDeck(false);
+    handleFileSelect(file);
+  }, [uploadDeck, handleFileSelect]);
+
   const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"], sectorMapping?: AnalysisResult["sectorMapping"]) => {
     if (!aiExtracted) return;
     const newSuggestions: Partial<Record<keyof CompanyData, string>> = {};
