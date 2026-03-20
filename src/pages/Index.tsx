@@ -411,13 +411,16 @@ const Index = () => {
                     </div>
                   </div>
 
-                  {/* ── Card 2: Profile Strength & Checklist ── */}
-                  <ProfileStrength
-                    completionPercent={profileCompletion.percent}
-                    sectionConfirmed={sectionConfirmed}
-                    investorsConfirmed={investorsConfirmed}
-                    investorSectionRef={investorSectionRef}
-                  />
+                  {/* ── Section Header: Profile Strength ── */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
+                    <ProfileStrength
+                      completionPercent={profileCompletion.percent}
+                      sectionConfirmed={sectionConfirmed}
+                      investorsConfirmed={investorsConfirmed}
+                      investorSectionRef={investorSectionRef}
+                    />
+                  </div>
 
                   {/* ── Card 3: AI Profile Insight ── */}
                   <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
