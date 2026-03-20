@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, User, LogOut, Swords, Layers } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, User, LogOut, Swords, Layers, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
