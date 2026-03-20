@@ -10,6 +10,7 @@ import {
   Users, Sparkles, Plus, Check, X, DollarSign,
   TrendingUp, Lock, ArrowRight
 } from "lucide-react";
+import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
 
 // ── Types ──
 
