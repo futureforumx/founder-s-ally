@@ -1,10 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -12,7 +10,6 @@ import { formatCompactCurrency } from "./InlineAmountInput";
 import { type CapBacker } from "./CapTableRow";
 import { InvestorEditSheet } from "./InvestorEditSheet";
 import type { EnrichResult } from "@/hooks/useInvestorEnrich";
-
 
 interface NFXResult {
   name: string;
@@ -96,9 +93,9 @@ function useNFXSearch(query: string) {
   return { results, loading: loading || isTyping, source };
 }
 
-// ── Cap Table Panel ──
+// ── Main Export ──
 
-function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: Omit<ManageTabProps, "totalRaised">) {
+export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache = {} }: ManageTabProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -117,7 +114,6 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
   ];
 
   const handleRowClick = useCallback((backer: CapBacker) => {
-    // Enrich backer with cached metadata (slogan, website, logoUrl)
     const key = backer.name.toLowerCase().trim();
     const enriched = enrichCache[key];
     const enrichedBacker = enriched
@@ -257,82 +253,82 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
               onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
               className="pl-11 h-9 text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-          {nfxLoading && (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
-          )}
-        </div>
-
-        {/* Live Suggestions Dropdown */}
-        {showSuggestions && searchQuery.length >= 2 && (
-          <div
-            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-20"
-            style={{
-              background: "hsla(0, 0%, 100%, 0.95)",
-              border: "1px solid hsla(var(--border), 0.5)",
-              backdropFilter: "blur(20px)",
-              boxShadow: "0 16px 48px hsla(var(--primary), 0.08)",
-            }}
-          >
-            <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ borderColor: "hsla(var(--border), 0.5)" }}>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                {nfxLoading ? "Searching…" : "Live Suggestions"}
-              </p>
-              {!nfxLoading && searchSource !== "none" && (
-                <span
-                  className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
-                  style={
-                    searchSource === "nfx"
-                      ? { background: "hsla(152, 60%, 92%, 1)", color: "hsl(152, 60%, 35%)" }
-                      : searchSource === "global"
-                      ? { background: "hsla(210, 60%, 92%, 1)", color: "hsl(210, 60%, 35%)" }
-                      : { background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }
-                  }
-                >
-                  {searchSource === "nfx" ? "NFX Network" : searchSource === "global" ? "Global Database" : "Search"}
-                </span>
-              )}
-            </div>
-
-            {nfxResults.length > 0 ? (
-              <div className="max-h-64 overflow-y-auto">
-                {nfxResults.map((r, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSelectInvestor(r)}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-secondary/60"
-                  >
-                    <Avatar className="h-9 w-9 shrink-0">
-                      {r.logoUrl ? <AvatarImage src={r.logoUrl} alt={r.name} /> : null}
-                      <AvatarFallback
-                        className="text-xs font-semibold"
-                        style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                      >
-                        {r.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {r.location}
-                        {r.stage ? ` · ${r.stage}` : ""}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : !nfxLoading ? (
-              <div className="px-4 py-6 text-center">
-                <p className="text-xs text-muted-foreground mb-2">
-                  No investors found matching "{searchQuery}"
-                </p>
-                <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
-                  <UserPlus className="h-3 w-3" />
-                  Add them manually
-                </button>
-              </div>
-            ) : null}
+            {nfxLoading && (
+              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+            )}
           </div>
-        )}
+
+          {/* Live Suggestions Dropdown */}
+          {showSuggestions && searchQuery.length >= 2 && (
+            <div
+              className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-20"
+              style={{
+                background: "hsla(0, 0%, 100%, 0.95)",
+                border: "1px solid hsla(var(--border), 0.5)",
+                backdropFilter: "blur(20px)",
+                boxShadow: "0 16px 48px hsla(var(--primary), 0.08)",
+              }}
+            >
+              <div className="px-4 py-2.5 border-b flex items-center justify-between" style={{ borderColor: "hsla(var(--border), 0.5)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {nfxLoading ? "Searching…" : "Live Suggestions"}
+                </p>
+                {!nfxLoading && searchSource !== "none" && (
+                  <span
+                    className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+                    style={
+                      searchSource === "nfx"
+                        ? { background: "hsla(152, 60%, 92%, 1)", color: "hsl(152, 60%, 35%)" }
+                        : searchSource === "global"
+                        ? { background: "hsla(210, 60%, 92%, 1)", color: "hsl(210, 60%, 35%)" }
+                        : { background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }
+                    }
+                  >
+                    {searchSource === "nfx" ? "NFX Network" : searchSource === "global" ? "Global Database" : "Search"}
+                  </span>
+                )}
+              </div>
+
+              {nfxResults.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto">
+                  {nfxResults.map((r, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSelectInvestor(r)}
+                      className="flex items-center gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-secondary/60"
+                    >
+                      <Avatar className="h-9 w-9 shrink-0">
+                        {r.logoUrl ? <AvatarImage src={r.logoUrl} alt={r.name} /> : null}
+                        <AvatarFallback
+                          className="text-xs font-semibold"
+                          style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                        >
+                          {r.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {r.location}
+                          {r.stage ? ` · ${r.stage}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : !nfxLoading ? (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    No investors found matching "{searchQuery}"
+                  </p>
+                  <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
+                    <UserPlus className="h-3 w-3" />
+                    Add them manually
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
@@ -351,59 +347,91 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
       </div>
 
       {/* Investor Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-        {filteredBackers.map((b) => (
-          <div
-            key={b.id}
-            onClick={() => handleRowClick(b)}
-            className={`relative border border-border rounded-xl p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer group ${
-              b.id === highlightedId ? "ring-2 ring-accent" : ""
-            }`}
-            style={{
-              background: "hsl(var(--background))",
-              boxShadow: "0 1px 3px hsla(var(--foreground), 0.04)",
-            }}
-          >
-            {/* Arrow cue */}
-            <ChevronRight className="absolute top-4 right-4 h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+        {filteredBackers.map((b) => {
+          const key = b.name.toLowerCase().trim();
+          const enriched = enrichCache?.[key];
+          const slogan = b.slogan || enriched?.profile?.currentThesis || null;
 
-            {/* Header: Logo + Name */}
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 shrink-0 rounded-md border border-border shadow-sm">
-                {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                <AvatarFallback
-                  className="text-sm font-semibold rounded-md"
-                  style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                >
-                  {b.logoLetter}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-base font-bold text-foreground line-clamp-1">{b.name}</span>
-            </div>
+          return (
+            <div
+              key={b.id}
+              onClick={() => handleRowClick(b)}
+              className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer group ${
+                b.id === highlightedId ? "ring-2 ring-accent" : ""
+              }`}
+              style={{
+                background: "hsl(var(--background))",
+                boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
+              }}
+            >
+              {/* Arrow cue */}
+              <button
+                className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground/50 group-hover:text-primary group-hover:border-primary/30 transition-colors"
+                onClick={(e) => { e.stopPropagation(); }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
 
-            {/* Core Metric */}
-            <div className="mt-4">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Commitment</p>
-              <p className="text-2xl font-extrabold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                {b.amount > 0 ? formatCompactCurrency(b.amount) : "$0"}
+              {/* Header: Logo + Name + Category */}
+              <div className="flex items-start gap-3">
+                <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
+                  {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                  <AvatarFallback
+                    className="text-sm font-bold rounded-xl"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.logoLetter}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {b.instrument || "Investor"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Description / Slogan */}
+              <p className="text-[13px] text-muted-foreground leading-relaxed mt-3 line-clamp-2 min-h-[2.6em]">
+                {slogan || (b.amount > 0
+                  ? `Committed ${formatCompactCurrency(b.amount)} via ${b.instrument || "SAFE"}.`
+                  : "No details available yet.")}
               </p>
-            </div>
 
-            {/* Metadata Pills */}
-            <div className="flex flex-wrap gap-2 mt-4">
-              {b.instrument && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsla(var(--primary), 0.08)", color: "hsl(var(--primary))" }}>
-                  {b.instrument}
+              {/* Tag Pills */}
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {b.instrument && (
+                  <span
+                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.instrument.split("(")[0].trim()}
+                  </span>
+                )}
+                {b.date && (
+                  <span
+                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.date}
+                  </span>
+                )}
+              </div>
+
+              {/* Footer: View Details + Amount */}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+                <span className="text-xs font-medium text-primary hover:underline">View details</span>
+                <span
+                  className="text-xs font-bold text-foreground"
+                  style={{ fontFamily: "'Geist Mono', monospace" }}
+                >
+                  {b.amount > 0 ? formatCompactCurrency(b.amount) : "—"}
                 </span>
-              )}
-              {b.date && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }}>
-                  {b.date}
-                </span>
-              )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredBackers.length === 0 && !showSuggestions && (
@@ -430,99 +458,6 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
         onSave={handleSheetSave}
         onRemove={handleSheetRemove}
       />
-    </div>
-  );
-}
-
-// ── Round Settings Panel ──
-
-function RoundSettingsPanel({ totalRaised, formatCurrency }: { totalRaised: number; formatCurrency: (n: number) => string }) {
-  const [targetRaise] = useState(2_000_000);
-  const [roundStage] = useState("Pre-Seed");
-  const roundProgress = totalRaised > 0 ? Math.min((totalRaised / targetRaise) * 100, 100) : 0;
-
-  return (
-    <div className="space-y-5">
-      <div
-        className="rounded-[32px] p-8 backdrop-blur-xl"
-        style={{
-          background: "hsla(0, 0%, 100%, 0.80)",
-          border: "1px solid hsla(var(--border), 0.5)",
-          boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
-        }}
-      >
-        <div className="flex items-center gap-2 mb-6">
-          <Settings2 className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-bold text-foreground">Round Settings</h3>
-        </div>
-        <div className="space-y-5">
-          <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">Target Raise</label>
-            <p className="text-2xl font-extrabold text-foreground mt-1" style={{ fontFamily: "'Geist Mono', monospace" }}>
-              {formatCurrency(targetRaise)}
-            </p>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">Round Stage</label>
-            <div className="mt-1.5">
-              <Badge className="border-0 text-xs font-medium" style={{ background: "hsla(var(--accent), 0.1)", color: "hsl(var(--accent))" }}>
-                {roundStage}
-              </Badge>
-            </div>
-          </div>
-          <div className="pt-2">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-2">
-              <span className="font-semibold uppercase tracking-[0.15em]">Progress</span>
-              <span className="font-medium text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                {formatCurrency(totalRaised)} / {formatCurrency(targetRaise)}
-              </span>
-            </div>
-            <Progress value={roundProgress} className="h-2 bg-secondary rounded-full" />
-            <p className="text-[10px] text-muted-foreground mt-2">{Math.round(roundProgress)}% of target</p>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="rounded-[32px] p-8 backdrop-blur-xl"
-        style={{
-          background: "hsla(0, 0%, 100%, 0.80)",
-          border: "1px solid hsla(var(--border), 0.5)",
-          boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
-        }}
-      >
-        <div className="flex items-center gap-2 mb-5">
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-bold text-foreground">Summary</h3>
-        </div>
-        <div className="space-y-3.5">
-          {[
-            { label: "Total Raised", value: formatCurrency(totalRaised) },
-            { label: "Investors", value: String(0) },
-            { label: "Remaining", value: formatCurrency(Math.max(2_000_000 - totalRaised, 0)) },
-          ].map(item => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{item.label}</span>
-              <span className="text-xs font-semibold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Export ──
-
-export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache }: ManageTabProps) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2">
-        <CapTablePanel confirmedBackers={confirmedBackers} formatCurrency={formatCurrency} enrichCache={enrichCache} />
-      </div>
-      <div className="lg:col-span-1">
-        <RoundSettingsPanel totalRaised={totalRaised} formatCurrency={formatCurrency} />
-      </div>
     </div>
   );
 }
