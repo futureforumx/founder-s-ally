@@ -231,6 +231,7 @@ export function MissionControlInvestors({
     }
     setConfirmed(true);
     setIsOpen(false);
+    onConfirmedChange?.(true);
     toast.success("Investors confirmed and saved.");
   };
 
