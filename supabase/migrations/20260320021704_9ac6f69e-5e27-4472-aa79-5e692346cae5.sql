@@ -1,0 +1,1 @@
+ALTER TABLE public.cap_table ADD COLUMN ownership_pct numeric DEFAULT 0;
