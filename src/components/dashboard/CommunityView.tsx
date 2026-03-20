@@ -443,6 +443,13 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
           </div>
         )}
       </div>
+
+      {/* Slide-over Detail Panel */}
+      <FounderDetailPanel
+        founder={selectedFounder}
+        companyName={companyData?.name}
+        onClose={() => setSelectedFounder(null)}
+      />
     </div>
   );
 }
