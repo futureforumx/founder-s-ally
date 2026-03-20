@@ -1073,7 +1073,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const missing = getOverviewMissingFields();
       if (missing.length > 0) {
         const fieldLabels: Record<string, string> = {
-          logo: "Company Logo", stage: "Stage", sector: "Sector",
+          stage: "Stage", sector: "Sector",
           businessModel: "Business Model", targetCustomer: "Target Customer", hqLocation: "HQ Location",
         };
         const missingNames = missing.map(f => fieldLabels[f] || f).join(", ");
