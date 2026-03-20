@@ -20,8 +20,11 @@ const companyItems = [
   { id: "competitors" as const, label: "Competitors", icon: Swords },
   { id: "sector" as const, label: "Sector", icon: Layers },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
-  { id: "investors" as const, label: "Investors", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
+];
+
+const investorItems = [
+  { id: "investors" as const, label: "Matches", icon: Handshake },
 ];
 
 const communityItems = [
