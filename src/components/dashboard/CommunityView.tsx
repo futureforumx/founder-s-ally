@@ -326,21 +326,29 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
       {/* Magic Prompts */}
       {showMagicPrompts && !searchQuery && (
-        <div className="flex flex-row items-center gap-3 overflow-x-auto hide-scrollbar py-2">
-          <span className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">Try:</span>
-          {MAGIC_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => {
-                setSearchQuery(prompt);
-                setShowMagicPrompts(false);
-              }}
-              className="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-accent/70" />
-              {prompt}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 w-full relative">
+          <span className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap shrink-0">Try:</span>
+          <div
+            className="flex flex-row overflow-x-auto snap-x snap-mandatory scroll-smooth w-full py-2 gap-3 pr-8 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{
+              maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+            }}
+          >
+            {MAGIC_PROMPTS.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => {
+                  setSearchQuery(prompt);
+                  setShowMagicPrompts(false);
+                }}
+                className="snap-start whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-accent/70" />
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
