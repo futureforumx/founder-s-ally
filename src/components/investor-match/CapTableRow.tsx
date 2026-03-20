@@ -46,7 +46,8 @@ export const FIRM_KEYWORDS = [
   "investment", "advisors", "labs", "studio",
 ];
 
-export function detectEntityType(name: string): "person" | "firm" {
+export function detectEntityType(name?: string): "person" | "firm" {
+  if (!name) return "person";
   const lower = name.toLowerCase();
   return FIRM_KEYWORDS.some(kw => lower.includes(kw)) ? "firm" : "person";
 }
