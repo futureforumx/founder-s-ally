@@ -38,7 +38,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
   return (
     <>
-      <aside className="flex h-screen w-56 flex-col bg-sidebar text-sidebar-foreground">
+      <aside className="flex h-screen w-44 flex-col bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent">
             <Shield className="h-4 w-4 text-accent" />
