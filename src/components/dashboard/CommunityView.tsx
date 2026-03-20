@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Users, Building2, MapPin, Sparkles,
-  TrendingUp, ArrowRight, LayoutGrid, Flame, Loader2,
+  ArrowRight, Flame, Loader2,
 } from "lucide-react";
 import { SearchOmnibar } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,8 +70,13 @@ const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDER
 
 const PAGE_SIZE = 9;
 
-const QUICK_FILTERS = [
-  "Series A", "B2B SaaS", "Recently Updated", "Matching My Sector", "Pre-Seed", "AI / ML", "Climate",
+const MAGIC_PROMPTS = [
+  "Match me with Seed investors",
+  "Climate tech founders near me",
+  "Startups with similar traction",
+  "AI agents for enterprise",
+  "B2B SaaS at Series A",
+  "Deep tech in my region",
 ];
 
 // ── Typing placeholder effect ──
@@ -193,21 +198,12 @@ function CarouselCard({ founder, trending, onClick }: { founder: FounderEntry; t
   );
 }
 
-const DIRECTORY_TABS = [
-  { id: "companies" as const, label: "Companies", icon: Building2 },
-  { id: "members" as const, label: "Members", icon: Users },
-  { id: "investors" as const, label: "Investors", icon: TrendingUp },
-  { id: "locations" as const, label: "Locations", icon: MapPin },
-  { id: "all" as const, label: "All", icon: LayoutGrid },
-] as const;
-
-type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
 
 export function CommunityView({ companyData, analysisResult, onNavigateProfile }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
+  const [showMagicPrompts, setShowMagicPrompts] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<FounderEntry | null>(null);
@@ -229,6 +225,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       return () => clearTimeout(t);
     }
     setIsSearching(false);
+    if (!searchQuery) setShowMagicPrompts(true);
   }, [searchQuery]);
 
   // Reset pagination on filter/search change
@@ -327,44 +324,25 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         placeholder={placeholder}
       />
 
-      {/* Directory Tab Toggle */}
-      <div className="flex items-center gap-1 rounded-xl bg-secondary/60 p-1 w-fit">
-        {DIRECTORY_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
+      {/* Magic Prompts */}
+      {showMagicPrompts && !searchQuery && (
+        <div className="flex flex-row items-center gap-3 overflow-x-auto hide-scrollbar py-2">
+          <span className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap">Try:</span>
+          {MAGIC_PROMPTS.map((prompt) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              key={prompt}
+              onClick={() => {
+                setSearchQuery(prompt);
+                setShowMagicPrompts(false);
+              }}
+              className="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0"
             >
-              <Icon className="h-3.5 w-3.5" />
-              {tab.label}
+              <Sparkles className="w-3.5 h-3.5 text-accent/70" />
+              {prompt}
             </button>
-          );
-        })}
-      </div>
-
-      {/* Quick Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {QUICK_FILTERS.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(activeFilter === filter ? null : filter)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              activeFilter === filter
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "bg-secondary text-secondary-foreground hover:bg-muted"
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* ═══════ Search Results First (when searching) ═══════ */}
       {searchQuery && (
