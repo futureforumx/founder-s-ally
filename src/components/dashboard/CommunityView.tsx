@@ -374,7 +374,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       <div className="pt-4">
         <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
           {SUGGESTED_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`suggested-${i}`} founder={founder} />
+            <CarouselCard key={`suggested-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
           ))}
         </FounderCarousel>
       </div>
