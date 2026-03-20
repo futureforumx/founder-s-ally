@@ -832,7 +832,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+              onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
             />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
               <motion.div
