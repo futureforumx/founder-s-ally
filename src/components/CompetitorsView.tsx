@@ -484,10 +484,11 @@ const COMPETITOR_TABS: { key: CompetitorTab; label: string }[] = [
   { key: "watch", label: "Watch" },
 ];
 
-export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsViewProps) {
+export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetitor }: CompetitorsViewProps) {
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
-  const competitors = companyData?.competitors || [];
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCompName, setNewCompName] = useState("");
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
