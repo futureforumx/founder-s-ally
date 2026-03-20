@@ -965,9 +965,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
       onAnalysis?.(finalResult as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
-      // Auto-trigger deck audit if deck text is available
+      // Queue deck audit for when the user navigates to the Deck Audit tab
       if (deckText) {
-        window.dispatchEvent(new CustomEvent("auto-audit-deck", { detail: { deckText } }));
+        try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
       }
       onWalkthroughComplete?.();
     } catch (e) {
