@@ -8,18 +8,8 @@ import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2 } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CapTableRow } from "./CapTableRow";
-
-interface CapBacker {
-  id: string;
-  name: string;
-  amount: number;
-  amountLabel: string;
-  instrument: string;
-  logoLetter: string;
-  date: string;
-  logoUrl?: string;
-}
+import { CapTableRow, type CapBacker } from "./CapTableRow";
+import { CapTableFooter } from "./CapTableFooter";
 
 interface NFXResult {
   name: string;
