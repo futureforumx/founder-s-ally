@@ -345,12 +345,11 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         <Table className="border-0 [&_tr]:border-0">
           <TableHeader>
             <TableRow className="border-0 hover:bg-transparent">
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">ID</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Transaction</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Activity</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Date Time</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Cost</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Status</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4 w-12"></TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Investor</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Type</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Round</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Amount</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="[&_tr]:border-0">
