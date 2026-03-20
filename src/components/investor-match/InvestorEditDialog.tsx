@@ -40,21 +40,13 @@ function cleanDomain(url: string): string {
   return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 }
 
-// ── Mock partner/firm suggestions ──
-const MOCK_PARTNERS: { name: string; avatar?: string }[] = [
-  { name: "Marc Andreessen" },
-  { name: "Sarah Chen" },
-  { name: "David Park" },
-  { name: "Elad Gil" },
-  { name: "Kirsten Green" },
-];
-
-const MOCK_SYNDICATES: { name: string; logo?: string }[] = [
-  { name: "AngelList Syndicates" },
-  { name: "Republic" },
-  { name: "SeedInvest" },
-  { name: "Wefunder" },
-];
+// Live search result type
+interface SearchResult {
+  name: string;
+  location?: string;
+  logoUrl?: string;
+  stage?: string;
+}
 
 // ── Searchable Combobox for partners/firms ──
 function EntityCombobox({
