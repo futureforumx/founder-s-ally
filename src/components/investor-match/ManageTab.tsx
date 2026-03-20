@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "./InlineAmountInput";
-import { toast } from "sonner";
 import { type CapBacker } from "./CapTableRow";
 import { InvestorEditSheet } from "./InvestorEditSheet";
 import type { EnrichResult } from "@/hooks/useInvestorEnrich";
