@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { DeckUploader } from "./DeckUploader";
 import { ProcessingStatus } from "./ProcessingStatus";
 import { supabase } from "@/integrations/supabase/client";
