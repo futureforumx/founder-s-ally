@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Plus, Search, Settings2, DollarSign, Pencil, Check, X, UserPlus, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { CapTableRow } from "./CapTableRow";
 
 interface CapBacker {
   id: string;
@@ -44,7 +46,7 @@ function useDebounce(value: string, delay: number): string {
   return debouncedValue;
 }
 
-// ── NFX Search Hook (calls edge function) ──
+// ── NFX Search Hook ──
 
 function useNFXSearch(query: string) {
   const [results, setResults] = useState<NFXResult[]>([]);
@@ -54,7 +56,6 @@ function useNFXSearch(query: string) {
   const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
-    // Clear results for short queries
     if (debouncedQuery.length < 2) {
       setResults([]);
       setIsFallback(false);
@@ -62,7 +63,6 @@ function useNFXSearch(query: string) {
       return;
     }
 
-    // Abort previous in-flight request
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -73,9 +73,7 @@ function useNFXSearch(query: string) {
         const { data, error } = await supabase.functions.invoke("nfx-search", {
           body: { query: debouncedQuery.trim() },
         });
-
         if (controller.signal.aborted) return;
-
         if (error) {
           console.error("NFX search error:", error);
           toast.error("Failed to search investors. Please try again.");
@@ -90,45 +88,36 @@ function useNFXSearch(query: string) {
         toast.error("Failed to load investors. Please try again.");
         setResults([]);
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchResults();
-
-    return () => {
-      controller.abort();
-    };
+    return () => { controller.abort(); };
   }, [debouncedQuery]);
 
-  // Show a "typing" loading state when input differs from debounced value
   const isTyping = query.length >= 2 && query !== debouncedQuery;
-
   return { results, loading: loading || isTyping, isFallback };
 }
 
 // ── Cap Table Panel ──
 
 function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps, "totalRaised">) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [optimisticBackers, setOptimisticBackers] = useState<CapBacker[]>([]);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { results: nfxResults, loading: nfxLoading, isFallback } = useNFXSearch(searchQuery);
 
-  const filteredBackers = confirmedBackers.filter(b =>
-    b.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const allBackers = [...confirmedBackers, ...optimisticBackers];
+  const filteredBackers = searchQuery && !showSuggestions
+    ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : allBackers;
 
-  const startEdit = useCallback((backer: CapBacker) => {
-    setEditingId(backer.id);
-    setEditValue(String(backer.amount));
-  }, []);
-
+  // Click-outside to close suggestions
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -138,6 +127,84 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Clear highlight after animation
+  useEffect(() => {
+    if (!highlightedId) return;
+    const timer = setTimeout(() => setHighlightedId(null), 1500);
+    return () => clearTimeout(timer);
+  }, [highlightedId]);
+
+  const handleSelectInvestor = useCallback(async (result: NFXResult) => {
+    // 1. Close dropdown & clear search
+    setSearchQuery("");
+    setShowSuggestions(false);
+
+    if (!user) {
+      toast.error("Please sign in to add investors.");
+      return;
+    }
+
+    // 2. Create optimistic backer
+    const tempId = crypto.randomUUID();
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+    const optimisticBacker: CapBacker = {
+      id: tempId,
+      name: result.name,
+      amount: 0,
+      amountLabel: "$0",
+      instrument: "SAFE (Post-money)",
+      logoLetter: result.name.charAt(0).toUpperCase(),
+      date: dateLabel,
+      logoUrl: result.logoUrl || undefined,
+    };
+
+    // 3. Optimistic insert into local state
+    setOptimisticBackers(prev => [...prev, optimisticBacker]);
+    setHighlightedId(tempId);
+
+    // 4. Smart focus with slight delay for DOM render
+    setTimeout(() => {
+      const input = document.getElementById(`amount-input-${tempId}`);
+      if (input) {
+        input.focus();
+      }
+    }, 80);
+
+    // 5. Persist to database
+    try {
+      const { data, error } = await supabase
+        .from("cap_table")
+        .insert({
+          user_id: user.id,
+          investor_name: result.name,
+          amount: 0,
+          instrument: "SAFE (Post-money)",
+          entity_type: result.stage || "Angel",
+          date: dateLabel,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Replace temp backer with real one from DB
+      setOptimisticBackers(prev =>
+        prev.map(b =>
+          b.id === tempId
+            ? { ...b, id: data.id }
+            : b
+        )
+      );
+    } catch (err) {
+      console.error("Failed to insert cap table entry:", err);
+      // Rollback optimistic insert
+      setOptimisticBackers(prev => prev.filter(b => b.id !== tempId));
+      toast.error("Failed to add investor. Please try again.");
+    }
+  }, [user]);
 
   return (
     <div
@@ -156,7 +223,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
             style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
           >
-            {confirmedBackers.length}
+            {allBackers.length}
           </span>
         </div>
         <Button
@@ -220,11 +287,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
                 {nfxResults.map((r, i) => (
                   <button
                     key={i}
-                    onClick={() => {
-                      setSearchQuery("");
-                      setShowSuggestions(false);
-                      // TODO: auto-add to cap table
-                    }}
+                    onClick={() => handleSelectInvestor(r)}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-secondary/60"
                   >
                     <Avatar className="h-9 w-9 shrink-0">
@@ -248,10 +311,12 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
               </div>
             ) : !nfxLoading ? (
               <div className="px-4 py-6 text-center">
-                <p className="text-xs text-muted-foreground mb-2">No results found</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  No investors found matching "{searchQuery}"
+                </p>
                 <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
                   <UserPlus className="h-3 w-3" />
-                  Investor not found? Add manually
+                  Add them manually
                 </button>
               </div>
             ) : null}
@@ -262,65 +327,12 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       {/* Investor Rows */}
       <div className="space-y-1">
         {filteredBackers.map(b => (
-          <div
+          <CapTableRow
             key={b.id}
-            className="flex items-center justify-between gap-4 rounded-2xl px-4 py-3.5 transition-all duration-200 hover:bg-secondary/40 group"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <Avatar className="h-10 w-10 shrink-0">
-                {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} /> : null}
-                <AvatarFallback
-                  className="text-sm font-semibold"
-                  style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                >
-                  {b.logoLetter}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{b.name}</p>
-                <p className="text-[11px] text-muted-foreground">{b.instrument} · {b.date}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {editingId === b.id ? (
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    className="h-8 w-28 text-sm font-mono rounded-xl"
-                    autoFocus
-                    onKeyDown={e => e.key === "Enter" && setEditingId(null)}
-                  />
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="h-8 w-8 flex items-center justify-center rounded-xl transition-colors"
-                    style={{ color: "hsl(var(--success))" }}
-                  >
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="h-8 w-8 flex items-center justify-center rounded-xl text-muted-foreground transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <span className="text-base font-bold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                    {b.amountLabel}
-                  </span>
-                  <button
-                    onClick={() => startEdit(b)}
-                    className="h-8 w-8 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground transition-all"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+            backer={b}
+            isHighlighted={b.id === highlightedId}
+            formatCurrency={formatCurrency}
+          />
         ))}
 
         {filteredBackers.length === 0 && !showSuggestions && (
