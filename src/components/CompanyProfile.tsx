@@ -1505,16 +1505,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
               <span className="text-[10px] font-mono text-muted-foreground">{completion}%</span>
             </div>
-            {/* Autosave indicator — always visible when form has a name */}
-            {form.name && (
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                </span>
-                Live
-              </span>
-            )}
           </div>
         </div>
 

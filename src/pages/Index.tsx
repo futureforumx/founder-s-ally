@@ -338,7 +338,16 @@ const Index = () => {
                     <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
                   </div>
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center gap-3">
+                  {companyData?.name && (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                      </span>
+                      Live
+                    </span>
+                  )}
                   {lastSyncedAt ? (
                     <span
                       className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
