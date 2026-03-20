@@ -86,16 +86,15 @@ export function DeckAuditView() {
     }
   }, []);
 
-  // Listen for auto-audit events from Mission Control deck uploads
+  // Auto-run audit if a pending deck was queued from Mission Control
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { deckText } = (e as CustomEvent).detail ?? {};
-      if (deckText && typeof deckText === "string") {
-        handleUpload(deckText);
+    try {
+      const pending = sessionStorage.getItem("pending-deck-audit");
+      if (pending && pending.length >= 50) {
+        sessionStorage.removeItem("pending-deck-audit");
+        handleUpload(pending);
       }
-    };
-    window.addEventListener("auto-audit-deck", handler);
-    return () => window.removeEventListener("auto-audit-deck", handler);
+    } catch {}
   }, [handleUpload]);
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
