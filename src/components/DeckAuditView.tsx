@@ -117,6 +117,19 @@ export function DeckAuditView() {
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
+  /** Called from the import modal — starts the terminal animation, then runs the audit */
+  const handleNewDeckImport = useCallback((deckText: string) => {
+    setPendingDeckText(deckText);
+    setState("processing");
+  }, []);
+
+  const handleTerminalComplete = useCallback(() => {
+    if (pendingDeckText) {
+      handleUpload(pendingDeckText);
+      setPendingDeckText(null);
+    }
+  }, [pendingDeckText, handleUpload]);
+
   const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
     setTimeout(() => setIsRerunning(false), 2000);
