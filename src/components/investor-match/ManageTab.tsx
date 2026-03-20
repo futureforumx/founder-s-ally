@@ -355,15 +355,16 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       </div>
 
       {/* Transaction-style Table */}
-      <div className="overflow-x-auto">
-        <Table className="border-0 [&_tr]:border-0">
+      <div>
+        <Table className="border-0 [&_tr]:border-0 table-fixed w-full">
           <TableHeader>
             <TableRow className="border-0 hover:bg-transparent">
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4 w-12"></TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Investor</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Type</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Round</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Amount</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3 w-10"></TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Investor</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Type</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Round</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Amount</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3 w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="[&_tr]:border-0">
