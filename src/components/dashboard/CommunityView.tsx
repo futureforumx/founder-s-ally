@@ -361,10 +361,36 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         )}
       </div>
 
+      {/* Global Entity Tabs */}
+      <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
+        {GLOBAL_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeScope === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveScope(tab.id);
+                setShowMagicPrompts(true);
+              }}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                isActive
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search Omnibar */}
       <SearchOmnibar
         value={searchQuery}
         onChange={setSearchQuery}
+        scope={activeScope}
         placeholder={placeholder}
       />
 
