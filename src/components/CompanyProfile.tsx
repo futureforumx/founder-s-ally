@@ -1915,7 +1915,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             <MetricTooltip metricKey={metricPeriod === "annual" ? "yoyGrowth" : "momGrowth"} />
                           </label>
                           <div className="relative">
-                            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                             <input type="text"
                               value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
                               onChange={e => {
@@ -1927,7 +1926,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                 const result = smartBlurPercent(e.target.value);
                                 if (result) update(field, result);
                               }}
-                              placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pl-9 pr-8`} />
+                              placeholder={metricPeriod === "annual" ? "e.g. 150" : "e.g. 8"} className={`${inputCls("yoyGrowth")} pr-8`} />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
                           </div>
                         </div>
