@@ -83,6 +83,7 @@ export function DeckAuditView() {
     return () => window.removeEventListener("auto-audit-deck", handler);
   }, []);
 
+  const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
     try {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
