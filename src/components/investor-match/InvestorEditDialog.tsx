@@ -151,13 +151,14 @@ function EntityCombobox({
       </div>
 
       <AnimatePresence>
-        {isOpen && !value && (
+        {isOpen && !value && createPortal(
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-full mt-1 z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
+            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+            className="z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
           >
             {filtered.length > 0 ? (
               filtered.map(opt => (
@@ -187,7 +188,8 @@ function EntityCombobox({
             {!query.trim() && filtered.length === 0 && (
               <div className="px-3 py-3 text-xs text-muted-foreground text-center">Start typing to search…</div>
             )}
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
