@@ -374,7 +374,11 @@ const Index = () => {
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "competitors" ? (
-            <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} />
+            <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
+              if (companyData && !companyData.competitors.includes(name)) {
+                setCompanyData({ ...companyData, competitors: [...companyData.competitors, name] });
+              }
+            }} />
           ) : activeView === "investors" ? (
             <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} />
           ) : activeView === "directory" ? (
