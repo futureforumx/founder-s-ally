@@ -24,6 +24,7 @@ export type Database = {
           instrument: string
           investor_name: string
           notes: string | null
+          ownership_pct: number | null
           updated_at: string
           user_id: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           instrument?: string
           investor_name?: string
           notes?: string | null
+          ownership_pct?: number | null
           updated_at?: string
           user_id: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           instrument?: string
           investor_name?: string
           notes?: string | null
+          ownership_pct?: number | null
           updated_at?: string
           user_id?: string
         }

@@ -42,6 +42,7 @@ interface CapBacker {
   instrument: string;
   logoLetter: string;
   date: string;
+  ownershipPct: number;
 }
 
 type TabKey = "updates" | "matches" | "activity" | "manage";
@@ -204,6 +205,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
             instrument: row.instrument,
             logoLetter: row.investor_name.charAt(0).toUpperCase(),
             date: row.date || row.created_at,
+            ownershipPct: (row as any).ownership_pct ?? 0,
           }))
         );
       }

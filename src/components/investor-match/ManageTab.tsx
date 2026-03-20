@@ -8,18 +8,8 @@ import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2 } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CapTableRow } from "./CapTableRow";
-
-interface CapBacker {
-  id: string;
-  name: string;
-  amount: number;
-  amountLabel: string;
-  instrument: string;
-  logoLetter: string;
-  date: string;
-  logoUrl?: string;
-}
+import { CapTableRow, type CapBacker } from "./CapTableRow";
+import { CapTableFooter } from "./CapTableFooter";
 
 interface NFXResult {
   name: string;
@@ -113,6 +103,19 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const { results: nfxResults, loading: nfxLoading, isFallback } = useNFXSearch(searchQuery);
 
   const allBackers = [...confirmedBackers, ...optimisticBackers];
+
+  const handleOwnershipChange = useCallback((id: string, pct: number) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, ownershipPct: pct } : b)
+    );
+  }, []);
+
+  const handleAmountChange = useCallback((id: string, amount: number) => {
+    setOptimisticBackers(prev =>
+      prev.map(b => b.id === id ? { ...b, amount, amountLabel: formatCurrency(amount) } : b)
+    );
+  }, [formatCurrency]);
+
   const filteredBackers = searchQuery && !showSuggestions
     ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allBackers;
@@ -159,6 +162,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       logoLetter: result.name.charAt(0).toUpperCase(),
       date: dateLabel,
       logoUrl: result.logoUrl || undefined,
+      ownershipPct: 0,
     };
 
     // 3. Optimistic insert into local state
@@ -332,6 +336,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             backer={b}
             isHighlighted={b.id === highlightedId}
             formatCurrency={formatCurrency}
+            onOwnershipChange={handleOwnershipChange}
+            onAmountChange={handleAmountChange}
           />
         ))}
 
@@ -351,6 +357,12 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
           </div>
         )}
       </div>
+
+      {/* Auto-Sum Footer */}
+      <CapTableFooter
+        backers={allBackers}
+        onSave={() => toast.success("Cap table saved.")}
+      />
     </div>
   );
 }
