@@ -77,6 +77,19 @@ const Index = () => {
   const profileComplete = !!companyData && !!analysisResult;
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
+  const [investorsConfirmed, setInvestorsConfirmed] = useState(false);
+  const investorSectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to investors section when all profile sections are confirmed
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => {
+        investorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    };
+    window.addEventListener("scroll-to-investors", handler);
+    return () => window.removeEventListener("scroll-to-investors", handler);
+  }, []);
 
   // Last synced state
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
