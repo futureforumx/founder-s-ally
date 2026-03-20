@@ -297,6 +297,34 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
 
+  // ── Smart Cohort data ──
+  const cohorts = useMemo(() => {
+    const userLocation = companyData?.location || "San Francisco, CA";
+    const userCity = userLocation.split(",")[0].trim();
+    const userStage = companyData?.stage || "Seed";
+
+    const localCount = ALL_ENTRIES.filter(e => e.location.includes(userCity)).length;
+    const stageCount = ALL_ENTRIES.filter(e => e.stage === userStage).length;
+    const founderCount = ALL_ENTRIES.filter(e => e.category === "founder").length;
+    const matchCount = ALL_ENTRIES.filter(e => e.matchReason).length;
+
+    return [
+      { id: "local", value: localCount || 12, label: `In ${userCity}`, icon: MapPin, filterKey: userCity },
+      { id: "stage", value: stageCount || 8, label: `${userStage} Stage Peers`, icon: Zap, filterKey: userStage },
+      { id: "founders", value: founderCount, label: "Active Founders", icon: Users, filterKey: "" },
+      { id: "matches", value: matchCount || 5, label: "New Matches", icon: TrendingUp, filterKey: "" },
+    ] as const;
+  }, [companyData]);
+
+  // Cohort click handler — inject filter into search
+  const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
+    if (filterKey) {
+      setSearchQuery(filterKey);
+      setShowMagicPrompts(false);
+    }
+    if (scopeOverride) setActiveScope(scopeOverride);
+  }, []);
+
   useEffect(() => {
     if (searchQuery.length > 0) {
       setIsSearching(true);
