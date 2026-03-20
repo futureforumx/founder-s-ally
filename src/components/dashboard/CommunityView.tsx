@@ -288,6 +288,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeInvestorTab, setActiveInvestorTab] = useState<string>("all");
   const [showMagicPrompts, setShowMagicPrompts] = useState(true);
   const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
