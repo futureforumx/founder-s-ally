@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "./InlineAmountInput";
 import { type CapBacker } from "./CapTableRow";
-import { InvestorEditSheet } from "./InvestorEditSheet";
+import { InvestorEditDialog } from "./InvestorEditDialog";
 import type { EnrichResult } from "@/hooks/useInvestorEnrich";
 
 interface NFXResult {
@@ -693,8 +693,8 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
         </div>
       )}
 
-      {/* Slide-Over Edit Panel */}
-      <InvestorEditSheet
+      {/* Edit Dialog */}
+      <InvestorEditDialog
         backer={editingBacker}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
