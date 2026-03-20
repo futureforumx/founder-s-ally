@@ -691,9 +691,14 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
             <div className="flex items-center gap-2 mb-4">
               <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
                 {COMPETITOR_TABS.map(tab => {
+                  const getStatus = (n: string) => {
+                    const tc = dbCompetitors.find(c => c.competitor.name.toLowerCase() === n.toLowerCase());
+                    if (tc) return tc.status; // "Tracked" | "Threat" | "Watch"
+                    return getIntel(n).status === "Direct Competitor" ? "Threat" : "Watch";
+                  };
                   const count = tab.key === "all" ? competitors.length
-                    : tab.key === "threats" ? competitors.filter(n => getIntel(n).status === "Direct Competitor").length
-                    : competitors.filter(n => { const s = getIntel(n).status; return s === "Indirect" || s === "Legacy Incumbent"; }).length;
+                    : tab.key === "threats" ? competitors.filter(n => getStatus(n) === "Threat").length
+                    : competitors.filter(n => getStatus(n) === "Watch" || getStatus(n) === "Tracked").length;
                   return (
                     <button
                       key={tab.key}
@@ -723,9 +728,10 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
             <div className="flex flex-col gap-4 max-h-[620px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
               {competitors.filter(name => {
                 if (compTab === "all") return true;
-                const status = getIntel(name).status;
-                if (compTab === "threats") return status === "Direct Competitor";
-                return status === "Indirect" || status === "Legacy Incumbent";
+                const tc = dbCompetitors.find(c => c.competitor.name.toLowerCase() === name.toLowerCase());
+                const s = tc ? tc.status : (getIntel(name).status === "Direct Competitor" ? "Threat" : "Watch");
+                if (compTab === "threats") return s === "Threat";
+                return s === "Watch" || s === "Tracked";
               }).map((name) => {
                 const intel = getIntel(name);
                 const domain = domainFromName(name);
