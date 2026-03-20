@@ -993,13 +993,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   // LTV/CAC ratio: manual override or auto-calculated
   const [ltvCacOverride, setLtvCacOverride] = useState("");
+  const calculateRatio = (ltv: string, cac: string): string => {
+    const numLtv = parseFloat(ltv.toString().replace(/[^0-9.]/g, ''));
+    const numCac = parseFloat(cac.toString().replace(/[^0-9.]/g, ''));
+    if (!numCac || numCac === 0) return "0.0";
+    return (numLtv / numCac).toFixed(1);
+  };
   const autoLtvCacRatio = (() => {
-    const ltv = parseSmartNumber(form.ltv);
-    const cac = parseSmartNumber(form.cac);
-    if (ltv && cac) return (ltv / cac).toFixed(1) + "x";
-    return "";
+    const result = calculateRatio(form.ltv, form.cac);
+    return result ? result + "x" : "";
   })();
-  const ltvCacRatio = ltvCacOverride || autoLtvCacRatio || "—";
+  const ltvCacDisplay = ltvCacOverride || autoLtvCacRatio || "—";
+  const isAutoCalculated = !ltvCacOverride && !!autoLtvCacRatio;
 
   // Section confirmation helpers
   // Overview required fields for strict validation
