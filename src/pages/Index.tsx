@@ -344,6 +344,7 @@ const Index = () => {
                     analysisResult={analysisResult}
                     onMetricEdit={handleMetricEdit}
                     onNavigateProfile={() => setActiveView("company")}
+                    stageClassification={stageClassification}
                   />
                 )}
                 {dashboardView === "competitive" && (
