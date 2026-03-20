@@ -198,15 +198,6 @@ function CarouselCard({ founder, trending, onClick }: { founder: FounderEntry; t
   );
 }
 
-const DIRECTORY_TABS = [
-  { id: "companies" as const, label: "Companies", icon: Building2 },
-  { id: "members" as const, label: "Members", icon: Users },
-  { id: "investors" as const, label: "Investors", icon: TrendingUp },
-  { id: "locations" as const, label: "Locations", icon: MapPin },
-  { id: "all" as const, label: "All", icon: LayoutGrid },
-] as const;
-
-type DirectoryTab = typeof DIRECTORY_TABS[number]["id"];
 
 export function CommunityView({ companyData, analysisResult, onNavigateProfile }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
