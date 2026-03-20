@@ -193,22 +193,28 @@ function EntityCombobox({
             style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
             className="z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
           >
-            {filtered.length > 0 ? (
-              filtered.map(opt => (
-                <button
-                  key={opt.name}
-                  type="button"
-                  onClick={() => { onChange(opt.name); setQuery(""); setIsOpen(false); }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors text-left"
-                >
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
-                    {opt.name.charAt(0)}
-                  </div>
-                  {opt.name}
-                </button>
-              ))
-            ) : null}
-            {query.trim() && !filtered.some(o => o.name.toLowerCase() === query.toLowerCase()) && (
+            {isSearching && (
+              <div className="px-3 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+              </div>
+            )}
+            {!isSearching && results.length > 0 && results.map(opt => (
+              <button
+                key={opt.name}
+                type="button"
+                onClick={() => { onChange(opt.name); setQuery(""); setIsOpen(false); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors text-left"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
+                  {opt.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="truncate block">{opt.name}</span>
+                  {opt.location && <span className="text-[10px] text-muted-foreground">{opt.location}</span>}
+                </div>
+              </button>
+            ))}
+            {!isSearching && query.trim() && !results.some(o => o.name.toLowerCase() === query.toLowerCase()) && (
               <button
                 type="button"
                 onClick={() => { onChange(query.trim()); setQuery(""); setIsOpen(false); }}
@@ -218,7 +224,7 @@ function EntityCombobox({
                 Add "{query.trim()}" as new {label.toLowerCase()}
               </button>
             )}
-            {!query.trim() && filtered.length === 0 && (
+            {!isSearching && !query.trim() && results.length === 0 && (
               <div className="px-3 py-3 text-xs text-muted-foreground text-center">Start typing to search…</div>
             )}
           </motion.div>,
