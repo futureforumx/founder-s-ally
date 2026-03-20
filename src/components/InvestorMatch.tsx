@@ -8,6 +8,7 @@ import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
+import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 
 // ── Types ──
 
@@ -168,6 +169,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [loading, setLoading] = useState(true);
   const [confirmedBackers, setConfirmedBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
+  const { enrich, cache: enrichCache } = useInvestorEnrich();
+  const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
 
   const totalRaised = useMemo(() => confirmedBackers.reduce((sum, b) => sum + b.amount, 0), [confirmedBackers]);
   const animatedTotal = useCountUp(totalRaised);
@@ -212,6 +215,20 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
   }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers]);
+
+  // Enrich top investors via waterfall
+  useEffect(() => {
+    if (scoredInvestors.length === 0) return;
+    const top5 = scoredInvestors.slice(0, 5);
+    top5.forEach(async (inv) => {
+      const key = inv.firm_name.toLowerCase().trim();
+      if (enrichedData[key]) return;
+      const result = await enrich(inv.firm_name);
+      if (result) {
+        setEnrichedData(prev => ({ ...prev, [key]: result }));
+      }
+    });
+  }, [scoredInvestors]);
 
   if (loading) {
     return (
@@ -276,8 +293,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} />}
-      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} />}
+      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} />}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (
         <ManageTab

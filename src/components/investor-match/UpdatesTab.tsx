@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Newspaper, Linkedin, Twitter, Users, TrendingUp, Star } from "lucide-react";
+import { ArrowRight, Newspaper, Linkedin, Twitter, Users, TrendingUp, Star, Zap, ShieldCheck, Database, Clock } from "lucide-react";
 
 interface ScoredInvestor {
   id: string;
@@ -9,8 +9,22 @@ interface ScoredInvestor {
   thesis_verticals: string[];
 }
 
+interface EnrichedProfile {
+  firmName: string;
+  recentDeals: string[];
+  currentThesis: string;
+  source: "exa" | "gemini_grounded" | "local_db";
+  lastVerified: string;
+}
+
+interface EnrichResult {
+  profile: EnrichedProfile;
+  tier: number;
+}
+
 interface UpdatesTabProps {
   topMatches: ScoredInvestor[];
+  enrichedData?: Record<string, EnrichResult>;
 }
 
 const ACTIVITY_FEED = [
@@ -33,7 +47,38 @@ function scoreColor(score: number): string {
   return "bg-red-100 text-red-700";
 }
 
-export function UpdatesTab({ topMatches }: UpdatesTabProps) {
+function SourceBadge({ source }: { source: "exa" | "gemini_grounded" | "local_db" }) {
+  if (source === "exa") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+        <Zap className="h-2.5 w-2.5" /> Live Signal
+      </span>
+    );
+  }
+  if (source === "gemini_grounded") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+        <ShieldCheck className="h-2.5 w-2.5" /> Grounding Verified
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+      <Database className="h-2.5 w-2.5" /> Verified Directory
+    </span>
+  );
+}
+
+function formatVerifiedDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "Unknown";
+  }
+}
+
+export function UpdatesTab({ topMatches, enrichedData }: UpdatesTabProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Card 1: New Matches */}
@@ -43,27 +88,39 @@ export function UpdatesTab({ topMatches }: UpdatesTabProps) {
           <Badge variant="secondary" className="text-[10px] font-normal">Top 3</Badge>
         </div>
         <div className="space-y-3">
-          {topMatches.slice(0, 3).map(inv => (
-            <div
-              key={inv.id}
-              className="flex items-center gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-secondary/50 group"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm shrink-0">
-                {inv.firm_name.charAt(0)}
+          {topMatches.slice(0, 3).map(inv => {
+            const enriched = enrichedData?.[inv.firm_name.toLowerCase().trim()];
+            return (
+              <div
+                key={inv.id}
+                className="flex items-center gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-secondary/50 group"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm shrink-0">
+                  {inv.firm_name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-foreground truncate">{inv.firm_name}</p>
+                    {enriched && <SourceBadge source={enriched.profile.source} />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {inv.preferred_stage} · {inv.thesis_verticals.slice(0, 2).join(", ")}
+                  </p>
+                  {enriched && (
+                    <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
+                      <Clock className="h-2.5 w-2.5" />
+                      Last Verified: {formatVerifiedDate(enriched.profile.lastVerified)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className={`text-[10px] font-semibold rounded-full px-2.5 py-0.5 border-0 ${scoreColor(inv.score)}`}>
+                    {inv.score}%
+                  </Badge>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{inv.firm_name}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {inv.preferred_stage} · {inv.thesis_verticals.slice(0, 2).join(", ")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={`text-[10px] font-semibold rounded-full px-2.5 py-0.5 border-0 ${scoreColor(inv.score)}`}>
-                  {inv.score}%
-                </Badge>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {topMatches.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-8">No matches yet.</p>
           )}

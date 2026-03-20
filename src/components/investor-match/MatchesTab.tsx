@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, DollarSign, Sparkles } from "lucide-react";
+import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock } from "lucide-react";
 
 interface ScoredInvestor {
   id: string;
@@ -17,9 +17,25 @@ interface ScoredInvestor {
   coInvestLink: string | null;
 }
 
+interface EnrichedProfile {
+  firmName: string;
+  recentDeals: string[];
+  currentThesis: string;
+  stage: string;
+  geography: string;
+  source: "exa" | "gemini_grounded" | "local_db";
+  lastVerified: string;
+}
+
+interface EnrichResult {
+  profile: EnrichedProfile;
+  tier: number;
+}
+
 interface MatchesTabProps {
   scoredInvestors: ScoredInvestor[];
   bannerText: string;
+  enrichedData?: Record<string, EnrichResult>;
 }
 
 function formatCheckSize(amount: number): string {
@@ -34,7 +50,37 @@ function scoreColor(score: number): string {
   return "bg-red-100 text-red-700";
 }
 
-export function MatchesTab({ scoredInvestors, bannerText }: MatchesTabProps) {
+function SourceBadge({ source }: { source: "exa" | "gemini_grounded" | "local_db" }) {
+  if (source === "exa") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+        <Zap className="h-2.5 w-2.5" /> Live Signal
+      </span>
+    );
+  }
+  if (source === "gemini_grounded") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+        <ShieldCheck className="h-2.5 w-2.5" /> Grounding Verified
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+      <Database className="h-2.5 w-2.5" /> Verified Directory
+    </span>
+  );
+}
+
+function formatVerifiedDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "Unknown";
+  }
+}
+
+export function MatchesTab({ scoredInvestors, bannerText, enrichedData }: MatchesTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
@@ -44,6 +90,7 @@ export function MatchesTab({ scoredInvestors, bannerText }: MatchesTabProps) {
 
       <div className="grid gap-4 sm:grid-cols-1">
         {scoredInvestors.map(investor => {
+          const enriched = enrichedData?.[investor.firm_name.toLowerCase().trim()];
           const reasoningParts = investor.reasoning.split(" · ");
           return (
             <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30">
@@ -53,7 +100,10 @@ export function MatchesTab({ scoredInvestors, bannerText }: MatchesTabProps) {
                     {investor.firm_name.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-foreground">{investor.firm_name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-foreground">{investor.firm_name}</h3>
+                      {enriched && <SourceBadge source={enriched.profile.source} />}
+                    </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {investor.preferred_stage} · {investor.lead_or_follow}
                       {investor.lead_partner && ` · ${investor.lead_partner}`}
@@ -65,17 +115,34 @@ export function MatchesTab({ scoredInvestors, bannerText }: MatchesTabProps) {
                 </Badge>
               </div>
 
-              <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-                Matches your{" "}
-                {reasoningParts.map((part, i) => (
-                  <span key={i}>
-                    {i > 0 && " and "}
-                    {investor.coInvestLink && part.includes(investor.coInvestLink) ? (
-                      <>frequently co-invests at this stage with <span className="font-semibold text-foreground">{investor.coInvestLink}</span></>
-                    ) : part}
-                  </span>
-                ))}.
-              </p>
+              {/* Enriched thesis */}
+              {enriched?.profile.currentThesis ? (
+                <p className="mt-3 text-xs text-muted-foreground leading-relaxed italic">
+                  "{enriched.profile.currentThesis}"
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+                  Matches your{" "}
+                  {reasoningParts.map((part, i) => (
+                    <span key={i}>
+                      {i > 0 && " and "}
+                      {investor.coInvestLink && part.includes(investor.coInvestLink) ? (
+                        <>frequently co-invests at this stage with <span className="font-semibold text-foreground">{investor.coInvestLink}</span></>
+                      ) : part}
+                    </span>
+                  ))}.
+                </p>
+              )}
+
+              {/* Recent deals from enrichment */}
+              {enriched && enriched.profile.recentDeals.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="text-[10px] text-muted-foreground mr-1">Recent:</span>
+                  {enriched.profile.recentDeals.slice(0, 3).map((deal, i) => (
+                    <Badge key={i} variant="outline" className="text-[10px] font-normal">{deal}</Badge>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {investor.thesis_verticals.slice(0, 4).map(v => (
@@ -89,6 +156,12 @@ export function MatchesTab({ scoredInvestors, bannerText }: MatchesTabProps) {
                   {formatCheckSize(investor.min_check_size)}–{formatCheckSize(investor.max_check_size)}
                 </span>
                 {investor.location && <span>{investor.location}</span>}
+                {enriched && (
+                  <span className="flex items-center gap-1 ml-auto">
+                    <Clock className="h-3 w-3" />
+                    Verified: {formatVerifiedDate(enriched.profile.lastVerified)}
+                  </span>
+                )}
               </div>
 
               <div className="mt-4 flex items-center gap-3 pt-3 border-t border-border">
