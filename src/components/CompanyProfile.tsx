@@ -1381,7 +1381,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
 
           {/* PITCH DECK */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               <FileText className="h-3 w-3" /> Pitch Deck (PDF)
             </label>
