@@ -323,10 +323,6 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
         boxShadow: "0 20px 50px hsla(var(--accent), 0.05)",
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-bold text-foreground">My Investors</h3>
-      </div>
 
       {/* Search + Filters Row */}
       <div className="flex items-center gap-2 mb-6">
@@ -506,7 +502,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
       </div>
 
       {/* Investor Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
         {paginatedBackers.map((b) => {
           const key = b.name.toLowerCase().trim();
           const enriched = enrichCache?.[key];
