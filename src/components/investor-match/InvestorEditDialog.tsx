@@ -141,7 +141,13 @@ function EntityCombobox({
               ref={inputRef}
               value={query}
               onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
-              onFocus={() => setIsOpen(true)}
+              onFocus={() => {
+                setIsOpen(true);
+                if (containerRef.current) {
+                  const rect = containerRef.current.getBoundingClientRect();
+                  setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+                }
+              }}
               placeholder={placeholder}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
             />
