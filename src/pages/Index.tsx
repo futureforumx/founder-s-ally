@@ -23,7 +23,7 @@ import { RefreshCw, ShieldCheck, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
 const Index = () => {
   const capTable = useCapTable();
