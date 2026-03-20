@@ -295,12 +295,18 @@ export function DeckAuditView() {
             </p>
           </div>
           <button
-            onClick={handleReset}
-            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted"
+            onClick={() => setImportModalOpen(true)}
+            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted active:scale-[0.97]"
           >
             Audit Another Deck
           </button>
         </div>
+
+        <NewDeckImportModal
+          open={importModalOpen}
+          onOpenChange={setImportModalOpen}
+          onImport={handleNewDeckImport}
+        />
 
         {/* Benchmark Insight */}
         {result.benchmark_insights.key_takeaway && (
