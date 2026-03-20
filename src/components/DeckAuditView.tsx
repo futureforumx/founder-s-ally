@@ -111,7 +111,7 @@ export function DeckAuditView() {
     } catch {}
   }, [handleUpload]);
 
-  const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
+  const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
   const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
