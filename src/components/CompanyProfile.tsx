@@ -148,7 +148,7 @@ const METRIC_TOOLTIPS: Record<string, { title: string; definition: string; formu
   burnRate: { title: "Burn Rate", definition: "How much cash you spend per period beyond what you earn. A key indicator of runway.", formula: "Total Expenses − Total Revenue", icon: "flame" },
   cac: { title: "Customer Acquisition Cost", definition: "The average amount spent to acquire one new paying customer.", formula: "Total Sales & Marketing Spend / New Customers", icon: "dollar" },
   ltv: { title: "Lifetime Value", definition: "Total revenue expected from a single customer over their entire relationship.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan", icon: "dollar" },
-  ltvCac: { title: "LTV / CAC Ratio", definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is considered healthy.", formula: "LTV / CAC", icon: "scale" },
+  ltvCac: { title: "LTV / CAC Ratio", definition: "Auto-calculated as LTV ÷ CAC. You can edit this field to apply a manual override.", formula: "LTV / CAC", icon: "scale" },
   nrr: { title: "Net Revenue Retention", definition: "Measures expansion and churn within existing customers. A value over 100% indicates net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR", icon: "refresh" },
   headcount: { title: "Headcount", definition: "Total number of full-time employees across all departments.", icon: "users" },
 };
@@ -1020,20 +1020,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  // LTV/CAC ratio: manual override or auto-calculated
-  const [ltvCacOverride, setLtvCacOverride] = useState("");
-  const calculateRatio = (ltv: string, cac: string): string => {
-    const numLtv = parseFloat(ltv.toString().replace(/[^0-9.]/g, ''));
-    const numCac = parseFloat(cac.toString().replace(/[^0-9.]/g, ''));
-    if (!numCac || numCac === 0) return "0.0";
-    return (numLtv / numCac).toFixed(1);
-  };
-  const autoLtvCacRatio = (() => {
-    const result = calculateRatio(form.ltv, form.cac);
-    return result ? result + "x" : "";
+  // LTV/CAC ratio: Smart Override — auto-calculates but allows manual override
+  const [ltvCacManualValue, setLtvCacManualValue] = useState<string | null>(null);
+  const isLtvCacOverridden = ltvCacManualValue !== null;
+
+  const calculatedLtvCac = (() => {
+    const numLtv = parseFloat(form.ltv.toString().replace(/[^0-9.]/g, ''));
+    const numCac = parseFloat(form.cac.toString().replace(/[^0-9.]/g, ''));
+    if (!numCac || numCac === 0 || isNaN(numLtv) || isNaN(numCac)) return "";
+    const ratio = numLtv / numCac;
+    return (ratio % 1 === 0 ? ratio.toFixed(1) : ratio.toFixed(1)) + "x";
   })();
-  const ltvCacDisplay = ltvCacOverride || autoLtvCacRatio || "—";
-  const isAutoCalculated = !ltvCacOverride && !!autoLtvCacRatio;
+
+  // Auto-update calculated value when LTV/CAC change (only if not overridden)
+  const ltvCacDisplay = isLtvCacOverridden ? ltvCacManualValue! : calculatedLtvCac;
+  const isAutoCalculated = !isLtvCacOverridden && !!calculatedLtvCac;
 
   // Section confirmation helpers
   // Overview required fields for strict validation
@@ -2047,43 +2048,62 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                   </div>
 
-                  {/* LTV/CAC Ratio (reactive auto-calculated) */}
+                  {/* LTV/CAC Ratio — Smart Override */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 whitespace-nowrap">
                       LTV/CAC Ratio
                       <MetricTooltip metricKey="ltvCac" />
-                      {ltvCacOverride && (
-                        <button onClick={() => setLtvCacOverride("")} className="text-muted-foreground/60 hover:text-foreground transition-colors" title="Revert to auto-calculation">
-                          <RotateCcw className="h-3 w-3" />
-                        </button>
-                      )}
                     </label>
-                    <div className="relative">
+                    <div className={`relative flex items-center rounded-lg border transition-all focus-within:ring-2 focus-within:ring-ring ${
+                      isLtvCacOverridden
+                        ? "bg-background border-input"
+                        : "bg-accent/5 border-accent/20"
+                    }`}>
                       <input type="text"
-                        value={ltvCacOverride || autoLtvCacRatio}
-                        onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x+\-*/()]/g, ""))}
+                        value={ltvCacDisplay}
+                        onChange={e => {
+                          const cleaned = e.target.value.replace(/[^0-9.:x+\-*/()]/g, "");
+                          setLtvCacManualValue(cleaned);
+                        }}
                         onBlur={e => {
                           const raw = e.target.value.trim().replace(/x$/i, "");
-                          if (!raw) { setLtvCacOverride(""); return; }
+                          if (!raw) { setLtvCacManualValue(null); return; }
                           const mathResult = evaluateSmartMath(raw);
                           if (mathResult !== null && mathResult > 0) {
-                            setLtvCacOverride(mathResult % 1 === 0 ? mathResult + ".0x" : mathResult.toFixed(1) + "x");
+                            setLtvCacManualValue(mathResult.toFixed(1) + "x");
                             return;
                           }
                           const ratioMatch = raw.match(/^([\d.]+)\s*:\s*([\d.]+)$/);
                           if (ratioMatch) {
                             const num = parseFloat(ratioMatch[1]);
                             const den = parseFloat(ratioMatch[2]);
-                            if (den > 0) { setLtvCacOverride((num / den).toFixed(1) + "x"); return; }
+                            if (den > 0) { setLtvCacManualValue((num / den).toFixed(1) + "x"); return; }
                           }
                           const num = parseFloat(raw);
-                          if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + ".0x" : num.toFixed(1) + "x");
+                          if (!isNaN(num)) setLtvCacManualValue(num.toFixed(1) + "x");
                         }}
                         placeholder="Auto or e.g. 3.5x"
-                        className={`w-full rounded-lg border border-border pr-8 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring pl-3 ${
-                          isAutoCalculated ? "bg-accent/5 text-blue-600" : "bg-background text-foreground"
+                        className={`w-full bg-transparent py-2.5 text-sm font-semibold focus:outline-none pl-3 pr-10 ${
+                          isAutoCalculated ? "text-blue-600" : "text-foreground"
                         }`} />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">x</span>
+                      {/* Right-side action: calculator hint or revert button */}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {isLtvCacOverridden ? (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setLtvCacManualValue(null)}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Revert to calculated value</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Scale className="h-3.5 w-3.5 text-accent/40" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
