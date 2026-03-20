@@ -321,7 +321,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} onViewAllMatches={() => setActiveTab("matches")} />}
       {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (

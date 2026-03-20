@@ -33,6 +33,7 @@ interface UpdatesTabProps {
   enrichingKeys?: Set<string>;
   timeRange: TimeRange;
   selectedHeatCell: number | null;
+  onViewAllMatches?: () => void;
 }
 
 // ── Live Signal Data ──
@@ -175,7 +176,7 @@ function formatVerifiedDate(iso: string): string {
 
 // ── Main Component ──
 
-export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange, selectedHeatCell }: UpdatesTabProps) {
+export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange, selectedHeatCell, onViewAllMatches }: UpdatesTabProps) {
   const [feedFilter, setFeedFilter] = useState<FeedCategory>("all");
 
   // Cross-filter + category filter for unified feed
@@ -209,7 +210,15 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
           <div className="rounded-2xl border border-border bg-card p-6 shadow-surface-md">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-sm font-semibold text-foreground">New Matches</h3>
-              <Badge variant="secondary" className="text-[10px] font-normal">Top 3</Badge>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onViewAllMatches}
+                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1"
+                >
+                  View all <ArrowRight className="h-3 w-3" />
+                </button>
+                <Badge variant="secondary" className="text-[10px] font-normal">Top 3</Badge>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -279,10 +288,6 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
                 <p className="text-xs text-muted-foreground text-center py-8">No matches yet.</p>
               )}
             </div>
-
-            <button className="mt-5 flex w-full items-center justify-center gap-1.5 text-xs font-medium text-accent hover:text-accent/80 transition-colors">
-              View all matches <ArrowRight className="h-3 w-3" />
-            </button>
           </div>
         </div>
 
