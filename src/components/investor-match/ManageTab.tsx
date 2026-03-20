@@ -441,6 +441,44 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
         })}
       </div>
 
+      {/* Pagination Footer */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 pt-4 border-t" style={{ borderColor: "hsla(var(--border), 0.5)" }}>
+          <p className="text-xs text-muted-foreground">
+            {filteredBackers.length} results • Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`h-8 w-8 text-xs font-medium rounded-lg transition-colors ${
+                  page === currentPage
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {filteredBackers.length === 0 && !showSuggestions && (
         <div className="flex flex-col items-center py-12 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3" style={{ background: "hsl(var(--secondary))" }}>
