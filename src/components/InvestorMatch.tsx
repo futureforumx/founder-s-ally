@@ -448,6 +448,16 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         </p>
       </div>
 
+      {/* Intelligence Cards */}
+      <IntelligenceCards
+        matchCount={scoredInvestors.length}
+        animatedTotal={animatedTotal}
+        totalRaised={totalRaised}
+        sectorClassification={sectorClassification}
+        companyData={companyData}
+        formatCurrency={fmt}
+      />
+
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Left Column: Current Backers + Funding Pulse ── */}
