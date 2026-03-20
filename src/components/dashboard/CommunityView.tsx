@@ -15,6 +15,7 @@ interface CommunityViewProps {
   companyData?: CompanyData | null;
   analysisResult?: AnalysisResult | null;
   onNavigateProfile?: () => void;
+  variant?: "directory" | "investor-search";
 }
 
 // ── Types ──
@@ -282,7 +283,7 @@ function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;t
 }
 
 
-export function CommunityView({ companyData, analysisResult, onNavigateProfile }: CommunityViewProps) {
+export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -392,43 +393,76 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   return (
     <div className="space-y-2">
+      {/* Top navbar for investor-search */}
+      {variant === "investor-search" && (
+        <div className="w-full border-b border-border bg-card/50 backdrop-blur-sm -mx-8 -mt-6 px-8 py-4 mb-4" style={{ width: "calc(100% + 4rem)" }}>
+          <button
+            onClick={onNavigateProfile}
+            className="flex items-center gap-4 group cursor-pointer"
+          >
+            <div className="relative w-12 h-12 rounded-xl border border-border bg-muted/30 shadow-sm group-hover:ring-2 group-hover:ring-accent/20 transition-all flex items-center justify-center overflow-hidden shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-xl" />
+              ) : hasProfile ? (
+                <span className="text-lg font-bold text-muted-foreground">
+                  {companyData!.name.charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <Building2 className="h-5 w-5 text-muted-foreground/40" />
+              )}
+            </div>
+            <div className="text-left">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground group-hover:text-accent transition-colors">
+                {hasProfile ? companyData!.name : "My Company"}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your company profile and real-time pulse
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground"> Investor Directory</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            {variant === "investor-search" ? "Search" : "Investor Directory"}
+          </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
         </div>
 
-        {hasProfile ?
-        <button
-          onClick={onNavigateProfile}
-          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0">
-          
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
-              {logoUrl ?
-            <img src={logoUrl} alt="" className="w-full h-full object-contain" /> :
-
-            <span className="text-xs font-bold text-muted-foreground">
-                  {companyData!.name.charAt(0).toUpperCase()}
-                </span>
-            }
-            </div>
-            <div className="text-left">
-              <span className="text-[10px] text-muted-foreground font-medium block leading-none mb-0.5">Your Company</span>
-              <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">{companyData!.name}</span>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
-          </button> :
-
-        <button
-          onClick={onNavigateProfile}
-          className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0">
-          
-            <Building2 className="h-4 w-4 text-muted-foreground/40" />
-            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Set up your company</span>
+        {variant !== "investor-search" && (
+          hasProfile ?
+          <button
+            onClick={onNavigateProfile}
+            className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0">
             
-          </button>
-        }
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
+                {logoUrl ?
+              <img src={logoUrl} alt="" className="w-full h-full object-contain" /> :
+
+              <span className="text-xs font-bold text-muted-foreground">
+                    {companyData!.name.charAt(0).toUpperCase()}
+                  </span>
+              }
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] text-muted-foreground font-medium block leading-none mb-0.5">Your Company</span>
+                <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">{companyData!.name}</span>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
+            </button> :
+
+          <button
+            onClick={onNavigateProfile}
+            className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0">
+            
+              <Building2 className="h-4 w-4 text-muted-foreground/40" />
+              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Set up your company</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
+            </button>
+        )}
       </div>
 
       {/* ── Smart Cohort Cards ── */}
