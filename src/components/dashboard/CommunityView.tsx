@@ -397,28 +397,27 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       {variant === "investor-search" && (
         <button
           onClick={onNavigateProfile}
-          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group mb-2"
+          className="flex items-center gap-4 group cursor-pointer mb-2"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
+          <div className="relative w-12 h-12 rounded-xl border border-border bg-muted/30 shadow-sm group-hover:ring-2 group-hover:ring-accent/20 transition-all flex items-center justify-center overflow-hidden shrink-0">
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="w-full h-full object-contain" />
+              <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-xl" />
             ) : hasProfile ? (
-              <span className="text-xs font-bold text-muted-foreground">
+              <span className="text-lg font-bold text-muted-foreground">
                 {companyData!.name.charAt(0).toUpperCase()}
               </span>
             ) : (
-              <Building2 className="h-4 w-4 text-muted-foreground/40" />
+              <Building2 className="h-5 w-5 text-muted-foreground/40" />
             )}
           </div>
           <div className="text-left">
-            <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">
-              {hasProfile ? companyData!.name : "Set up your company"}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-medium block leading-none mt-0.5">
-              {hasProfile ? "Your company profile and real-time pulse" : "Complete your profile"}
-            </span>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground group-hover:text-accent transition-colors">
+              {hasProfile ? companyData!.name : "My Company"}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Your company profile and real-time pulse
+            </p>
           </div>
-          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
         </button>
       )}
 
