@@ -4,13 +4,12 @@ import { AnalysisTerminal } from "./AnalysisTerminal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
-import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2, TrendingUp } from "lucide-react";
+import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
 import { AuditControlBar } from "./deck-audit/AuditControlBar";
-import { RadialScore } from "./deck-audit/RadialScore";
-import { DimensionBars } from "./deck-audit/DimensionBars";
+import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
 import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
@@ -308,28 +307,8 @@ export function DeckAuditView() {
           onImport={handleNewDeckImport}
         />
 
-        {/* Benchmark Insight */}
-        {result.benchmark_insights.key_takeaway && (
-          <div className="rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 flex items-start gap-3">
-            <TrendingUp className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-            <div>
-              <span className="text-[11px] font-semibold text-foreground">
-                {result.benchmark_insights.percentile}th percentile
-              </span>
-              <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
-                {result.benchmark_insights.key_takeaway}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Hero: Multi-Axis Scoring */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-          <div className="flex flex-col lg:flex-row items-start gap-8">
-            <RadialScore score={result.multi_axis_scores.readiness_score} />
-            <DimensionBars scores={result.multi_axis_scores.dimensions} />
-          </div>
-        </div>
+        {/* KPI Ribbon with Expanding Tray */}
+        <KPIRibbon scores={result.multi_axis_scores} benchmark={result.benchmark_insights} />
 
         {/* Slide-Level Coaching */}
         {result.slide_analysis.length > 0 && (
