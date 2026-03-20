@@ -374,50 +374,53 @@ const Index = () => {
                 {/* ── Left Column: Performance & Status (sticky) ── */}
                 <div className="lg:col-span-4 sticky top-8 flex flex-col gap-5">
 
-                  {/* ── Card 1: Profile Analytics ── */}
-                  <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-muted-foreground" /> Profile Analytics
-                    </h3>
-                    {profileCompletion.percent >= 100 && isProfileVerified ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
-                          <p className="text-lg font-bold text-foreground">12</p>
-                          <p className="text-[9px] text-success font-medium">+3 this week</p>
+                  {/* ── Section Header: Profile Analytics ── */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Analytics</h3>
+                    <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
+                      {profileCompletion.percent >= 100 && isProfileVerified ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
+                            <p className="text-lg font-bold text-foreground">12</p>
+                            <p className="text-[9px] text-success font-medium">+3 this week</p>
+                          </div>
+                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
+                            <p className="text-lg font-bold text-foreground">45</p>
+                            <p className="text-[9px] text-success font-medium">+8 this week</p>
+                          </div>
                         </div>
-                        <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
-                          <p className="text-lg font-bold text-foreground">45</p>
-                          <p className="text-[9px] text-success font-medium">+8 this week</p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
+                            <p className="text-lg font-bold text-muted-foreground/40">—</p>
+                          </div>
+                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
+                            <p className="text-lg font-bold text-muted-foreground/40">—</p>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
-                          <p className="text-lg font-bold text-muted-foreground/40">—</p>
-                        </div>
-                        <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
-                          <p className="text-lg font-bold text-muted-foreground/40">—</p>
-                        </div>
-                      </div>
-                    )}
-                    {profileCompletion.percent < 100 && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Complete your profile to unlock analytics.
-                      </p>
-                    )}
+                      )}
+                      {profileCompletion.percent < 100 && (
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" /> Complete your profile to unlock analytics.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* ── Card 2: Profile Strength & Checklist ── */}
-                  <ProfileStrength
-                    completionPercent={profileCompletion.percent}
-                    sectionConfirmed={sectionConfirmed}
-                    investorsConfirmed={investorsConfirmed}
-                    investorSectionRef={investorSectionRef}
-                  />
+                  {/* ── Section Header: Profile Strength ── */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
+                    <ProfileStrength
+                      completionPercent={profileCompletion.percent}
+                      sectionConfirmed={sectionConfirmed}
+                      investorsConfirmed={investorsConfirmed}
+                      investorSectionRef={investorSectionRef}
+                    />
+                  </div>
 
                   {/* ── Card 3: AI Profile Insight ── */}
                   <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">

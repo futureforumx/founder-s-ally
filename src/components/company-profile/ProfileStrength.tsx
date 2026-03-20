@@ -123,11 +123,10 @@ export function ProfileStrength({
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
-      {/* Header + Hero Percentage */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Profile Strength</h3>
+      {/* Hero Percentage */}
+      <div className="flex flex-col items-start">
         <motion.span
-          className={`text-3xl font-extrabold tabular-nums ${isComplete ? "text-emerald-500" : getColorClass(completionPercent)}`}
+          className={`text-4xl font-extrabold tabular-nums leading-none ${isComplete ? "text-emerald-500" : getColorClass(completionPercent)}`}
           animate={{
             scale: didPop ? 1.12 : 1,
           }}
@@ -140,6 +139,9 @@ export function ProfileStrength({
             {completionPercent}%
           </span>
         </motion.span>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          {isComplete ? "All sections verified" : `${incompleteSteps.length} step${incompleteSteps.length !== 1 ? "s" : ""} remaining`}
+        </p>
       </div>
 
       {/* Traffic-light progress bar */}
