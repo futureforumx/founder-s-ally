@@ -9,8 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { format } from "date-fns";
 
 import { AuditControlBar } from "./deck-audit/AuditControlBar";
-import { RadialScore } from "./deck-audit/RadialScore";
-import { DimensionBars } from "./deck-audit/DimensionBars";
+import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
 import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
