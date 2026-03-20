@@ -1996,26 +1996,24 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* LTV/CAC Ratio (reactive auto-calculated) */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 whitespace-nowrap">
-                      <Scale className="h-3.5 w-3.5 text-accent flex-shrink-0" /> LTV/CAC Ratio
+                      LTV/CAC Ratio
                       <MetricTooltip metricKey="ltvCac" />
                       {ltvCacOverride && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted px-1.5 py-0 text-[9px] font-medium text-muted-foreground">
-                          <Pencil className="h-2 w-2" /> Edited
-                        </span>
+                        <button onClick={() => setLtvCacOverride("")} className="text-muted-foreground/60 hover:text-foreground transition-colors" title="Revert to auto-calculation">
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
                       )}
                     </label>
                     <div className="relative">
-                      <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                       <input type="text"
                         value={ltvCacOverride || autoLtvCacRatio}
                         onChange={e => setLtvCacOverride(e.target.value.replace(/[^0-9.:x+\-*/()]/g, ""))}
                         onBlur={e => {
                           const raw = e.target.value.trim().replace(/x$/i, "");
                           if (!raw) { setLtvCacOverride(""); return; }
-                          // Try math evaluation first
                           const mathResult = evaluateSmartMath(raw);
                           if (mathResult !== null && mathResult > 0) {
-                            setLtvCacOverride(mathResult % 1 === 0 ? mathResult + "x" : mathResult.toFixed(1) + "x");
+                            setLtvCacOverride(mathResult % 1 === 0 ? mathResult + ".0x" : mathResult.toFixed(1) + "x");
                             return;
                           }
                           const ratioMatch = raw.match(/^([\d.]+)\s*:\s*([\d.]+)$/);
@@ -2025,20 +2023,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             if (den > 0) { setLtvCacOverride((num / den).toFixed(1) + "x"); return; }
                           }
                           const num = parseFloat(raw);
-                          if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + "x" : num.toFixed(1) + "x");
+                          if (!isNaN(num)) setLtvCacOverride(num % 1 === 0 ? num + ".0x" : num.toFixed(1) + "x");
                         }}
                         placeholder="Auto or e.g. 3.5x"
-                        className={`w-full rounded-lg border border-border pl-9 pr-9 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring ${
-                          ltvCacOverride ? "bg-background text-foreground" : "bg-accent/5 text-accent/80"
+                        className={`w-full rounded-lg border border-border pr-8 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring pl-3 ${
+                          isAutoCalculated ? "bg-accent/5 text-blue-600" : "bg-background text-foreground"
                         }`} />
-                      {!ltvCacOverride && autoLtvCacRatio && (
-                        <PhosphorSparkle className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-accent/50" />
-                      )}
-                      {ltvCacOverride && (
-                        <button onClick={() => setLtvCacOverride("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                          <RotateCcw className="h-3 w-3" />
-                        </button>
-                      )}
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">x</span>
                     </div>
                   </div>
                 </div>
