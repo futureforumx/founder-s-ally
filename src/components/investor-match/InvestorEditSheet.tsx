@@ -198,23 +198,6 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
               )}
             </div>
 
-            {/* Instrument Type */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Instrument Type
-              </Label>
-              <Select value={instrument} onValueChange={setInstrument}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select instrument…" />
-                </SelectTrigger>
-                <SelectContent position="popper" className="z-[99999]">
-                  {INVESTMENT_TYPES.map(t => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Funding Round */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -227,6 +210,23 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
                 <SelectContent position="popper" className="z-[99999]">
                   {FUNDING_ROUNDS.map(r => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Instrument Type */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Instrument Type
+              </Label>
+              <Select value={instrument} onValueChange={setInstrument}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select instrument…" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-[99999]">
+                  {INVESTMENT_TYPES.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -70,14 +70,14 @@ export function CapTableRow({ backer, index, isHighlighted, onClick }: CapTableR
         <span className="text-sm font-medium text-foreground truncate block">{backer.name}</span>
       </td>
 
-      {/* Type */}
-      <td className="py-2.5 px-3">
-        <span className="text-sm text-muted-foreground truncate block">{backer.instrument}</span>
-      </td>
-
       {/* Round */}
       <td className="py-2.5 px-3">
         <span className="text-sm text-muted-foreground truncate block">{backer.date}</span>
+      </td>
+
+      {/* Type */}
+      <td className="py-2.5 px-3">
+        <span className="text-sm text-muted-foreground truncate block">{backer.instrument}</span>
       </td>
 
       {/* Amount */}
