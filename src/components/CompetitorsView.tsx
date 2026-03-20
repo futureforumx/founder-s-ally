@@ -9,6 +9,7 @@ interface CompetitorsViewProps {
   companyData: CompanyData | null;
   onNavigateProfile: () => void;
   onAddCompetitor?: (name: string) => void;
+  onCompetitorsChanged?: (names: string[]) => void;
 }
 
 // ── Competitor Intel Database ──
