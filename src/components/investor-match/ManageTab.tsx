@@ -553,6 +553,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           size="sm"
           className="gap-1.5 text-xs h-9 rounded-lg shrink-0"
           style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+          onClick={() => handleManualAdd("New Investor")}
         >
           <Plus className="h-3.5 w-3.5" /> Add Investor
         </Button>
