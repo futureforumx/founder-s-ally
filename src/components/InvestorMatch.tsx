@@ -168,10 +168,10 @@ interface InvestorMatchProps {
   externalTotalRaised?: number;
 }
 
-export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked }: InvestorMatchProps) {
+export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked, externalBackers, externalTotalRaised }: InvestorMatchProps) {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirmedBackers, setConfirmedBackers] = useState<CapBacker[]>([]);
+  const [internalBackers, setInternalBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
   const [timeRange, setTimeRange] = useState<TimeRange>("ytd");
   const [selectedHeatCell, setSelectedHeatCell] = useState<number | null>(null);
