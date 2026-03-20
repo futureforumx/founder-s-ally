@@ -385,11 +385,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         </div>
       )}
 
-      {/* Auto-Sum Footer */}
-      <CapTableFooter
-        backers={allBackers}
-        onSave={() => toast.success("Cap table saved.")}
-      />
+
+
     </div>
   );
 }
