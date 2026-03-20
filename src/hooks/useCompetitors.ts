@@ -75,7 +75,7 @@ export function useCompetitors() {
 
     try {
       const { data, error } = await supabase.functions.invoke("manage-competitors", {
-        body: { action: "add", name, status, notes },
+        body: { action: "add", name, status, notes, website },
       });
       if (error) throw error;
       if (data.error) {
