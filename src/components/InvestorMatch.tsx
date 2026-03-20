@@ -310,6 +310,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           confirmedBackers={confirmedBackers}
           totalRaised={totalRaised}
           formatCurrency={fmt}
+          enrichCache={enrichCache}
         />
       )}
     </div>
