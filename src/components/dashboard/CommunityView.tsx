@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
+import { InvestorDetailPanel } from "./InvestorDetailPanel";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
