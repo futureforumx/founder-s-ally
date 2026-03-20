@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Search, Users, Building2, MapPin, Sparkles,
-  ArrowRight, Flame, Loader2,
+  Search, Users, Building2, MapPin, Sparkles, Briefcase,
+  ArrowRight, Flame, Loader2, LayoutGrid,
 } from "lucide-react";
-import { SearchOmnibar } from "./SearchOmnibar";
+import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,14 +70,62 @@ const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDER
 
 const PAGE_SIZE = 9;
 
-const MAGIC_PROMPTS = [
-  "Match me with Seed investors",
-  "Climate tech founders near me",
-  "Startups with similar traction",
-  "AI agents for enterprise",
-  "B2B SaaS at Series A",
-  "Deep tech in my region",
+const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
+  all: [
+    "Match me with Seed investors",
+    "Climate tech founders near me",
+    "Startups with similar traction",
+    "AI agents for enterprise",
+    "B2B SaaS at Series A",
+    "Deep tech in my region",
+  ],
+  founders: [
+    "Technical co-founders in NYC",
+    "Solo founders scaling B2B SaaS",
+    "Second-time climate founders",
+    "YC alumni in healthcare",
+  ],
+  investors: [
+    "Active Pre-Seed climate funds",
+    "Lead investors for Seed SaaS",
+    "Angels investing in deep tech",
+    "VCs with recent AI exits",
+  ],
+  companies: [
+    "B2B SaaS with $1M+ ARR",
+    "Pre-revenue AI startups in SF",
+    "Series A construction tech",
+    "Climate startups with gov contracts",
+  ],
+};
+
+const GLOBAL_TABS: { id: EntityScope; label: string; icon: typeof Users }[] = [
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "founders", label: "Founders", icon: Users },
+  { id: "companies", label: "Companies", icon: Building2 },
+  { id: "investors", label: "Investors", icon: Briefcase },
 ];
+
+const SCOPE_PLACEHOLDERS: Record<EntityScope, string[]> = {
+  all: [
+    'Try "Seed stage industrial tech in California..."',
+    'Try "B2B SaaS with $1M+ ARR..."',
+    'Try "Climate founders in New York..."',
+    'Try "AI agents for healthcare..."',
+  ],
+  founders: [
+    'Search founders or try "Technical co-founders in NYC..."',
+    'Try "Solo founders with enterprise traction..."',
+  ],
+  investors: [
+    'Search investors or try "Active Pre-Seed climate funds..."',
+    'Try "Lead investors for Seed rounds in SaaS..."',
+  ],
+  companies: [
+    'Search companies or try "B2B SaaS with $1M+ ARR..."',
+    'Try "Series A construction tech companies..."',
+  ],
+};
 
 // ── Typing placeholder effect ──
 function useTypingPlaceholder(phrases: string[], speed = 60, pause = 2200) {
@@ -204,6 +252,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showMagicPrompts, setShowMagicPrompts] = useState(true);
+  const [activeScope, setActiveScope] = useState<EntityScope>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<FounderEntry | null>(null);
@@ -211,12 +260,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   const hasProfile = !!companyData?.name;
 
-  const placeholder = useTypingPlaceholder([
-    'Try "Seed stage industrial tech in California..."',
-    'Try "B2B SaaS with $1M+ ARR..."',
-    'Try "Climate founders in New York..."',
-    'Try "AI agents for healthcare..."',
-  ]);
+  const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
 
   useEffect(() => {
     if (searchQuery.length > 0) {
@@ -317,10 +361,36 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         )}
       </div>
 
+      {/* Global Entity Tabs */}
+      <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
+        {GLOBAL_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeScope === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveScope(tab.id);
+                setShowMagicPrompts(true);
+              }}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                isActive
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search Omnibar */}
       <SearchOmnibar
         value={searchQuery}
         onChange={setSearchQuery}
+        scope={activeScope}
         placeholder={placeholder}
       />
 
@@ -335,7 +405,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
               WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
             }}
           >
-            {MAGIC_PROMPTS.map((prompt) => (
+            {MAGIC_PROMPTS[activeScope].map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => {

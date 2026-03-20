@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Users, Briefcase, Building2, LayoutGrid, Sparkles, Clock, X, Loader2 } from "lucide-react";
+import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type EntityScope = "founders" | "investors" | "companies" | "all";
+export type EntityScope = "founders" | "investors" | "companies" | "all";
 
-interface SearchResult {
+export interface SearchResult {
   name: string;
   subtitle: string;
   category: "founder" | "investor" | "company";
@@ -15,16 +15,9 @@ interface SearchResult {
 interface SearchOmnibarProps {
   value: string;
   onChange: (value: string) => void;
-  onScopeChange?: (scope: EntityScope) => void;
+  scope: EntityScope;
   placeholder?: string;
 }
-
-const SCOPE_PILLS: { id: EntityScope; label: string; icon: typeof Users }[] = [
-  { id: "founders", label: "Founders", icon: Users },
-  { id: "investors", label: "Investors", icon: Briefcase },
-  { id: "companies", label: "Companies", icon: Building2 },
-  { id: "all", label: "All", icon: LayoutGrid },
-];
 
 const CATEGORY_ICONS: Record<string, typeof Users> = {
   founder: Users,
@@ -32,12 +25,32 @@ const CATEGORY_ICONS: Record<string, typeof Users> = {
   company: Building2,
 };
 
-const DEFAULT_RECOMMENDATIONS = [
-  "Seed stage B2B SaaS founders in New York",
-  "Recently active Climate Tech investors",
-  "Startups using similar tech stacks",
-  "Series A AI / ML companies in California",
-];
+const SCOPE_RECOMMENDATIONS: Record<EntityScope, string[]> = {
+  all: [
+    "Seed stage B2B SaaS founders in New York",
+    "Recently active Climate Tech investors",
+    "Startups using similar tech stacks",
+    "Series A AI / ML companies in California",
+  ],
+  founders: [
+    "Technical co-founders in NYC",
+    "Solo founders with enterprise traction",
+    "Second-time founders in Climate Tech",
+    "YC alumni building in healthcare",
+  ],
+  investors: [
+    "Active Pre-Seed climate funds",
+    "Investors who lead Seed rounds in SaaS",
+    "Angels investing in deep tech",
+    "VCs with recent AI portfolio exits",
+  ],
+  companies: [
+    "B2B SaaS with $1M+ ARR",
+    "Pre-revenue AI startups in SF",
+    "Series A construction tech companies",
+    "Climate startups with government contracts",
+  ],
+};
 
 const SEARCH_HISTORY_KEY = "omnibar-search-history";
 const MAX_HISTORY = 6;
@@ -56,9 +69,8 @@ function addToSearchHistory(term: string) {
   localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
 }
 
-export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: SearchOmnibarProps) {
+export function SearchOmnibar({ value, onChange, scope, placeholder }: SearchOmnibarProps) {
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<EntityScope>("all");
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [aiResults, setAiResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -81,7 +93,6 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
     clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(async () => {
-      // Cancel previous request
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -119,21 +130,14 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
     return () => clearTimeout(debounceRef.current);
   }, [value, scope, isTyping]);
 
-  // Re-trigger search when scope changes while typing
-  const prevScopeRef = useRef(scope);
-  useEffect(() => {
-    if (prevScopeRef.current !== scope && isTyping) {
-      // The dependency on scope in the above effect handles this
-    }
-    prevScopeRef.current = scope;
-  }, [scope, isTyping]);
-
+  // Scope-aware recommendations
   const recommendations = useMemo(() => {
+    const defaults = SCOPE_RECOMMENDATIONS[scope];
     const history = getSearchHistory();
-    if (history.length === 0) return DEFAULT_RECOMMENDATIONS;
-    const combined = [...history, ...DEFAULT_RECOMMENDATIONS.filter((d) => !history.includes(d))];
+    if (history.length === 0) return defaults;
+    const combined = [...history.slice(0, 2), ...defaults.filter((d) => !history.includes(d))];
     return combined.slice(0, 5);
-  }, [open, value]);
+  }, [open, value, scope]);
 
   const listCount = isTyping ? aiResults.length : recommendations.length;
 
@@ -167,15 +171,6 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
     inputRef.current?.focus();
   }, [onChange]);
 
-  const handleScopeClick = useCallback(
-    (id: EntityScope) => {
-      setScope(id);
-      onScopeChange?.(id);
-      setHighlightIdx(-1);
-    },
-    [onScopeChange]
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!open) return;
@@ -199,6 +194,8 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
     },
     [open, highlightIdx, listCount, isTyping, aiResults, recommendations, selectItem]
   );
+
+  const scopeLabel = scope === "all" ? "Results" : scope.charAt(0).toUpperCase() + scope.slice(1);
 
   return (
     <div ref={containerRef} className="relative">
@@ -230,48 +227,7 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
       {/* Dropdown */}
       {open && (
         <div className="absolute left-0 right-0 z-50 mt-0 rounded-b-xl border border-t-0 border-border bg-card p-4 shadow-xl">
-          {/* Section 1: Entity Scope */}
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            I'm searching for…
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {SCOPE_PILLS.map((pill) => {
-              const Icon = pill.icon;
-              const isActive = scope === pill.id;
-              return (
-                <button
-                  key={pill.id}
-                  onClick={() => handleScopeClick(pill.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-foreground text-background"
-                      : "border border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {pill.label}
-                </button>
-              );
-            })}
-            {isTyping && (
-              <button
-                onClick={() => {
-                  handleClear();
-                  setScope("all");
-                  onScopeChange?.("all");
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border border-destructive/30 text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear all
-              </button>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-border/60 my-4" />
-
-          {/* Section 2: Results or Recommendations */}
+          {/* Results or Recommendations */}
           {isTyping ? (
             <>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -280,11 +236,7 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
                 ) : (
                   <Sparkles className="h-3 w-3 text-accent" />
                 )}
-                {isSearching
-                  ? "Searching…"
-                  : scope === "all"
-                    ? `Results`
-                    : SCOPE_PILLS.find((p) => p.id === scope)?.label}
+                {isSearching ? "Searching…" : scopeLabel}
                 {!isSearching && (
                   <span className="text-muted-foreground/50 ml-1">{aiResults.length}</span>
                 )}
