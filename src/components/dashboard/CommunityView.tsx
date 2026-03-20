@@ -284,11 +284,12 @@ function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;t
 
 
 export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
+  const isInvestorSearch = variant === "investor-search";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showMagicPrompts, setShowMagicPrompts] = useState(true);
-  const [activeScope, setActiveScope] = useState<EntityScope>("all");
+  const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
@@ -416,7 +417,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
                 {hasProfile ? companyData!.name : "My Company"}
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your company profile and real-time pulse
+                Investor search &amp; discovery
               </p>
             </div>
           </button>
@@ -493,7 +494,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         })}
       </div>
 
-      {/* Global Entity Tabs */}
+      {/* Global Entity Tabs — hidden for investor-search */}
+      {!isInvestorSearch && (
       <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
         {GLOBAL_TABS.map((tab) => {
           const Icon = tab.icon;
@@ -517,6 +519,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
         })}
       </div>
+      )}
 
       {/* Search Omnibar */}
       <SearchOmnibar
