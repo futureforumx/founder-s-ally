@@ -515,23 +515,27 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         </div>
       )}
 
-      {/* ═══════ Carousel: Suggested Founders ═══════ */}
-      <div className="pt-4">
-        <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
-          {SUGGESTED_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`suggested-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
-          ))}
-        </FounderCarousel>
-      </div>
+      {/* ═══════ Carousel: Suggested ═══════ */}
+      {scopedSuggested.length > 0 && (
+        <div className="pt-4">
+          <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
+            {scopedSuggested.map((entry, i) => (
+              <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => setSelectedFounder(entry)} />
+            ))}
+          </FounderCarousel>
+        </div>
+      )}
 
-      {/* ═══════ Carousel: Trending Profiles ═══════ */}
-      <div className="pt-4">
-        <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
-          {TRENDING_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`trending-${i}`} founder={founder} trending onClick={() => setSelectedFounder(founder)} />
-          ))}
-        </FounderCarousel>
-      </div>
+      {/* ═══════ Carousel: Trending ═══════ */}
+      {scopedTrending.length > 0 && (
+        <div className="pt-4">
+          <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
+            {scopedTrending.map((entry, i) => (
+              <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => setSelectedFounder(entry)} />
+            ))}
+          </FounderCarousel>
+        </div>
+      )}
 
       {/* ═══════ All Founders Grid (only when NOT searching) ═══════ */}
       {!searchQuery && (
