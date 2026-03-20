@@ -1020,20 +1020,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   };
 
-  // LTV/CAC ratio: manual override or auto-calculated
-  const [ltvCacOverride, setLtvCacOverride] = useState("");
-  const calculateRatio = (ltv: string, cac: string): string => {
-    const numLtv = parseFloat(ltv.toString().replace(/[^0-9.]/g, ''));
-    const numCac = parseFloat(cac.toString().replace(/[^0-9.]/g, ''));
-    if (!numCac || numCac === 0) return "0.0";
-    return (numLtv / numCac).toFixed(1);
-  };
-  const autoLtvCacRatio = (() => {
-    const result = calculateRatio(form.ltv, form.cac);
-    return result ? result + "x" : "";
+  // LTV/CAC ratio: Smart Override — auto-calculates but allows manual override
+  const [ltvCacManualValue, setLtvCacManualValue] = useState<string | null>(null);
+  const isLtvCacOverridden = ltvCacManualValue !== null;
+
+  const calculatedLtvCac = (() => {
+    const numLtv = parseFloat(form.ltv.toString().replace(/[^0-9.]/g, ''));
+    const numCac = parseFloat(form.cac.toString().replace(/[^0-9.]/g, ''));
+    if (!numCac || numCac === 0 || isNaN(numLtv) || isNaN(numCac)) return "";
+    const ratio = numLtv / numCac;
+    return (ratio % 1 === 0 ? ratio.toFixed(1) : ratio.toFixed(1)) + "x";
   })();
-  const ltvCacDisplay = ltvCacOverride || autoLtvCacRatio || "—";
-  const isAutoCalculated = !ltvCacOverride && !!autoLtvCacRatio;
+
+  // Auto-update calculated value when LTV/CAC change (only if not overridden)
+  const ltvCacDisplay = isLtvCacOverridden ? ltvCacManualValue! : calculatedLtvCac;
+  const isAutoCalculated = !isLtvCacOverridden && !!calculatedLtvCac;
 
   // Section confirmation helpers
   // Overview required fields for strict validation
