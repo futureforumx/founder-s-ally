@@ -524,31 +524,18 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                 boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
               }}
             >
-              {/* Arrow cue */}
-              <button
-                className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground/50 group-hover:text-primary group-hover:border-primary/30 transition-colors"
-                onClick={(e) => { e.stopPropagation(); }}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-
-              {/* Header: Logo + Name + Category */}
-              <div className="flex items-start gap-3">
-                <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
+              {/* Header: Logo + Name */}
+              <div className="flex items-center gap-3">
+                <Avatar className="h-14 w-14 shrink-0 rounded-xl border border-border shadow-sm">
                   {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
                   <AvatarFallback
-                    className="text-sm font-bold rounded-xl"
+                    className="text-base font-bold rounded-xl"
                     style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
                   >
                     {b.logoLetter}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {b.instrument || "Investor"}
-                  </p>
-                </div>
+                <p className="text-sm font-bold text-foreground truncate min-w-0 flex-1">{b.name}</p>
               </div>
 
               {/* Description / Slogan */}
