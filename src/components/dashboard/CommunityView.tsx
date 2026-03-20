@@ -227,7 +227,7 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
-function FounderCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
+function FounderCard({ founder, trending, onClick }: { founder: DirectoryEntry; trending?: boolean; onClick?: () => void }) {
   return (
     <Card
       onClick={onClick}
@@ -273,7 +273,7 @@ function FounderCard({ founder, trending, onClick }: { founder: FounderEntry; tr
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
+function CarouselCard({ founder, trending, onClick }: { founder: DirectoryEntry; trending?: boolean; onClick?: () => void }) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
       <FounderCard founder={founder} trending={trending} onClick={onClick} />
@@ -290,7 +290,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const [activeScope, setActiveScope] = useState<EntityScope>("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [selectedFounder, setSelectedFounder] = useState<FounderEntry | null>(null);
+  const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasProfile = !!companyData?.name;
@@ -312,7 +312,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
     setVisibleCount(PAGE_SIZE);
   }, [searchQuery, activeFilter]);
 
-  const filteredAll = ALL_FOUNDERS.filter((f) => {
+  const filteredAll = ALL_ENTRIES.filter((f) => {
     const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
     const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model]
