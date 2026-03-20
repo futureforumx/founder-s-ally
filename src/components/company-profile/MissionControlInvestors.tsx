@@ -47,6 +47,7 @@ interface MissionControlInvestorsProps {
   analysisResult?: AnalysisResult | null;
   companyData?: { stage?: string; sector?: string } | null;
   previousSectionApproved?: boolean;
+  onConfirmedChange?: (confirmed: boolean) => void;
 }
 
 export function MissionControlInvestors({
@@ -58,6 +59,7 @@ export function MissionControlInvestors({
   analysisResult,
   companyData,
   previousSectionApproved = false,
+  onConfirmedChange,
 }: MissionControlInvestorsProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -194,6 +196,7 @@ export function MissionControlInvestors({
   const backersKey = backers.map(b => b.id).join(",");
   useEffect(() => {
     setConfirmed(false);
+    onConfirmedChange?.(false);
   }, [backersKey]);
 
   // Status dot logic
@@ -228,6 +231,7 @@ export function MissionControlInvestors({
     }
     setConfirmed(true);
     setIsOpen(false);
+    onConfirmedChange?.(true);
     toast.success("Investors confirmed and saved.");
   };
 

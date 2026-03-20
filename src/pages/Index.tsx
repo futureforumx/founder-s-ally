@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 
 import { AppSidebar } from "@/components/AppSidebar";
@@ -19,11 +19,58 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { RefreshCw, ShieldCheck, Check } from "lucide-react";
+import { RefreshCw, ShieldCheck, Check, ArrowRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
+
+// ── Sticky Profile Footer ──
+function StickyProfileFooter({
+  sectionConfirmed,
+  investorsConfirmed,
+  onComplete,
+}: {
+  sectionConfirmed: Record<string, boolean>;
+  investorsConfirmed: boolean;
+  onComplete: () => void;
+}) {
+  const profileSections = ["overview", "positioning", "metrics", "social"];
+  const approvedCount = profileSections.filter(s => sectionConfirmed[s]).length + (investorsConfirmed ? 1 : 0);
+  const totalSteps = 5;
+  const allReady = approvedCount === totalSteps;
+  const progressPercent = (approvedCount / totalSteps) * 100;
+
+  return (
+    <div className="sticky bottom-0 left-0 w-full bg-background/90 backdrop-blur-md border-t border-border p-4 z-50 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center gap-4">
+        <span className="text-xs font-semibold text-foreground">Profile Setup</span>
+        <div className="flex items-center gap-2">
+          <div className="w-32 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${allReady ? "bg-success" : "bg-accent"}`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            Step {approvedCount} of {totalSteps}
+          </span>
+        </div>
+      </div>
+      <button
+        onClick={allReady ? onComplete : undefined}
+        disabled={!allReady}
+        className={`inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${
+          allReady
+            ? "bg-accent text-accent-foreground shadow-lg hover:-translate-y-0.5 hover:bg-accent/90"
+            : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+        }`}
+      >
+        Complete Profile <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 const Index = () => {
   const capTable = useCapTable();
@@ -77,6 +124,19 @@ const Index = () => {
   const profileComplete = !!companyData && !!analysisResult;
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
+  const [investorsConfirmed, setInvestorsConfirmed] = useState(false);
+  const investorSectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to investors section when all profile sections are confirmed
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => {
+        investorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    };
+    window.addEventListener("scroll-to-investors", handler);
+    return () => window.removeEventListener("scroll-to-investors", handler);
+  }, []);
 
   // Last synced state
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
@@ -234,8 +294,8 @@ const Index = () => {
       )}
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
-      <main className="flex-1 overflow-y-auto">
-        <div className="px-8 py-6">
+      <main className="flex-1 overflow-y-auto relative">
+        <div className={`px-8 py-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -291,52 +351,19 @@ const Index = () => {
               <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} onSectionConfirmedChange={setSectionConfirmed} />
 
               {/* Investors Section */}
-              <MissionControlInvestors
-                backers={capTable.backers}
-                totalRaised={capTable.totalRaised}
-                formatCurrency={capTable.formatCurrency}
-                addInvestor={capTable.addInvestor}
-                onNavigateInvestors={() => setActiveView("investors")}
-                analysisResult={analysisResult}
-                companyData={companyData}
-                previousSectionApproved={!!sectionConfirmed.social}
-              />
-
-
-              {/* Confirm Profile — below everything */}
-              {analysisResult && (
-                <div className="rounded-xl border border-border bg-card/95 backdrop-blur-sm px-5 py-3 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-muted-foreground">
-                      {isProfileVerified ? "Profile data locked. AI drafts cleared." : "Confirming your profile is required to view matches."}
-                    </p>
-                    {isProfileVerified ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success cursor-default">
-                        <Check className="h-3.5 w-3.5" />
-                        Profile Verified
-                      </div>
-                    ) : (
-                      <Tooltip delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-5 py-2 text-[13px] font-medium text-success hover:bg-success/20 transition-colors"
-                            onClick={() => {
-                              setIsProfileVerified(true);
-                              try { localStorage.setItem("company-profile-verified", "true"); } catch {}
-                            }}
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Confirm Profile
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px] text-xs">
-                          Lock in your verified data to remove AI drafts and unlock the Competitive Benchmarking and Investor Match features.
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div ref={investorSectionRef}>
+                <MissionControlInvestors
+                  backers={capTable.backers}
+                  totalRaised={capTable.totalRaised}
+                  formatCurrency={capTable.formatCurrency}
+                  addInvestor={capTable.addInvestor}
+                  onNavigateInvestors={() => setActiveView("investors")}
+                  analysisResult={analysisResult}
+                  companyData={companyData}
+                  previousSectionApproved={!!sectionConfirmed.social}
+                  onConfirmedChange={setInvestorsConfirmed}
+                />
+              </div>
             </div>
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
@@ -417,6 +444,18 @@ const Index = () => {
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
         </div>
+
+        {/* ═══ Global Sticky Footer ═══ */}
+        {activeView === "company" && analysisResult && !isProfileVerified && (
+          <StickyProfileFooter
+            sectionConfirmed={sectionConfirmed}
+            investorsConfirmed={investorsConfirmed}
+            onComplete={() => {
+              setIsProfileVerified(true);
+              try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+            }}
+          />
+        )}
       </main>
     </div>
   );
