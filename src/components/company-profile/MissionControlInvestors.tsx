@@ -376,25 +376,38 @@ export function MissionControlInvestors({
             ))}
           </div>
         ) : pendingExtracted.length === 0 && recommendations.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary mb-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary mb-2">
+                <PhosphorHandshake className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground mb-1">No investors added yet</p>
+              <p className="text-[10px] text-muted-foreground">Search above or run an analysis to detect investors from your deck</p>
             </div>
-            <p className="text-xs text-muted-foreground mb-1">No investors added yet</p>
-            <p className="text-[10px] text-muted-foreground">Search above or run an analysis to detect investors from your deck</p>
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* Show more link */}
-        {allBackers.length > 6 && (
-          <button
-            onClick={onNavigateInvestors}
-            className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
-          >
-            + {allBackers.length - 6} more investors
-          </button>
-        )}
-      </div>
+          {/* Show more link */}
+          {allBackers.length > 6 && (
+            <button
+              onClick={onNavigateInvestors}
+              className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
+            >
+              + {allBackers.length - 6} more investors
+            </button>
+          )}
+
+          {/* Confirm / Approved */}
+          <div className="flex justify-end pt-2">
+            {confirmed ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
+            ) : (
+              <button onClick={handleConfirm}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+                <Check className="h-3.5 w-3.5" /> Confirm Investors
+              </button>
+            )}
+          </div>
+        </div>
+      </CollapsibleContent>
 
       <InvestorEditSheet
         backer={editingBacker}
@@ -403,6 +416,6 @@ export function MissionControlInvestors({
         onSave={handleSheetSave}
         onRemove={handleSheetRemove}
       />
-    </div>
+    </Collapsible>
   );
 }
