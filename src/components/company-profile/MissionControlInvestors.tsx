@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Users, Search, UserPlus, Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "@/components/investor-match/InlineAmountInput";
 import { InvestorEditSheet } from "@/components/investor-match/InvestorEditSheet";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { CapBacker } from "@/components/investor-match/CapTableRow";
 import type { AnalysisResult } from "@/components/company-profile/types";
+
+// Phosphor-thin Handshake icon to match section header style
+function PhosphorHandshake({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className} fill="currentColor" stroke="none">
+      <path d="M252.31,121.31l-28-28A4,4,0,0,0,221.49,92H198.83l-27.42-27.41a4,4,0,0,0-5.65,0L141.49,88.85,116.83,64.18a12,12,0,0,0-17,0L72.69,91.34a4,4,0,0,0,0,5.66L97.17,121.49,76,142.66a4,4,0,0,0,0,5.66l30.34,30.34a4,4,0,0,0,5.66,0L133.17,157.49,155.34,179.66a12,12,0,0,0,17,0l27.14-27.14a4,4,0,0,0,5.66,0l2.83-2.83h13.52a4,4,0,0,0,2.83-1.17l28-28A4,4,0,0,0,252.31,121.31ZM109,170.34,84.66,146l21.17-21.17a4,4,0,0,0,0-5.66L81.34,94.66l24-24a4,4,0,0,1,5.66,0l24.66,24.66a4,4,0,0,0,5.66,0l24.27-24.26L188,94.34V96a4,4,0,0,0,1.17,2.83L214.34,124,192,146.34l-25.17-25.17a4,4,0,0,0-5.66,0Zm58.31,4a4,4,0,0,1-5.66,0L139.49,152.17l-25.17,25.17L92.66,155.66l25.17-25.17L139.49,152.17ZM244.69,124.69,217.52,151.86H204.48l-2.83,2.83L183.49,136.51l25.17-25.17a4,4,0,0,0,0-5.66L185.17,82.2A4,4,0,0,0,182.34,81H168.48l-2.83-2.83ZM220.69,144H208a4,4,0,0,0-2.83,1.17L204,146.34Z"/>
+    </svg>
+  );
+}
 
 interface NFXResult {
   name: string;
@@ -56,6 +66,8 @@ export function MissionControlInvestors({
   const [editingBacker, setEditingBacker] = useState<CapBacker | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
+  const [isOpen, setIsOpen] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController>();
   const debouncedQuery = useDebounce(searchQuery, 300);
@@ -147,6 +159,44 @@ export function MissionControlInvestors({
     });
   }, []);
 
+  // Revoke confirmed status when backers change
+  const backersKey = backers.map(b => b.id).join(",");
+  useEffect(() => {
+    setConfirmed(false);
+  }, [backersKey]);
+
+  // Status dot logic: empty (red), has data (yellow pulse), confirmed (green pulse)
+  const isEmpty = backers.length === 0;
+  const renderStatusDot = () => {
+    if (isEmpty) {
+      return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
+    }
+    if (confirmed) {
+      return (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+        </span>
+      );
+    }
+    return (
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+      </span>
+    );
+  };
+
+  const handleConfirm = () => {
+    if (isEmpty) {
+      toast.error("Add at least one investor before confirming.");
+      return;
+    }
+    setConfirmed(true);
+    setIsOpen(false);
+    toast.success("Investors confirmed and saved.");
+  };
+
   // Extracted investors from analysis
   const extractedInvestors = analysisResult?.extractedInvestors || [];
   const existingNames = new Set(backers.map(b => b.name.toLowerCase()));
@@ -155,27 +205,18 @@ export function MissionControlInvestors({
   const allBackers = backers.map(b => ({ ...b, ...overrides[b.id] }));
 
   return (
-    <div className="surface-card border border-border">
-      {/* Header */}
-      <div className="p-5 flex items-center justify-between border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
-            <Users className="h-4 w-4 text-accent" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Investors</h3>
-            <p className="text-[10px] text-muted-foreground">
-              {backers.length} investor{backers.length !== 1 ? "s" : ""} · {formatCurrency(totalRaised)} raised
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onNavigateInvestors}
-          className="flex items-center gap-1 text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-        >
-          View all <ArrowRight className="h-3 w-3" />
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="rounded-xl border border-border bg-card">
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-center justify-between p-6 text-left">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <PhosphorHandshake className="h-3.5 w-3.5 text-accent" /> Investors
+            {renderStatusDot()}
+          </h3>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
-      </div>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
 
       <div className="p-5 space-y-4">
         {/* Search */}
@@ -335,25 +376,38 @@ export function MissionControlInvestors({
             ))}
           </div>
         ) : pendingExtracted.length === 0 && recommendations.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary mb-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary mb-2">
+                <PhosphorHandshake className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground mb-1">No investors added yet</p>
+              <p className="text-[10px] text-muted-foreground">Search above or run an analysis to detect investors from your deck</p>
             </div>
-            <p className="text-xs text-muted-foreground mb-1">No investors added yet</p>
-            <p className="text-[10px] text-muted-foreground">Search above or run an analysis to detect investors from your deck</p>
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* Show more link */}
-        {allBackers.length > 6 && (
-          <button
-            onClick={onNavigateInvestors}
-            className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
-          >
-            + {allBackers.length - 6} more investors
-          </button>
-        )}
-      </div>
+          {/* Show more link */}
+          {allBackers.length > 6 && (
+            <button
+              onClick={onNavigateInvestors}
+              className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
+            >
+              + {allBackers.length - 6} more investors
+            </button>
+          )}
+
+          {/* Confirm / Approved */}
+          <div className="flex justify-end pt-2">
+            {confirmed ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
+            ) : (
+              <button onClick={handleConfirm}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+                <Check className="h-3.5 w-3.5" /> Confirm Investors
+              </button>
+            )}
+          </div>
+        </div>
+      </CollapsibleContent>
 
       <InvestorEditSheet
         backer={editingBacker}
@@ -362,6 +416,6 @@ export function MissionControlInvestors({
         onSave={handleSheetSave}
         onRemove={handleSheetRemove}
       />
-    </div>
+    </Collapsible>
   );
 }
