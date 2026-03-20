@@ -148,6 +148,12 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
     ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allBackers;
 
+  const totalPages = Math.ceil(filteredBackers.length / PAGE_SIZE);
+  const paginatedBackers = filteredBackers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset page when search changes
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+
   // Click-outside to close suggestions
   useEffect(() => {
     const handler = (e: MouseEvent) => {
