@@ -65,13 +65,13 @@ export function SlideCoachingView({ slides }: SlideCoachingViewProps) {
         </div>
 
         {/* Slide thumbnails */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 w-full pb-1">
           {slides.map((s, i) => (
             <button
               key={i}
               onClick={() => setActiveSlide(i)}
               className={cn(
-                "shrink-0 w-16 aspect-[16/9] rounded-md border text-[9px] font-medium flex items-center justify-center transition-all",
+                "flex-1 min-w-0 h-9 rounded-md border text-[9px] font-medium flex items-center justify-center transition-all",
                 i === activeSlide
                   ? "border-accent bg-accent/5 text-foreground"
                   : "border-border bg-card text-muted-foreground hover:border-accent/40"
