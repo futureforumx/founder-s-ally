@@ -8,6 +8,7 @@ import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
+import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 
 // ── Types ──
 
