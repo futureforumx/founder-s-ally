@@ -422,6 +422,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           </button>
         </div>
       )}
+      {variant === "investor-search" && <div className="h-20" />}
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
