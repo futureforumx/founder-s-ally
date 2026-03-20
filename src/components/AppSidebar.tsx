@@ -27,7 +27,7 @@ const communityItems = [
   { id: "directory" as const, label: "Directory", icon: BookOpen },
   { id: "connections" as const, label: "Connections", icon: Link2 },
   { id: "messages" as const, label: "Messages", icon: MessageSquare },
-  { id: "events" as const, label: "Events", icon: CalendarDays },
+  { id: "events" as const, label: "Hubs", icon: MapPin },
 ];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
