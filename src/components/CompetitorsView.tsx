@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock, Plus, Search } from "lucide-react";
+import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock, Plus, Search, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CompanyData } from "@/components/CompanyProfile";
+import { useCompetitors, TrackedCompetitor } from "@/hooks/useCompetitors";
 
 interface CompetitorsViewProps {
   companyData: CompanyData | null;
