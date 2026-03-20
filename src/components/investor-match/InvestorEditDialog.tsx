@@ -40,55 +40,82 @@ function cleanDomain(url: string): string {
   return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 }
 
-// ── Mock partner/firm suggestions ──
-const MOCK_PARTNERS: { name: string; avatar?: string }[] = [
-  { name: "Marc Andreessen" },
-  { name: "Sarah Chen" },
-  { name: "David Park" },
-  { name: "Elad Gil" },
-  { name: "Kirsten Green" },
-];
+// Live search result type
+interface SearchResult {
+  name: string;
+  location?: string;
+  logoUrl?: string;
+  stage?: string;
+}
 
-const MOCK_SYNDICATES: { name: string; logo?: string }[] = [
-  { name: "AngelList Syndicates" },
-  { name: "Republic" },
-  { name: "SeedInvest" },
-  { name: "Wefunder" },
-];
-
-// ── Searchable Combobox for partners/firms ──
+// ── Searchable Combobox with live API search ──
 function EntityCombobox({
   value,
   onChange,
   placeholder,
-  options,
   label,
+  searchType = "firm",
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  options: { name: string; avatar?: string; logo?: string }[];
   label: string;
+  searchType?: "firm" | "person";
 }) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const filtered = options.filter(o =>
-    o.name.toLowerCase().includes(query.toLowerCase())
-  );
-
-  // Simulate API search delay
+  // Live search via nfx-search edge function
   useEffect(() => {
-    if (query.length > 0) {
-      setIsSearching(true);
-      const t = setTimeout(() => setIsSearching(false), 600);
-      return () => clearTimeout(t);
+    if (query.length < 2) {
+      setResults([]);
+      setIsSearching(false);
+      return;
     }
-    setIsSearching(false);
+
+    setIsSearching(true);
+    clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const { data, error } = await supabase.functions.invoke("nfx-search", {
+          body: { query: query.trim() },
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (!error && data?.results) {
+          setResults(data.results.slice(0, 6).map((r: any) => ({
+            name: r.name || "Unknown",
+            location: r.location || "",
+            logoUrl: r.logoUrl || "",
+            stage: r.stage || "",
+          })));
+        } else {
+          setResults([]);
+        }
+      } catch {
+        if (!controller.signal.aborted) setResults([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
   }, [query]);
 
   // Close on outside click
@@ -102,7 +129,7 @@ function EntityCombobox({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const selectedOption = options.find(o => o.name === value);
+  const selectedOption = results.find(o => o.name === value) || (value ? { name: value } : null);
 
   return (
     <div ref={containerRef} className="relative">
@@ -166,22 +193,28 @@ function EntityCombobox({
             style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
             className="z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
           >
-            {filtered.length > 0 ? (
-              filtered.map(opt => (
-                <button
-                  key={opt.name}
-                  type="button"
-                  onClick={() => { onChange(opt.name); setQuery(""); setIsOpen(false); }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors text-left"
-                >
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
-                    {opt.name.charAt(0)}
-                  </div>
-                  {opt.name}
-                </button>
-              ))
-            ) : null}
-            {query.trim() && !filtered.some(o => o.name.toLowerCase() === query.toLowerCase()) && (
+            {isSearching && (
+              <div className="px-3 py-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+              </div>
+            )}
+            {!isSearching && results.length > 0 && results.map(opt => (
+              <button
+                key={opt.name}
+                type="button"
+                onClick={() => { onChange(opt.name); setQuery(""); setIsOpen(false); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors text-left"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
+                  {opt.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="truncate block">{opt.name}</span>
+                  {opt.location && <span className="text-[10px] text-muted-foreground">{opt.location}</span>}
+                </div>
+              </button>
+            ))}
+            {!isSearching && query.trim() && !results.some(o => o.name.toLowerCase() === query.toLowerCase()) && (
               <button
                 type="button"
                 onClick={() => { onChange(query.trim()); setQuery(""); setIsOpen(false); }}
@@ -191,7 +224,7 @@ function EntityCombobox({
                 Add "{query.trim()}" as new {label.toLowerCase()}
               </button>
             )}
-            {!query.trim() && filtered.length === 0 && (
+            {!isSearching && !query.trim() && results.length === 0 && (
               <div className="px-3 py-3 text-xs text-muted-foreground text-center">Start typing to search…</div>
             )}
           </motion.div>,
@@ -469,8 +502,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       value={associatedFirm}
                       onChange={setAssociatedFirm}
                       placeholder="Are they investing via a specific entity? (Optional)"
-                      options={MOCK_SYNDICATES}
                       label="Firm"
+                      searchType="firm"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Optional — link this person to an investing entity.</p>
                   </div>
@@ -566,8 +599,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       value={leadPartner}
                       onChange={setLeadPartner}
                       placeholder="Search partners or add new (Optional)"
-                      options={MOCK_PARTNERS}
                       label="Partner"
+                      searchType="person"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Who is your point of contact or board member at this firm?</p>
                   </div>
