@@ -978,7 +978,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                   )}
 
                   {/* New competitor preview */}
-                  {newCompName.trim() && searchResults.length === 0 && (
+                  {newCompWebsite.trim() && newCompName.trim() && searchResults.length === 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -986,7 +986,13 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     >
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-card border border-border/50 overflow-hidden shrink-0">
                         <img
-                          src={faviconSrc(domainFromName(newCompName.trim()))}
+                          src={faviconSrc((() => {
+                            try {
+                              let u = newCompWebsite.trim();
+                              if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+                              return new URL(u).hostname.replace(/^www\./, "");
+                            } catch { return domainFromName(newCompName.trim()); }
+                          })())}
                           alt=""
                           className="h-5 w-5"
                           onError={(e) => {
@@ -997,9 +1003,8 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground">{newCompName.trim()}</p>
-                        <p className="text-[10px] text-muted-foreground">New entry · will be AI-enriched</p>
+                        <p className="text-[10px] text-muted-foreground">{newCompWebsite.trim()} · will be AI-enriched</p>
                       </div>
-                      <Badge className="text-[9px] shrink-0 bg-accent/10 text-accent border-0">+ New</Badge>
                     </motion.div>
                   )}
                 </div>
