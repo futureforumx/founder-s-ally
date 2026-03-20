@@ -288,7 +288,8 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
 
 // ── Update Types & Mock Data ──
 
-type UpdateType = "funding" | "press" | "product" | "hire" | "social";
+type UpdateType = "funding" | "press" | "product" | "hire" | "social" | "vulnerability";
+type SignalTab = "all" | "capital" | "product_strategy" | "vulnerabilities";
 
 interface CompetitorUpdate {
   id: string;
@@ -296,29 +297,39 @@ interface CompetitorUpdate {
   type: UpdateType;
   headline: string;
   detail: string;
+  impact: string;
   timeAgo: string;
+  signalTab: SignalTab;
 }
 
 const UPDATE_TYPE_META: Record<UpdateType, { icon: typeof DollarSign; label: string; color: string }> = {
-  funding: { icon: DollarSign, label: "New Investor", color: "text-success bg-success/10" },
-  press: { icon: Newspaper, label: "Press Release", color: "text-accent bg-accent/10" },
-  product: { icon: Rocket, label: "Product Launch", color: "text-primary bg-primary/10" },
+  funding: { icon: DollarSign, label: "Funding", color: "text-success bg-success/10" },
+  press: { icon: Newspaper, label: "Press", color: "text-accent bg-accent/10" },
+  product: { icon: Rocket, label: "Product", color: "text-primary bg-primary/10" },
   hire: { icon: UserPlus, label: "New Hire", color: "text-warning bg-warning/10" },
   social: { icon: Megaphone, label: "Social", color: "text-destructive bg-destructive/10" },
+  vulnerability: { icon: AlertTriangle, label: "Vulnerability", color: "text-[hsl(38,92%,50%)] bg-[hsl(38,100%,95%)]" },
 };
 
+const SIGNAL_TABS: { key: SignalTab; label: string }[] = [
+  { key: "all", label: "All Signals" },
+  { key: "capital", label: "Capital & M&A" },
+  { key: "product_strategy", label: "Product Strategy" },
+  { key: "vulnerabilities", label: "Vulnerabilities" },
+];
+
 function generateUpdates(competitors: string[]): CompetitorUpdate[] {
-  const templates: { type: UpdateType; headline: (name: string) => string; detail: (name: string) => string }[] = [
-    { type: "funding", headline: (n) => `${n} closes $45M Series C led by Sequoia`, detail: () => "New round values the company at $800M post-money. Capital earmarked for international expansion." },
-    { type: "press", headline: (n) => `${n} featured in TechCrunch for AI-first strategy`, detail: () => "Coverage highlights pivot to AI-native workflows and potential disruption to incumbent players." },
-    { type: "product", headline: (n) => `${n} launches real-time analytics dashboard`, detail: () => "New product directly competes with your core value proposition. Early reviews are positive." },
-    { type: "hire", headline: (n) => `${n} hires ex-Google VP of Engineering`, detail: () => "Senior engineering leadership hire signals investment in platform scalability and developer experience." },
-    { type: "social", headline: (n) => `${n} CEO tweets about upcoming enterprise launch`, detail: () => "Thread hints at enterprise-tier pricing and SOC 2 compliance, moving upmarket." },
-    { type: "funding", headline: (n) => `${n} raises bridge round from existing investors`, detail: () => "Extension round suggests strong insider conviction ahead of a potential Series D." },
-    { type: "product", headline: (n) => `${n} ships API v3 with breaking changes`, detail: () => "Migration required for existing customers — potential churn window to target their user base." },
-    { type: "hire", headline: (n) => `${n} poaches head of sales from Datadog`, detail: () => "Aggressive GTM hire indicates push into enterprise sales motions." },
-    { type: "press", headline: (n) => `${n} named to Forbes Fintech 50 list`, detail: () => "Industry recognition strengthens their positioning with enterprise prospects." },
-    { type: "social", headline: (n) => `${n} announces partnership with AWS at re:Invent`, detail: () => "Cloud marketplace listing could accelerate their enterprise pipeline significantly." },
+  const templates: { type: UpdateType; signalTab: SignalTab; headline: (name: string) => string; detail: (name: string) => string; impact: (name: string) => string }[] = [
+    { type: "funding", signalTab: "capital", headline: (n) => `${n} closes $45M Series C led by Sequoia`, detail: () => "New round values the company at $800M post-money. Capital earmarked for international expansion.", impact: (n) => `Values ${n} at $800M. Capital earmarked for international expansion, potentially threatening EU market share.` },
+    { type: "press", signalTab: "product_strategy", headline: (n) => `${n} featured in TechCrunch for AI-first strategy`, detail: () => "Coverage highlights pivot to AI-native workflows.", impact: (n) => `${n}'s AI pivot signals a direct challenge to your automation features. Monitor their product roadmap closely for overlap.` },
+    { type: "product", signalTab: "product_strategy", headline: (n) => `${n} launches real-time analytics dashboard`, detail: () => "New product directly competes with your core value proposition.", impact: (n) => `Direct feature overlap with your analytics module. Early reviews praise UX — consider accelerating your v2 roadmap to maintain differentiation.` },
+    { type: "hire", signalTab: "product_strategy", headline: (n) => `${n} hires ex-Google VP of Engineering`, detail: () => "Senior engineering leadership hire signals investment in platform scalability.", impact: (n) => `Senior eng hire signals ${n} is investing heavily in platform reliability — their weakest area. Expect quality improvements within 2 quarters.` },
+    { type: "social", signalTab: "capital", headline: (n) => `${n} CEO tweets about upcoming enterprise launch`, detail: () => "Thread hints at enterprise-tier pricing and SOC 2 compliance.", impact: (n) => `${n} moving upmarket creates a window in the SMB segment they're deprioritizing. Consider targeted campaigns to their churning customers.` },
+    { type: "vulnerability", signalTab: "vulnerabilities", headline: (n) => `${n} users complaining about latency issues on Reddit`, detail: () => "Multiple threads report 3-5s load times on core workflows.", impact: (n) => `Performance complaints create a churn window. Target ${n}'s power users with a speed-focused comparison campaign and free migration support.` },
+    { type: "product", signalTab: "product_strategy", headline: (n) => `${n} ships API v3 with breaking changes`, detail: () => "Migration required for existing customers.", impact: (n) => `Breaking API changes will frustrate ${n}'s developer community. Position your stable API as a key differentiator in developer forums.` },
+    { type: "vulnerability", signalTab: "vulnerabilities", headline: (n) => `${n} loses SOC 2 compliance — security concerns raised`, detail: () => "Compliance lapse reported by industry watchdog.", impact: (n) => `Compliance gap is a critical vulnerability. Enterprise prospects evaluating ${n} will now require additional due diligence — use this in competitive deals.` },
+    { type: "funding", signalTab: "capital", headline: (n) => `${n} raises bridge round from existing investors`, detail: () => "Extension round suggests insider conviction ahead of Series D.", impact: (n) => `Bridge round instead of full raise may indicate ${n} is struggling to hit growth targets. Their runway is likely 12-18 months.` },
+    { type: "vulnerability", signalTab: "vulnerabilities", headline: (n) => `${n} Glassdoor rating drops to 2.8 — engineering attrition`, detail: () => "Reviews cite burnout, poor leadership, and stalled equity.", impact: (n) => `Talent exodus weakens ${n}'s execution capacity. Opportunity to recruit their top engineers and slow their product velocity.` },
   ];
 
   const times = ["2h ago", "5h ago", "1d ago", "2d ago", "3d ago", "4d ago", "5d ago", "1w ago", "1w ago", "2w ago"];
@@ -333,7 +344,9 @@ function generateUpdates(competitors: string[]): CompetitorUpdate[] {
       type: t.type,
       headline: t.headline(comp),
       detail: t.detail(comp),
+      impact: t.impact(comp),
       timeAgo: times[idx % times.length],
+      signalTab: t.signalTab,
     });
     idx++;
   }
@@ -342,78 +355,127 @@ function generateUpdates(competitors: string[]): CompetitorUpdate[] {
 
 function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors: string[]; onOpenBattlecard: (name: string) => void }) {
   const [showAll, setShowAll] = useState(false);
-  const updates = useMemo(() => generateUpdates(competitors), [competitors]);
-  const visible = showAll ? updates : updates.slice(0, 4);
+  const [activeTab, setActiveTab] = useState<SignalTab>("all");
+  const allUpdates = useMemo(() => generateUpdates(competitors), [competitors]);
+
+  const filtered = useMemo(() => {
+    if (activeTab === "all") return allUpdates;
+    return allUpdates.filter(u => u.signalTab === activeTab);
+  }, [allUpdates, activeTab]);
+
+  const visible = showAll ? filtered : filtered.slice(0, 4);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold text-foreground">Competitor Updates</h2>
           <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
-            {updates.length} signals
+            {filtered.length} signals
           </Badge>
         </div>
-        {updates.length > 4 && (
+        {filtered.length > 4 && (
           <button
             onClick={() => setShowAll(!showAll)}
             className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
           >
-            {showAll ? "Show less" : `View all ${updates.length}`}
+            {showAll ? "Show less" : `View all ${filtered.length}`}
           </button>
         )}
       </div>
 
+      {/* Segmented Control */}
+      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
+        {SIGNAL_TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setShowAll(false); }}
+            className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
+              activeTab === tab.key
+                ? "bg-card shadow-sm text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Feed Items */}
       <div className="space-y-2">
-        <AnimatePresence initial={false}>
+        <AnimatePresence initial={false} mode="popLayout">
           {visible.map((update, i) => {
             const meta = UPDATE_TYPE_META[update.type];
+            const isVulnerability = update.type === "vulnerability";
             const Icon = meta.icon;
             const domain = domainFromName(update.competitor);
+            const iconStyle = isVulnerability
+              ? "text-[hsl(38,92%,50%)] bg-[hsl(38,100%,95%)]"
+              : meta.color;
 
             return (
               <motion.div
                 key={update.id}
+                layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2, delay: i * 0.03 }}
-                className="group flex items-start gap-3 rounded-xl border border-border/50 bg-card p-4 hover:border-accent/20 hover:shadow-surface transition-all duration-200 cursor-pointer"
+                className={`group rounded-xl border bg-card p-4 hover:shadow-surface transition-all duration-200 cursor-pointer ${
+                  isVulnerability ? "border-[hsl(38,90%,70%)]/40 hover:border-[hsl(38,90%,60%)]/60" : "border-border/50 hover:border-accent/20"
+                }`}
                 onClick={() => onOpenBattlecard(update.competitor)}
               >
-                {/* Type Icon */}
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${meta.color}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <img
-                      src={faviconSrc(domain)}
-                      alt=""
-                      className="h-3.5 w-3.5 rounded-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{update.competitor}</span>
-                    <Badge className={`text-[8px] font-medium border-0 rounded-full px-1.5 py-0 ${meta.color}`}>
+                {/* Top Row: Metadata */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg shrink-0 ${iconStyle}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={faviconSrc(domain)}
+                        alt=""
+                        className="h-3.5 w-3.5 rounded-sm"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      <span className="text-sm font-bold text-foreground">{update.competitor}</span>
+                    </div>
+                    <Badge className={`text-[8px] font-medium border-0 rounded-full px-1.5 py-0 ${iconStyle}`}>
                       {meta.label}
                     </Badge>
                   </div>
-                  <p className="text-[13px] font-medium text-foreground leading-snug truncate">{update.headline}</p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5 line-clamp-1">{update.detail}</p>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Clock className="h-3 w-3 text-muted-foreground/40" />
+                    <span className="text-xs text-muted-foreground/50 font-medium">{update.timeAgo}</span>
+                  </div>
                 </div>
 
-                {/* Time */}
-                <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                  <Clock className="h-3 w-3 text-muted-foreground/50" />
-                  <span className="text-[10px] text-muted-foreground/60 font-medium">{update.timeAgo}</span>
+                {/* Middle Row: Headline */}
+                <p className="text-base font-semibold text-foreground/90 mt-2 leading-snug">{update.headline}</p>
+
+                {/* Bottom Row: AI Impact Summary */}
+                <div className={`rounded-md p-3 mt-3 border ${
+                  isVulnerability
+                    ? "bg-[hsl(38,100%,97%)] border-[hsl(38,90%,85%)]"
+                    : "bg-secondary/40 border-border/50"
+                }`}>
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                    <span className="mr-1">✨</span>
+                    <span className="font-medium text-foreground/70">Impact:</span>{" "}
+                    {update.impact}
+                  </p>
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
+        {visible.length === 0 && (
+          <div className="text-center py-10">
+            <p className="text-xs text-muted-foreground">No signals in this category.</p>
+          </div>
+        )}
       </div>
     </div>
   );
