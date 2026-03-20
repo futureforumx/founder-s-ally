@@ -281,9 +281,18 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                 {nfxLoading ? "Searching…" : "Live Suggestions"}
               </p>
-              {isFallback && !nfxLoading && (
-                <span className="text-[9px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                  Local results
+              {!nfxLoading && searchSource !== "none" && (
+                <span
+                  className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+                  style={
+                    searchSource === "nfx"
+                      ? { background: "hsla(152, 60%, 92%, 1)", color: "hsl(152, 60%, 35%)" }
+                      : searchSource === "global"
+                      ? { background: "hsla(210, 60%, 92%, 1)", color: "hsl(210, 60%, 35%)" }
+                      : { background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }
+                  }
+                >
+                  {searchSource === "nfx" ? "NFX Network" : searchSource === "global" ? "Global Database" : "Search"}
                 </span>
               )}
             </div>
