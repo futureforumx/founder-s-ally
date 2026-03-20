@@ -70,14 +70,62 @@ const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDER
 
 const PAGE_SIZE = 9;
 
-const MAGIC_PROMPTS = [
-  "Match me with Seed investors",
-  "Climate tech founders near me",
-  "Startups with similar traction",
-  "AI agents for enterprise",
-  "B2B SaaS at Series A",
-  "Deep tech in my region",
+const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
+  all: [
+    "Match me with Seed investors",
+    "Climate tech founders near me",
+    "Startups with similar traction",
+    "AI agents for enterprise",
+    "B2B SaaS at Series A",
+    "Deep tech in my region",
+  ],
+  founders: [
+    "Technical co-founders in NYC",
+    "Solo founders scaling B2B SaaS",
+    "Second-time climate founders",
+    "YC alumni in healthcare",
+  ],
+  investors: [
+    "Active Pre-Seed climate funds",
+    "Lead investors for Seed SaaS",
+    "Angels investing in deep tech",
+    "VCs with recent AI exits",
+  ],
+  companies: [
+    "B2B SaaS with $1M+ ARR",
+    "Pre-revenue AI startups in SF",
+    "Series A construction tech",
+    "Climate startups with gov contracts",
+  ],
+};
+
+const GLOBAL_TABS: { id: EntityScope; label: string; icon: typeof Users }[] = [
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "founders", label: "Founders", icon: Users },
+  { id: "companies", label: "Companies", icon: Building2 },
+  { id: "investors", label: "Investors", icon: Briefcase },
 ];
+
+const SCOPE_PLACEHOLDERS: Record<EntityScope, string[]> = {
+  all: [
+    'Try "Seed stage industrial tech in California..."',
+    'Try "B2B SaaS with $1M+ ARR..."',
+    'Try "Climate founders in New York..."',
+    'Try "AI agents for healthcare..."',
+  ],
+  founders: [
+    'Search founders or try "Technical co-founders in NYC..."',
+    'Try "Solo founders with enterprise traction..."',
+  ],
+  investors: [
+    'Search investors or try "Active Pre-Seed climate funds..."',
+    'Try "Lead investors for Seed rounds in SaaS..."',
+  ],
+  companies: [
+    'Search companies or try "B2B SaaS with $1M+ ARR..."',
+    'Try "Series A construction tech companies..."',
+  ],
+};
 
 // ── Typing placeholder effect ──
 function useTypingPlaceholder(phrases: string[], speed = 60, pause = 2200) {
