@@ -299,7 +299,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
 
   // ── Smart Cohort data ──
   const cohorts = useMemo(() => {
-    const userLocation = companyData?.location || "San Francisco, CA";
+    const userLocation = companyData?.hqLocation || "San Francisco, CA";
     const userCity = userLocation.split(",")[0].trim();
     const userStage = companyData?.stage || "Seed";
 
