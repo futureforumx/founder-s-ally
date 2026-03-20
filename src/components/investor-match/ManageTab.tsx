@@ -234,7 +234,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
 
       {/* Search + Filters Row */}
       <div className="flex items-center gap-2 mb-6">
-        <div ref={searchRef} className="relative flex-1 max-w-xs">
+        <div ref={searchRef} className="relative flex-1">
           <div
             className="relative rounded-2xl overflow-hidden"
             style={{
