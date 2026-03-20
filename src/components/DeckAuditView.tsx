@@ -71,7 +71,18 @@ export function DeckAuditView() {
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const handleUpload = useCallback(async (deckText: string) => {
+  // Listen for auto-audit events from Mission Control deck uploads
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { deckText } = (e as CustomEvent).detail ?? {};
+      if (deckText && typeof deckText === "string") {
+        handleUpload(deckText);
+      }
+    };
+    window.addEventListener("auto-audit-deck", handler);
+    return () => window.removeEventListener("auto-audit-deck", handler);
+  }, []);
+
     setState("processing");
     try {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
