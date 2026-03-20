@@ -45,7 +45,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
   const [amountError, setAmountError] = useState<string | null>(null);
   const [instrument, setInstrument] = useState("");
   const [round, setRound] = useState("");
-  const [closingDate, setClosingDate] = useState<Date | undefined>();
+  const [closingMonth, setClosingMonth] = useState("");
+  const [closingYear, setClosingYear] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
