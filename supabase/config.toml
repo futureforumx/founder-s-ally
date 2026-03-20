@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.classify-sector]
 verify_jwt = false
+
+[functions.nfx-search]
+verify_jwt = false
