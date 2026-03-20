@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, DollarSign, ExternalLink, X } from "lucide-react";
+import { Trash2, DollarSign, ExternalLink, X, User, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { INVESTMENT_TYPES, FUNDING_ROUNDS, type CapBacker } from "./CapTableRow";
+import { INVESTMENT_TYPES, FUNDING_ROUNDS, PERSON_ROLES, detectEntityType, type CapBacker } from "./CapTableRow";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -46,13 +46,34 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
   const [closingMonth, setClosingMonth] = useState("");
   const [closingYear, setClosingYear] = useState("");
   const [saving, setSaving] = useState(false);
+  const [entityType, setEntityType] = useState<"person" | "firm">("person");
+  const [personRole, setPersonRole] = useState("Angel");
+  const [leadPartner, setLeadPartner] = useState("");
 
   useEffect(() => {
     if (backer) {
       setAmount(backer.amount > 0 ? formatWithCommas(backer.amount) : "");
       setInstrument(backer.instrument);
       setRound(backer.date);
-      // Try to parse existing date like "Mar 2026"
+      // Parse entity type
+      const et = backer.entityType;
+      if (et === "person" || et === "firm") {
+        setEntityType(et);
+      } else {
+        setEntityType(detectEntityType(backer.name));
+      }
+      // Parse person role or lead partner from notes
+      if (backer.entityType === "person" && backer.notes) {
+        setPersonRole(PERSON_ROLES.includes(backer.notes) ? backer.notes : "Angel");
+        setLeadPartner("");
+      } else if (backer.entityType === "firm" && backer.notes) {
+        setLeadPartner(backer.notes);
+        setPersonRole("Angel");
+      } else {
+        setPersonRole("Angel");
+        setLeadPartner("");
+      }
+      // Parse closing date
       const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       if (backer.date) {
         const parts = backer.date.split(" ");
@@ -95,10 +116,13 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     setSaving(true);
     try {
       const closingDateStr = closingMonth && closingYear ? `${closingMonth} ${closingYear}` : null;
+      const notesValue = entityType === "person" ? personRole : (entityType === "firm" ? leadPartner || null : null);
+
       const updates: Record<string, unknown> = {
         amount: parsedAmount,
         instrument,
-        entity_type: round,
+        entity_type: entityType,
+        notes: notesValue,
       };
       if (closingDateStr) {
         updates.date = closingDateStr;
@@ -116,6 +140,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
         amountLabel: `$${parsedAmount.toLocaleString()}`,
         instrument,
         date: closingDateStr || round,
+        entityType,
+        notes: notesValue || undefined,
       });
 
       onOpenChange(false);
@@ -125,7 +151,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     } finally {
       setSaving(false);
     }
-  }, [backer, amount, instrument, round, closingMonth, closingYear, onSave, onOpenChange]);
+  }, [backer, amount, instrument, round, closingMonth, closingYear, entityType, personRole, leadPartner, onSave, onOpenChange]);
 
   const handleRemove = useCallback(async () => {
     if (!backer) return;
@@ -208,6 +234,56 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
 
               {/* Form */}
               <div className="px-6 py-5 space-y-4">
+                {/* Entity Type Toggle */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Type</label>
+                  <div className="flex rounded-xl border border-border bg-secondary/30 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setEntityType("person")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
+                        entityType === "person"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      Person
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEntityType("firm")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
+                        entityType === "firm"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Building2 className="h-3.5 w-3.5" />
+                      Firm
+                    </button>
+                  </div>
+                </div>
+
+                {/* Conditional: Person Role */}
+                {entityType === "person" && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Role</label>
+                    <Select value={personRole} onValueChange={setPersonRole}>
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                        <SelectValue placeholder="Select role…" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-[99999]">
+                        {PERSON_ROLES.map(r => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* Amount */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investment Amount</label>
@@ -289,6 +365,20 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                     </Select>
                   </div>
                 </div>
+
+                {/* Conditional: Lead Partner (Firm only) */}
+                {entityType === "firm" && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Lead Partner</label>
+                    <input
+                      value={leadPartner}
+                      onChange={e => setLeadPartner(e.target.value)}
+                      placeholder="e.g., Marc Andreessen"
+                      className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Who is your point of contact or board member at this firm?</p>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}

@@ -34,6 +34,21 @@ export interface CapBacker {
   ownershipPct: number;
   slogan?: string;
   website?: string;
+  entityType?: string;
+  notes?: string;
+}
+
+export const PERSON_ROLES = ["Angel", "General Partner (GP)", "Syndicate Lead", "Other"];
+
+export const FIRM_KEYWORDS = [
+  "capital", "ventures", "fund", "partners", "llc", "inc", "group",
+  "holdings", "syndicate", "management", "angel", "vc", "equity",
+  "investment", "advisors", "labs", "studio",
+];
+
+export function detectEntityType(name: string): "person" | "firm" {
+  const lower = name.toLowerCase();
+  return FIRM_KEYWORDS.some(kw => lower.includes(kw)) ? "firm" : "person";
 }
 
 interface CapTableRowProps {
