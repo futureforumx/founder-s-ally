@@ -147,6 +147,22 @@ export function MissionControlInvestors({
     }
   }, [addInvestor]);
 
+  const handleManualAdd = useCallback(() => {
+    const name = searchQuery.trim();
+    setSearchQuery("");
+    setShowSuggestions(false);
+    if (!name) return;
+    // Open the edit sheet with a new backer stub after adding
+    addInvestor(name, { entityType: "Angel" }).then((result) => {
+      if (result) {
+        setHighlightedId(result.id);
+        setEditingBacker(result);
+        setSheetOpen(true);
+        toast.success(`${name} added — fill in the details`);
+      }
+    });
+  }, [addInvestor, searchQuery]);
+
   const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
     setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
