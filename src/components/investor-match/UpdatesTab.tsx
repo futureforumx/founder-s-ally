@@ -176,7 +176,7 @@ function formatVerifiedDate(iso: string): string {
 
 // ── Main Component ──
 
-export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange, selectedHeatCell }: UpdatesTabProps) {
+export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange, selectedHeatCell, onViewAllMatches }: UpdatesTabProps) {
   const [feedFilter, setFeedFilter] = useState<FeedCategory>("all");
 
   // Cross-filter + category filter for unified feed
