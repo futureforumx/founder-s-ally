@@ -288,13 +288,7 @@ const Index = () => {
               <CompanyProfile key={profileKey} onSave={setCompanyData} onAnalysis={handleAnalysis} onSectorChange={setSectorClassification} onStageClassification={setStageClassification} onProfileVerified={setIsProfileVerified} />
 
 
-              {/* Strategy Room — at the bottom */}
-              {stageClassification && (
-                <StrategyRoom
-                  stageClassification={stageClassification}
-                  currentStage={companyData?.stage}
-                />
-              )}
+
 
               {/* Confirm Profile — below everything */}
               {analysisResult && (
@@ -350,6 +344,7 @@ const Index = () => {
                     analysisResult={analysisResult}
                     onMetricEdit={handleMetricEdit}
                     onNavigateProfile={() => setActiveView("company")}
+                    stageClassification={stageClassification}
                   />
                 )}
                 {dashboardView === "competitive" && (

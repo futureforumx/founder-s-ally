@@ -1,4 +1,5 @@
 import { HealthDashboard } from "@/components/HealthDashboard";
+import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
 import { Sparkles } from "lucide-react";
 import type { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 
@@ -7,9 +8,15 @@ interface Props {
   analysisResult: AnalysisResult | null;
   onMetricEdit: (key: string, value: string) => void;
   onNavigateProfile: () => void;
+  stageClassification?: {
+    detected_stage: string;
+    confidence_score: number;
+    reasoning: string;
+    conflicting_signals?: string;
+  } | null;
 }
 
-export function CompanyView({ companyData, analysisResult, onMetricEdit, onNavigateProfile }: Props) {
+export function CompanyView({ companyData, analysisResult, onMetricEdit, onNavigateProfile, stageClassification }: Props) {
   const profileComplete = !!companyData && !!analysisResult;
 
   if (!profileComplete) {
@@ -33,11 +40,19 @@ export function CompanyView({ companyData, analysisResult, onMetricEdit, onNavig
   }
 
   return (
-    <HealthDashboard
-      stage={companyData?.stage}
-      sector={companyData?.sector}
-      analysisResult={analysisResult}
-      onMetricEdit={onMetricEdit}
-    />
+    <div className="space-y-6">
+      {stageClassification && (
+        <StrategyRoom
+          stageClassification={stageClassification}
+          currentStage={companyData?.stage}
+        />
+      )}
+      <HealthDashboard
+        stage={companyData?.stage}
+        sector={companyData?.sector}
+        analysisResult={analysisResult}
+        onMetricEdit={onMetricEdit}
+      />
+    </div>
   );
 }
