@@ -965,6 +965,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
       onAnalysis?.(finalResult as AnalysisResult);
       try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
+      // Auto-trigger deck audit if deck text is available
+      if (deckText) {
+        window.dispatchEvent(new CustomEvent("auto-audit-deck", { detail: { deckText } }));
+      }
       onWalkthroughComplete?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");

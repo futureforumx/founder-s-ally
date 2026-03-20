@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { DeckUploader } from "./DeckUploader";
 import { ProcessingStatus } from "./ProcessingStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,6 +85,18 @@ export function DeckAuditView() {
       setState("upload");
     }
   }, []);
+
+  // Listen for auto-audit events from Mission Control deck uploads
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { deckText } = (e as CustomEvent).detail ?? {};
+      if (deckText && typeof deckText === "string") {
+        handleUpload(deckText);
+      }
+    };
+    window.addEventListener("auto-audit-deck", handler);
+    return () => window.removeEventListener("auto-audit-deck", handler);
+  }, [handleUpload]);
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
 
