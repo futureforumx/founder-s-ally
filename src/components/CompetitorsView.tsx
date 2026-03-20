@@ -854,7 +854,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     <p className="text-xs text-muted-foreground mt-0.5">Track a new competitor for AI-powered intelligence</p>
                   </div>
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
                     className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary transition-colors"
                   >
                     <X className="h-4 w-4 text-muted-foreground" />
