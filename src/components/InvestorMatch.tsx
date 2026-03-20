@@ -224,7 +224,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
     top5.forEach(async (inv) => {
       const key = inv.firm_name.toLowerCase().trim();
       if (enrichedData[key]) return;
+      setEnrichingKeys(prev => new Set(prev).add(key));
       const result = await enrich(inv.firm_name);
+      setEnrichingKeys(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
       if (result) {
         setEnrichedData(prev => ({ ...prev, [key]: result }));
       }
