@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles, Replace } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1441,28 +1441,33 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <FileText className="h-3 w-3" /> Pitch Deck (PDF)
               </label>
               {activeDeck && !showReplaceDeck ? (
-                <div className="bg-muted/30 border border-border rounded-lg p-4 flex items-center justify-between flex-1 min-h-[120px]">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-destructive" />
+                <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[120px]">
+                  <div className="flex items-center gap-3.5 overflow-hidden w-full">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
+                      <FileText className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate max-w-[180px]">{activeDeck.file_name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-                          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Active
-                        </span>
+                    <div className="flex flex-col min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                        <span>Active</span>
                         {activeDeck.file_size_bytes && (
-                          <span className="text-[10px] text-muted-foreground">{(activeDeck.file_size_bytes / 1024).toFixed(0)} KB</span>
+                          <>
+                            <span className="text-border">•</span>
+                            <span>{activeDeck.file_size_bytes >= 1024 * 1024
+                              ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
+                              : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
+                            }</span>
+                          </>
                         )}
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowReplaceDeck(true)}
-                    className="text-sm font-medium text-muted-foreground hover:text-accent bg-background border border-border shadow-sm rounded-md px-3 py-1.5 transition-colors flex items-center gap-1.5"
+                    className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
                   >
-                    <Replace className="h-3.5 w-3.5" /> Replace
+                    <RefreshCw className="h-3.5 w-3.5" /> Replace
                   </button>
                 </div>
               ) : (
