@@ -483,11 +483,11 @@ function RoundSettingsPanel({ totalRaised, formatCurrency }: { totalRaised: numb
 
 // ── Main Export ──
 
-export function ManageTab({ confirmedBackers, totalRaised, formatCurrency }: ManageTabProps) {
+export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache }: ManageTabProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
-        <CapTablePanel confirmedBackers={confirmedBackers} formatCurrency={formatCurrency} />
+        <CapTablePanel confirmedBackers={confirmedBackers} formatCurrency={formatCurrency} enrichCache={enrichCache} />
       </div>
       <div className="lg:col-span-1">
         <RoundSettingsPanel totalRaised={totalRaised} formatCurrency={formatCurrency} />
