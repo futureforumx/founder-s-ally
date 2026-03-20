@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { CapTableRow, type CapBacker } from "./CapTableRow";
 import { InvestorEditSheet } from "./InvestorEditSheet";
+import type { EnrichResult } from "@/hooks/useInvestorEnrich";
 
 
 interface NFXResult {
@@ -25,6 +26,7 @@ interface ManageTabProps {
   confirmedBackers: CapBacker[];
   totalRaised: number;
   formatCurrency: (n: number) => string;
+  enrichCache?: Record<string, EnrichResult>;
 }
 
 // ── Debounce Hook ──
@@ -96,7 +98,7 @@ function useNFXSearch(query: string) {
 
 // ── Cap Table Panel ──
 
-function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps, "totalRaised">) {
+function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: Omit<ManageTabProps, "totalRaised">) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -115,9 +117,20 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   ];
 
   const handleRowClick = useCallback((backer: CapBacker) => {
-    setEditingBacker(backer);
+    // Enrich backer with cached metadata (slogan, website, logoUrl)
+    const key = backer.name.toLowerCase().trim();
+    const enriched = enrichCache[key];
+    const enrichedBacker = enriched
+      ? {
+          ...backer,
+          slogan: backer.slogan || enriched.profile.currentThesis || undefined,
+          website: backer.website || (enriched.profile.logoUrl && enriched.profile.logoUrl.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : undefined),
+          logoUrl: backer.logoUrl || enriched.profile.logoUrl || undefined,
+        }
+      : backer;
+    setEditingBacker(enrichedBacker);
     setSheetOpen(true);
-  }, []);
+  }, [enrichCache]);
 
   const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
     setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
@@ -470,11 +483,11 @@ function RoundSettingsPanel({ totalRaised, formatCurrency }: { totalRaised: numb
 
 // ── Main Export ──
 
-export function ManageTab({ confirmedBackers, totalRaised, formatCurrency }: ManageTabProps) {
+export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache }: ManageTabProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
-        <CapTablePanel confirmedBackers={confirmedBackers} formatCurrency={formatCurrency} />
+        <CapTablePanel confirmedBackers={confirmedBackers} formatCurrency={formatCurrency} enrichCache={enrichCache} />
       </div>
       <div className="lg:col-span-1">
         <RoundSettingsPanel totalRaised={totalRaised} formatCurrency={formatCurrency} />

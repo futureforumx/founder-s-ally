@@ -239,6 +239,16 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
     });
   }, [scoredInvestors]);
 
+  // Enrich cap table backers for metadata in the edit sheet
+  useEffect(() => {
+    if (confirmedBackers.length === 0) return;
+    confirmedBackers.forEach(async (b) => {
+      const key = b.name.toLowerCase().trim();
+      if (enrichCache[key]) return;
+      await enrich(b.name);
+    });
+  }, [confirmedBackers]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">
@@ -310,6 +320,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           confirmedBackers={confirmedBackers}
           totalRaised={totalRaised}
           formatCurrency={fmt}
+          enrichCache={enrichCache}
         />
       )}
     </div>
