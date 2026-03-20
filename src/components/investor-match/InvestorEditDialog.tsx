@@ -129,7 +129,7 @@ function EntityCombobox({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const selectedOption = options.find(o => o.name === value);
+  const selectedOption = results.find(o => o.name === value) || (value ? { name: value } : null);
 
   return (
     <div ref={containerRef} className="relative">
