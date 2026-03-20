@@ -1915,7 +1915,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             <MetricTooltip metricKey={metricPeriod === "annual" ? "yoyGrowth" : "momGrowth"} />
                           </label>
                           <div className="relative">
-                            <TrendingUp className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                             <input type="text"
                               value={metricPeriod === "annual" ? form.yoyGrowth : form.momGrowth}
                               onChange={e => {
