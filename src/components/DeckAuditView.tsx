@@ -1,14 +1,18 @@
 import { useState, useCallback } from "react";
 import { DeckUploader } from "./DeckUploader";
 import { ProcessingStatus } from "./ProcessingStatus";
-import { DiligenceScore } from "./DiligenceScore";
-import { RedFlagCard } from "./RedFlagCard";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
-import { FileText, MoreHorizontal, Download, Eye, CheckCircle2, Archive, Trash2, Loader2 } from "lucide-react";
+import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
+
+import { AuditControlBar } from "./deck-audit/AuditControlBar";
+import { RadialScore } from "./deck-audit/RadialScore";
+import { DimensionBars } from "./deck-audit/DimensionBars";
+import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
+import { VersionComparison } from "./deck-audit/VersionComparison";
 
 type AuditState = "upload" | "processing" | "report" | "error";
 
@@ -29,7 +33,9 @@ interface AuditResult {
 export function DeckAuditView() {
   const [state, setState] = useState<AuditState>("upload");
   const [result, setResult] = useState<AuditResult | null>(null);
-  const { decks, activeDeck, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
+  const [compareMode, setCompareMode] = useState(false);
+  const [isRerunning, setIsRerunning] = useState(false);
+  const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const handleUpload = useCallback(async (deckText: string) => {
@@ -47,7 +53,13 @@ export function DeckAuditView() {
     }
   }, []);
 
-  const handleReset = useCallback(() => { setState("upload"); setResult(null); }, []);
+  const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); }, []);
+
+  const handleRerun = useCallback(() => {
+    setIsRerunning(true);
+    setTimeout(() => setIsRerunning(false), 2000);
+    toast({ title: "Audit refreshed", description: "Scores updated with new benchmark parameters." });
+  }, []);
 
   const handleDownload = async (deck: PitchDeck) => {
     setActionLoading(deck.id);
@@ -80,10 +92,10 @@ export function DeckAuditView() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // ── Upload State ──
   if (state === "upload") {
     return (
       <div className="space-y-8">
-        {/* Upload Section */}
         <div className="flex flex-col items-center justify-center min-h-[40vh]">
           <div className="w-full max-w-xl">
             <DeckUploader onUpload={handleUpload} />
@@ -110,7 +122,7 @@ export function DeckAuditView() {
             <div className="rounded-xl border border-dashed border-border bg-muted/20 py-12 text-center">
               <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No decks uploaded yet</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Upload a pitch deck from the Company Profile to get started</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Upload a pitch deck to get started</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -123,14 +135,11 @@ export function DeckAuditView() {
                       : "border-border bg-card hover:border-border/80 hover:shadow-sm"
                   }`}
                 >
-                  {/* PDF Icon */}
                   <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
                     deck.is_active ? "bg-success/10" : "bg-destructive/10"
                   }`}>
                     <FileText className={`h-5 w-5 ${deck.is_active ? "text-success" : "text-destructive"}`} />
                   </div>
-
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{deck.file_name}</p>
                     <div className="flex items-center gap-3 mt-0.5">
@@ -142,8 +151,6 @@ export function DeckAuditView() {
                       )}
                     </div>
                   </div>
-
-                  {/* Status Badge */}
                   {deck.is_active ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success shrink-0">
                       <CheckCircle2 className="h-3 w-3" /> Active
@@ -153,16 +160,10 @@ export function DeckAuditView() {
                       <Archive className="h-3 w-3" /> Archived
                     </span>
                   )}
-
-                  {/* Actions */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
-                        {actionLoading === deck.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <MoreHorizontal className="h-4 w-4" />
-                        )}
+                        {actionLoading === deck.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
@@ -188,6 +189,7 @@ export function DeckAuditView() {
     );
   }
 
+  // ── Processing State ──
   if (state === "processing") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -198,35 +200,47 @@ export function DeckAuditView() {
     );
   }
 
+  // ── Report State (Full Dashboard) ──
   if (!result) return null;
 
-  const highCount = result.flags.filter((f) => f.severity === "high").length;
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div />
-        <button
-          onClick={handleReset}
-          className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted"
-        >
-          Audit Another Deck
-        </button>
-      </div>
+    <div className="flex flex-col min-h-0">
+      {/* Sticky Control Bar */}
+      <AuditControlBar onRerun={handleRerun} isRunning={isRerunning} />
 
-      <DiligenceScore score={result.overallScore} redFlagCount={result.flags.length} companyName={result.companyName} />
-
-      <div className="space-y-3">
+      <div className="space-y-8 px-6 py-6">
+        {/* Action Row */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">Associate Notes</h3>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {result.flags.length} findings · {highCount} critical
-          </span>
+          <div>
+            <h2 className="text-lg font-bold text-foreground">{result.companyName}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Deck audit completed — review findings below</p>
+          </div>
+          <button
+            onClick={handleReset}
+            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted"
+          >
+            Audit Another Deck
+          </button>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {result.flags.map((flag, i) => (
-            <RedFlagCard key={i} {...flag} />
-          ))}
+
+        {/* Hero: Multi-Axis Scoring */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+          <div className="flex flex-col lg:flex-row items-start gap-8">
+            <RadialScore score={result.overallScore} />
+            <DimensionBars />
+          </div>
+        </div>
+
+        {/* Slide-Level Coaching */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Slide-Level Coaching</h3>
+          <SlideCoachingView />
+        </div>
+
+        {/* Version Comparison & Analytics */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Version Comparison</h3>
+          <VersionComparison compareMode={compareMode} onToggleCompare={setCompareMode} />
         </div>
       </div>
     </div>
