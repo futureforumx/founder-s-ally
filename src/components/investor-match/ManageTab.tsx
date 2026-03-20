@@ -1,8 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -95,6 +98,17 @@ function useNFXSearch(query: string) {
 
 // ── Main Export ──
 
+type SortKey = "newest" | "oldest" | "amount-desc" | "name-asc";
+
+function parseDateString(d: string | undefined | null): number {
+  if (!d) return 0;
+  const parsed = new Date(d);
+  if (!isNaN(parsed.getTime())) return parsed.getTime();
+  // Handle "Mon YYYY" format like "Mar 2026"
+  const monthYear = new Date(Date.parse(d + " 1"));
+  return isNaN(monthYear.getTime()) ? 0 : monthYear.getTime();
+}
+
 export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache = {} }: ManageTabProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,12 +122,96 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
   const [sheetOpen, setSheetOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // Sort & Filter state
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
+  const [filterMinAmount, setFilterMinAmount] = useState<string>("");
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
   const allBackers = [
     ...confirmedBackers.map(b => ({ ...b, ...overrides[b.id] })),
     ...optimisticBackers,
   ];
+
+  // Unique instrument types for filter checkboxes
+  const uniqueTypes = useMemo(() => {
+    const types = new Set<string>();
+    allBackers.forEach(b => { if (b.instrument) types.add(b.instrument); });
+    return Array.from(types).sort();
+  }, [allBackers]);
+
+  // Search → Filter → Sort pipeline
+  const filteredBackers = useMemo(() => {
+    let result = allBackers;
+
+    // 1. Search by name or slogan
+    if (searchQuery && !showSuggestions) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(b => {
+        const key = b.name.toLowerCase().trim();
+        const enriched = enrichCache[key];
+        const slogan = b.slogan || enriched?.profile?.currentThesis || "";
+        return b.name.toLowerCase().includes(q) || slogan.toLowerCase().includes(q);
+      });
+    }
+
+    // 2. Filter by type
+    if (filterTypes.size > 0) {
+      result = result.filter(b => b.instrument && filterTypes.has(b.instrument));
+    }
+
+    // 3. Filter by min amount
+    const minAmt = parseFloat(filterMinAmount);
+    if (!isNaN(minAmt) && minAmt > 0) {
+      result = result.filter(b => b.amount >= minAmt);
+    }
+
+    // 4. Sort
+    const sorted = [...result];
+    switch (sortKey) {
+      case "newest":
+        sorted.sort((a, b) => parseDateString(b.date) - parseDateString(a.date));
+        break;
+      case "oldest":
+        sorted.sort((a, b) => parseDateString(a.date) - parseDateString(b.date));
+        break;
+      case "amount-desc":
+        sorted.sort((a, b) => b.amount - a.amount);
+        break;
+      case "name-asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+    return sorted;
+  }, [allBackers, searchQuery, showSuggestions, filterTypes, filterMinAmount, sortKey, enrichCache]);
+
+  const totalPages = Math.ceil(filteredBackers.length / PAGE_SIZE);
+  const paginatedBackers = filteredBackers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const hasActiveFilters = filterTypes.size > 0 || (parseFloat(filterMinAmount) > 0);
+  const sortLabels: Record<SortKey, string> = { newest: "Newest First", oldest: "Oldest First", "amount-desc": "Amount (High-Low)", "name-asc": "Name (A-Z)" };
+
+  const clearAllFilters = useCallback(() => {
+    setSearchQuery("");
+    setFilterTypes(new Set());
+    setFilterMinAmount("");
+    setSortKey("newest");
+    setCurrentPage(1);
+  }, []);
+
+  const toggleFilterType = useCallback((type: string) => {
+    setFilterTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type); else next.add(type);
+      return next;
+    });
+    setCurrentPage(1);
+  }, []);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, sortKey, filterTypes, filterMinAmount]);
 
   const handleRowClick = useCallback((backer: CapBacker) => {
     const key = backer.name.toLowerCase().trim();
@@ -143,16 +241,6 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
       return next;
     });
   }, []);
-
-  const filteredBackers = searchQuery && !showSuggestions
-    ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : allBackers;
-
-  const totalPages = Math.ceil(filteredBackers.length / PAGE_SIZE);
-  const paginatedBackers = filteredBackers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  // Reset page when search changes
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
   // Click-outside to close suggestions
   useEffect(() => {
@@ -338,12 +426,76 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           )}
         </div>
 
-        <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-          Recent <ChevronDown className="h-3 w-3" />
-        </button>
-        <button className="inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-          <SlidersHorizontal className="h-3.5 w-3.5" />
-        </button>
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+              {sortLabels[sortKey]} <ChevronDown className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[160px]">
+            {(Object.entries(sortLabels) as [SortKey, string][]).map(([key, label]) => (
+              <DropdownMenuItem
+                key={key}
+                onClick={() => setSortKey(key)}
+                className={sortKey === key ? "font-semibold text-primary" : ""}
+              >
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Filter Popover */}
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger asChild>
+            <button className={`inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0 ${hasActiveFilters ? "border-primary text-primary" : ""}`} style={!hasActiveFilters ? { borderColor: "hsla(var(--border), 0.6)" } : {}}>
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-4">
+            <div className="space-y-4">
+              {/* Type filter */}
+              {uniqueTypes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">Type</p>
+                  <div className="space-y-2">
+                    {uniqueTypes.map(type => (
+                      <label key={type} className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+                        <Checkbox
+                          checked={filterTypes.has(type)}
+                          onCheckedChange={() => toggleFilterType(type)}
+                          className="h-3.5 w-3.5"
+                        />
+                        {type}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Min Amount */}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">Min Amount ($)</p>
+                <Input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  value={filterMinAmount}
+                  onChange={e => setFilterMinAmount(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => { setFilterTypes(new Set()); setFilterMinAmount(""); }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <Button
           size="sm"
           className="gap-1.5 text-xs h-9 rounded-lg shrink-0"
@@ -485,11 +637,16 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
             <Users className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground mb-1">
-            {searchQuery ? "No investors match your search." : "No investors added yet."}
+            {(searchQuery || hasActiveFilters)
+              ? "No investors match your current filters."
+              : "No investors added yet."}
           </p>
-          {searchQuery && (
-            <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline mt-1">
-              <UserPlus className="h-3 w-3" /> Add manually
+          {(searchQuery || hasActiveFilters) && (
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline mt-1"
+            >
+              <X className="h-3 w-3" /> Clear Filters
             </button>
           )}
         </div>
