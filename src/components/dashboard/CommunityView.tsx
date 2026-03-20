@@ -70,8 +70,13 @@ const ALL_FOUNDERS: FounderEntry[] = [...SUGGESTED_FOUNDERS, ...TRENDING_FOUNDER
 
 const PAGE_SIZE = 9;
 
-const QUICK_FILTERS = [
-  "Series A", "B2B SaaS", "Recently Updated", "Matching My Sector", "Pre-Seed", "AI / ML", "Climate",
+const MAGIC_PROMPTS = [
+  "Match me with Seed investors",
+  "Climate tech founders near me",
+  "Startups with similar traction",
+  "AI agents for enterprise",
+  "B2B SaaS at Series A",
+  "Deep tech in my region",
 ];
 
 // ── Typing placeholder effect ──
