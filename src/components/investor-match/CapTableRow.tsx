@@ -41,7 +41,7 @@ export interface CapBacker {
 export const PERSON_ROLES = ["Angel", "General Partner (GP)", "Syndicate Lead", "Other"];
 
 export const FIRM_KEYWORDS = [
-  "capital", "ventures", "fund", "partners", "llc", "inc", "group",
+  "capital", "venture", "ventures", "fund", "partners", "llc", "inc", "group",
   "holdings", "syndicate", "management", "angel", "vc", "equity",
   "investment", "advisors", "labs", "studio",
 ];
