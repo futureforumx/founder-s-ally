@@ -213,6 +213,35 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, sortKey, filterTypes, filterMinAmount]);
 
+  const handleRowClick = useCallback((backer: CapBacker) => {
+    const key = backer.name.toLowerCase().trim();
+    const enriched = enrichCache[key];
+    const enrichedBacker = enriched
+      ? {
+          ...backer,
+          slogan: backer.slogan || enriched.profile.currentThesis || undefined,
+          website: backer.website || (enriched.profile.logoUrl && enriched.profile.logoUrl.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : undefined),
+          logoUrl: backer.logoUrl || enriched.profile.logoUrl || undefined,
+        }
+      : backer;
+    setEditingBacker(enrichedBacker);
+    setSheetOpen(true);
+  }, [enrichCache]);
+
+  const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
+    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
+
+  const handleSheetRemove = useCallback((id: string) => {
+    setOptimisticBackers(prev => prev.filter(b => b.id !== id));
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   // Click-outside to close suggestions
   useEffect(() => {
     const handler = (e: MouseEvent) => {
