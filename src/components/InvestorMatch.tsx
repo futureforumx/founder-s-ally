@@ -10,6 +10,7 @@ import {
   Users, Sparkles, Plus, Check, X, DollarSign,
   TrendingUp, Lock, ArrowRight
 } from "lucide-react";
+import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
 
 // ── Types ──
 
@@ -446,6 +447,16 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           AI-driven investor discovery based on your profile and current cap table.
         </p>
       </div>
+
+      {/* Intelligence Cards */}
+      <IntelligenceCards
+        matchCount={scoredInvestors.length}
+        animatedTotal={animatedTotal}
+        totalRaised={totalRaised}
+        sectorClassification={sectorClassification}
+        companyData={companyData}
+        formatCurrency={fmt}
+      />
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
