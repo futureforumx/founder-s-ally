@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { DollarSign, Check } from "lucide-react";
 
 const MIN_AMOUNT = 1_000;
 const MAX_AMOUNT = 50_000_000;
@@ -32,6 +33,11 @@ export function formatCompactCurrency(n: number): string {
   return `$${n.toLocaleString()}`;
 }
 
+function formatWithCommas(n: number): string {
+  if (isNaN(n) || n === 0) return "";
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
 interface InlineAmountInputProps {
   value: number;
   displayLabel: string;
@@ -49,17 +55,14 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
 
   const startEdit = () => {
     setEditing(true);
-    setText(value > 0 ? formatCompactCurrency(value).replace("$", "") : "");
+    setText(value > 0 ? formatWithCommas(value) : "");
     setError(null);
   };
 
   useEffect(() => {
-    if (editing) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    if (editing) setTimeout(() => inputRef.current?.focus(), 0);
   }, [editing]);
 
-  // Position error tooltip
   useEffect(() => {
     if (error && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -71,7 +74,6 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
     const parsed = parseShorthand(text);
 
     if (parsed === null && text.trim() === "") {
-      // Allow clearing to 0
       setError(null);
       setEditing(false);
       onConfirm(0);
@@ -100,42 +102,43 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      tryConfirm();
-    } else if (e.key === "Escape") {
-      cancel();
-    }
+    if (e.key === "Enter") { e.preventDefault(); tryConfirm(); }
+    else if (e.key === "Escape") cancel();
   };
 
-  const errorTooltip =
-    error
-      ? createPortal(
-          <div
-            className="fixed px-2.5 py-1 rounded-md text-xs font-medium"
-            style={{
-              top: tooltipPos.top,
-              left: tooltipPos.left,
-              zIndex: 9999,
-              background: "hsl(0, 70%, 96%)",
-              color: "hsl(0, 70%, 45%)",
-              border: "1px solid hsl(0, 70%, 85%)",
-              boxShadow: "0 4px 12px hsla(0, 0%, 0%, 0.08)",
-            }}
-          >
-            {error}
-          </div>,
-          document.body
-        )
-      : null;
+  const hasError = !!error;
+
+  const errorTooltip = error
+    ? createPortal(
+        <div
+          className="fixed px-2.5 py-1 rounded-md text-xs font-medium"
+          style={{
+            top: tooltipPos.top,
+            left: tooltipPos.left,
+            zIndex: 9999,
+            background: "hsl(var(--destructive) / 0.1)",
+            color: "hsl(var(--destructive))",
+            border: "1px solid hsl(var(--destructive) / 0.3)",
+            boxShadow: "0 4px 12px hsla(0, 0%, 0%, 0.08)",
+          }}
+        >
+          {error}
+        </div>,
+        document.body
+      )
+    : null;
 
   if (!editing) {
     return (
       <button
         onClick={startEdit}
-        className="text-sm font-bold text-foreground font-mono cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 transition-colors hover:bg-secondary block text-right w-full"
+        className="w-full flex items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-ring cursor-pointer"
       >
-        {displayLabel}
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="font-mono font-medium">{value > 0 ? formatWithCommas(value) : "0"}</span>
+        </div>
+        {value > 0 && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
       </button>
     );
   }
@@ -143,25 +146,26 @@ export function InlineAmountInput({ value, displayLabel, backerId, onConfirm }: 
   return (
     <>
       <div ref={containerRef}>
-        <input
-          ref={inputRef}
-          id={`amount-input-${backerId}`}
-          value={text}
-          onChange={e => {
-            setText(e.target.value);
-            if (error) setError(null);
-          }}
-          onBlur={tryConfirm}
-          onKeyDown={handleKeyDown}
-          placeholder="e.g. 1.5M, 50k"
-          className="w-full min-w-[120px] text-sm font-mono px-3 py-1.5 rounded-md outline-none transition-all"
-          style={{
-            background: "hsl(var(--background))",
-            border: `1px solid ${error ? "hsl(0, 70%, 60%)" : "hsl(210, 60%, 70%)"}`,
-            boxShadow: `0 0 0 2px ${error ? "hsla(0, 70%, 85%, 0.5)" : "hsla(210, 60%, 85%, 0.5)"}`,
-            color: "hsl(var(--foreground))",
-          }}
-        />
+        <div className="relative">
+          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <input
+            ref={inputRef}
+            id={`amount-input-${backerId}`}
+            value={text}
+            onChange={e => {
+              setText(e.target.value.replace(/[^0-9.,mkMK]/g, ""));
+              if (error) setError(null);
+            }}
+            onFocus={() => setError(null)}
+            onBlur={tryConfirm}
+            onKeyDown={handleKeyDown}
+            placeholder="e.g. 1.5m or 50k"
+            className={`w-full rounded-lg border bg-background pl-9 pr-9 py-2 text-sm font-mono text-foreground transition-all focus:outline-none focus:ring-2 ${
+              hasError ? "border-destructive focus:ring-destructive" : "border-ring ring-2 ring-ring/30"
+            }`}
+          />
+          {!hasError && text && <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />}
+        </div>
       </div>
       {errorTooltip}
     </>
