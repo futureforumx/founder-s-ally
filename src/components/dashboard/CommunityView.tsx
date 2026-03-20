@@ -395,7 +395,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     <div className="space-y-2">
       {/* Top navbar for investor-search */}
       {variant === "investor-search" && (
-        <div className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md px-8 py-4 mb-4" style={{ width: "100%" }}>
+        <div className="fixed top-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md px-8 py-4 mb-4" style={{ left: "11rem" }}>
           <button
             onClick={onNavigateProfile}
             className="flex items-center gap-4 group cursor-pointer"
