@@ -376,7 +376,19 @@ const Index = () => {
           ) : activeView === "competitors" ? (
             <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
               if (companyData && !companyData.competitors.includes(name)) {
-                setCompanyData({ ...companyData, competitors: [...companyData.competitors, name] });
+                const updated = { ...companyData, competitors: [...companyData.competitors, name] };
+                setCompanyData(updated);
+                try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+              }
+            }} onCompetitorsChanged={(names) => {
+              if (companyData) {
+                const sorted = [...names].sort();
+                const current = [...companyData.competitors].sort();
+                if (JSON.stringify(sorted) !== JSON.stringify(current)) {
+                  const updated = { ...companyData, competitors: names };
+                  setCompanyData(updated);
+                  try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                }
               }
             }} />
           ) : activeView === "investors" ? (
