@@ -26,7 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
 // ── Sticky Profile Footer ──
 function StickyProfileFooter({
@@ -543,7 +543,7 @@ const Index = () => {
               </div>
               <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
             </div>
-          ) : activeView === "directory" ? (
+          ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
           ) : activeView === "audit" ? (
             <DeckAuditView />

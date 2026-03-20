@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, User, LogOut, Swords, Layers } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, User, LogOut, Swords, Layers, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -25,6 +25,7 @@ const companyItems = [
 
 const investorItems = [
   { id: "investors" as const, label: "Matches", icon: Handshake },
+  { id: "investor-search" as const, label: "Search", icon: Search },
 ];
 
 const communityItems = [
