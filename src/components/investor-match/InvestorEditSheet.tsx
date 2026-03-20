@@ -1,14 +1,14 @@
 import { useState, useCallback, useEffect } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Trash2, DollarSign, CalendarIcon } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2, DollarSign, CalendarIcon, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { InlineCellCombobox } from "./InlineCellCombobox";
 import { INVESTMENT_TYPES, FUNDING_ROUNDS, type CapBacker } from "./CapTableRow";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -39,6 +39,10 @@ function formatWithCommas(n: number): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
+function cleanDomain(url: string): string {
+  return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+}
+
 export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove }: InvestorEditSheetProps) {
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -47,7 +51,6 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
   const [closingDate, setClosingDate] = useState<Date | undefined>();
   const [saving, setSaving] = useState(false);
 
-  // Sync form state when backer changes
   useEffect(() => {
     if (backer) {
       setAmount(backer.amount > 0 ? formatWithCommas(backer.amount) : "");
@@ -61,7 +64,6 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
   const handleSave = useCallback(async () => {
     if (!backer) return;
 
-    // Validate amount
     let parsedAmount = 0;
     if (amount.trim()) {
       const parsed = parseShorthand(amount);
@@ -125,22 +127,44 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
 
   if (!backer) return null;
 
+  const websiteHref = backer.website
+    ? backer.website.startsWith("http") ? backer.website : `https://${backer.website}`
+    : null;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-        {/* Header */}
-        <SheetHeader className="p-6 pb-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 shrink-0">
-              {backer.logoUrl ? <AvatarImage src={backer.logoUrl} alt={backer.name} /> : null}
+        {/* Rich Header */}
+        <SheetHeader className="p-6 pb-5 border-b border-border">
+          <div className="flex items-start gap-4">
+            <Avatar className="h-12 w-12 shrink-0 rounded-lg border border-border shadow-sm">
+              {backer.logoUrl ? <AvatarImage src={backer.logoUrl} alt={backer.name} className="object-cover" /> : null}
               <AvatarFallback
-                className="text-sm font-semibold"
+                className="text-base font-semibold rounded-lg"
                 style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
               >
                 {backer.logoLetter}
               </AvatarFallback>
             </Avatar>
-            <SheetTitle className="text-xl font-bold text-foreground">{backer.name}</SheetTitle>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <SheetTitle className="text-xl font-bold text-foreground">{backer.name}</SheetTitle>
+              {backer.slogan && (
+                <SheetDescription className="text-sm text-muted-foreground line-clamp-1">
+                  {backer.slogan}
+                </SheetDescription>
+              )}
+              {websiteHref && (
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5 w-fit"
+                >
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                  {cleanDomain(backer.website!)}
+                </a>
+              )}
+            </div>
           </div>
         </SheetHeader>
 
@@ -174,28 +198,38 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
               )}
             </div>
 
-            {/* Instrument */}
+            {/* Instrument Type */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Instrument Type
               </Label>
-              <InlineCellCombobox
-                value={instrument}
-                options={INVESTMENT_TYPES}
-                onSelect={setInstrument}
-              />
+              <Select value={instrument} onValueChange={setInstrument}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select instrument…" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-[99999]">
+                  {INVESTMENT_TYPES.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Round */}
+            {/* Funding Round */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Funding Round
               </Label>
-              <InlineCellCombobox
-                value={round}
-                options={FUNDING_ROUNDS}
-                onSelect={setRound}
-              />
+              <Select value={round} onValueChange={setRound}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select round…" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="z-[99999]">
+                  {FUNDING_ROUNDS.map(r => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Closing Date */}
@@ -216,7 +250,7 @@ export function InvestorEditSheet({ backer, open, onOpenChange, onSave, onRemove
                     {closingDate ? format(closingDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                <PopoverContent className="w-auto p-0 z-[99999]" align="start">
                   <Calendar
                     mode="single"
                     selected={closingDate}

@@ -32,6 +32,8 @@ export interface CapBacker {
   date: string;
   logoUrl?: string;
   ownershipPct: number;
+  slogan?: string;
+  website?: string;
 }
 
 interface CapTableRowProps {
