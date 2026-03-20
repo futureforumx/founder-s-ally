@@ -47,6 +47,7 @@ interface MissionControlInvestorsProps {
   analysisResult?: AnalysisResult | null;
   companyData?: { stage?: string; sector?: string } | null;
   previousSectionApproved?: boolean;
+  onConfirmedChange?: (confirmed: boolean) => void;
 }
 
 export function MissionControlInvestors({
@@ -58,6 +59,7 @@ export function MissionControlInvestors({
   analysisResult,
   companyData,
   previousSectionApproved = false,
+  onConfirmedChange,
 }: MissionControlInvestorsProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
