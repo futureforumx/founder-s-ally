@@ -297,6 +297,14 @@ const Index = () => {
         />
       )}
 
+      {/* DEV: Re-trigger terminal */}
+      <button
+        onClick={() => setShowTerminal(true)}
+        className="fixed bottom-4 right-4 z-[100] bg-destructive text-destructive-foreground text-[10px] font-mono px-2 py-1 rounded shadow-lg opacity-60 hover:opacity-100 transition-opacity"
+      >
+        ▶ Terminal
+      </button>
+
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto relative">
         <div className={`px-8 py-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
