@@ -98,6 +98,17 @@ function useNFXSearch(query: string) {
 
 // ── Main Export ──
 
+type SortKey = "newest" | "oldest" | "amount-desc" | "name-asc";
+
+function parseDateString(d: string | undefined | null): number {
+  if (!d) return 0;
+  const parsed = new Date(d);
+  if (!isNaN(parsed.getTime())) return parsed.getTime();
+  // Handle "Mon YYYY" format like "Mar 2026"
+  const monthYear = new Date(Date.parse(d + " 1"));
+  return isNaN(monthYear.getTime()) ? 0 : monthYear.getTime();
+}
+
 export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache = {} }: ManageTabProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +122,12 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
   const [sheetOpen, setSheetOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // Sort & Filter state
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
+  const [filterMinAmount, setFilterMinAmount] = useState<string>("");
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
   const allBackers = [
@@ -118,44 +135,83 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
     ...optimisticBackers,
   ];
 
-  const handleRowClick = useCallback((backer: CapBacker) => {
-    const key = backer.name.toLowerCase().trim();
-    const enriched = enrichCache[key];
-    const enrichedBacker = enriched
-      ? {
-          ...backer,
-          slogan: backer.slogan || enriched.profile.currentThesis || undefined,
-          website: backer.website || (enriched.profile.logoUrl && enriched.profile.logoUrl.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : undefined),
-          logoUrl: backer.logoUrl || enriched.profile.logoUrl || undefined,
-        }
-      : backer;
-    setEditingBacker(enrichedBacker);
-    setSheetOpen(true);
-  }, [enrichCache]);
+  // Unique instrument types for filter checkboxes
+  const uniqueTypes = useMemo(() => {
+    const types = new Set<string>();
+    allBackers.forEach(b => { if (b.instrument) types.add(b.instrument); });
+    return Array.from(types).sort();
+  }, [allBackers]);
 
-  const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
-    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
-    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }, []);
+  // Search → Filter → Sort pipeline
+  const filteredBackers = useMemo(() => {
+    let result = allBackers;
 
-  const handleSheetRemove = useCallback((id: string) => {
-    setOptimisticBackers(prev => prev.filter(b => b.id !== id));
-    setOverrides(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }, []);
+    // 1. Search by name or slogan
+    if (searchQuery && !showSuggestions) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(b => {
+        const key = b.name.toLowerCase().trim();
+        const enriched = enrichCache[key];
+        const slogan = b.slogan || enriched?.profile?.currentThesis || "";
+        return b.name.toLowerCase().includes(q) || slogan.toLowerCase().includes(q);
+      });
+    }
 
-  const filteredBackers = searchQuery && !showSuggestions
-    ? allBackers.filter(b => b.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : allBackers;
+    // 2. Filter by type
+    if (filterTypes.size > 0) {
+      result = result.filter(b => b.instrument && filterTypes.has(b.instrument));
+    }
+
+    // 3. Filter by min amount
+    const minAmt = parseFloat(filterMinAmount);
+    if (!isNaN(minAmt) && minAmt > 0) {
+      result = result.filter(b => b.amount >= minAmt);
+    }
+
+    // 4. Sort
+    const sorted = [...result];
+    switch (sortKey) {
+      case "newest":
+        sorted.sort((a, b) => parseDateString(b.date) - parseDateString(a.date));
+        break;
+      case "oldest":
+        sorted.sort((a, b) => parseDateString(a.date) - parseDateString(b.date));
+        break;
+      case "amount-desc":
+        sorted.sort((a, b) => b.amount - a.amount);
+        break;
+      case "name-asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+    return sorted;
+  }, [allBackers, searchQuery, showSuggestions, filterTypes, filterMinAmount, sortKey, enrichCache]);
 
   const totalPages = Math.ceil(filteredBackers.length / PAGE_SIZE);
   const paginatedBackers = filteredBackers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // Reset page when search changes
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+  const hasActiveFilters = filterTypes.size > 0 || (parseFloat(filterMinAmount) > 0);
+  const sortLabels: Record<SortKey, string> = { newest: "Newest First", oldest: "Oldest First", "amount-desc": "Amount (High-Low)", "name-asc": "Name (A-Z)" };
+
+  const clearAllFilters = useCallback(() => {
+    setSearchQuery("");
+    setFilterTypes(new Set());
+    setFilterMinAmount("");
+    setSortKey("newest");
+    setCurrentPage(1);
+  }, []);
+
+  const toggleFilterType = useCallback((type: string) => {
+    setFilterTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type); else next.add(type);
+      return next;
+    });
+    setCurrentPage(1);
+  }, []);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, sortKey, filterTypes, filterMinAmount]);
 
   // Click-outside to close suggestions
   useEffect(() => {
