@@ -1196,17 +1196,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
     requestAnimationFrame(() => {
       setTimeout(() => {
-        if (firstEmptyField) {
-          const el = document.querySelector(`[data-field="${firstEmptyField}"]`) as HTMLElement
-            || document.getElementById(`field-${firstEmptyField}`) as HTMLElement;
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-            const focusable = el.matches("input,textarea,select") ? el : el.querySelector("input,textarea,select") as HTMLElement;
-            if (focusable) setTimeout(() => focusable.focus(), 400);
-            return;
+        // Find the section container, then locate the first empty visible input inside it
+        const sectionEl = sectionRefs.current[targetSection];
+        if (sectionEl && firstEmptyField) {
+          const inputs = sectionEl.querySelectorAll("input, textarea, select");
+          for (const inp of inputs) {
+            const htmlInp = inp as HTMLInputElement;
+            if (htmlInp.value === "" || htmlInp.value === undefined) {
+              htmlInp.scrollIntoView({ behavior: "smooth", block: "center" });
+              setTimeout(() => htmlInp.focus(), 400);
+              return;
+            }
           }
         }
-        sectionRefs.current[targetSection]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        sectionEl?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 150);
     });
 
