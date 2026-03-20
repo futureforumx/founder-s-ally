@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { DeckUploader } from "./DeckUploader";
-import { ProcessingStatus } from "./ProcessingStatus";
+import { AnalysisTerminal } from "./AnalysisTerminal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
@@ -13,6 +13,7 @@ import { RadialScore } from "./deck-audit/RadialScore";
 import { DimensionBars } from "./deck-audit/DimensionBars";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
+import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
 import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
@@ -82,6 +83,8 @@ export function DeckAuditView() {
   const [isRerunning, setIsRerunning] = useState(false);
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [pendingDeckText, setPendingDeckText] = useState<string | null>(null);
 
   const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
@@ -112,6 +115,19 @@ export function DeckAuditView() {
   }, [handleUpload]);
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
+
+  /** Called from the import modal — starts the terminal animation, then runs the audit */
+  const handleNewDeckImport = useCallback((deckText: string) => {
+    setPendingDeckText(deckText);
+    setState("processing");
+  }, []);
+
+  const handleTerminalComplete = useCallback(() => {
+    if (pendingDeckText) {
+      handleUpload(pendingDeckText);
+      setPendingDeckText(null);
+    }
+  }, [pendingDeckText, handleUpload]);
 
   const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
@@ -247,14 +263,13 @@ export function DeckAuditView() {
     );
   }
 
-  // ── Processing State ──
+  // ── Processing State (Analysis Terminal overlay) ──
   if (state === "processing") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-full max-w-md">
-          <ProcessingStatus />
-        </div>
-      </div>
+      <AnalysisTerminal
+        companyName="DECK"
+        onComplete={pendingDeckText ? handleTerminalComplete : () => {}}
+      />
     );
   }
 
@@ -280,12 +295,18 @@ export function DeckAuditView() {
             </p>
           </div>
           <button
-            onClick={handleReset}
-            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted"
+            onClick={() => setImportModalOpen(true)}
+            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted active:scale-[0.97]"
           >
             Audit Another Deck
           </button>
         </div>
+
+        <NewDeckImportModal
+          open={importModalOpen}
+          onOpenChange={setImportModalOpen}
+          onImport={handleNewDeckImport}
+        />
 
         {/* Benchmark Insight */}
         {result.benchmark_insights.key_takeaway && (
