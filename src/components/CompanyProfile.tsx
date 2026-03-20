@@ -1386,7 +1386,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               <FileText className="h-3 w-3" /> Pitch Deck (PDF)
             </label>
             <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-              className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-4 transition-colors ${
+              className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors ${
                 scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
               }`}>
               {scanningMetrics ? (
