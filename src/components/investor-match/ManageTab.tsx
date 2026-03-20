@@ -10,6 +10,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { CapTableRow, type CapBacker } from "./CapTableRow";
+import { InvestorEditSheet } from "./InvestorEditSheet";
 
 
 interface NFXResult {
@@ -102,35 +103,34 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   const [optimisticBackers, setOptimisticBackers] = useState<CapBacker[]>([]);
   const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [editingBacker, setEditingBacker] = useState<CapBacker | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const { results: nfxResults, loading: nfxLoading, source: searchSource } = useNFXSearch(searchQuery);
 
-  // Merge confirmed backers with overrides, then append optimistic
   const allBackers = [
     ...confirmedBackers.map(b => ({ ...b, ...overrides[b.id] })),
     ...optimisticBackers,
   ];
 
-  const handleOwnershipChange = useCallback((id: string, pct: number) => {
-    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ownershipPct: pct } : b));
-    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ownershipPct: pct } }));
+  const handleRowClick = useCallback((backer: CapBacker) => {
+    setEditingBacker(backer);
+    setSheetOpen(true);
   }, []);
 
-  const handleAmountChange = useCallback((id: string, amount: number) => {
-    const patch = { amount, amountLabel: formatCurrency(amount) };
+  const handleSheetSave = useCallback((id: string, patch: Partial<CapBacker>) => {
     setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
     setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }, [formatCurrency]);
-
-  const handleInstrumentChange = useCallback((id: string, instrument: string) => {
-    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, instrument } : b));
-    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], instrument } }));
   }, []);
 
-  const handleRoundChange = useCallback((id: string, round: string) => {
-    setOptimisticBackers(prev => prev.map(b => b.id === id ? { ...b, date: round } : b));
-    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], date: round } }));
+  const handleSheetRemove = useCallback((id: string) => {
+    setOptimisticBackers(prev => prev.filter(b => b.id !== id));
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
 
   const filteredBackers = searchQuery && !showSuggestions
@@ -156,7 +156,6 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
   }, [highlightedId]);
 
   const handleSelectInvestor = useCallback(async (result: NFXResult) => {
-    // 1. Close dropdown & clear search
     setSearchQuery("");
     setShowSuggestions(false);
 
@@ -165,7 +164,6 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       return;
     }
 
-    // 2. Create optimistic backer
     const tempId = crypto.randomUUID();
     const now = new Date();
     const dateLabel = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
@@ -182,19 +180,9 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       ownershipPct: 0,
     };
 
-    // 3. Optimistic insert into local state
     setOptimisticBackers(prev => [...prev, optimisticBacker]);
     setHighlightedId(tempId);
 
-    // 4. Smart focus with slight delay for DOM render
-    setTimeout(() => {
-      const input = document.getElementById(`amount-input-${tempId}`);
-      if (input) {
-        input.focus();
-      }
-    }, 80);
-
-    // 5. Persist to database
     try {
       const { data, error } = await supabase
         .from("cap_table")
@@ -211,17 +199,11 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
 
       if (error) throw error;
 
-      // Replace temp backer with real one from DB
       setOptimisticBackers(prev =>
-        prev.map(b =>
-          b.id === tempId
-            ? { ...b, id: data.id }
-            : b
-        )
+        prev.map(b => b.id === tempId ? { ...b, id: data.id } : b)
       );
     } catch (err) {
       console.error("Failed to insert cap table entry:", err);
-      // Rollback optimistic insert
       setOptimisticBackers(prev => prev.filter(b => b.id !== tempId));
       toast.error("Failed to add investor. Please try again.");
     }
@@ -354,8 +336,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         )}
       </div>
 
-      {/* Transaction-style Table */}
-      <div>
+      {/* Read-Only Table */}
+      <div className="overflow-hidden">
         <Table className="border-0 [&_tr]:border-0 table-fixed w-full">
           <TableHeader>
             <TableRow className="border-0 hover:bg-transparent">
@@ -364,7 +346,6 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Type</TableHead>
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Round</TableHead>
               <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Amount</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3 w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="[&_tr]:border-0">
@@ -374,11 +355,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
                 backer={b}
                 index={i}
                 isHighlighted={b.id === highlightedId}
-                formatCurrency={formatCurrency}
-                onOwnershipChange={handleOwnershipChange}
-                onAmountChange={handleAmountChange}
-                onInstrumentChange={handleInstrumentChange}
-                onRoundChange={handleRoundChange}
+                onClick={() => handleRowClick(b)}
               />
             ))}
           </TableBody>
@@ -401,8 +378,14 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         </div>
       )}
 
-
-
+      {/* Slide-Over Edit Panel */}
+      <InvestorEditSheet
+        backer={editingBacker}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onSave={handleSheetSave}
+        onRemove={handleSheetRemove}
+      />
     </div>
   );
 }
