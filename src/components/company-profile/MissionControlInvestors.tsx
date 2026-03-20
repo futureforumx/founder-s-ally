@@ -196,6 +196,7 @@ export function MissionControlInvestors({
   const backersKey = backers.map(b => b.id).join(",");
   useEffect(() => {
     setConfirmed(false);
+    onConfirmedChange?.(false);
   }, [backersKey]);
 
   // Status dot logic
