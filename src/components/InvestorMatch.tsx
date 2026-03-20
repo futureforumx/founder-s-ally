@@ -9,6 +9,7 @@ import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
 import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
+import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
 
 // ── Types ──
 
@@ -170,6 +171,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [loading, setLoading] = useState(true);
   const [confirmedBackers, setConfirmedBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
+  const [timeRange, setTimeRange] = useState<TimeRange>("ytd");
+  const [selectedHeatCell, setSelectedHeatCell] = useState<number | null>(null);
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
@@ -272,11 +275,14 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       )}
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Investor Match</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          AI-driven investor discovery based on your profile and current cap table.
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Investor Match</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            AI-driven investor discovery based on your profile and current cap table.
+          </p>
+        </div>
+        <TimeRangeControl value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* Intelligence Cards */}
@@ -287,6 +293,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         sectorClassification={sectorClassification}
         companyData={companyData}
         formatCurrency={fmt}
+        timeRange={timeRange}
+        selectedHeatCell={selectedHeatCell}
+        onHeatCellSelect={setSelectedHeatCell}
       />
 
       {/* Sticky Tab Bar */}
@@ -312,7 +321,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} />}
       {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (

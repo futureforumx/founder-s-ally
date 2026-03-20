@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Sparkles } from "lucide-react";
+import { Link2, Sparkles, X } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { CompanyData } from "@/components/CompanyProfile";
+import { TimeRange, timeMultiplier } from "./TimeRangeControl";
 
 interface IntelligenceCardsProps {
   matchCount: number;
@@ -12,6 +13,9 @@ interface IntelligenceCardsProps {
   sectorClassification?: SectorClassification | null;
   companyData?: CompanyData | null;
   formatCurrency: (n: number) => string;
+  timeRange: TimeRange;
+  selectedHeatCell: number | null;
+  onHeatCellSelect: (index: number | null) => void;
 }
 
 // ── Shared card wrapper ──
@@ -82,7 +86,7 @@ function RadarPulse() {
   );
 }
 
-// ── Sector Heatmap (Bloomberg-style) ──
+// ── Sector Heatmap (Interactive) ──
 
 const MONTH_LABELS = [
   "Oct 24", "Nov 24", "Dec 24", "Jan 25", "Feb 25", "Mar 25",
@@ -106,20 +110,28 @@ const TIER_CLASS: Record<number, string> = {
   4: "bg-heat-4",
 };
 
-function deploymentAmount(v: number, seed: number, i: number): string {
+function deploymentAmount(v: number, seed: number, _i: number): string {
   const base = Math.round(((v / 100) * 800 + (seed % 200)) / 10) * 10;
   return `$${base}M`;
 }
 
-function SectorHeatmap({ sector }: { sector: string | undefined }) {
+interface SectorHeatmapProps {
+  sector: string | undefined;
+  timeRange: TimeRange;
+  selectedCell: number | null;
+  onCellSelect: (index: number | null) => void;
+}
+
+function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: SectorHeatmapProps) {
   const cells = useMemo(() => {
     const seed = (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const mult = timeMultiplier(timeRange);
     return Array.from({ length: 18 }, (_, i) => {
       const v = ((seed * (i + 7) * 31) % 100);
       const recencyBoost = i >= 12 ? 20 : i >= 9 ? 10 : 0;
-      return Math.min(v + recencyBoost, 100);
+      return Math.min(Math.round((v + recencyBoost) * mult), 100);
     });
-  }, [sector]);
+  }, [sector, timeRange]);
 
   const seed = useMemo(() => (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0), [sector]);
 
@@ -137,29 +149,47 @@ function SectorHeatmap({ sector }: { sector: string | undefined }) {
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">
             Sector Heat
           </p>
-          {momentum.gradient ? (
-            <span
-              className="text-[10px] font-semibold text-white px-3 py-1 rounded-md"
-              style={{ background: "linear-gradient(135deg, hsl(25 95% 53%), hsl(0 84% 60%))" }}
-            >
-              {momentum.label}
-            </span>
-          ) : (
-            <Badge variant="secondary" className="text-[10px] font-medium border-0 rounded-md px-3 py-1">
-              {momentum.label}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {selectedCell !== null && (
+              <button
+                onClick={() => onCellSelect(null)}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive/70 hover:text-destructive transition-colors"
+              >
+                <X className="h-2.5 w-2.5" /> Clear filter
+              </button>
+            )}
+            {momentum.gradient ? (
+              <span
+                className="text-[10px] font-semibold text-white px-3 py-1 rounded-md"
+                style={{ background: "linear-gradient(135deg, hsl(25 95% 53%), hsl(0 84% 60%))" }}
+              >
+                {momentum.label}
+              </span>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] font-medium border-0 rounded-md px-3 py-1">
+                {momentum.label}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Dense grid */}
         <div className="grid grid-cols-6 gap-[2px]">
           {cells.map((v, i) => {
             const tier = intensityTier(v);
+            const isSelected = selectedCell === i;
             return (
               <Tooltip key={i}>
                 <TooltipTrigger asChild>
                   <div
-                    className={`h-7 w-full rounded-sm cursor-crosshair transition-all hover:ring-2 hover:ring-offset-1 hover:ring-accent ${TIER_CLASS[tier]}`}
+                    onClick={() => onCellSelect(isSelected ? null : i)}
+                    className={`h-7 w-full rounded-sm cursor-crosshair transition-all ${TIER_CLASS[tier]} ${
+                      isSelected
+                        ? "ring-2 ring-accent ring-offset-2 ring-offset-card scale-110 z-10"
+                        : selectedCell !== null
+                        ? "opacity-40"
+                        : "hover:ring-2 hover:ring-offset-1 hover:ring-accent"
+                    }`}
                   />
                 </TooltipTrigger>
                 <TooltipContent
@@ -212,7 +242,6 @@ function GlowProgress({ value }: { value: number }) {
           background: "linear-gradient(90deg, hsl(var(--success)), hsl(var(--accent)))",
         }}
       >
-        {/* Lead point */}
         <span
           className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-3.5 w-3.5 rounded-full animate-pulse"
           style={{
@@ -234,16 +263,25 @@ export function IntelligenceCards({
   sectorClassification,
   companyData,
   formatCurrency,
+  timeRange,
+  selectedHeatCell,
+  onHeatCellSelect,
 }: IntelligenceCardsProps) {
   const sector = sectorClassification?.primary_sector || companyData?.sector;
   const roundTarget = totalRaised > 0 ? Math.max(totalRaised * 2, 1_000_000) : 1_000_000;
   const roundProgress = totalRaised > 0 ? Math.min((totalRaised / roundTarget) * 100, 100) : 0;
 
-  // Format with smaller suffix
-  const formattedAmount = formatCurrency(animatedTotal);
+  // Time-adjusted values
+  const mult = timeMultiplier(timeRange);
+  const adjustedMatchCount = Math.max(1, Math.round(matchCount * mult));
+  const adjustedTotal = Math.round(animatedTotal * mult);
+
+  const formattedAmount = formatCurrency(adjustedTotal);
   const match = formattedAmount.match(/^(\$[\d,.]+)(\.?\d*)([A-Za-z]*)$/);
   const numPart = match ? match[1] + match[2] : formattedAmount;
   const suffix = match ? match[3] : "";
+
+  const newToday = timeRange === "week" ? 1 : timeRange === "month" ? 3 : timeRange === "quarter" ? 7 : 12;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -257,10 +295,10 @@ export function IntelligenceCards({
             </p>
             <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-accent-foreground bg-foreground px-3 py-1 rounded-full">
               <Sparkles className="h-2.5 w-2.5 text-accent" />
-              +3 New Today
+              +{newToday} New Today
             </span>
           </div>
-          <OdometerNumber value={matchCount} />
+          <OdometerNumber value={adjustedMatchCount} />
           <p className="text-xs text-muted-foreground mt-3">
             Institutional matches found.
           </p>
@@ -269,7 +307,12 @@ export function IntelligenceCards({
 
       {/* Card 2: Sector Momentum */}
       <GlassCard>
-        <SectorHeatmap sector={sector} />
+        <SectorHeatmap
+          sector={sector}
+          timeRange={timeRange}
+          selectedCell={selectedHeatCell}
+          onCellSelect={onHeatCellSelect}
+        />
       </GlassCard>
 
       {/* Card 3: Capital Track */}
