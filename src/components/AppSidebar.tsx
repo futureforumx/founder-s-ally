@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, CalendarDays, User, LogOut, Swords } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, User, LogOut, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,7 +27,7 @@ const communityItems = [
   { id: "directory" as const, label: "Directory", icon: BookOpen },
   { id: "connections" as const, label: "Connections", icon: Link2 },
   { id: "messages" as const, label: "Messages", icon: MessageSquare },
-  { id: "events" as const, label: "Events", icon: CalendarDays },
+  { id: "events" as const, label: "Hubs", icon: MapPin },
 ];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
