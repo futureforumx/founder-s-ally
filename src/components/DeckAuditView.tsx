@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from "react";
 import { DeckUploader } from "./DeckUploader";
 import { AnalysisTerminal } from "./AnalysisTerminal";
 import { supabase } from "@/integrations/supabase/client";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
 import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2, TrendingUp } from "lucide-react";
