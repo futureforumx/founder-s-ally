@@ -98,6 +98,8 @@ function useNFXSearch(query: string) {
 export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache = {} }: ManageTabProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 9;
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [optimisticBackers, setOptimisticBackers] = useState<CapBacker[]>([]);
   const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
