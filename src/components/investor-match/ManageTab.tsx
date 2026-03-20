@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Settings2, DollarSign, UserPlus, Loader2, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { CapTableRow, type CapBacker } from "./CapTableRow";
@@ -223,22 +224,22 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold text-foreground">Cap Table</h3>
-          <span
-            className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
-            style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+        <h3 className="text-lg font-bold text-foreground">My Investors</h3>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+            Recent <ChevronDown className="h-3 w-3" />
+          </button>
+          <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border text-muted-foreground hover:text-foreground transition-colors" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </button>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs h-8 rounded-lg"
+            style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
           >
-            {allBackers.length}
-          </span>
+            <Plus className="h-3.5 w-3.5" /> Add Investor
+          </Button>
         </div>
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs h-9 rounded-xl"
-          style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
-        >
-          <Plus className="h-3.5 w-3.5" /> Add Investor
-        </Button>
       </div>
 
       {/* Smart Search */}
@@ -339,35 +340,50 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         )}
       </div>
 
-      {/* Investor Rows */}
-      <div className="space-y-1">
-        {filteredBackers.map(b => (
-          <CapTableRow
-            key={b.id}
-            backer={b}
-            isHighlighted={b.id === highlightedId}
-            formatCurrency={formatCurrency}
-            onOwnershipChange={handleOwnershipChange}
-            onAmountChange={handleAmountChange}
-          />
-        ))}
-
-        {filteredBackers.length === 0 && !showSuggestions && (
-          <div className="flex flex-col items-center py-12 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3" style={{ background: "hsl(var(--secondary))" }}>
-              <Users className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground mb-1">
-              {searchQuery ? "No investors match your search." : "No investors added yet."}
-            </p>
-            {searchQuery && (
-              <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline mt-1">
-                <UserPlus className="h-3 w-3" /> Add manually
-              </button>
-            )}
-          </div>
-        )}
+      {/* Transaction-style Table */}
+      <div className="overflow-x-auto">
+        <Table className="border-0 [&_tr]:border-0">
+          <TableHeader>
+            <TableRow className="border-0 hover:bg-transparent">
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">ID</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Transaction</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Activity</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Date Time</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Cost</TableHead>
+              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-4">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="[&_tr]:border-0">
+            {filteredBackers.map((b, i) => (
+              <CapTableRow
+                key={b.id}
+                backer={b}
+                index={i}
+                isHighlighted={b.id === highlightedId}
+                formatCurrency={formatCurrency}
+                onOwnershipChange={handleOwnershipChange}
+                onAmountChange={handleAmountChange}
+              />
+            ))}
+          </TableBody>
+        </Table>
       </div>
+
+      {filteredBackers.length === 0 && !showSuggestions && (
+        <div className="flex flex-col items-center py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3" style={{ background: "hsl(var(--secondary))" }}>
+            <Users className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground mb-1">
+            {searchQuery ? "No investors match your search." : "No investors added yet."}
+          </p>
+          {searchQuery && (
+            <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline mt-1">
+              <UserPlus className="h-3 w-3" /> Add manually
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Auto-Sum Footer */}
       <CapTableFooter
