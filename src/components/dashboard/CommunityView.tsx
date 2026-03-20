@@ -225,6 +225,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       return () => clearTimeout(t);
     }
     setIsSearching(false);
+    if (!searchQuery) setShowMagicPrompts(true);
   }, [searchQuery]);
 
   // Reset pagination on filter/search change
