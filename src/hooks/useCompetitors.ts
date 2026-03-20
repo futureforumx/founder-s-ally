@@ -50,7 +50,7 @@ export function useCompetitors() {
     }
   }, []);
 
-  const addCompetitor = useCallback(async (name: string, status: string = "Tracked", notes?: string) => {
+  const addCompetitor = useCallback(async (name: string, status: string = "Tracked", notes?: string, website?: string) => {
     // Optimistic: add a placeholder
     const tempId = `temp-${Date.now()}`;
     const optimistic: TrackedCompetitor = {
