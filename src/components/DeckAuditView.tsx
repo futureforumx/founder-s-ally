@@ -64,8 +64,20 @@ function normalizeAuditResponse(raw: any): AuditResult {
 }
 
 export function DeckAuditView() {
-  const [state, setState] = useState<AuditState>("upload");
-  const [result, setResult] = useState<AuditResult | null>(null);
+  const [state, setState] = useState<AuditState>(() => {
+    try {
+      const cached = sessionStorage.getItem("deck-audit-result");
+      if (cached) return "report";
+    } catch {}
+    return "upload";
+  });
+  const [result, setResult] = useState<AuditResult | null>(() => {
+    try {
+      const cached = sessionStorage.getItem("deck-audit-result");
+      if (cached) return JSON.parse(cached) as AuditResult;
+    } catch {}
+    return null;
+  });
   const [compareMode, setCompareMode] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
   const { decks, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
