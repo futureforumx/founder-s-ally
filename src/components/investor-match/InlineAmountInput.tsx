@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { DollarSign, Check } from "lucide-react";
+import { DollarSign } from "lucide-react";
 
 const MIN_AMOUNT = 1_000;
 const MAX_AMOUNT = 50_000_000;
