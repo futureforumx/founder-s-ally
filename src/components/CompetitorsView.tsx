@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { CompanyData } from "@/components/CompanyProfile";
 
 interface CompetitorsViewProps {
