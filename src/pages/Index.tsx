@@ -403,95 +403,12 @@ const Index = () => {
                   </div>
 
                   {/* ── Card 2: Profile Strength & Checklist ── */}
-                  <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-foreground">Profile Strength</h3>
-                      <span className={`text-base font-bold ${
-                        profileCompletion.percent >= 90 ? "text-success" : profileCompletion.percent >= 50 ? "text-accent" : "text-destructive"
-                      }`}>
-                        {profileCompletion.percent}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700 ease-out"
-                        style={{
-                          width: `${profileCompletion.percent}%`,
-                          background: profileCompletion.percent >= 90 ? 'hsl(var(--success))' : profileCompletion.percent >= 50 ? 'hsl(var(--accent))' : 'hsl(var(--destructive))',
-                        }}
-                      />
-                    </div>
-
-                    {profileCompletion.percent < 100 && (
-                      <div className="space-y-1 pt-1">
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Next steps to reach 100%</p>
-                        <div className="flex flex-col gap-2 mt-2">
-                          {!sectionConfirmed.overview && (
-                            <button
-                              onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "overview" }))}
-                              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 transition-colors group text-left"
-                            >
-                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                              <span className="text-xs text-foreground flex-1">Confirm Overview section</span>
-                              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md">+25%</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-                            </button>
-                          )}
-                          {!sectionConfirmed.positioning && (
-                            <button
-                              onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "positioning" }))}
-                              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 transition-colors group text-left"
-                            >
-                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                              <span className="text-xs text-foreground flex-1">Verify Positioning details</span>
-                              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md">+25%</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-                            </button>
-                          )}
-                          {!sectionConfirmed.metrics && (
-                            <button
-                              onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
-                              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 transition-colors group text-left"
-                            >
-                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                              <span className="text-xs text-foreground flex-1">Verify LTV/CAC ratio</span>
-                              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md">+25%</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-                            </button>
-                          )}
-                          {!sectionConfirmed.social && (
-                            <button
-                              onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "social" }))}
-                              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 transition-colors group text-left"
-                            >
-                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                              <span className="text-xs text-foreground flex-1">Add Social Links</span>
-                              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md">+25%</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-                            </button>
-                          )}
-                          {!investorsConfirmed && sectionConfirmed.social && (
-                            <button
-                              onClick={() => investorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                              className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-muted/50 transition-colors group text-left"
-                            >
-                              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                              <span className="text-xs text-foreground flex-1">Confirm Investors</span>
-                              <span className="text-[10px] font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-md">Unlock</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-accent transition-colors" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {profileCompletion.percent >= 100 && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <CheckCircle2 className="h-4 w-4 text-success" />
-                        <span className="text-xs font-medium text-success">All sections complete</span>
-                      </div>
-                    )}
-                  </div>
+                  <ProfileStrength
+                    completionPercent={profileCompletion.percent}
+                    sectionConfirmed={sectionConfirmed}
+                    investorsConfirmed={investorsConfirmed}
+                    investorSectionRef={investorSectionRef}
+                  />
 
                   {/* ── Card 3: AI Profile Insight ── */}
                   <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
