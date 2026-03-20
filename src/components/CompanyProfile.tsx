@@ -1425,29 +1425,59 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </div>
 
-            {/* ── Right: Pitch Deck dropzone ── */}
+            {/* ── Right: Pitch Deck dropzone / Active Deck Card ── */}
             <div className="space-y-1 flex flex-col">
               <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <FileText className="h-3 w-3" /> Pitch Deck (PDF)
               </label>
-              <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-                className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
-                  scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
-                }`}>
-                {scanningMetrics ? (
-                  <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
-                ) : (
-                  <Upload className="h-5 w-5 text-muted-foreground mb-2" />
-                )}
-                <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                  {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
-                </span>
-                {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
-                <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
-              </div>
+              {activeDeck && !showReplaceDeck ? (
+                <div className="bg-muted/30 border border-border rounded-lg p-4 flex items-center justify-between flex-1 min-h-[120px]">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5 text-destructive" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate max-w-[180px]">{activeDeck.file_name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+                          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Active
+                        </span>
+                        {activeDeck.file_size_bytes && (
+                          <span className="text-[10px] text-muted-foreground">{(activeDeck.file_size_bytes / 1024).toFixed(0)} KB</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowReplaceDeck(true)}
+                    className="text-sm font-medium text-muted-foreground hover:text-accent bg-background border border-border shadow-sm rounded-md px-3 py-1.5 transition-colors flex items-center gap-1.5"
+                  >
+                    <Replace className="h-3.5 w-3.5" /> Replace
+                  </button>
+                </div>
+              ) : (
+                <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
+                    scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
+                  }`}>
+                  {scanningMetrics ? (
+                    <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-muted-foreground mb-2" />
+                  )}
+                  <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                    {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
+                  </span>
+                  {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
+                  <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+                  {showReplaceDeck && activeDeck && (
+                    <button onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
