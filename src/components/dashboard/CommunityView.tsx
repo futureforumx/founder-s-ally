@@ -184,10 +184,10 @@ function FounderCard({ founder, trending, onClick }: { founder: FounderEntry; tr
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
+function CarouselCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
-      <FounderCard founder={founder} trending={trending} />
+      <FounderCard founder={founder} trending={trending} onClick={onClick} />
     </div>
   );
 }
