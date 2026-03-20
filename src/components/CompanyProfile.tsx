@@ -148,7 +148,7 @@ const METRIC_TOOLTIPS: Record<string, { title: string; definition: string; formu
   burnRate: { title: "Burn Rate", definition: "How much cash you spend per period beyond what you earn. A key indicator of runway.", formula: "Total Expenses − Total Revenue", icon: "flame" },
   cac: { title: "Customer Acquisition Cost", definition: "The average amount spent to acquire one new paying customer.", formula: "Total Sales & Marketing Spend / New Customers", icon: "dollar" },
   ltv: { title: "Lifetime Value", definition: "Total revenue expected from a single customer over their entire relationship.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan", icon: "dollar" },
-  ltvCac: { title: "LTV / CAC Ratio", definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is considered healthy.", formula: "LTV / CAC", icon: "scale" },
+  ltvCac: { title: "LTV / CAC Ratio", definition: "Auto-calculated as LTV ÷ CAC. You can edit this field to apply a manual override.", formula: "LTV / CAC", icon: "scale" },
   nrr: { title: "Net Revenue Retention", definition: "Measures expansion and churn within existing customers. A value over 100% indicates net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR", icon: "refresh" },
   headcount: { title: "Headcount", definition: "Total number of full-time employees across all departments.", icon: "users" },
 };
