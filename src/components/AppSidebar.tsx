@@ -17,6 +17,7 @@ const topItems = [
 
 const companyItems = [
   { id: "company" as const, label: "Mission Control", icon: Building2 },
+  { id: "competitors" as const, label: "Competitors", icon: Swords },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investors", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
