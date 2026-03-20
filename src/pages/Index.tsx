@@ -26,7 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
 
 // ── Sticky Profile Footer ──
 function StickyProfileFooter({
