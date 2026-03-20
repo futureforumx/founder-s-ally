@@ -393,32 +393,34 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
   return (
     <div className="space-y-2">
-      {/* Company badge for investor-search */}
+      {/* Top navbar for investor-search */}
       {variant === "investor-search" && (
-        <button
-          onClick={onNavigateProfile}
-          className="flex items-center gap-4 group cursor-pointer mb-2"
-        >
-          <div className="relative w-12 h-12 rounded-xl border border-border bg-muted/30 shadow-sm group-hover:ring-2 group-hover:ring-accent/20 transition-all flex items-center justify-center overflow-hidden shrink-0">
-            {logoUrl ? (
-              <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-xl" />
-            ) : hasProfile ? (
-              <span className="text-lg font-bold text-muted-foreground">
-                {companyData!.name.charAt(0).toUpperCase()}
-              </span>
-            ) : (
-              <Building2 className="h-5 w-5 text-muted-foreground/40" />
-            )}
-          </div>
-          <div className="text-left">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground group-hover:text-accent transition-colors">
-              {hasProfile ? companyData!.name : "My Company"}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Your company profile and real-time pulse
-            </p>
-          </div>
-        </button>
+        <div className="w-full border-b border-border bg-card/50 backdrop-blur-sm -mx-8 -mt-6 px-8 py-4 mb-4" style={{ width: "calc(100% + 4rem)" }}>
+          <button
+            onClick={onNavigateProfile}
+            className="flex items-center gap-4 group cursor-pointer"
+          >
+            <div className="relative w-12 h-12 rounded-xl border border-border bg-muted/30 shadow-sm group-hover:ring-2 group-hover:ring-accent/20 transition-all flex items-center justify-center overflow-hidden shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-xl" />
+              ) : hasProfile ? (
+                <span className="text-lg font-bold text-muted-foreground">
+                  {companyData!.name.charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <Building2 className="h-5 w-5 text-muted-foreground/40" />
+              )}
+            </div>
+            <div className="text-left">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground group-hover:text-accent transition-colors">
+                {hasProfile ? companyData!.name : "My Company"}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your company profile and real-time pulse
+              </p>
+            </div>
+          </button>
+        </div>
       )}
 
       {/* Header row */}
