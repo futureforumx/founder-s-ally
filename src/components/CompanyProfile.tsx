@@ -231,6 +231,7 @@ interface CompanyProfileProps {
   onProfileVerified?: (verified: boolean) => void;
   onWalkthroughComplete?: () => void;
   onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
+  onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
 }
 
 export interface CompanyProfileHandle {
