@@ -431,6 +431,31 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         )}
       </div>
 
+      {/* ── Smart Cohort Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+        {cohorts.map((cohort) => {
+          const Icon = cohort.icon;
+          return (
+            <button
+              key={cohort.id}
+              onClick={() => handleCohortClick(
+                cohort.filterKey,
+                cohort.id === "founders" ? "founders" : undefined
+              )}
+              className="relative overflow-hidden bg-card border border-border rounded-xl p-4 flex flex-col text-left cursor-pointer hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+            >
+              <span className="text-2xl font-bold text-foreground group-hover:text-accent transition-colors">
+                {cohort.value}
+              </span>
+              <span className="text-xs text-muted-foreground font-medium mt-0.5">
+                {cohort.label}
+              </span>
+              <Icon className="absolute -bottom-1.5 -right-1.5 w-10 h-10 text-muted/60 group-hover:text-accent/10 transition-colors" />
+            </button>
+          );
+        })}
+      </div>
+
       {/* Global Entity Tabs */}
       <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
         {GLOBAL_TABS.map((tab) => {
