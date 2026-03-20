@@ -832,9 +832,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                         onChange={(e) => setNewCompName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newCompName.trim()) {
-                            onAddCompetitor?.(newCompName.trim());
-                            setNewCompName("");
-                            setShowAddModal(false);
+                            handleAddCompetitor(newCompName.trim());
                           }
                         }}
                         placeholder="e.g. Stripe, Brex, Mercury..."
@@ -844,7 +842,38 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     </div>
                   </div>
 
-                  {newCompName.trim() && (
+                  {/* Search Results from DB */}
+                  {searchResults.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Existing Competitors</p>
+                      {searchResults.map((result: any) => (
+                        <button
+                          key={result.id}
+                          onClick={() => handleAddCompetitor(result.name)}
+                          className="w-full flex items-center gap-3 rounded-lg border border-border/50 bg-secondary/20 p-3 hover:bg-secondary/50 transition-colors text-left"
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-card border border-border/50 overflow-hidden shrink-0">
+                            <img
+                              src={faviconSrc(domainFromName(result.name))}
+                              alt=""
+                              className="h-4 w-4"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">{result.name}</p>
+                            {result.industry_tags?.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground">{result.industry_tags.slice(0, 3).join(" · ")}</p>
+                            )}
+                          </div>
+                          <Badge variant="secondary" className="text-[9px] shrink-0">Track</Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* New competitor preview */}
+                  {newCompName.trim() && searchResults.length === 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -863,9 +892,9 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground">{newCompName.trim()}</p>
-                        <p className="text-[10px] text-muted-foreground">{domainFromName(newCompName.trim())}</p>
+                        <p className="text-[10px] text-muted-foreground">New entry · will be AI-enriched</p>
                       </div>
-                      <Badge variant="secondary" className="text-[9px] shrink-0">Preview</Badge>
+                      <Badge className="text-[9px] shrink-0 bg-accent/10 text-accent border-0">+ New</Badge>
                     </motion.div>
                   )}
                 </div>
@@ -873,22 +902,17 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/50 bg-secondary/20">
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); setSearchResults([]); }}
                     className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      if (newCompName.trim()) {
-                        onAddCompetitor?.(newCompName.trim());
-                        setNewCompName("");
-                        setShowAddModal(false);
-                      }
-                    }}
-                    disabled={!newCompName.trim()}
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                    onClick={() => { if (newCompName.trim()) handleAddCompetitor(newCompName.trim()); }}
+                    disabled={!newCompName.trim() || dbAdding}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm disabled:opacity-40 disabled:pointer-events-none inline-flex items-center gap-2"
                   >
+                    {dbAdding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Add Competitor
                   </button>
                 </div>
