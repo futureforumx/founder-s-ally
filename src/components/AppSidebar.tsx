@@ -25,6 +25,7 @@ const companyItems = [
 
 const investorItems = [
   { id: "investors" as const, label: "Matches", icon: Handshake },
+  { id: "investor-search" as const, label: "Search", icon: Search },
 ];
 
 const communityItems = [
