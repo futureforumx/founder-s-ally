@@ -52,7 +52,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "updates", label: "Updates" },
   { key: "matches", label: "Matches" },
   { key: "activity", label: "Activity" },
-  { key: "manage", label: "Manage" },
+  { key: "manage", label: "My Investors" },
 ];
 
 // ── Helpers ──
