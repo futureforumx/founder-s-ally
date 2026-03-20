@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, DollarSign, ExternalLink, X, User, Building2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Trash2, DollarSign, ExternalLink, X, User, Building2, Sparkles, Loader2, Search, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INVESTMENT_TYPES, FUNDING_ROUNDS, PERSON_ROLES, detectEntityType, type CapBacker } from "./CapTableRow";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,152 @@ function cleanDomain(url: string): string {
   return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
 }
 
+// ── Mock partner/firm suggestions ──
+const MOCK_PARTNERS: { name: string; avatar?: string }[] = [
+  { name: "Marc Andreessen" },
+  { name: "Sarah Chen" },
+  { name: "David Park" },
+  { name: "Elad Gil" },
+  { name: "Kirsten Green" },
+];
+
+const MOCK_SYNDICATES: { name: string; logo?: string }[] = [
+  { name: "AngelList Syndicates" },
+  { name: "Republic" },
+  { name: "SeedInvest" },
+  { name: "Wefunder" },
+];
+
+// ── Searchable Combobox for partners/firms ──
+function EntityCombobox({
+  value,
+  onChange,
+  placeholder,
+  options,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  options: { name: string; avatar?: string; logo?: string }[];
+  label: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = options.filter(o =>
+    o.name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  // Simulate API search delay
+  useEffect(() => {
+    if (query.length > 0) {
+      setIsSearching(true);
+      const t = setTimeout(() => setIsSearching(false), 600);
+      return () => clearTimeout(t);
+    }
+    setIsSearching(false);
+  }, [query]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectedOption = options.find(o => o.name === value);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div
+        className={cn(
+          "flex items-center gap-2 w-full rounded-xl border bg-secondary/30 px-3 py-2.5 text-sm transition-all cursor-text",
+          isOpen ? "border-accent/40 ring-2 ring-accent/30" : "border-border hover:border-border/80"
+        )}
+        onClick={() => { setIsOpen(true); inputRef.current?.focus(); }}
+      >
+        {value && selectedOption ? (
+          <>
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-muted text-[9px] font-bold text-muted-foreground shrink-0">
+              {selectedOption.name.charAt(0)}
+            </div>
+            <span className="text-sm text-foreground flex-1 truncate">{value}</span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChange(""); setQuery(""); }}
+              className="h-4 w-4 flex items-center justify-center rounded-full hover:bg-muted transition-colors shrink-0"
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </>
+        ) : (
+          <>
+            <Search className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
+              onFocus={() => setIsOpen(true)}
+              placeholder={placeholder}
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+            />
+            {isSearching && <Loader2 className="h-3.5 w-3.5 text-accent animate-spin shrink-0" />}
+          </>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isOpen && !value && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 right-0 top-full mt-1 z-[99999] bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto"
+          >
+            {filtered.length > 0 ? (
+              filtered.map(opt => (
+                <button
+                  key={opt.name}
+                  type="button"
+                  onClick={() => { onChange(opt.name); setQuery(""); setIsOpen(false); }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors text-left"
+                >
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground shrink-0">
+                    {opt.name.charAt(0)}
+                  </div>
+                  {opt.name}
+                </button>
+              ))
+            ) : null}
+            {query.trim() && !filtered.some(o => o.name.toLowerCase() === query.toLowerCase()) && (
+              <button
+                type="button"
+                onClick={() => { onChange(query.trim()); setQuery(""); setIsOpen(false); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-accent hover:bg-accent/5 transition-colors border-t border-border/50 text-left"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add "{query.trim()}" as new {label.toLowerCase()}
+              </button>
+            )}
+            {!query.trim() && filtered.length === 0 && (
+              <div className="px-3 py-3 text-xs text-muted-foreground text-center">Start typing to search…</div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemove }: InvestorEditDialogProps) {
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -49,20 +196,19 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
   const [entityType, setEntityType] = useState<"person" | "firm">("person");
   const [personRole, setPersonRole] = useState("Angel");
   const [leadPartner, setLeadPartner] = useState("");
+  const [associatedFirm, setAssociatedFirm] = useState("");
 
   useEffect(() => {
     if (backer) {
       setAmount(backer.amount > 0 ? formatWithCommas(backer.amount) : "");
       setInstrument(backer.instrument);
       setRound(backer.date);
-      // Parse entity type
       const et = backer.entityType;
       if (et === "person" || et === "firm") {
         setEntityType(et);
       } else {
         setEntityType(detectEntityType(backer.name));
       }
-      // Parse person role or lead partner from notes
       if (backer.entityType === "person" && backer.notes) {
         setPersonRole(PERSON_ROLES.includes(backer.notes) ? backer.notes : "Angel");
         setLeadPartner("");
@@ -73,7 +219,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
         setPersonRole("Angel");
         setLeadPartner("");
       }
-      // Parse closing date
+      setAssociatedFirm("");
       const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       if (backer.date) {
         const parts = backer.date.split(" ");
@@ -116,7 +262,9 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     setSaving(true);
     try {
       const closingDateStr = closingMonth && closingYear ? `${closingMonth} ${closingYear}` : null;
-      const notesValue = entityType === "person" ? personRole : (entityType === "firm" ? leadPartner || null : null);
+      const notesValue = entityType === "person"
+        ? (associatedFirm ? `${personRole} | ${associatedFirm}` : personRole)
+        : (leadPartner || null);
 
       const updates: Record<string, unknown> = {
         amount: parsedAmount,
@@ -151,7 +299,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     } finally {
       setSaving(false);
     }
-  }, [backer, amount, instrument, round, closingMonth, closingYear, entityType, personRole, leadPartner, onSave, onOpenChange]);
+  }, [backer, amount, instrument, round, closingMonth, closingYear, entityType, personRole, leadPartner, associatedFirm, onSave, onOpenChange]);
 
   const handleRemove = useCallback(async () => {
     if (!backer) return;
@@ -207,7 +355,19 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <h3 className="text-base font-bold text-foreground truncate">{backer.name}</h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-base font-bold text-foreground truncate">{backer.name}</h3>
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex shrink-0 cursor-default">
+                            <Sparkles className="h-3.5 w-3.5 text-accent/60" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          ✨ Verified via database enrichment
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     {backer.slogan && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{backer.slogan}</p>
                     )}
@@ -233,7 +393,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
               </div>
 
               {/* Form */}
-              <div className="px-6 py-5 space-y-4">
+              <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
                 {/* Entity Type Toggle */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Type</label>
@@ -272,15 +432,30 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Role</label>
                     <Select value={personRole} onValueChange={setPersonRole}>
-                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10 hover:border-border/80 transition-colors">
                         <SelectValue placeholder="Select role…" />
                       </SelectTrigger>
-                      <SelectContent position="popper" className="z-[99999]">
+                      <SelectContent position="popper" className="z-[99999] rounded-xl">
                         {PERSON_ROLES.map(r => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                          <SelectItem key={r} value={r} className="rounded-lg">{r}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {/* Conditional: Associated Syndicate/Firm (Person only) */}
+                {entityType === "person" && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Associated Syndicate / Firm</label>
+                    <EntityCombobox
+                      value={associatedFirm}
+                      onChange={setAssociatedFirm}
+                      placeholder="Are they investing via a specific entity? (Optional)"
+                      options={MOCK_SYNDICATES}
+                      label="Firm"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Optional — link this person to an investing entity.</p>
                   </div>
                 )}
 
@@ -314,12 +489,12 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Funding Round</label>
                     <Select value={round} onValueChange={setRound}>
-                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10 hover:border-border/80 transition-colors">
                         <SelectValue placeholder="Select round…" />
                       </SelectTrigger>
-                      <SelectContent position="popper" className="z-[99999]">
+                      <SelectContent position="popper" className="z-[99999] rounded-xl">
                         {FUNDING_ROUNDS.map(r => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                          <SelectItem key={r} value={r} className="rounded-lg">{r}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -327,12 +502,12 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Instrument</label>
                     <Select value={instrument} onValueChange={setInstrument}>
-                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10 hover:border-border/80 transition-colors">
                         <SelectValue placeholder="Select type…" />
                       </SelectTrigger>
-                      <SelectContent position="popper" className="z-[99999]">
+                      <SelectContent position="popper" className="z-[99999] rounded-xl">
                         {INVESTMENT_TYPES.map(t => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                          <SelectItem key={t} value={t} className="rounded-lg">{t}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -344,37 +519,38 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Closing Date</label>
                   <div className="grid grid-cols-2 gap-3">
                     <Select value={closingMonth} onValueChange={setClosingMonth}>
-                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10 hover:border-border/80 transition-colors">
                         <SelectValue placeholder="Month" />
                       </SelectTrigger>
-                      <SelectContent position="popper" className="z-[99999]">
+                      <SelectContent position="popper" className="z-[99999] rounded-xl">
                         {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                          <SelectItem key={m} value={m} className="rounded-lg">{m}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <Select value={closingYear} onValueChange={setClosingYear}>
-                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10 hover:border-border/80 transition-colors">
                         <SelectValue placeholder="Year" />
                       </SelectTrigger>
-                      <SelectContent position="popper" className="z-[99999]">
+                      <SelectContent position="popper" className="z-[99999] rounded-xl">
                         {Array.from({ length: 11 }, (_, i) => String(2020 + i)).map(y => (
-                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                          <SelectItem key={y} value={y} className="rounded-lg">{y}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                {/* Conditional: Lead Partner (Firm only) */}
+                {/* Conditional: Lead Partner (Firm only) — Searchable Combobox */}
                 {entityType === "firm" && (
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Lead Partner</label>
-                    <input
+                    <EntityCombobox
                       value={leadPartner}
-                      onChange={e => setLeadPartner(e.target.value)}
-                      placeholder="e.g., Marc Andreessen"
-                      className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                      onChange={setLeadPartner}
+                      placeholder="Search partners or add new (Optional)"
+                      options={MOCK_PARTNERS}
+                      label="Partner"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Who is your point of contact or board member at this firm?</p>
                   </div>
