@@ -475,9 +475,17 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
 
 // ── Main Component ──
 
+type CompetitorTab = "all" | "threats" | "watch";
+
+const COMPETITOR_TABS: { key: CompetitorTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "threats", label: "Threats" },
+  { key: "watch", label: "Watch" },
+];
+
 export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsViewProps) {
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
-  const competitors = companyData?.competitors || [];
+  const [compTab, setCompTab] = useState<CompetitorTab>("all");
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
