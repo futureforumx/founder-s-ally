@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Search, Users, Building2, MapPin, Sparkles,
-  ArrowRight, Flame, Loader2,
+  Search, Users, Building2, MapPin, Sparkles, Briefcase,
+  ArrowRight, Flame, Loader2, LayoutGrid,
 } from "lucide-react";
-import { SearchOmnibar } from "./SearchOmnibar";
+import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
