@@ -288,10 +288,6 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
                 <p className="text-xs text-muted-foreground text-center py-8">No matches yet.</p>
               )}
             </div>
-
-            <button className="mt-5 flex w-full items-center justify-center gap-1.5 text-xs font-medium text-accent hover:text-accent/80 transition-colors">
-              View all matches <ArrowRight className="h-3 w-3" />
-            </button>
           </div>
         </div>
 
