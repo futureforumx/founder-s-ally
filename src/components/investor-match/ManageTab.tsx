@@ -252,7 +252,7 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
         >
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search the NFX Signal database..."
+            placeholder="Search global investor database..."
             value={searchQuery}
             onChange={e => {
               setSearchQuery(e.target.value);
