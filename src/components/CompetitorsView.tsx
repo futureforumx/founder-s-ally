@@ -7,6 +7,7 @@ import { CompanyData } from "@/components/CompanyProfile";
 interface CompetitorsViewProps {
   companyData: CompanyData | null;
   onNavigateProfile: () => void;
+  onAddCompetitor?: (name: string) => void;
 }
 
 // ── Competitor Intel Database ──
