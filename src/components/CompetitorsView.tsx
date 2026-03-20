@@ -489,6 +489,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
+  const competitors = companyData?.competitors || [];
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
