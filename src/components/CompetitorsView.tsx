@@ -857,27 +857,56 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                   </button>
                 </div>
 
-                {/* Body */}
                 <div className="px-6 py-5 space-y-4">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Company Name</label>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Website</label>
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                       <input
                         type="text"
-                        value={newCompName}
-                        onChange={(e) => setNewCompName(e.target.value)}
+                        value={newCompWebsite}
+                        onChange={(e) => {
+                          setNewCompWebsite(e.target.value);
+                          // Auto-derive company name from domain
+                          const val = e.target.value.trim();
+                          if (val) {
+                            try {
+                              let url = val;
+                              if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+                              const hostname = new URL(url).hostname.replace(/^www\./, "");
+                              const derived = hostname.split(".")[0];
+                              setNewCompName(derived.charAt(0).toUpperCase() + derived.slice(1));
+                            } catch {
+                              setNewCompName(val);
+                            }
+                          } else {
+                            setNewCompName("");
+                          }
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newCompName.trim()) {
                             handleAddCompetitor(newCompName.trim());
                           }
                         }}
-                        placeholder="e.g. Stripe, Brex, Mercury..."
+                        placeholder="e.g. stripe.com, brex.com..."
                         className="w-full rounded-xl border border-border bg-secondary/30 pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
                         autoFocus
                       />
                     </div>
                   </div>
+
+                  {/* Auto-derived company name (editable) */}
+                  {newCompName && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Company Name</label>
+                      <input
+                        type="text"
+                        value={newCompName}
+                        onChange={(e) => setNewCompName(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                      />
+                    </div>
+                  )}
 
                   {/* Classification */}
                   <div className="grid grid-cols-2 gap-3">
