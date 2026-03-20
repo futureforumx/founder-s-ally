@@ -6,19 +6,21 @@ interface RadialScoreProps {
   strokeWidth?: number;
 }
 
-export function RadialScore({ score, size = 160, strokeWidth = 10 }: RadialScoreProps) {
+function getScoreColor(score: number) {
+  if (score >= 80) return { text: "text-emerald-500", stroke: "#10b981", pulse: false };
+  if (score >= 50) return { text: "text-amber-500", stroke: "#f59e0b", pulse: true };
+  return { text: "text-rose-600", stroke: "#e11d48", pulse: true };
+}
+
+export function RadialScore({ score, size = 180, strokeWidth = 11 }: RadialScoreProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
   const center = size / 2;
-
-  const color =
-    score >= 75 ? "hsl(var(--success))" :
-    score >= 50 ? "hsl(var(--warning))" :
-    "hsl(var(--destructive))";
+  const { text, stroke, pulse } = getScoreColor(score);
 
   const label =
-    score >= 75 ? "Strong" :
+    score >= 80 ? "Strong" :
     score >= 50 ? "Needs Work" :
     "Weak";
 
@@ -35,17 +37,26 @@ export function RadialScore({ score, size = 160, strokeWidth = 10 }: RadialScore
           <circle
             cx={center} cy={center} r={radius}
             fill="none"
-            stroke={color}
+            stroke={stroke}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
             className="transition-all duration-1000 ease-out"
+            style={{ filter: `drop-shadow(0 0 6px ${stroke}40)` }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-extrabold text-foreground tabular-nums">{score}</span>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</span>
+          <span
+            className={cn(
+              "text-7xl font-extrabold tabular-nums leading-none",
+              text,
+              pulse && "animate-pulse"
+            )}
+          >
+            {score}
+          </span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-1">{label}</span>
         </div>
       </div>
       <p className="text-xs font-semibold text-foreground">Investor Readiness</p>
