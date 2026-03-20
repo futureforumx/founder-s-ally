@@ -283,7 +283,7 @@ function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;t
 }
 
 
-export function CommunityView({ companyData, analysisResult, onNavigateProfile }: CommunityViewProps) {
+export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
