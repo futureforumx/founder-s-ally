@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { Input } from "@/components/ui/input";
+import { useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { InlineCellCombobox } from "./InlineCellCombobox";
+import { InlineAmountInput, formatCompactCurrency } from "./InlineAmountInput";
 
 export const INVESTMENT_TYPES = [
   "Equity (Priced Round)",
@@ -50,49 +49,8 @@ interface CapTableRowProps {
   onRoundChange?: (id: string, round: string) => void;
 }
 
-export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOwnershipChange, onAmountChange, onInstrumentChange, onRoundChange }: CapTableRowProps) {
-  const [editingField, setEditingField] = useState<"amount" | "ownership" | null>(null);
-  const [editValue, setEditValue] = useState("");
-
-  useEffect(() => {
-    if (isHighlighted) {
-      setEditingField("amount");
-      setEditValue("");
-    }
-  }, [isHighlighted]);
-
-  const startEditAmount = () => {
-    setEditingField("amount");
-    setEditValue(backer.amount > 0 ? String(backer.amount) : "");
-  };
-
-  const cancelEdit = () => {
-    setEditingField(null);
-    setEditValue("");
-  };
-
-  const confirmEdit = useCallback(async () => {
-    if (!editingField) return;
-    const numericValue = parseFloat(editValue) || 0;
-
-    if (editingField === "amount") {
-      onAmountChange(backer.id, numericValue);
-      try {
-        await supabase.from("cap_table").update({ amount: numericValue }).eq("id", backer.id);
-      } catch {
-        toast.error("Failed to save amount.");
-      }
-    } else {
-      onOwnershipChange(backer.id, numericValue);
-      try {
-        await (supabase.from("cap_table") as any).update({ ownership_pct: numericValue }).eq("id", backer.id);
-      } catch {
-        toast.error("Failed to save ownership.");
-      }
-    }
-    setEditingField(null);
-    setEditValue("");
-  }, [editingField, editValue, backer.id, onOwnershipChange, onAmountChange]);
+export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onAmountChange, onInstrumentChange, onRoundChange }: CapTableRowProps) {
+  const isEven = index % 2 === 0;
 
   const handleInstrumentSelect = useCallback(async (val: string) => {
     onInstrumentChange?.(backer.id, val);
@@ -112,7 +70,14 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
     }
   }, [backer.id, onRoundChange]);
 
-  const isEven = index % 2 === 0;
+  const handleAmountConfirm = useCallback(async (amount: number) => {
+    onAmountChange(backer.id, amount);
+    try {
+      await supabase.from("cap_table").update({ amount }).eq("id", backer.id);
+    } catch {
+      toast.error("Failed to save amount.");
+    }
+  }, [backer.id, onAmountChange]);
 
   return (
     <tr
@@ -139,7 +104,7 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
         <span className="text-sm font-medium text-foreground truncate">{backer.name}</span>
       </td>
 
-      {/* Type (Instrument) — Combobox */}
+      {/* Type — Portal Combobox */}
       <td className="py-3.5 px-4">
         <InlineCellCombobox
           value={backer.instrument}
@@ -148,7 +113,7 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
         />
       </td>
 
-      {/* Round — Combobox */}
+      {/* Round — Portal Combobox */}
       <td className="py-3.5 px-4">
         <InlineCellCombobox
           value={backer.date}
@@ -157,30 +122,14 @@ export function CapTableRow({ backer, index, isHighlighted, formatCurrency, onOw
         />
       </td>
 
-      {/* Amount */}
+      {/* Amount — Smart Currency Input */}
       <td className="py-3.5 px-4">
-        {editingField === "amount" ? (
-          <div className="flex items-center gap-1">
-            <Input
-              id={`amount-input-${backer.id}`}
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              placeholder="$0"
-              className="h-7 w-24 text-xs font-mono rounded-lg border-border"
-              autoFocus
-              onKeyDown={e => e.key === "Enter" && confirmEdit()}
-              type="number"
-              min="0"
-            />
-            <button onClick={confirmEdit} className="text-accent"><Check className="h-3.5 w-3.5" /></button>
-            <button onClick={cancelEdit} className="text-muted-foreground"><X className="h-3 w-3" /></button>
-          </div>
-        ) : (
-          <button onClick={startEditAmount} className="group/cost flex items-center gap-1">
-            <span className="text-sm font-bold text-foreground font-mono">{backer.amountLabel}</span>
-            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/cost:opacity-100 transition-opacity" />
-          </button>
-        )}
+        <InlineAmountInput
+          value={backer.amount}
+          displayLabel={backer.amount > 0 ? formatCompactCurrency(backer.amount) : "$0"}
+          backerId={backer.id}
+          onConfirm={handleAmountConfirm}
+        />
       </td>
     </tr>
   );

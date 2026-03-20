@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
 
 interface InlineCellComboboxProps {
   value: string;
@@ -11,26 +11,41 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const filtered = search
     ? options.filter(o => o.toLowerCase().includes(search.toLowerCase()))
     : options;
 
-  // Reset highlight when filtered list changes
   useEffect(() => {
     setHighlightIndex(0);
   }, [filtered.length, search]);
 
-  // Click outside to close
+  // Position dropdown via portal
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 220),
+    });
+  }, [open]);
+
+  // Click outside to close (check both trigger and portal dropdown)
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return;
+      setOpen(false);
+      setSearch("");
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -65,26 +80,21 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
     }
   };
 
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 transition-colors hover:bg-secondary hover:text-foreground"
-      >
-        <span className="truncate">{value || "Select…"}</span>
-        <ChevronDown className="h-3 w-3 shrink-0 opacity-0 group-hover/row:opacity-60 transition-opacity" />
-      </button>
-
-      {open && (
+  const dropdown = open
+    ? createPortal(
         <div
-          className="absolute top-full left-0 mt-1 w-56 rounded-xl overflow-hidden z-30"
+          ref={dropdownRef}
+          className="fixed rounded-xl overflow-hidden"
           style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 9999,
             background: "hsl(var(--background))",
             border: "1px solid hsl(var(--border))",
-            boxShadow: "0 12px 40px hsla(var(--foreground), 0.08)",
+            boxShadow: "0 16px 48px hsla(var(--foreground), 0.12)",
           }}
         >
-          {/* Search input */}
           <div className="p-2 border-b" style={{ borderColor: "hsl(var(--border))" }}>
             <input
               ref={inputRef}
@@ -92,19 +102,22 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
               onChange={e => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search…"
-              className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground outline-none"
+              className="w-full text-sm px-3 py-1.5 rounded-md text-foreground placeholder:text-muted-foreground outline-none"
+              style={{
+                background: "hsl(var(--background))",
+                border: "1px solid hsl(210, 60%, 70%)",
+                boxShadow: "0 0 0 2px hsla(210, 60%, 85%, 0.5)",
+              }}
             />
           </div>
-
-          {/* Options */}
-          <div className="max-h-48 overflow-y-auto py-1">
+          <div className="max-h-52 overflow-y-auto py-1">
             {filtered.length > 0 ? (
               filtered.map((option, i) => (
                 <button
                   key={option}
                   onClick={() => handleSelect(option)}
                   onMouseEnter={() => setHighlightIndex(i)}
-                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                     i === highlightIndex
                       ? "bg-secondary text-foreground"
                       : "text-muted-foreground hover:bg-secondary/60"
@@ -114,11 +127,24 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
                 </button>
               ))
             ) : (
-              <p className="px-3 py-2 text-xs text-muted-foreground">No matches</p>
+              <p className="px-3 py-3 text-xs text-muted-foreground text-center">No matches</p>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen(!open)}
+        className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 transition-colors hover:bg-secondary hover:text-foreground truncate block text-left"
+      >
+        {value || "Select…"}
+      </button>
+      {dropdown}
+    </>
   );
 }
