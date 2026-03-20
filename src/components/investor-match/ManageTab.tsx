@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { CapTableRow, type CapBacker } from "./CapTableRow";
-import { CapTableFooter } from "./CapTableFooter";
+
 
 interface NFXResult {
   name: string;
