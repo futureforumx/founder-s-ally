@@ -374,6 +374,8 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
                 formatCurrency={formatCurrency}
                 onOwnershipChange={handleOwnershipChange}
                 onAmountChange={handleAmountChange}
+                onInstrumentChange={handleInstrumentChange}
+                onRoundChange={handleRoundChange}
               />
             ))}
           </TableBody>
