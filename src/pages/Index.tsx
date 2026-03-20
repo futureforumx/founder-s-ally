@@ -3,7 +3,8 @@ import { formatDistanceToNow } from "date-fns";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { StrategyRoom } from "@/components/company-profile/StrategyRoom";
+import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
+import { useCapTable } from "@/hooks/useCapTable";
 import { SectorClassification } from "@/components/SectorTags";
 import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
