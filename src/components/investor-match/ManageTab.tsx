@@ -502,7 +502,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
       </div>
 
       {/* Investor Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
         {paginatedBackers.map((b) => {
           const key = b.name.toLowerCase().trim();
           const enriched = enrichCache?.[key];
