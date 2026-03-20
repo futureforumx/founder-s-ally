@@ -525,7 +525,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     onSectionConfirmedChange?.(sectionConfirmed);
   }, [sectionConfirmed, onSectionConfirmedChange]);
 
-
+  useEffect(() => {
     if (analysisComplete && form.name) onSave?.(form);
   }, [form, analysisComplete]);
 
