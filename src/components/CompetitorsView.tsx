@@ -635,19 +635,27 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
             {/* Segmented Control + Add Button */}
             <div className="flex items-center gap-2 mb-4">
               <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
-                {COMPETITOR_TABS.map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setCompTab(tab.key)}
-                    className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
-                      compTab === tab.key
-                        ? "bg-card shadow-sm text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                {COMPETITOR_TABS.map(tab => {
+                  const count = tab.key === "all" ? competitors.length
+                    : tab.key === "threats" ? competitors.filter(n => getIntel(n).status === "Direct Competitor").length
+                    : competitors.filter(n => { const s = getIntel(n).status; return s === "Indirect" || s === "Legacy Incumbent"; }).length;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setCompTab(tab.key)}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 inline-flex items-center gap-1.5 ${
+                        compTab === tab.key
+                          ? "bg-card shadow-sm text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {tab.label}
+                      <span className={`text-[10px] font-medium rounded-full px-1.5 py-0 min-w-[18px] text-center ${
+                        compTab === tab.key ? "bg-secondary text-foreground" : "bg-secondary/70 text-muted-foreground"
+                      }`}>{count}</span>
+                    </button>
+                  );
+                })}
               </div>
               <button
                 onClick={() => setShowAddModal(true)}
