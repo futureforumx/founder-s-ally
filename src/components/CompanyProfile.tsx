@@ -513,7 +513,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-period", metricPeriod);
         localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
-        if (form.name) { setSaveIndicator("Auto-saving"); }
+        if (form.name) { setSaveIndicator("Live"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
@@ -1468,7 +1468,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
                 </span>
-                Auto-saving
+                Live
               </span>
             )}
           </div>
