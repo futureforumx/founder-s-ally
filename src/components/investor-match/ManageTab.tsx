@@ -351,59 +351,91 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
       </div>
 
       {/* Investor Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-        {filteredBackers.map((b) => (
-          <div
-            key={b.id}
-            onClick={() => handleRowClick(b)}
-            className={`relative border border-border rounded-xl p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer group ${
-              b.id === highlightedId ? "ring-2 ring-accent" : ""
-            }`}
-            style={{
-              background: "hsl(var(--background))",
-              boxShadow: "0 1px 3px hsla(var(--foreground), 0.04)",
-            }}
-          >
-            {/* Arrow cue */}
-            <ChevronRight className="absolute top-4 right-4 h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+        {filteredBackers.map((b) => {
+          const key = b.name.toLowerCase().trim();
+          const enriched = enrichCache?.[key];
+          const slogan = b.slogan || enriched?.profile?.currentThesis || null;
 
-            {/* Header: Logo + Name */}
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 shrink-0 rounded-md border border-border shadow-sm">
-                {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                <AvatarFallback
-                  className="text-sm font-semibold rounded-md"
-                  style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                >
-                  {b.logoLetter}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-base font-bold text-foreground line-clamp-1">{b.name}</span>
-            </div>
+          return (
+            <div
+              key={b.id}
+              onClick={() => handleRowClick(b)}
+              className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer group ${
+                b.id === highlightedId ? "ring-2 ring-accent" : ""
+              }`}
+              style={{
+                background: "hsl(var(--background))",
+                boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
+              }}
+            >
+              {/* Arrow cue */}
+              <button
+                className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground/50 group-hover:text-primary group-hover:border-primary/30 transition-colors"
+                onClick={(e) => { e.stopPropagation(); }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
 
-            {/* Core Metric */}
-            <div className="mt-4">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Commitment</p>
-              <p className="text-2xl font-extrabold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                {b.amount > 0 ? formatCompactCurrency(b.amount) : "$0"}
+              {/* Header: Logo + Name + Category */}
+              <div className="flex items-start gap-3">
+                <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
+                  {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                  <AvatarFallback
+                    className="text-sm font-bold rounded-xl"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.logoLetter}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {b.instrument || "Investor"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Description / Slogan */}
+              <p className="text-[13px] text-muted-foreground leading-relaxed mt-3 line-clamp-2 min-h-[2.6em]">
+                {slogan || (b.amount > 0
+                  ? `Committed ${formatCompactCurrency(b.amount)} via ${b.instrument || "SAFE"}.`
+                  : "No details available yet.")}
               </p>
-            </div>
 
-            {/* Metadata Pills */}
-            <div className="flex flex-wrap gap-2 mt-4">
-              {b.instrument && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsla(var(--primary), 0.08)", color: "hsl(var(--primary))" }}>
-                  {b.instrument}
+              {/* Tag Pills */}
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {b.instrument && (
+                  <span
+                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.instrument.split("(")[0].trim()}
+                  </span>
+                )}
+                {b.date && (
+                  <span
+                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
+                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                  >
+                    {b.date}
+                  </span>
+                )}
+              </div>
+
+              {/* Footer: View Details + Amount */}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+                <span className="text-xs font-medium text-primary hover:underline">View details</span>
+                <span
+                  className="text-xs font-bold text-foreground"
+                  style={{ fontFamily: "'Geist Mono', monospace" }}
+                >
+                  {b.amount > 0 ? formatCompactCurrency(b.amount) : "—"}
                 </span>
-              )}
-              {b.date && (
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }}>
-                  {b.date}
-                </span>
-              )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredBackers.length === 0 && !showSuggestions && (
