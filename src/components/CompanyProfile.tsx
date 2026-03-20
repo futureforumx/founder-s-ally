@@ -1589,27 +1589,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
-                    {/* Company Logo */}
-                    <div className="space-y-1">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold">Company Logo</label>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => logoInputRef.current?.click()}
-                          className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-border bg-muted/30 overflow-hidden transition-all hover:border-accent/40 ${logoValidationClass}`}
-                        >
-                          {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="h-full w-full object-cover rounded-full" />
-                          ) : uploadingLogo ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          ) : (
-                            <Camera className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </button>
-                        <span className="text-[11px] text-muted-foreground">{logoUrl ? "Click to change" : "Upload a logo"}</span>
-                      </div>
-                    </div>
-
                     {/* Row 1: Stage | Sector */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
