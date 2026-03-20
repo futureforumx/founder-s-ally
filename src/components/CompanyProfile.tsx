@@ -230,6 +230,7 @@ interface CompanyProfileProps {
   onStageClassification?: (data: { detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string }) => void;
   onProfileVerified?: (verified: boolean) => void;
   onWalkthroughComplete?: () => void;
+  onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
 }
 
 export interface CompanyProfileHandle {
