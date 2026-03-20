@@ -9,6 +9,7 @@ import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
 import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
+import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
 
 // ── Types ──
 
