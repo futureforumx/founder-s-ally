@@ -140,22 +140,32 @@ function smartBlurInteger(raw: string): string | null {
 }
 
 // Metric tooltip definitions
-const METRIC_TOOLTIPS: Record<string, { definition: string; formula?: string }> = {
-  mrr: { definition: "Monthly Recurring Revenue — predictable revenue earned each month from subscriptions.", formula: "Total active subscriptions × price" },
-  arr: { definition: "Annual Recurring Revenue — your MRR extrapolated over 12 months.", formula: "MRR × 12" },
-  momGrowth: { definition: "Month-over-Month growth rate of your key revenue metric.", formula: "((This Month − Last Month) / Last Month) × 100" },
-  yoyGrowth: { definition: "Year-over-Year growth rate comparing the same period across years.", formula: "((This Year − Last Year) / Last Year) × 100" },
-  burnRate: { definition: "How much cash you spend per period beyond what you earn.", formula: "Total Expenses − Total Revenue" },
-  cac: { definition: "Customer Acquisition Cost — average spend to acquire one new customer.", formula: "Total Sales & Marketing Spend / New Customers" },
-  ltv: { definition: "Lifetime Value — total revenue expected from a single customer over their lifetime.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan" },
-  ltvCac: { definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is healthy.", formula: "LTV / CAC" },
-  nrr: { definition: "Net Revenue Retention — measures expansion & churn within existing customers. 100%+ means net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR × 100" },
-  headcount: { definition: "Total number of full-time employees across all departments." },
+const METRIC_TOOLTIPS: Record<string, { title: string; definition: string; formula?: string; icon?: string }> = {
+  mrr: { title: "Monthly Recurring Revenue", definition: "Predictable revenue earned each month from active subscriptions.", formula: "Total active subscriptions × price", icon: "dollar" },
+  arr: { title: "Annual Recurring Revenue", definition: "Your MRR extrapolated over 12 months to show yearly revenue run rate.", formula: "MRR × 12", icon: "dollar" },
+  momGrowth: { title: "Month-over-Month Growth", definition: "The percentage change in your key revenue metric compared to the previous month.", formula: "((This Month − Last Month) / Last Month) × 100", icon: "trending" },
+  yoyGrowth: { title: "Year-over-Year Growth", definition: "Growth rate comparing the same period across years, smoothing out seasonal effects.", formula: "((This Year − Last Year) / Last Year) × 100", icon: "trending" },
+  burnRate: { title: "Burn Rate", definition: "How much cash you spend per period beyond what you earn. A key indicator of runway.", formula: "Total Expenses − Total Revenue", icon: "flame" },
+  cac: { title: "Customer Acquisition Cost", definition: "The average amount spent to acquire one new paying customer.", formula: "Total Sales & Marketing Spend / New Customers", icon: "dollar" },
+  ltv: { title: "Lifetime Value", definition: "Total revenue expected from a single customer over their entire relationship.", formula: "ARPU × Gross Margin × Avg. Customer Lifespan", icon: "dollar" },
+  ltvCac: { title: "LTV / CAC Ratio", definition: "The ratio of customer lifetime value to acquisition cost. Higher is better; 3x+ is considered healthy.", formula: "LTV / CAC", icon: "scale" },
+  nrr: { title: "Net Revenue Retention", definition: "Measures expansion and churn within existing customers. A value over 100% indicates net expansion.", formula: "(Starting MRR + Expansion − Contraction − Churn) / Starting MRR", icon: "refresh" },
+  headcount: { title: "Headcount", definition: "Total number of full-time employees across all departments.", icon: "users" },
 };
 
 function MetricTooltip({ metricKey }: { metricKey: string }) {
   const tip = METRIC_TOOLTIPS[metricKey];
   if (!tip) return null;
+
+  const iconMap: Record<string, React.ReactNode> = {
+    dollar: <DollarSign className="h-3.5 w-3.5" />,
+    trending: <TrendingUp className="h-3.5 w-3.5" />,
+    flame: <TrendingUp className="h-3.5 w-3.5" />,
+    scale: <Scale className="h-3.5 w-3.5" />,
+    refresh: <RefreshCw className="h-3.5 w-3.5" />,
+    users: <Users className="h-3.5 w-3.5" />,
+  };
+
   return (
     <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>
@@ -163,10 +173,29 @@ function MetricTooltip({ metricKey }: { metricKey: string }) {
           <Info className="h-3 w-3 text-muted-foreground/40 hover:text-accent transition-colors" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="bg-slate-900 text-white p-3 rounded-lg text-xs shadow-xl max-w-[220px] border-slate-700 space-y-1.5">
-        <p className="font-medium">{tip.definition}</p>
-        {tip.formula && <p className="text-slate-300 font-mono text-[10px]">Formula: {tip.formula}</p>}
-        <p className="text-slate-400 text-[10px] italic">💡 Tip: You can enter formulas here (e.g. 5000/250) and we'll calculate the result!</p>
+      <TooltipContent
+        side="top"
+        sideOffset={8}
+        className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-xl text-xs shadow-2xl max-w-[240px] border border-slate-700/50 space-y-2.5 animate-scale-in origin-bottom"
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="text-blue-400">{iconMap[tip.icon || "dollar"]}</span>
+          <span className="font-semibold text-sm text-white">{tip.title}</span>
+        </div>
+        <p className="text-slate-300 text-xs leading-relaxed">{tip.definition}</p>
+        {tip.formula && (
+          <div className="bg-white/5 p-2 rounded-md">
+            <p className="font-mono text-[10px] text-slate-200 leading-relaxed">
+              <span className="text-slate-500 text-[9px] uppercase tracking-wider">Formula</span>
+              <br />
+              {tip.formula}
+            </p>
+          </div>
+        )}
+        <p className="text-slate-400 text-[10px] italic flex items-center gap-1">
+          <Sparkles className="h-3 w-3 text-blue-400 flex-shrink-0" />
+          You can enter formulas directly here!
+        </p>
       </TooltipContent>
     </Tooltip>
   );
