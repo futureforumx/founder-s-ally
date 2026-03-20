@@ -171,6 +171,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [loading, setLoading] = useState(true);
   const [confirmedBackers, setConfirmedBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
+  const [timeRange, setTimeRange] = useState<TimeRange>("ytd");
+  const [selectedHeatCell, setSelectedHeatCell] = useState<number | null>(null);
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
