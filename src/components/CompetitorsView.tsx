@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock } from "lucide-react";
+import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CompanyData } from "@/components/CompanyProfile";
 
 interface CompetitorsViewProps {
   companyData: CompanyData | null;
   onNavigateProfile: () => void;
+  onAddCompetitor?: (name: string) => void;
 }
 
 // ── Competitor Intel Database ──
@@ -483,9 +484,11 @@ const COMPETITOR_TABS: { key: CompetitorTab; label: string }[] = [
   { key: "watch", label: "Watch" },
 ];
 
-export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsViewProps) {
+export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetitor }: CompetitorsViewProps) {
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCompName, setNewCompName] = useState("");
   const competitors = companyData?.competitors || [];
 
   const avgOverlap = useMemo(() => {
@@ -629,21 +632,30 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
           {/* Left Column: Tracked Competitors */}
           <div className="lg:col-span-4 flex flex-col">
             <h2 className="text-lg font-bold text-foreground mb-4">Tracked Competitors</h2>
-            {/* Segmented Control — aligned with right column tabs */}
-            <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
-              {COMPETITOR_TABS.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setCompTab(tab.key)}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
-                    compTab === tab.key
-                      ? "bg-card shadow-sm text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            {/* Segmented Control + Add Button */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
+                {COMPETITOR_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setCompTab(tab.key)}
+                    className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${
+                      compTab === tab.key
+                        ? "bg-card shadow-sm text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </button>
             </div>
             <div className="flex flex-col gap-4 max-h-[620px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
               {competitors.filter(name => {
@@ -709,6 +721,117 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
       <AnimatePresence>
         {activeCompetitor && (
           <BattlecardModal name={activeCompetitor} onClose={() => setActiveCompetitor(null)} />
+        )}
+      </AnimatePresence>
+
+      {/* Add Competitor Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                className="pointer-events-auto w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border/50 overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ type: "spring", damping: 28, stiffness: 350 }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Add Competitor</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Track a new competitor for AI-powered intelligence</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary transition-colors"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="px-6 py-5 space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Company Name</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                      <input
+                        type="text"
+                        value={newCompName}
+                        onChange={(e) => setNewCompName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newCompName.trim()) {
+                            onAddCompetitor?.(newCompName.trim());
+                            setNewCompName("");
+                            setShowAddModal(false);
+                          }
+                        }}
+                        placeholder="e.g. Stripe, Brex, Mercury..."
+                        className="w-full rounded-xl border border-border bg-secondary/30 pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40 transition-all"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {newCompName.trim() && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-xl bg-secondary/40 border border-border/50 p-3 flex items-center gap-3"
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-card border border-border/50 overflow-hidden shrink-0">
+                        <img
+                          src={faviconSrc(domainFromName(newCompName.trim()))}
+                          alt=""
+                          className="h-5 w-5"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-sm font-bold text-muted-foreground">${newCompName.trim().charAt(0).toUpperCase()}</span>`;
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{newCompName.trim()}</p>
+                        <p className="text-[10px] text-muted-foreground">{domainFromName(newCompName.trim())}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[9px] shrink-0">Preview</Badge>
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/50 bg-secondary/20">
+                  <button
+                    onClick={() => { setShowAddModal(false); setNewCompName(""); }}
+                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (newCompName.trim()) {
+                        onAddCompetitor?.(newCompName.trim());
+                        setNewCompName("");
+                        setShowAddModal(false);
+                      }
+                    }}
+                    disabled={!newCompName.trim()}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    Add Competitor
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
         )}
       </AnimatePresence>
     </>
