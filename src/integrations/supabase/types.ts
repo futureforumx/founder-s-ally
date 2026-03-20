@@ -169,6 +169,39 @@ export type Database = {
           },
         ]
       }
+      company_pitch_decks: {
+        Row: {
+          file_name: string
+          file_size_bytes: number | null
+          file_url: string
+          id: string
+          is_active: boolean
+          slide_count: number | null
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          file_name: string
+          file_size_bytes?: number | null
+          file_url: string
+          id?: string
+          is_active?: boolean
+          slide_count?: number | null
+          uploaded_at?: string
+          user_id: string
+        }
+        Update: {
+          file_name?: string
+          file_size_bytes?: number | null
+          file_url?: string
+          id?: string
+          is_active?: boolean
+          slide_count?: number | null
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           created_at: string
