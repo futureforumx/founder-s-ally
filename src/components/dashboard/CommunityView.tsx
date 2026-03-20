@@ -209,6 +209,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedFounder, setSelectedFounder] = useState<FounderEntry | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasProfile = !!companyData?.name;
