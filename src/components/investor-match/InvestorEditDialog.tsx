@@ -96,13 +96,14 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
 
     setSaving(true);
     try {
+      const closingDateStr = closingMonth && closingYear ? `${closingMonth} ${closingYear}` : null;
       const updates: Record<string, unknown> = {
         amount: parsedAmount,
         instrument,
         entity_type: round,
       };
-      if (closingDate) {
-        updates.date = format(closingDate, "MMM yyyy");
+      if (closingDateStr) {
+        updates.date = closingDateStr;
       }
 
       const { error } = await supabase
@@ -116,7 +117,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
         amount: parsedAmount,
         amountLabel: `$${parsedAmount.toLocaleString()}`,
         instrument,
-        date: closingDate ? format(closingDate, "MMM yyyy") : round,
+        date: closingDateStr || round,
       });
 
       onOpenChange(false);
@@ -126,7 +127,7 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
     } finally {
       setSaving(false);
     }
-  }, [backer, amount, instrument, round, closingDate, onSave, onOpenChange]);
+  }, [backer, amount, instrument, round, closingMonth, closingYear, onSave, onOpenChange]);
 
   const handleRemove = useCallback(async () => {
     if (!backer) return;
