@@ -210,7 +210,15 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
           <div className="rounded-2xl border border-border bg-card p-6 shadow-surface-md">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-sm font-semibold text-foreground">New Matches</h3>
-              <Badge variant="secondary" className="text-[10px] font-normal">Top 3</Badge>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onViewAllMatches}
+                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1"
+                >
+                  View all <ArrowRight className="h-3 w-3" />
+                </button>
+                <Badge variant="secondary" className="text-[10px] font-normal">Top 3</Badge>
+              </div>
             </div>
 
             <div className="space-y-2">
