@@ -497,9 +497,11 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
+  const [newCompWebsite, setNewCompWebsite] = useState("");
   const [newCompType, setNewCompType] = useState<"Direct" | "Indirect">("Direct");
   const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [enriching, setEnriching] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
   const {
