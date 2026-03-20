@@ -1337,149 +1337,153 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           ═══════════════════════════════════════════════ */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm space-y-2.5 transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
+        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ── Left: Company Name + Website URL ── */}
+            <div className="space-y-2.5">
+              {/* COMPANY NAME */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
+                <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                  placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+              </div>
 
-          {/* COMPANY NAME */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
-            <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-              placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
-          </div>
-
-
-          {/* WEBSITE URL */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
-            <div className="relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                {faviconUrl && faviconLoaded ? (
-                  <img src={faviconUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
-                ) : (
-                  <Globe className="h-4 w-4 text-muted-foreground" />
+              {/* WEBSITE URL */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                    {faviconUrl && faviconLoaded ? (
+                      <img src={faviconUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
+                    ) : (
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <input type="url" value={form.website} disabled={isAnalyzing}
+                    onChange={e => {
+                      const url = e.target.value;
+                      update("website", url);
+                      if (analysisComplete) setHasNewInputs(true);
+                      if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
+                      faviconDebounceRef.current = setTimeout(() => {
+                        const domain = extractDomain(url);
+                        if (domain) {
+                          const fav = faviconSrc(domain);
+                          setFaviconUrl(fav); setFaviconLoaded(false);
+                          const img = new Image();
+                          img.onload = () => setFaviconLoaded(true);
+                          img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
+                          img.src = fav;
+                          if (!form.name.trim() && !userTouched.has("name")) {
+                            const cleaned = cleanDomainToName(domain);
+                            if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
+                          }
+                        } else { setFaviconUrl(null); setFaviconLoaded(false); }
+                      }, 300);
+                    }}
+                    onBlur={() => {
+                      const domain = extractDomain(form.website);
+                      if (!domain) return;
+                      const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+                      const testImg = new Image();
+                      testImg.onload = () => {
+                        if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
+                      };
+                      testImg.onerror = () => {};
+                      testImg.src = hdLogoUrl;
+                    }}
+                    placeholder="https://acme.com" maxLength={255}
+                    className={`${inputCls("website")} pl-10`}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
+                {/* Logo suggestion banner */}
+                {suggestedLogoUrl && (
+                  <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
+                    <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
+                    <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
+                    <button
+                      onClick={() => {
+                        setLogoUrl(suggestedLogoUrl);
+                        try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
+                        setSuggestedLogoUrl(null);
+                        setLogoSyncBadge(true);
+                        setTimeout(() => setLogoSyncBadge(false), 3000);
+                      }}
+                      className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => setSuggestedLogoUrl(null)}
+                      className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 )}
               </div>
-              <input type="url" value={form.website} disabled={isAnalyzing}
-                onChange={e => {
-                  const url = e.target.value;
-                  update("website", url);
-                  if (analysisComplete) setHasNewInputs(true);
-                  if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
-                  faviconDebounceRef.current = setTimeout(() => {
-                    const domain = extractDomain(url);
-                    if (domain) {
-                      const fav = faviconSrc(domain);
-                      setFaviconUrl(fav); setFaviconLoaded(false);
-                      const img = new Image();
-                      img.onload = () => setFaviconLoaded(true);
-                      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
-                      img.src = fav;
-                      if (!form.name.trim() && !userTouched.has("name")) {
-                        const cleaned = cleanDomainToName(domain);
-                        if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
-                      }
-                    } else { setFaviconUrl(null); setFaviconLoaded(false); }
-                  }, 300);
-                }}
-                onBlur={() => {
-                  const domain = extractDomain(form.website);
-                  if (!domain) return;
-                  // Auto-fetch logo on blur
-                  const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
-                  const testImg = new Image();
-                  testImg.onload = () => {
-                    if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
-                  };
-                  testImg.onerror = () => {};
-                  testImg.src = hdLogoUrl;
-                }}
-                placeholder="https://acme.com" maxLength={255}
-                className={`${inputCls("website")} pl-10`}
-              />
             </div>
-            <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
-            {/* Logo suggestion banner */}
-            {suggestedLogoUrl && (
-              <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
-                <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
-                <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
-                <button
-                  onClick={() => {
-                    setLogoUrl(suggestedLogoUrl);
-                    try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
-                    setSuggestedLogoUrl(null);
-                    setLogoSyncBadge(true);
-                    setTimeout(() => setLogoSyncBadge(false), 3000);
-                  }}
-                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-                >
-                  Apply
-                </button>
-                <button
-                  onClick={() => setSuggestedLogoUrl(null)}
-                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-          </div>
 
-          {/* PITCH DECK */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <FileText className="h-3 w-3" /> Pitch Deck (PDF)
-            </label>
-            <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-              className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors ${
-                scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
-              }`}>
-              {scanningMetrics ? (
-                <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
-              ) : (
-                <Upload className="h-5 w-5 text-muted-foreground mb-2" />
-              )}
-              <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
-              </span>
-              {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
-              <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-              <button onClick={() => fileInputRef.current?.click()}
-                className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+            {/* ── Right: Pitch Deck dropzone ── */}
+            <div className="space-y-1 flex flex-col">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <FileText className="h-3 w-3" /> Pitch Deck (PDF)
+              </label>
+              <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+                className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
+                  scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
+                }`}>
+                {scanningMetrics ? (
+                  <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
+                ) : (
+                  <Upload className="h-5 w-5 text-muted-foreground mb-2" />
+                )}
+                <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                  {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
+                </span>
+                {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
+                <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+              </div>
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive mt-3">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
             </div>
           )}
 
           {/* Smart Analysis Button */}
-          {(() => {
-            const isUpToDate = analysisComplete && !dataSourcesChanged;
-            const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
-            return (
-              <>
-                <button onClick={handleAnalyzeClick} disabled={isDisabled}
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-colors ${
-                    isAnalyzing ? "bg-accent text-accent-foreground"
-                    : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
-                    : "bg-accent text-accent-foreground hover:bg-accent/90"
-                  } disabled:cursor-not-allowed`}>
-                  {isAnalyzing ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
-                  ) : isUpToDate ? (
-                    <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
-                  ) : (
-                    <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Run New Analysis" : "Run AI Analysis"}</>
-                  )}
-                </button>
-                <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
-              </>
-            );
-          })()}
+          <div className="mt-3 space-y-1.5">
+            {(() => {
+              const isUpToDate = analysisComplete && !dataSourcesChanged;
+              const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
+              return (
+                <>
+                  <button onClick={handleAnalyzeClick} disabled={isDisabled}
+                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-colors ${
+                      isAnalyzing ? "bg-accent text-accent-foreground"
+                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
+                      : "bg-accent text-accent-foreground hover:bg-accent/90"
+                    } disabled:cursor-not-allowed`}>
+                    {isAnalyzing ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
+                    ) : isUpToDate ? (
+                      <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
+                    ) : (
+                      <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Run New Analysis" : "Run AI Analysis"}</>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
+                </>
+              );
+            })()}
+          </div>
         </div>
       </div>
 
