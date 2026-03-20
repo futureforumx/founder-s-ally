@@ -15,6 +15,7 @@ interface CommunityViewProps {
   companyData?: CompanyData | null;
   analysisResult?: AnalysisResult | null;
   onNavigateProfile?: () => void;
+  variant?: "directory" | "investor-search";
 }
 
 // ── Types ──

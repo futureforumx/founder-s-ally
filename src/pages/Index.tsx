@@ -544,7 +544,7 @@ const Index = () => {
               <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
+            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (
