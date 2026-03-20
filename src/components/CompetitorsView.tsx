@@ -492,12 +492,13 @@ const COMPETITOR_TABS: { key: CompetitorTab; label: string }[] = [
   { key: "watch", label: "Watch" },
 ];
 
-export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetitor }: CompetitorsViewProps) {
+export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetitor, onCompetitorsChanged }: CompetitorsViewProps) {
   const [activeCompetitor, setActiveCompetitor] = useState<string | null>(null);
   const [compTab, setCompTab] = useState<CompetitorTab>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCompName, setNewCompName] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [seeded, setSeeded] = useState(false);
 
   const {
     competitors: dbCompetitors,
@@ -508,6 +509,31 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     updateStatus,
     removeCompetitor,
   } = useCompetitors();
+
+  // Seed DB from companyData.competitors on first load (one-time sync)
+  useEffect(() => {
+    if (seeded || dbLoading) return;
+    const profileComps = companyData?.competitors || [];
+    if (profileComps.length === 0 || dbCompetitors.length > 0) {
+      setSeeded(true);
+      return;
+    }
+    // Profile has competitors but DB is empty — seed them
+    const seedAsync = async () => {
+      for (const name of profileComps) {
+        await dbAddCompetitor(name);
+      }
+      setSeeded(true);
+    };
+    seedAsync();
+  }, [seeded, dbLoading, companyData?.competitors, dbCompetitors.length, dbAddCompetitor]);
+
+  // Sync DB competitors back to companyData whenever they change
+  useEffect(() => {
+    if (dbLoading) return;
+    const names = dbCompetitors.map(tc => tc.competitor.name);
+    onCompetitorsChanged?.(names);
+  }, [dbCompetitors, dbLoading, onCompetitorsChanged]);
 
   // Use DB competitors if available, otherwise fall back to companyData
   const hasDbData = dbCompetitors.length > 0 || !dbLoading;
@@ -538,9 +564,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   }, [dbCompetitors]);
 
   const handleAddCompetitor = useCallback(async (name: string) => {
-    // Add to DB
     await dbAddCompetitor(name);
-    // Also sync with legacy companyData
     onAddCompetitor?.(name);
     setNewCompName("");
     setShowAddModal(false);
