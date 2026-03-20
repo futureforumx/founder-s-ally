@@ -599,8 +599,8 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       value={leadPartner}
                       onChange={setLeadPartner}
                       placeholder="Search partners or add new (Optional)"
-                      options={MOCK_PARTNERS}
                       label="Partner"
+                      searchType="person"
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">Who is your point of contact or board member at this firm?</p>
                   </div>
