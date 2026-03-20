@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, CalendarDays, User, LogOut } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, CalendarDays, User, LogOut, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "directory" | "connections" | "messages" | "events" | "competitors";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -17,6 +17,7 @@ const topItems = [
 
 const companyItems = [
   { id: "company" as const, label: "Mission Control", icon: Building2 },
+  { id: "competitors" as const, label: "Competitors", icon: Swords },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
   { id: "investors" as const, label: "Investors", icon: Handshake },
   { id: "audit" as const, label: "Deck Audit", icon: FileText },
