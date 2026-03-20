@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase,
-  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp,
-} from "lucide-react";
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp } from
+"lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,50 +34,50 @@ interface DirectoryEntry {
 
 // ── Mock data: Suggested ──
 const SUGGESTED_ENTRIES: DirectoryEntry[] = [
-  // Founders
-  { name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null, category: "founder" },
-  { name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage", category: "founder" },
-  { name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
-  { name: "Mosaic Retail", sector: "Consumer & Retail", stage: "Series B", description: "AI visual merchandising engine for e-commerce brands. Increases conversion by dynamically optimizing product layouts.", location: "New York, NY", model: "Marketplace", initial: "M", matchReason: "Matches your sector", category: "founder" },
-  // Investors
-  { name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor" },
-  { name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor" },
-  { name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor" },
-  // Companies
-  { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
-  { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
-  { name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" },
-];
+// Founders
+{ name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null, category: "founder" },
+{ name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage", category: "founder" },
+{ name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
+{ name: "Mosaic Retail", sector: "Consumer & Retail", stage: "Series B", description: "AI visual merchandising engine for e-commerce brands. Increases conversion by dynamically optimizing product layouts.", location: "New York, NY", model: "Marketplace", initial: "M", matchReason: "Matches your sector", category: "founder" },
+// Investors
+{ name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor" },
+{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor" },
+{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor" },
+// Companies
+{ name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
+{ name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
+{ name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" }];
+
 
 // ── Mock data: Trending ──
 const TRENDING_ENTRIES: DirectoryEntry[] = [
-  // Founders
-  { name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null, category: "founder" },
-  { name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null, category: "founder" },
-  { name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null, category: "founder" },
-  // Investors
-  { name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor" },
-  { name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
-  // Companies
-  { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
-  { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
-];
+// Founders
+{ name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null, category: "founder" },
+{ name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null, category: "founder" },
+{ name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null, category: "founder" },
+// Investors
+{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor" },
+{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
+// Companies
+{ name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
+{ name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" }];
+
 
 // ── Extended entries for grid ──
 const EXTRA_ENTRIES: DirectoryEntry[] = [
-  { name: "Lumen Health", sector: "Health & Biotech", stage: "Seed", description: "Remote patient monitoring platform using wearable biosensors and predictive AI for chronic disease management.", location: "Nashville, TN", model: "B2B SaaS", initial: "L", matchReason: null, category: "founder" },
-  { name: "TerraFlow", sector: "Climate & Energy", stage: "Series A", description: "Carbon capture marketplace connecting industrial emitters with verified offset projects using blockchain verification.", location: "Portland, OR", model: "Marketplace", initial: "T", matchReason: "Matches your stage", category: "company" },
-  { name: "CodeVault", sector: "Developer Tools", stage: "Pre-Seed", description: "AI-powered code review platform that detects security vulnerabilities and suggests fixes in real-time during PR reviews.", location: "Seattle, WA", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
-  { name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
-  { name: "Nucleus AI", sector: "Enterprise AI", stage: "Series B", description: "Enterprise knowledge graph platform that unifies siloed data across departments for AI-ready organizational intelligence.", location: "San Jose, CA", model: "B2B SaaS", initial: "N", matchReason: null, category: "founder" },
-  { name: "BridgeEd", sector: "EdTech", stage: "Seed", description: "Adaptive learning platform for workforce upskilling. Uses competency mapping to create personalized learning paths.", location: "Washington, DC", model: "B2B SaaS", initial: "B", matchReason: "Matches your sector", category: "founder" },
-  { name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor" },
-  { name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor" },
-  { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company" },
-  { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
-  { name: "Vega Legal", sector: "LegalTech", stage: "Seed", description: "AI contract analysis tool that identifies risk clauses and suggests negotiation strategies for in-house legal teams.", location: "Philadelphia, PA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
-  { name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" },
-];
+{ name: "Lumen Health", sector: "Health & Biotech", stage: "Seed", description: "Remote patient monitoring platform using wearable biosensors and predictive AI for chronic disease management.", location: "Nashville, TN", model: "B2B SaaS", initial: "L", matchReason: null, category: "founder" },
+{ name: "TerraFlow", sector: "Climate & Energy", stage: "Series A", description: "Carbon capture marketplace connecting industrial emitters with verified offset projects using blockchain verification.", location: "Portland, OR", model: "Marketplace", initial: "T", matchReason: "Matches your stage", category: "company" },
+{ name: "CodeVault", sector: "Developer Tools", stage: "Pre-Seed", description: "AI-powered code review platform that detects security vulnerabilities and suggests fixes in real-time during PR reviews.", location: "Seattle, WA", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
+{ name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
+{ name: "Nucleus AI", sector: "Enterprise AI", stage: "Series B", description: "Enterprise knowledge graph platform that unifies siloed data across departments for AI-ready organizational intelligence.", location: "San Jose, CA", model: "B2B SaaS", initial: "N", matchReason: null, category: "founder" },
+{ name: "BridgeEd", sector: "EdTech", stage: "Seed", description: "Adaptive learning platform for workforce upskilling. Uses competency mapping to create personalized learning paths.", location: "Washington, DC", model: "B2B SaaS", initial: "B", matchReason: "Matches your sector", category: "founder" },
+{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor" },
+{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor" },
+{ name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company" },
+{ name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
+{ name: "Vega Legal", sector: "LegalTech", stage: "Seed", description: "AI contract analysis tool that identifies risk clauses and suggests negotiation strategies for in-house legal teams.", location: "Philadelphia, PA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
+{ name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" }];
+
 
 // ── All entries (combined) ──
 const ALL_ENTRIES: DirectoryEntry[] = [...SUGGESTED_ENTRIES, ...TRENDING_ENTRIES, ...EXTRA_ENTRIES];
@@ -89,77 +89,77 @@ function filterByScope(entries: DirectoryEntry[], scope: EntityScope): Directory
   return entries.filter((e) => e.category === cat);
 }
 
-const SCOPE_LABELS: Record<EntityScope, { singular: string; plural: string }> = {
+const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
   all: { singular: "entry", plural: "entries" },
   founders: { singular: "founder", plural: "founders" },
   investors: { singular: "investor", plural: "investors" },
-  companies: { singular: "company", plural: "companies" },
+  companies: { singular: "company", plural: "companies" }
 };
 
-const CAROUSEL_TITLES: Record<EntityScope, { suggested: string; trending: string }> = {
+const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}> = {
   all: { suggested: "Suggested for You", trending: "Trending Now" },
   founders: { suggested: "Suggested Founders", trending: "Trending Founders" },
   investors: { suggested: "Suggested Investors", trending: "Trending Investors" },
-  companies: { suggested: "Suggested Companies", trending: "Trending Companies" },
+  companies: { suggested: "Suggested Companies", trending: "Trending Companies" }
 };
 
 const PAGE_SIZE = 9;
 
 const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
   all: [
-    "Match me with Seed investors",
-    "Climate tech founders near me",
-    "Startups with similar traction",
-    "AI agents for enterprise",
-    "B2B SaaS at Series A",
-    "Deep tech in my region",
-  ],
+  "Match me with Seed investors",
+  "Climate tech founders near me",
+  "Startups with similar traction",
+  "AI agents for enterprise",
+  "B2B SaaS at Series A",
+  "Deep tech in my region"],
+
   founders: [
-    "Technical co-founders in NYC",
-    "Solo founders scaling B2B SaaS",
-    "Second-time climate founders",
-    "YC alumni in healthcare",
-  ],
+  "Technical co-founders in NYC",
+  "Solo founders scaling B2B SaaS",
+  "Second-time climate founders",
+  "YC alumni in healthcare"],
+
   investors: [
-    "Active Pre-Seed climate funds",
-    "Lead investors for Seed SaaS",
-    "Angels investing in deep tech",
-    "VCs with recent AI exits",
-  ],
+  "Active Pre-Seed climate funds",
+  "Lead investors for Seed SaaS",
+  "Angels investing in deep tech",
+  "VCs with recent AI exits"],
+
   companies: [
-    "B2B SaaS with $1M+ ARR",
-    "Pre-revenue AI startups in SF",
-    "Series A construction tech",
-    "Climate startups with gov contracts",
-  ],
+  "B2B SaaS with $1M+ ARR",
+  "Pre-revenue AI startups in SF",
+  "Series A construction tech",
+  "Climate startups with gov contracts"]
+
 };
 
-const GLOBAL_TABS: { id: EntityScope; label: string; icon: typeof Users }[] = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "founders", label: "Founders", icon: Users },
-  { id: "companies", label: "Companies", icon: Building2 },
-  { id: "investors", label: "Investors", icon: Briefcase },
-];
+const GLOBAL_TABS: {id: EntityScope;label: string;icon: typeof Users;}[] = [
+{ id: "all", label: "All", icon: LayoutGrid },
+{ id: "founders", label: "Founders", icon: Users },
+{ id: "companies", label: "Companies", icon: Building2 },
+{ id: "investors", label: "Investors", icon: Briefcase }];
+
 
 const SCOPE_PLACEHOLDERS: Record<EntityScope, string[]> = {
   all: [
-    'Try "Seed stage industrial tech in California..."',
-    'Try "B2B SaaS with $1M+ ARR..."',
-    'Try "Climate founders in New York..."',
-    'Try "AI agents for healthcare..."',
-  ],
+  'Try "Seed stage industrial tech in California..."',
+  'Try "B2B SaaS with $1M+ ARR..."',
+  'Try "Climate founders in New York..."',
+  'Try "AI agents for healthcare..."'],
+
   founders: [
-    'Search founders or try "Technical co-founders in NYC..."',
-    'Try "Solo founders with enterprise traction..."',
-  ],
+  'Search founders or try "Technical co-founders in NYC..."',
+  'Try "Solo founders with enterprise traction..."'],
+
   investors: [
-    'Search investors or try "Active Pre-Seed climate funds..."',
-    'Try "Lead investors for Seed rounds in SaaS..."',
-  ],
+  'Search investors or try "Active Pre-Seed climate funds..."',
+  'Try "Lead investors for Seed rounds in SaaS..."'],
+
   companies: [
-    'Search companies or try "B2B SaaS with $1M+ ARR..."',
-    'Try "Series A construction tech companies..."',
-  ],
+  'Search companies or try "B2B SaaS with $1M+ ARR..."',
+  'Try "Series A construction tech companies..."']
+
 };
 
 // ── Typing placeholder effect ──
@@ -222,18 +222,18 @@ function FounderCardSkeleton() {
           <Skeleton className="h-3 w-24" />
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 }
 
 // ── Founder Card ──
-function FounderCard({ founder, trending, onClick }: { founder: DirectoryEntry; trending?: boolean; onClick?: () => void }) {
+function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
   return (
     <Card
       onClick={onClick}
       className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
-      trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
-    }`}>
+      trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
+      }>
       {/* Color banner */}
       <div className={`h-10 ${trending ? "bg-gradient-to-r from-accent/10 to-primary/5" : "bg-gradient-to-r from-muted to-secondary/30"}`} />
       <CardContent className="p-5 -mt-5 space-y-3">
@@ -242,11 +242,11 @@ function FounderCard({ founder, trending, onClick }: { founder: DirectoryEntry; 
             {founder.initial}
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end mt-2">
-            {trending && (
-              <Badge className="text-[9px] font-medium px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
+            {trending &&
+            <Badge className="text-[9px] font-medium px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
                 <Flame className="h-2.5 w-2.5 mr-0.5" /> Trending
               </Badge>
-            )}
+            }
             <Badge variant="outline" className="text-[9px] font-medium px-2 py-0.5">{founder.stage}</Badge>
             <Badge variant="secondary" className="text-[9px] font-normal px-2 py-0.5 max-w-[120px] truncate">{founder.sector}</Badge>
           </div>
@@ -256,29 +256,29 @@ function FounderCard({ founder, trending, onClick }: { founder: DirectoryEntry; 
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">{founder.description}</p>
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-border/40">
-          {founder.location && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+          {founder.location &&
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
               <MapPin className="h-2.5 w-2.5" /> {founder.location}
             </span>
-          )}
-          {founder.matchReason && (
-            <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+          }
+          {founder.matchReason &&
+          <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
               <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
             </Badge>
-          )}
+          }
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>);
+
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending, onClick }: { founder: DirectoryEntry; trending?: boolean; onClick?: () => void }) {
+function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
       <FounderCard founder={founder} trending={trending} onClick={onClick} />
-    </div>
-  );
+    </div>);
+
 }
 
 
@@ -303,17 +303,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
     const userCity = userLocation.split(",")[0].trim();
     const userStage = companyData?.stage || "Seed";
 
-    const localCount = ALL_ENTRIES.filter(e => e.location.includes(userCity)).length;
-    const stageCount = ALL_ENTRIES.filter(e => e.stage === userStage).length;
-    const founderCount = ALL_ENTRIES.filter(e => e.category === "founder").length;
-    const matchCount = ALL_ENTRIES.filter(e => e.matchReason).length;
+    const localCount = ALL_ENTRIES.filter((e) => e.location.includes(userCity)).length;
+    const stageCount = ALL_ENTRIES.filter((e) => e.stage === userStage).length;
+    const founderCount = ALL_ENTRIES.filter((e) => e.category === "founder").length;
+    const matchCount = ALL_ENTRIES.filter((e) => e.matchReason).length;
 
     return [
-      { id: "local", value: localCount || 12, label: `In ${userCity}`, icon: MapPin, filterKey: userCity },
-      { id: "stage", value: stageCount || 8, label: `${userStage} Stage Peers`, icon: Zap, filterKey: userStage },
-      { id: "founders", value: founderCount, label: "Active Founders", icon: Users, filterKey: "" },
-      { id: "matches", value: matchCount || 5, label: "New Matches", icon: TrendingUp, filterKey: "" },
-    ] as const;
+    { id: "local", value: localCount || 12, label: `In ${userCity}`, icon: MapPin, filterKey: userCity },
+    { id: "stage", value: stageCount || 8, label: `${userStage} Stage Peers`, icon: Zap, filterKey: userStage },
+    { id: "founders", value: founderCount, label: "Active Founders", icon: Users, filterKey: "" },
+    { id: "matches", value: matchCount || 5, label: "New Matches", icon: TrendingUp, filterKey: "" }] as
+    const;
   }, [companyData]);
 
   // Cohort click handler — inject filter into search
@@ -345,12 +345,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const filteredAll = scopedAll.filter((f) => {
     const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
-    const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model]
-      .some((v) => v?.toLowerCase().includes(q));
+    const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model].
+    some((v) => v?.toLowerCase().includes(q));
     const matchesFilter = !filterQ ||
-      f.stage.toLowerCase().includes(filterQ) ||
-      f.sector.toLowerCase().includes(filterQ) ||
-      f.model.toLowerCase().includes(filterQ);
+    f.stage.toLowerCase().includes(filterQ) ||
+    f.sector.toLowerCase().includes(filterQ) ||
+    f.model.toLowerCase().includes(filterQ);
     return matchesSearch && matchesFilter;
   });
 
@@ -387,7 +387,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   }, [loadMore]);
 
   const logoUrl = (() => {
-    try { return localStorage.getItem("company-logo-url") || null; } catch { return null; }
+    try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();
 
   return (
@@ -395,40 +395,40 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Founder Directory</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground"> Investor Directory</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
         </div>
 
-        {hasProfile ? (
-          <button
-            onClick={onNavigateProfile}
-            className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0"
-          >
+        {hasProfile ?
+        <button
+          onClick={onNavigateProfile}
+          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0">
+          
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="w-full h-full object-contain" />
-              ) : (
-                <span className="text-xs font-bold text-muted-foreground">
+              {logoUrl ?
+            <img src={logoUrl} alt="" className="w-full h-full object-contain" /> :
+
+            <span className="text-xs font-bold text-muted-foreground">
                   {companyData!.name.charAt(0).toUpperCase()}
                 </span>
-              )}
+            }
             </div>
             <div className="text-left">
               <span className="text-[10px] text-muted-foreground font-medium block leading-none mb-0.5">Your Company</span>
               <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">{companyData!.name}</span>
             </div>
             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
-          </button>
-        ) : (
-          <button
-            onClick={onNavigateProfile}
-            className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0"
-          >
+          </button> :
+
+        <button
+          onClick={onNavigateProfile}
+          className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0">
+          
             <Building2 className="h-4 w-4 text-muted-foreground/40" />
             <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Set up your company</span>
             <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
           </button>
-        )}
+        }
       </div>
 
       {/* ── Smart Cohort Cards ── */}
@@ -442,8 +442,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
                 cohort.filterKey,
                 cohort.id === "founders" ? "founders" : undefined
               )}
-              className="relative overflow-hidden bg-card border border-border rounded-xl p-4 flex flex-col text-left cursor-pointer hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all group"
-            >
+              className="relative overflow-hidden bg-card border border-border rounded-xl p-4 flex flex-col text-left cursor-pointer hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all group">
+              
               <span className="text-2xl font-bold text-foreground group-hover:text-accent transition-colors">
                 {cohort.value}
               </span>
@@ -451,8 +451,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
                 {cohort.label}
               </span>
               <Icon className="absolute -bottom-1.5 -right-1.5 w-10 h-10 text-muted/60 group-hover:text-accent/10 transition-colors" />
-            </button>
-          );
+            </button>);
+
         })}
       </div>
 
@@ -469,15 +469,15 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
                 setShowMagicPrompts(true);
               }}
               className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                isActive
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
+              isActive ?
+              "bg-card text-foreground shadow-sm" :
+              "text-muted-foreground hover:text-foreground"}`
+              }>
+              
               <Icon className="h-3.5 w-3.5" />
               {tab.label}
-            </button>
-          );
+            </button>);
+
         })}
       </div>
 
@@ -486,40 +486,40 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         value={searchQuery}
         onChange={setSearchQuery}
         scope={activeScope}
-        placeholder={placeholder}
-      />
+        placeholder={placeholder} />
+      
 
       {/* Magic Prompts */}
-      {showMagicPrompts && !searchQuery && (
-        <div className="flex items-center gap-3 w-full relative">
+      {showMagicPrompts && !searchQuery &&
+      <div className="flex items-center gap-3 w-full relative">
           <span className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap shrink-0">Try:</span>
           <div
-            className="flex flex-row overflow-x-auto snap-x snap-mandatory scroll-smooth w-full py-2 gap-3 pr-8 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            style={{
-              maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+          className="flex flex-row overflow-x-auto snap-x snap-mandatory scroll-smooth w-full py-2 gap-3 pr-8 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{
+            maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
+          }}>
+          
+            {MAGIC_PROMPTS[activeScope].map((prompt) =>
+          <button
+            key={prompt}
+            onClick={() => {
+              setSearchQuery(prompt);
+              setShowMagicPrompts(false);
             }}
-          >
-            {MAGIC_PROMPTS[activeScope].map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => {
-                  setSearchQuery(prompt);
-                  setShowMagicPrompts(false);
-                }}
-                className="snap-start whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0"
-              >
+            className="snap-start whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0">
+            
                 <Sparkles className="w-3.5 h-3.5 text-accent/70" />
                 {prompt}
               </button>
-            ))}
+          )}
           </div>
         </div>
-      )}
+      }
 
       {/* ═══════ Search Results First (when searching) ═══════ */}
-      {searchQuery && (
-        <div className="space-y-3 pt-4">
+      {searchQuery &&
+      <div className="space-y-3 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Search Results</h2>
             <span className="text-[10px] text-muted-foreground font-mono">
@@ -527,72 +527,72 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
             </span>
           </div>
 
-          {isSearching ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <FounderCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : visibleFounders.length > 0 ? (
-            <>
+          {isSearching ?
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) =>
+          <FounderCardSkeleton key={i} />
+          )}
+            </div> :
+        visibleFounders.length > 0 ?
+        <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleFounders.map((founder, i) => (
-                  <FounderCard key={`search-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
-                ))}
+                {visibleFounders.map((founder, i) =>
+            <FounderCard key={`search-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+            )}
                 {isLoadingMore &&
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <FounderCardSkeleton key={`loading-${i}`} />
-                  ))}
+            Array.from({ length: 3 }).map((_, i) =>
+            <FounderCardSkeleton key={`loading-${i}`} />
+            )}
               </div>
               <div ref={sentinelRef} className="h-1" />
-              {hasMore && !isLoadingMore && (
-                <div className="flex justify-center pt-2">
+              {hasMore && !isLoadingMore &&
+          <div className="flex justify-center pt-2">
                   <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
                     Load more founders
                   </button>
                 </div>
-              )}
-              {isLoadingMore && (
-                <div className="flex justify-center pt-2">
+          }
+              {isLoadingMore &&
+          <div className="flex justify-center pt-2">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+          }
+            </> :
+
+        <div className="flex flex-col items-center justify-center py-16 text-center">
               <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">No {labels.plural} match your search.</p>
             <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
             </div>
-          )}
+        }
         </div>
-      )}
+      }
 
       {/* ═══════ Carousel: Suggested ═══════ */}
-      {scopedSuggested.length > 0 && (
-        <div className="pt-4">
+      {scopedSuggested.length > 0 &&
+      <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
-            {scopedSuggested.map((entry, i) => (
-              <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => setSelectedFounder(entry)} />
-            ))}
+            {scopedSuggested.map((entry, i) =>
+          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => setSelectedFounder(entry)} />
+          )}
           </FounderCarousel>
         </div>
-      )}
+      }
 
       {/* ═══════ Carousel: Trending ═══════ */}
-      {scopedTrending.length > 0 && (
-        <div className="pt-4">
+      {scopedTrending.length > 0 &&
+      <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
-            {scopedTrending.map((entry, i) => (
-              <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => setSelectedFounder(entry)} />
-            ))}
+            {scopedTrending.map((entry, i) =>
+          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => setSelectedFounder(entry)} />
+          )}
           </FounderCarousel>
         </div>
-      )}
+      }
 
       {/* ═══════ All Founders Grid (only when NOT searching) ═══════ */}
-      {!searchQuery && (
-        <div className="space-y-3 pt-4">
+      {!searchQuery &&
+      <div className="space-y-3 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">All {labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}</h2>
             <span className="text-[10px] text-muted-foreground font-mono">
@@ -600,53 +600,53 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
             </span>
           </div>
 
-          {isSearching ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <FounderCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : visibleFounders.length > 0 ? (
-            <>
+          {isSearching ?
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) =>
+          <FounderCardSkeleton key={i} />
+          )}
+            </div> :
+        visibleFounders.length > 0 ?
+        <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleFounders.map((founder, i) => (
-                  <FounderCard key={`all-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
-                ))}
+                {visibleFounders.map((founder, i) =>
+            <FounderCard key={`all-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+            )}
                 {isLoadingMore &&
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <FounderCardSkeleton key={`loading-${i}`} />
-                  ))}
+            Array.from({ length: 3 }).map((_, i) =>
+            <FounderCardSkeleton key={`loading-${i}`} />
+            )}
               </div>
               <div ref={sentinelRef} className="h-1" />
-              {hasMore && !isLoadingMore && (
-                <div className="flex justify-center pt-2">
+              {hasMore && !isLoadingMore &&
+          <div className="flex justify-center pt-2">
                   <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
                     Load more founders
                   </button>
                 </div>
-              )}
-              {isLoadingMore && (
-                <div className="flex justify-center pt-2">
+          }
+              {isLoadingMore &&
+          <div className="flex justify-center pt-2">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
+          }
+            </> :
+
+        <div className="flex flex-col items-center justify-center py-16 text-center">
               <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
               <p className="text-sm text-muted-foreground">No {labels.plural} match your search.</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
             </div>
-          )}
+        }
         </div>
-      )}
+      }
 
       {/* Slide-over Detail Panel */}
       <FounderDetailPanel
         founder={selectedFounder}
         companyName={companyData?.name}
-        onClose={() => setSelectedFounder(null)}
-      />
-    </div>
-  );
+        onClose={() => setSelectedFounder(null)} />
+      
+    </div>);
+
 }
