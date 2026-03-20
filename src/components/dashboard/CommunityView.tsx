@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { FounderCarousel } from "./FounderCarousel";
+import { FounderDetailPanel } from "./FounderDetailPanel";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
