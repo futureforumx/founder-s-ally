@@ -265,31 +265,31 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                   </div>
                 </div>
 
-                {/* Closing Date */}
+                {/* Closing Date – Month & Year */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Closing Date</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={cn(
-                          "w-full rounded-xl border border-border bg-secondary/30 px-4 py-2.5 text-sm text-left flex items-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/40",
-                          !closingDate && "text-muted-foreground/50"
-                        )}
-                      >
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-                        {closingDate ? format(closingDate, "PPP") : "Pick a date"}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[99999]" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={closingDate}
-                        onSelect={setClosingDate}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={closingMonth} onValueChange={setClosingMonth}>
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-[99999]">
+                        {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={closingYear} onValueChange={setClosingYear}>
+                      <SelectTrigger className="w-full rounded-xl border-border bg-secondary/30 h-10">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="z-[99999]">
+                        {Array.from({ length: 11 }, (_, i) => String(2020 + i)).map(y => (
+                          <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
