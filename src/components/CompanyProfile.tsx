@@ -1296,7 +1296,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm space-y-2.5 lg:sticky lg:top-6 transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
 
           {/* COMPANY NAME */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
             <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
               placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
