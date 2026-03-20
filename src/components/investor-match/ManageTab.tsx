@@ -98,7 +98,7 @@ function useNFXSearch(query: string) {
 
 // ── Cap Table Panel ──
 
-function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps, "totalRaised">) {
+function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: Omit<ManageTabProps, "totalRaised">) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
