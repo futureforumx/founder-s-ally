@@ -253,6 +253,19 @@ export function SearchOmnibar({ value, onChange, onScopeChange, placeholder }: S
                 </button>
               );
             })}
+            {isTyping && (
+              <button
+                onClick={() => {
+                  handleClear();
+                  setScope("all");
+                  onScopeChange?.("all");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border border-destructive/30 text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear all
+              </button>
+            )}
           </div>
 
           {/* Divider */}
