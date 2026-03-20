@@ -140,113 +140,147 @@ function statusColor(status: string): string {
 
 // ── Battlecard Panel ──
 
-function BattlecardPanel({ name, onClose }: { name: string; onClose: () => void }) {
+function BattlecardModal({ name, onClose }: { name: string; onClose: () => void }) {
   const intel = getIntel(name);
   const domain = domainFromName(name);
 
   return (
     <>
-      {/* Header */}
-      <SheetHeader className="pb-4 border-b border-border">
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary shrink-0 overflow-hidden">
-            <img
-              src={faviconSrc(domain)}
-              alt=""
-              className="h-8 w-8"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xl font-bold text-muted-foreground">${name.charAt(0).toUpperCase()}</span>`;
-              }}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <SheetTitle className="text-lg font-bold text-foreground">{name}</SheetTitle>
-            <div className="flex items-center gap-2 mt-1.5">
-              <a
-                href={`https://${domain}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] text-accent hover:text-accent/80 transition-colors"
-              >
-                <Globe className="h-3 w-3" /> {domain}
-              </a>
-              <Badge className={`text-[9px] font-semibold border-0 rounded-full px-2 py-0.5 ${statusColor(intel.status)}`}>
+      {/* Backdrop */}
+      <motion.div
+        className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
+
+      {/* Centered Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <motion.div
+          className="pointer-events-auto max-w-2xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[90vh] flex flex-col"
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ type: "spring", damping: 28, stiffness: 350 }}
+        >
+          {/* Hero Banner */}
+          <div className="relative h-28 w-full shrink-0" style={{ background: "linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--destructive) / 0.06))" }}>
+            {/* Status Badge */}
+            <div className="absolute top-4 left-6">
+              <Badge className={`text-[10px] font-semibold border-0 rounded-full px-3 py-1 backdrop-blur-md ${statusColor(intel.status)}`}>
                 {intel.status}
               </Badge>
             </div>
-          </div>
-        </div>
-      </SheetHeader>
 
-      {/* Body */}
-      <div className="mt-6 space-y-6 overflow-y-auto flex-1">
-        {/* TL;DR */}
-        <div>
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">TL;DR</h4>
-          <p className="text-sm text-foreground leading-relaxed">{intel.tldr}</p>
-        </div>
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-card/50 hover:bg-card/80 transition-colors backdrop-blur-sm"
+            >
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
 
-        {/* Key Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg bg-secondary/50 px-3 py-2.5 text-center">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Funding</p>
-            <p className="text-sm font-bold text-foreground mt-1">{intel.funding}</p>
+            {/* Logo overlapping banner */}
+            <div className="absolute -bottom-6 left-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-card border-4 border-card shadow-surface overflow-hidden">
+              <img
+                src={faviconSrc(domain)}
+                alt=""
+                className="h-9 w-9"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-xl font-bold text-muted-foreground">${name.charAt(0).toUpperCase()}</span>`;
+                }}
+              />
+            </div>
           </div>
-          <div className="rounded-lg bg-secondary/50 px-3 py-2.5 text-center">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Stage</p>
-            <p className="text-sm font-bold text-foreground mt-1">{intel.stage}</p>
-          </div>
-          <div className="rounded-lg bg-secondary/50 px-3 py-2.5 text-center">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-medium">Team</p>
-            <p className="text-sm font-bold text-foreground mt-1">{intel.employees}</p>
-          </div>
-        </div>
 
-        {/* Pricing */}
-        <div>
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Pricing Model</h4>
-          <p className="text-[13px] text-foreground/80 leading-relaxed bg-secondary/30 rounded-lg px-4 py-3">{intel.pricing}</p>
-        </div>
+          {/* Header Content */}
+          <div className="px-6 pt-10 pb-4 shrink-0">
+            <div className="flex items-start justify-between">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold text-foreground">{name}</h2>
+                <a
+                  href={`https://${domain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-accent hover:text-accent/80 transition-colors mt-1"
+                >
+                  <Globe className="h-3 w-3" /> {domain}
+                </a>
+              </div>
+              <div className="grid grid-cols-3 gap-2 shrink-0 ml-4">
+                <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+                  <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Funding</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">{intel.funding}</p>
+                </div>
+                <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+                  <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Stage</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">{intel.stage}</p>
+                </div>
+                <div className="rounded-lg bg-secondary/50 px-3 py-2 text-center">
+                  <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-medium">Team</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">{intel.employees}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        {/* SWOT - Strengths & Weaknesses */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <h4 className="text-[10px] font-mono uppercase tracking-wider text-destructive/70 mb-3">Their Strengths</h4>
-            <ul className="space-y-2">
-              {intel.strengths.map((s, i) => (
-                <li key={i} className="border-l-2 border-destructive/40 pl-3 text-[12px] text-foreground/80 leading-relaxed">{s}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-[10px] font-mono uppercase tracking-wider text-success/70 mb-3">Their Weaknesses</h4>
-            <ul className="space-y-2">
-              {intel.weaknesses.map((w, i) => (
-                <li key={i} className="border-l-2 border-success/40 pl-3 text-[12px] text-foreground/80 leading-relaxed">{w}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
+            {/* TL;DR */}
+            <div>
+              <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">TL;DR</h4>
+              <p className="text-sm text-foreground leading-relaxed">{intel.tldr}</p>
+            </div>
 
-        {/* Kill Phrases */}
-        <div className="bg-foreground text-background rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="h-4 w-4 text-accent" />
-            <h4 className="text-xs font-bold uppercase tracking-wider">How to Win</h4>
+            {/* Pricing */}
+            <div>
+              <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Pricing Model</h4>
+              <p className="text-[13px] text-foreground/80 leading-relaxed bg-secondary/30 rounded-xl px-4 py-3">{intel.pricing}</p>
+            </div>
+
+            {/* SWOT */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-[10px] font-mono uppercase tracking-wider text-destructive/70 mb-3">Their Strengths</h4>
+                <ul className="space-y-2">
+                  {intel.strengths.map((s, i) => (
+                    <li key={i} className="border-l-2 border-destructive/40 pl-3 text-[12px] text-foreground/80 leading-relaxed">{s}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-[10px] font-mono uppercase tracking-wider text-success/70 mb-3">Their Weaknesses</h4>
+                <ul className="space-y-2">
+                  {intel.weaknesses.map((w, i) => (
+                    <li key={i} className="border-l-2 border-success/40 pl-3 text-[12px] text-foreground/80 leading-relaxed">{w}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Kill Phrases */}
+            <div className="bg-foreground text-background rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-4 w-4 text-accent" />
+                <h4 className="text-xs font-bold uppercase tracking-wider">How to Win</h4>
+              </div>
+              <p className="text-[10px] text-background/50 mb-3">
+                Use these talking points when investors ask "How are you different from {name}?"
+              </p>
+              <ul className="space-y-3">
+                {intel.killPhrases.map((phrase, i) => (
+                  <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed">
+                    <ChevronRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                    <span className="text-background/90">{phrase}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <p className="text-[10px] text-background/50 mb-3">
-            Use these talking points when investors ask "How are you different from {name}?"
-          </p>
-          <ul className="space-y-3">
-            {intel.killPhrases.map((phrase, i) => (
-              <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed">
-                <ChevronRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                <span className="text-background/90">{phrase}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        </motion.div>
       </div>
     </>
   );
