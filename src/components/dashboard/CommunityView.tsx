@@ -425,12 +425,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
+        {variant !== "investor-search" && (
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            {variant === "investor-search" ? "Search" : "Investor Directory"}
+            Investor Directory
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
         </div>
+        )}
 
         {variant !== "investor-search" && (
           hasProfile ?
