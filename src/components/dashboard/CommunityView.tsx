@@ -295,6 +295,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
+  const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasProfile = !!companyData?.name;
