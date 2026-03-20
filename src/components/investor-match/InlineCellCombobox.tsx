@@ -124,12 +124,12 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
             onChange={e => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search…"
-            className="w-full rounded-lg border border-ring bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none ring-2 ring-ring/30 transition-all"
+            className="w-full rounded-md border border-ring bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none ring-2 ring-ring/30 transition-all"
           />
         ) : (
           <button
             onClick={() => { setOpen(true); setSearch(""); }}
-            className="w-full flex items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-ring cursor-pointer"
+            className="w-full flex items-center justify-between rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground transition-all hover:border-ring cursor-pointer"
           >
             <span className="truncate">{value || "Select…"}</span>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
