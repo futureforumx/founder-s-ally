@@ -54,6 +54,12 @@
     --sidebar-accent-foreground: 210 20% 90%;
     --sidebar-border: 222 30% 18%;
     --sidebar-ring: 217 91% 60%;
+
+    --heat-0: 210 20% 95%;
+    --heat-1: 213 60% 82%;
+    --heat-2: 217 70% 60%;
+    --heat-3: 220 75% 45%;
+    --heat-4: 222 80% 25%;
   }
 }
 

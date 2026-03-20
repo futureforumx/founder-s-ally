@@ -82,7 +82,34 @@ function RadarPulse() {
   );
 }
 
-// ── Sector Heatmap ──
+// ── Sector Heatmap (Bloomberg-style) ──
+
+const MONTH_LABELS = [
+  "Oct 24", "Nov 24", "Dec 24", "Jan 25", "Feb 25", "Mar 25",
+  "Apr 25", "May 25", "Jun 25", "Jul 25", "Aug 25", "Sep 25",
+  "Oct 25", "Nov 25", "Dec 25", "Jan 26", "Feb 26", "Mar 26",
+];
+
+function intensityTier(v: number): 0 | 1 | 2 | 3 | 4 {
+  if (v >= 80) return 4;
+  if (v >= 60) return 3;
+  if (v >= 40) return 2;
+  if (v >= 20) return 1;
+  return 0;
+}
+
+const TIER_CLASS: Record<number, string> = {
+  0: "bg-heat-0",
+  1: "bg-heat-1",
+  2: "bg-heat-2",
+  3: "bg-heat-3",
+  4: "bg-heat-4",
+};
+
+function deploymentAmount(v: number, seed: number, i: number): string {
+  const base = Math.round(((v / 100) * 800 + (seed % 200)) / 10) * 10;
+  return `$${base}M`;
+}
 
 function SectorHeatmap({ sector }: { sector: string | undefined }) {
   const cells = useMemo(() => {
@@ -94,13 +121,7 @@ function SectorHeatmap({ sector }: { sector: string | undefined }) {
     });
   }, [sector]);
 
-  const intensityClass = (v: number) => {
-    if (v >= 80) return "bg-accent";
-    if (v >= 60) return "bg-accent/70";
-    if (v >= 40) return "bg-accent/40";
-    if (v >= 20) return "bg-accent/20";
-    return "bg-secondary";
-  };
+  const seed = useMemo(() => (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0), [sector]);
 
   const recentAvg = cells.slice(12).reduce((a, b) => a + b, 0) / 6;
   const momentum = recentAvg >= 60
@@ -110,43 +131,72 @@ function SectorHeatmap({ sector }: { sector: string | undefined }) {
     : { label: "➡️ Steady", gradient: false };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">
-          Sector Heat
-        </p>
-        {momentum.gradient ? (
-          <span
-            className="text-[10px] font-semibold text-white px-3 py-1 rounded-full"
-            style={{ background: "linear-gradient(135deg, hsl(25 95% 53%), hsl(0 84% 60%))" }}
-          >
-            {momentum.label}
-          </span>
-        ) : (
-          <Badge variant="secondary" className="text-[10px] font-medium border-0 rounded-full px-3 py-1">
-            {momentum.label}
-          </Badge>
-        )}
+    <TooltipProvider delayDuration={0}>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">
+            Sector Heat
+          </p>
+          {momentum.gradient ? (
+            <span
+              className="text-[10px] font-semibold text-white px-3 py-1 rounded-md"
+              style={{ background: "linear-gradient(135deg, hsl(25 95% 53%), hsl(0 84% 60%))" }}
+            >
+              {momentum.label}
+            </span>
+          ) : (
+            <Badge variant="secondary" className="text-[10px] font-medium border-0 rounded-md px-3 py-1">
+              {momentum.label}
+            </Badge>
+          )}
+        </div>
+
+        {/* Dense grid */}
+        <div className="grid grid-cols-6 gap-[2px]">
+          {cells.map((v, i) => {
+            const tier = intensityTier(v);
+            return (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <div
+                    className={`h-7 w-full rounded-sm cursor-crosshair transition-all hover:ring-2 hover:ring-offset-1 hover:ring-accent ${TIER_CLASS[tier]}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="bg-primary text-primary-foreground text-[11px] font-mono px-2.5 py-1.5 border-0 shadow-lg"
+                >
+                  <span className="font-semibold">{MONTH_LABELS[i]}</span>
+                  <span className="mx-1.5 text-primary-foreground/50">·</span>
+                  <span>{deploymentAmount(v, seed, i)} deployed</span>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+
+        {/* X-axis */}
+        <div className="flex justify-between mt-1.5">
+          <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">18 mo ago</span>
+          <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">Current</span>
+        </div>
+
+        {/* Footer with legend */}
+        <div className="flex items-center justify-between mt-3">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Capital deployment in{" "}
+            <span className="font-medium text-foreground">{sector || "your sector"}</span>
+          </p>
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] font-mono text-muted-foreground mr-1">Cold</span>
+            {[0, 1, 2, 3, 4].map(t => (
+              <div key={t} className={`h-3 w-3 rounded-sm ${TIER_CLASS[t]}`} />
+            ))}
+            <span className="text-[8px] font-mono text-muted-foreground ml-1">Hot</span>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-6 grid-rows-3 gap-2">
-        {cells.map((v, i) => (
-          <div
-            key={i}
-            className={`h-5 w-full rounded-full transition-colors duration-500 animate-pulse ${intensityClass(v)}`}
-            style={{
-              animationDuration: "3s",
-              animationDelay: `${i * 0.1}s`,
-              opacity: 0.85 + (v / 100) * 0.15,
-            }}
-            title={`Month ${i + 1}: ${v}% activity`}
-          />
-        ))}
-      </div>
-      <p className="text-[10px] text-muted-foreground mt-4 leading-relaxed">
-        Based on 18-month capital deployment in{" "}
-        <span className="font-medium text-foreground">{sector || "your sector"}</span>.
-      </p>
-    </div>
+    </TooltipProvider>
   );
 }
 
