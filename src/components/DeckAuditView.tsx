@@ -243,7 +243,7 @@ export function DeckAuditView() {
         {result.slide_analysis.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Slide-Level Coaching</h3>
-            <SlideCoachingView slides={result.slide_analysis} />
+            <SlideCoachingView slides={result.slide_analysis} deckUrl={activeDeckSignedUrl} />
           </div>
         )}
 
