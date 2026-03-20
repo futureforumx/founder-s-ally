@@ -221,43 +221,29 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-foreground">My Investors</h3>
-        <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-            Recent <ChevronDown className="h-3 w-3" />
-          </button>
-          <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border text-muted-foreground hover:text-foreground transition-colors" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-          </button>
-          <Button
-            size="sm"
-            className="gap-1.5 text-xs h-8 rounded-lg"
-            style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Investor
-          </Button>
-        </div>
       </div>
 
-      {/* Smart Search */}
-      <div ref={searchRef} className="relative mb-6">
-        <div
-          className="relative rounded-2xl overflow-hidden"
-          style={{
-            background: "hsla(var(--secondary), 0.5)",
-            border: "1px solid hsla(var(--border), 0.5)",
-          }}
-        >
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search global investor database..."
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              setShowSuggestions(true);
+      {/* Search + Filters Row */}
+      <div className="flex items-center gap-2 mb-6">
+        <div ref={searchRef} className="relative flex-1 max-w-xs">
+          <div
+            className="relative rounded-2xl overflow-hidden"
+            style={{
+              background: "hsla(var(--secondary), 0.5)",
+              border: "1px solid hsla(var(--border), 0.5)",
             }}
-            onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
-            className="pl-11 h-11 text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
+          >
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search investors..."
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
+              className="pl-11 h-9 text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
           {nfxLoading && (
             <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
           )}
@@ -334,8 +320,22 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             ) : null}
           </div>
         )}
-      </div>
+        </div>
 
+        <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+          Recent <ChevronDown className="h-3 w-3" />
+        </button>
+        <button className="inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+        </button>
+        <Button
+          size="sm"
+          className="gap-1.5 text-xs h-9 rounded-lg shrink-0"
+          style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Investor
+        </Button>
+      </div>
       {/* Read-Only Table */}
       <div className="overflow-hidden">
         <Table className="border-0 [&_tr]:border-0 table-fixed w-full">
