@@ -14,6 +14,7 @@ import { RadialScore } from "./deck-audit/RadialScore";
 import { DimensionBars } from "./deck-audit/DimensionBars";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
+import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
 import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
