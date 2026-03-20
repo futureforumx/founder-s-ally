@@ -64,7 +64,7 @@ serve(async (req) => {
 
     // ── ADD: Add a competitor (create global entry if needed, then link) ──
     if (action === "add") {
-      const { name, status = "Tracked", user_defined_advantage, notes } = payload;
+      const { name, status = "Tracked", user_defined_advantage, notes, website: providedWebsite } = payload;
       if (!name?.trim()) {
         return new Response(JSON.stringify({ error: "Name is required" }), {
           status: 400,
