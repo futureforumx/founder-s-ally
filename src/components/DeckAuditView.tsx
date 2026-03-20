@@ -12,6 +12,7 @@ import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
 import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
+import { VersionHistoryAccordion } from "./deck-audit/VersionHistoryAccordion";
 import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
