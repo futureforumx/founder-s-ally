@@ -284,11 +284,12 @@ function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;t
 
 
 export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
+  const isInvestorSearch = variant === "investor-search";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showMagicPrompts, setShowMagicPrompts] = useState(true);
-  const [activeScope, setActiveScope] = useState<EntityScope>("all");
+  const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
