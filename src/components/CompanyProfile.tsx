@@ -1879,7 +1879,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   ) : (
                     <button onClick={() => confirmSection("positioning")}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-                      <Check className="h-3.5 w-3.5" /> Approve Section
+                      <Check className="h-3.5 w-3.5" /> Confirm Details
                     </button>
                   )}
                 </div>
@@ -2114,7 +2114,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   ) : (
                     <button onClick={() => confirmSection("metrics")}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-                      <Check className="h-3.5 w-3.5" /> Approve Section
+                      <Check className="h-3.5 w-3.5" /> Confirm Details
                     </button>
                   )}
                 </div>
@@ -2182,7 +2182,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         ) : (
                           <button onClick={() => confirmSection("social")}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-4 py-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
-                            <Check className="h-3.5 w-3.5" /> Approve Section
+                            <Check className="h-3.5 w-3.5" /> Confirm Details
                           </button>
                         )}
                       </div>
