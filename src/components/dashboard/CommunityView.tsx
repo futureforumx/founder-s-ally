@@ -405,7 +405,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
               WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
             }}
           >
-            {MAGIC_PROMPTS.map((prompt) => (
+            {MAGIC_PROMPTS[activeScope].map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => {
