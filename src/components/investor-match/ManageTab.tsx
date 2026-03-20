@@ -320,8 +320,22 @@ function CapTablePanel({ confirmedBackers, formatCurrency }: Omit<ManageTabProps
             ) : null}
           </div>
         )}
-      </div>
+        </div>
 
+        <button className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 h-9 rounded-lg border shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+          Recent <ChevronDown className="h-3 w-3" />
+        </button>
+        <button className="inline-flex items-center justify-center h-9 w-9 rounded-lg border text-muted-foreground hover:text-foreground transition-colors shrink-0" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+        </button>
+        <Button
+          size="sm"
+          className="gap-1.5 text-xs h-9 rounded-lg shrink-0"
+          style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Investor
+        </Button>
+      </div>
       {/* Read-Only Table */}
       <div className="overflow-hidden">
         <Table className="border-0 [&_tr]:border-0 table-fixed w-full">
