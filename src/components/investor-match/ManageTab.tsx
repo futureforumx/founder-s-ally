@@ -637,11 +637,16 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
             <Users className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground mb-1">
-            {searchQuery ? "No investors match your search." : "No investors added yet."}
+            {(searchQuery || hasActiveFilters)
+              ? "No investors match your current filters."
+              : "No investors added yet."}
           </p>
-          {searchQuery && (
-            <button className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline mt-1">
-              <UserPlus className="h-3 w-3" /> Add manually
+          {(searchQuery || hasActiveFilters) && (
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline mt-1"
+            >
+              <X className="h-3 w-3" /> Clear Filters
             </button>
           )}
         </div>
