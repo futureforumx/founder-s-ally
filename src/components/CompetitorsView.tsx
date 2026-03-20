@@ -366,27 +366,19 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
   const visible = showAll ? filtered : filtered.slice(0, 4);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Competitor Updates</h2>
+          <h2 className="text-lg font-bold text-foreground">Updates Feed</h2>
           <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
             {filtered.length} signals
           </Badge>
         </div>
-        {filtered.length > 4 && (
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-          >
-            {showAll ? "Show less" : `View all ${filtered.length}`}
-          </button>
-        )}
       </div>
 
-      {/* Segmented Control */}
-      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1">
+      {/* Segmented Control — outside scroll area */}
+      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
         {SIGNAL_TABS.map(tab => (
           <button
             key={tab.key}
@@ -402,10 +394,10 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
         ))}
       </div>
 
-      {/* Feed Items */}
-      <div className="space-y-2">
+      {/* Scrollable Feed Items */}
+      <div className="max-h-[620px] overflow-y-auto pr-2 flex flex-col gap-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60 [&::-webkit-scrollbar-track]:bg-transparent">
         <AnimatePresence initial={false} mode="popLayout">
-          {visible.map((update, i) => {
+          {filtered.map((update, i) => {
             const meta = UPDATE_TYPE_META[update.type];
             const isVulnerability = update.type === "vulnerability";
             const Icon = meta.icon;
@@ -471,7 +463,7 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
             );
           })}
         </AnimatePresence>
-        {visible.length === 0 && (
+        {filtered.length === 0 && (
           <div className="text-center py-10">
             <p className="text-xs text-muted-foreground">No signals in this category.</p>
           </div>
