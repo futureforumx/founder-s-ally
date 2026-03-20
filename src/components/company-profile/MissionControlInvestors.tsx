@@ -66,6 +66,8 @@ export function MissionControlInvestors({
   const [editingBacker, setEditingBacker] = useState<CapBacker | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
+  const [isOpen, setIsOpen] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController>();
   const debouncedQuery = useDebounce(searchQuery, 300);
