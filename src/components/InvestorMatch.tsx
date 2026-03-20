@@ -179,7 +179,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
 
-  const totalRaised = useMemo(() => confirmedBackers.reduce((sum, b) => sum + b.amount, 0), [confirmedBackers]);
+  // Use external backers if provided, otherwise use internal
+  const confirmedBackers = externalBackers ?? internalBackers;
+  const totalRaised = externalTotalRaised ?? confirmedBackers.reduce((sum, b) => sum + b.amount, 0);
   const animatedTotal = useCountUp(totalRaised);
 
   const backerNames = confirmedBackers.map(b => b.name);
@@ -195,13 +197,15 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
     })();
   }, []);
 
+  // Only fetch internally if no external backers provided
   useEffect(() => {
+    if (externalBackers) return;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
       if (data) {
-        setConfirmedBackers(
+        setInternalBackers(
           data.map(row => ({
             id: row.id,
             name: row.investor_name,
@@ -215,7 +219,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         );
       }
     })();
-  }, []);
+  }, [externalBackers]);
 
   const scoredInvestors = useMemo(() => {
     return investors
