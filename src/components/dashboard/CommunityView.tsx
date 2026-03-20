@@ -370,6 +370,57 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         ))}
       </div>
 
+      {/* ═══════ Search Results First (when searching) ═══════ */}
+      {searchQuery && (
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Search Results</h2>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} founders`}
+            </span>
+          </div>
+
+          {isSearching ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <FounderCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : visibleFounders.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {visibleFounders.map((founder, i) => (
+                  <FounderCard key={`search-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+                ))}
+                {isLoadingMore &&
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <FounderCardSkeleton key={`loading-${i}`} />
+                  ))}
+              </div>
+              <div ref={sentinelRef} className="h-1" />
+              {hasMore && !isLoadingMore && (
+                <div className="flex justify-center pt-2">
+                  <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
+                    Load more founders
+                  </button>
+                </div>
+              )}
+              {isLoadingMore && (
+                <div className="flex justify-center pt-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">No founders match your search.</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ═══════ Carousel: Suggested Founders ═══════ */}
       <div className="pt-4">
         <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
@@ -380,7 +431,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       </div>
 
       {/* ═══════ Carousel: Trending Profiles ═══════ */}
-      <div className="pt-8">
+      <div className="pt-4">
         <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
           {TRENDING_FOUNDERS.map((founder, i) => (
             <CarouselCard key={`trending-${i}`} founder={founder} trending onClick={() => setSelectedFounder(founder)} />
@@ -388,61 +439,56 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
         </FounderCarousel>
       </div>
 
-      {/* ═══════ All Founders Grid ═══════ */}
-      <div className="space-y-3 pt-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
-          <span className="text-[10px] text-muted-foreground font-mono">
-            {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} founders`}
-          </span>
-        </div>
-
-        {isSearching ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <FounderCardSkeleton key={i} />
-            ))}
+      {/* ═══════ All Founders Grid (only when NOT searching) ═══════ */}
+      {!searchQuery && (
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">All Founders</h2>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} founders`}
+            </span>
           </div>
-        ) : visibleFounders.length > 0 ? (
-          <>
+
+          {isSearching ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {visibleFounders.map((founder, i) => (
-                <FounderCard key={`all-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+              {Array.from({ length: 6 }).map((_, i) => (
+                <FounderCardSkeleton key={i} />
               ))}
-              {isLoadingMore &&
-                Array.from({ length: 3 }).map((_, i) => (
-                  <FounderCardSkeleton key={`loading-${i}`} />
-                ))}
             </div>
-
-            {/* Infinite scroll sentinel */}
-            <div ref={sentinelRef} className="h-1" />
-
-            {hasMore && !isLoadingMore && (
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={loadMore}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all"
-                >
-                  Load more founders
-                </button>
+          ) : visibleFounders.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {visibleFounders.map((founder, i) => (
+                  <FounderCard key={`all-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
+                ))}
+                {isLoadingMore &&
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <FounderCardSkeleton key={`loading-${i}`} />
+                  ))}
               </div>
-            )}
-
-            {isLoadingMore && (
-              <div className="flex justify-center pt-2">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground">No founders match your search.</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
-          </div>
-        )}
-      </div>
+              <div ref={sentinelRef} className="h-1" />
+              {hasMore && !isLoadingMore && (
+                <div className="flex justify-center pt-2">
+                  <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
+                    Load more founders
+                  </button>
+                </div>
+              )}
+              {isLoadingMore && (
+                <div className="flex justify-center pt-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">No founders match your search.</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Slide-over Detail Panel */}
       <FounderDetailPanel
