@@ -673,7 +673,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setDeckFile(file);
     if (analysisComplete) setHasNewInputs(true);
     try {
-      if (name.endsWith(".txt")) { setDeckText(await file.text()); }
+      if (name.endsWith(".txt")) { const txt = await file.text(); setDeckText(txt); try { sessionStorage.setItem("pending-deck-audit", txt); } catch {} }
       else {
         const pdfjsLib = await import("pdfjs-dist");
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
