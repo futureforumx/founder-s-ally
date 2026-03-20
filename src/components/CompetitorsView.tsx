@@ -388,14 +388,12 @@ export function CompetitorsView({ companyData, onNavigateProfile }: CompetitorsV
         </div>
       </div>
 
-      {/* Battlecard Slide-Over */}
-      <Sheet open={!!activeCompetitor} onOpenChange={(open) => { if (!open) setActiveCompetitor(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto border-border bg-card flex flex-col">
-          {activeCompetitor && (
-            <BattlecardPanel name={activeCompetitor} onClose={() => setActiveCompetitor(null)} />
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Battlecard Floating Modal */}
+      <AnimatePresence>
+        {activeCompetitor && (
+          <BattlecardModal name={activeCompetitor} onClose={() => setActiveCompetitor(null)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }
