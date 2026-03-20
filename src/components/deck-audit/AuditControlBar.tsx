@@ -3,8 +3,10 @@ import { RefreshCw, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AuditControlBarProps {
-  onRerun: () => void;
+  onRerun: (params: { profile: string; sector: string; stage: string; geo: string }) => void;
   isRunning: boolean;
+  initialProfile?: string;
+  initialBenchmark?: string;
 }
 
 const investorProfiles = ["Pre-Seed Angels", "Seed Funds", "Series A", "Growth Equity"];
@@ -12,14 +14,26 @@ const sectors = ["B2B SaaS", "Consumer", "Fintech", "Health Tech", "Climate Tech
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B+"];
 const geos = ["US", "Europe", "LATAM", "SEA", "Global"];
 
-export function AuditControlBar({ onRerun, isRunning }: AuditControlBarProps) {
-  const [profile, setProfile] = useState(investorProfiles[1]);
-  const [sector, setSector] = useState(sectors[0]);
-  const [stage, setStage] = useState(stages[1]);
-  const [geo, setGeo] = useState(geos[0]);
+function parseBenchmark(cohort: string) {
+  const parts = cohort.split(" / ").map((s) => s.trim());
+  return {
+    sector: sectors.includes(parts[0]) ? parts[0] : sectors[0],
+    stage: stages.includes(parts[1]) ? parts[1] : stages[1],
+    geo: geos.includes(parts[2]) ? parts[2] : geos[0],
+  };
+}
+
+export function AuditControlBar({ onRerun, isRunning, initialProfile, initialBenchmark }: AuditControlBarProps) {
+  const parsed = initialBenchmark ? parseBenchmark(initialBenchmark) : null;
+  const [profile, setProfile] = useState(initialProfile && investorProfiles.includes(initialProfile) ? initialProfile : investorProfiles[1]);
+  const [sector, setSector] = useState(parsed?.sector ?? sectors[0]);
+  const [stage, setStage] = useState(parsed?.stage ?? stages[1]);
+  const [geo, setGeo] = useState(parsed?.geo ?? geos[0]);
   const [benchmarkOpen, setBenchmarkOpen] = useState(false);
 
   const benchmarkLabel = `${sector} / ${stage} / ${geo}`;
+
+  const fireRerun = () => onRerun({ profile, sector, stage, geo });
 
   return (
     <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-6 py-3">
@@ -77,7 +91,7 @@ export function AuditControlBar({ onRerun, isRunning }: AuditControlBarProps) {
                   </select>
                 </div>
                 <button
-                  onClick={() => { setBenchmarkOpen(false); onRerun(); }}
+                  onClick={() => { setBenchmarkOpen(false); fireRerun(); }}
                   className="w-full rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
                 >
                   Apply
@@ -91,7 +105,7 @@ export function AuditControlBar({ onRerun, isRunning }: AuditControlBarProps) {
 
         {/* Re-run */}
         <button
-          onClick={onRerun}
+          onClick={fireRerun}
           disabled={isRunning}
           className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors disabled:opacity-50"
         >

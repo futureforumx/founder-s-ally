@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { MultiAxisScores } from "./types";
+import { DIMENSION_LABELS } from "./types";
 
 export interface Dimension {
   label: string;
@@ -8,61 +10,29 @@ export interface Dimension {
   rationale: string[];
 }
 
-const MOCK_DIMENSIONS: Dimension[] = [
-  {
-    label: "Story & Flow",
-    score: 72,
-    rationale: [
-      "Narrative arc follows problem → solution → traction but the 'why now' moment is buried on slide 8.",
-      "Transition from market size to product feels abrupt — consider a bridging slide.",
-    ],
-  },
-  {
-    label: "Clarity & Density",
-    score: 58,
-    rationale: [
-      "Slides 4-6 are text-heavy — averaging 120+ words per slide vs. the 40-word benchmark.",
-      "Key metrics are scattered across 3 slides. Consolidate into a single data slide.",
-    ],
-  },
-  {
-    label: "Market & Financials",
-    score: 45,
-    rationale: [
-      "TAM uses only top-down sizing. Add a bottom-up calculation to increase credibility.",
-      "No clear unit economics breakdown — LTV:CAC ratio missing entirely.",
-      "Revenue projections lack assumption backing (growth rate source unclear).",
-    ],
-  },
-  {
-    label: "Team Credibility",
-    score: 81,
-    rationale: [
-      "Strong founder-market fit articulation. Domain expertise is clear.",
-      "Consider adding advisor network or key hire pipeline to strengthen bench depth.",
-    ],
-  },
-  {
-    label: "Design & Scannability",
-    score: 67,
-    rationale: [
-      "Consistent color palette and typography. Visual hierarchy is generally strong.",
-      "Several slides rely on tables that are hard to parse at pitch speed — switch to charts.",
-    ],
-  },
-];
-
-interface DimensionBarsProps {
-  dimensions?: Dimension[];
+function dimensionsFromScores(scores: MultiAxisScores["dimensions"]): Dimension[] {
+  return (Object.keys(DIMENSION_LABELS) as Array<keyof typeof DIMENSION_LABELS>).map((key) => ({
+    label: DIMENSION_LABELS[key],
+    score: scores[key].score,
+    rationale: scores[key].rationale,
+  }));
 }
 
-export function DimensionBars({ dimensions = MOCK_DIMENSIONS }: DimensionBarsProps) {
+interface DimensionBarsProps {
+  scores?: MultiAxisScores["dimensions"];
+}
+
+export function DimensionBars({ scores }: DimensionBarsProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const dimensions = scores ? dimensionsFromScores(scores) : [];
 
   const getColor = (score: number) =>
     score >= 75 ? "bg-success" :
     score >= 50 ? "bg-warning" :
     "bg-destructive";
+
+  if (dimensions.length === 0) return null;
 
   return (
     <div className="flex-1 space-y-3">
