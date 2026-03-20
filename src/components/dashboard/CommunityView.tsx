@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { FounderCarousel } from "./FounderCarousel";
+import { FounderDetailPanel } from "./FounderDetailPanel";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -137,9 +138,11 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
-function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
+function FounderCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
   return (
-    <Card className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
+    <Card
+      onClick={onClick}
+      className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
     }`}>
       {/* Color banner */}
@@ -181,10 +184,10 @@ function FounderCard({ founder, trending }: { founder: FounderEntry; trending?: 
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending }: { founder: FounderEntry; trending?: boolean }) {
+function CarouselCard({ founder, trending, onClick }: { founder: FounderEntry; trending?: boolean; onClick?: () => void }) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
-      <FounderCard founder={founder} trending={trending} />
+      <FounderCard founder={founder} trending={trending} onClick={onClick} />
     </div>
   );
 }
@@ -206,6 +209,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
   const [activeTab, setActiveTab] = useState<DirectoryTab>("companies");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedFounder, setSelectedFounder] = useState<FounderEntry | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasProfile = !!companyData?.name;
@@ -370,7 +374,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       <div className="pt-4">
         <FounderCarousel title="Suggested Founders" subtitle="Curated matches based on your profile">
           {SUGGESTED_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`suggested-${i}`} founder={founder} />
+            <CarouselCard key={`suggested-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
           ))}
         </FounderCarousel>
       </div>
@@ -379,7 +383,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
       <div className="pt-8">
         <FounderCarousel title="Trending Profiles" subtitle="Most active this week">
           {TRENDING_FOUNDERS.map((founder, i) => (
-            <CarouselCard key={`trending-${i}`} founder={founder} trending />
+            <CarouselCard key={`trending-${i}`} founder={founder} trending onClick={() => setSelectedFounder(founder)} />
           ))}
         </FounderCarousel>
       </div>
@@ -403,7 +407,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {visibleFounders.map((founder, i) => (
-                <FounderCard key={`all-${i}`} founder={founder} />
+                <FounderCard key={`all-${i}`} founder={founder} onClick={() => setSelectedFounder(founder)} />
               ))}
               {isLoadingMore &&
                 Array.from({ length: 3 }).map((_, i) => (
@@ -439,6 +443,13 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile }
           </div>
         )}
       </div>
+
+      {/* Slide-over Detail Panel */}
+      <FounderDetailPanel
+        founder={selectedFounder}
+        companyName={companyData?.name}
+        onClose={() => setSelectedFounder(null)}
+      />
     </div>
   );
 }
