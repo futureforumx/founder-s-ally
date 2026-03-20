@@ -1419,7 +1419,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             return (
               <>
                 <button onClick={handleAnalyzeClick} disabled={isDisabled}
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[13px] font-medium transition-colors ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-colors ${
                     isAnalyzing ? "bg-accent text-accent-foreground"
                     : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
                     : "bg-accent text-accent-foreground hover:bg-accent/90"
