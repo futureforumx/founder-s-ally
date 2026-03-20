@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2 } from "lucide-react";
+import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2, Lock, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ interface MissionControlInvestorsProps {
   onNavigateInvestors: () => void;
   analysisResult?: AnalysisResult | null;
   companyData?: { stage?: string; sector?: string } | null;
+  previousSectionApproved?: boolean;
 }
 
 export function MissionControlInvestors({
@@ -56,6 +57,7 @@ export function MissionControlInvestors({
   onNavigateInvestors,
   analysisResult,
   companyData,
+  previousSectionApproved = false,
 }: MissionControlInvestorsProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,11 +68,23 @@ export function MissionControlInvestors({
   const [editingBacker, setEditingBacker] = useState<CapBacker | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, Partial<CapBacker>>>({});
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [dismissedExtracted, setDismissedExtracted] = useState<Set<string>>(new Set());
+  const [manuallyAddedIds, setManuallyAddedIds] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController>();
   const debouncedQuery = useDebounce(searchQuery, 300);
+  const prevApprovedRef = useRef(previousSectionApproved);
+
+  // Auto-expand when previous section gets approved
+  useEffect(() => {
+    if (previousSectionApproved && !prevApprovedRef.current) {
+      // Previous section just got approved — unlock and auto-expand
+      setTimeout(() => setIsOpen(true), 300);
+    }
+    prevApprovedRef.current = previousSectionApproved;
+  }, [previousSectionApproved]);
 
   // Recommended investors from investor_database
   const [recommendations, setRecommendations] = useState<{ firm_name: string; location: string | null; preferred_stage: string | null; thesis_verticals: string[] }[]>([]);
@@ -143,6 +157,7 @@ export function MissionControlInvestors({
     const result = await addInvestor(name, { entityType: stage || "Angel" });
     if (result) {
       setHighlightedId(result.id);
+      setManuallyAddedIds(prev => new Set(prev).add(result.id));
       toast.success(`${name} added to your investors`);
     }
   }, [addInvestor]);
@@ -152,10 +167,10 @@ export function MissionControlInvestors({
     setSearchQuery("");
     setShowSuggestions(false);
     if (!name) return;
-    // Open the edit sheet with a new backer stub after adding
     addInvestor(name, { entityType: "Angel" }).then((result) => {
       if (result) {
         setHighlightedId(result.id);
+        setManuallyAddedIds(prev => new Set(prev).add(result.id));
         setEditingBacker(result);
         setSheetOpen(true);
         toast.success(`${name} added — fill in the details`);
@@ -181,9 +196,12 @@ export function MissionControlInvestors({
     setConfirmed(false);
   }, [backersKey]);
 
-  // Status dot logic: empty (red), has data (yellow pulse), confirmed (green pulse)
+  // Status dot logic
   const isEmpty = backers.length === 0;
   const renderStatusDot = () => {
+    if (!previousSectionApproved) {
+      return <span className="inline-flex rounded-full h-2 w-2 bg-muted-foreground/30" />;
+    }
     if (isEmpty) {
       return <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />;
     }
@@ -216,227 +234,282 @@ export function MissionControlInvestors({
   // Extracted investors from analysis
   const extractedInvestors = analysisResult?.extractedInvestors || [];
   const existingNames = new Set(backers.map(b => b.name.toLowerCase()));
-  const pendingExtracted = extractedInvestors.filter(e => !existingNames.has(e.investorName.toLowerCase()));
+  const pendingExtracted = extractedInvestors
+    .filter(e => !existingNames.has(e.investorName.toLowerCase()))
+    .filter(e => !dismissedExtracted.has(e.investorName.toLowerCase()));
 
   const allBackers = backers.map(b => ({ ...b, ...overrides[b.id] }));
 
+  const isLocked = !previousSectionApproved;
+
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="rounded-xl border border-border bg-card">
-      <CollapsibleTrigger asChild>
-        <button className="w-full flex items-center justify-between p-6 text-left">
+    <Collapsible
+      open={isLocked ? false : isOpen}
+      onOpenChange={v => !isLocked && setIsOpen(v)}
+      className={`rounded-xl border transition-all duration-300 ${
+        isLocked
+          ? "border-border/50 bg-card/50 opacity-60"
+          : "border-border bg-card"
+      }`}
+    >
+      <CollapsibleTrigger asChild disabled={isLocked}>
+        <button
+          className={`w-full flex items-center justify-between p-6 text-left transition-all ${
+            isLocked ? "cursor-not-allowed" : "cursor-pointer"
+          }`}
+        >
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <PhosphorHandshake className="h-3.5 w-3.5 text-accent" /> Investors
             {renderStatusDot()}
           </h3>
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          {isLocked ? (
+            <Lock className="h-4 w-4 text-muted-foreground/40" />
+          ) : (
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          )}
         </button>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
+        <div className="p-5 space-y-4">
 
-      <div className="p-5 space-y-4">
-        {/* Search */}
-        <div ref={searchRef} className="relative">
-          <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search & add investors..."
-              value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
-              className="pl-9 h-8 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            {(nfxLoading || isTyping) && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin" />
-            )}
-          </div>
+          {/* ═══ REVIEW ZONE — AI-Scanned Data ═══ */}
+          {(pendingExtracted.length > 0 || allBackers.length > 0) && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-foreground/80">
+                {pendingExtracted.length > 0
+                  ? "We found these investors in your pitch deck."
+                  : "Your tracked investors"}
+              </p>
 
-          {showSuggestions && searchQuery.length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-20 bg-card border border-border shadow-lg">
-              {nfxResults.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto">
-                  {nfxResults.map((r, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSelectInvestor(r.name, r.logoUrl, r.stage)}
-                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-secondary/60"
-                    >
-                      <Avatar className="h-7 w-7 shrink-0">
-                        {r.logoUrl ? <AvatarImage src={r.logoUrl} alt={r.name} /> : null}
-                        <AvatarFallback className="text-[10px] font-semibold bg-secondary text-foreground">
-                          {r.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{r.location}{r.stage ? ` · ${r.stage}` : ""}</p>
+              {/* AI-Extracted Investors from Deck */}
+              {pendingExtracted.length > 0 && (
+                <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-accent" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-accent">Detected from Analysis</span>
+                  </div>
+                  <div className="space-y-1">
+                    {pendingExtracted.slice(0, 5).map((inv, i) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 group">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <AvatarFallback className="text-[9px] font-semibold bg-accent/10 text-accent">
+                              {inv.investorName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">{inv.investorName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {inv.entityType}{inv.amount > 0 ? ` · ${formatCurrency(inv.amount)}` : ""}
+                              {inv.source === "deck" ? " · from deck" : " · from web"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleSelectInvestor(inv.investorName, undefined, inv.entityType)}
+                            className="text-[10px] font-medium text-accent hover:text-accent/80 px-2 py-1 rounded-md hover:bg-accent/10 transition-colors"
+                          >
+                            + Add
+                          </button>
+                          <button
+                            onClick={() => setDismissedExtracted(prev => new Set(prev).add(inv.investorName.toLowerCase()))}
+                            className="text-muted-foreground/30 hover:text-destructive p-1 rounded-md hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remove suggestion"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
-                      <UserPlus className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Investor Grid */}
+              {allBackers.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {allBackers.slice(0, 6).map((b) => (
+                    <div
+                      key={b.id}
+                      className={`relative border border-border rounded-xl p-3 transition-all duration-200 hover:shadow-md cursor-pointer group ${
+                        b.id === highlightedId ? "ring-2 ring-accent" : ""
+                      }`}
+                      style={{ background: "hsl(var(--background))" }}
+                    >
+                      <div className="flex items-center gap-2.5" onClick={() => { setEditingBacker(b); setSheetOpen(true); }}>
+                        <Avatar className="h-9 w-9 shrink-0 rounded-lg border border-border">
+                          {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                          <AvatarFallback className="text-xs font-bold rounded-lg bg-secondary text-foreground">
+                            {b.logoLetter}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-semibold text-foreground truncate">{b.name}</p>
+                            {manuallyAddedIds.has(b.id) && (
+                              <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 border-accent/30 text-accent font-medium">
+                                Added
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {b.instrument && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                                {b.instrument.split("(")[0].trim()}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono font-bold text-foreground">
+                              {b.amount > 0 ? formatCompactCurrency(b.amount) : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                  {/* Manual add at bottom of results */}
-                  <button
-                    onClick={handleManualAdd}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-secondary/60 border-t border-border"
-                  >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
-                      <UserPlus className="h-3 w-3 text-accent" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
-                      <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
-                    </div>
-                  </button>
                 </div>
-              ) : !(nfxLoading || isTyping) ? (
-                <div className="px-3 py-3">
-                  <p className="text-[10px] text-muted-foreground text-center mb-2">No results for "{searchQuery}"</p>
-                  <button
-                    onClick={handleManualAdd}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left transition-colors hover:bg-secondary/60"
-                  >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
-                      <UserPlus className="h-3 w-3 text-accent" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
-                      <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
-                    </div>
-                  </button>
-                </div>
-              ) : null}
+              )}
+
+              {/* Show more link */}
+              {allBackers.length > 6 && (
+                <button
+                  onClick={onNavigateInvestors}
+                  className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
+                >
+                  + {allBackers.length - 6} more investors
+                </button>
+              )}
             </div>
           )}
-        </div>
 
-        {/* AI-Extracted Investors from Deck */}
-        {pendingExtracted.length > 0 && (
-          <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-accent" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-accent">Detected from Analysis</span>
-            </div>
-            <div className="space-y-1">
-              {pendingExtracted.slice(0, 5).map((inv, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarFallback className="text-[9px] font-semibold bg-accent/10 text-accent">
-                        {inv.investorName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{inv.investorName}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {inv.entityType}{inv.amount > 0 ? ` · ${formatCurrency(inv.amount)}` : ""}
-                        {inv.source === "deck" ? " · from deck" : " · from web"}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleSelectInvestor(inv.investorName, undefined, inv.entityType)}
-                    className="text-[10px] font-medium text-accent hover:text-accent/80 px-2 py-1 rounded-md hover:bg-accent/10 transition-colors shrink-0"
-                  >
-                    + Add
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* AI Recommendations (shown when no investors yet) */}
-        {backers.length === 0 && recommendations.length > 0 && pendingExtracted.length === 0 && (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-primary" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Recommended for {companyData?.sector}</span>
-            </div>
-            <div className="space-y-1">
-              {recommendations.map((rec, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarFallback className="text-[9px] font-semibold bg-primary/10 text-primary">
-                        {rec.firm_name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{rec.firm_name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {rec.location || "—"}{rec.preferred_stage ? ` · ${rec.preferred_stage}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleSelectInvestor(rec.firm_name)}
-                    className="text-[10px] font-medium text-primary hover:text-primary/80 px-2 py-1 rounded-md hover:bg-primary/10 transition-colors shrink-0"
-                  >
-                    + Add
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Investor Grid */}
-        {allBackers.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {allBackers.slice(0, 6).map((b) => (
-              <div
-                key={b.id}
-                onClick={() => { setEditingBacker(b); setSheetOpen(true); }}
-                className={`relative border border-border rounded-xl p-3 transition-all duration-200 hover:shadow-md cursor-pointer group ${
-                  b.id === highlightedId ? "ring-2 ring-accent" : ""
-                }`}
-                style={{ background: "hsl(var(--background))" }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Avatar className="h-9 w-9 shrink-0 rounded-lg border border-border">
-                    {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                    <AvatarFallback className="text-xs font-bold rounded-lg bg-secondary text-foreground">
-                      {b.logoLetter}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-foreground truncate">{b.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {b.instrument && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                          {b.instrument.split("(")[0].trim()}
-                        </span>
-                      )}
-                      <span className="text-[10px] font-mono font-bold text-foreground">
-                        {b.amount > 0 ? formatCompactCurrency(b.amount) : "—"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+          {/* AI Recommendations (shown when no investors yet) */}
+          {backers.length === 0 && recommendations.length > 0 && pendingExtracted.length === 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">Recommended for {companyData?.sector}</span>
               </div>
-            ))}
-          </div>
-        ) : pendingExtracted.length === 0 && recommendations.length === 0 ? (
+              <div className="space-y-1">
+                {recommendations.map((rec, i) => (
+                  <div key={i} className="flex items-center justify-between py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarFallback className="text-[9px] font-semibold bg-primary/10 text-primary">
+                          {rec.firm_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{rec.firm_name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {rec.location || "—"}{rec.preferred_stage ? ` · ${rec.preferred_stage}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleSelectInvestor(rec.firm_name)}
+                      className="text-[10px] font-medium text-primary hover:text-primary/80 px-2 py-1 rounded-md hover:bg-primary/10 transition-colors shrink-0"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {allBackers.length === 0 && pendingExtracted.length === 0 && recommendations.length === 0 && (
             <div className="flex flex-col items-center py-8 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary mb-2">
                 <PhosphorHandshake className="h-4 w-4 text-muted-foreground" />
               </div>
               <p className="text-xs text-muted-foreground mb-1">No investors added yet</p>
-              <p className="text-[10px] text-muted-foreground">Search above or run an analysis to detect investors from your deck</p>
+              <p className="text-[10px] text-muted-foreground">Search below or run an analysis to detect investors from your deck</p>
             </div>
-          ) : null}
-
-          {/* Show more link */}
-          {allBackers.length > 6 && (
-            <button
-              onClick={onNavigateInvestors}
-              className="w-full text-center text-[11px] font-medium text-accent hover:text-accent/80 py-2 transition-colors"
-            >
-              + {allBackers.length - 6} more investors
-            </button>
           )}
 
-          {/* Confirm / Approved */}
+          {/* ═══ AUGMENT ZONE — Add Missing Investors ═══ */}
+          <div className="border-t border-border/50 my-4" />
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-foreground/80">Missing someone? Add them here.</p>
+
+            {/* Search */}
+            <div ref={searchRef} className="relative">
+              <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search & add investors..."
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
+                  className="pl-9 h-8 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                {(nfxLoading || isTyping) && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin" />
+                )}
+              </div>
+
+              {showSuggestions && searchQuery.length >= 2 && (
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-20 bg-card border border-border shadow-lg">
+                  {nfxResults.length > 0 ? (
+                    <div className="max-h-48 overflow-y-auto">
+                      {nfxResults.map((r, i) => (
+                        <button
+                          key={i}
+                          onClick={() => handleSelectInvestor(r.name, r.logoUrl, r.stage)}
+                          className="flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-secondary/60"
+                        >
+                          <Avatar className="h-7 w-7 shrink-0">
+                            {r.logoUrl ? <AvatarImage src={r.logoUrl} alt={r.name} /> : null}
+                            <AvatarFallback className="text-[10px] font-semibold bg-secondary text-foreground">
+                              {r.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{r.location}{r.stage ? ` · ${r.stage}` : ""}</p>
+                          </div>
+                          <UserPlus className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </button>
+                      ))}
+                      {/* Manual add at bottom of results */}
+                      <button
+                        onClick={handleManualAdd}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors hover:bg-secondary/60 border-t border-border"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
+                          <UserPlus className="h-3 w-3 text-accent" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
+                          <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
+                        </div>
+                      </button>
+                    </div>
+                  ) : !(nfxLoading || isTyping) ? (
+                    <div className="px-3 py-3">
+                      <p className="text-[10px] text-muted-foreground text-center mb-2">No results for "{searchQuery}"</p>
+                      <button
+                        onClick={handleManualAdd}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left transition-colors hover:bg-secondary/60"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 shrink-0">
+                          <UserPlus className="h-3 w-3 text-accent" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground">Add "{searchQuery}" manually</p>
+                          <p className="text-[10px] text-muted-foreground">Create a custom investor entry</p>
+                        </div>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ CONFIRM HANDSHAKE ═══ */}
           <div className="flex justify-end pt-2">
             {confirmed ? (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
