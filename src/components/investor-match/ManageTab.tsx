@@ -314,6 +314,63 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
     }
   }, [user]);
 
+  const handleManualAdd = useCallback(async (name?: string) => {
+    const investorName = (name || searchQuery).trim();
+    setSearchQuery("");
+    setShowSuggestions(false);
+    if (!investorName || !user) {
+      if (!user) toast.error("Please sign in to add investors.");
+      return;
+    }
+
+    const tempId = crypto.randomUUID();
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+    const optimisticBacker: CapBacker = {
+      id: tempId,
+      name: investorName,
+      amount: 0,
+      amountLabel: "$0",
+      instrument: "SAFE (Post-money)",
+      logoLetter: investorName.charAt(0).toUpperCase(),
+      date: dateLabel,
+      ownershipPct: 0,
+    };
+
+    setOptimisticBackers(prev => [...prev, optimisticBacker]);
+    setHighlightedId(tempId);
+
+    try {
+      const { data, error } = await supabase
+        .from("cap_table")
+        .insert({
+          user_id: user.id,
+          investor_name: investorName,
+          amount: 0,
+          instrument: "SAFE (Post-money)",
+          entity_type: "Angel",
+          date: dateLabel,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const finalBacker = { ...optimisticBacker, id: data.id };
+      setOptimisticBackers(prev =>
+        prev.map(b => b.id === tempId ? finalBacker : b)
+      );
+      setEditingBacker(finalBacker);
+      setSheetOpen(true);
+      toast.success(`${investorName} added — fill in the details`);
+    } catch (err) {
+      console.error("Failed to insert cap table entry:", err);
+      setOptimisticBackers(prev => prev.filter(b => b.id !== tempId));
+      toast.error("Failed to add investor. Please try again.");
+    }
+  }, [user, searchQuery]);
+
   return (
     <div
       className="rounded-[32px] p-8 backdrop-blur-xl"
