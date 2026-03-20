@@ -349,30 +349,61 @@ function CapTablePanel({ confirmedBackers, formatCurrency, enrichCache = {} }: O
           <Plus className="h-3.5 w-3.5" /> Add Investor
         </Button>
       </div>
-      {/* Read-Only Table */}
-      <div className="overflow-hidden">
-        <Table className="border-0 [&_tr]:border-0 table-fixed w-full">
-          <TableHeader>
-            <TableRow className="border-0 hover:bg-transparent">
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3 w-10"></TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Investor</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Round</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Type</TableHead>
-              <TableHead className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground h-9 px-3">Amount</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="[&_tr]:border-0">
-            {filteredBackers.map((b, i) => (
-              <CapTableRow
-                key={b.id}
-                backer={b}
-                index={i}
-                isHighlighted={b.id === highlightedId}
-                onClick={() => handleRowClick(b)}
-              />
-            ))}
-          </TableBody>
-        </Table>
+
+      {/* Investor Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+        {filteredBackers.map((b) => (
+          <div
+            key={b.id}
+            onClick={() => handleRowClick(b)}
+            className={`relative border border-border rounded-xl p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer group ${
+              b.id === highlightedId ? "ring-2 ring-accent" : ""
+            }`}
+            style={{
+              background: "hsl(var(--background))",
+              boxShadow: "0 1px 3px hsla(var(--foreground), 0.04)",
+            }}
+          >
+            {/* Arrow cue */}
+            <ChevronRight className="absolute top-4 right-4 h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+
+            {/* Header: Logo + Name */}
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 shrink-0 rounded-md border border-border shadow-sm">
+                {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                <AvatarFallback
+                  className="text-sm font-semibold rounded-md"
+                  style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                >
+                  {b.logoLetter}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-base font-bold text-foreground line-clamp-1">{b.name}</span>
+            </div>
+
+            {/* Core Metric */}
+            <div className="mt-4">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Commitment</p>
+              <p className="text-2xl font-extrabold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
+                {b.amount > 0 ? formatCompactCurrency(b.amount) : "$0"}
+              </p>
+            </div>
+
+            {/* Metadata Pills */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              {b.instrument && (
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsla(var(--primary), 0.08)", color: "hsl(var(--primary))" }}>
+                  {b.instrument}
+                </span>
+              )}
+              {b.date && (
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }}>
+                  {b.date}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {filteredBackers.length === 0 && !showSuggestions && (
