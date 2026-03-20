@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "@/components/investor-match/InlineAmountInput";
-import { InvestorEditSheet } from "@/components/investor-match/InvestorEditSheet";
+import { InvestorEditDialog } from "@/components/investor-match/InvestorEditDialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import type { CapBacker } from "@/components/investor-match/CapTableRow";
 import type { AnalysisResult } from "@/components/company-profile/types";
