@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { ChevronDown, Check } from "lucide-react";
 
 interface InlineCellComboboxProps {
   value: string;
@@ -12,7 +13,7 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
   const [search, setSearch] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -24,7 +25,6 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
     setHighlightIndex(0);
   }, [filtered.length, search]);
 
-  // Position dropdown via portal
   useEffect(() => {
     if (!open || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
@@ -35,15 +35,11 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
     });
   }, [open]);
 
-  // Click outside to close (check both trigger and portal dropdown)
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        dropdownRef.current?.contains(target)
-      ) return;
+      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) return;
       setOpen(false);
       setSearch("");
     };
@@ -51,11 +47,8 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Focus input when opened
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
   }, [open]);
 
   const handleSelect = useCallback((val: string) => {
@@ -84,7 +77,7 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
     ? createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-xl overflow-hidden"
+          className="fixed rounded-lg overflow-hidden"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
@@ -92,24 +85,9 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
             zIndex: 9999,
             background: "hsl(var(--background))",
             border: "1px solid hsl(var(--border))",
-            boxShadow: "0 16px 48px hsla(var(--foreground), 0.12)",
+            boxShadow: "0 16px 48px hsla(var(--foreground), 0.1)",
           }}
         >
-          <div className="p-2 border-b" style={{ borderColor: "hsl(var(--border))" }}>
-            <input
-              ref={inputRef}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Search…"
-              className="w-full text-sm px-3 py-1.5 rounded-md text-foreground placeholder:text-muted-foreground outline-none"
-              style={{
-                background: "hsl(var(--background))",
-                border: "1px solid hsl(210, 60%, 70%)",
-                boxShadow: "0 0 0 2px hsla(210, 60%, 85%, 0.5)",
-              }}
-            />
-          </div>
           <div className="max-h-52 overflow-y-auto py-1">
             {filtered.length > 0 ? (
               filtered.map((option, i) => (
@@ -117,13 +95,14 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
                   key={option}
                   onClick={() => handleSelect(option)}
                   onMouseEnter={() => setHighlightIndex(i)}
-                  className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
                     i === highlightIndex
                       ? "bg-secondary text-foreground"
                       : "text-muted-foreground hover:bg-secondary/60"
-                  } ${option === value ? "font-semibold text-foreground" : ""}`}
+                  } ${option === value ? "font-medium text-foreground" : ""}`}
                 >
-                  {option}
+                  <span>{option}</span>
+                  {option === value && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
                 </button>
               ))
             ) : (
@@ -137,13 +116,26 @@ export function InlineCellCombobox({ value, options, onSelect }: InlineCellCombo
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen(!open)}
-        className="text-sm text-muted-foreground cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 transition-colors hover:bg-secondary hover:text-foreground truncate block text-left"
-      >
-        {value || "Select…"}
-      </button>
+      <div ref={triggerRef}>
+        {open ? (
+          <input
+            ref={inputRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search…"
+            className="w-full rounded-lg border border-ring bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none ring-2 ring-ring/30 transition-all"
+          />
+        ) : (
+          <button
+            onClick={() => { setOpen(true); setSearch(""); }}
+            className="w-full flex items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground transition-all hover:border-ring cursor-pointer"
+          >
+            <span className="truncate">{value || "Select…"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </button>
+        )}
+      </div>
       {dropdown}
     </>
   );
