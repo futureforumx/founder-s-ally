@@ -320,31 +320,34 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState<PartnerPerson | null>(null);
+  const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
+  const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // SWR: Fetch live investors from DB (stale-while-revalidate)
-  const { data: liveInvestors, isFetching: isRefreshingLive } = useInvestorDirectory();
+  // VC Directory: 2,805 firms + 5,247 people from JSON
+  const {
+    firms: vcFirms, people: vcPeople, loading: vcLoading,
+    firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
+  } = useVCDirectory();
 
-  // Merge live DB investors into hardcoded seed data (deduplicate by name)
+  // Merge VC JSON firms into the directory entries for grid display
   const mergedEntries = useMemo(() => {
-    if (!isInvestorSearch || !liveInvestors?.length) return ALL_ENTRIES;
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
-    const newLive: DirectoryEntry[] = liveInvestors
-      .filter(inv => !seedNames.has(inv.name.toLowerCase()))
-      .map(inv => ({
-        name: inv.name,
-        sector: inv.sector,
-        stage: inv.stage,
-        description: inv.description,
-        location: inv.location,
-        model: inv.model,
-        initial: inv.initial,
-        matchReason: inv.matchReason,
+    const vcEntries: DirectoryEntry[] = vcFirms
+      .filter(f => !seedNames.has(f.name.toLowerCase()))
+      .map(f => ({
+        name: f.name,
+        sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+        stage: f.stages?.join(", ") || "Multi-stage",
+        description: f.description || `${f.name} is an active investment firm.`,
+        location: "",
+        model: f.sweet_spot || f.aum || "",
+        initial: f.name.charAt(0).toUpperCase(),
+        matchReason: null,
         category: "investor" as const,
       }));
-    return [...ALL_ENTRIES, ...newLive];
-  }, [isInvestorSearch, liveInvestors]);
+    return [...ALL_ENTRIES, ...vcEntries];
+  }, [vcFirms]);
 
   const hasProfile = !!companyData?.name;
 
