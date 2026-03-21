@@ -20,6 +20,7 @@ import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { RefreshCw, ShieldCheck, Check, ArrowRight, Eye, Zap, CheckCircle2, Sparkles, Circle, ChevronRight, Briefcase, Target, TrendingUp, Link } from "lucide-react";
+import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { ProfileStrength } from "@/components/company-profile/ProfileStrength";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
