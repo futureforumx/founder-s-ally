@@ -63,7 +63,7 @@ export function SectorAlignment({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {visible.map((b) => {
           const isPrimary = b.tier === 1;
           const isSecondary = b.tier === 2;
