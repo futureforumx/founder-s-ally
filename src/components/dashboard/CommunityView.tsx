@@ -125,6 +125,12 @@ const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
   "Second-time climate founders",
   "YC alumni in healthcare"],
 
+  operators: [
+  "VP Eng with SaaS scaling experience",
+  "Fractional CFOs for Seed startups",
+  "Growth leads from fintech",
+  "COOs who've scaled past Series A"],
+
   investors: [
   "Active Pre-Seed climate funds",
   "Lead investors for Seed SaaS",
