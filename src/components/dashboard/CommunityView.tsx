@@ -17,6 +17,9 @@ interface CommunityViewProps {
   analysisResult?: AnalysisResult | null;
   onNavigateProfile?: () => void;
   variant?: "directory" | "investor-search";
+  lastSyncedAt?: Date | null;
+  syncFlash?: boolean;
+  relativeTime?: string;
 }
 
 // ── Types ──
