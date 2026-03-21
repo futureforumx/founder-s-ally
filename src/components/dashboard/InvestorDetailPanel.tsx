@@ -48,6 +48,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
+  const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
