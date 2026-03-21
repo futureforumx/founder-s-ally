@@ -356,6 +356,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_connections_by_investor: {
+        Args: { _investor_name: string }
+        Returns: {
+          company_name: string
+          instrument: string
+          investor_amount: number
+          sector: string
+          stage: string
+          user_id: string
+        }[]
+      }
       recommend_competitors: {
         Args: { _industry_tags: string[]; _limit?: number; _user_id: string }
         Returns: {
