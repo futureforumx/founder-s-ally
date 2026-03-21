@@ -34,8 +34,8 @@ serve(async (req) => {
 
 Rules:
 - Address the founder directly (use "your" not "their")
-- Reference specific data points from both profiles (sector, stage, check size, etc.)
-- Include one actionable suggestion for how the founder should approach this investor
+- Reference specific data points from both profiles (sector, stage, check size, recent deals, thesis, geography)
+- If recent deals or thesis data is available, weave it into the insight naturally
 - Be specific and data-driven, not generic
 - Keep it under 60 words
 - Do NOT use markdown formatting, just plain text
