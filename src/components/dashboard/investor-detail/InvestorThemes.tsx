@@ -57,7 +57,7 @@ function extractThemes(thesis: string, deals: string[]): Theme[] {
   return deduped.sort((a, b) => b.heat - a.heat);
 }
 
-const DEFAULT_VISIBLE = 6;
+const DEFAULT_VISIBLE = 4;
 
 export function InvestorThemes({ currentThesis = "", recentDeals = [], firmName }: InvestorThemesProps) {
   const [isExpanded, setIsExpanded] = useState(false);

@@ -48,7 +48,7 @@ export function DealDynamics({
       </div>
 
       {/* Supporting details */}
-      <div className="space-y-2.5 pt-1 border-t border-border">
+      <div className="space-y-2 pt-2 border-t border-border">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
           <span className="text-xs text-foreground">Requires Board Seat</span>
