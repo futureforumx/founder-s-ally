@@ -135,7 +135,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
               {/* ─── Compatibility (gold/emerald) ─── */}
               <div className="mx-6 mb-4 shrink-0">
-                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} />
+                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} companyContext={companyData} investorContext={investorContext} />
               </div>
 
               {/* ─── Pill Tabs ─── */}
