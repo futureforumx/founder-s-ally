@@ -254,7 +254,7 @@ export function GeographicFocus({ firmName }: GeographicFocusProps) {
       </div>
 
       {/* Region buttons — anchored bottom */}
-      <div className="grid grid-cols-3 gap-1.5 mt-3">
+      <div className="grid grid-cols-3 gap-1.5 mt-2">
         {REGIONS.map((region) => {
           const isActive = activeRegion === region.label;
           const styles = REGION_STYLES[region.type];

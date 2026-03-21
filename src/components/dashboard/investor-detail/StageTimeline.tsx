@@ -135,7 +135,7 @@ export function StageTimeline({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 justify-center">
+        <div className="flex items-center gap-4 mt-2 justify-center">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-success" />
             <span className="text-[9px] font-medium text-muted-foreground">Sweet Spot</span>

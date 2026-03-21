@@ -25,7 +25,7 @@ export function DealDynamics({
       </h4>
 
       {/* Split Bar */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-medium">
           <span className="text-foreground">Prefers to Lead</span>
           <span className="text-muted-foreground">Co-Invests</span>
