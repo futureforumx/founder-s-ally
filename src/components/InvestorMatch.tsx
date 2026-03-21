@@ -10,6 +10,7 @@ import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
 import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
+import { useVCInteractions } from "@/hooks/useVCInteractions";
 
 // ── Types ──
 
@@ -178,6 +179,27 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | undefined>();
+
+  // Get current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id);
+    });
+  }, []);
+
+  const {
+    savedFirmIds,
+    skippedFirmIds,
+    recordInteraction,
+    removeInteraction,
+    collaborativeRecs,
+    useDecayMultipliers,
+  } = useVCInteractions(userId);
+
+  const primarySector = sectorClassification?.primary_sector || companyData?.sector || null;
+  const decayQuery = useDecayMultipliers(primarySector);
+  const decayMap = decayQuery.data || {};
 
   // Use external backers if provided, otherwise use internal
   const confirmedBackers = externalBackers ?? internalBackers;
@@ -223,10 +245,19 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   const scoredInvestors = useMemo(() => {
     return investors
-      .map(inv => computeScore(inv, companyData, analysisResult, sectorClassification || null, confirmedBackers))
+      .map(inv => {
+        const scored = computeScore(inv, companyData, analysisResult, sectorClassification || null, confirmedBackers);
+        // Apply score decay based on sector save rates
+        const decay = decayMap[inv.id] ?? 1.0;
+        if (decay < 1.0) {
+          scored.score = Math.round(scored.score * decay);
+          scored.reasoning += " · low peer save-rate penalty";
+        }
+        return scored;
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers]);
+  }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers, decayMap]);
 
   // Enrich top investors via waterfall
   useEffect(() => {
@@ -328,7 +359,19 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
       {/* Tab Content */}
       {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} onViewAllMatches={() => setActiveTab("matches")} />}
-      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
+      {activeTab === "matches" && (
+        <MatchesTab
+          scoredInvestors={scoredInvestors}
+          bannerText={bannerText}
+          enrichedData={enrichedData}
+          enrichingKeys={enrichingKeys}
+          savedFirmIds={savedFirmIds}
+          collaborativeRecs={collaborativeRecs.data || []}
+          onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
+          onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
+          onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
+        />
+      )}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (
         <ManageTab
