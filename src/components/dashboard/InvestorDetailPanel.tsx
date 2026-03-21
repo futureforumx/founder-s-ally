@@ -13,9 +13,10 @@ import { GeographicFocus } from "./investor-detail/GeographicFocus";
 import { InvestorAIInsightBanner } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
-import { INVESTOR_TABS, type InvestorTab, type InvestorEntry, type PartnerPerson } from "./investor-detail/types";
+import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
+import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 interface CompanyContext {
   name?: string;
@@ -30,7 +31,10 @@ interface InvestorDetailPanelProps {
   companyName?: string;
   companyData?: CompanyContext | null;
   onClose: () => void;
-  onSelectPartner?: (partner: PartnerPerson) => void;
+  vcFirm?: VCFirm | null;
+  vcPartners?: VCPerson[];
+  onSelectPerson?: (person: VCPerson) => void;
+  onCloseVCFirm?: () => void;
 }
 
 export type { InvestorEntry };
