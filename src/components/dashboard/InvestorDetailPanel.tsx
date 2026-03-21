@@ -10,7 +10,7 @@ import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { StageTimeline } from "./investor-detail/StageTimeline";
 import { DealDynamics } from "./investor-detail/DealDynamics";
 import { GeographicFocus } from "./investor-detail/GeographicFocus";
-import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
+import { InvestorAIInsightBanner } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry, type PartnerPerson } from "./investor-detail/types";
@@ -110,14 +110,19 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       {investor.initial}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <h2 className="text-2xl font-bold text-foreground truncate">{investor.name}</h2>
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                        {/* Match Score Badge */}
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-sm font-bold tracking-tight shadow-sm shrink-0">
+                          <Sparkles className="w-3 h-3" />
+                          {matchScore}% Match
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
                         <Badge variant="outline" className="text-[10px] px-2 py-0.5">{investor.stage}</Badge>
                         <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{investor.sector}</Badge>
-                        <Badge className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                        <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
                           <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
                         </Badge>
                       </div>
@@ -150,159 +155,154 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 </div>
               </div>
 
-              {/* Two-Column Body */}
+              {/* Body */}
               <div className="flex-1 overflow-y-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-8 py-6">
-                  {/* Left Column */}
-                  <div className="lg:col-span-2 min-w-0">
-                    <div className="mb-5">
-                      <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
-                        {INVESTOR_TABS.map((tab) => {
-                          const isActive = activeTab === tab;
-                          return (
-                            <button
-                              key={tab}
-                              onClick={() => setActiveTab(tab)}
-                              className={`relative px-3.5 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                                isActive
-                                  ? "bg-card text-foreground shadow-surface"
-                                  : "text-muted-foreground hover:text-foreground"
-                              }`}
-                            >
-                              {tab}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                <div className="px-8 py-6 space-y-5">
+                  {/* AI Compatibility Banner */}
+                  <InvestorAIInsightBanner
+                    firmName={investor.name}
+                    matchScore={matchScore}
+                    companyContext={companyData}
+                    investorContext={investorContext}
+                  />
 
-                    <AnimatePresence mode="wait">
-                      {activeTab === "Updates" && (
-                        <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                          <InvestorActivity firmName={investor.name} />
-                        </motion.div>
-                      )}
+                  {/* Tabs */}
+                  <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
+                    {INVESTOR_TABS.map((tab) => {
+                      const isActive = activeTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={`relative px-3.5 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                            isActive
+                              ? "bg-card text-foreground shadow-surface"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                      {activeTab === "Activity" && (
-                        <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                          <div className="rounded-xl border border-success/20 bg-success/5 p-5 space-y-2">
+                  {/* Tab Content */}
+                  <AnimatePresence mode="wait">
+                    {activeTab === "Updates" && (
+                      <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                        <InvestorActivity firmName={investor.name} />
+                      </motion.div>
+                    )}
+
+                    {activeTab === "Activity" && (
+                      <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                        <div className="rounded-xl border border-success/20 bg-success/5 p-5 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-success animate-pulse" />
+                            <span className="text-sm font-semibold text-foreground">Actively Deploying</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Recently closed $1.5B Fund III (Jan 2026). Making 2–3 Seed investments per month.
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-secondary/30 border border-border p-5">
+                          <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                              <Activity className="h-4 w-4 text-success animate-pulse" />
-                              <span className="text-sm font-semibold text-foreground">Actively Deploying</span>
+                              <TrendingUp className="h-4 w-4 text-success" />
+                              <span className="text-sm font-semibold text-foreground">Deal Flow</span>
                             </div>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              Recently closed $1.5B Fund III (Jan 2026). Making 2–3 Seed investments per month.
-                            </p>
+                            <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                              +24% QoQ
+                            </Badge>
                           </div>
-                          <div className="rounded-xl bg-secondary/30 border border-border p-5">
-                            <div className="flex items-center justify-between mb-4">
-                              <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-success" />
-                                <span className="text-sm font-semibold text-foreground">Deal Flow</span>
+                          <div className="flex items-end gap-1 h-24">
+                            {[4, 6, 5, 8, 7, 10, 12, 9, 13, 15, 14, 18].map((v, i) => (
+                              <div
+                                key={i}
+                                className="flex-1 rounded-sm bg-success/30 hover:bg-success/50 transition-colors"
+                                style={{ height: `${(v / 18) * 100}%` }}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            Activity across focus verticals (12 months)
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {activeTab === "Investment Thesis" && (
+                      <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
+                        <StageTimeline />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <DealDynamics />
+                          <GeographicFocus />
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {activeTab === "Portfolio" && (
+                      <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                        <div>
+                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Investments</h4>
+                          <div className="space-y-2">
+                            {[
+                              { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
+                              { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
+                              { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
+                              { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
+                            ].map((co) => (
+                              <div key={co.name} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
+                                    {co.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <span className="text-sm font-medium text-foreground">{co.name}</span>
+                                    <div className="flex gap-1.5 mt-0.5">
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
+                                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-foreground">{co.amount}</span>
+                                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </div>
                               </div>
-                              <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
-                                +24% QoQ
-                              </Badge>
-                            </div>
-                            <div className="flex items-end gap-1 h-24">
-                              {[4, 6, 5, 8, 7, 10, 12, 9, 13, 15, 14, 18].map((v, i) => (
-                                <div
-                                  key={i}
-                                  className="flex-1 rounded-sm bg-success/30 hover:bg-success/50 transition-colors"
-                                  style={{ height: `${(v / 18) * 100}%` }}
-                                />
-                              ))}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-2">
-                              Activity across focus verticals (12 months)
-                            </p>
+                            ))}
                           </div>
-                        </motion.div>
-                      )}
-
-                      {activeTab === "Investment Thesis" && (
-                        <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
-                          <StageTimeline />
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <DealDynamics />
-                            <GeographicFocus />
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Portfolio Stats</h4>
+                          <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
+                            {[
+                              { label: "Active Portfolio", value: "87 companies" },
+                              { label: "Exits (Last 3yr)", value: "12 (4 IPOs, 8 M&A)" },
+                              { label: "Follow-on Rate", value: "78%" },
+                            ].map((row) => (
+                              <div key={row.label} className="flex items-center justify-between">
+                                <span className="text-sm text-foreground font-medium">{row.label}</span>
+                                <span className="text-sm text-muted-foreground">{row.value}</span>
+                              </div>
+                            ))}
                           </div>
-                        </motion.div>
-                      )}
+                        </div>
+                      </motion.div>
+                    )}
 
-                      {activeTab === "Portfolio" && (
-                        <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                          <div>
-                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Investments</h4>
-                            <div className="space-y-2">
-                              {[
-                                { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
-                                { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
-                                { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
-                                { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
-                              ].map((co) => (
-                                <div key={co.name} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
-                                      {co.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                      <span className="text-sm font-medium text-foreground">{co.name}</span>
-                                      <div className="flex gap-1.5 mt-0.5">
-                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
-                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Portfolio Stats</h4>
-                            <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                              {[
-                                { label: "Active Portfolio", value: "87 companies" },
-                                { label: "Exits (Last 3yr)", value: "12 (4 IPOs, 8 M&A)" },
-                                { label: "Follow-on Rate", value: "78%" },
-                              ].map((row) => (
-                                <div key={row.label} className="flex items-center justify-between">
-                                  <span className="text-sm text-foreground font-medium">{row.label}</span>
-                                  <span className="text-sm text-muted-foreground">{row.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
+                    {activeTab === "Investors" && (
+                      <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                        <InvestorPartnersTab firmName={investor.name} onSelectPartner={onSelectPartner} />
+                      </motion.div>
+                    )}
 
-                      {activeTab === "Investors" && (
-                        <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                          <InvestorPartnersTab firmName={investor.name} onSelectPartner={onSelectPartner} />
-                        </motion.div>
-                      )}
-
-                      {activeTab === "Connections" && (
-                        <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                          <ConnectionsTab investorName={investor.name} currentUserId={session?.user?.id} />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Right Column */}
-                  <div className="space-y-4">
-                    <InvestorAIInsight
-                      firmName={investor.name}
-                      matchScore={matchScore}
-                      companyContext={companyData}
-                      investorContext={investorContext}
-                    />
-                  </div>
+                    {activeTab === "Connections" && (
+                      <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                        <ConnectionsTab investorName={investor.name} currentUserId={session?.user?.id} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.div>
