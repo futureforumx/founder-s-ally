@@ -432,8 +432,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Missing context detection for smart empty states
   const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
   const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope);
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope);
+  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
+  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
