@@ -537,6 +537,14 @@ const Index = () => {
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
+          ) : activeView === "connections" ? (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Connections</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Network intelligence, warm intros, and founder experiences</p>
+              </div>
+              <ConnectionsPage />
+            </div>
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (
