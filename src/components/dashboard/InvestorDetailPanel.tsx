@@ -29,10 +29,18 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, onClose }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Overview");
 
   const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+
+  const investorContext = useMemo(() => investor ? {
+    name: investor.name,
+    description: investor.description,
+    stage: investor.stage,
+    sector: investor.sector,
+    checkSize: investor.model,
+  } : null, [investor]);
 
   return (
     <AnimatePresence>
