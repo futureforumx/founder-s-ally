@@ -331,9 +331,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   } = useVCDirectory();
 
   // Merge VC JSON firms into the directory entries for grid display
-  const mergedEntries = useMemo(() => {
+  // Store the original VCFirm ref so we can do exact sector matching later
+  const vcEntries = useMemo(() => {
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
-    const vcEntries: DirectoryEntry[] = vcFirms
+    return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
       .map(f => ({
         name: f.name,
@@ -345,9 +346,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         initial: f.name.charAt(0).toUpperCase(),
         matchReason: null,
         category: "investor" as const,
+        _sectors: f.sectors || [] as string[], // exact sector strings for matching
+        _stages: f.stages || [] as string[],
       }));
-    return [...ALL_ENTRIES, ...vcEntries];
   }, [vcFirms]);
+
+  const mergedEntries = useMemo(() => {
+    return [...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })), ...vcEntries];
+  }, [vcEntries]);
 
   const hasProfile = !!companyData?.name;
 
