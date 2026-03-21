@@ -363,12 +363,78 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return matchesSearch && matchesFilter;
   });
 
-  const hasMore = visibleCount < filteredAll.length;
-  const visibleFounders = filteredAll.slice(0, visibleCount);
+  // ── Investor tab filtering & sorting ──
+  const userStage = companyData?.stage || "";
+  const userSector = companyData?.sector || "";
 
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope);
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope);
-  const labels = SCOPE_LABELS[activeScope];
+  const investorTabFiltered = useMemo(() => {
+    if (!isInvestorSearch) return filteredAll;
+
+    // Only investors for investor-search tabs
+    const investors = filteredAll.filter((e) => e.category === "investor");
+
+    switch (activeInvestorTab) {
+      case "matches": {
+        // Show investors that have a matchReason (simulates AI match scores)
+        const matched = investors.filter((e) => e.matchReason);
+        // Sort by a pseudo match score: entries with matchReason first, then alphabetically
+        return matched.sort((a, b) => {
+          // Priority: sector match > stage match > generic
+          const scoreA = a.matchReason?.toLowerCase().includes("sector") ? 3 : a.matchReason?.toLowerCase().includes("stage") ? 2 : 1;
+          const scoreB = b.matchReason?.toLowerCase().includes("sector") ? 3 : b.matchReason?.toLowerCase().includes("stage") ? 2 : 1;
+          return scoreB - scoreA;
+        });
+      }
+      case "stage": {
+        if (!userStage) return investors; // Will show empty state prompt
+        const stageNorm = userStage.toLowerCase();
+        return investors.filter((e) =>
+          e.stage.toLowerCase().includes(stageNorm) ||
+          e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm)) ||
+          stageNorm.includes(e.stage.split("–")[0].trim().toLowerCase())
+        );
+      }
+      case "sector": {
+        if (!userSector) return investors; // Will show empty state prompt
+        const sectorNorm = userSector.toLowerCase();
+        return investors.filter((e) =>
+          e.sector.toLowerCase().includes(sectorNorm) ||
+          sectorNorm.includes(e.sector.toLowerCase()) ||
+          e.description.toLowerCase().includes(sectorNorm)
+        );
+      }
+      default: // "all"
+        return investors;
+    }
+  }, [filteredAll, activeInvestorTab, userStage, userSector, isInvestorSearch]);
+
+  // Use tab-filtered list for investor-search, otherwise the standard filteredAll
+  const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
+
+  const hasMore = visibleCount < displayEntries.length;
+  const visibleFounders = displayEntries.slice(0, visibleCount);
+
+  // Dynamic header for investor tabs
+  const investorTabHeader = useMemo(() => {
+    switch (activeInvestorTab) {
+      case "matches":
+        return { title: "Your Top Matches", subtitle: "Investors ranked by AI compatibility with your profile" };
+      case "stage":
+        return userStage
+          ? { title: `Investors actively writing ${userStage} checks`, subtitle: `Filtered to funds focused on ${userStage} stage companies` }
+          : { title: "Stage-Matched Investors", subtitle: "Set your stage to filter" };
+      case "sector":
+        return userSector
+          ? { title: `Top investors in ${userSector}`, subtitle: `Funds with active thesis in ${userSector}` }
+          : { title: "Sector-Matched Investors", subtitle: "Set your sector to filter" };
+      default:
+        return { title: "All Investors", subtitle: "The complete investor directory" };
+    }
+  }, [activeInvestorTab, userStage, userSector]);
+
+  // Missing context detection for smart empty states
+  const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
+  const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
   const loadMore = useCallback(() => {
