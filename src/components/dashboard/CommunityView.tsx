@@ -346,7 +346,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     setVisibleCount(PAGE_SIZE);
   }, [searchQuery, activeFilter, activeScope, activeInvestorTab]);
 
-  const scopedAll = filterByScope(ALL_ENTRIES, activeScope);
+  const scopedAll = filterByScope(ALL_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
   const filteredAll = scopedAll.filter((f) => {
     const q = searchQuery.toLowerCase();
@@ -432,8 +432,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Missing context detection for smart empty states
   const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
   const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope);
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope);
+  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
+  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
@@ -542,7 +542,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       {/* Global Entity Tabs — hidden for investor-search */}
       {!isInvestorSearch && (
       <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
-        {GLOBAL_TABS.map((tab) => {
+        {GLOBAL_TABS.filter(tab => tab.id !== "investors").map((tab) => {
           const Icon = tab.icon;
           const isActive = activeScope === tab.id;
           return (
