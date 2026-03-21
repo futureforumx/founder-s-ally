@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Sparkles, Zap, MessageSquare, CheckCircle2,
@@ -10,6 +11,7 @@ import { InvestorQuickFacts } from "./investor-detail/InvestorQuickFacts";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
+import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 
@@ -32,6 +34,7 @@ export type { InvestorEntry };
 
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Overview");
+  const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
 
@@ -354,6 +357,21 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       transition={{ duration: 0.15 }}
                     >
                       <InvestorPartnersTab firmName={investor.name} />
+                    </motion.div>
+                  )}
+
+                  {activeTab === "Connections" && (
+                    <motion.div
+                      key="connections"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <ConnectionsTab
+                        investorName={investor.name}
+                        currentUserId={session?.user?.id}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>

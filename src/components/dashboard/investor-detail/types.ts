@@ -10,5 +10,5 @@ export interface InvestorEntry {
   category: "investor";
 }
 
-export const INVESTOR_TABS = ["Overview", "Investment Thesis", "Portfolio", "Partners"] as const;
+export const INVESTOR_TABS = ["Overview", "Investment Thesis", "Portfolio", "Partners", "Connections"] as const;
 export type InvestorTab = typeof INVESTOR_TABS[number];
