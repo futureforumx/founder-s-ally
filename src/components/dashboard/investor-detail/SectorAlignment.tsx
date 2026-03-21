@@ -1,4 +1,5 @@
-import { Target, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Target, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 
 interface SectorAlignmentProps {
   vcSectors: string[];
@@ -11,31 +12,27 @@ interface SectorBlock {
   tier: 1 | 2 | 3;
 }
 
+const DEFAULT_VISIBLE = 5;
+
 export function SectorAlignment({
   vcSectors,
   primarySector,
   secondarySectors = [],
 }: SectorAlignmentProps) {
-  const blocks: SectorBlock[] = [];
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  for (const s of vcSectors) {
-    if (primarySector && s === primarySector) {
-      blocks.push({ name: s, tier: 1 });
-    } else if (secondarySectors.includes(s)) {
-      blocks.push({ name: s, tier: 2 });
-    } else {
-      blocks.push({ name: s, tier: 3 });
-    }
-  }
+  const blocks: SectorBlock[] = vcSectors.map((s) => {
+    if (primarySector && s === primarySector) return { name: s, tier: 1 };
+    if (secondarySectors.includes(s)) return { name: s, tier: 2 };
+    return { name: s, tier: 3 };
+  });
 
   blocks.sort((a, b) => a.tier - b.tier);
 
   const hasMatch = blocks.some((b) => b.tier < 3);
-
-  // Only show top sectors: matched ones + up to 4 others (max 6 total)
   const matched = blocks.filter((b) => b.tier < 3);
-  const others = blocks.filter((b) => b.tier === 3).slice(0, Math.max(0, 6 - matched.length));
-  const visible = [...matched, ...others];
+  const visible = isExpanded ? blocks : blocks.slice(0, DEFAULT_VISIBLE);
+  const hiddenCount = blocks.length - DEFAULT_VISIBLE;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-2.5">
@@ -58,42 +55,52 @@ export function SectorAlignment({
       </div>
 
       {!hasMatch && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-warning/10 border border-warning/20">
-          <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
-          <span className="text-[11px] font-medium text-warning">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200">
+          <AlertTriangle className="h-3.5 w-3.5 text-orange-600 shrink-0" />
+          <span className="text-sm font-semibold text-orange-700">
             Outside of your core focus
           </span>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-1">
+      <div className="flex flex-wrap gap-2">
         {visible.map((b) => {
           const isPrimary = b.tier === 1;
           const isSecondary = b.tier === 2;
           return (
-            <div
+            <span
               key={b.name}
-              className={`rounded-md px-2 py-1.5 flex items-center gap-1.5 ${
+              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
                 isPrimary
                   ? "bg-[hsl(var(--success))] text-white"
                   : isSecondary
-                    ? "bg-[hsl(var(--primary))] text-white"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-[hsl(var(--primary))] text-primary-foreground"
+                    : "bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200"
               }`}
             >
               {isPrimary && <Target className="w-3 h-3 shrink-0 opacity-80" />}
-              <span className="text-[11px] font-semibold leading-tight truncate">
-                {b.name}
-              </span>
-            </div>
+              {b.name}
+            </span>
           );
         })}
       </div>
 
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setIsExpanded((v) => !v)}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1 transition-colors"
+        >
+          {isExpanded ? (
+            <>Show less <ChevronUp className="w-3 h-3" /></>
+          ) : (
+            <>Show all {blocks.length} sectors <ChevronDown className="w-3 h-3" /></>
+          )}
+        </button>
+      )}
+
       {vcSectors.length > 0 && (
         <p className="text-[10px] text-muted-foreground/50">
           {matched.length} of {vcSectors.length} sectors align
-          {vcSectors.length > visible.length && ` · ${vcSectors.length - visible.length} more`}
         </p>
       )}
     </div>
