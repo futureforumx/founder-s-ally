@@ -70,7 +70,7 @@ export function SectorAlignment({
           return (
             <span
               key={b.name}
-              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
+              className={`whitespace-nowrap px-2 py-1 rounded-full text-[10px] font-medium inline-flex items-center gap-1 transition-colors ${
                 isPrimary
                   ? "bg-[hsl(var(--success))] text-white"
                   : isSecondary
