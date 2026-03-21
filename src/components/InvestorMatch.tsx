@@ -359,7 +359,19 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
       {/* Tab Content */}
       {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} onViewAllMatches={() => setActiveTab("matches")} />}
-      {activeTab === "matches" && <MatchesTab scoredInvestors={scoredInvestors} bannerText={bannerText} enrichedData={enrichedData} enrichingKeys={enrichingKeys} />}
+      {activeTab === "matches" && (
+        <MatchesTab
+          scoredInvestors={scoredInvestors}
+          bannerText={bannerText}
+          enrichedData={enrichedData}
+          enrichingKeys={enrichingKeys}
+          savedFirmIds={savedFirmIds}
+          collaborativeRecs={collaborativeRecs.data || []}
+          onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
+          onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
+          onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
+        />
+      )}
       {activeTab === "activity" && <ActivityTab />}
       {activeTab === "manage" && (
         <ManageTab
