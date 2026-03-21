@@ -34,6 +34,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     category: "investor",
     dataSource: "verified",
     lastSynced: new Date(),
+    logo_url: row.logo_url || null,
   };
 }
 
