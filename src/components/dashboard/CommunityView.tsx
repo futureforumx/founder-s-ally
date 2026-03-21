@@ -818,13 +818,29 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             </AnimatePresence>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 mb-4">
+                <Search className="h-7 w-7 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">
                 {isInvestorSearch && activeInvestorTab === "matches"
-                  ? "No investor matches found yet. Update your profile for better results."
-                  : `No ${isInvestorSearch ? "investors" : labels.plural} match your criteria.`}
+                  ? "No Matches Yet"
+                  : "Entity Not Found"}
               </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or adjust your profile.</p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                {isInvestorSearch && activeInvestorTab === "matches"
+                  ? "Update your company profile to unlock AI-driven investor matching."
+                  : `No ${isInvestorSearch ? "investors" : labels.plural} match your current criteria. Try adjusting your filters.`}
+              </p>
+              {isInvestorSearch && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }));
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm"
+                >
+                  <Zap className="h-3.5 w-3.5" /> Add to cap table manually
+                </button>
+              )}
             </div>
           )}
         </div>
