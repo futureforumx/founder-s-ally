@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play, ArrowUpDown } from "lucide-react";
 
 interface DealMonth {
   month: string;
@@ -55,6 +55,33 @@ const RECENT_DEALS: RecentDeal[] = [
   { company: "CodeVault", initial: "C", description: "Developer security tooling", amount: "$1.5M", stage: "Pre-Seed", role: "Participated", date: "Dec 2025", sector: "DevTools" },
 ];
 
+type SortField = "date" | "stage" | "sector";
+type SortDir = "asc" | "desc";
+
+const STAGE_ORDER: Record<string, number> = { "Pre-Seed": 0, "Seed": 1, "Series A": 2, "Series B": 3, "Series C": 4 };
+
+const MONTH_ORDER: Record<string, number> = {
+  "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+  "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+};
+
+function parseDateValue(d: string): number {
+  const parts = d.split(" ");
+  const month = MONTH_ORDER[parts[0]] || 0;
+  const year = parseInt(parts[1] || "2025", 10);
+  return year * 100 + month;
+}
+
+function sortDeals(deals: RecentDeal[], field: SortField, dir: SortDir): RecentDeal[] {
+  return [...deals].sort((a, b) => {
+    let cmp = 0;
+    if (field === "date") cmp = parseDateValue(a.date) - parseDateValue(b.date);
+    else if (field === "stage") cmp = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
+    else cmp = a.sector.localeCompare(b.sector);
+    return dir === "desc" ? -cmp : cmp;
+  });
+}
+
 const stageColor = (stage: string) => {
   if (stage.toLowerCase().includes("seed") || stage.toLowerCase().includes("pre-seed")) return "bg-success/15 text-success border-success/20";
   if (stage.toLowerCase().includes("series a")) return "bg-accent/15 text-accent border-accent/20";
@@ -67,7 +94,16 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
   const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
   const [focusAutoCycle, setFocusAutoCycle] = useState(true);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const sortedDeals = useMemo(() => sortDeals(RECENT_DEALS, sortField, sortDir), [sortField, sortDir]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("desc"); }
+  };
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCycle = useCallback(() => {
@@ -381,11 +417,27 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
 
       {/* Row 3: Recent Transactions — compact table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border">
+        <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Recent Transactions</p>
+          <div className="flex items-center gap-1">
+            {(["date", "stage", "sector"] as SortField[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => toggleSort(f)}
+                className={`flex items-center gap-0.5 text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
+                  sortField === f ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {f}
+                {sortField === f && (
+                  <ArrowUpDown className="w-2.5 h-2.5" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="divide-y divide-border">
-          {RECENT_DEALS.map((deal) => {
+          {sortedDeals.map((deal) => {
             const sectorMatch = companySector && deal.sector.toLowerCase().includes(companySector.toLowerCase());
             return (
               <div key={deal.company} className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
