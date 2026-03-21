@@ -36,6 +36,10 @@ interface DirectoryEntry {
   initial: string;
   matchReason: string | null;
   category: EntryCategory;
+  /** Original sector strings from VC JSON for exact matching */
+  _sectors?: string[];
+  /** Original stage strings from VC JSON for exact matching */
+  _stages?: string[];
 }
 
 // ── Mock data: Suggested ──
@@ -331,9 +335,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   } = useVCDirectory();
 
   // Merge VC JSON firms into the directory entries for grid display
-  const mergedEntries = useMemo(() => {
+  // Store the original VCFirm ref so we can do exact sector matching later
+  const vcEntries = useMemo(() => {
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
-    const vcEntries: DirectoryEntry[] = vcFirms
+    return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
       .map(f => ({
         name: f.name,
@@ -345,9 +350,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         initial: f.name.charAt(0).toUpperCase(),
         matchReason: null,
         category: "investor" as const,
+        _sectors: f.sectors || [] as string[], // exact sector strings for matching
+        _stages: f.stages || [] as string[],
       }));
-    return [...ALL_ENTRIES, ...vcEntries];
   }, [vcFirms]);
+
+  const mergedEntries = useMemo(() => {
+    return [...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })), ...vcEntries];
+  }, [vcEntries]);
 
   const hasProfile = !!companyData?.name;
 
@@ -433,27 +443,40 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         });
       }
       case "stage": {
-        if (!userStage) return investors; // Will show empty state prompt
-        const stageNorm = userStage.toLowerCase();
-        return investors.filter((e) =>
-          e.stage.toLowerCase().includes(stageNorm) ||
-          e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm)) ||
-          stageNorm.includes(e.stage.split("–")[0].trim().toLowerCase())
-        );
+        if (!userStage) return investors;
+        return investors.filter((e) => {
+          // Exact match against structured _stages array when available
+          if (e._stages && e._stages.length > 0) {
+            return e._stages.includes(userStage);
+          }
+          // Fallback for mock entries
+          const stageNorm = userStage.toLowerCase();
+          return e.stage.toLowerCase().includes(stageNorm) ||
+            e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm));
+        });
       }
       case "sector": {
-        if (!userSector) return investors; // Will show empty state prompt
-        const sectorNorm = userSector.toLowerCase();
-        return investors.filter((e) =>
-          e.sector.toLowerCase().includes(sectorNorm) ||
-          sectorNorm.includes(e.sector.toLowerCase()) ||
-          e.description.toLowerCase().includes(sectorNorm)
-        );
+        if (!userSector) return investors;
+        // Collect all user sectors (primary + secondary from subsectors)
+        const userSectors = [userSector];
+        if (companyData?.subsectors) {
+          userSectors.push(...companyData.subsectors);
+        }
+        return investors.filter((e) => {
+          // Exact match against structured _sectors array when available
+          if (e._sectors && e._sectors.length > 0) {
+            return e._sectors.some(s => userSectors.includes(s));
+          }
+          // Fallback for mock entries
+          const sectorNorm = userSector.toLowerCase();
+          return e.sector.toLowerCase().includes(sectorNorm) ||
+            e.description.toLowerCase().includes(sectorNorm);
+        });
       }
       default: // "all"
         return investors;
     }
-  }, [filteredAll, activeInvestorTab, userStage, userSector, isInvestorSearch]);
+  }, [filteredAll, activeInvestorTab, userStage, userSector, companyData?.subsectors, isInvestorSearch]);
 
   // Use tab-filtered list for investor-search, otherwise the standard filteredAll
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
