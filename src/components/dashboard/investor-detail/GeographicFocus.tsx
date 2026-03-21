@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface GeoSpot {
@@ -21,20 +22,21 @@ const REGIONS = [
 ];
 
 const REGION_STYLES = {
-  primary: "bg-accent/10 text-accent border-accent/20",
-  secondary: "bg-secondary text-foreground border-border",
-  none: "bg-muted/30 text-muted-foreground border-border line-through",
+  primary: { base: "bg-accent/10 text-accent border-accent/20", active: "bg-accent text-accent-foreground border-accent ring-2 ring-accent/20" },
+  secondary: { base: "bg-secondary text-foreground border-border", active: "bg-foreground text-background border-foreground ring-2 ring-foreground/20" },
+  none: { base: "bg-muted/30 text-muted-foreground border-border line-through", active: "bg-destructive/10 text-destructive border-destructive/30 ring-2 ring-destructive/20 no-underline" },
 };
 
 export function GeographicFocus() {
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
   return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-xl border border-border bg-card p-5 pb-4 flex flex-col">
+      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
         Geographic Focus
       </h4>
 
       {/* Stylized SVG Map */}
-      <div className="relative w-full aspect-[2/1] rounded-lg bg-secondary/30 border border-border overflow-hidden">
+      <div className="relative w-full aspect-[2/1] rounded-lg bg-secondary/30 border border-border overflow-hidden flex-1">
         <svg viewBox="0 0 500 250" className="w-full h-full" fill="none">
           {/* Simplified world outline */}
           {/* North America */}
@@ -131,19 +133,26 @@ export function GeographicFocus() {
         </svg>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-1.5">
-        {REGIONS.map((region) => (
-          <Badge
-            key={region.label}
-            className={`text-[9px] px-2 py-0.5 font-medium ${REGION_STYLES[region.type]}`}
-          >
-            {region.type === "primary" && "● "}
-            {region.type === "secondary" && "○ "}
-            {region.type === "none" && "✕ "}
-            {region.label}
-          </Badge>
-        ))}
+      {/* Region buttons — anchored bottom */}
+      <div className="grid grid-cols-3 gap-2 mt-4">
+        {REGIONS.map((region) => {
+          const isActive = activeRegion === region.label;
+          const styles = REGION_STYLES[region.type];
+          return (
+            <button
+              key={region.label}
+              onClick={() => setActiveRegion(isActive ? null : region.label)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[10px] font-semibold transition-all cursor-pointer ${
+                isActive ? styles.active : styles.base
+              }`}
+            >
+              {region.type === "primary" && "●"}
+              {region.type === "secondary" && "○"}
+              {region.type === "none" && "✕"}
+              {region.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
