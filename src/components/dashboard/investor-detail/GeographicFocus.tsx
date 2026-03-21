@@ -148,16 +148,16 @@ export function GeographicFocus() {
               {/* Tooltip */}
               {hoveredSpot === spot.name && !dimmed && (
                 <foreignObject
-                  x={spot.x - 50}
+                  x={spot.x - 65}
                   y={spot.y + (spot.intensity === "high" ? 18 : 12)}
-                  width="100"
-                  height="40"
+                  width="130"
+                  height="50"
                   style={{ overflow: "visible" }}
                 >
                   <div className="flex flex-col items-center">
-                    <div className="bg-foreground/95 backdrop-blur-md text-background rounded-md px-2 py-1 shadow-lg whitespace-nowrap">
-                      <p className="text-[8px] font-bold leading-tight">{spot.name}</p>
-                      <p className="text-[7px] font-medium opacity-80">{spot.investments} investments</p>
+                    <div className="bg-foreground/95 backdrop-blur-md text-background rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                      <p className="text-xs font-bold leading-tight">{spot.name}</p>
+                      <p className="text-[10px] font-medium opacity-80">{spot.investments} investments</p>
                     </div>
                   </div>
                 </foreignObject>
