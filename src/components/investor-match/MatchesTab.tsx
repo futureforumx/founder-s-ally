@@ -256,7 +256,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                   size="sm"
                   variant="ghost"
                   className="gap-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => onSkip?.(investor.id)}
+                  onClick={(e) => { e.stopPropagation(); onSkip?.(investor.id); }}
                 >
                   <X className="h-3 w-3" /> Skip
                 </Button>
