@@ -147,8 +147,9 @@ const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
 
 const GLOBAL_TABS: {id: EntityScope;label: string;icon: typeof Users;}[] = [
 { id: "all", label: "All", icon: LayoutGrid },
-{ id: "founders", label: "Founders", icon: Users },
 { id: "companies", label: "Companies", icon: Building2 },
+{ id: "founders", label: "Founders", icon: Users },
+{ id: "operators", label: "Operators", icon: UserCog },
 { id: "investors", label: "Investors", icon: Briefcase }];
 
 
