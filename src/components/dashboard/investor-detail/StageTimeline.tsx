@@ -27,8 +27,8 @@ export function StageTimeline({
   const total = STAGES.length - 1;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-6">
+    <div className="rounded-xl border border-border bg-card p-4 pb-3">
+      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
         Stage
       </h4>
 
