@@ -258,6 +258,7 @@ export type Database = {
           min_check_size: number | null
           preferred_stage: string | null
           recent_deals: string[] | null
+          sector_embedding: string | null
           sentiment_detail: string | null
           thesis_verticals: string[]
         }
@@ -274,6 +275,7 @@ export type Database = {
           min_check_size?: number | null
           preferred_stage?: string | null
           recent_deals?: string[] | null
+          sector_embedding?: string | null
           sentiment_detail?: string | null
           thesis_verticals?: string[]
         }
@@ -290,6 +292,7 @@ export type Database = {
           min_check_size?: number | null
           preferred_stage?: string | null
           recent_deals?: string[] | null
+          sector_embedding?: string | null
           sentiment_detail?: string | null
           thesis_verticals?: string[]
         }
@@ -365,6 +368,32 @@ export type Database = {
           sector: string
           stage: string
           user_id: string
+        }[]
+      }
+      match_investors: {
+        Args: {
+          founder_ask?: number
+          founder_geo?: string
+          founder_sector_embedding: string
+          founder_stage?: string
+          match_limit?: number
+          similarity_threshold?: number
+        }
+        Returns: {
+          ca_sb54_compliant: boolean
+          firm_name: string
+          id: string
+          lead_or_follow: string
+          lead_partner: string
+          location: string
+          market_sentiment: string
+          max_check_size: number
+          min_check_size: number
+          preferred_stage: string
+          recent_deals: string[]
+          sentiment_detail: string
+          similarity_score: number
+          thesis_verticals: string[]
         }[]
       }
       recommend_competitors: {
