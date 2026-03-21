@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface DealMonth {
   month: string;
@@ -59,6 +59,19 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
+  // Compute pace & trend from heatmap data
+  const { pace, prevPace, trendPct, trendDir } = useMemo(() => {
+    const recent6 = DEAL_MONTHS.slice(-6);
+    const prev6 = DEAL_MONTHS.slice(0, 6);
+    const recentTotal = recent6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
+    const prevTotal = prev6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
+    const currentPace = +(recentTotal / 6).toFixed(1);
+    const previousPace = +(prevTotal / 6).toFixed(1);
+    const change = previousPace > 0 ? Math.round(((currentPace - previousPace) / previousPace) * 100) : 0;
+    const dir: "up" | "down" | "flat" = change > 3 ? "up" : change < -3 ? "down" : "flat";
+    return { pace: currentPace, prevPace: previousPace, trendPct: Math.abs(change), trendDir: dir };
+  }, []);
+
   // SVG circular progress
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
@@ -102,8 +115,17 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
         {/* Card 2: Investment Pace */}
         <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Investment Pace</p>
-          <p className="text-4xl font-black text-foreground leading-none">2.4</p>
+          <p className="text-4xl font-black text-foreground leading-none">{pace}</p>
           <p className="text-[10px] text-muted-foreground mt-1">New deals / month (6mo avg)</p>
+          <div className={`flex items-center gap-1 mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full w-max ${
+            trendDir === "up" ? "text-success bg-success/10" : trendDir === "down" ? "text-destructive bg-destructive/10" : "text-muted-foreground bg-secondary"
+          }`}>
+            {trendDir === "up" && <TrendingUp className="w-3 h-3" />}
+            {trendDir === "down" && <TrendingDown className="w-3 h-3" />}
+            {trendDir === "flat" && <Minus className="w-3 h-3" />}
+            {trendDir === "flat" ? "Steady" : `${trendPct}% vs prev 6mo`}
+          </div>
+          <p className="text-[9px] text-muted-foreground mt-1">Prev: {prevPace} deals/mo</p>
         </div>
 
         {/* Card 3: Stage Bias */}
@@ -132,7 +154,6 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
-            <Badge className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20">+24% QoQ</Badge>
           </div>
         </div>
         <TooltipProvider delayDuration={0}>
