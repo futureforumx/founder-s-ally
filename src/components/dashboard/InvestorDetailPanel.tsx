@@ -359,6 +359,21 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <InvestorPartnersTab firmName={investor.name} />
                     </motion.div>
                   )}
+
+                  {activeTab === "Connections" && (
+                    <motion.div
+                      key="connections"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <ConnectionsTab
+                        investorName={investor.name}
+                        currentUserId={session?.user?.id}
+                      />
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </div>
             </motion.div>
