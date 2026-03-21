@@ -541,7 +541,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     if (vcMatch) {
       setSelectedVCFirm(vcMatch);
     }
-    handleInvestorClick(entry);
+    setSelectedInvestor(entry);
   }, [vcFirms]);
 
   const logoUrl = (() => {
