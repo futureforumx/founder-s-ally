@@ -35,7 +35,7 @@ export function StageTimeline({
       <div className="relative px-4">
         {/* Floating badge above sweet spot */}
         <div
-          className="absolute -top-1 flex justify-center pointer-events-none"
+          className="absolute -top-1 flex justify-center pointer-events-none mb-4"
           style={{
             left: `${(ssStart / total) * 100}%`,
             width: `${((ssEnd - ssStart) / total) * 100}%`,
