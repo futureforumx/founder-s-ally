@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 interface PortfolioTabProps {
   companySector?: string;
+  onInvestorClick?: (partnerName: string) => void;
 }
 
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
