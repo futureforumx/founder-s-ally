@@ -346,7 +346,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     setVisibleCount(PAGE_SIZE);
   }, [searchQuery, activeFilter, activeScope, activeInvestorTab]);
 
-  const scopedAll = filterByScope(ALL_ENTRIES, activeScope);
+  const scopedAll = filterByScope(ALL_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
   const filteredAll = scopedAll.filter((f) => {
     const q = searchQuery.toLowerCase();
