@@ -45,39 +45,62 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
 
-  const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+  // Synthesize an investor entry from vcFirm when opened directly from omnibox
+  const effectiveInvestor: InvestorEntry | null = useMemo(() => {
+    if (investor) return investor;
+    if (!vcFirm) return null;
+    return {
+      name: vcFirm.name,
+      sector: vcFirm.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+      stage: vcFirm.stages?.join(", ") || "Multi-stage",
+      description: vcFirm.description || `${vcFirm.name} is an active investment firm.`,
+      location: "",
+      model: vcFirm.sweet_spot || vcFirm.aum || "",
+      initial: vcFirm.name.charAt(0).toUpperCase(),
+      matchReason: null,
+      category: "investor" as const,
+    };
+  }, [investor, vcFirm]);
+
+  const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+
+  const displayName = effectiveInvestor?.name || "";
 
   useEffect(() => {
-    if (!investor) { setEnrichedData(null); return; }
-    const key = investor.name.toLowerCase().trim();
+    if (!displayName) { setEnrichedData(null); return; }
+    const key = displayName.toLowerCase().trim();
     if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
     let cancelled = false;
-    enrich(investor.name).then(result => { if (!cancelled) setEnrichedData(result); });
+    enrich(displayName).then(result => { if (!cancelled) setEnrichedData(result); });
     return () => { cancelled = true; };
-  }, [investor?.name]);
+  }, [displayName]);
 
   const investorContext = useMemo(() => {
-    if (!investor) return null;
+    if (!effectiveInvestor) return null;
     const ep = enrichedData?.profile;
     return {
-      name: investor.name,
-      description: investor.description,
-      stage: ep?.stage || investor.stage,
-      sector: investor.sector,
-      checkSize: ep?.typicalCheckSize || investor.model,
+      name: effectiveInvestor.name,
+      description: effectiveInvestor.description,
+      stage: ep?.stage || effectiveInvestor.stage,
+      sector: effectiveInvestor.sector,
+      checkSize: ep?.typicalCheckSize || effectiveInvestor.model,
       recentDeals: ep?.recentDeals?.join(", ") || "",
       currentThesis: ep?.currentThesis || "",
       geography: ep?.geography || "",
       source: ep?.source || "",
     };
-  }, [investor, enrichedData]);
+  }, [effectiveInvestor, enrichedData]);
 
   const metaFacts = [
-    { label: "AUM", value: "$85B" },
-    { label: "HQ", value: investor?.location || "Menlo Park, CA" },
-    { label: "Team", value: "15" },
-    { label: "Founded", value: "1972" },
+    { label: "AUM", value: vcFirm?.aum || "$85B" },
+    { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
+    { label: "Team", value: vcPartners.length > 0 ? String(vcPartners.length) : "—" },
   ];
+
+  const handleClose = () => {
+    onClose();
+    onCloseVCFirm?.();
+  };
 
   return (
     <AnimatePresence>
