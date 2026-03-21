@@ -19,7 +19,7 @@ export function DealDynamics({
   const coPct = 100 - leadPct;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-5">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
       <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
         Deal Dynamics
       </h4>
