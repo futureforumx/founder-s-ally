@@ -32,11 +32,30 @@ const REGION_STYLES = {
 export function GeographicFocus() {
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [hoveredSpot, setHoveredSpot] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<string>("All Time");
+  const TIME_OPTIONS = ["6M", "18M", "All Time"] as const;
   return (
     <div className="rounded-xl border border-border bg-card p-5 pb-4 flex flex-col">
-      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
-        Geographic Focus
-      </h4>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          Geographic Focus
+        </h4>
+        <div className="inline-flex bg-secondary/60 p-0.5 rounded-md">
+          {TIME_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setTimeRange(opt)}
+              className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all cursor-pointer ${
+                timeRange === opt
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Stylized SVG Map */}
       <div className="relative w-full aspect-[2/1] rounded-lg bg-secondary/30 border border-border overflow-hidden flex-1">
