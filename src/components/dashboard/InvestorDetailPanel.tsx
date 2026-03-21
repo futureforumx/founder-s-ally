@@ -10,6 +10,7 @@ import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { StageTimeline } from "./investor-detail/StageTimeline";
 import { DealDynamics } from "./investor-detail/DealDynamics";
 import { GeographicFocus } from "./investor-detail/GeographicFocus";
+import { SectorAlignment } from "./investor-detail/SectorAlignment";
 import { InvestorAIInsightBanner } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
