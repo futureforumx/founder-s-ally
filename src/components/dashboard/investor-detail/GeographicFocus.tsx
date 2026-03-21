@@ -22,9 +22,9 @@ const REGIONS = [
 ];
 
 const REGION_STYLES = {
-  primary: "bg-accent/10 text-accent border-accent/20",
-  secondary: "bg-secondary text-foreground border-border",
-  none: "bg-muted/30 text-muted-foreground border-border line-through",
+  primary: { base: "bg-accent/10 text-accent border-accent/20", active: "bg-accent text-accent-foreground border-accent ring-2 ring-accent/20" },
+  secondary: { base: "bg-secondary text-foreground border-border", active: "bg-foreground text-background border-foreground ring-2 ring-foreground/20" },
+  none: { base: "bg-muted/30 text-muted-foreground border-border line-through", active: "bg-destructive/10 text-destructive border-destructive/30 ring-2 ring-destructive/20 no-underline" },
 };
 
 export function GeographicFocus() {
