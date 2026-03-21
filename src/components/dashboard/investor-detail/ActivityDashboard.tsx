@@ -59,6 +59,19 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
+  // Compute pace & trend from heatmap data
+  const { pace, prevPace, trendPct, trendDir } = useMemo(() => {
+    const recent6 = DEAL_MONTHS.slice(-6);
+    const prev6 = DEAL_MONTHS.slice(0, 6);
+    const recentTotal = recent6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
+    const prevTotal = prev6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
+    const currentPace = +(recentTotal / 6).toFixed(1);
+    const previousPace = +(prevTotal / 6).toFixed(1);
+    const change = previousPace > 0 ? Math.round(((currentPace - previousPace) / previousPace) * 100) : 0;
+    const dir: "up" | "down" | "flat" = change > 3 ? "up" : change < -3 ? "down" : "flat";
+    return { pace: currentPace, prevPace: previousPace, trendPct: Math.abs(change), trendDir: dir };
+  }, []);
+
   // SVG circular progress
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
