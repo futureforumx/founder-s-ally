@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock } from "lucide-react";
+import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock, Bookmark, BookmarkCheck, X, Users } from "lucide-react";
+import { CollaborativeRec } from "@/hooks/useVCInteractions";
 
 interface ScoredInvestor {
   id: string;
@@ -37,6 +38,11 @@ interface MatchesTabProps {
   bannerText: string;
   enrichedData?: Record<string, EnrichResult>;
   enrichingKeys?: Set<string>;
+  savedFirmIds?: Set<string>;
+  collaborativeRecs?: CollaborativeRec[];
+  onSave?: (firmId: string) => void;
+  onUnsave?: (firmId: string) => void;
+  onSkip?: (firmId: string) => void;
 }
 
 function formatCheckSize(amount: number): string {
@@ -98,7 +104,7 @@ function formatVerifiedDate(iso: string): string {
   }
 }
 
-export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys }: MatchesTabProps) {
+export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip }: MatchesTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
@@ -106,12 +112,41 @@ export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichin
         <p className="text-xs text-muted-foreground leading-relaxed">{bannerText}</p>
       </div>
 
+      {/* Collaborative Recommendations — "Founders Also Saved" */}
+      {collaborativeRecs && collaborativeRecs.length > 0 && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 animate-fade-in">
+          <div className="flex items-center gap-2 mb-3">
+            <Users className="h-4 w-4 text-primary" />
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Founders Also Saved</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {collaborativeRecs.map((rec) => (
+              <button
+                key={rec.firm_id}
+                onClick={() => onSave?.(rec.firm_id)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 bg-background text-xs font-medium text-foreground hover:bg-primary/10 transition-colors"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary text-[10px] font-bold">
+                  {rec.firm_name.charAt(0)}
+                </span>
+                {rec.firm_name}
+                <Badge variant="secondary" className="text-[9px] ml-1 px-1.5 py-0">
+                  {rec.peer_save_count} peers
+                </Badge>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-1">
         {scoredInvestors.map(investor => {
           const key = investor.firm_name.toLowerCase().trim();
           const enriched = enrichedData?.[key];
           const isEnriching = enrichingKeys?.has(key);
           const reasoningParts = investor.reasoning.split(" · ");
+          const isSaved = savedFirmIds?.has(investor.id) || false;
+
           return (
             <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30">
               <div className="flex items-start justify-between gap-3">
@@ -135,9 +170,11 @@ export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichin
                     </p>
                   </div>
                 </div>
-                <Badge className={`text-xs font-semibold rounded-full px-3 py-1 border-0 ${scoreColor(investor.score)}`}>
-                  {investor.score}% Match
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={`text-xs font-semibold rounded-full px-3 py-1 border-0 ${scoreColor(investor.score)}`}>
+                    {investor.score}% Match
+                  </Badge>
+                </div>
               </div>
 
               {/* Shimmer while enriching */}
@@ -195,10 +232,33 @@ export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichin
               </div>
 
               <div className="mt-4 flex items-center gap-3 pt-3 border-t border-border">
-                <Button size="sm" className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90">
-                  <Plus className="h-3 w-3" /> Add to CRM
+                {isSaved ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => onUnsave?.(investor.id)}
+                  >
+                    <BookmarkCheck className="h-3 w-3" /> Saved
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
+                    onClick={() => onSave?.(investor.id)}
+                  >
+                    <Bookmark className="h-3 w-3" /> Save
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => onSkip?.(investor.id)}
+                >
+                  <X className="h-3 w-3" /> Skip
                 </Button>
-                <button className="text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors">
+                <button className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors">
                   View Thesis <ArrowRight className="inline h-3 w-3 ml-0.5" />
                 </button>
               </div>
