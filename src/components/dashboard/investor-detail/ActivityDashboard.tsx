@@ -220,44 +220,106 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
       {/* Row 2: Stacked Deal Heatmap */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Deal Heatmap</p>
-            <p className="text-[10px] text-muted-foreground">12-month rolling activity</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Deal Heatmap</p>
+              <p className="text-[10px] text-muted-foreground">12-month rolling activity</p>
+            </div>
+            <div className="flex items-center bg-secondary rounded-lg p-0.5">
+              <button
+                onClick={() => setHeatmapMode("stage")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                  heatmapMode === "stage"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Stage
+              </button>
+              <button
+                onClick={() => setHeatmapMode("sector")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                  heatmapMode === "sector"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sector
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
+            {heatmapMode === "stage" ? (
+              <>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-primary/60" /> SaaS</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-warning/60" /> Fintech</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-destructive/40" /> Health</span>
+              </>
+            )}
           </div>
         </div>
         <TooltipProvider delayDuration={0}>
           <div className="flex items-end gap-1.5 h-20">
             {DEAL_MONTHS.map((m) => {
-              const total = m.seed + m.seriesA + m.other;
-              const seedH = (m.seed / maxTotal) * 100;
-              const seriesH = (m.seriesA / maxTotal) * 100;
-              const otherH = (m.other / maxTotal) * 100;
-              return (
-                <Tooltip key={m.month}>
-                  <TooltipTrigger asChild>
-                    <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
-                      {m.other > 0 && (
-                        <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
-                      )}
-                      {m.seriesA > 0 && (
-                        <div className="bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
-                      )}
-                      {m.seed > 0 && (
-                        <div className={`bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
-                    <p className="font-bold">{m.month}: {total} deals</p>
-                    <p className="text-background/70">{m.details}</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
+              if (heatmapMode === "stage") {
+                const total = m.seed + m.seriesA + m.other;
+                const seedH = (m.seed / maxTotal) * 100;
+                const seriesH = (m.seriesA / maxTotal) * 100;
+                const otherH = (m.other / maxTotal) * 100;
+                return (
+                  <Tooltip key={m.month}>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        {m.other > 0 && (
+                          <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
+                        )}
+                        {m.seriesA > 0 && (
+                          <div className="bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
+                        )}
+                        {m.seed > 0 && (
+                          <div className={`bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
+                      <p className="font-bold">{m.month}: {total} deals</p>
+                      <p className="text-background/70">{m.details}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              } else {
+                const total = m.saas + m.fintech + m.health;
+                const saasH = (m.saas / maxSectorTotal) * 100;
+                const fintechH = (m.fintech / maxSectorTotal) * 100;
+                const healthH = (m.health / maxSectorTotal) * 100;
+                return (
+                  <Tooltip key={m.month}>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        {m.health > 0 && (
+                          <div className="rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
+                        )}
+                        {m.fintech > 0 && (
+                          <div className="bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
+                        )}
+                        {m.saas > 0 && (
+                          <div className={`bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
+                      <p className="font-bold">{m.month}: {total} deals</p>
+                      <p className="text-background/70">{m.sectorDetails}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
             })}
           </div>
           <div className="flex gap-1.5 mt-1">
