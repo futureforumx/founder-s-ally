@@ -12,6 +12,7 @@ import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
+import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
 
 interface CompanyContext {
   name?: string;
