@@ -237,14 +237,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               {/* Body */}
               <div className="flex-1 overflow-y-auto">
                 <div className="px-8 py-6 space-y-5">
-                  {/* AI Compatibility Banner */}
-                  <InvestorAIInsightBanner
-                    firmName={effectiveInvestor.name}
-                    matchScore={matchScore}
-                    companyContext={companyData}
-                    investorContext={investorContext}
-                  />
-
                   {/* Tabs */}
                   <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
                     {INVESTOR_TABS.map((tab) => {
