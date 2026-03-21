@@ -44,6 +44,7 @@ interface MatchesTabProps {
   onSave?: (firmId: string) => void;
   onUnsave?: (firmId: string) => void;
   onSkip?: (firmId: string) => void;
+  onViewInvestor?: (investor: ScoredInvestor) => void;
 }
 
 function formatCheckSize(amount: number): string {
@@ -105,7 +106,7 @@ function formatVerifiedDate(iso: string): string {
   }
 }
 
-export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip }, _ref) {
+export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip, onViewInvestor }, _ref) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
@@ -149,7 +150,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
           const isSaved = savedFirmIds?.has(investor.id) || false;
 
           return (
-            <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30">
+            <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30 cursor-pointer" onClick={() => onViewInvestor?.(investor)}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm">
@@ -238,7 +239,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                     size="sm"
                     variant="outline"
                     className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => onUnsave?.(investor.id)}
+                    onClick={(e) => { e.stopPropagation(); onUnsave?.(investor.id); }}
                   >
                     <BookmarkCheck className="h-3 w-3" /> Saved
                   </Button>
@@ -246,7 +247,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                   <Button
                     size="sm"
                     className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
-                    onClick={() => onSave?.(investor.id)}
+                    onClick={(e) => { e.stopPropagation(); onSave?.(investor.id); }}
                   >
                     <Bookmark className="h-3 w-3" /> Save
                   </Button>
@@ -255,11 +256,14 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                   size="sm"
                   variant="ghost"
                   className="gap-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => onSkip?.(investor.id)}
+                  onClick={(e) => { e.stopPropagation(); onSkip?.(investor.id); }}
                 >
                   <X className="h-3 w-3" /> Skip
                 </Button>
-                <button className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors">
+                <button
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onViewInvestor?.(investor); }}
+                >
                   View Thesis <ArrowRight className="inline h-3 w-3 ml-0.5" />
                 </button>
               </div>

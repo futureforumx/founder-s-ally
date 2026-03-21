@@ -11,6 +11,7 @@ import { ManageTab } from "@/components/investor-match/ManageTab";
 import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
 import { useVCInteractions } from "@/hooks/useVCInteractions";
+import { InvestorDetailPanel, type InvestorEntry } from "@/components/dashboard/InvestorDetailPanel";
 
 // ── Types ──
 
@@ -180,6 +181,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState<string | undefined>();
+  const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
 
   // Get current user ID
   useEffect(() => {
@@ -368,6 +370,17 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
           onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
           onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
+          onViewInvestor={(inv) => setSelectedInvestor({
+            name: inv.firm_name,
+            sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Multi-stage",
+            stage: inv.preferred_stage || "Multi-stage",
+            description: inv.reasoning,
+            location: inv.location || "",
+            model: `${formatCheckSize(inv.min_check_size)}–${formatCheckSize(inv.max_check_size)}`,
+            initial: inv.firm_name.charAt(0).toUpperCase(),
+            matchReason: inv.reasoning,
+            category: "investor" as const,
+          })}
         />
       )}
       {activeTab === "activity" && <ActivityTab />}
@@ -379,6 +392,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           enrichCache={enrichCache}
         />
       )}
+
+      <InvestorDetailPanel
+        investor={selectedInvestor}
+        companyName={companyData?.name}
+        companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
+        onClose={() => setSelectedInvestor(null)}
+      />
     </div>
   );
 }
