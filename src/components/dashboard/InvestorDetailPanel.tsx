@@ -97,6 +97,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
             >
               {/* ─── Header ─── */}
               <div className="px-8 pt-6 pb-5 border-b border-border shrink-0">
+                {/* Data Provenance Badge */}
+                <div className="flex justify-end mb-3">
+                  <DataProvenanceBadge
+                    dataSource={enrichedData ? "live" : "verified"}
+                    lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
+                  />
+                </div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
                     {/* Logo */}
