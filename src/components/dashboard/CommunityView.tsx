@@ -752,54 +752,99 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         </div>
       }
 
-      {/* ═══════ All Founders Grid (only when NOT searching) ═══════ */}
+      {/* ═══════ All Grid (only when NOT searching) ═══════ */}
       {!searchQuery &&
       <div className="space-y-3 pt-4">
+          {/* Dynamic header for investor tabs */}
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">All {labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                {isInvestorSearch ? investorTabHeader.title : `All ${labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}`}
+              </h2>
+              {isInvestorSearch && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">{investorTabHeader.subtitle}</p>
+              )}
+            </div>
             <span className="text-[10px] text-muted-foreground font-mono">
-              {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} ${labels.plural}`}
+              {isSearching ? "Matching..." : `${visibleFounders.length} of ${displayEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
             </span>
           </div>
 
-          {isSearching ?
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) =>
-          <FounderCardSkeleton key={i} />
-          )}
-            </div> :
-        visibleFounders.length > 0 ?
-        <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleFounders.map((founder, i) =>
-            <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
-            )}
-                {isLoadingMore &&
-            Array.from({ length: 3 }).map((_, i) =>
-            <FounderCardSkeleton key={`loading-${i}`} />
-            )}
-              </div>
-              <div ref={sentinelRef} className="h-1" />
-              {hasMore && !isLoadingMore &&
-          <div className="flex justify-center pt-2">
-                  <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
-                    Load more founders
-                  </button>
-                </div>
-          }
-              {isLoadingMore &&
-          <div className="flex justify-center pt-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-          }
-            </> :
-
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">No {labels.plural} match your search.</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+          {/* Smart empty states for missing profile context */}
+          {needsStagePrompt ? (
+            <div className="rounded-2xl border border-dashed border-accent/30 bg-accent/5 p-8 text-center">
+              <Sparkles className="h-8 w-8 text-accent/50 mx-auto mb-3" />
+              <h3 className="text-sm font-semibold text-foreground mb-1">We need your stage to find your matches</h3>
+              <p className="text-xs text-muted-foreground mb-4">Set your company stage so we can filter investors writing checks at your level.</p>
+              <button
+                onClick={onNavigateProfile}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-foreground px-5 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors shadow-sm"
+              >
+                <Zap className="h-4 w-4" /> Update Profile Stage
+              </button>
             </div>
-        }
+          ) : needsSectorPrompt ? (
+            <div className="rounded-2xl border border-dashed border-accent/30 bg-accent/5 p-8 text-center">
+              <Sparkles className="h-8 w-8 text-accent/50 mx-auto mb-3" />
+              <h3 className="text-sm font-semibold text-foreground mb-1">We need your sector to surface relevant investors</h3>
+              <p className="text-xs text-muted-foreground mb-4">Set your company sector so we can match you with funds that have an active thesis in your space.</p>
+              <button
+                onClick={onNavigateProfile}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent text-accent-foreground px-5 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors shadow-sm"
+              >
+                <Layers className="h-4 w-4" /> Update Profile Sector
+              </button>
+            </div>
+          ) : isSearching ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) =>
+                <FounderCardSkeleton key={i} />
+              )}
+            </div>
+          ) : visibleFounders.length > 0 ? (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeInvestorTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {visibleFounders.map((founder, i) =>
+                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
+                  )}
+                  {isLoadingMore &&
+                    Array.from({ length: 3 }).map((_, i) =>
+                      <FounderCardSkeleton key={`loading-${i}`} />
+                    )}
+                </div>
+                <div ref={sentinelRef} className="h-1" />
+                {hasMore && !isLoadingMore &&
+                  <div className="flex justify-center pt-2">
+                    <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
+                      Load more
+                    </button>
+                  </div>
+                }
+                {isLoadingMore &&
+                  <div className="flex justify-center pt-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                }
+              </motion.div>
+            </AnimatePresence>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                {isInvestorSearch && activeInvestorTab === "matches"
+                  ? "No investor matches found yet. Update your profile for better results."
+                  : `No ${isInvestorSearch ? "investors" : labels.plural} match your criteria.`}
+              </p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or adjust your profile.</p>
+            </div>
+          )}
         </div>
       }
 
