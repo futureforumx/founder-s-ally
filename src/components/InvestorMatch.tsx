@@ -179,6 +179,27 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | undefined>();
+
+  // Get current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id);
+    });
+  }, []);
+
+  const {
+    savedFirmIds,
+    skippedFirmIds,
+    recordInteraction,
+    removeInteraction,
+    collaborativeRecs,
+    useDecayMultipliers,
+  } = useVCInteractions(userId);
+
+  const primarySector = sectorClassification?.primary_sector || companyData?.sector || null;
+  const decayQuery = useDecayMultipliers(primarySector);
+  const decayMap = decayQuery.data || {};
 
   // Use external backers if provided, otherwise use internal
   const confirmedBackers = externalBackers ?? internalBackers;
