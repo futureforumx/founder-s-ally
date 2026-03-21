@@ -87,7 +87,7 @@ const ALL_ENTRIES: DirectoryEntry[] = [...SUGGESTED_ENTRIES, ...TRENDING_ENTRIES
 
 function filterByScope(entries: DirectoryEntry[], scope: EntityScope): DirectoryEntry[] {
   if (scope === "all") return entries;
-  const catMap: Record<string, EntryCategory> = { founders: "founder", investors: "investor", companies: "company" };
+  const catMap: Record<string, EntryCategory> = { founders: "founder", investors: "investor", companies: "company", operators: "operator" };
   const cat = catMap[scope];
   return entries.filter((e) => e.category === cat);
 }
