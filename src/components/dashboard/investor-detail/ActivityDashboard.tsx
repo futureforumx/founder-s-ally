@@ -312,7 +312,7 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
           </div>
         </div>
         <TooltipProvider delayDuration={0}>
-          <div className="flex items-end gap-1.5 h-20">
+          <div className="flex items-end gap-1.5 h-24">
             {DEAL_MONTHS.map((m) => {
               if (heatmapMode === "stage") {
                 const total = m.seed + m.seriesA + m.other;
@@ -322,7 +322,8 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                 return (
                   <Tooltip key={m.month}>
                     <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
+                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.other > 0 && (
                           <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
                         )}
@@ -348,7 +349,8 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                 return (
                   <Tooltip key={m.month}>
                     <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
+                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.health > 0 && (
                           <div className="rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
                         )}
