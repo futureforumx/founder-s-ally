@@ -260,7 +260,10 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                 >
                   <X className="h-3 w-3" /> Skip
                 </Button>
-                <button className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors">
+                <button
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); onViewInvestor?.(investor); }}
+                >
                   View Thesis <ArrowRight className="inline h-3 w-3 ml-0.5" />
                 </button>
               </div>
