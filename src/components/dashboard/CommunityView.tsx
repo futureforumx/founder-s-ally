@@ -14,6 +14,8 @@ import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
+import { PersonProfileModal } from "./PersonProfileModal";
+import { type PartnerPerson, getPartnerById, getPartnersForFirm } from "./investor-detail/types";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
