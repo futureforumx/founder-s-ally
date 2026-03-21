@@ -276,7 +276,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             <CountUpNumber target={12} label="Unicorns" />
             <div className="flex items-center justify-center mt-2 -space-x-2">
               {TOP_UNICORNS.map((u) => (
-                <FaviconAvatar key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
+                <CompanyLogo key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
