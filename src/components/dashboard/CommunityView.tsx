@@ -511,6 +511,16 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return () => observer.disconnect();
   }, [loadMore]);
 
+  // When clicking an investor card, try to resolve VCFirm for rich profile
+  const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
+    // Try to find matching VCFirm by name
+    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    if (vcMatch) {
+      setSelectedVCFirm(vcMatch);
+    }
+    setSelectedInvestor(entry);
+  }, [vcFirms]);
+
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();
