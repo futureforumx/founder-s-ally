@@ -8,7 +8,7 @@ export type EntityScope = "founders" | "investors" | "companies" | "operators" |
 export interface SearchResult {
   name: string;
   subtitle: string;
-  category: "founder" | "investor" | "company";
+  category: "founder" | "investor" | "company" | "operator";
   matchReason: string;
 }
 
