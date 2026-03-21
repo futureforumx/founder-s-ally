@@ -23,6 +23,7 @@ const CATEGORY_ICONS: Record<string, typeof Users> = {
   founder: Users,
   investor: Briefcase,
   company: Building2,
+  operator: Users,
 };
 
 const SCOPE_RECOMMENDATIONS: Record<EntityScope, string[]> = {
