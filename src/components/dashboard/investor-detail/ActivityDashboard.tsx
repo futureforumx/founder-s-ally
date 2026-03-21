@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, ArrowLeftRight } from "lucide-react";
 
 interface DealMonth {
   month: string;
@@ -56,6 +57,7 @@ const stageColor = (stage: string) => {
 };
 
 export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
+  const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
@@ -112,20 +114,59 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
           </div>
         </div>
 
-        {/* Card 2: Investment Pace */}
-        <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Investment Pace</p>
-          <p className="text-4xl font-black text-foreground leading-none">{pace}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">New deals / month (6mo avg)</p>
-          <div className={`flex items-center gap-1 mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full w-max ${
-            trendDir === "up" ? "text-success bg-success/10" : trendDir === "down" ? "text-destructive bg-destructive/10" : "text-muted-foreground bg-secondary"
-          }`}>
-            {trendDir === "up" && <TrendingUp className="w-3 h-3" />}
-            {trendDir === "down" && <TrendingDown className="w-3 h-3" />}
-            {trendDir === "flat" && <Minus className="w-3 h-3" />}
-            {trendDir === "flat" ? "Steady" : `${trendPct}% vs prev 6mo`}
-          </div>
-          <p className="text-[9px] text-muted-foreground mt-1">Prev: {prevPace} deals/mo</p>
+        <div
+          className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center relative overflow-hidden cursor-pointer select-none"
+          onClick={() => setPaceView(v => v === "pace" ? "trend" : "pace")}
+        >
+          <button className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors">
+            <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+          </button>
+
+          <AnimatePresence mode="wait">
+            {paceView === "pace" ? (
+              <motion.div
+                key="pace"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col items-center"
+              >
+                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Investment Pace</p>
+                <p className="text-4xl font-black text-foreground leading-none">{pace}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">New deals / month (6mo avg)</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="trend"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col items-center"
+              >
+                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">6-Month Trend</p>
+                <div className={`flex items-center gap-1.5 ${
+                  trendDir === "up" ? "text-success" : trendDir === "down" ? "text-destructive" : "text-muted-foreground"
+                }`}>
+                  {trendDir === "up" && <TrendingUp className="w-6 h-6" />}
+                  {trendDir === "down" && <TrendingDown className="w-6 h-6" />}
+                  {trendDir === "flat" && <Minus className="w-6 h-6" />}
+                  <span className="text-3xl font-black leading-none">
+                    {trendDir === "flat" ? "0%" : `${trendDir === "up" ? "+" : "-"}${trendPct}%`}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  {prevPace} → {pace} deals/mo
+                </p>
+                <div className={`text-[9px] font-semibold mt-1 px-2 py-0.5 rounded-full ${
+                  trendDir === "up" ? "bg-success/10 text-success" : trendDir === "down" ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"
+                }`}>
+                  {trendDir === "up" ? "Accelerating" : trendDir === "down" ? "Decelerating" : "Steady pace"}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Card 3: Stage Bias */}
