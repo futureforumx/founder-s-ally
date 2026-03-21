@@ -258,23 +258,27 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     )}
 
                     {activeTab === "Investment Thesis" && (
-                      <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <StageTimeline />
-                          <SectorAlignment
-                            vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
-                            primarySector={companyData?.sector}
-                            secondarySectors={(companyData as any)?.subsectors || []}
-                          />
-                          <InvestorThemes
-                            currentThesis={enrichedData?.profile?.currentThesis}
-                            recentDeals={enrichedData?.profile?.recentDeals}
-                            firmName={displayName}
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <DealDynamics />
-                          <GeographicFocus />
+                      <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* Row 1 */}
+                          <div className="lg:col-span-1 h-full"><StageTimeline /></div>
+                          <div className="lg:col-span-1 h-full">
+                            <SectorAlignment
+                              vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
+                              primarySector={companyData?.sector}
+                              secondarySectors={(companyData as any)?.subsectors || []}
+                            />
+                          </div>
+                          <div className="lg:col-span-1 h-full">
+                            <InvestorThemes
+                              currentThesis={enrichedData?.profile?.currentThesis}
+                              recentDeals={enrichedData?.profile?.recentDeals}
+                              firmName={displayName}
+                            />
+                          </div>
+                          {/* Row 2 */}
+                          <div className="lg:col-span-1"><DealDynamics /></div>
+                          <div className="lg:col-span-2"><GeographicFocus /></div>
                         </div>
                       </motion.div>
                     )}
