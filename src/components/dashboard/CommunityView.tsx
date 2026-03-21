@@ -542,7 +542,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       {/* Global Entity Tabs — hidden for investor-search */}
       {!isInvestorSearch && (
       <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
-        {GLOBAL_TABS.map((tab) => {
+        {GLOBAL_TABS.filter(tab => tab.id !== "investors").map((tab) => {
           const Icon = tab.icon;
           const isActive = activeScope === tab.id;
           return (
