@@ -647,7 +647,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder={placeholder}
-          entries={mergedEntries}
+          firms={vcFirms}
+          people={vcPeople}
+          firmMap={firmMap}
+          onSelectFirm={(firmId) => {
+            const firm = getFirmById(firmId);
+            if (firm) setSelectedVCFirm(firm);
+          }}
+          onSelectPerson={(personId) => {
+            const person = vcPeople.find(p => p.id === personId);
+            if (person) setSelectedVCPerson(person);
+          }}
         />
       ) : (
         <SearchOmnibar
