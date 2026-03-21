@@ -198,7 +198,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <span className="text-border">•</span>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{vcFirm?.location || "San Francisco, CA"}</span>
+                          <span className="font-semibold text-foreground">{effectiveInvestor?.location || "San Francisco, CA"}</span>
                           <span className="text-muted-foreground/70 text-xs">HQ</span>
                         </div>
                       </div>
