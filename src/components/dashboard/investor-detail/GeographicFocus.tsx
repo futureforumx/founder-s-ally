@@ -134,7 +134,7 @@ export function GeographicFocus() {
       </div>
 
       {/* Region buttons — anchored bottom */}
-      <div className="grid grid-cols-3 gap-2 mt-4">
+      <div className="grid grid-cols-3 gap-1.5 mt-3">
         {REGIONS.map((region) => {
           const isActive = activeRegion === region.label;
           const styles = REGION_STYLES[region.type];
@@ -142,7 +142,7 @@ export function GeographicFocus() {
             <button
               key={region.label}
               onClick={() => setActiveRegion(isActive ? null : region.label)}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[10px] font-semibold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1 rounded-md border px-1.5 py-1 text-[8px] font-semibold transition-all cursor-pointer ${
                 isActive ? styles.active : styles.base
               }`}
             >
