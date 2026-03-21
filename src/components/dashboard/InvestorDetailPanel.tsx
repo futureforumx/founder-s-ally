@@ -256,7 +256,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={effectiveInvestor.name} />
+                        <InvestorActivity firmName={effectiveInvestor.name} firmId={resolvedFirmId || vcFirm?.id} />
                       </motion.div>
                     )}
 
