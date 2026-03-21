@@ -16,6 +16,10 @@ interface InvestorContext {
   stage?: string;
   sector?: string;
   checkSize?: string;
+  recentDeals?: string;
+  currentThesis?: string;
+  geography?: string;
+  source?: string;
 }
 
 interface InvestorAIInsightProps {
@@ -53,6 +57,10 @@ export function InvestorAIInsight({ firmName, matchScore, companyContext, invest
             investorStage: investorContext?.stage || "",
             investorSector: investorContext?.sector || "",
             investorCheckSize: investorContext?.checkSize || "",
+            investorRecentDeals: investorContext?.recentDeals || "",
+            investorThesis: investorContext?.currentThesis || "",
+            investorGeography: investorContext?.geography || "",
+            enrichmentSource: investorContext?.source || "",
             companyName: companyContext.name,
             companySector: companyContext.sector || "",
             companyStage: companyContext.stage || "",

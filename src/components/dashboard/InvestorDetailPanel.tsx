@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Sparkles, Zap, MessageSquare, CheckCircle2,
@@ -11,6 +11,7 @@ import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
+import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 
 interface CompanyContext {
   name?: string;
@@ -31,16 +32,41 @@ export type { InvestorEntry };
 
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Overview");
+  const { enrich, cache: enrichCache } = useInvestorEnrich();
+  const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
 
   const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
-  const investorContext = useMemo(() => investor ? {
-    name: investor.name,
-    description: investor.description,
-    stage: investor.stage,
-    sector: investor.sector,
-    checkSize: investor.model,
-  } : null, [investor]);
+  // Trigger enrichment waterfall when investor changes
+  useEffect(() => {
+    if (!investor) { setEnrichedData(null); return; }
+    const key = investor.name.toLowerCase().trim();
+    if (enrichCache[key]) {
+      setEnrichedData(enrichCache[key]);
+      return;
+    }
+    let cancelled = false;
+    enrich(investor.name).then(result => {
+      if (!cancelled) setEnrichedData(result);
+    });
+    return () => { cancelled = true; };
+  }, [investor?.name]);
+
+  const investorContext = useMemo(() => {
+    if (!investor) return null;
+    const ep = enrichedData?.profile;
+    return {
+      name: investor.name,
+      description: investor.description,
+      stage: ep?.stage || investor.stage,
+      sector: investor.sector,
+      checkSize: ep?.typicalCheckSize || investor.model,
+      recentDeals: ep?.recentDeals?.join(", ") || "",
+      currentThesis: ep?.currentThesis || "",
+      geography: ep?.geography || "",
+      source: ep?.source || "",
+    };
+  }, [investor, enrichedData]);
 
   return (
     <AnimatePresence>

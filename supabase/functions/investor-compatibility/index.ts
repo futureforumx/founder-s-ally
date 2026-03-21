@@ -17,7 +17,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { investorName, investorDescription, investorStage, investorSector, investorCheckSize, companyName, companySector, companyStage, companyModel, companyDescription, matchScore } = await req.json();
+    const {
+      investorName, investorDescription, investorStage, investorSector, investorCheckSize,
+      investorRecentDeals, investorThesis, investorGeography, enrichmentSource,
+      companyName, companySector, companyStage, companyModel, companyDescription, matchScore
+    } = await req.json();
 
     if (!investorName || !companyName) {
       return new Response(
@@ -30,10 +34,11 @@ serve(async (req) => {
 
 Rules:
 - Address the founder directly (use "your" not "their")
-- Reference specific data points from both profiles (sector, stage, check size, etc.)
-- Include one actionable suggestion for how the founder should approach this investor
+- Reference specific data points from both profiles (sector, stage, check size, recent deals, thesis, geography)
+- If recent deals or thesis data is available, weave it into the insight naturally
 - Be specific and data-driven, not generic
 - Keep it under 60 words
+- Include one actionable suggestion for how the founder should approach this investor
 - Do NOT use markdown formatting, just plain text
 - Do NOT start with "Your" — vary your sentence openings`;
 
@@ -50,6 +55,10 @@ Investor Profile:
 - Stage Preference: ${investorStage || "Not specified"}
 - Check Size: ${investorCheckSize || "Not specified"}
 - Description: ${investorDescription || "Not specified"}
+- Recent Deals: ${investorRecentDeals || "Not available"}
+- Current Thesis: ${investorThesis || "Not available"}
+- Geography: ${investorGeography || "Not specified"}
+- Data Source: ${enrichmentSource || "directory"}
 - Current Match Score: ${matchScore ?? "N/A"}%
 
 Write a compatibility insight for this founder about this investor.`;
