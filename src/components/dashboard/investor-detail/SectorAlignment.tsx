@@ -55,9 +55,9 @@ export function SectorAlignment({
       </div>
 
       {!hasMatch && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-200">
-          <AlertTriangle className="h-3.5 w-3.5 text-orange-600 shrink-0" />
-          <span className="text-sm font-semibold text-orange-700">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-orange-50 border border-orange-200">
+          <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />
+          <span className="text-[11px] font-semibold text-orange-700">
             Outside of your core focus
           </span>
         </div>
