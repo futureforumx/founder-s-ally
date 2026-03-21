@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock, Bookmark, BookmarkCheck, X, Users } from "lucide-react";
