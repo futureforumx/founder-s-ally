@@ -448,7 +448,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, displayEntries.length));
       setIsLoadingMore(false);
     }, 400);
-  }, [hasMore, isLoadingMore, filteredAll.length]);
+  }, [hasMore, isLoadingMore, displayEntries.length]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
