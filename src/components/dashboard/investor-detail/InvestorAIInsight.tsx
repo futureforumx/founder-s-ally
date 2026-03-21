@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, AlertTriangle, ChevronDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CompanyContext {
@@ -22,9 +23,9 @@ interface InvestorContext {
   source?: string;
 }
 
-interface InvestorAIInsightProps {
+interface MatchScoreDropdownProps {
+  matchScore: number;
   firmName: string;
-  matchScore?: number;
   companyContext?: CompanyContext | null;
   investorContext?: InvestorContext | null;
 }
@@ -41,7 +42,7 @@ const FALLBACK_ITEMS: InsightItem[] = [
   { type: "warning", label: "Sector Nuance", detail: "Broad focus — emphasize your unique differentiation early." },
 ];
 
-export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, investorContext }: InvestorAIInsightProps) {
+function useCompatibilityInsights(firmName: string, companyContext?: CompanyContext | null, investorContext?: InvestorContext | null, matchScore?: number) {
   const [items, setItems] = useState<InsightItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -56,10 +57,7 @@ export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, 
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed);
-          return;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) { setItems(parsed); return; }
       } catch { /* fall through */ }
     }
 
@@ -115,41 +113,59 @@ export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, 
     return () => { cancelled = true; };
   }, [firmName, companyContext?.name]);
 
-  const displayItems = items.length > 0 ? items : FALLBACK_ITEMS;
+  return { items: items.length > 0 ? items : FALLBACK_ITEMS, loading };
+}
+
+export function MatchScoreDropdown({ matchScore, firmName, companyContext, investorContext }: MatchScoreDropdownProps) {
+  const { items, loading } = useCompatibilityInsights(firmName, companyContext, investorContext, matchScore);
 
   return (
-    <div className="w-full rounded-xl border border-success/20 p-4 relative overflow-hidden" style={{ background: "linear-gradient(to right, hsl(var(--success) / 0.04), hsl(var(--secondary) / 0.5))" }}>
-      <div className="flex items-center gap-1.5 mb-3">
-        <Sparkles className="h-3 w-3 text-success" />
-        <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-          AI Compatibility Analysis
-        </span>
-      </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1.5 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-sm font-bold cursor-pointer hover:bg-success/15 transition-colors shrink-0">
+          <Sparkles className="w-3 h-3" />
+          {matchScore}% Match
+          <ChevronDown className="w-3 h-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-4 rounded-xl shadow-xl border border-border">
+        <div className="flex items-center gap-1.5 mb-3">
+          <Sparkles className="h-3 w-3 text-success" />
+          <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+            AI Compatibility Analysis
+          </span>
+        </div>
 
-      {loading ? (
-        <div className="flex items-center gap-2 py-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Analyzing compatibility…</span>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {displayItems.map((item, i) => (
-            <div key={i} className="flex items-start gap-2">
-              {item.type === "match" ? (
-                <CheckCircle className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" />
-              ) : (
-                <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
-              )}
-              <div className="min-w-0">
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${item.type === "match" ? "text-success" : "text-warning"}`}>
-                  {item.label}
-                </span>
-                <p className="text-xs text-foreground leading-relaxed mt-0.5">{item.detail}</p>
+        {loading ? (
+          <div className="flex items-center gap-2 py-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Analyzing compatibility…</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                {item.type === "match" ? (
+                  <CheckCircle className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <p className={`text-[10px] font-bold uppercase tracking-wide ${item.type === "match" ? "text-success" : "text-warning"}`}>
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{item.detail}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
+}
+
+// Keep legacy export for backwards compat (unused now but safe)
+export function InvestorAIInsightBanner(props: { firmName: string; matchScore?: number; companyContext?: CompanyContext | null; investorContext?: InvestorContext | null }) {
+  return <MatchScoreDropdown matchScore={props.matchScore || 0} firmName={props.firmName} companyContext={props.companyContext} investorContext={props.investorContext} />;
 }
