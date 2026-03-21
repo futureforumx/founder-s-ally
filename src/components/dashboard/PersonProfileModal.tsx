@@ -20,10 +20,10 @@ interface PersonProfileModalProps {
 const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
 
 const MOCK_DEALS = [
-  { company: "Ramp", round: "Series A", logo: "R" },
-  { company: "Vanta", round: "Seed", logo: "V" },
-  { company: "Lattice", round: "Series A", logo: "L" },
-  { company: "Notion", round: "Seed", logo: "N" },
+  { company: "Ramp", round: "Series A", logo: "R", source: "ramp.com", url: "https://ramp.com/blog/series-a" },
+  { company: "Vanta", round: "Seed", logo: "V", source: "techcrunch.com", url: "https://techcrunch.com/2020/02/vanta-seed-round" },
+  { company: "Lattice", round: "Series A", logo: "L", source: "prnewswire.com", url: "https://www.prnewswire.com/news-releases/lattice-series-a.html" },
+  { company: "Notion", round: "Seed", logo: "N", source: "notion.so", url: "https://notion.so/blog/seed-announcement" },
 ];
 
 const MOCK_STAGES = ["Pre-Seed", "Seed", "Series A"];
