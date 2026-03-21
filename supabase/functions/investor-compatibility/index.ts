@@ -55,6 +55,10 @@ Investor Profile:
 - Stage Preference: ${investorStage || "Not specified"}
 - Check Size: ${investorCheckSize || "Not specified"}
 - Description: ${investorDescription || "Not specified"}
+- Recent Deals: ${investorRecentDeals || "Not available"}
+- Current Thesis: ${investorThesis || "Not available"}
+- Geography: ${investorGeography || "Not specified"}
+- Data Source: ${enrichmentSource || "directory"}
 - Current Match Score: ${matchScore ?? "N/A"}%
 
 Write a compatibility insight for this founder about this investor.`;
