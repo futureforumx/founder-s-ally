@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, ArrowLeftRight } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play } from "lucide-react";
 
 interface DealMonth {
   month: string;
@@ -58,6 +58,20 @@ const stageColor = (stage: string) => {
 
 export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
+  const [autoCycle, setAutoCycle] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCycle = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setPaceView(v => v === "pace" ? "trend" : "pace");
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    if (autoCycle) startCycle();
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [autoCycle, startCycle]);
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
@@ -116,10 +130,22 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
 
         <div
           className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center relative overflow-hidden cursor-pointer select-none"
-          onClick={() => setPaceView(v => v === "pace" ? "trend" : "pace")}
+          onClick={() => {
+            if (autoCycle) {
+              setAutoCycle(false);
+            } else {
+              setAutoCycle(true);
+            }
+          }}
         >
-          <button className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors">
-            <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+          <button
+            className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAutoCycle(v => !v);
+            }}
+          >
+            {autoCycle ? <Pause className="w-3 h-3 text-muted-foreground" /> : <Play className="w-3 h-3 text-muted-foreground" />}
           </button>
 
           <AnimatePresence mode="wait">
