@@ -20,6 +20,7 @@ import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { RefreshCw, ShieldCheck, Check, ArrowRight, Eye, Zap, CheckCircle2, Sparkles, Circle, ChevronRight, Briefcase, Target, TrendingUp, Link } from "lucide-react";
+import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { ProfileStrength } from "@/components/company-profile/ProfileStrength";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -307,7 +308,16 @@ const Index = () => {
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto relative">
-        <div className={`px-8 py-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
+        <GlobalTopNav
+          companyName={companyData?.name}
+          logoUrl={(() => { try { return localStorage.getItem("company-logo-url"); } catch { return null; } })()}
+          hasProfile={!!companyData?.name}
+          lastSyncedAt={lastSyncedAt}
+          syncFlash={syncFlash}
+          relativeTime={relativeTime}
+          onNavigateProfile={() => setActiveView("company")}
+        />
+        <div className={`px-8 pt-16 pb-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
             <div className="space-y-6">
               {/* Page Header */}
@@ -347,25 +357,7 @@ const Index = () => {
                     <p className="text-xs text-muted-foreground mt-0.5">Your company profile and real-time pulse</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {companyData?.name && (
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                      </span>
-                      Live
-                    </span>
-                  )}
-                  {lastSyncedAt ? (
-                    <span
-                      className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
-                      title={lastSyncedAt.toLocaleString()}
-                    >
-                      {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime}`}
-                    </span>
-                  ) : null}
-                </div>
+                {/* Live indicator now in GlobalTopNav */}
               </div>
 
               {/* ═══ Asymmetric 2-Column Grid ═══ */}
@@ -544,7 +536,7 @@ const Index = () => {
               <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} lastSyncedAt={lastSyncedAt} syncFlash={syncFlash} relativeTime={relativeTime} />
+            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (

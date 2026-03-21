@@ -18,9 +18,6 @@ interface CommunityViewProps {
   analysisResult?: AnalysisResult | null;
   onNavigateProfile?: () => void;
   variant?: "directory" | "investor-search";
-  lastSyncedAt?: Date | null;
-  syncFlash?: boolean;
-  relativeTime?: string;
 }
 
 // ── Types ──
@@ -288,7 +285,7 @@ function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;t
 }
 
 
-export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory", lastSyncedAt, syncFlash, relativeTime }: CommunityViewProps) {
+export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
   const isInvestorSearch = variant === "investor-search";
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -470,57 +467,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
   return (
     <div className="space-y-2">
-      {/* Top navbar for investor-search */}
-      {variant === "investor-search" && (
-        <div className="fixed top-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md px-8 py-4 mb-4 flex items-center justify-between" style={{ left: "11rem" }}>
-          <button
-            onClick={onNavigateProfile}
-            className="flex items-center gap-4 group cursor-pointer"
-          >
-            <div className="relative w-12 h-12 rounded-xl border border-emerald-400/40 bg-muted/30 animate-[glow-pulse_2.5s_ease-in-out_infinite] group-hover:shadow-[0_0_18px_4px_rgba(52,211,153,0.35)] transition-all flex items-center justify-center overflow-hidden shrink-0">
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-xl" />
-              ) : hasProfile ? (
-                <span className="text-lg font-bold text-muted-foreground">
-                  {companyData!.name.charAt(0).toUpperCase()}
-                </span>
-              ) : (
-                <Building2 className="h-5 w-5 text-muted-foreground/40" />
-              )}
-            </div>
-            <div className="text-left">
-              <h1 className="text-xl font-semibold tracking-tight text-foreground group-hover:text-accent transition-colors">
-                {hasProfile ? companyData!.name : "My Company"}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Investor search &amp; discovery
-              </p>
-            </div>
-          </button>
-
-          {/* Live status indicator */}
-          <div className="flex items-center gap-3">
-            {hasProfile && (
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                </span>
-                Live
-              </span>
-            )}
-            {lastSyncedAt ? (
-              <span
-                className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
-                title={lastSyncedAt.toLocaleString()}
-              >
-                {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      )}
-      {variant === "investor-search" && <div className="h-20" />}
+      {/* Spacer for global top nav */}
+      {variant === "investor-search" && <div className="h-2" />}
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
