@@ -103,6 +103,7 @@ const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
 const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}> = {
   all: { suggested: "Suggested for You", trending: "Trending Now" },
   founders: { suggested: "Suggested Founders", trending: "Trending Founders" },
+  operators: { suggested: "Suggested Operators", trending: "Trending Operators" },
   investors: { suggested: "Suggested Investors", trending: "Trending Investors" },
   companies: { suggested: "Suggested Companies", trending: "Trending Companies" }
 };
