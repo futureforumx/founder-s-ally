@@ -7,6 +7,7 @@ interface GeoSpot {
   y: number;
   intensity: "high" | "medium";
   region: string;
+  investments: number;
 }
 
 const GEO_SPOTS: GeoSpot[] = [
