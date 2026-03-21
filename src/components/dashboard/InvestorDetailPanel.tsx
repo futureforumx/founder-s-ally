@@ -184,38 +184,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       )}
 
                       {activeTab === "Investment Thesis" && (
-                        <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                          <div>
-                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                              <Sparkles className="h-3 w-3 inline mr-1 text-accent" /> Thesis Summary
-                            </h4>
-                            <div className="rounded-xl bg-accent/5 p-4 space-y-3">
-                              {[
-                                `${investor.name} focuses on ${investor.sector} with a conviction-driven approach, typically leading rounds at the ${investor.stage} stage.`,
-                                "They prefer founders with deep domain expertise and look for 10x market opportunities in under-penetrated verticals.",
-                                "Recent thesis publications emphasize Climate Tech, vertical AI, and defense/dual-use technologies.",
-                              ].map((text, i) => (
-                                <div key={i} className="flex gap-2">
-                                  <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                                  <p className="text-sm text-foreground leading-relaxed">{text}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Preferred Terms</h4>
-                            <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                              {[
-                                { label: "Lead / Follow", value: "Typically Leads" },
-                                { label: "Board Seat", value: "Required at Series A+" },
-                                { label: "Pro-Rata Rights", value: "Always" },
-                              ].map((row) => (
-                                <div key={row.label} className="flex items-center justify-between">
-                                  <span className="text-sm text-foreground font-medium">{row.label}</span>
-                                  <span className="text-sm text-muted-foreground">{row.value}</span>
-                                </div>
-                              ))}
-                            </div>
+                        <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
+                          <StageTimeline />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <DealDynamics />
+                            <GeographicFocus />
                           </div>
                         </motion.div>
                       )}
