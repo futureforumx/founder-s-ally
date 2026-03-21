@@ -3,7 +3,7 @@ import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type EntityScope = "founders" | "investors" | "companies" | "all";
+export type EntityScope = "founders" | "investors" | "companies" | "operators" | "all";
 
 export interface SearchResult {
   name: string;
