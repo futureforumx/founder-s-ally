@@ -81,6 +81,16 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
     if (autoCycle) startCycle();
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoCycle, startCycle]);
+
+  useEffect(() => {
+    if (focusAutoCycle) {
+      if (focusIntervalRef.current) clearInterval(focusIntervalRef.current);
+      focusIntervalRef.current = setInterval(() => {
+        setFocusView(v => v === "stage" ? "sector" : "stage");
+      }, 5000);
+    }
+    return () => { if (focusIntervalRef.current) clearInterval(focusIntervalRef.current); };
+  }, [focusAutoCycle]);
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const maxSectorTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.saas + m.fintech + m.health)), []);
   const deployedPct = 40;
