@@ -417,11 +417,27 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
 
       {/* Row 3: Recent Transactions — compact table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border">
+        <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Recent Transactions</p>
+          <div className="flex items-center gap-1">
+            {(["date", "stage", "sector"] as SortField[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => toggleSort(f)}
+                className={`flex items-center gap-0.5 text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
+                  sortField === f ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {f}
+                {sortField === f && (
+                  <ArrowUpDown className="w-2.5 h-2.5" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="divide-y divide-border">
-          {RECENT_DEALS.map((deal) => {
+          {sortedDeals.map((deal) => {
             const sectorMatch = companySector && deal.sector.toLowerCase().includes(companySector.toLowerCase());
             return (
               <div key={deal.company} className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
