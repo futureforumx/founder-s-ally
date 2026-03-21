@@ -1,7 +1,9 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown } from "lucide-react";
+import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PortfolioTabProps {
   companySector?: string;
@@ -10,10 +12,12 @@ interface PortfolioTabProps {
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
 
 const RECENT_INVESTMENTS = [
-  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io" },
-  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com" },
-  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy" },
-  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev" },
+  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io", description: "AI-driven workflow automation for commercial construction sites.", partner: "Sarah Chen", role: "LEAD" as const },
+  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com", description: "Computational drug discovery platform accelerating preclinical timelines.", partner: "James Park", role: "LEAD" as const },
+  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy", description: "Smart grid optimization software for renewable energy providers.", partner: "Sarah Chen", role: "CO-LED" as const },
+  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev", description: "Developer-first security tooling for CI/CD pipelines.", partner: "David Liu", role: "PARTICIPATED" as const },
+  { name: "FinLedger", stage: "Seed", sector: "Fintech", amount: "$3M", date: "May 2025", website: "finledger.io", description: "Real-time reconciliation engine for digital asset custodians.", partner: "James Park", role: "LEAD" as const },
+  { name: "MedScope AI", stage: "Series A", sector: "HealthTech", amount: "$10M", date: "Mar 2025", website: "medscope.ai", description: "Clinical decision support powered by multimodal medical imaging.", partner: "Sarah Chen", role: "CO-LED" as const },
 ];
 
 const NOTABLE_EXITS = ["Stripe", "Figma"];
@@ -63,12 +67,13 @@ function CountUpNumber({ target, label }: { target: number; label: string }) {
   );
 }
 
-function FaviconAvatar({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
+function CompanyLogo({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
+  const [src, setSrc] = useState(`https://logo.clearbit.com/${website}`);
   const [failed, setFailed] = useState(false);
 
   if (failed) {
     return (
-      <div className={`${size} flex items-center justify-center rounded-xl bg-secondary border border-border text-sm font-bold text-muted-foreground shrink-0`}>
+      <div className={`${size} flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-sm font-bold text-primary shrink-0`}>
         {name.charAt(0)}
       </div>
     );
@@ -76,10 +81,16 @@ function FaviconAvatar({ website, name, size = "w-10 h-10" }: { website: string;
 
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${website}&sz=128`}
+      src={src}
       alt={name}
-      className={`${size} rounded-xl border border-border object-contain bg-background shrink-0`}
-      onError={() => setFailed(true)}
+      className={`${size} rounded-xl border border-border object-contain bg-background p-1 shrink-0`}
+      onError={() => {
+        if (src.includes("clearbit")) {
+          setSrc(`https://www.google.com/s2/favicons?domain=${website}&sz=128`);
+        } else {
+          setFailed(true);
+        }
+      }}
     />
   );
 }
@@ -218,6 +229,19 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
 }
 
 export function PortfolioTab({ companySector }: PortfolioTabProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
+
+  const allSectors = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.sector))], []);
+
+  const filteredInvestments = useMemo(() => {
+    return RECENT_INVESTMENTS.filter((co) => {
+      const matchesSearch = !searchQuery || co.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
+      return matchesSearch && matchesSector;
+    });
+  }, [searchQuery, sectorFilter]);
+
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
     if (!companySector) return "unknown";
     const hasMatch = RECENT_INVESTMENTS.some(
@@ -265,7 +289,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             <CountUpNumber target={12} label="Unicorns" />
             <div className="flex items-center justify-center mt-2 -space-x-2">
               {TOP_UNICORNS.map((u) => (
-                <FaviconAvatar key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
+                <CompanyLogo key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
@@ -281,29 +305,85 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
           Recent Investments
         </h4>
+
+        {/* Filter Bar */}
+        <div className="flex items-center justify-between pb-3 border-b border-border mb-2">
+          <div className="relative w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-xs bg-secondary/50 border-border"
+            />
+          </div>
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="w-36 h-8 text-xs">
+              <SelectValue placeholder="All Sectors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sectors</SelectItem>
+              {allSectors.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
-          {RECENT_INVESTMENTS.map((co) => (
-            <div
-              key={co.name}
-              className="group flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:bg-secondary/40 hover:shadow-sm cursor-pointer transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <FaviconAvatar website={co.website} name={co.name} />
-                <div>
-                  <span className="text-sm font-medium text-foreground">{co.name}</span>
-                  <div className="flex gap-1.5 mt-0.5">
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+          {filteredInvestments.map((co) => {
+            const isSectorMatch = companySector && co.sector.toLowerCase().includes(companySector.toLowerCase());
+            return (
+              <div
+                key={co.name}
+                className={`group flex items-center justify-between rounded-xl border bg-card p-3 hover:shadow-sm cursor-pointer transition-all ${
+                  isSectorMatch
+                    ? "bg-primary/5 border-l-4 border-l-primary border-t-border border-r-border border-b-border"
+                    : "border-border hover:bg-secondary/40"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <CompanyLogo website={co.website} name={co.name} />
+                  <div className="max-w-md">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-foreground">{co.name}</span>
+                      {isSectorMatch && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary">
+                          <Sparkles className="w-2.5 h-2.5" /> Relevant Comp
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
+                    <div className="flex gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-secondary border border-border flex items-center justify-center text-[7px] font-bold text-muted-foreground shrink-0">
+                      {co.partner.charAt(0)}
+                    </div>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Led by {co.partner}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{co.date}</span>
+                    <span className="text-sm font-semibold text-foreground">{co.amount}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      co.role === "LEAD" ? "bg-primary/10 text-primary" :
+                      co.role === "CO-LED" ? "bg-accent/10 text-accent" :
+                      "bg-secondary text-muted-foreground"
+                    }`}>{co.role}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground font-medium">{co.date}</span>
-                <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
+          {filteredInvestments.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-6">No investments match your filters.</p>
+          )}
         </div>
       </div>
     </div>
