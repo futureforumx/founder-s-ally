@@ -94,7 +94,16 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
   const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
   const [focusAutoCycle, setFocusAutoCycle] = useState(true);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const sortedDeals = useMemo(() => sortDeals(RECENT_DEALS, sortField, sortDir), [sortField, sortDir]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("desc"); }
+  };
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCycle = useCallback(() => {
