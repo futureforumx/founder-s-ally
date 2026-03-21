@@ -12,9 +12,18 @@ import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 
+interface CompanyContext {
+  name?: string;
+  sector?: string;
+  stage?: string;
+  model?: string;
+  description?: string;
+}
+
 interface InvestorDetailPanelProps {
   investor: InvestorEntry | null;
   companyName?: string;
+  companyData?: CompanyContext | null;
   onClose: () => void;
 }
 
