@@ -21,7 +21,7 @@ interface CommunityViewProps {
 }
 
 // ── Types ──
-type EntryCategory = "founder" | "investor" | "company";
+type EntryCategory = "founder" | "investor" | "company" | "operator";
 
 interface DirectoryEntry {
   name: string;
