@@ -11,10 +11,10 @@ interface GeoSpot {
 }
 
 const GEO_SPOTS: GeoSpot[] = [
-  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America" },
-  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America" },
-  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America" },
-  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU" },
+  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America", investments: 34 },
+  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America", investments: 22 },
+  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America", investments: 8 },
+  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU", investments: 11 },
 ];
 
 const REGIONS = [
