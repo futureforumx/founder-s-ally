@@ -344,24 +344,23 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             return (
               <div
                 key={co.name}
-                className={`group grid grid-cols-12 gap-4 items-center py-3.5 border-b border-border hover:bg-secondary/40 transition-colors px-2 cursor-pointer ${
+                className={`group grid grid-cols-12 gap-4 items-center py-2.5 border-b border-border hover:bg-secondary/40 transition-colors px-2 cursor-pointer ${
                   isSectorMatch ? "bg-primary/5 border-l-4 border-l-primary" : ""
                 }`}
               >
                 {/* Col 1: Company Profile */}
-                <div className="col-span-12 md:col-span-5 flex items-start gap-3">
-                  <CompanyLogo website={co.website} name={co.name} />
+                <div className="col-span-12 md:col-span-5 flex items-center gap-2.5">
+                  <CompanyLogo website={co.website} name={co.name} size="w-8 h-8" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-foreground">{co.name}</span>
+                      <span className="text-sm font-semibold text-foreground">{co.name}</span>
                       {isSectorMatch && (
                         <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary">
                           <Sparkles className="w-2.5 h-2.5" /> Relevant Comp
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
-                    <div className="flex gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-0.5">
                       <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
                       <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
                     </div>
@@ -369,9 +368,9 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
                 </div>
 
                 {/* Col 2: Deal Size & Role */}
-                <div className="col-span-6 md:col-span-2 flex flex-col items-start">
+                <div className="col-span-6 md:col-span-2 flex items-center gap-2">
                   <span className="text-sm font-bold text-foreground">{co.amount}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase mt-1 ${
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
                     co.role === "LEAD" ? "bg-primary/10 text-primary" :
                     co.role === "CO-LED" ? "bg-accent/10 text-accent" :
                     "bg-secondary text-muted-foreground"
