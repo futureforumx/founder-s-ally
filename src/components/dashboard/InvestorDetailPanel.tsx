@@ -48,6 +48,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
+  const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
@@ -96,6 +97,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         .limit(1);
       const firmId = firms?.[0]?.id;
       if (!firmId) return;
+      setResolvedFirmId(firmId);
 
       // Upsert a 'viewed' interaction (idempotent per founder+firm+action)
       await supabase
@@ -254,7 +256,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={effectiveInvestor.name} />
+                        <InvestorActivity firmName={effectiveInvestor.name} firmId={resolvedFirmId || vcFirm?.id} />
                       </motion.div>
                     )}
 
