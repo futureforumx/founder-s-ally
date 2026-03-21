@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Sparkles, Zap, MessageSquare, CheckCircle2,
@@ -12,18 +12,35 @@ import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 
+interface CompanyContext {
+  name?: string;
+  sector?: string;
+  stage?: string;
+  model?: string;
+  description?: string;
+}
+
 interface InvestorDetailPanelProps {
   investor: InvestorEntry | null;
   companyName?: string;
+  companyData?: CompanyContext | null;
   onClose: () => void;
 }
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, onClose }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Overview");
 
   const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+
+  const investorContext = useMemo(() => investor ? {
+    name: investor.name,
+    description: investor.description,
+    stage: investor.stage,
+    sector: investor.sector,
+    checkSize: investor.model,
+  } : null, [investor]);
 
   return (
     <AnimatePresence>
@@ -118,7 +135,7 @@ export function InvestorDetailPanel({ investor, companyName, onClose }: Investor
 
               {/* ─── Compatibility (gold/emerald) ─── */}
               <div className="mx-6 mb-4 shrink-0">
-                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} />
+                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} companyContext={companyData} investorContext={investorContext} />
               </div>
 
               {/* ─── Pill Tabs ─── */}
