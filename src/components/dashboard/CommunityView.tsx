@@ -14,6 +14,8 @@ import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
+import { PersonProfileModal } from "./PersonProfileModal";
+import { type PartnerPerson, getPartnerById, getPartnersForFirm } from "./investor-detail/types";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -319,6 +321,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<PartnerPerson | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // SWR: Fetch live investors from DB (stale-while-revalidate)
@@ -890,7 +893,24 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
-        onClose={() => setSelectedInvestor(null)} />
+        onClose={() => setSelectedInvestor(null)}
+        onSelectPartner={(partner) => {
+          setSelectedInvestor(null);
+          setTimeout(() => setSelectedPerson(partner), 200);
+        }}
+      />
+      <PersonProfileModal
+        person={selectedPerson}
+        onClose={() => setSelectedPerson(null)}
+        onNavigateToFirm={(firmId) => {
+          // Find the firm entry by firmId and navigate back
+          const firmEntry = mergedEntries.find(e => e.category === "investor" && e.name.toLowerCase() === firmId);
+          setSelectedPerson(null);
+          if (firmEntry) {
+            setTimeout(() => setSelectedInvestor(firmEntry), 200);
+          }
+        }}
+      />
       
     </div>);
 
