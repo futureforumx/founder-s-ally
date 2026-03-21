@@ -264,6 +264,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <StageTimeline />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <DealDynamics />
+                          <SectorAlignment
+                            vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
+                            primarySector={companyData?.sector}
+                            secondarySectors={(companyData as any)?.subsectors || []}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <GeographicFocus />
                         </div>
                       </motion.div>
