@@ -3,11 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Sparkles, Zap, MessageSquare, CheckCircle2,
-  TrendingUp, ArrowUpRight, Building2, Briefcase, Globe,
+  TrendingUp, ArrowUpRight, Building2, Briefcase, Globe, Activity, MapPin, Users, Calendar,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { StatusIndicator } from "./founder-detail/StatusIndicator";
-import { InvestorQuickFacts } from "./investor-detail/InvestorQuickFacts";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
@@ -40,18 +38,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
-  // Trigger enrichment waterfall when investor changes
   useEffect(() => {
     if (!investor) { setEnrichedData(null); return; }
     const key = investor.name.toLowerCase().trim();
-    if (enrichCache[key]) {
-      setEnrichedData(enrichCache[key]);
-      return;
-    }
+    if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
     let cancelled = false;
-    enrich(investor.name).then(result => {
-      if (!cancelled) setEnrichedData(result);
-    });
+    enrich(investor.name).then(result => { if (!cancelled) setEnrichedData(result); });
     return () => { cancelled = true; };
   }, [investor?.name]);
 
@@ -71,6 +63,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     };
   }, [investor, enrichedData]);
 
+  // Meta facts for the inline row
+  const metaFacts = [
+    { label: "AUM", value: "$85B" },
+    { label: "HQ", value: investor?.location || "Menlo Park, CA" },
+    { label: "Team", value: "15" },
+    { label: "Founded", value: "1972" },
+  ];
+
   return (
     <AnimatePresence>
       {investor && (
@@ -88,293 +88,247 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
           {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
-              className="pointer-events-auto max-w-2xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[90vh] flex flex-col"
+              className="pointer-events-auto max-w-6xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
               initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
-              {/* ─── Hero Banner ─── */}
-              <div
-                className="relative h-28 w-full shrink-0"
-                style={{ background: "linear-gradient(135deg, hsl(45 80% 55% / 0.12), hsl(160 60% 45% / 0.10), hsl(var(--secondary)))" }}
-              >
-                {/* Match Badge */}
-                <div className="absolute top-4 left-6">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-card/80 backdrop-blur-md border border-border/40 px-3 py-1.5 shadow-sm">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full" style={{ backgroundColor: "hsl(160 60% 45% / 0.6)" }} />
-                      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: "hsl(160 60% 45%)" }} />
-                    </span>
-                    <span className="text-xs font-semibold" style={{ color: "hsl(160 60% 40%)" }}>{matchScore}% Match</span>
-                  </div>
-                </div>
-
-                {/* Close */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-card/50 hover:bg-card/80 transition-colors backdrop-blur-sm"
-                >
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </button>
-
-                {/* Logo */}
-                <div className="absolute -bottom-6 left-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-card border-4 border-card shadow-surface text-xl font-bold text-muted-foreground">
-                  {investor.initial}
-                </div>
-              </div>
-
               {/* ─── Header ─── */}
-              <div className="px-6 pt-10 pb-4 shrink-0">
+              <div className="px-8 pt-6 pb-5 border-b border-border shrink-0">
                 <div className="flex items-start justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-2xl font-bold text-foreground truncate">{investor.name}</h2>
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                  <div className="flex items-center gap-4 min-w-0">
+                    {/* Logo */}
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
+                      {investor.initial}
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="outline" className="text-[10px] px-2 py-0.5">{investor.stage}</Badge>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{investor.sector}</Badge>
-                      <Badge className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                        <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
-                      </Badge>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-bold text-foreground truncate">{investor.name}</h2>
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{investor.stage}</Badge>
+                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{investor.sector}</Badge>
+                        <Badge className="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                          <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
+                        </Badge>
+                      </div>
+                      {/* Meta Details Row */}
+                      <div className="flex items-center gap-3 mt-2.5 text-xs font-medium text-muted-foreground">
+                        {metaFacts.map((fact, i) => (
+                          <span key={fact.label} className="flex items-center gap-1">
+                            {i > 0 && <span className="text-border mr-3">•</span>}
+                            <span className="text-muted-foreground/70">{fact.label}:</span>
+                            <span className="text-foreground">{fact.value}</span>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0 ml-4">
+
+                  <div className="flex items-center gap-2 shrink-0 ml-4">
                     <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
                       <Zap className="h-4 w-4" /> Connect
                     </button>
                     <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
                       <MessageSquare className="h-4 w-4" /> Request Intro
                     </button>
+                    <button
+                      onClick={onClose}
+                      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary/60 transition-colors ml-1"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* ─── About ─── */}
-              <div className="mx-6 mb-3 shrink-0">
-                <div className="rounded-xl bg-secondary/30 p-4">
-                  <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
-                    <Building2 className="h-3 w-3 inline mr-1 text-accent" />
-                    About
-                  </h4>
-                  <p className="text-sm text-foreground leading-relaxed">{investor.description}</p>
-                </div>
-              </div>
+              {/* ─── Two-Column Body ─── */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-8 py-6">
 
-              {/* ─── Compatibility (gold/emerald) ─── */}
-              <div className="mx-6 mb-4 shrink-0">
-                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} companyContext={companyData} investorContext={investorContext} />
-              </div>
-
-              {/* ─── Pill Tabs ─── */}
-              <div className="mx-6 mb-4 shrink-0">
-                <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
-                  {INVESTOR_TABS.map((tab) => {
-                    const isActive = activeTab === tab;
-                    return (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
-                          isActive
-                            ? "bg-card text-foreground shadow-surface"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ─── Tab Content ─── */}
-              <div className="flex-1 overflow-y-auto px-6 pb-6">
-                <AnimatePresence mode="wait">
-                  {activeTab === "Overview" && (
-                    <motion.div
-                      key="overview"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-5"
-                    >
-                      <InvestorActivity firmName={investor.name} />
-                      <InvestorQuickFacts checkSize={investor.model} stageFocus={investor.stage} />
-                    </motion.div>
-                  )}
-
-                  {activeTab === "Investment Thesis" && (
-                    <motion.div
-                      key="thesis"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-5"
-                    >
-                      <div>
-                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                          <Sparkles className="h-3 w-3 inline mr-1 text-accent" />
-                          Thesis Summary
-                        </h4>
-                        <div className="rounded-xl bg-accent/5 p-4 space-y-3">
-                          <div className="flex gap-2">
-                            <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                            <p className="text-sm text-foreground leading-relaxed">
-                              <strong>{investor.name}</strong> focuses on <strong>{investor.sector}</strong> with a conviction-driven approach, typically leading rounds at the <strong>{investor.stage}</strong> stage.
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                            <p className="text-sm text-foreground leading-relaxed">
-                              They prefer founders with deep domain expertise and look for 10x market opportunities in under-penetrated verticals.
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                            <p className="text-sm text-foreground leading-relaxed">
-                              Recent thesis publications emphasize Climate Tech, vertical AI, and defense/dual-use technologies.
-                            </p>
-                          </div>
-                        </div>
+                  {/* ── Left Column: Tabs & Content (2/3) ── */}
+                  <div className="lg:col-span-2 min-w-0">
+                    {/* Pill Tabs */}
+                    <div className="mb-5">
+                      <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
+                        {INVESTOR_TABS.map((tab) => {
+                          const isActive = activeTab === tab;
+                          return (
+                            <button
+                              key={tab}
+                              onClick={() => setActiveTab(tab)}
+                              className={`relative px-3.5 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                                isActive
+                                  ? "bg-card text-foreground shadow-surface"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {tab}
+                            </button>
+                          );
+                        })}
                       </div>
+                    </div>
 
-                      <div>
-                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">Sector Activity</h4>
-                        <div className="rounded-xl bg-secondary/30 p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4 text-success" />
-                              <span className="text-sm font-semibold text-foreground">Deploying Actively</span>
-                            </div>
-                            <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
-                              +24% deal flow
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Deal activity increased 24% this quarter across their focus verticals.
-                          </p>
-                          <div className="flex items-end gap-1 mt-3 h-8">
-                            {[4, 6, 5, 8, 7, 10, 12, 9, 13, 15, 14, 18].map((v, i) => (
-                              <div
-                                key={i}
-                                className="flex-1 rounded-sm bg-success/30"
-                                style={{ height: `${(v / 18) * 100}%` }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                    {/* Tab Content */}
+                    <AnimatePresence mode="wait">
+                      {activeTab === "Overview" && (
+                        <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                          <InvestorActivity firmName={investor.name} />
+                        </motion.div>
+                      )}
 
-                      <div>
-                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Preferred Terms</h4>
-                        <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Lead / Follow</span>
-                            <Badge variant="outline" className="text-[10px]">Typically Leads</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Board Seat</span>
-                            <span className="text-sm text-muted-foreground">Required at Series A+</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Pro-Rata Rights</span>
-                            <span className="text-sm text-muted-foreground">Always</span>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {activeTab === "Portfolio" && (
-                    <motion.div
-                      key="portfolio"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15 }}
-                      className="space-y-5"
-                    >
-                      <div>
-                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Investments</h4>
-                        <div className="space-y-2">
-                          {[
-                            { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
-                            { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
-                            { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
-                            { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
-                          ].map((co) => (
-                            <div key={co.name} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
-                                  {co.name.charAt(0)}
+                      {activeTab === "Investment Thesis" && (
+                        <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                          <div>
+                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
+                              <Sparkles className="h-3 w-3 inline mr-1 text-accent" /> Thesis Summary
+                            </h4>
+                            <div className="rounded-xl bg-accent/5 p-4 space-y-3">
+                              {[
+                                `${investor.name} focuses on ${investor.sector} with a conviction-driven approach, typically leading rounds at the ${investor.stage} stage.`,
+                                "They prefer founders with deep domain expertise and look for 10x market opportunities in under-penetrated verticals.",
+                                "Recent thesis publications emphasize Climate Tech, vertical AI, and defense/dual-use technologies.",
+                              ].map((text, i) => (
+                                <div key={i} className="flex gap-2">
+                                  <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                                  <p className="text-sm text-foreground leading-relaxed">{text}</p>
                                 </div>
-                                <div>
-                                  <span className="text-sm font-medium text-foreground">{co.name}</span>
-                                  <div className="flex gap-1.5 mt-0.5">
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
-                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Preferred Terms</h4>
+                            <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
+                              {[
+                                { label: "Lead / Follow", value: "Typically Leads" },
+                                { label: "Board Seat", value: "Required at Series A+" },
+                                { label: "Pro-Rata Rights", value: "Always" },
+                              ].map((row) => (
+                                <div key={row.label} className="flex items-center justify-between">
+                                  <span className="text-sm text-foreground font-medium">{row.label}</span>
+                                  <span className="text-sm text-muted-foreground">{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {activeTab === "Portfolio" && (
+                        <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
+                          <div>
+                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Investments</h4>
+                            <div className="space-y-2">
+                              {[
+                                { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
+                                { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
+                                { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
+                                { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
+                              ].map((co) => (
+                                <div key={co.name} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
+                                      {co.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <span className="text-sm font-medium text-foreground">{co.name}</span>
+                                      <div className="flex gap-1.5 mt-0.5">
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-foreground">{co.amount}</span>
+                                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
                                   </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-                              </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Portfolio Stats</h4>
-                        <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Active Portfolio</span>
-                            <span className="text-sm text-muted-foreground">87 companies</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Exits (Last 3yr)</span>
-                            <span className="text-sm text-muted-foreground">12 (4 IPOs, 8 M&A)</span>
+                          <div>
+                            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Portfolio Stats</h4>
+                            <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
+                              {[
+                                { label: "Active Portfolio", value: "87 companies" },
+                                { label: "Exits (Last 3yr)", value: "12 (4 IPOs, 8 M&A)" },
+                                { label: "Follow-on Rate", value: "78%" },
+                              ].map((row) => (
+                                <div key={row.label} className="flex items-center justify-between">
+                                  <span className="text-sm text-foreground font-medium">{row.label}</span>
+                                  <span className="text-sm text-muted-foreground">{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-foreground font-medium">Follow-on Rate</span>
-                            <span className="text-sm text-muted-foreground">78%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
+                        </motion.div>
+                      )}
 
-                  {activeTab === "Partners" && (
-                    <motion.div
-                      key="partners"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <InvestorPartnersTab firmName={investor.name} />
-                    </motion.div>
-                  )}
+                      {activeTab === "Partners" && (
+                        <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                          <InvestorPartnersTab firmName={investor.name} />
+                        </motion.div>
+                      )}
 
-                  {activeTab === "Connections" && (
-                    <motion.div
-                      key="connections"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <ConnectionsTab
-                        investorName={investor.name}
-                        currentUserId={session?.user?.id}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      {activeTab === "Connections" && (
+                        <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                          <ConnectionsTab investorName={investor.name} currentUserId={session?.user?.id} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* ── Right Column: Intelligence & Status (1/3) ── */}
+                  <div className="space-y-4">
+                    {/* Compatibility Card */}
+                    <InvestorAIInsight
+                      firmName={investor.name}
+                      matchScore={matchScore}
+                      companyContext={companyData}
+                      investorContext={investorContext}
+                    />
+
+                    {/* Investing Status Card */}
+                    <div className="rounded-xl border border-success/20 bg-success/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-success animate-pulse" />
+                        <span className="text-sm font-semibold text-foreground">Actively Deploying</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Recently closed $1.5B Fund III (Jan 2026). Making 2–3 Seed investments per month.
+                      </p>
+                    </div>
+
+                    {/* Sector Activity Mini-Chart */}
+                    <div className="rounded-xl bg-secondary/30 border border-border p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-success" />
+                          <span className="text-xs font-semibold text-foreground">Deal Flow</span>
+                        </div>
+                        <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                          +24% QoQ
+                        </Badge>
+                      </div>
+                      <div className="flex items-end gap-1 h-10">
+                        {[4, 6, 5, 8, 7, 10, 12, 9, 13, 15, 14, 18].map((v, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 rounded-sm bg-success/30"
+                            style={{ height: `${(v / 18) * 100}%` }}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Activity across focus verticals (12 months)
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
