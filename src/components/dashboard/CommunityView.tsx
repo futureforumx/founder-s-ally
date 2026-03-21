@@ -320,6 +320,29 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // SWR: Fetch live investors from DB (stale-while-revalidate)
+  const { data: liveInvestors, isFetching: isRefreshingLive } = useInvestorDirectory();
+
+  // Merge live DB investors into hardcoded seed data (deduplicate by name)
+  const mergedEntries = useMemo(() => {
+    if (!isInvestorSearch || !liveInvestors?.length) return ALL_ENTRIES;
+    const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
+    const newLive: DirectoryEntry[] = liveInvestors
+      .filter(inv => !seedNames.has(inv.name.toLowerCase()))
+      .map(inv => ({
+        name: inv.name,
+        sector: inv.sector,
+        stage: inv.stage,
+        description: inv.description,
+        location: inv.location,
+        model: inv.model,
+        initial: inv.initial,
+        matchReason: inv.matchReason,
+        category: "investor" as const,
+      }));
+    return [...ALL_ENTRIES, ...newLive];
+  }, [isInvestorSearch, liveInvestors]);
+
   const hasProfile = !!companyData?.name;
 
   const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
