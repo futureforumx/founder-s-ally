@@ -173,7 +173,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <MessageSquare className="h-4 w-4" /> Request Intro
                     </button>
                     <button
-                      onClick={onClose}
+                      onClick={handleClose}
                       className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary/60 transition-colors ml-1"
                     >
                       <X className="h-4 w-4 text-muted-foreground" />
