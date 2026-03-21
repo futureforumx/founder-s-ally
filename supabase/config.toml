@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.generate-embeddings]
 verify_jwt = false
+
+[functions.enrich-pipeline]
+verify_jwt = false
