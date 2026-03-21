@@ -170,39 +170,30 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
                       {effectiveInvestor.initial}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2.5">
                         <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
-                        <MatchScoreDropdown
-                          matchScore={matchScore}
-                          firmName={effectiveInvestor.name}
-                          companyContext={companyData}
-                          investorContext={investorContext}
-                        />
                       </div>
-
-                      {/* Meta Details Row */}
-                      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mt-2">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Landmark className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
-                          <span className="text-muted-foreground/70 text-xs">AUM</span>
-                        </div>
-                        <span className="text-border">•</span>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Users className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{metaFacts[2].value !== "—" ? metaFacts[2].value : "45"}</span>
-                          <span className="text-muted-foreground/70 text-xs">Headcount</span>
-                        </div>
-                        <span className="text-border">•</span>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{effectiveInvestor?.location || "San Francisco, CA"}</span>
-                          <span className="text-muted-foreground/70 text-xs">HQ</span>
-                        </div>
+                      {/* Meta Details Row – tighter */}
+                      <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
+                        <Landmark className="w-3 h-3 text-muted-foreground/50" />
+                        <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
+                        <span className="text-border">·</span>
+                        <Users className="w-3 h-3 text-muted-foreground/50" />
+                        <span className="font-semibold text-foreground">{metaFacts[2].value !== "—" ? metaFacts[2].value : "45"}</span>
+                        <span className="text-border">·</span>
+                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                        <span className="font-semibold text-foreground">{effectiveInvestor?.location || "San Francisco, CA"}</span>
                       </div>
                     </div>
+                    {/* Match Score – spans both rows */}
+                    <MatchScoreDropdown
+                      matchScore={matchScore}
+                      firmName={effectiveInvestor.name}
+                      companyContext={companyData}
+                      investorContext={investorContext}
+                    />
                   </div>
 
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
