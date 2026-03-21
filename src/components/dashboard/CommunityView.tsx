@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
-  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, AlertTriangle } from
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp } from
 "lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
