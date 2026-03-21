@@ -65,6 +65,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
       initial: vcFirm.name.charAt(0).toUpperCase(),
       matchReason: null,
       category: "investor" as const,
+      logo_url: vcFirm.logo_url || null,
     };
   }, [investor, vcFirm]);
 
