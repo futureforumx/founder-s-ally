@@ -7,6 +7,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
+import { StageTimeline } from "./investor-detail/StageTimeline";
+import { DealDynamics } from "./investor-detail/DealDynamics";
+import { GeographicFocus } from "./investor-detail/GeographicFocus";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
