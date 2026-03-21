@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp } from "lucide-react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface PortfolioTabProps {
@@ -23,15 +23,42 @@ const TOP_UNICORNS = [
   { name: "Notion", website: "notion.so" },
 ];
 
-function AnimatedNumber({ value }: { value: number }) {
+function useCountUp(target: number, duration = 1200) {
+  const [value, setValue] = useState(0);
+  const [triggered, setTriggered] = useState(false);
+
+  const trigger = useCallback(() => {
+    if (triggered) return;
+    setTriggered(true);
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration, triggered]);
+
+  return { value: triggered ? value : target, trigger, triggered };
+}
+
+function CountUpNumber({ target, label }: { target: number; label: string }) {
+  const { value, trigger, triggered } = useCountUp(target);
+
   return (
     <motion.span
-      className="text-3xl font-extrabold text-foreground"
+      className="text-3xl font-extrabold text-foreground cursor-pointer select-none"
+      onClick={trigger}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.97 }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
+      title={`Click to animate ${label}`}
     >
-      {value}
+      {triggered ? value : target}
     </motion.span>
   );
 }
@@ -87,15 +114,96 @@ const COMPAT_CONFIG: Record<CompatibilityStatus, {
   },
 };
 
+const STATUS_DEFINITIONS: { status: CompatibilityStatus; title: string; icon: typeof CheckCircle2; iconClass: string; description: string }[] = [
+  {
+    status: "compatible",
+    title: "Clear Runway",
+    icon: CheckCircle2,
+    iconClass: "text-success",
+    description: "No direct competitors found in their active portfolio. This investor actively deploys in your sector and stage, making them a strong fit for outreach.",
+  },
+  {
+    status: "conflict",
+    title: "Portfolio Collision",
+    icon: AlertTriangle,
+    iconClass: "text-destructive",
+    description: "We detected one or more direct competitors in their portfolio. This creates a potential conflict of interest — the investor may share proprietary information or be less likely to invest.",
+  },
+  {
+    status: "unknown",
+    title: "Outside Mandate",
+    icon: HelpCircle,
+    iconClass: "text-muted-foreground",
+    description: "This firm does not actively invest in your specific stage or sector based on available data. They may still be open to exceptions, but proceed with caution.",
+  },
+];
+
 function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
+  const [expanded, setExpanded] = useState(false);
   const cfg = COMPAT_CONFIG[status];
   const Icon = cfg.icon;
 
   return (
-    <div className={`rounded-2xl border p-5 relative overflow-hidden flex flex-col justify-center ${cfg.cardClass}`}>
-      <Icon className={`w-8 h-8 ${cfg.iconClass} mb-2`} />
-      <h4 className="text-lg font-bold text-foreground">{cfg.title}</h4>
-      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cfg.subtitle}</p>
+    <div
+      className={`rounded-2xl border relative overflow-hidden flex flex-col cursor-pointer transition-all ${cfg.cardClass}`}
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="p-5 flex flex-col justify-center">
+        <div className="flex items-start justify-between">
+          <Icon className={`w-8 h-8 ${cfg.iconClass} mb-2`} />
+          <motion.div
+            animate={{ rotate: expanded ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </motion.div>
+        </div>
+        <h4 className="text-lg font-bold text-foreground">{cfg.title}</h4>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cfg.subtitle}</p>
+      </div>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-5 pt-0 border-t border-border/50">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-4 mb-3">
+                Status Definitions
+              </p>
+              <div className="space-y-3">
+                {STATUS_DEFINITIONS.map((def) => {
+                  const DefIcon = def.icon;
+                  const isActive = def.status === status;
+                  return (
+                    <div
+                      key={def.status}
+                      className={`flex items-start gap-2.5 p-2.5 rounded-lg transition-colors ${isActive ? "bg-foreground/5 ring-1 ring-foreground/10" : ""}`}
+                    >
+                      <DefIcon className={`w-4 h-4 mt-0.5 shrink-0 ${def.iconClass}`} />
+                      <div>
+                        <p className={`text-xs font-semibold ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                          {def.title}
+                          {isActive && (
+                            <span className="ml-1.5 text-[9px] font-bold uppercase bg-foreground/10 text-foreground px-1.5 py-0.5 rounded">
+                              Current
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">{def.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -120,7 +228,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Active Portfolio
             </p>
-            <AnimatedNumber value={142} />
+            <CountUpNumber target={142} label="Active Portfolio" />
             <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full w-max mx-auto">
               <TrendingUp className="w-3 h-3" /> +14 this year
             </div>
@@ -132,7 +240,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Exits
             </p>
-            <AnimatedNumber value={38} />
+            <CountUpNumber target={38} label="Exits" />
             <p className="text-[10px] text-muted-foreground mt-2">
               Notable: {NOTABLE_EXITS.map((name, i) => (
                 <span key={name}><strong className="text-foreground">{name}</strong>{i < NOTABLE_EXITS.length - 1 ? ", " : ""}</span>
@@ -145,7 +253,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Unicorns
             </p>
-            <AnimatedNumber value={12} />
+            <CountUpNumber target={12} label="Unicorns" />
             <div className="flex items-center justify-center mt-2 -space-x-2">
               {TOP_UNICORNS.map((u) => (
                 <FaviconAvatar key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
