@@ -65,6 +65,9 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const [autoCycle, setAutoCycle] = useState(true);
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
+  const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
+  const [focusAutoCycle, setFocusAutoCycle] = useState(true);
+  const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCycle = useCallback(() => {
@@ -78,6 +81,16 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
     if (autoCycle) startCycle();
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoCycle, startCycle]);
+
+  useEffect(() => {
+    if (focusAutoCycle) {
+      if (focusIntervalRef.current) clearInterval(focusIntervalRef.current);
+      focusIntervalRef.current = setInterval(() => {
+        setFocusView(v => v === "stage" ? "sector" : "stage");
+      }, 5000);
+    }
+    return () => { if (focusIntervalRef.current) clearInterval(focusIntervalRef.current); };
+  }, [focusAutoCycle]);
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const maxSectorTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.saas + m.fintech + m.health)), []);
   const deployedPct = 40;
@@ -203,17 +216,51 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
         </div>
 
         {/* Card 3: Stage Bias */}
-        <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus</p>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/15 text-success">
-              70% Seed
-            </span>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-accent/15 text-accent">
-              30% Series A
-            </span>
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Based on last 6 months of activity</p>
+        <div
+          className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center relative overflow-hidden cursor-pointer select-none"
+          onClick={() => setFocusAutoCycle(v => !v)}
+        >
+          <button
+            className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors"
+            onClick={(e) => { e.stopPropagation(); setFocusAutoCycle(v => !v); }}
+          >
+            {focusAutoCycle ? <Pause className="w-3 h-3 text-muted-foreground" /> : <Play className="w-3 h-3 text-muted-foreground" />}
+          </button>
+
+          <AnimatePresence mode="wait">
+            {focusView === "stage" ? (
+              <motion.div
+                key="focus-stage"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Stage</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/15 text-success">70% Seed</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-accent/15 text-accent">30% Series A</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Based on last 6 months of activity</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="focus-sector"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Sector</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-primary/15 text-primary">45% SaaS</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-warning/15 text-warning">30% Fintech</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 text-destructive">25% Health</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Based on last 6 months of activity</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
