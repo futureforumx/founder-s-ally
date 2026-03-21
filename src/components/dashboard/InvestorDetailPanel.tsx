@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Sparkles, Zap, MessageSquare, CheckCircle2,
-  ArrowUpRight, Briefcase,
+  X, Zap, MessageSquare, CheckCircle2,
+  ArrowUpRight, Briefcase, Landmark, Target,
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
