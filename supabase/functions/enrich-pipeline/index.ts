@@ -5,30 +5,70 @@ const corsHeaders = {
 };
 
 interface RecentDeal {
-  company_name: string;
-  amount: string;
-  stage: string;
-  date_announced: string;
+  company: string;
+  amount: string | null;
+  sector: string | null;
 }
 
-interface EnrichmentResult {
-  recent_investments: RecentDeal[];
-  current_partners: { name: string; title: string }[];
+interface FormattedResult {
   aum: string | null;
+  current_partners: string[];
+  recent_deals: RecentDeal[];
 }
 
-// ── Step 1: Exa AI — Neural Discovery ──
+// ── Step 1: Perplexity Pro — Macro Research ──
+async function perplexityResearch(
+  firmName: string,
+  firmDomain: string | null,
+  apiKey: string
+): Promise<string> {
+  try {
+    const domainHint = firmDomain ? ` (${firmDomain})` : "";
+    const resp = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "user",
+            content: `Search the web for the venture capital firm ${firmName}${domainHint}. Provide a concise text summary of: 1) Their most recently announced fund size and total AUM. 2) A list of their current General Partners and Managing Partners. Do not format as JSON, just provide the facts.`,
+          },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const status = resp.status;
+      console.warn(`[Perplexity] API error ${status} for ${firmName}`);
+      if (status === 402) console.warn("[Perplexity] Insufficient balance");
+      if (status === 429) console.warn("[Perplexity] Rate limited");
+      return "";
+    }
+
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    console.error(`[Perplexity] Failed for ${firmName}:`, e);
+    return "";
+  }
+}
+
+// ── Step 2: Exa AI — Deal Scouting ──
 async function exaDiscover(firmName: string, exaKey: string): Promise<string> {
   try {
     const resp = await fetch("https://api.exa.ai/search", {
       method: "POST",
       headers: { "x-api-key": exaKey, "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `Recent startup investments, term sheets, or funding rounds led by ${firmName} in the last 6 months`,
+        query: `Recent startup investments, seed rounds, or series A/B funding led by ${firmName} in the last 6 months`,
         type: "auto",
         numResults: 3,
         contents: {
-          text: { maxCharacters: 5000 },
+          text: { maxCharacters: 3000 },
           highlights: {
             query: `${firmName} investment funding round`,
             highlightsPerUrl: 3,
@@ -49,8 +89,8 @@ async function exaDiscover(firmName: string, exaKey: string): Promise<string> {
     return results
       .map((r: any, i: number) => {
         const highlights = (r.highlights || []).join(" ");
-        const text = r.text ? r.text.substring(0, 2000) : "";
-        return `[News Source ${i + 1}] ${r.title}\nURL: ${r.url}\n${highlights}\n${text}`;
+        const text = r.text ? r.text.substring(0, 1500) : "";
+        return `[Source ${i + 1}] ${r.title}\n${highlights}\n${text}`;
       })
       .join("\n\n---\n\n");
   } catch (e) {
@@ -59,68 +99,22 @@ async function exaDiscover(firmName: string, exaKey: string): Promise<string> {
   }
 }
 
-// ── Step 2: Firecrawl — Website Extraction ──
-async function firecrawlExtract(
-  websiteUrl: string,
-  firecrawlKey: string
-): Promise<string> {
-  if (!websiteUrl) return "";
-
-  try {
-    let url = websiteUrl.trim();
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      url = `https://${url}`;
-    }
-
-    // Scrape the main site (Firecrawl handles subpages via onlyMainContent)
-    const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${firecrawlKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url,
-        formats: ["markdown"],
-        onlyMainContent: true,
-      }),
-    });
-
-    if (!resp.ok) {
-      const status = resp.status;
-      console.warn(`[Firecrawl] Error ${status} for ${url}`);
-      if (status === 402) {
-        console.warn("[Firecrawl] Credits exhausted");
-      }
-      return "";
-    }
-
-    const data = await resp.json();
-    const markdown = data.data?.markdown || data.markdown || "";
-    // Cap at ~80k chars to stay within Gemini context budget
-    return markdown.substring(0, 80000);
-  } catch (e) {
-    console.error(`[Firecrawl] Failed for ${websiteUrl}:`, e);
-    return "";
-  }
-}
-
-// ── Step 3: Gemini — Synthesis ──
-async function geminiSynthesize(
+// ── Step 3: OpenAI (gpt-5-nano) — Cheap Formatting ──
+async function formatWithOpenAI(
   firmName: string,
-  exaContent: string,
-  firecrawlContent: string,
+  perplexityText: string,
+  exaText: string,
   lovableKey: string
-): Promise<EnrichmentResult | null> {
-  const payload = [
-    exaContent ? `=== RECENT NEWS & DEALS ===\n${exaContent}` : "",
-    firecrawlContent ? `=== WEBSITE CONTENT ===\n${firecrawlContent}` : "",
+): Promise<FormattedResult | null> {
+  const combined = [
+    perplexityText ? `=== PERPLEXITY RESEARCH ===\n${perplexityText}` : "",
+    exaText ? `=== EXA DEAL SCOUTING ===\n${exaText}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
 
-  if (!payload) {
-    console.warn(`[Gemini] No content to synthesize for ${firmName}`);
+  if (!combined) {
+    console.warn(`[OpenAI] No content to format for ${firmName}`);
     return null;
   }
 
@@ -134,109 +128,37 @@ async function geminiSynthesize(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          model: "openai/gpt-5-nano",
           messages: [
             {
               role: "system",
-              content: `You are an expert VC data analyst. Analyze the provided website dump and recent news articles for "${firmName}". Extract structured data with high precision. If information is not clearly stated, omit it rather than guessing.`,
+              content: `You are a strict data formatter. I am providing you with research text about a VC firm. Extract the facts and format them EXACTLY into this JSON schema: { "aum": "string (e.g., $500M) or null", "current_partners": ["Name 1", "Name 2"], "recent_deals": [ { "company": "string", "amount": "string (e.g., $3M) or null", "sector": "string or null" } ] } If a piece of data is missing from the text, use null or an empty array. Do not hallucinate data.`,
             },
             {
               role: "user",
-              content: `Extract the following from these sources about "${firmName}":\n\n${payload}`,
+              content: `Extract structured data about "${firmName}" from this research:\n\n${combined}`,
             },
           ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "extract_firm_data",
-                description:
-                  "Extract structured VC firm data from website and news sources",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    recent_investments: {
-                      type: "array",
-                      description: "Up to 5 most recent investments",
-                      items: {
-                        type: "object",
-                        properties: {
-                          company_name: { type: "string" },
-                          amount: {
-                            type: "string",
-                            description:
-                              "Investment amount (e.g. '$5M') or 'Undisclosed'",
-                          },
-                          stage: {
-                            type: "string",
-                            description: "e.g. Seed, Series A",
-                          },
-                          date_announced: {
-                            type: "string",
-                            description: "Date or approximate quarter/year",
-                          },
-                        },
-                        required: ["company_name"],
-                        additionalProperties: false,
-                      },
-                    },
-                    current_partners: {
-                      type: "array",
-                      description:
-                        "People currently listed as Partners, GPs, or Managing Directors",
-                      items: {
-                        type: "object",
-                        properties: {
-                          name: { type: "string" },
-                          title: {
-                            type: "string",
-                            description:
-                              "e.g. General Partner, Managing Director",
-                          },
-                        },
-                        required: ["name"],
-                        additionalProperties: false,
-                      },
-                    },
-                    aum: {
-                      type: "string",
-                      description:
-                        "Assets Under Management if found, null otherwise",
-                    },
-                  },
-                  required: [
-                    "recent_investments",
-                    "current_partners",
-                    "aum",
-                  ],
-                  additionalProperties: false,
-                },
-              },
-            },
-          ],
-          tool_choice: {
-            type: "function",
-            function: { name: "extract_firm_data" },
-          },
+          response_format: { type: "json_object" },
         }),
       }
     );
 
     if (!resp.ok) {
       const status = resp.status;
-      console.error(`[Gemini] API error ${status} for ${firmName}`);
-      if (status === 429) console.warn("[Gemini] Rate limited");
-      if (status === 402) console.warn("[Gemini] Credits exhausted");
+      console.error(`[OpenAI] API error ${status} for ${firmName}`);
+      if (status === 429) console.warn("[OpenAI] Rate limited");
+      if (status === 402) console.warn("[OpenAI] Credits exhausted");
       return null;
     }
 
     const data = await resp.json();
-    const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) return null;
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return null;
 
-    return JSON.parse(toolCall.function.arguments) as EnrichmentResult;
+    return JSON.parse(content) as FormattedResult;
   } catch (e) {
-    console.error(`[Gemini] Failed for ${firmName}:`, e);
+    console.error(`[OpenAI] Failed for ${firmName}:`, e);
     return null;
   }
 }
@@ -245,7 +167,7 @@ async function geminiSynthesize(
 async function upsertResults(
   firmId: string,
   firmName: string,
-  result: EnrichmentResult,
+  result: FormattedResult,
   supabaseUrl: string,
   serviceRoleKey: string
 ): Promise<void> {
@@ -256,7 +178,7 @@ async function upsertResults(
     Prefer: "return=minimal",
   };
 
-  // 4a: Update AUM and last_enriched_at on investor_database
+  // 4a: Update AUM and last_enriched_at
   const updateBody: Record<string, any> = {
     last_enriched_at: new Date().toISOString(),
   };
@@ -266,24 +188,24 @@ async function upsertResults(
     `${supabaseUrl}/rest/v1/investor_database?id=eq.${firmId}`,
     {
       method: "PATCH",
-      headers: { ...headers, Prefer: "return=minimal" },
+      headers,
       body: JSON.stringify(updateBody),
     }
   );
 
-  // 4b: Insert recent deals (delete old ones first)
+  // 4b: Wipe old deals and insert new ones
   await fetch(
     `${supabaseUrl}/rest/v1/firm_recent_deals?firm_id=eq.${firmId}`,
     { method: "DELETE", headers }
   );
 
-  if (result.recent_investments.length > 0) {
-    const deals = result.recent_investments.map((d) => ({
+  if (result.recent_deals.length > 0) {
+    const deals = result.recent_deals.map((d) => ({
       firm_id: firmId,
-      company_name: d.company_name,
+      company_name: d.company || "Unknown",
       amount: d.amount || null,
-      stage: d.stage || null,
-      date_announced: d.date_announced || null,
+      stage: d.sector || null,
+      date_announced: null,
     }));
 
     await fetch(`${supabaseUrl}/rest/v1/firm_recent_deals`, {
@@ -293,9 +215,8 @@ async function upsertResults(
     });
   }
 
-  // 4c: Reconcile partners — mark missing ones inactive, upsert current
+  // 4c: Reconcile partners
   if (result.current_partners.length > 0) {
-    // Get existing partners for this firm
     const existingResp = await fetch(
       `${supabaseUrl}/rest/v1/investor_partners?firm_id=eq.${firmId}&select=id,full_name`,
       { headers }
@@ -304,10 +225,10 @@ async function upsertResults(
       await existingResp.json();
 
     const newNames = new Set(
-      result.current_partners.map((p) => p.name.toLowerCase().trim())
+      result.current_partners.map((n) => n.toLowerCase().trim())
     );
 
-    // Mark partners NOT in Gemini's list as inactive
+    // Mark partners NOT in new list as inactive
     const toDeactivate = existing.filter(
       (e) => !newNames.has(e.full_name.toLowerCase().trim())
     );
@@ -326,28 +247,27 @@ async function upsertResults(
     }
 
     // Upsert current partners
-    for (const p of result.current_partners) {
-      await fetch(
-        `${supabaseUrl}/rest/v1/investor_partners`,
-        {
-          method: "POST",
-          headers: {
-            ...headers,
-            Prefer: "resolution=merge-duplicates,return=minimal",
-          },
-          body: JSON.stringify({
-            firm_id: firmId,
-            full_name: p.name,
-            title: p.title || null,
-            is_active: true,
-            updated_at: new Date().toISOString(),
-          }),
-        }
-      );
+    for (const name of result.current_partners) {
+      await fetch(`${supabaseUrl}/rest/v1/investor_partners`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify({
+          firm_id: firmId,
+          full_name: name,
+          title: null,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }),
+      });
     }
   }
 
-  console.log(`[Upsert] ✅ ${firmName}: ${result.recent_investments.length} deals, ${result.current_partners.length} partners`);
+  console.log(
+    `[Upsert] ✅ ${firmName}: ${result.recent_deals.length} deals, ${result.current_partners.length} partners`
+  );
 }
 
 // ── Main Handler ──
@@ -356,8 +276,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
   const EXA_API_KEY = Deno.env.get("EXA_API_KEY");
-  const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -371,15 +291,16 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const batchSize = body.batchSize || 20;
+    const batchSize = body.batchSize || 25;
     const firmId = body.firmId; // Optional: enrich a single firm
 
-    // Query stale firms (or a specific firm)
+    // Query stale firms (30-day window)
     let queryUrl: string;
     if (firmId) {
       queryUrl = `${SUPABASE_URL}/rest/v1/investor_database?id=eq.${firmId}&select=id,firm_name,website_url&limit=1`;
     } else {
-      queryUrl = `${SUPABASE_URL}/rest/v1/investor_database?select=id,firm_name,website_url&or=(last_enriched_at.is.null,last_enriched_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()})&order=last_enriched_at.asc.nullsfirst&limit=${batchSize}`;
+      const staleDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      queryUrl = `${SUPABASE_URL}/rest/v1/investor_database?select=id,firm_name,website_url&or=(last_enriched_at.is.null,last_enriched_at.lt.${staleDate})&order=last_enriched_at.asc.nullsfirst&limit=${batchSize}`;
     }
 
     const firmsResp = await fetch(queryUrl, {
@@ -399,7 +320,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[Pipeline] Starting enrichment for ${firms.length} firms`);
+    console.log(`[Pipeline] Starting Tri-Force enrichment for ${firms.length} firms`);
 
     const results: { firm: string; status: string; deals: number; partners: number }[] = [];
 
@@ -407,28 +328,27 @@ Deno.serve(async (req) => {
       console.log(`\n[Pipeline] ─── ${firm.firm_name} ───`);
 
       try {
-        // Step 1: Exa — discover recent deals
-        const exaContent = EXA_API_KEY
+        // Step 1: Perplexity — macro research (AUM, partners)
+        const perplexityText = PERPLEXITY_API_KEY
+          ? await perplexityResearch(firm.firm_name, firm.website_url, PERPLEXITY_API_KEY)
+          : "";
+
+        // Step 2: Exa — deal scouting
+        const exaText = EXA_API_KEY
           ? await exaDiscover(firm.firm_name, EXA_API_KEY)
           : "";
 
-        // Step 2: Firecrawl — extract website
-        const firecrawlContent =
-          FIRECRAWL_API_KEY && firm.website_url
-            ? await firecrawlExtract(firm.website_url, FIRECRAWL_API_KEY)
-            : "";
-
-        // Step 3: Gemini — synthesize
-        const enrichment = await geminiSynthesize(
+        // Step 3: OpenAI (gpt-5-nano) — format into JSON
+        const formatted = await formatWithOpenAI(
           firm.firm_name,
-          exaContent,
-          firecrawlContent,
+          perplexityText,
+          exaText,
           LOVABLE_API_KEY
         );
 
-        if (!enrichment) {
+        if (!formatted) {
           results.push({ firm: firm.firm_name, status: "no_data", deals: 0, partners: 0 });
-          // Still mark as enriched to avoid re-processing
+          // Mark enriched to avoid re-processing
           await fetch(
             `${SUPABASE_URL}/rest/v1/investor_database?id=eq.${firm.id}`,
             {
@@ -448,7 +368,7 @@ Deno.serve(async (req) => {
         await upsertResults(
           firm.id,
           firm.firm_name,
-          enrichment,
+          formatted,
           SUPABASE_URL,
           SUPABASE_SERVICE_ROLE_KEY
         );
@@ -456,12 +376,12 @@ Deno.serve(async (req) => {
         results.push({
           firm: firm.firm_name,
           status: "success",
-          deals: enrichment.recent_investments.length,
-          partners: enrichment.current_partners.length,
+          deals: formatted.recent_deals.length,
+          partners: formatted.current_partners.length,
         });
 
-        // Rate-limit protection: 1.5s between firms
-        await new Promise((r) => setTimeout(r, 1500));
+        // Rate-limit protection: 2s between firms
+        await new Promise((r) => setTimeout(r, 2000));
       } catch (e) {
         console.error(`[Pipeline] Error for ${firm.firm_name}:`, e);
         results.push({ firm: firm.firm_name, status: "error", deals: 0, partners: 0 });
