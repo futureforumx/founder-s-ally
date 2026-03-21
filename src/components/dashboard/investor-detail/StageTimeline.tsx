@@ -47,7 +47,7 @@ export function StageTimeline({
         </div>
 
         {/* Timeline bar */}
-        <div className="relative mt-8">
+        <div className="relative mt-6">
           {/* Base line */}
           <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-border -translate-y-1/2 rounded-full" />
 
