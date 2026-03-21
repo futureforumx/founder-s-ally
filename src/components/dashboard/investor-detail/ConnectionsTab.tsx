@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle } from "lucide-react";
+import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle, Mail, Clock, ArrowRight, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Connection {
