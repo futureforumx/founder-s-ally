@@ -230,7 +230,7 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
   );
 }
 
-export function PortfolioTab({ companySector }: PortfolioTabProps) {
+export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
 
