@@ -58,6 +58,20 @@ const stageColor = (stage: string) => {
 
 export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
+  const [autoCycle, setAutoCycle] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCycle = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setPaceView(v => v === "pace" ? "trend" : "pace");
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    if (autoCycle) startCycle();
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [autoCycle, startCycle]);
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
