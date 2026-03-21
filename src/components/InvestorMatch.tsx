@@ -10,6 +10,7 @@ import { ActivityTab } from "@/components/investor-match/ActivityTab";
 import { ManageTab } from "@/components/investor-match/ManageTab";
 import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
+import { useVCInteractions } from "@/hooks/useVCInteractions";
 
 // ── Types ──
 
