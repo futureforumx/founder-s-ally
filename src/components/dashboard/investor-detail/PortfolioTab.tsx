@@ -229,6 +229,19 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
 }
 
 export function PortfolioTab({ companySector }: PortfolioTabProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
+
+  const allSectors = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.sector))], []);
+
+  const filteredInvestments = useMemo(() => {
+    return RECENT_INVESTMENTS.filter((co) => {
+      const matchesSearch = !searchQuery || co.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
+      return matchesSearch && matchesSector;
+    });
+  }, [searchQuery, sectorFilter]);
+
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
     if (!companySector) return "unknown";
     const hasMatch = RECENT_INVESTMENTS.some(
