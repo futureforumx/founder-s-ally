@@ -1,27 +1,24 @@
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, ArrowLeft, Building2, Linkedin, ExternalLink, Sparkles,
-  Users, BookOpen, ChevronRight,
+  Users, BookOpen, ChevronRight, Mail,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { PartnerPerson, FirmAffiliation } from "./investor-detail/types";
-import { getFirmForPerson } from "./investor-detail/types";
+import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
 
 interface PersonProfileModalProps {
-  person: PartnerPerson | null;
+  person: VCPerson | null;
+  firm: VCFirm | null;
   onClose: () => void;
   onNavigateToFirm: (firmId: string) => void;
 }
 
-export function PersonProfileModal({ person, onClose, onNavigateToFirm }: PersonProfileModalProps) {
-  const firm: FirmAffiliation | null = person ? getFirmForPerson(person.id) : null;
-
+export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   return (
     <AnimatePresence>
       {person && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
             initial={{ opacity: 0 }}
@@ -31,7 +28,6 @@ export function PersonProfileModal({ person, onClose, onNavigateToFirm }: Person
             onClick={onClose}
           />
 
-          {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               className="pointer-events-auto max-w-3xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
@@ -40,7 +36,7 @@ export function PersonProfileModal({ person, onClose, onNavigateToFirm }: Person
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
-              {/* ── Back button + Close ── */}
+              {/* Back + Close */}
               <div className="px-8 pt-5 pb-0 flex items-center justify-between shrink-0">
                 {firm && (
                   <button
@@ -48,7 +44,7 @@ export function PersonProfileModal({ person, onClose, onNavigateToFirm }: Person
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ArrowLeft className="h-4 w-4" />
-                    Back to {firm.firm_name}
+                    Back to {firm.name}
                   </button>
                 )}
                 <button
@@ -59,19 +55,18 @@ export function PersonProfileModal({ person, onClose, onNavigateToFirm }: Person
                 </button>
               </div>
 
-              {/* ── Header: Avatar + Name + Firm Badge ── */}
+              {/* Header */}
               <div className="px-8 pt-5 pb-6 border-b border-border shrink-0">
                 <div className="flex items-center gap-5">
                   <Avatar className="h-20 w-20 border-2 border-border shadow-sm">
                     <AvatarFallback className="text-2xl font-bold bg-secondary text-muted-foreground">
-                      {person.name.split(" ").map(n => n[0]).join("")}
+                      {person.full_name.split(" ").map(n => n[0]).join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <h2 className="text-2xl font-bold text-foreground">{person.name}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">{person.title}</p>
+                    <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">{person.title || "Investor"}</p>
 
-                    {/* Firm Backlink Badge */}
                     {firm && (
                       <button
                         onClick={() => onNavigateToFirm(firm.id)}
@@ -81,101 +76,71 @@ export function PersonProfileModal({ person, onClose, onNavigateToFirm }: Person
                           <Building2 className="h-3 w-3 text-muted-foreground" />
                         </div>
                         <span className="text-xs font-medium text-foreground">
-                          Partner at <span className="text-accent">{firm.firm_name}</span>
+                          {person.title || "Partner"} at <span className="text-accent">{firm.name}</span>
                         </span>
                         <ChevronRight className="h-3 w-3 text-muted-foreground" />
                       </button>
                     )}
 
-                    {/* Focus Badges */}
-                    <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
-                      {person.focus.map(f => (
-                        <Badge key={f} variant="secondary" className="text-[10px] px-2 py-0.5">{f}</Badge>
-                      ))}
-                    </div>
+                    {firm?.sectors && firm.sectors.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+                        {firm.sectors.slice(0, 4).map(s => (
+                          <Badge key={s} variant="secondary" className="text-[10px] px-2 py-0.5">{s}</Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* ── Body Content ── */}
+              {/* Body */}
               <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-                {/* Personal Investment Thesis */}
-                {person.personalThesis && (
+                {person.email && (
                   <div>
                     <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      <Sparkles className="h-3 w-3 inline mr-1 text-accent" /> Personal Investment Thesis
-                    </h4>
-                    <div className="rounded-xl bg-accent/5 border border-accent/10 p-4">
-                      <p className="text-sm text-foreground leading-relaxed">{person.personalThesis}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Board Seats */}
-                {person.boardSeats && person.boardSeats.length > 0 && (
-                  <div>
-                    <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      <Users className="h-3 w-3 inline mr-1" /> Board Seats
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {person.boardSeats.map(seat => (
-                        <div
-                          key={seat}
-                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card hover:border-accent/20 transition-colors"
-                        >
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary border border-border text-[10px] font-bold text-muted-foreground">
-                            {seat.charAt(0)}
-                          </div>
-                          <span className="text-sm font-medium text-foreground">{seat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* LinkedIn */}
-                {person.linkedIn && (
-                  <div>
-                    <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      Social
+                      Contact
                     </h4>
                     <a
-                      href={person.linkedIn}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`mailto:${person.email}`}
                       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:border-accent/30 hover:shadow-sm transition-all text-sm font-medium text-foreground"
                     >
-                      <Linkedin className="h-4 w-4 text-[#0A66C2]" />
-                      LinkedIn Profile
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      {person.email}
                       <ExternalLink className="h-3 w-3 text-muted-foreground" />
                     </a>
                   </div>
                 )}
 
-                {/* Recent Articles */}
-                {person.recentArticles && person.recentArticles.length > 0 && (
+                {firm && (
                   <div>
                     <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      <BookOpen className="h-3 w-3 inline mr-1" /> Recent Articles & Thought Leadership
+                      <Building2 className="h-3 w-3 inline mr-1" /> Firm Details
                     </h4>
-                    <div className="space-y-2">
-                      {person.recentArticles.map((article, i) => (
-                        <a
-                          key={i}
-                          href={article.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 hover:border-accent/20 hover:shadow-sm transition-all group"
-                        >
+                    <div className="rounded-xl bg-secondary/30 border border-border p-4 space-y-3">
+                      {firm.description && (
+                        <p className="text-sm text-foreground leading-relaxed">{firm.description}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {firm.aum && (
                           <div>
-                            <span className="text-sm font-medium text-foreground group-hover:text-accent transition-colors">
-                              {article.title}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground mt-0.5">{article.date}</span>
+                            <span className="text-muted-foreground text-xs">AUM</span>
+                            <p className="font-medium text-foreground">{firm.aum}</p>
                           </div>
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        </a>
-                      ))}
+                        )}
+                        {firm.sweet_spot && (
+                          <div>
+                            <span className="text-muted-foreground text-xs">Sweet Spot</span>
+                            <p className="font-medium text-foreground">{firm.sweet_spot}</p>
+                          </div>
+                        )}
+                      </div>
+                      {firm.stages && firm.stages.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {firm.stages.map(st => (
+                            <Badge key={st} variant="outline" className="text-[10px]">{st}</Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
