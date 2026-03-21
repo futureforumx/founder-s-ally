@@ -906,20 +906,24 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => setSelectedInvestor(null)}
-        onSelectPartner={(partner) => {
+        vcFirm={selectedVCFirm}
+        vcPartners={selectedVCFirm ? getVCPartners(selectedVCFirm.id) : []}
+        onSelectPerson={(person) => {
           setSelectedInvestor(null);
-          setTimeout(() => setSelectedPerson(partner), 200);
+          setSelectedVCFirm(null);
+          setTimeout(() => setSelectedVCPerson(person), 200);
         }}
+        onCloseVCFirm={() => setSelectedVCFirm(null)}
       />
       <PersonProfileModal
-        person={selectedPerson}
-        onClose={() => setSelectedPerson(null)}
+        person={selectedVCPerson}
+        firm={selectedVCPerson ? getFirmForPerson(selectedVCPerson.id) : null}
+        onClose={() => setSelectedVCPerson(null)}
         onNavigateToFirm={(firmId) => {
-          // Find the firm entry by firmId and navigate back
-          const firmEntry = mergedEntries.find(e => e.category === "investor" && e.name.toLowerCase() === firmId);
-          setSelectedPerson(null);
-          if (firmEntry) {
-            setTimeout(() => setSelectedInvestor(firmEntry), 200);
+          const firm = getFirmById(firmId);
+          setSelectedVCPerson(null);
+          if (firm) {
+            setTimeout(() => setSelectedVCFirm(firm), 200);
           }
         }}
       />
