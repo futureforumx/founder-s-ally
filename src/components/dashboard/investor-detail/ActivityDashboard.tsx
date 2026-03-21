@@ -325,13 +325,13 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                       <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
                         <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.other > 0 && (
-                          <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
+                          <div className="w-full rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
                         )}
                         {m.seriesA > 0 && (
-                          <div className="bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
+                          <div className="w-full bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
                         )}
                         {m.seed > 0 && (
-                          <div className={`bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
+                          <div className={`w-full bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
                         )}
                       </div>
                     </TooltipTrigger>
