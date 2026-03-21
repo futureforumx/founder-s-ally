@@ -163,43 +163,56 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
               {/* Header */}
-              <div className="px-8 pt-6 pb-5 border-b border-border shrink-0">
-                <div className="flex justify-end mb-3">
-                  <DataProvenanceBadge
-                    dataSource={enrichedData ? "live" : "verified"}
-                    lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
-                  />
-                </div>
+              <div className="flex flex-col gap-4 px-8 pt-6 pb-6 border-b border-border shrink-0">
+                {/* Top Row: Identity & Actions */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
                       {effectiveInvestor.initial}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
                         <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
-                        {/* Match Score Badge */}
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-sm font-bold tracking-tight shadow-sm shrink-0">
-                          <Sparkles className="w-3 h-3" />
-                          {matchScore}% Match
-                        </div>
+                        <MatchScoreDropdown
+                          matchScore={matchScore}
+                          firmName={effectiveInvestor.name}
+                          companyContext={companyData}
+                          investorContext={investorContext}
+                        />
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{effectiveInvestor.stage}</Badge>
-                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{effectiveInvestor.sector}</Badge>
-                        <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+
+                      {/* Meta Details Row */}
+                      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mt-2">
+                        <Badge variant="outline" className="text-[10px] px-2.5 py-1 rounded-md">{effectiveInvestor.stage}</Badge>
+                        <Badge variant="secondary" className="text-[10px] px-2.5 py-1 rounded-md">{effectiveInvestor.sector}</Badge>
+                        <Badge className="text-[9px] px-2.5 py-1 rounded-md bg-success/10 text-success border-success/20">
                           <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
                         </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-2.5 text-xs font-medium text-muted-foreground">
-                        {metaFacts.map((fact, i) => (
-                          <span key={fact.label} className="flex items-center gap-1">
-                            {i > 0 && <span className="text-border mr-3">•</span>}
-                            <span className="text-muted-foreground/70">{fact.label}:</span>
-                            <span className="text-foreground">{fact.value}</span>
-                          </span>
-                        ))}
+                        <span className="text-border">•</span>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Landmark className="w-3.5 h-3.5 text-muted-foreground/60" />
+                          <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
+                          <span className="text-muted-foreground/70 text-xs">AUM</span>
+                        </div>
+                        <span className="text-border">•</span>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Target className="w-3.5 h-3.5 text-muted-foreground/60" />
+                          <span className="font-semibold text-foreground">{metaFacts[1].value}</span>
+                          <span className="text-muted-foreground/70 text-xs">Sweet Spot</span>
+                        </div>
+                        {metaFacts[2].value !== "—" && (
+                          <>
+                            <span className="text-border">•</span>
+                            <span className="text-sm text-muted-foreground">
+                              <span className="font-semibold text-foreground">{metaFacts[2].value}</span> team
+                            </span>
+                          </>
+                        )}
+                        <DataProvenanceBadge
+                          dataSource={enrichedData ? "live" : "verified"}
+                          lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
+                        />
                       </div>
                     </div>
                   </div>
