@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Sparkles, Loader2, ChevronDown, Globe, Layers, MapPin, User } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface CompanyContext {
   name?: string;
@@ -171,6 +172,7 @@ function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | n
 
 export function MatchScoreDropdown({ matchScore, firmName, companyContext, investorContext }: MatchScoreDropdownProps) {
   const { items, loading } = useMatchBreakdown(firmName, companyContext, investorContext, matchScore);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const avg = useMemo(() => {
     if (!items.length) return matchScore;
@@ -189,7 +191,7 @@ export function MatchScoreDropdown({ matchScore, firmName, companyContext, inves
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-0 rounded-xl shadow-xl border border-border overflow-hidden">
+      <PopoverContent align="end" className="w-80 p-0 rounded-xl shadow-xl border border-border overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-1.5 px-4 pt-3 pb-2 border-b border-border bg-secondary/30">
           <Sparkles className="h-3 w-3 text-success" />
@@ -205,20 +207,49 @@ export function MatchScoreDropdown({ matchScore, firmName, companyContext, inves
             <span className="text-xs text-muted-foreground">Analyzing compatibility…</span>
           </div>
         ) : (
-          <div className="p-3 space-y-1.5">
+          <div className="p-2 space-y-1">
             {items.map((item) => {
               const meta = CATEGORY_META[item.category];
               const Icon = meta.icon;
+              const isOpen = expanded === item.category;
               return (
-                <div key={item.category} className={`flex items-center gap-3 p-2.5 rounded-lg ${scoreBg(item.score)} transition-colors`}>
-                  <Icon className={`w-4 h-4 shrink-0 ${scoreColor(item.score)}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-foreground">{meta.label}</span>
-                      <span className={`text-xs font-black ${scoreColor(item.score)}`}>{item.score}%</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-1">{item.detail}</p>
-                  </div>
+                <div key={item.category}>
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : item.category)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg ${scoreBg(item.score)} hover:brightness-95 transition-all cursor-pointer`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${scoreColor(item.score)}`} />
+                    <span className="text-xs font-semibold text-foreground flex-1 text-left">{meta.label}</span>
+                    <span className={`text-xs font-black ${scoreColor(item.score)} mr-1`}>{item.score}%</span>
+                    <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 py-3 ml-7 mr-2 mt-1 mb-1 rounded-lg bg-card border border-border/50">
+                          {/* Score bar */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                              <motion.div
+                                className={`h-full rounded-full ${item.score >= 85 ? "bg-success" : item.score >= 65 ? "bg-warning" : "bg-destructive"}`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${item.score}%` }}
+                                transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
+                              />
+                            </div>
+                            <span className={`text-[10px] font-bold ${scoreColor(item.score)}`}>{item.score}/100</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">{item.detail}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
