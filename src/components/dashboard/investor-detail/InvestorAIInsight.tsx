@@ -16,6 +16,10 @@ interface InvestorContext {
   stage?: string;
   sector?: string;
   checkSize?: string;
+  recentDeals?: string;
+  currentThesis?: string;
+  geography?: string;
+  source?: string;
 }
 
 interface InvestorAIInsightProps {
