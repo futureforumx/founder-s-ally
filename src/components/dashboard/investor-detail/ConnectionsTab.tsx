@@ -91,6 +91,9 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
       transition={{ duration: 0.15 }}
       className="space-y-5"
     >
+      {/* Intro Pathfinder */}
+      <IntroPathfinder investorName={investorName} />
+
       {/* Tier 1: Community Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Card 1: Network Reach */}
