@@ -690,9 +690,23 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             </> :
 
         <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="h-8 w-8 text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground">No {labels.plural} match your search.</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Try a broader query or remove filters.</p>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 mb-4">
+                <Search className="h-7 w-7 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">Entity Not Found</p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                We couldn't find active data for "<span className="font-medium text-foreground">{searchQuery}</span>" in our directory or live sources.
+              </p>
+              {isInvestorSearch && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }));
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm"
+                >
+                  <Zap className="h-3.5 w-3.5" /> Add them manually to your cap table
+                </button>
+              )}
             </div>
         }
         </div>
