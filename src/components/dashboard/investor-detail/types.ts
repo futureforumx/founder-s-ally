@@ -27,6 +27,7 @@ export interface InvestorEntry {
   matchReason: string | null;
   category: "investor";
   partners?: PartnerPerson[];
+  logo_url?: string | null;
 }
 
 export const INVESTOR_TABS = ["Updates", "Activity", "Investment Thesis", "Portfolio", "Investors", "Connections"] as const;

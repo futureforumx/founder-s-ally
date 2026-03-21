@@ -9,6 +9,7 @@ export interface VCFirm {
   sweet_spot: string | null;
   stages: string[] | null;
   sectors: string[] | null;
+  logo_url: string | null;
 }
 
 export interface VCPerson {
