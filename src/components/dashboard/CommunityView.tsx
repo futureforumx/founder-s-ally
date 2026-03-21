@@ -347,7 +347,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Reset pagination on filter/search/scope change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, activeFilter, activeScope]);
+  }, [searchQuery, activeFilter, activeScope, activeInvestorTab]);
 
   const scopedAll = filterByScope(ALL_ENTRIES, activeScope);
 
