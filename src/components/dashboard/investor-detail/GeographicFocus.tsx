@@ -6,13 +6,14 @@ interface GeoSpot {
   x: number;
   y: number;
   intensity: "high" | "medium";
+  region: string;
 }
 
 const GEO_SPOTS: GeoSpot[] = [
-  { name: "Bay Area", x: 62, y: 145, intensity: "high" },
-  { name: "New York", x: 285, y: 130, intensity: "high" },
-  { name: "Austin", x: 175, y: 195, intensity: "medium" },
-  { name: "London", x: 395, y: 100, intensity: "medium" },
+  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America" },
+  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America" },
+  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America" },
+  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU" },
 ];
 
 const REGIONS = [
