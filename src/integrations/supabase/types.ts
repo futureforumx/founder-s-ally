@@ -282,6 +282,38 @@ export type Database = {
           },
         ]
       }
+      founder_vc_interactions: {
+        Row: {
+          action_type: string
+          created_at: string
+          firm_id: string
+          founder_id: string
+          id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          firm_id: string
+          founder_id: string
+          id?: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          firm_id?: string
+          founder_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "founder_vc_interactions_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_database"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investor_database: {
         Row: {
           aum: string | null
@@ -453,6 +485,24 @@ export type Database = {
           sector: string
           stage: string
           user_id: string
+        }[]
+      }
+      get_collaborative_recommendations: {
+        Args: { _current_founder_id: string }
+        Returns: {
+          firm_id: string
+          firm_name: string
+          peer_save_count: number
+        }[]
+      }
+      get_sector_save_rates: {
+        Args: { _sector: string }
+        Returns: {
+          decay_multiplier: number
+          firm_id: string
+          save_count: number
+          save_rate: number
+          total_recommendations: number
         }[]
       }
       match_investors: {
