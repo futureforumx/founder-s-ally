@@ -402,7 +402,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     <div className="space-y-2">
       {/* Top navbar for investor-search */}
       {variant === "investor-search" && (
-        <div className="fixed top-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md px-8 py-4 mb-4" style={{ left: "11rem" }}>
+        <div className="fixed top-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md px-8 py-4 mb-4 flex items-center justify-between" style={{ left: "11rem" }}>
           <button
             onClick={onNavigateProfile}
             className="flex items-center gap-4 group cursor-pointer"
@@ -427,6 +427,27 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               </p>
             </div>
           </button>
+
+          {/* Live status indicator */}
+          <div className="flex items-center gap-3">
+            {hasProfile && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-success">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                </span>
+                Live
+              </span>
+            )}
+            {lastSyncedAt ? (
+              <span
+                className={`text-xs font-medium transition-colors duration-500 ${syncFlash ? "text-success" : "text-muted-foreground"}`}
+                title={lastSyncedAt.toLocaleString()}
+              >
+                {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
+              </span>
+            ) : null}
+          </div>
         </div>
       )}
       {variant === "investor-search" && <div className="h-20" />}
