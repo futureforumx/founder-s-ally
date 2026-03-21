@@ -274,4 +274,4 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
       </div>
     </div>
   );
-}
+});
