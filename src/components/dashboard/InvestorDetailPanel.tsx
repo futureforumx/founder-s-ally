@@ -39,7 +39,7 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, companyData, onClose, onSelectPartner }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Updates");
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
