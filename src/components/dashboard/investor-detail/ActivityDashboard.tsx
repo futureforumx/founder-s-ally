@@ -352,13 +352,13 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                       <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
                         <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.health > 0 && (
-                          <div className="rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
+                          <div className="w-full rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
                         )}
                         {m.fintech > 0 && (
-                          <div className="bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
+                          <div className="w-full bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
                         )}
                         {m.saas > 0 && (
-                          <div className={`bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
+                          <div className={`w-full bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
                         )}
                       </div>
                     </TooltipTrigger>
