@@ -1656,67 +1656,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           isAiDraft={isFieldAiDraft("stage")}
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 md:col-span-2">
                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                           Sector {renderFieldBadge("sector")}
                         </label>
-                        <TaxonomyCombobox
-                          options={SECTOR_OPTIONS}
-                          value={form.sector}
-                          onChange={(v, opt) => {
-                            const oldSector = form.sector;
-                            update("sector", v);
-                            if (opt && "default_subsectors" in opt) {
-                              const sectorOpt = opt as SectorOption;
-                              setForm(prev => {
-                                const validSubs = prev.subsectors.filter(sub =>
-                                  sectorOpt.default_subsectors.some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                                );
-                                if (validSubs.length < prev.subsectors.length && oldSector) {
-                                  toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                                }
-                                return { ...prev, subsectors: validSubs };
-                              });
-                            }
+                        <SectorSelector
+                          value={{
+                            primary_sector: form.sector || null,
+                            secondary_sectors: form.subsectors || [],
                           }}
-                          placeholder="Search sectors..."
-                          isAiDraft={isFieldAiDraft("sector")}
+                          onChange={(sel: SectorSelection) => {
+                            update("sector", sel.primary_sector || "");
+                            setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
+                          }}
                         />
                       </div>
-                    </div>
-
-                    {/* Subsectors (full width) */}
-                    {form.sector && (
-                      <SectorSubsectorPicker
-                        sector={form.sector}
-                        subsectors={form.subsectors}
-                        onSectorChange={s => {
-                          const oldSector = form.sector;
-                          update("sector", s);
-                          setForm(prev => {
-                            const validSubs = prev.subsectors.filter(sub =>
-                              subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                            );
-                            if (validSubs.length < prev.subsectors.length && oldSector) {
-                              toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                            }
-                            return { ...prev, subsectors: validSubs };
-                          });
-                        }}
-                        onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                        aiSuggestedSector={aiSuggestions.sector}
-                        aiSuggestedSubsectors={aiSuggestedSubsectors}
-                        aiOverflowSubsectors={aiOverflowSubsectors}
-                        onApplyAiSector={aiSuggestions.sector ? () => {
-                          update("sector", aiSuggestions.sector!);
-                          if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                        } : undefined}
-                        isAiDraft={isFieldAiDraft("sector")}
-                        onReclassify={analysisComplete ? handleReclassify : undefined}
-                        isReclassifying={isReclassifying}
-                        subsectorsOnly
-                      />
-                    )}
 
                     {/* Row 2: Business Model | Target Customer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
