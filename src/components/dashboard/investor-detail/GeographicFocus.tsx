@@ -101,8 +101,8 @@ export function GeographicFocus({ firmName }: GeographicFocusProps) {
   }, [locations]);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 pb-4 flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-xl border border-border bg-card p-4 pb-3 flex flex-col">
+      <div className="flex items-center justify-between mb-2">
         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           Geographic Focus
         </h4>
