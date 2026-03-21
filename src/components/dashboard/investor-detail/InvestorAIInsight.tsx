@@ -33,7 +33,7 @@ interface MatchScoreDropdownProps {
 interface BreakdownItem {
   category: "sector" | "stage" | "geography" | "profile";
   score: number;
-  label: string;
+  type: "match" | "warning";
   detail: string;
 }
 
@@ -45,10 +45,10 @@ const CATEGORY_META: Record<string, { icon: typeof Globe; label: string }> = {
 };
 
 const FALLBACK_BREAKDOWN: BreakdownItem[] = [
-  { category: "sector", score: 88, label: "Sector", detail: "Strong overlap in thesis verticals" },
-  { category: "stage", score: 95, label: "Stage", detail: "Active in your target stage" },
-  { category: "geography", score: 78, label: "Geography", detail: "Invests in your region" },
-  { category: "profile", score: 82, label: "Profile", detail: "Aligned check size and model fit" },
+  { category: "sector", score: 88, type: "match", detail: "Strong overlap in thesis verticals" },
+  { category: "stage", score: 95, type: "match", detail: "Active in your target stage" },
+  { category: "geography", score: 78, type: "match", detail: "Invests in your region" },
+  { category: "profile", score: 82, type: "match", detail: "Aligned check size and model fit" },
 ];
 
 function scoreColor(s: number) {
@@ -73,7 +73,7 @@ function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | n
       return;
     }
 
-    const cacheKey = `match_bd_${firmName.toLowerCase().trim()}_${companyContext.name.toLowerCase().trim()}`;
+    const cacheKey = `match_bd_v3_${firmName.toLowerCase().trim()}_${companyContext.name.toLowerCase().trim()}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -109,9 +109,32 @@ function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | n
 
         if (cancelled) return;
 
+        // Use the new breakdown format from the edge function
+        if (!fnError && data?.breakdown && Array.isArray(data.breakdown) && data.breakdown.length > 0) {
+          const validated: BreakdownItem[] = data.breakdown
+            .filter((c: any) => c.category && c.detail && typeof c.score === "number")
+            .map((c: any) => ({
+              category: (["sector", "stage", "geography", "profile"].includes(c.category) ? c.category : "profile") as BreakdownItem["category"],
+              score: Math.max(0, Math.min(100, Math.round(c.score))),
+              type: c.score >= 70 ? "match" as const : "warning" as const,
+              detail: c.detail,
+            }));
+
+          // Ensure all 4 categories are present
+          const cats: BreakdownItem["category"][] = ["sector", "stage", "geography", "profile"];
+          const result = cats.map(cat => {
+            const found = validated.find(v => v.category === cat);
+            return found || FALLBACK_BREAKDOWN.find(f => f.category === cat)!;
+          });
+
+          setItems(result);
+          sessionStorage.setItem(cacheKey, JSON.stringify(result));
+          return;
+        }
+
+        // Fallback: try legacy criteria format
         if (!fnError && data?.criteria && Array.isArray(data.criteria)) {
-          // Map API response into 4 categories
-          const categoryMap: Record<string, Partial<BreakdownItem>> = {};
+          const categoryMap: Record<string, BreakdownItem> = {};
           for (const c of data.criteria) {
             const lbl = (c.label || "").toLowerCase();
             let cat: BreakdownItem["category"] = "profile";
@@ -120,19 +143,18 @@ function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | n
             else if (lbl.includes("geo") || lbl.includes("location") || lbl.includes("region")) cat = "geography";
             categoryMap[cat] = {
               category: cat,
-              score: c.type === "match" ? Math.floor(Math.random() * 10) + 85 : Math.floor(Math.random() * 15) + 60,
-              label: CATEGORY_META[cat].label,
+              score: c.type === "match" ? 85 : 60,
+              type: c.type === "match" ? "match" : "warning",
               detail: c.detail,
             };
           }
-          // Fill missing categories with fallback
-          const result: BreakdownItem[] = (["sector", "stage", "geography", "profile"] as const).map(
-            cat => (categoryMap[cat] as BreakdownItem) || FALLBACK_BREAKDOWN.find(f => f.category === cat)!
-          );
+          const cats: BreakdownItem["category"][] = ["sector", "stage", "geography", "profile"];
+          const result = cats.map(cat => categoryMap[cat] || FALLBACK_BREAKDOWN.find(f => f.category === cat)!);
           setItems(result);
           sessionStorage.setItem(cacheKey, JSON.stringify(result));
           return;
         }
+
         setItems(FALLBACK_BREAKDOWN);
       } catch {
         if (!cancelled) setItems(FALLBACK_BREAKDOWN);
