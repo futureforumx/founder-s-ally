@@ -325,13 +325,13 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                       <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
                         <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.other > 0 && (
-                          <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
+                          <div className="w-full rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
                         )}
                         {m.seriesA > 0 && (
-                          <div className="bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
+                          <div className="w-full bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
                         )}
                         {m.seed > 0 && (
-                          <div className={`bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
+                          <div className={`w-full bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
                         )}
                       </div>
                     </TooltipTrigger>
@@ -352,13 +352,13 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                       <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
                         <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.health > 0 && (
-                          <div className="rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
+                          <div className="w-full rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
                         )}
                         {m.fintech > 0 && (
-                          <div className="bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
+                          <div className="w-full bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
                         )}
                         {m.saas > 0 && (
-                          <div className={`bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
+                          <div className={`w-full bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
                         )}
                       </div>
                     </TooltipTrigger>
