@@ -11,6 +11,7 @@ import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
+import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 
 interface CompanyContext {
   name?: string;
