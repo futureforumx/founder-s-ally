@@ -7,13 +7,14 @@ interface GeoSpot {
   y: number;
   intensity: "high" | "medium";
   region: string;
+  investments: number;
 }
 
 const GEO_SPOTS: GeoSpot[] = [
-  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America" },
-  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America" },
-  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America" },
-  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU" },
+  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America", investments: 34 },
+  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America", investments: 22 },
+  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America", investments: 8 },
+  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU", investments: 11 },
 ];
 
 const REGIONS = [
@@ -30,6 +31,7 @@ const REGION_STYLES = {
 
 export function GeographicFocus() {
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [hoveredSpot, setHoveredSpot] = useState<string | null>(null);
   return (
     <div className="rounded-xl border border-border bg-card p-5 pb-4 flex flex-col">
       <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
@@ -81,7 +83,15 @@ export function GeographicFocus() {
             const isHighlighted = !activeRegion || spot.region === activeRegion;
             const dimmed = activeRegion && spot.region !== activeRegion;
             return (
-            <g key={spot.name} style={{ opacity: dimmed ? 0.15 : 1, transition: "opacity 0.3s ease" }}>
+            <g
+              key={spot.name}
+              style={{ opacity: dimmed ? 0.15 : 1, transition: "opacity 0.3s ease" }}
+              onMouseEnter={() => setHoveredSpot(spot.name)}
+              onMouseLeave={() => setHoveredSpot(null)}
+              className="cursor-pointer"
+            >
+              {/* Hover hit area */}
+              <circle cx={spot.x} cy={spot.y} r={20} fill="transparent" />
               {/* Outer glow */}
               <circle
                 cx={spot.x}
@@ -135,6 +145,23 @@ export function GeographicFocus() {
               >
                 {spot.name}
               </text>
+              {/* Tooltip */}
+              {hoveredSpot === spot.name && !dimmed && (
+                <foreignObject
+                  x={spot.x - 50}
+                  y={spot.y + (spot.intensity === "high" ? 18 : 12)}
+                  width="100"
+                  height="40"
+                  style={{ overflow: "visible" }}
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="bg-foreground/95 backdrop-blur-md text-background rounded-md px-2 py-1 shadow-lg whitespace-nowrap">
+                      <p className="text-[8px] font-bold leading-tight">{spot.name}</p>
+                      <p className="text-[7px] font-medium opacity-80">{spot.investments} investments</p>
+                    </div>
+                  </div>
+                </foreignObject>
+              )}
             </g>
             );
           })}
