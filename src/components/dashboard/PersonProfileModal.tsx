@@ -20,10 +20,10 @@ interface PersonProfileModalProps {
 const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
 
 const MOCK_DEALS = [
-  { company: "Ramp", round: "Series A", logo: "R" },
-  { company: "Vanta", round: "Seed", logo: "V" },
-  { company: "Lattice", round: "Series A", logo: "L" },
-  { company: "Notion", round: "Seed", logo: "N" },
+  { company: "Ramp", round: "Series A", logo: "R", source: "ramp.com", url: "https://ramp.com/blog/series-a" },
+  { company: "Vanta", round: "Seed", logo: "V", source: "techcrunch.com", url: "https://techcrunch.com/2020/02/vanta-seed-round" },
+  { company: "Lattice", round: "Series A", logo: "L", source: "prnewswire.com", url: "https://www.prnewswire.com/news-releases/lattice-series-a.html" },
+  { company: "Notion", round: "Seed", logo: "N", source: "notion.so", url: "https://notion.so/blog/seed-announcement" },
 ];
 
 const MOCK_STAGES = ["Pre-Seed", "Seed", "Series A"];
@@ -176,19 +176,25 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                       <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Led or Sponsored Deals</h4>
                       <div className="space-y-0 rounded-xl border border-border overflow-hidden">
                         {MOCK_DEALS.map((deal, i) => (
-                          <div
+                          <a
                             key={deal.company}
-                            className={`flex items-center gap-3 px-4 py-3 hover:bg-secondary/40 transition-colors group ${
+                            href={deal.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-3 px-4 py-3 hover:bg-secondary/40 transition-colors group cursor-pointer ${
                               i < MOCK_DEALS.length - 1 ? "border-b border-border" : ""
                             }`}
                           >
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
                               {deal.logo}
                             </div>
-                            <span className="text-sm font-semibold text-foreground flex-1">{deal.company}</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-foreground block">{deal.company}</span>
+                              <span className="text-[10px] text-muted-foreground">{deal.source}</span>
+                            </div>
                             <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{deal.round}</Badge>
-                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </a>
                         ))}
                       </div>
                     </div>
