@@ -77,6 +77,39 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     return () => { cancelled = true; };
   }, [displayName]);
 
+  // Track 'viewed' interaction for collaborative filtering
+  const viewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!displayName || !session?.user?.id) return;
+    // Only track once per panel open (avoid re-tracking on re-renders)
+    if (viewedRef.current === displayName) return;
+    viewedRef.current = displayName;
+
+    (async () => {
+      // Resolve firm_id from investor_database by name
+      const { data: firms } = await supabase
+        .from("investor_database")
+        .select("id")
+        .ilike("firm_name", displayName.trim())
+        .limit(1);
+      const firmId = firms?.[0]?.id;
+      if (!firmId) return;
+
+      // Upsert a 'viewed' interaction (idempotent per founder+firm+action)
+      await supabase
+        .from("founder_vc_interactions")
+        .upsert(
+          { founder_id: session.user.id, firm_id: firmId, action_type: "viewed" },
+          { onConflict: "founder_id,firm_id,action_type" }
+        );
+    })();
+  }, [displayName, session?.user?.id]);
+
+  // Reset viewed ref when panel closes
+  useEffect(() => {
+    if (!effectiveInvestor) viewedRef.current = null;
+  }, [effectiveInvestor]);
+
   const investorContext = useMemo(() => {
     if (!effectiveInvestor) return null;
     const ep = enrichedData?.profile;
