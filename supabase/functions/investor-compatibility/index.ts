@@ -30,19 +30,22 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a venture capital compatibility analyst. Given a startup and investor profile, produce exactly 3 structured compatibility criteria as a JSON array.
+    const systemPrompt = `You are a venture capital compatibility analyst. Given a startup and investor profile, produce a structured compatibility breakdown as a JSON object with exactly 4 scored categories.
 
 Rules:
-- Return ONLY a JSON array with exactly 3 objects
-- Each object has: "type" ("match" or "warning"), "label" (2-4 word category), "detail" (1 sentence, under 20 words)
+- Return ONLY a JSON object with a "breakdown" array containing exactly 4 objects
+- Each object has: "category" (one of: "sector", "stage", "geography", "profile"), "score" (integer 0-100), "type" ("match" if score >= 70, "warning" if score < 70), "detail" (1 sentence, under 20 words)
+- "sector": How well the investor's thesis verticals align with the startup's sector
+- "stage": How well the investor's stage preference matches the startup's current stage
+- "geography": How well the investor's geographic focus aligns with the startup's location/market
+- "profile": Overall fit based on check size, business model, thesis, and company-specific factors
 - Address the founder directly (use "your")
-- Reference specific data points (sector, stage, check size, geography, deals)
-- Typically 2 matches and 1 warning, but adjust based on actual compatibility
 - Be specific, not generic. Use real numbers and names when available.
+- Scores should reflect genuine compatibility: 90+ = excellent fit, 70-89 = good fit, 50-69 = partial fit, below 50 = poor fit
 - Do NOT wrap in markdown code blocks
 
 Example output:
-[{"type":"match","label":"Check Size Fit","detail":"Their $2M-$10M range covers your $3M Seed target perfectly."},{"type":"match","label":"Stage Alignment","detail":"Active Pre-Seed/Seed focus matches your current stage."},{"type":"warning","label":"Sector Gap","detail":"Broad thesis—highlight your AI differentiation early in the pitch."}]`;
+{"breakdown":[{"category":"sector","score":92,"type":"match","detail":"Their fintech focus directly aligns with your payments infrastructure."},{"category":"stage","score":85,"type":"match","detail":"Active Seed investor matching your current fundraising stage."},{"category":"geography","score":65,"type":"warning","detail":"Primarily US-focused but your LATAM market may need extra positioning."},{"category":"profile","score":78,"type":"match","detail":"$2M-$8M range covers your $5M target with room for follow-on."}]}`;
 
     const userPrompt = `Startup Profile:
 - Company: ${companyName}
@@ -63,7 +66,7 @@ Investor Profile:
 - Data Source: ${enrichmentSource || "directory"}
 - Match Score: ${matchScore ?? "N/A"}%
 
-Return exactly 3 structured compatibility criteria as a JSON array.`;
+Return the 4-category scored breakdown as a JSON object.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -103,19 +106,19 @@ Return exactly 3 structured compatibility criteria as a JSON array.`;
     const raw = data.choices?.[0]?.message?.content?.trim() || "";
 
     // Parse the structured response
-    let criteria = null;
+    let breakdown = null;
+    let legacyCriteria = null;
     try {
       const parsed = JSON.parse(raw);
-      // Handle both direct array and wrapped object (e.g., { criteria: [...] })
-      if (Array.isArray(parsed)) {
-        criteria = parsed;
-      } else if (parsed.criteria && Array.isArray(parsed.criteria)) {
-        criteria = parsed.criteria;
+      // Look for breakdown array
+      if (parsed.breakdown && Array.isArray(parsed.breakdown)) {
+        breakdown = parsed.breakdown;
+      } else if (Array.isArray(parsed)) {
+        breakdown = parsed;
       } else {
-        // Try to find any array value in the object
         for (const val of Object.values(parsed)) {
           if (Array.isArray(val)) {
-            criteria = val;
+            breakdown = val;
             break;
           }
         }
@@ -124,23 +127,32 @@ Return exactly 3 structured compatibility criteria as a JSON array.`;
       console.error("Failed to parse AI JSON response:", raw);
     }
 
-    // Validate structure
-    if (criteria && Array.isArray(criteria)) {
-      criteria = criteria
-        .filter((item: any) => item.type && item.label && item.detail)
-        .slice(0, 3)
+    // Validate and normalize
+    const validCategories = ["sector", "stage", "geography", "profile"];
+    if (breakdown && Array.isArray(breakdown)) {
+      breakdown = breakdown
+        .filter((item: any) => item.category && item.detail && typeof item.score === "number")
         .map((item: any) => ({
-          type: item.type === "warning" ? "warning" : "match",
-          label: String(item.label).slice(0, 30),
+          category: validCategories.includes(item.category) ? item.category : "profile",
+          score: Math.max(0, Math.min(100, Math.round(item.score))),
+          type: item.score >= 70 ? "match" : "warning",
           detail: String(item.detail).slice(0, 120),
         }));
+
+      // Also produce legacy criteria format for backward compat
+      legacyCriteria = breakdown.slice(0, 3).map((item: any) => ({
+        type: item.type,
+        label: item.category.charAt(0).toUpperCase() + item.category.slice(1) + " Alignment",
+        detail: item.detail,
+      }));
     }
 
     return new Response(
       JSON.stringify({
-        criteria: criteria && criteria.length > 0 ? criteria : null,
-        // Keep backward compat: also return insight as joined text
-        insight: criteria ? criteria.map((c: any) => `${c.label}: ${c.detail}`).join(" ") : raw,
+        breakdown: breakdown && breakdown.length > 0 ? breakdown : null,
+        // Legacy fields for backward compat
+        criteria: legacyCriteria,
+        insight: breakdown ? breakdown.map((c: any) => `${c.category}: ${c.detail}`).join(" ") : raw,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
