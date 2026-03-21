@@ -3,8 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Sparkles, Zap, MessageSquare, CheckCircle2,
-  TrendingUp, ArrowUpRight, Building2, Briefcase, Globe, Activity, MapPin, Users, Calendar,
+  ArrowUpRight, Briefcase,
 } from "lucide-react";
+import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { StageTimeline } from "./investor-detail/StageTimeline";
