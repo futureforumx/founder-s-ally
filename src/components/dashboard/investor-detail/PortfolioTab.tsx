@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 interface PortfolioTabProps {
   companySector?: string;
+  onInvestorClick?: (partnerName: string) => void;
 }
 
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
@@ -229,7 +230,7 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
   );
 }
 
-export function PortfolioTab({ companySector }: PortfolioTabProps) {
+export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
 
@@ -333,12 +334,13 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
 
         <div className="flex flex-col w-full">
           {/* Column Headers (desktop only) */}
-          <div className="hidden md:grid grid-cols-12 gap-4 items-center px-4 pb-3 border-b border-border">
+          <div className="hidden md:grid grid-cols-12 gap-3 items-center px-4 pb-3 border-b border-border">
             <span className="col-span-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Company</span>
-            <span className="col-span-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Focus</span>
+            <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stage</span>
+            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sector</span>
             <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Investment</span>
             <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</span>
-            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Partner</span>
+            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Investor</span>
           </div>
 
           <TooltipProvider delayDuration={300}>
@@ -347,34 +349,38 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
               return (
                 <div
                   key={co.name}
-                  className={`group grid grid-cols-12 gap-4 items-center px-4 py-3.5 border-b border-border hover:bg-secondary/40 transition-colors cursor-pointer ${
+                  className={`group grid grid-cols-12 gap-3 items-center px-4 py-3 border-b border-border hover:bg-secondary/40 transition-colors cursor-pointer ${
                     isSectorMatch ? "bg-primary/5 border-l-4 border-l-primary" : ""
                   }`}
                 >
                   {/* Col 1: Company (4 cols) */}
                   <div className="col-span-12 md:col-span-4 flex items-center gap-3">
-                    <CompanyLogo website={co.website} name={co.name} size="w-10 h-10" />
+                    <CompanyLogo website={co.website} name={co.name} size="w-9 h-9" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-foreground">{co.name}</span>
+                        <span className="text-sm font-bold text-foreground truncate">{co.name}</span>
                         {isSectorMatch && (
-                          <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary">
-                            <Sparkles className="w-2.5 h-2.5" /> Relevant Comp
+                          <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary shrink-0">
+                            <Sparkles className="w-2.5 h-2.5" /> Relevant
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 max-w-md">{co.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
                     </div>
                   </div>
 
-                  {/* Col 2: Focus / Sector & Stage (3 cols) */}
-                  <div className="col-span-6 md:col-span-3 flex flex-wrap gap-1.5 items-center">
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-medium">{co.stage}</Badge>
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium">{co.sector}</Badge>
+                  {/* Col 2: Stage (1 col) */}
+                  <div className="col-span-4 md:col-span-1">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.stage}</Badge>
                   </div>
 
-                  {/* Col 3: Investment Amount & Role (2 cols) */}
-                  <div className="col-span-6 md:col-span-2 flex flex-col items-start gap-1">
+                  {/* Col 3: Sector (2 cols) */}
+                  <div className="col-span-4 md:col-span-2">
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.sector}</Badge>
+                  </div>
+
+                  {/* Col 4: Investment Amount & Role (2 cols) */}
+                  <div className="col-span-4 md:col-span-2 flex flex-col items-start gap-1">
                     <span className="text-sm font-bold text-foreground">{co.amount}</span>
                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
                       co.role === "LEAD" ? "bg-primary/10 text-primary" :
@@ -383,20 +389,23 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
                     }`}>{co.role}</span>
                   </div>
 
-                  {/* Col 4: Date (1 col) */}
+                  {/* Col 5: Date (1 col) */}
                   <div className="col-span-6 md:col-span-1">
-                    <span className="text-xs font-medium text-muted-foreground">{co.date}</span>
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{co.date}</span>
                   </div>
 
-                  {/* Col 5: Partner (2 cols) */}
+                  {/* Col 6: Investor (2 cols) */}
                   <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-start md:justify-end">
                     {co.partnerInDb ? (
-                      <button className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
+                        className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                      >
                         <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
                           {co.partner.charAt(0)}
                         </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide group-hover:text-primary transition-colors">{co.partner}</span>
-                        <ExternalLink className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide group-hover:text-primary transition-colors whitespace-nowrap">{co.partner}</span>
+                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                       </button>
                     ) : (
                       <Tooltip>
@@ -405,7 +414,7 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
                             <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
                               {co.partner.charAt(0)}
                             </div>
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{co.partner}</span>
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{co.partner}</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="left" className="text-xs max-w-[200px]">

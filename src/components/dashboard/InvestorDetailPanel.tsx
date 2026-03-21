@@ -298,7 +298,10 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Portfolio" && (
                       <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <PortfolioTab companySector={effectiveInvestor.sector} />
+                        <PortfolioTab companySector={effectiveInvestor.sector} onInvestorClick={(name) => {
+                          const match = vcPartners.find(p => p.full_name.toLowerCase() === name.toLowerCase());
+                          if (match && onSelectPerson) onSelectPerson(match);
+                        }} />
                       </motion.div>
                     )}
 
