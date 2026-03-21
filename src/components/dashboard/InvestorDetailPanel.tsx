@@ -267,7 +267,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         </motion.div>
                       )}
 
-                      {activeTab === "Partners" && (
+                      {activeTab === "Investors" && (
                         <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                           <InvestorPartnersTab firmName={investor.name} onSelectPartner={onSelectPartner} />
                         </motion.div>
