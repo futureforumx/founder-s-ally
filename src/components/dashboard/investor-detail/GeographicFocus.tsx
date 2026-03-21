@@ -77,8 +77,11 @@ export function GeographicFocus() {
           />
 
           {/* Geo dots */}
-          {GEO_SPOTS.map((spot) => (
-            <g key={spot.name}>
+          {GEO_SPOTS.map((spot) => {
+            const isHighlighted = !activeRegion || spot.region === activeRegion;
+            const dimmed = activeRegion && spot.region !== activeRegion;
+            return (
+            <g key={spot.name} style={{ opacity: dimmed ? 0.15 : 1, transition: "opacity 0.3s ease" }}>
               {/* Outer glow */}
               <circle
                 cx={spot.x}
@@ -90,7 +93,7 @@ export function GeographicFocus() {
                     : "hsl(var(--accent) / 0.08)"
                 }
               >
-                {spot.intensity === "high" && (
+                {spot.intensity === "high" && isHighlighted && (
                   <animate
                     attributeName="r"
                     values="12;16;12"
@@ -103,34 +106,38 @@ export function GeographicFocus() {
               <circle
                 cx={spot.x}
                 cy={spot.y}
-                r={spot.intensity === "high" ? 6 : 4}
+                r={isHighlighted && spot.intensity === "high" ? 7 : spot.intensity === "high" ? 6 : 4}
                 fill={
                   spot.intensity === "high"
                     ? "hsl(var(--accent) / 0.3)"
                     : "hsl(var(--accent) / 0.15)"
                 }
+                style={{ transition: "r 0.3s ease" }}
               />
               {/* Core dot */}
               <circle
                 cx={spot.x}
                 cy={spot.y}
-                r={spot.intensity === "high" ? 3 : 2}
+                r={isHighlighted && spot.intensity === "high" ? 4 : spot.intensity === "high" ? 3 : 2}
                 fill="hsl(var(--accent))"
+                style={{ transition: "r 0.3s ease" }}
               />
               {/* Label */}
               <text
                 x={spot.x}
                 y={spot.y - (spot.intensity === "high" ? 16 : 12)}
                 textAnchor="middle"
-                fill="hsl(var(--foreground))"
-                fontSize="7"
+                fill={dimmed ? "hsl(var(--muted-foreground) / 0.3)" : "hsl(var(--foreground))"}
+                fontSize={isHighlighted ? "8" : "7"}
                 fontWeight="600"
                 fontFamily="system-ui"
+                style={{ transition: "fill 0.3s ease" }}
               >
                 {spot.name}
               </text>
             </g>
-          ))}
+            );
+          })}
         </svg>
       </div>
 
