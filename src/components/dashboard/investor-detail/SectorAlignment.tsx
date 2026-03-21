@@ -12,7 +12,7 @@ interface SectorBlock {
   tier: 1 | 2 | 3;
 }
 
-const DEFAULT_VISIBLE = 5;
+const DEFAULT_VISIBLE = 3;
 
 export function SectorAlignment({
   vcSectors,
