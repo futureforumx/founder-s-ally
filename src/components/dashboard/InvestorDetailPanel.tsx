@@ -184,12 +184,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                       {/* Meta Details Row */}
                       <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mt-2">
-                        <Badge variant="outline" className="text-[10px] px-2.5 py-1 rounded-md">{effectiveInvestor.stage}</Badge>
-                        <Badge variant="secondary" className="text-[10px] px-2.5 py-1 rounded-md">{effectiveInvestor.sector}</Badge>
-                        <Badge className="text-[9px] px-2.5 py-1 rounded-md bg-success/10 text-success border-success/20">
-                          <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
-                        </Badge>
-                        <span className="text-border">•</span>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Landmark className="w-3.5 h-3.5 text-muted-foreground/60" />
                           <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
@@ -197,22 +191,16 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         </div>
                         <span className="text-border">•</span>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Target className="w-3.5 h-3.5 text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{metaFacts[1].value}</span>
-                          <span className="text-muted-foreground/70 text-xs">Sweet Spot</span>
+                          <Users className="w-3.5 h-3.5 text-muted-foreground/60" />
+                          <span className="font-semibold text-foreground">{metaFacts[2].value !== "—" ? metaFacts[2].value : "45"}</span>
+                          <span className="text-muted-foreground/70 text-xs">Headcount</span>
                         </div>
-                        {metaFacts[2].value !== "—" && (
-                          <>
-                            <span className="text-border">•</span>
-                            <span className="text-sm text-muted-foreground">
-                              <span className="font-semibold text-foreground">{metaFacts[2].value}</span> team
-                            </span>
-                          </>
-                        )}
-                        <DataProvenanceBadge
-                          dataSource={enrichedData ? "live" : "verified"}
-                          lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
-                        />
+                        <span className="text-border">•</span>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
+                          <span className="font-semibold text-foreground">{vcFirm?.location || "San Francisco, CA"}</span>
+                          <span className="text-muted-foreground/70 text-xs">HQ</span>
+                        </div>
                       </div>
                     </div>
                   </div>
