@@ -176,7 +176,7 @@ export function GeographicFocus() {
                   <div className="flex flex-col items-center">
                     <div className="bg-foreground/95 backdrop-blur-md text-background rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
                       <p className="text-xs font-bold leading-tight">{spot.name}</p>
-                      <p className="text-[10px] font-medium opacity-80">{spot.investments} investments</p>
+                      <p className="text-[10px] font-medium opacity-80">{spot.investments[timeRange]} investments</p>
                     </div>
                   </div>
                 </foreignObject>
