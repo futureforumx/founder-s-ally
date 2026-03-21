@@ -7,14 +7,14 @@ interface GeoSpot {
   y: number;
   intensity: "high" | "medium";
   region: string;
-  investments: number;
+  investments: Record<string, number>;
 }
 
 const GEO_SPOTS: GeoSpot[] = [
-  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America", investments: 34 },
-  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America", investments: 22 },
-  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America", investments: 8 },
-  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU", investments: 11 },
+  { name: "Bay Area", x: 62, y: 145, intensity: "high", region: "North America", investments: { "6M": 9, "18M": 22, "All Time": 34 } },
+  { name: "New York", x: 285, y: 130, intensity: "high", region: "North America", investments: { "6M": 5, "18M": 14, "All Time": 22 } },
+  { name: "Austin", x: 175, y: 195, intensity: "medium", region: "North America", investments: { "6M": 2, "18M": 5, "All Time": 8 } },
+  { name: "London", x: 395, y: 100, intensity: "medium", region: "UK / EU", investments: { "6M": 3, "18M": 7, "All Time": 11 } },
 ];
 
 const REGIONS = [
