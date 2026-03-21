@@ -134,11 +134,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                      {investor.initial}
+                      {effectiveInvestor.initial}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <h2 className="text-2xl font-bold text-foreground truncate">{investor.name}</h2>
+                        <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
                         {/* Match Score Badge */}
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-sm font-bold tracking-tight shadow-sm shrink-0">
@@ -147,8 +147,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{investor.stage}</Badge>
-                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{investor.sector}</Badge>
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{effectiveInvestor.stage}</Badge>
+                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{effectiveInvestor.sector}</Badge>
                         <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
                           <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
                         </Badge>
@@ -187,7 +187,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 <div className="px-8 py-6 space-y-5">
                   {/* AI Compatibility Banner */}
                   <InvestorAIInsightBanner
-                    firmName={investor.name}
+                    firmName={effectiveInvestor.name}
                     matchScore={matchScore}
                     companyContext={companyData}
                     investorContext={investorContext}
@@ -217,7 +217,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={investor.name} />
+                        <InvestorActivity firmName={effectiveInvestor.name} />
                       </motion.div>
                     )}
 
@@ -320,13 +320,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <InvestorPartnersTab firmId={vcFirm?.id || ""} firmName={investor.name} partners={vcPartners} onSelectPerson={onSelectPerson} />
+                        <InvestorPartnersTab firmId={vcFirm?.id || ""} firmName={effectiveInvestor.name} partners={vcPartners} onSelectPerson={onSelectPerson} />
                       </motion.div>
                     )}
 
                     {activeTab === "Connections" && (
                       <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <ConnectionsTab investorName={investor.name} currentUserId={session?.user?.id} />
+                        <ConnectionsTab investorName={effectiveInvestor.name} currentUserId={session?.user?.id} />
                       </motion.div>
                     )}
                   </AnimatePresence>
