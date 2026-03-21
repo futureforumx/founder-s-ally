@@ -79,6 +79,7 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoCycle, startCycle]);
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
+  const maxSectorTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.saas + m.fintech + m.health)), []);
   const deployedPct = 40;
 
   // Compute pace & trend from heatmap data
