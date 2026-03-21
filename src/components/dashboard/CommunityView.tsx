@@ -717,6 +717,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <InvestorDetailPanel
         investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
         companyName={companyData?.name}
+        companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.model, description: companyData.description } : null}
         onClose={() => setSelectedInvestor(null)} />
       
     </div>);
