@@ -239,7 +239,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                     size="sm"
                     variant="outline"
                     className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => onUnsave?.(investor.id)}
+                    onClick={(e) => { e.stopPropagation(); onUnsave?.(investor.id); }}
                   >
                     <BookmarkCheck className="h-3 w-3" /> Saved
                   </Button>
