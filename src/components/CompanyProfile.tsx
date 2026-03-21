@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { SectorSelector, type SectorSelection } from "./company-profile/SectorSelector";
 import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
 import { normalizeSector } from "./company-profile/sectorNormalization";
 import {
