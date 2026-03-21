@@ -34,18 +34,18 @@ interface ActivityDashboardProps {
 }
 
 const DEAL_MONTHS: DealMonth[] = [
-  { month: "Apr", seed: 2, seriesA: 0, other: 1, details: "Led 2 Pre-Seed, 1 Bridge" },
-  { month: "May", seed: 3, seriesA: 1, other: 0, details: "Led 3 Seed, participated 1 Series A" },
-  { month: "Jun", seed: 1, seriesA: 1, other: 1, details: "Led 1 Seed, 1 Series A, 1 Growth" },
-  { month: "Jul", seed: 4, seriesA: 0, other: 0, details: "Led 4 Seed rounds" },
-  { month: "Aug", seed: 2, seriesA: 2, other: 0, details: "Led 2 Seed, participated 2 Series A" },
-  { month: "Sep", seed: 3, seriesA: 1, other: 1, details: "Led 3 Seed, 1 Series A, 1 Bridge" },
-  { month: "Oct", seed: 5, seriesA: 1, other: 0, details: "Led 5 Seed, participated 1 Series A" },
-  { month: "Nov", seed: 2, seriesA: 2, other: 1, details: "Led 2 Seed, 2 Series A, 1 SPV" },
-  { month: "Dec", seed: 3, seriesA: 0, other: 0, details: "Led 3 Seed rounds" },
-  { month: "Jan", seed: 4, seriesA: 2, other: 1, details: "Led 4 Seed, 2 Series A, 1 Bridge" },
-  { month: "Feb", seed: 3, seriesA: 1, other: 0, details: "Led 3 Seed, participated 1 Series A" },
-  { month: "Mar", seed: 5, seriesA: 2, other: 1, details: "Led 5 Seed, 2 Series A, 1 Growth" },
+  { month: "Apr", seed: 2, seriesA: 0, other: 1, saas: 1, fintech: 1, health: 1, details: "Led 2 Pre-Seed, 1 Bridge", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
+  { month: "May", seed: 3, seriesA: 1, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 3 Seed, participated 1 Series A", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
+  { month: "Jun", seed: 1, seriesA: 1, other: 1, saas: 1, fintech: 1, health: 1, details: "Led 1 Seed, 1 Series A, 1 Growth", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
+  { month: "Jul", seed: 4, seriesA: 0, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 4 Seed rounds", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
+  { month: "Aug", seed: 2, seriesA: 2, other: 0, saas: 1, fintech: 2, health: 1, details: "Led 2 Seed, participated 2 Series A", sectorDetails: "1 SaaS, 2 Fintech, 1 Health" },
+  { month: "Sep", seed: 3, seriesA: 1, other: 1, saas: 2, fintech: 2, health: 1, details: "Led 3 Seed, 1 Series A, 1 Bridge", sectorDetails: "2 SaaS, 2 Fintech, 1 Health" },
+  { month: "Oct", seed: 5, seriesA: 1, other: 0, saas: 3, fintech: 1, health: 2, details: "Led 5 Seed, participated 1 Series A", sectorDetails: "3 SaaS, 1 Fintech, 2 Health" },
+  { month: "Nov", seed: 2, seriesA: 2, other: 1, saas: 2, fintech: 1, health: 2, details: "Led 2 Seed, 2 Series A, 1 SPV", sectorDetails: "2 SaaS, 1 Fintech, 2 Health" },
+  { month: "Dec", seed: 3, seriesA: 0, other: 0, saas: 1, fintech: 1, health: 1, details: "Led 3 Seed rounds", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
+  { month: "Jan", seed: 4, seriesA: 2, other: 1, saas: 3, fintech: 2, health: 2, details: "Led 4 Seed, 2 Series A, 1 Bridge", sectorDetails: "3 SaaS, 2 Fintech, 2 Health" },
+  { month: "Feb", seed: 3, seriesA: 1, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 3 Seed, participated 1 Series A", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
+  { month: "Mar", seed: 5, seriesA: 2, other: 1, saas: 3, fintech: 2, health: 3, details: "Led 5 Seed, 2 Series A, 1 Growth", sectorDetails: "3 SaaS, 2 Fintech, 3 Health" },
 ];
 
 const RECENT_DEALS: RecentDeal[] = [
