@@ -11,6 +11,7 @@ import { InvestorQuickFacts } from "./investor-detail/InvestorQuickFacts";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
+import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 
