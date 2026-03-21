@@ -14,6 +14,7 @@ export interface LiveInvestorEntry {
   category: "investor";
   dataSource: "verified" | "live";
   lastSynced: Date;
+  logo_url?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
@@ -33,6 +34,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     category: "investor",
     dataSource: "verified",
     lastSynced: new Date(),
+    logo_url: row.logo_url || null,
   };
 }
 

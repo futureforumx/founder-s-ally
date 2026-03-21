@@ -65,6 +65,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
       initial: vcFirm.name.charAt(0).toUpperCase(),
       matchReason: null,
       category: "investor" as const,
+      logo_url: vcFirm.logo_url || null,
     };
   }, [investor, vcFirm]);
 
@@ -168,9 +169,17 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 {/* Top Row: Identity & Actions */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                      {effectiveInvestor.initial}
-                    </div>
+                    {effectiveInvestor.logo_url ? (
+                      <img
+                        src={effectiveInvestor.logo_url}
+                        alt={effectiveInvestor.name}
+                        className="h-16 w-16 rounded-xl border border-border object-contain bg-background shrink-0"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
+                        {effectiveInvestor.initial}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2.5">
                         <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
