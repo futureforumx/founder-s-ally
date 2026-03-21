@@ -52,7 +52,10 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!investorName) return;
+    if (!investorName) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
     async function fetch() {
