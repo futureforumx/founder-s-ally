@@ -105,9 +105,20 @@ export function InvestorDetailPanel({ investor, companyName, onClose }: Investor
                 </div>
               </div>
 
-              {/* ─── AI Insight (gold/emerald) ─── */}
+              {/* ─── About ─── */}
+              <div className="mx-6 mb-3 shrink-0">
+                <div className="rounded-xl bg-secondary/30 p-4">
+                  <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                    <Building2 className="h-3 w-3 inline mr-1 text-accent" />
+                    About
+                  </h4>
+                  <p className="text-sm text-foreground leading-relaxed">{investor.description}</p>
+                </div>
+              </div>
+
+              {/* ─── Compatibility (gold/emerald) ─── */}
               <div className="mx-6 mb-4 shrink-0">
-                <InvestorAIInsight firmName={investor.name} />
+                <InvestorAIInsight firmName={investor.name} matchScore={matchScore} />
               </div>
 
               {/* ─── Pill Tabs ─── */}
