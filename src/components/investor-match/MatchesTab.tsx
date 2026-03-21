@@ -106,7 +106,7 @@ function formatVerifiedDate(iso: string): string {
   }
 }
 
-export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip }, _ref) {
+export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip, onViewInvestor }, _ref) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
