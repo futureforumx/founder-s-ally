@@ -97,6 +97,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         .limit(1);
       const firmId = firms?.[0]?.id;
       if (!firmId) return;
+      setResolvedFirmId(firmId);
 
       // Upsert a 'viewed' interaction (idempotent per founder+firm+action)
       await supabase
