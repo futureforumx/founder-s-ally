@@ -95,6 +95,7 @@ function filterByScope(entries: DirectoryEntry[], scope: EntityScope): Directory
 const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
   all: { singular: "entry", plural: "entries" },
   founders: { singular: "founder", plural: "founders" },
+  operators: { singular: "operator", plural: "operators" },
   investors: { singular: "investor", plural: "investors" },
   companies: { singular: "company", plural: "companies" }
 };
