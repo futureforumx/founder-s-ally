@@ -12,10 +12,12 @@ interface PortfolioTabProps {
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
 
 const RECENT_INVESTMENTS = [
-  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io" },
-  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com" },
-  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy" },
-  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev" },
+  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io", description: "AI-driven workflow automation for commercial construction sites.", partner: "Sarah Chen", role: "LEAD" as const },
+  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com", description: "Computational drug discovery platform accelerating preclinical timelines.", partner: "James Park", role: "LEAD" as const },
+  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy", description: "Smart grid optimization software for renewable energy providers.", partner: "Sarah Chen", role: "CO-LED" as const },
+  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev", description: "Developer-first security tooling for CI/CD pipelines.", partner: "David Liu", role: "PARTICIPATED" as const },
+  { name: "FinLedger", stage: "Seed", sector: "Fintech", amount: "$3M", date: "May 2025", website: "finledger.io", description: "Real-time reconciliation engine for digital asset custodians.", partner: "James Park", role: "LEAD" as const },
+  { name: "MedScope AI", stage: "Series A", sector: "HealthTech", amount: "$10M", date: "Mar 2025", website: "medscope.ai", description: "Clinical decision support powered by multimodal medical imaging.", partner: "Sarah Chen", role: "CO-LED" as const },
 ];
 
 const NOTABLE_EXITS = ["Stripe", "Figma"];
