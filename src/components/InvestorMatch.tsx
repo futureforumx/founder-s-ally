@@ -370,6 +370,17 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
           onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
           onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
+          onViewInvestor={(inv) => setSelectedInvestor({
+            name: inv.firm_name,
+            sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Multi-stage",
+            stage: inv.preferred_stage || "Multi-stage",
+            description: inv.reasoning,
+            location: inv.location || "",
+            model: `${formatCheckSize(inv.min_check_size)}–${formatCheckSize(inv.max_check_size)}`,
+            initial: inv.firm_name.charAt(0).toUpperCase(),
+            matchReason: inv.reasoning,
+            category: "investor" as const,
+          })}
         />
       )}
       {activeTab === "activity" && <ActivityTab />}
