@@ -44,6 +44,7 @@ interface MatchesTabProps {
   onSave?: (firmId: string) => void;
   onUnsave?: (firmId: string) => void;
   onSkip?: (firmId: string) => void;
+  onViewInvestor?: (investor: ScoredInvestor) => void;
 }
 
 function formatCheckSize(amount: number): string {
