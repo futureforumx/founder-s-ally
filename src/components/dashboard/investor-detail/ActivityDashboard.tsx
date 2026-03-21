@@ -154,7 +154,6 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
-            <Badge className="text-[9px] px-1.5 py-0 bg-success/10 text-success border-success/20">+24% QoQ</Badge>
           </div>
         </div>
         <TooltipProvider delayDuration={0}>
