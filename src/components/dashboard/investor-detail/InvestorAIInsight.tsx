@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Sparkles, Loader2, ChevronDown, Globe, Layers, MapPin, User } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CompanyContext {
   name?: string;
