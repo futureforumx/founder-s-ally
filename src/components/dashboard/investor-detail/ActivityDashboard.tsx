@@ -130,10 +130,22 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
 
         <div
           className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center relative overflow-hidden cursor-pointer select-none"
-          onClick={() => setPaceView(v => v === "pace" ? "trend" : "pace")}
+          onClick={() => {
+            if (autoCycle) {
+              setAutoCycle(false);
+            } else {
+              setAutoCycle(true);
+            }
+          }}
         >
-          <button className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors">
-            <ArrowLeftRight className="w-3 h-3 text-muted-foreground" />
+          <button
+            className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAutoCycle(v => !v);
+            }}
+          >
+            {autoCycle ? <Pause className="w-3 h-3 text-muted-foreground" /> : <Play className="w-3 h-3 text-muted-foreground" />}
           </button>
 
           <AnimatePresence mode="wait">
