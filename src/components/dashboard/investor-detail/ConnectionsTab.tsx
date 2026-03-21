@@ -113,7 +113,7 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
                       {conn.company_name || "Unnamed Startup"}
                     </span>
                     {isMutual && (
-                      <Badge className="text-[8px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20 shrink-0">
+                      <Badge className="text-[8px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20 shrink-0">
                         <Sparkles className="h-2 w-2 mr-0.5" /> Mutual
                       </Badge>
                     )}
