@@ -17,7 +17,11 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { investorName, investorDescription, investorStage, investorSector, investorCheckSize, companyName, companySector, companyStage, companyModel, companyDescription, matchScore } = await req.json();
+    const {
+      investorName, investorDescription, investorStage, investorSector, investorCheckSize,
+      investorRecentDeals, investorThesis, investorGeography, enrichmentSource,
+      companyName, companySector, companyStage, companyModel, companyDescription, matchScore
+    } = await req.json();
 
     if (!investorName || !companyName) {
       return new Response(
