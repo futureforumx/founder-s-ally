@@ -10,6 +10,11 @@ interface DealMonth {
   seriesA: number;
   other: number;
   details: string;
+  // Sector breakdown
+  saas: number;
+  fintech: number;
+  health: number;
+  sectorDetails: string;
 }
 
 interface RecentDeal {
