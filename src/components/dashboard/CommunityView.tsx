@@ -636,12 +636,22 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Search Omnibar */}
-      <SearchOmnibar
-        value={searchQuery}
-        onChange={setSearchQuery}
-        scope={activeScope}
-        placeholder={placeholder} />
+      {/* Search Omnibar — use rich omnibox for investor-search */}
+      {isInvestorSearch ? (
+        <InvestorSearchOmnibox
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder={placeholder}
+          entries={mergedEntries}
+        />
+      ) : (
+        <SearchOmnibar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          scope={activeScope}
+          placeholder={placeholder}
+        />
+      )}
       
 
       {/* Magic Prompts */}
