@@ -18,6 +18,7 @@ import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CompanyContext {
   name?: string;
