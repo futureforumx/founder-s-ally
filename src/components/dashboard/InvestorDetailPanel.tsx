@@ -104,7 +104,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   return (
     <AnimatePresence>
-      {investor && (
+      {effectiveInvestor && (
         <>
           <motion.div
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
