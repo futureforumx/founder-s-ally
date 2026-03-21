@@ -11,6 +11,7 @@ import { StageTimeline } from "./investor-detail/StageTimeline";
 import { DealDynamics } from "./investor-detail/DealDynamics";
 import { GeographicFocus } from "./investor-detail/GeographicFocus";
 import { SectorAlignment } from "./investor-detail/SectorAlignment";
+import { InvestorThemes } from "./investor-detail/InvestorThemes";
 import { InvestorAIInsightBanner } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
@@ -295,15 +296,20 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Investment Thesis" && (
                       <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <StageTimeline />
                           <SectorAlignment
                             vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
                             primarySector={companyData?.sector}
                             secondarySectors={(companyData as any)?.subsectors || []}
                           />
+                          <InvestorThemes
+                            currentThesis={enrichedData?.profile?.currentThesis}
+                            recentDeals={enrichedData?.profile?.recentDeals}
+                            firmName={displayName}
+                          />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <DealDynamics />
                           <GeographicFocus />
                         </div>
