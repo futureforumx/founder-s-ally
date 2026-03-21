@@ -321,6 +321,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<PartnerPerson | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // SWR: Fetch live investors from DB (stale-while-revalidate)
