@@ -150,7 +150,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
           const isSaved = savedFirmIds?.has(investor.id) || false;
 
           return (
-            <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30">
+            <div key={investor.id} className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30 cursor-pointer" onClick={() => onViewInvestor?.(investor)}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm">
