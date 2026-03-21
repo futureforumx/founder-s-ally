@@ -245,10 +245,19 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   const scoredInvestors = useMemo(() => {
     return investors
-      .map(inv => computeScore(inv, companyData, analysisResult, sectorClassification || null, confirmedBackers))
+      .map(inv => {
+        const scored = computeScore(inv, companyData, analysisResult, sectorClassification || null, confirmedBackers);
+        // Apply score decay based on sector save rates
+        const decay = decayMap[inv.id] ?? 1.0;
+        if (decay < 1.0) {
+          scored.score = Math.round(scored.score * decay);
+          scored.reasoning += " · low peer save-rate penalty";
+        }
+        return scored;
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers]);
+  }, [investors, companyData, analysisResult, sectorClassification, confirmedBackers, decayMap]);
 
   // Enrich top investors via waterfall
   useEffect(() => {
