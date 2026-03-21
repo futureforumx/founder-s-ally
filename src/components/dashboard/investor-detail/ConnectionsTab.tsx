@@ -93,7 +93,7 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
       {/* Tier 1: Community Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Card 1: Network Reach */}
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex flex-col min-h-[260px]">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <Users className="w-4 h-4 text-primary" />
@@ -116,10 +116,15 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
               <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">2</span> pending intro opportunities</span>
             </div>
           </div>
+          <div className="mt-auto pt-3">
+            <button className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
+              Explore founder connections <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
 
         {/* Card 2: Community Rating */}
-        <div className="rounded-2xl border border-success/20 bg-success/5 p-5">
+        <div className="rounded-2xl border border-success/20 bg-success/5 p-5 flex flex-col min-h-[260px]">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
               <Star className="w-4 h-4 fill-success text-success" />
@@ -144,40 +149,41 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
         </div>
 
         {/* Card 3: Social Sentiment */}
-        <div className="rounded-2xl border border-success/20 bg-success/5 p-5">
+        <div className="rounded-2xl border border-success/20 bg-success/5 p-5 flex flex-col min-h-[260px]">
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
               <MessageCircle className="w-4 h-4 text-success" />
             </div>
             <p className="text-[10px] font-mono uppercase tracking-wider text-success/70 font-semibold">Social Sentiment</p>
           </div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <span className="relative flex h-2.5 w-2.5">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
             </span>
-            <span className="text-2xl font-black text-success leading-none">Highly Positive</span>
+            <span className="text-sm font-bold text-success uppercase tracking-wide">Highly Positive</span>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2 mb-3">Across founder chatter, PR, and social signals</p>
-          <div className="border-t border-success/10 pt-3">
-            <p className="text-[10px] text-muted-foreground leading-relaxed">
-              Recent activity highlights aggressive early-stage AI deployment and strong founder engagement post-close.
-            </p>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Across founder chatter, PR, and social signals</p>
+          <div className="space-y-1.5 border-t border-success/10 pt-3">
+            <div className="flex items-center gap-2">
+              <Newspaper className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">PR mentions <span className="font-semibold text-success">trending up</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MessagesSquare className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Founder chatter <span className="font-semibold text-foreground">active</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Share2 className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Social signals <span className="font-semibold text-success">positive</span></span>
+            </div>
+          </div>
+          <div className="mt-auto pt-3">
+            <button className="text-[10px] font-semibold text-success hover:text-success/80 transition-colors flex items-center gap-1">
+              See sentiment drivers <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
-      </div>
-
-      {/* CTA below cards */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" className="text-xs gap-1.5">
-          <Users className="h-3 w-3" />
-          Explore founder connections
-          <ArrowRight className="h-3 w-3" />
-        </Button>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1.5">
-          See sentiment drivers
-          <ArrowRight className="h-3 w-3" />
-        </Button>
       </div>
 
       {/* Tier 2: Warm Connections */}
