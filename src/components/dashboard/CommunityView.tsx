@@ -36,6 +36,10 @@ interface DirectoryEntry {
   initial: string;
   matchReason: string | null;
   category: EntryCategory;
+  /** Original sector strings from VC JSON for exact matching */
+  _sectors?: string[];
+  /** Original stage strings from VC JSON for exact matching */
+  _stages?: string[];
 }
 
 // ── Mock data: Suggested ──
