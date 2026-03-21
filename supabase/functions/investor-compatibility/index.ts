@@ -38,6 +38,7 @@ Rules:
 - If recent deals or thesis data is available, weave it into the insight naturally
 - Be specific and data-driven, not generic
 - Keep it under 60 words
+- Include one actionable suggestion for how the founder should approach this investor
 - Do NOT use markdown formatting, just plain text
 - Do NOT start with "Your" — vary your sentence openings`;
 
