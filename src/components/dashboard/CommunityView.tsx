@@ -443,22 +443,35 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         });
       }
       case "stage": {
-        if (!userStage) return investors; // Will show empty state prompt
-        const stageNorm = userStage.toLowerCase();
-        return investors.filter((e) =>
-          e.stage.toLowerCase().includes(stageNorm) ||
-          e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm)) ||
-          stageNorm.includes(e.stage.split("–")[0].trim().toLowerCase())
-        );
+        if (!userStage) return investors;
+        return investors.filter((e) => {
+          // Exact match against structured _stages array when available
+          if (e._stages && e._stages.length > 0) {
+            return e._stages.includes(userStage);
+          }
+          // Fallback for mock entries
+          const stageNorm = userStage.toLowerCase();
+          return e.stage.toLowerCase().includes(stageNorm) ||
+            e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm));
+        });
       }
       case "sector": {
-        if (!userSector) return investors; // Will show empty state prompt
-        const sectorNorm = userSector.toLowerCase();
-        return investors.filter((e) =>
-          e.sector.toLowerCase().includes(sectorNorm) ||
-          sectorNorm.includes(e.sector.toLowerCase()) ||
-          e.description.toLowerCase().includes(sectorNorm)
-        );
+        if (!userSector) return investors;
+        // Collect all user sectors (primary + secondary from subsectors)
+        const userSectors = [userSector];
+        if (companyData?.subsectors) {
+          userSectors.push(...companyData.subsectors);
+        }
+        return investors.filter((e) => {
+          // Exact match against structured _sectors array when available
+          if (e._sectors && e._sectors.length > 0) {
+            return e._sectors.some(s => userSectors.includes(s));
+          }
+          // Fallback for mock entries
+          const sectorNorm = userSector.toLowerCase();
+          return e.sector.toLowerCase().includes(sectorNorm) ||
+            e.description.toLowerCase().includes(sectorNorm);
+        });
       }
       default: // "all"
         return investors;
