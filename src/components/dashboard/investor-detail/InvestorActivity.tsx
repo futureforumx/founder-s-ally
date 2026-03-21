@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CircleDollarSign, RefreshCw, Newspaper, ArrowUpRight, Loader2,
   Bookmark, Eye, UserPlus, MessageSquare, AtSign, Heart, Repeat2,
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 // ── Types ──
 
@@ -43,19 +44,10 @@ function getNewsItems(firmName: string): NewsItem[] {
 
 function getTweets(firmName: string): TweetItem[] {
   return [
-    { handle: `@${firmName.replace(/\s/g, "").toLowerCase()}`, text: `Excited to announce our latest investment in AI-native developer tools. The future of software is being rebuilt from the ground up.`, time: "3h", likes: 142, retweets: 38 },
-    { handle: "@foundersclub", text: `Just got intro to ${firmName} — their thesis on vertical SaaS is incredibly sharp. Highly recommend.`, time: "1d", likes: 67, retweets: 12 },
+    { handle: `@${firmName.replace(/\s/g, "").toLowerCase()}`, text: `Excited to announce our latest investment in AI-native developer tools.`, time: "3h", likes: 142, retweets: 38 },
+    { handle: "@foundersclub", text: `Just got intro to ${firmName} — their thesis on vertical SaaS is incredibly sharp.`, time: "1d", likes: 67, retweets: 12 },
     { handle: "@techcrunch", text: `${firmName} reportedly in talks to lead a $20M round in stealth climate startup.`, time: "2d", likes: 234, retweets: 89 },
     { handle: `@${firmName.replace(/\s/g, "").toLowerCase()}`, text: `Our latest blog: why we believe agentic AI in healthcare will create the next wave of $1B+ outcomes.`, time: "4d", likes: 98, retweets: 31 },
-  ];
-}
-
-function getCommunityItems(): CommunityItem[] {
-  return [
-    { action: "saved", actor: "3 founders", time: "2h" },
-    { action: "viewed", actor: "12 founders", time: "today" },
-    { action: "added_to_cap_table", actor: "1 company", time: "1d" },
-    { action: "requested_intro", actor: "2 founders", time: "3d" },
   ];
 }
 
@@ -81,20 +73,121 @@ const COMMUNITY_LABELS: Record<CommunityItem["action"], string> = {
   requested_intro: "Requested intro",
 };
 
-// ── Analytics Pill ──
-function StatPill({ value, label, trend }: { value: string; label: string; trend?: "up" | "down" | "flat" }) {
+// ── Animated Number ──
+function AnimatedNumber({ target, duration = 800 }: { target: number; duration?: number }) {
+  const [display, setDisplay] = useState(0);
+  const frameRef = useRef<number>(0);
+
+  useEffect(() => {
+    const start = performance.now();
+    const from = 0;
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setDisplay(Math.round(from + (target - from) * eased));
+      if (progress < 1) frameRef.current = requestAnimationFrame(animate);
+    };
+    frameRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [target, duration]);
+
+  return <>{display}</>;
+}
+
+// ── Analytics Square Card ──
+function StatCard({ value, label, trend }: { value: number; label: string; trend?: "up" | "down" | "flat" }) {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
   const trendColor = trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary/60 border border-border/50">
-      <span className="text-xs font-bold text-foreground leading-none">{value}</span>
-      <span className="text-[9px] text-muted-foreground leading-none">{label}</span>
-      {trend && <TrendIcon className={`h-2.5 w-2.5 ${trendColor}`} />}
+    <div className="flex flex-col items-center justify-center w-[52px] h-[52px] rounded-lg bg-secondary/60 border border-border/50 p-1">
+      <div className="flex items-center gap-0.5">
+        <span className="text-sm font-bold text-foreground leading-none"><AnimatedNumber target={value} /></span>
+        {trend && <TrendIcon className={`h-2.5 w-2.5 ${trendColor}`} />}
+      </div>
+      <span className="text-[7px] text-muted-foreground leading-none mt-0.5 text-center">{label}</span>
     </div>
   );
 }
 
-export function InvestorActivity({ firmName }: { firmName: string }) {
+// ── Live Community Data Hook ──
+function useCommunityStats(firmId?: string) {
+  const [stats, setStats] = useState({ views: 0, saves: 0, intros: 0 });
+  const [items, setItems] = useState<CommunityItem[]>([]);
+
+  useEffect(() => {
+    if (!firmId) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("founder_vc_interactions")
+        .select("action_type, created_at")
+        .eq("firm_id", firmId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error || !data) return;
+
+      const views = data.filter(r => r.action_type === "viewed").length;
+      const saves = data.filter(r => r.action_type === "saved").length;
+      const intros = data.filter(r => r.action_type === "requested_intro").length;
+      const capTable = data.filter(r => r.action_type === "added_to_cap_table").length;
+      setStats({ views, saves, intros });
+
+      // Build timeline from real data
+      const actionMap: Record<string, CommunityItem["action"]> = {
+        saved: "saved",
+        viewed: "viewed",
+        added_to_cap_table: "added_to_cap_table",
+        requested_intro: "requested_intro",
+      };
+
+      const grouped: Record<string, { count: number; latest: Date }> = {};
+      for (const r of data) {
+        const action = actionMap[r.action_type];
+        if (!action) continue;
+        if (!grouped[action]) grouped[action] = { count: 0, latest: new Date(r.created_at) };
+        grouped[action].count++;
+        const d = new Date(r.created_at);
+        if (d > grouped[action].latest) grouped[action].latest = d;
+      }
+
+      const now = Date.now();
+      const timeAgo = (d: Date) => {
+        const diff = now - d.getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d`;
+      };
+
+      const timeline: CommunityItem[] = Object.entries(grouped)
+        .sort(([, a], [, b]) => b.latest.getTime() - a.latest.getTime())
+        .slice(0, 4)
+        .map(([action, info]) => ({
+          action: action as CommunityItem["action"],
+          actor: `${info.count} founder${info.count !== 1 ? "s" : ""}`,
+          time: timeAgo(info.latest),
+        }));
+
+      setItems(timeline.length > 0 ? timeline : getDefaultCommunity());
+    })();
+  }, [firmId]);
+
+  return { stats, items };
+}
+
+function getDefaultCommunity(): CommunityItem[] {
+  return [
+    { action: "saved", actor: "3 founders", time: "2h" },
+    { action: "viewed", actor: "12 founders", time: "today" },
+    { action: "added_to_cap_table", actor: "1 company", time: "1d" },
+    { action: "requested_intro", actor: "2 founders", time: "3d" },
+  ];
+}
+
+export function InvestorActivity({ firmName, firmId }: { firmName: string; firmId?: string }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
@@ -105,7 +198,7 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
 
   const news = getNewsItems(firmName);
   const tweets = getTweets(firmName);
-  const community = getCommunityItems();
+  const { stats: communityStats, items: communityItems } = useCommunityStats(firmId);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -143,13 +236,11 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
               <Newspaper className="h-3 w-3" /> News
             </h4>
           </div>
-          {/* Analytics row */}
-          <div className="flex flex-wrap gap-1.5">
-            <StatPill value="5" label="mentions" trend="up" />
-            <StatPill value="3" label="sources" trend="flat" />
-            <StatPill value="2" label="this week" trend="up" />
+          <div className="flex gap-1.5">
+            <StatCard value={news.length} label="mentions" trend="up" />
+            <StatCard value={3} label="sources" trend="flat" />
+            <StatCard value={2} label="this week" trend="up" />
           </div>
-          {/* Feed */}
           <div className="space-y-0">
             {news.map((item, i) => {
               const cfg = NEWS_TYPE_CONFIG[item.type];
@@ -180,12 +271,10 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
               <AtSign className="h-3 w-3" /> Social
             </h4>
           </div>
-          {/* Analytics row */}
-          <div className="flex flex-wrap gap-1.5">
-            <StatPill value={String(totalEngagement)} label="engagements" trend="up" />
-            <StatPill value={String(tweets.length)} label="posts" trend="flat" />
+          <div className="flex gap-1.5">
+            <StatCard value={totalEngagement} label="engagements" trend="up" />
+            <StatCard value={tweets.length} label="posts" trend="flat" />
           </div>
-          {/* Feed */}
           <div className="space-y-0">
             {tweets.map((tweet, i) => (
               <div key={i} className="py-1 border-b border-border/40 last:border-0">
@@ -215,19 +304,17 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
               <UserPlus className="h-3 w-3" /> Community
             </h4>
           </div>
-          {/* Analytics row */}
-          <div className="flex flex-wrap gap-1.5">
-            <StatPill value="27" label="views" trend="up" />
-            <StatPill value="5" label="saves" trend="up" />
-            <StatPill value="2" label="intros" trend="flat" />
+          <div className="flex gap-1.5">
+            <StatCard value={communityStats.views} label="views" trend="up" />
+            <StatCard value={communityStats.saves} label="saves" trend="up" />
+            <StatCard value={communityStats.intros} label="intros" trend="flat" />
           </div>
-          {/* Timeline */}
           <div className="space-y-0">
-            {community.map((item, i) => {
+            {communityItems.map((item, i) => {
               const Icon = COMMUNITY_ICONS[item.action];
               return (
                 <div key={i} className="flex items-center gap-1.5 py-1 relative">
-                  {i < community.length - 1 && (
+                  {i < communityItems.length - 1 && (
                     <div className="absolute left-[7px] top-5 bottom-0 w-px bg-border" />
                   )}
                   <div className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-secondary border border-border z-10">
