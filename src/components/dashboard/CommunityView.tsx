@@ -5,6 +5,7 @@ import {
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog } from
 "lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
+import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -635,12 +636,22 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Search Omnibar */}
-      <SearchOmnibar
-        value={searchQuery}
-        onChange={setSearchQuery}
-        scope={activeScope}
-        placeholder={placeholder} />
+      {/* Search Omnibar — use rich omnibox for investor-search */}
+      {isInvestorSearch ? (
+        <InvestorSearchOmnibox
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder={placeholder}
+          entries={mergedEntries}
+        />
+      ) : (
+        <SearchOmnibar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          scope={activeScope}
+          placeholder={placeholder}
+        />
+      )}
       
 
       {/* Magic Prompts */}
