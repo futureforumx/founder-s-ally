@@ -30,17 +30,19 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a venture capital compatibility analyst. Given a startup's profile and an investor's profile, write a concise 2-3 sentence compatibility insight for the founder.
+    const systemPrompt = `You are a venture capital compatibility analyst. Given a startup and investor profile, produce exactly 3 structured compatibility criteria as a JSON array.
 
 Rules:
-- Address the founder directly (use "your" not "their")
-- Reference specific data points from both profiles (sector, stage, check size, recent deals, thesis, geography)
-- If recent deals or thesis data is available, weave it into the insight naturally
-- Be specific and data-driven, not generic
-- Keep it under 60 words
-- Include one actionable suggestion for how the founder should approach this investor
-- Do NOT use markdown formatting, just plain text
-- Do NOT start with "Your" — vary your sentence openings`;
+- Return ONLY a JSON array with exactly 3 objects
+- Each object has: "type" ("match" or "warning"), "label" (2-4 word category), "detail" (1 sentence, under 20 words)
+- Address the founder directly (use "your")
+- Reference specific data points (sector, stage, check size, geography, deals)
+- Typically 2 matches and 1 warning, but adjust based on actual compatibility
+- Be specific, not generic. Use real numbers and names when available.
+- Do NOT wrap in markdown code blocks
+
+Example output:
+[{"type":"match","label":"Check Size Fit","detail":"Their $2M-$10M range covers your $3M Seed target perfectly."},{"type":"match","label":"Stage Alignment","detail":"Active Pre-Seed/Seed focus matches your current stage."},{"type":"warning","label":"Sector Gap","detail":"Broad thesis—highlight your AI differentiation early in the pitch."}]`;
 
     const userPrompt = `Startup Profile:
 - Company: ${companyName}
@@ -59,9 +61,9 @@ Investor Profile:
 - Current Thesis: ${investorThesis || "Not available"}
 - Geography: ${investorGeography || "Not specified"}
 - Data Source: ${enrichmentSource || "directory"}
-- Current Match Score: ${matchScore ?? "N/A"}%
+- Match Score: ${matchScore ?? "N/A"}%
 
-Write a compatibility insight for this founder about this investor.`;
+Return exactly 3 structured compatibility criteria as a JSON array.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -75,6 +77,7 @@ Write a compatibility insight for this founder about this investor.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -97,10 +100,48 @@ Write a compatibility insight for this founder about this investor.`;
     }
 
     const data = await response.json();
-    const insight = data.choices?.[0]?.message?.content?.trim() || "";
+    const raw = data.choices?.[0]?.message?.content?.trim() || "";
+
+    // Parse the structured response
+    let criteria = null;
+    try {
+      const parsed = JSON.parse(raw);
+      // Handle both direct array and wrapped object (e.g., { criteria: [...] })
+      if (Array.isArray(parsed)) {
+        criteria = parsed;
+      } else if (parsed.criteria && Array.isArray(parsed.criteria)) {
+        criteria = parsed.criteria;
+      } else {
+        // Try to find any array value in the object
+        for (const val of Object.values(parsed)) {
+          if (Array.isArray(val)) {
+            criteria = val;
+            break;
+          }
+        }
+      }
+    } catch {
+      console.error("Failed to parse AI JSON response:", raw);
+    }
+
+    // Validate structure
+    if (criteria && Array.isArray(criteria)) {
+      criteria = criteria
+        .filter((item: any) => item.type && item.label && item.detail)
+        .slice(0, 3)
+        .map((item: any) => ({
+          type: item.type === "warning" ? "warning" : "match",
+          label: String(item.label).slice(0, 30),
+          detail: String(item.detail).slice(0, 120),
+        }));
+    }
 
     return new Response(
-      JSON.stringify({ insight }),
+      JSON.stringify({
+        criteria: criteria && criteria.length > 0 ? criteria : null,
+        // Keep backward compat: also return insight as joined text
+        insight: criteria ? criteria.map((c: any) => `${c.label}: ${c.detail}`).join(" ") : raw,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
