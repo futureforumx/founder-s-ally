@@ -260,8 +260,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     {activeTab === "Investment Thesis" && (
                       <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          {/* Row 1 */}
-                          <div className="lg:col-span-1 h-full"><StageTimeline /></div>
+                          {/* Col 1 Row 1: Sector Alignment */}
                           <div className="lg:col-span-1 h-full">
                             <SectorAlignment
                               vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
@@ -269,6 +268,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                               secondarySectors={(companyData as any)?.subsectors || []}
                             />
                           </div>
+                          {/* Col 2 Row 1: Deal Dynamics */}
+                          <div className="lg:col-span-1 h-full"><DealDynamics /></div>
+                          {/* Col 3 Row 1+2: Stage (spans both rows) */}
+                          <div className="lg:col-span-1 lg:row-span-2 h-full"><StageTimeline /></div>
+                          {/* Col 1 Row 2: Current Themes */}
                           <div className="lg:col-span-1 h-full">
                             <InvestorThemes
                               currentThesis={enrichedData?.profile?.currentThesis}
@@ -276,9 +280,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                               firmName={displayName}
                             />
                           </div>
-                          {/* Row 2 */}
-                          <div className="lg:col-span-1"><DealDynamics /></div>
-                          <div className="lg:col-span-2"><GeographicFocus /></div>
+                          {/* Col 2 Row 2: Geographic Focus */}
+                          <div className="lg:col-span-1"><GeographicFocus /></div>
                         </div>
                       </motion.div>
                     )}
