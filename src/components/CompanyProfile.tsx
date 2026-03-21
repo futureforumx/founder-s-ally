@@ -1641,36 +1641,37 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
-                    {/* Row 1: Stage | Sector */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Stage {renderFieldBadge("stage")}
-                        </label>
-                        <TaxonomyCombobox
-                          options={STAGE_OPTIONS}
-                          value={form.stage}
-                          onChange={v => update("stage", v)}
-                          placeholder="Search stage..."
-                          allowCustom={false}
-                          isAiDraft={isFieldAiDraft("stage")}
-                        />
-                      </div>
-                      <div className="space-y-1 md:col-span-2">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Sector {renderFieldBadge("sector")}
-                        </label>
-                        <SectorSelector
-                          value={{
-                            primary_sector: form.sector || null,
-                            secondary_sectors: form.subsectors || [],
-                          }}
-                          onChange={(sel: SectorSelection) => {
-                            update("sector", sel.primary_sector || "");
-                            setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
-                          }}
-                        />
-                      </div>
+                    {/* Stage */}
+                    <div className="space-y-1 max-w-sm">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                        Stage {renderFieldBadge("stage")}
+                      </label>
+                      <TaxonomyCombobox
+                        options={STAGE_OPTIONS}
+                        value={form.stage}
+                        onChange={v => update("stage", v)}
+                        placeholder="Search stage..."
+                        allowCustom={false}
+                        isAiDraft={isFieldAiDraft("stage")}
+                      />
+                    </div>
+
+                    {/* Sector Selector (full-width tile grid) */}
+                    <div className="space-y-1">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                        Sector {renderFieldBadge("sector")}
+                      </label>
+                      <SectorSelector
+                        value={{
+                          primary_sector: form.sector || null,
+                          secondary_sectors: form.subsectors || [],
+                        }}
+                        onChange={(sel: SectorSelection) => {
+                          update("sector", sel.primary_sector || "");
+                          setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
+                        }}
+                      />
+                    </div>
 
                     {/* Row 2: Business Model | Target Customer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
