@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight } from "lucide-react";
+import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface PortfolioTabProps {
@@ -9,17 +9,18 @@ interface PortfolioTabProps {
 
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
 
-const PORTFOLIO_STATS = [
-  { label: "Active Portfolio", value: 142 },
-  { label: "Exits", value: 38 },
-  { label: "Unicorns", value: 12 },
+const RECENT_INVESTMENTS = [
+  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io" },
+  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com" },
+  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy" },
+  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev" },
 ];
 
-const RECENT_INVESTMENTS = [
-  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
-  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
-  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
-  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
+const NOTABLE_EXITS = ["Stripe", "Figma"];
+const TOP_UNICORNS = [
+  { name: "Stripe", website: "stripe.com" },
+  { name: "Figma", website: "figma.com" },
+  { name: "Notion", website: "notion.so" },
 ];
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -32,6 +33,27 @@ function AnimatedNumber({ value }: { value: number }) {
     >
       {value}
     </motion.span>
+  );
+}
+
+function FaviconAvatar({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className={`${size} flex items-center justify-center rounded-xl bg-secondary border border-border text-sm font-bold text-muted-foreground shrink-0`}>
+        {name.charAt(0)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${website}&sz=128`}
+      alt={name}
+      className={`${size} rounded-xl border border-border object-contain bg-background shrink-0`}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -93,17 +115,44 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Portfolio Stats — spans 2 cols */}
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 flex items-center justify-around">
-          {PORTFOLIO_STATS.map((stat, i) => (
-            <div
-              key={stat.label}
-              className={`w-full text-center ${i < PORTFOLIO_STATS.length - 1 ? "border-r border-border" : ""}`}
-            >
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                {stat.label}
-              </p>
-              <AnimatedNumber value={stat.value} />
+          {/* Active Portfolio */}
+          <div className="w-full text-center border-r border-border">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              Active Portfolio
+            </p>
+            <AnimatedNumber value={142} />
+            <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full w-max mx-auto">
+              <TrendingUp className="w-3 h-3" /> +14 this year
             </div>
-          ))}
+            <p className="text-[10px] text-muted-foreground mt-1.5">Top Sector: <span className="font-semibold text-foreground">SaaS (32%)</span></p>
+          </div>
+
+          {/* Exits */}
+          <div className="w-full text-center border-r border-border">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              Exits
+            </p>
+            <AnimatedNumber value={38} />
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Notable: {NOTABLE_EXITS.map((name, i) => (
+                <span key={name}><strong className="text-foreground">{name}</strong>{i < NOTABLE_EXITS.length - 1 ? ", " : ""}</span>
+              ))}
+            </p>
+          </div>
+
+          {/* Unicorns */}
+          <div className="w-full text-center">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              Unicorns
+            </p>
+            <AnimatedNumber value={12} />
+            <div className="flex items-center justify-center mt-2 -space-x-2">
+              {TOP_UNICORNS.map((u) => (
+                <FaviconAvatar key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
+          </div>
         </div>
 
         {/* Smart Compatibility Card */}
@@ -119,12 +168,10 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
           {RECENT_INVESTMENTS.map((co) => (
             <div
               key={co.name}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors"
+              className="group flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:bg-secondary/40 hover:shadow-sm cursor-pointer transition-all"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
-                  {co.name.charAt(0)}
-                </div>
+                <FaviconAvatar website={co.website} name={co.name} />
                 <div>
                   <span className="text-sm font-medium text-foreground">{co.name}</span>
                   <div className="flex gap-1.5 mt-0.5">
@@ -133,9 +180,10 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground font-medium">{co.date}</span>
                 <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
             </div>
           ))}
