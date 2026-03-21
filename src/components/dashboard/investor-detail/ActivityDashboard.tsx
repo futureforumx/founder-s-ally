@@ -64,6 +64,7 @@ const stageColor = (stage: string) => {
 export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const [autoCycle, setAutoCycle] = useState(true);
+  const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCycle = useCallback(() => {
