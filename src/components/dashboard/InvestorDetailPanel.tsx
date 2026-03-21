@@ -259,39 +259,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     )}
 
                     {activeTab === "Activity" && (
-                      <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <div className="rounded-xl border border-success/20 bg-success/5 p-5 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-success animate-pulse" />
-                            <span className="text-sm font-semibold text-foreground">Actively Deploying</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Recently closed $1.5B Fund III (Jan 2026). Making 2–3 Seed investments per month.
-                          </p>
-                        </div>
-                        <div className="rounded-xl bg-secondary/30 border border-border p-5">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4 text-success" />
-                              <span className="text-sm font-semibold text-foreground">Deal Flow</span>
-                            </div>
-                            <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
-                              +24% QoQ
-                            </Badge>
-                          </div>
-                          <div className="flex items-end gap-1 h-24">
-                            {[4, 6, 5, 8, 7, 10, 12, 9, 13, 15, 14, 18].map((v, i) => (
-                              <div
-                                key={i}
-                                className="flex-1 rounded-sm bg-success/30 hover:bg-success/50 transition-colors"
-                                style={{ height: `${(v / 18) * 100}%` }}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-2">
-                            Activity across focus verticals (12 months)
-                          </p>
-                        </div>
+                      <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                        <ActivityDashboard firmName={effectiveInvestor.name} companySector={companyData?.sector || undefined} />
                       </motion.div>
                     )}
 
