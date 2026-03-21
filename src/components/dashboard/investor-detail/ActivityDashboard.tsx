@@ -322,7 +322,8 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
                 return (
                   <Tooltip key={m.month}>
                     <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-stretch justify-end cursor-pointer group" style={{ height: "100%" }}>
+                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
                         {m.other > 0 && (
                           <div className="rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
                         )}
