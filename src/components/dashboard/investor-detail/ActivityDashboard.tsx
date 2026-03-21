@@ -312,7 +312,7 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
           </div>
         </div>
         <TooltipProvider delayDuration={0}>
-          <div className="flex items-end gap-1.5 h-20">
+          <div className="flex items-end gap-1.5 h-24">
             {DEAL_MONTHS.map((m) => {
               if (heatmapMode === "stage") {
                 const total = m.seed + m.seriesA + m.other;
