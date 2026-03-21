@@ -518,7 +518,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     if (vcMatch) {
       setSelectedVCFirm(vcMatch);
     }
-    setSelectedInvestor(entry);
+    handleInvestorClick(entry);
   }, [vcFirms]);
 
   const logoUrl = (() => {
@@ -727,7 +727,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleFounders.map((founder, i) =>
-            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
+            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
             )}
                 {isLoadingMore &&
             Array.from({ length: 3 }).map((_, i) =>
@@ -777,7 +777,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
             {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? setSelectedInvestor(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -788,7 +788,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
             {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? setSelectedInvestor(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -854,7 +854,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {visibleFounders.map((founder, i) =>
-                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
+                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
                   )}
                   {isLoadingMore &&
                     Array.from({ length: 3 }).map((_, i) =>
