@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Zap, MessageSquare, CheckCircle2,
-  ArrowUpRight, Briefcase, Landmark, Target,
+  ArrowUpRight, Landmark, Target, MapPin, Users,
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
