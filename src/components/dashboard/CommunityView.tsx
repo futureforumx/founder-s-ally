@@ -445,7 +445,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     setIsLoadingMore(true);
     // Simulate network delay for smooth UX
     setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredAll.length));
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, displayEntries.length));
       setIsLoadingMore(false);
     }, 400);
   }, [hasMore, isLoadingMore, filteredAll.length]);
