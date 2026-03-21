@@ -124,7 +124,7 @@ export function GeographicFocus({ firmName }: GeographicFocusProps) {
       </div>
 
       {/* Stylized SVG Map */}
-      <div className="relative w-full aspect-[2/1] rounded-lg bg-secondary/30 border border-border overflow-hidden flex-1">
+      <div className="relative w-full aspect-[5/2] rounded-lg bg-secondary/30 border border-border overflow-hidden flex-1">
         <svg viewBox="0 0 500 250" className="w-full h-full" fill="none">
           {/* North America */}
           <path
