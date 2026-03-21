@@ -244,12 +244,52 @@ export type Database = {
         }
         Relationships: []
       }
+      firm_recent_deals: {
+        Row: {
+          amount: string | null
+          company_name: string
+          created_at: string
+          date_announced: string | null
+          firm_id: string
+          id: string
+          stage: string | null
+        }
+        Insert: {
+          amount?: string | null
+          company_name: string
+          created_at?: string
+          date_announced?: string | null
+          firm_id: string
+          id?: string
+          stage?: string | null
+        }
+        Update: {
+          amount?: string | null
+          company_name?: string
+          created_at?: string
+          date_announced?: string | null
+          firm_id?: string
+          id?: string
+          stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_recent_deals_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_database"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investor_database: {
         Row: {
+          aum: string | null
           ca_sb54_compliant: boolean | null
           created_at: string
           firm_name: string
           id: string
+          last_enriched_at: string | null
           lead_or_follow: string | null
           lead_partner: string | null
           location: string | null
@@ -261,12 +301,15 @@ export type Database = {
           sector_embedding: string | null
           sentiment_detail: string | null
           thesis_verticals: string[]
+          website_url: string | null
         }
         Insert: {
+          aum?: string | null
           ca_sb54_compliant?: boolean | null
           created_at?: string
           firm_name: string
           id?: string
+          last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
           location?: string | null
@@ -278,12 +321,15 @@ export type Database = {
           sector_embedding?: string | null
           sentiment_detail?: string | null
           thesis_verticals?: string[]
+          website_url?: string | null
         }
         Update: {
+          aum?: string | null
           ca_sb54_compliant?: boolean | null
           created_at?: string
           firm_name?: string
           id?: string
+          last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
           location?: string | null
@@ -295,8 +341,47 @@ export type Database = {
           sector_embedding?: string | null
           sentiment_detail?: string | null
           thesis_verticals?: string[]
+          website_url?: string | null
         }
         Relationships: []
+      }
+      investor_partners: {
+        Row: {
+          created_at: string
+          firm_id: string
+          full_name: string
+          id: string
+          is_active: boolean
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          firm_id: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          firm_id?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investor_partners_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_database"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pending_investors: {
         Row: {
