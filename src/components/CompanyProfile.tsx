@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CompetitorTagInput } from "./company-profile/CompetitorTagInput";
 import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
+import { SectorSelector, type SectorSelection } from "./company-profile/SectorSelector";
 import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
 import { normalizeSector } from "./company-profile/sectorNormalization";
 import {
@@ -1640,82 +1641,37 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
-                    {/* Row 1: Stage | Sector */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Stage {renderFieldBadge("stage")}
-                        </label>
-                        <TaxonomyCombobox
-                          options={STAGE_OPTIONS}
-                          value={form.stage}
-                          onChange={v => update("stage", v)}
-                          placeholder="Search stage..."
-                          allowCustom={false}
-                          isAiDraft={isFieldAiDraft("stage")}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Sector {renderFieldBadge("sector")}
-                        </label>
-                        <TaxonomyCombobox
-                          options={SECTOR_OPTIONS}
-                          value={form.sector}
-                          onChange={(v, opt) => {
-                            const oldSector = form.sector;
-                            update("sector", v);
-                            if (opt && "default_subsectors" in opt) {
-                              const sectorOpt = opt as SectorOption;
-                              setForm(prev => {
-                                const validSubs = prev.subsectors.filter(sub =>
-                                  sectorOpt.default_subsectors.some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                                );
-                                if (validSubs.length < prev.subsectors.length && oldSector) {
-                                  toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                                }
-                                return { ...prev, subsectors: validSubs };
-                              });
-                            }
-                          }}
-                          placeholder="Search sectors..."
-                          isAiDraft={isFieldAiDraft("sector")}
-                        />
-                      </div>
+                    {/* Stage */}
+                    <div className="space-y-1 max-w-sm">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                        Stage {renderFieldBadge("stage")}
+                      </label>
+                      <TaxonomyCombobox
+                        options={STAGE_OPTIONS}
+                        value={form.stage}
+                        onChange={v => update("stage", v)}
+                        placeholder="Search stage..."
+                        allowCustom={false}
+                        isAiDraft={isFieldAiDraft("stage")}
+                      />
                     </div>
 
-                    {/* Subsectors (full width) */}
-                    {form.sector && (
-                      <SectorSubsectorPicker
-                        sector={form.sector}
-                        subsectors={form.subsectors}
-                        onSectorChange={s => {
-                          const oldSector = form.sector;
-                          update("sector", s);
-                          setForm(prev => {
-                            const validSubs = prev.subsectors.filter(sub =>
-                              subsectorsFor(s).some(canonical => canonical.toLowerCase() === sub.toLowerCase())
-                            );
-                            if (validSubs.length < prev.subsectors.length && oldSector) {
-                              toast({ title: "Subsectors cleared", description: "Subsectors cleared to match new Primary Sector." });
-                            }
-                            return { ...prev, subsectors: validSubs };
-                          });
+                    {/* Sector Selector (full-width tile grid) */}
+                    <div className="space-y-1">
+                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                        Sector {renderFieldBadge("sector")}
+                      </label>
+                      <SectorSelector
+                        value={{
+                          primary_sector: form.sector || null,
+                          secondary_sectors: form.subsectors || [],
                         }}
-                        onSubsectorsChange={subs => setForm(prev => ({ ...prev, subsectors: subs }))}
-                        aiSuggestedSector={aiSuggestions.sector}
-                        aiSuggestedSubsectors={aiSuggestedSubsectors}
-                        aiOverflowSubsectors={aiOverflowSubsectors}
-                        onApplyAiSector={aiSuggestions.sector ? () => {
-                          update("sector", aiSuggestions.sector!);
-                          if (aiSuggestedSubsectors.length) setForm(prev => ({ ...prev, subsectors: aiSuggestedSubsectors.slice(0, 3) }));
-                        } : undefined}
-                        isAiDraft={isFieldAiDraft("sector")}
-                        onReclassify={analysisComplete ? handleReclassify : undefined}
-                        isReclassifying={isReclassifying}
-                        subsectorsOnly
+                        onChange={(sel: SectorSelection) => {
+                          update("sector", sel.primary_sector || "");
+                          setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
+                        }}
                       />
-                    )}
+                    </div>
 
                     {/* Row 2: Business Model | Target Customer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
