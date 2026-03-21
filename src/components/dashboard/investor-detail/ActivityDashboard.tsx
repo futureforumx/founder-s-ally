@@ -56,6 +56,7 @@ const stageColor = (stage: string) => {
 };
 
 export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
+  const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
   const deployedPct = 40;
 
