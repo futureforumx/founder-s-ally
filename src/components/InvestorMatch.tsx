@@ -392,6 +392,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           enrichCache={enrichCache}
         />
       )}
+
+      <InvestorDetailPanel
+        investor={selectedInvestor}
+        companyName={companyData?.name}
+        companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
+        onClose={() => setSelectedInvestor(null)}
+      />
     </div>
   );
 }
