@@ -280,51 +280,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Portfolio" && (
                       <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <div>
-                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Investments</h4>
-                          <div className="space-y-2">
-                            {[
-                              { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M" },
-                              { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M" },
-                              { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M" },
-                              { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M" },
-                            ].map((co) => (
-                              <div key={co.name} className="flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:border-accent/20 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary border border-border text-sm font-bold text-muted-foreground">
-                                    {co.name.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <span className="text-sm font-medium text-foreground">{co.name}</span>
-                                    <div className="flex gap-1.5 mt-0.5">
-                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
-                                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Portfolio Stats</h4>
-                          <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                            {[
-                              { label: "Active Portfolio", value: "87 companies" },
-                              { label: "Exits (Last 3yr)", value: "12 (4 IPOs, 8 M&A)" },
-                              { label: "Follow-on Rate", value: "78%" },
-                            ].map((row) => (
-                              <div key={row.label} className="flex items-center justify-between">
-                                <span className="text-sm text-foreground font-medium">{row.label}</span>
-                                <span className="text-sm text-muted-foreground">{row.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <PortfolioTab companySector={effectiveInvestor.sector} />
                       </motion.div>
                     )}
 
