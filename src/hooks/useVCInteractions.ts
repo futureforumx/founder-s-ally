@@ -60,9 +60,12 @@ export function useVCInteractions(userId: string | undefined) {
         );
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vc-interactions", userId] });
-      queryClient.invalidateQueries({ queryKey: ["collaborative-recs", userId] });
+    onSuccess: (_data, variables) => {
+      // Only invalidate caches for save/skip (not views) to reduce noise
+      if (variables.action !== "viewed") {
+        queryClient.invalidateQueries({ queryKey: ["vc-interactions", userId] });
+        queryClient.invalidateQueries({ queryKey: ["collaborative-recs", userId] });
+      }
     },
   });
 
