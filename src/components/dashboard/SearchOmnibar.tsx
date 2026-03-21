@@ -3,12 +3,12 @@ import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type EntityScope = "founders" | "investors" | "companies" | "all";
+export type EntityScope = "founders" | "investors" | "companies" | "operators" | "all";
 
 export interface SearchResult {
   name: string;
   subtitle: string;
-  category: "founder" | "investor" | "company";
+  category: "founder" | "investor" | "company" | "operator";
   matchReason: string;
 }
 
@@ -23,6 +23,7 @@ const CATEGORY_ICONS: Record<string, typeof Users> = {
   founder: Users,
   investor: Briefcase,
   company: Building2,
+  operator: Users,
 };
 
 const SCOPE_RECOMMENDATIONS: Record<EntityScope, string[]> = {
@@ -37,6 +38,12 @@ const SCOPE_RECOMMENDATIONS: Record<EntityScope, string[]> = {
     "Solo founders with enterprise traction",
     "Second-time founders in Climate Tech",
     "YC alumni building in healthcare",
+  ],
+  operators: [
+    "VP Engineering with B2B SaaS experience",
+    "Fractional CFOs for Seed-stage startups",
+    "Growth leads from fintech backgrounds",
+    "Operators who've scaled to Series B",
   ],
   investors: [
     "Active Pre-Seed climate funds",

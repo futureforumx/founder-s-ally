@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
-  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp } from
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog } from
 "lucide-react";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ interface CommunityViewProps {
 }
 
 // ── Types ──
-type EntryCategory = "founder" | "investor" | "company";
+type EntryCategory = "founder" | "investor" | "company" | "operator";
 
 interface DirectoryEntry {
   name: string;
@@ -49,7 +49,10 @@ const SUGGESTED_ENTRIES: DirectoryEntry[] = [
 // Companies
 { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
 { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
-{ name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" }];
+{ name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" },
+// Operators
+{ name: "Rachel Torres", sector: "B2B SaaS", stage: "Seed–Series A", description: "Fractional VP Engineering with 12 years scaling dev teams from 5 to 50. Previously CTO at a $200M exit in logistics tech.", location: "San Francisco, CA", model: "Fractional", initial: "R", matchReason: "Matches your stage", category: "operator" },
+{ name: "Marcus Chen", sector: "Fintech", stage: "Series A–B", description: "Operating partner and fractional CFO specializing in SaaS metrics, fundraising strategy, and financial modeling for growth-stage startups.", location: "New York, NY", model: "Advisory", initial: "M", matchReason: null, category: "operator" }];
 
 
 // ── Mock data: Trending ──
@@ -63,7 +66,9 @@ const TRENDING_ENTRIES: DirectoryEntry[] = [
 { name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
 // Companies
 { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
-{ name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" }];
+{ name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
+// Operators
+{ name: "Diana Okafor", sector: "Growth & Marketing", stage: "Pre-Seed–Seed", description: "Growth operator who scaled three startups from $0 to $5M ARR. Specializes in PLG motions and community-led growth.", location: "Austin, TX", model: "Fractional", initial: "D", matchReason: null, category: "operator" }];
 
 
 // ── Extended entries for grid ──
@@ -79,7 +84,9 @@ const EXTRA_ENTRIES: DirectoryEntry[] = [
 { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company" },
 { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
 { name: "Vega Legal", sector: "LegalTech", stage: "Seed", description: "AI contract analysis tool that identifies risk clauses and suggests negotiation strategies for in-house legal teams.", location: "Philadelphia, PA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
-{ name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" }];
+{ name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" },
+{ name: "Sanjay Mehta", sector: "Enterprise AI", stage: "Series A–B", description: "Former VP Product at Databricks. Advises startups on enterprise go-to-market, pricing strategy, and product-led sales.", location: "Palo Alto, CA", model: "Advisory", initial: "S", matchReason: "Matches your sector", category: "operator" },
+{ name: "Kat Williams", sector: "People & Culture", stage: "Seed–Series A", description: "Head of People operator. Built HR from zero at four venture-backed startups. Expert in early-stage culture design and comp frameworks.", location: "Denver, CO", model: "Fractional", initial: "K", matchReason: null, category: "operator" }];
 
 
 // ── All entries (combined) ──
@@ -87,7 +94,7 @@ const ALL_ENTRIES: DirectoryEntry[] = [...SUGGESTED_ENTRIES, ...TRENDING_ENTRIES
 
 function filterByScope(entries: DirectoryEntry[], scope: EntityScope): DirectoryEntry[] {
   if (scope === "all") return entries;
-  const catMap: Record<string, EntryCategory> = { founders: "founder", investors: "investor", companies: "company" };
+  const catMap: Record<string, EntryCategory> = { founders: "founder", investors: "investor", companies: "company", operators: "operator" };
   const cat = catMap[scope];
   return entries.filter((e) => e.category === cat);
 }
@@ -95,6 +102,7 @@ function filterByScope(entries: DirectoryEntry[], scope: EntityScope): Directory
 const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
   all: { singular: "entry", plural: "entries" },
   founders: { singular: "founder", plural: "founders" },
+  operators: { singular: "operator", plural: "operators" },
   investors: { singular: "investor", plural: "investors" },
   companies: { singular: "company", plural: "companies" }
 };
@@ -102,6 +110,7 @@ const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
 const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}> = {
   all: { suggested: "Suggested for You", trending: "Trending Now" },
   founders: { suggested: "Suggested Founders", trending: "Trending Founders" },
+  operators: { suggested: "Suggested Operators", trending: "Trending Operators" },
   investors: { suggested: "Suggested Investors", trending: "Trending Investors" },
   companies: { suggested: "Suggested Companies", trending: "Trending Companies" }
 };
@@ -123,6 +132,12 @@ const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
   "Second-time climate founders",
   "YC alumni in healthcare"],
 
+  operators: [
+  "VP Eng with SaaS scaling experience",
+  "Fractional CFOs for Seed startups",
+  "Growth leads from fintech",
+  "COOs who've scaled past Series A"],
+
   investors: [
   "Active Pre-Seed climate funds",
   "Lead investors for Seed SaaS",
@@ -139,8 +154,9 @@ const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
 
 const GLOBAL_TABS: {id: EntityScope;label: string;icon: typeof Users;}[] = [
 { id: "all", label: "All", icon: LayoutGrid },
-{ id: "founders", label: "Founders", icon: Users },
 { id: "companies", label: "Companies", icon: Building2 },
+{ id: "founders", label: "Founders", icon: Users },
+{ id: "operators", label: "Operators", icon: UserCog },
 { id: "investors", label: "Investors", icon: Briefcase }];
 
 
@@ -154,6 +170,10 @@ const SCOPE_PLACEHOLDERS: Record<EntityScope, string[]> = {
   founders: [
   'Search founders or try "Technical co-founders in NYC..."',
   'Try "Solo founders with enterprise traction..."'],
+
+  operators: [
+  'Search operators or try "VP Eng scaling SaaS..."',
+  'Try "Fractional CFOs for early-stage startups..."'],
 
   investors: [
   'Search investors or try "Active Pre-Seed climate funds..."',
