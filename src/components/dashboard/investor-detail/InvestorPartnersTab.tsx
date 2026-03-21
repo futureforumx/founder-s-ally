@@ -1,55 +1,59 @@
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ArrowUpRight } from "lucide-react";
+import { CheckCircle2, ArrowUpRight, User } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getPartnersForFirm, type PartnerPerson } from "./types";
 
-interface Partner {
-  name: string;
-  title: string;
-  focus: string[];
-  bestFor: string;
+interface InvestorPartnersTabProps {
+  firmName: string;
+  onSelectPartner?: (partner: PartnerPerson) => void;
 }
 
-const MOCK_PARTNERS: Partner[] = [
-  { name: "Alfred Lin", title: "Partner", focus: ["B2B SaaS", "Enterprise"], bestFor: "Your sector aligns with his recent deals in vertical SaaS" },
-  { name: "Jess Lee", title: "Partner", focus: ["Consumer", "Marketplace"], bestFor: "Strong overlap with marketplace-adjacent models" },
-  { name: "Pat Grady", title: "Partner", focus: ["Cloud Infrastructure", "DevTools"], bestFor: "Relevant if your product has a platform/infra angle" },
-];
+export function InvestorPartnersTab({ firmName, onSelectPartner }: InvestorPartnersTabProps) {
+  const partners = getPartnersForFirm(firmName);
 
-export function InvestorPartnersTab({ firmName }: { firmName: string }) {
+  // Fallback to generic if no relational data
+  const fallbackPartners: PartnerPerson[] = partners.length > 0 ? partners : [
+    { id: "generic-1", name: "Partner 1", title: "Partner", focus: ["Multi-stage"], boardSeats: [], linkedIn: "" },
+    { id: "generic-2", name: "Partner 2", title: "Partner", focus: ["Multi-stage"], boardSeats: [], linkedIn: "" },
+  ];
+
   return (
     <div className="space-y-4">
       <div>
         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
           Recommended Contacts at {firmName}
         </h4>
-        <div className="space-y-2">
-          {MOCK_PARTNERS.map((p) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {fallbackPartners.map((p) => (
             <div
-              key={p.name}
-              className="rounded-xl border border-border bg-card p-4 hover:border-accent/20 transition-colors"
+              key={p.id}
+              onClick={() => onSelectPartner?.(p)}
+              className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-accent/40 hover:shadow-sm transition-all group"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-border text-sm font-bold text-muted-foreground">
-                    {p.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-foreground">{p.name}</span>
-                      <CheckCircle2 className="h-3.5 w-3.5 text-accent fill-accent/20" />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{p.title}</span>
-                  </div>
+              {/* Circular Avatar */}
+              <Avatar className="h-12 w-12 border border-border shrink-0">
+                <AvatarFallback className="text-sm font-bold bg-secondary text-muted-foreground">
+                  {p.name.split(" ").map(n => n[0]).join("")}
+                </AvatarFallback>
+              </Avatar>
+
+              {/* Text */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-foreground group-hover:text-accent transition-colors truncate">
+                    {p.name}
+                  </span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-accent fill-accent/20 shrink-0" />
                 </div>
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{p.title}</span>
+                <div className="flex gap-1 mt-1.5 flex-wrap">
+                  {p.focus.slice(0, 2).map((f) => (
+                    <Badge key={f} variant="secondary" className="text-[9px] px-1.5 py-0">{f}</Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-1.5 mb-2">
-                {p.focus.map((f) => (
-                  <Badge key={f} variant="secondary" className="text-[9px] px-2 py-0.5">{f}</Badge>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed italic">
-                "{p.bestFor}"
-              </p>
+
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
             </div>
           ))}
         </div>

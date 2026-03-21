@@ -10,7 +10,7 @@ import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { InvestorAIInsight } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
-import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
+import { INVESTOR_TABS, type InvestorTab, type InvestorEntry, type PartnerPerson } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
 
@@ -27,11 +27,12 @@ interface InvestorDetailPanelProps {
   companyName?: string;
   companyData?: CompanyContext | null;
   onClose: () => void;
+  onSelectPartner?: (partner: PartnerPerson) => void;
 }
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, companyData, onClose }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose, onSelectPartner }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Overview");
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
@@ -64,7 +65,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     };
   }, [investor, enrichedData]);
 
-  // Meta facts for the inline row
   const metaFacts = [
     { label: "AUM", value: "$85B" },
     { label: "HQ", value: investor?.location || "Menlo Park, CA" },
@@ -76,7 +76,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     <AnimatePresence>
       {investor && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
             initial={{ opacity: 0 }}
@@ -86,7 +85,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
             onClick={onClose}
           />
 
-          {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               className="pointer-events-auto max-w-6xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
@@ -95,9 +93,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
-              {/* ─── Header ─── */}
+              {/* Header */}
               <div className="px-8 pt-6 pb-5 border-b border-border shrink-0">
-                {/* Data Provenance Badge */}
                 <div className="flex justify-end mb-3">
                   <DataProvenanceBadge
                     dataSource={enrichedData ? "live" : "verified"}
@@ -106,7 +103,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 </div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
-                    {/* Logo */}
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
                       {investor.initial}
                     </div>
@@ -122,7 +118,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                           <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
                         </Badge>
                       </div>
-                      {/* Meta Details Row */}
                       <div className="flex items-center gap-3 mt-2.5 text-xs font-medium text-muted-foreground">
                         {metaFacts.map((fact, i) => (
                           <span key={fact.label} className="flex items-center gap-1">
@@ -152,13 +147,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 </div>
               </div>
 
-              {/* ─── Two-Column Body ─── */}
+              {/* Two-Column Body */}
               <div className="flex-1 overflow-y-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-8 py-6">
-
-                  {/* ── Left Column: Tabs & Content (2/3) ── */}
+                  {/* Left Column */}
                   <div className="lg:col-span-2 min-w-0">
-                    {/* Pill Tabs */}
                     <div className="mb-5">
                       <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
                         {INVESTOR_TABS.map((tab) => {
@@ -180,7 +173,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       </div>
                     </div>
 
-                    {/* Tab Content */}
                     <AnimatePresence mode="wait">
                       {activeTab === "Overview" && (
                         <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
@@ -207,7 +199,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                               ))}
                             </div>
                           </div>
-
                           <div>
                             <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Preferred Terms</h4>
                             <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
@@ -278,7 +269,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                       {activeTab === "Partners" && (
                         <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                          <InvestorPartnersTab firmName={investor.name} />
+                          <InvestorPartnersTab firmName={investor.name} onSelectPartner={onSelectPartner} />
                         </motion.div>
                       )}
 
@@ -290,17 +281,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     </AnimatePresence>
                   </div>
 
-                  {/* ── Right Column: Intelligence & Status (1/3) ── */}
+                  {/* Right Column */}
                   <div className="space-y-4">
-                    {/* Compatibility Card */}
                     <InvestorAIInsight
                       firmName={investor.name}
                       matchScore={matchScore}
                       companyContext={companyData}
                       investorContext={investorContext}
                     />
-
-                    {/* Investing Status Card */}
                     <div className="rounded-xl border border-success/20 bg-success/5 p-4 space-y-2">
                       <div className="flex items-center gap-2">
                         <Activity className="h-4 w-4 text-success animate-pulse" />
@@ -310,8 +298,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         Recently closed $1.5B Fund III (Jan 2026). Making 2–3 Seed investments per month.
                       </p>
                     </div>
-
-                    {/* Sector Activity Mini-Chart */}
                     <div className="rounded-xl bg-secondary/30 border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
