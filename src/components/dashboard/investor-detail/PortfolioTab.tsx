@@ -140,66 +140,75 @@ const STATUS_DEFINITIONS: { status: CompatibilityStatus; title: string; icon: ty
 
 function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const cfg = COMPAT_CONFIG[status];
   const Icon = cfg.icon;
 
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = (e: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [expanded]);
+
   return (
-    <div
-      className={`rounded-2xl border relative overflow-hidden flex flex-col cursor-pointer transition-all ${cfg.cardClass}`}
-      onClick={() => setExpanded(!expanded)}
-    >
-      <div className="p-5 flex flex-col justify-center">
-        <div className="flex items-start justify-between">
-          <Icon className={`w-8 h-8 ${cfg.iconClass} mb-2`} />
-          <motion.div
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          </motion.div>
+    <div ref={cardRef} className="relative">
+      <div
+        className={`rounded-2xl border relative flex flex-col cursor-pointer transition-all group ${cfg.cardClass} hover:border-success/40`}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="p-5 flex flex-col justify-center">
+          <div className="flex items-start justify-between">
+            <Icon className={`w-8 h-8 ${cfg.iconClass} mb-2`} />
+            <motion.div
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </motion.div>
+          </div>
+          <h4 className="text-lg font-bold text-foreground">{cfg.title}</h4>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cfg.subtitle}</p>
         </div>
-        <h4 className="text-lg font-bold text-foreground">{cfg.title}</h4>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cfg.subtitle}</p>
       </div>
 
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute top-[calc(100%+8px)] right-0 w-80 md:w-96 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden"
           >
-            <div className="px-5 pb-5 pt-0 border-t border-border/50">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-4 mb-3">
-                Status Definitions
-              </p>
-              <div className="space-y-3">
-                {STATUS_DEFINITIONS.map((def) => {
-                  const DefIcon = def.icon;
-                  const isActive = def.status === status;
-                  return (
-                    <div
-                      key={def.status}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-lg transition-colors ${isActive ? "bg-foreground/5 ring-1 ring-foreground/10" : ""}`}
-                    >
-                      <DefIcon className={`w-4 h-4 mt-0.5 shrink-0 ${def.iconClass}`} />
-                      <div>
-                        <p className={`text-xs font-semibold ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
-                          {def.title}
-                          {isActive && (
-                            <span className="ml-1.5 text-[9px] font-bold uppercase bg-foreground/10 text-foreground px-1.5 py-0.5 rounded">
-                              Current
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">{def.description}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+            {/* Header */}
+            <div className="bg-secondary/50 border-b border-border p-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Conflict Check</p>
+            </div>
+
+            {/* Data Rows */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Companies Scanned</span>
+                <span className="text-sm font-bold text-foreground">142</span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Sector Matches (SaaS)</span>
+                <span className="text-sm font-bold text-foreground">32</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Direct Competitors</span>
+                <span className="text-sm font-bold text-success">0</span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-success/5 border-t border-success/20 text-xs text-success font-medium">
+              No immediate competitive threats detected in their active portfolio.
             </div>
           </motion.div>
         )}
