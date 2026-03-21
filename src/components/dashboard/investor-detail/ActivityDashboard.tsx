@@ -377,36 +377,33 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
         </TooltipProvider>
       </div>
 
-      {/* Row 3: Recent Transactions */}
-      <div>
-        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Transactions</p>
-        <div className="space-y-2">
+      {/* Row 3: Recent Transactions — compact table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border">
+          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Recent Transactions</p>
+        </div>
+        <div className="divide-y divide-border">
           {RECENT_DEALS.map((deal) => {
             const sectorMatch = companySector && deal.sector.toLowerCase().includes(companySector.toLowerCase());
             return (
-              <div key={deal.company} className="flex items-center justify-between p-3 bg-card border border-border rounded-xl hover:border-accent/30 transition-colors group">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
-                    {deal.initial}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-foreground">{deal.company}</span>
-                      {sectorMatch && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warning/15 text-warning border border-warning/20">
-                          <Sparkles className="h-2.5 w-2.5" /> Matches your sector
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate">{deal.description}</p>
+              <div key={deal.company} className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0">
+                  {deal.initial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-foreground">{deal.company}</span>
+                    {sectorMatch && (
+                      <Sparkles className="h-2.5 w-2.5 text-warning" />
+                    )}
                   </div>
                 </div>
-                <div className="text-right shrink-0 ml-3">
-                  <Badge className={`text-[10px] px-2 py-0.5 ${stageColor(deal.stage)}`}>
-                    {deal.amount} {deal.stage}
-                  </Badge>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">{deal.role} · {deal.date}</p>
-                </div>
+                <span className="text-[10px] text-muted-foreground shrink-0 w-16 text-center">{deal.date}</span>
+                <span className="text-[10px] font-medium text-foreground shrink-0 w-10 text-center">{deal.amount}</span>
+                <Badge className={`text-[9px] px-1.5 py-0 shrink-0 ${stageColor(deal.stage)}`}>{deal.stage}</Badge>
+                <span className="text-[9px] text-muted-foreground shrink-0 w-14 text-center">{deal.role === "Led Round" ? "Led" : deal.role === "Co-led" ? "Co-led" : "Follow"}</span>
+                <span className="text-[9px] text-muted-foreground shrink-0 w-14 text-right">{deal.sector}</span>
+                <ExternalLink className="w-3 h-3 text-muted-foreground/40 group-hover:text-accent shrink-0 transition-colors" />
               </div>
             );
           })}
