@@ -67,12 +67,13 @@ function CountUpNumber({ target, label }: { target: number; label: string }) {
   );
 }
 
-function FaviconAvatar({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
+function CompanyLogo({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
+  const [src, setSrc] = useState(`https://logo.clearbit.com/${website}`);
   const [failed, setFailed] = useState(false);
 
   if (failed) {
     return (
-      <div className={`${size} flex items-center justify-center rounded-xl bg-secondary border border-border text-sm font-bold text-muted-foreground shrink-0`}>
+      <div className={`${size} flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-sm font-bold text-primary shrink-0`}>
         {name.charAt(0)}
       </div>
     );
@@ -80,10 +81,16 @@ function FaviconAvatar({ website, name, size = "w-10 h-10" }: { website: string;
 
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${website}&sz=128`}
+      src={src}
       alt={name}
-      className={`${size} rounded-xl border border-border object-contain bg-background shrink-0`}
-      onError={() => setFailed(true)}
+      className={`${size} rounded-xl border border-border object-contain bg-background p-1 shrink-0`}
+      onError={() => {
+        if (src.includes("clearbit")) {
+          setSrc(`https://www.google.com/s2/favicons?domain=${website}&sz=128`);
+        } else {
+          setFailed(true);
+        }
+      }}
     />
   );
 }
