@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface DealMonth {
   month: string;
