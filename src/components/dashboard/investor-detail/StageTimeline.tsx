@@ -27,8 +27,8 @@ export function StageTimeline({
   const total = STAGES.length - 1;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-6">
+    <div className="rounded-xl border border-border bg-card p-4 pb-3">
+      <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
         Stage
       </h4>
 
@@ -47,7 +47,7 @@ export function StageTimeline({
         </div>
 
         {/* Timeline bar */}
-        <div className="relative mt-8">
+        <div className="relative mt-6">
           {/* Base line */}
           <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-border -translate-y-1/2 rounded-full" />
 
@@ -135,7 +135,7 @@ export function StageTimeline({
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 justify-center">
+        <div className="flex items-center gap-4 mt-2 justify-center">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-success" />
             <span className="text-[9px] font-medium text-muted-foreground">Sweet Spot</span>

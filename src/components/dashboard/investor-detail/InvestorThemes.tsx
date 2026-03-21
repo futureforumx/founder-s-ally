@@ -68,7 +68,7 @@ export function InvestorThemes({ currentThesis = "", recentDeals = [], firmName 
   const hiddenCount = themes.length - DEFAULT_VISIBLE;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-2.5">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-[10px] font-bold text-muted-foreground/60 tracking-[0.2em] uppercase">
           Current Themes
