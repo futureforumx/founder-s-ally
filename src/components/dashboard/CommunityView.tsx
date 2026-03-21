@@ -10,12 +10,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
-import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
+import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
 import { PersonProfileModal } from "./PersonProfileModal";
-import { type PartnerPerson, getPartnerById, getPartnersForFirm } from "./investor-detail/types";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
