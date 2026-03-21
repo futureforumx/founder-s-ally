@@ -685,7 +685,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Search Results</h2>
             <span className="text-[10px] text-muted-foreground font-mono">
-              {isSearching ? "Matching..." : `${visibleFounders.length} of ${filteredAll.length} ${labels.plural}`}
+              {isSearching ? "Matching..." : `${visibleFounders.length} of ${displayEntries.length} ${labels.plural}`}
             </span>
           </div>
 
