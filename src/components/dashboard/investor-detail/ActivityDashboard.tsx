@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play } from "lucide-react";
+import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play, ArrowUpDown } from "lucide-react";
 
 interface DealMonth {
   month: string;
