@@ -308,7 +308,16 @@ const Index = () => {
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto relative">
-        <div className={`px-8 py-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
+        <GlobalTopNav
+          companyName={companyData?.name}
+          logoUrl={(() => { try { return localStorage.getItem("company-logo-url"); } catch { return null; } })()}
+          hasProfile={!!companyData?.name}
+          lastSyncedAt={lastSyncedAt}
+          syncFlash={syncFlash}
+          relativeTime={relativeTime}
+          onNavigateProfile={() => setActiveView("company")}
+        />
+        <div className={`px-8 pt-16 pb-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
             <div className="space-y-6">
               {/* Page Header */}
