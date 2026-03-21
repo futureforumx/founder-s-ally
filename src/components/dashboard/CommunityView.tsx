@@ -10,12 +10,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
-import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
+import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
 import { PersonProfileModal } from "./PersonProfileModal";
-import { type PartnerPerson, getPartnerById, getPartnersForFirm } from "./investor-detail/types";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -321,31 +320,34 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState<PartnerPerson | null>(null);
+  const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
+  const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // SWR: Fetch live investors from DB (stale-while-revalidate)
-  const { data: liveInvestors, isFetching: isRefreshingLive } = useInvestorDirectory();
+  // VC Directory: 2,805 firms + 5,247 people from JSON
+  const {
+    firms: vcFirms, people: vcPeople, loading: vcLoading,
+    firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
+  } = useVCDirectory();
 
-  // Merge live DB investors into hardcoded seed data (deduplicate by name)
+  // Merge VC JSON firms into the directory entries for grid display
   const mergedEntries = useMemo(() => {
-    if (!isInvestorSearch || !liveInvestors?.length) return ALL_ENTRIES;
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
-    const newLive: DirectoryEntry[] = liveInvestors
-      .filter(inv => !seedNames.has(inv.name.toLowerCase()))
-      .map(inv => ({
-        name: inv.name,
-        sector: inv.sector,
-        stage: inv.stage,
-        description: inv.description,
-        location: inv.location,
-        model: inv.model,
-        initial: inv.initial,
-        matchReason: inv.matchReason,
+    const vcEntries: DirectoryEntry[] = vcFirms
+      .filter(f => !seedNames.has(f.name.toLowerCase()))
+      .map(f => ({
+        name: f.name,
+        sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+        stage: f.stages?.join(", ") || "Multi-stage",
+        description: f.description || `${f.name} is an active investment firm.`,
+        location: "",
+        model: f.sweet_spot || f.aum || "",
+        initial: f.name.charAt(0).toUpperCase(),
+        matchReason: null,
         category: "investor" as const,
       }));
-    return [...ALL_ENTRIES, ...newLive];
-  }, [isInvestorSearch, liveInvestors]);
+    return [...ALL_ENTRIES, ...vcEntries];
+  }, [vcFirms]);
 
   const hasProfile = !!companyData?.name;
 
@@ -509,6 +511,16 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return () => observer.disconnect();
   }, [loadMore]);
 
+  // When clicking an investor card, try to resolve VCFirm for rich profile
+  const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
+    // Try to find matching VCFirm by name
+    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    if (vcMatch) {
+      setSelectedVCFirm(vcMatch);
+    }
+    handleInvestorClick(entry);
+  }, [vcFirms]);
+
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();
@@ -645,7 +657,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder={placeholder}
-          entries={mergedEntries}
+          firms={vcFirms}
+          people={vcPeople}
+          firmMap={firmMap}
+          onSelectFirm={(firmId) => {
+            const firm = getFirmById(firmId);
+            if (firm) setSelectedVCFirm(firm);
+          }}
+          onSelectPerson={(personId) => {
+            const person = vcPeople.find(p => p.id === personId);
+            if (person) setSelectedVCPerson(person);
+          }}
         />
       ) : (
         <SearchOmnibar
@@ -705,7 +727,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleFounders.map((founder, i) =>
-            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
+            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
             )}
                 {isLoadingMore &&
             Array.from({ length: 3 }).map((_, i) =>
@@ -755,7 +777,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
             {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? setSelectedInvestor(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -766,7 +788,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
             {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? setSelectedInvestor(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -832,7 +854,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {visibleFounders.map((founder, i) =>
-                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? setSelectedInvestor(founder) : setSelectedFounder(founder)} />
+                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
                   )}
                   {isLoadingMore &&
                     Array.from({ length: 3 }).map((_, i) =>
@@ -894,20 +916,24 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => setSelectedInvestor(null)}
-        onSelectPartner={(partner) => {
+        vcFirm={selectedVCFirm}
+        vcPartners={selectedVCFirm ? getVCPartners(selectedVCFirm.id) : []}
+        onSelectPerson={(person) => {
           setSelectedInvestor(null);
-          setTimeout(() => setSelectedPerson(partner), 200);
+          setSelectedVCFirm(null);
+          setTimeout(() => setSelectedVCPerson(person), 200);
         }}
+        onCloseVCFirm={() => setSelectedVCFirm(null)}
       />
       <PersonProfileModal
-        person={selectedPerson}
-        onClose={() => setSelectedPerson(null)}
+        person={selectedVCPerson}
+        firm={selectedVCPerson ? getFirmForPerson(selectedVCPerson.id) : null}
+        onClose={() => setSelectedVCPerson(null)}
         onNavigateToFirm={(firmId) => {
-          // Find the firm entry by firmId and navigate back
-          const firmEntry = mergedEntries.find(e => e.category === "investor" && e.name.toLowerCase() === firmId);
-          setSelectedPerson(null);
-          if (firmEntry) {
-            setTimeout(() => setSelectedInvestor(firmEntry), 200);
+          const firm = getFirmById(firmId);
+          setSelectedVCPerson(null);
+          if (firm) {
+            setTimeout(() => setSelectedVCFirm(firm), 200);
           }
         }}
       />

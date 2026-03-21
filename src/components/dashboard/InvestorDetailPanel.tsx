@@ -13,9 +13,10 @@ import { GeographicFocus } from "./investor-detail/GeographicFocus";
 import { InvestorAIInsightBanner } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
-import { INVESTOR_TABS, type InvestorTab, type InvestorEntry, type PartnerPerson } from "./investor-detail/types";
+import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
+import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 interface CompanyContext {
   name?: string;
@@ -30,54 +31,80 @@ interface InvestorDetailPanelProps {
   companyName?: string;
   companyData?: CompanyContext | null;
   onClose: () => void;
-  onSelectPartner?: (partner: PartnerPerson) => void;
+  vcFirm?: VCFirm | null;
+  vcPartners?: VCPerson[];
+  onSelectPerson?: (person: VCPerson) => void;
+  onCloseVCFirm?: () => void;
 }
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, companyData, onClose, onSelectPartner }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Updates");
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
 
-  const matchScore = investor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+  // Synthesize an investor entry from vcFirm when opened directly from omnibox
+  const effectiveInvestor: InvestorEntry | null = useMemo(() => {
+    if (investor) return investor;
+    if (!vcFirm) return null;
+    return {
+      name: vcFirm.name,
+      sector: vcFirm.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+      stage: vcFirm.stages?.join(", ") || "Multi-stage",
+      description: vcFirm.description || `${vcFirm.name} is an active investment firm.`,
+      location: "",
+      model: vcFirm.sweet_spot || vcFirm.aum || "",
+      initial: vcFirm.name.charAt(0).toUpperCase(),
+      matchReason: null,
+      category: "investor" as const,
+    };
+  }, [investor, vcFirm]);
+
+  const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+
+  const displayName = effectiveInvestor?.name || "";
 
   useEffect(() => {
-    if (!investor) { setEnrichedData(null); return; }
-    const key = investor.name.toLowerCase().trim();
+    if (!displayName) { setEnrichedData(null); return; }
+    const key = displayName.toLowerCase().trim();
     if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
     let cancelled = false;
-    enrich(investor.name).then(result => { if (!cancelled) setEnrichedData(result); });
+    enrich(displayName).then(result => { if (!cancelled) setEnrichedData(result); });
     return () => { cancelled = true; };
-  }, [investor?.name]);
+  }, [displayName]);
 
   const investorContext = useMemo(() => {
-    if (!investor) return null;
+    if (!effectiveInvestor) return null;
     const ep = enrichedData?.profile;
     return {
-      name: investor.name,
-      description: investor.description,
-      stage: ep?.stage || investor.stage,
-      sector: investor.sector,
-      checkSize: ep?.typicalCheckSize || investor.model,
+      name: effectiveInvestor.name,
+      description: effectiveInvestor.description,
+      stage: ep?.stage || effectiveInvestor.stage,
+      sector: effectiveInvestor.sector,
+      checkSize: ep?.typicalCheckSize || effectiveInvestor.model,
       recentDeals: ep?.recentDeals?.join(", ") || "",
       currentThesis: ep?.currentThesis || "",
       geography: ep?.geography || "",
       source: ep?.source || "",
     };
-  }, [investor, enrichedData]);
+  }, [effectiveInvestor, enrichedData]);
 
   const metaFacts = [
-    { label: "AUM", value: "$85B" },
-    { label: "HQ", value: investor?.location || "Menlo Park, CA" },
-    { label: "Team", value: "15" },
-    { label: "Founded", value: "1972" },
+    { label: "AUM", value: vcFirm?.aum || "$85B" },
+    { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
+    { label: "Team", value: vcPartners.length > 0 ? String(vcPartners.length) : "—" },
   ];
+
+  const handleClose = () => {
+    onClose();
+    onCloseVCFirm?.();
+  };
 
   return (
     <AnimatePresence>
-      {investor && (
+      {effectiveInvestor && (
         <>
           <motion.div
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
@@ -85,7 +112,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={onClose}
+            onClick={handleClose}
           />
 
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
@@ -107,11 +134,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                      {investor.initial}
+                      {effectiveInvestor.initial}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <h2 className="text-2xl font-bold text-foreground truncate">{investor.name}</h2>
+                        <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
                         {/* Match Score Badge */}
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-sm font-bold tracking-tight shadow-sm shrink-0">
@@ -120,8 +147,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{investor.stage}</Badge>
-                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{investor.sector}</Badge>
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">{effectiveInvestor.stage}</Badge>
+                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{effectiveInvestor.sector}</Badge>
                         <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
                           <Briefcase className="h-2.5 w-2.5 mr-0.5" /> Capital Deployer
                         </Badge>
@@ -146,7 +173,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <MessageSquare className="h-4 w-4" /> Request Intro
                     </button>
                     <button
-                      onClick={onClose}
+                      onClick={handleClose}
                       className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary/60 transition-colors ml-1"
                     >
                       <X className="h-4 w-4 text-muted-foreground" />
@@ -160,7 +187,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 <div className="px-8 py-6 space-y-5">
                   {/* AI Compatibility Banner */}
                   <InvestorAIInsightBanner
-                    firmName={investor.name}
+                    firmName={effectiveInvestor.name}
                     matchScore={matchScore}
                     companyContext={companyData}
                     investorContext={investorContext}
@@ -190,7 +217,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={investor.name} />
+                        <InvestorActivity firmName={effectiveInvestor.name} />
                       </motion.div>
                     )}
 
@@ -293,13 +320,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <InvestorPartnersTab firmName={investor.name} onSelectPartner={onSelectPartner} />
+                        <InvestorPartnersTab firmId={vcFirm?.id || ""} firmName={effectiveInvestor.name} partners={vcPartners} onSelectPerson={onSelectPerson} />
                       </motion.div>
                     )}
 
                     {activeTab === "Connections" && (
                       <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <ConnectionsTab investorName={investor.name} currentUserId={session?.user?.id} />
+                        <ConnectionsTab investorName={effectiveInvestor.name} currentUserId={session?.user?.id} />
                       </motion.div>
                     )}
                   </AnimatePresence>
