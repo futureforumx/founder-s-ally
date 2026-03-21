@@ -340,4 +340,4 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
       )}
     </div>
   );
-}
+});
