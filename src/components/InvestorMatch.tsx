@@ -181,6 +181,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState<string | undefined>();
+  const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
 
   // Get current user ID
   useEffect(() => {
