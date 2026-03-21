@@ -35,24 +35,6 @@ interface InsightItem {
   detail: string;
 }
 
-function parseInsightItems(text: string): InsightItem[] {
-  // Try to extract bullet-point style items from AI response
-  const lines = text.split(/[.!]\s+/).filter(l => l.trim().length > 10);
-  const items: InsightItem[] = [];
-  
-  for (const line of lines.slice(0, 3)) {
-    const trimmed = line.trim();
-    const isWarning = /however|but|caution|risk|nuance|concern|challenge|careful|narrow|broad/i.test(trimmed);
-    items.push({
-      type: isWarning ? "warning" : "match",
-      label: isWarning ? "Consideration" : "Alignment",
-      detail: trimmed.replace(/^[-•*]\s*/, ""),
-    });
-  }
-  
-  return items.length > 0 ? items : [];
-}
-
 const FALLBACK_ITEMS: InsightItem[] = [
   { type: "match", label: "Sweet Spot Match", detail: "Their $1M–$50M range aligns with your Seed ask." },
   { type: "match", label: "Stage Alignment", detail: "Active focus on Pre-Seed and Seed rounds." },
@@ -62,22 +44,27 @@ const FALLBACK_ITEMS: InsightItem[] = [
 export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, investorContext }: InvestorAIInsightProps) {
   const [items, setItems] = useState<InsightItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!companyContext?.name || !firmName) return;
+    if (!companyContext?.name || !firmName) {
+      setItems(FALLBACK_ITEMS);
+      return;
+    }
 
-    const cacheKey = `compat_${firmName.toLowerCase().trim()}_${companyContext.name.toLowerCase().trim()}`;
+    const cacheKey = `compat_v2_${firmName.toLowerCase().trim()}_${companyContext.name.toLowerCase().trim()}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
-      const parsed = parseInsightItems(cached);
-      setItems(parsed.length > 0 ? parsed : FALLBACK_ITEMS);
-      return;
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setItems(parsed);
+          return;
+        }
+      } catch { /* fall through */ }
     }
 
     let cancelled = false;
     setLoading(true);
-    setError(false);
 
     (async () => {
       try {
@@ -103,19 +90,23 @@ export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, 
 
         if (cancelled) return;
 
-        if (fnError || !data?.insight) {
-          setError(true);
-          setItems(FALLBACK_ITEMS);
-        } else {
-          sessionStorage.setItem(cacheKey, data.insight);
-          const parsed = parseInsightItems(data.insight);
-          setItems(parsed.length > 0 ? parsed : FALLBACK_ITEMS);
+        if (!fnError && data?.criteria && Array.isArray(data.criteria) && data.criteria.length > 0) {
+          const validated: InsightItem[] = data.criteria
+            .filter((c: any) => c.type && c.label && c.detail)
+            .map((c: any) => ({
+              type: c.type === "warning" ? "warning" as const : "match" as const,
+              label: c.label,
+              detail: c.detail,
+            }));
+          if (validated.length > 0) {
+            setItems(validated);
+            sessionStorage.setItem(cacheKey, JSON.stringify(validated));
+            return;
+          }
         }
+        setItems(FALLBACK_ITEMS);
       } catch {
-        if (!cancelled) {
-          setError(true);
-          setItems(FALLBACK_ITEMS);
-        }
+        if (!cancelled) setItems(FALLBACK_ITEMS);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -124,7 +115,6 @@ export function InvestorAIInsightBanner({ firmName, matchScore, companyContext, 
     return () => { cancelled = true; };
   }, [firmName, companyContext?.name]);
 
-  // Show fallback if no company context
   const displayItems = items.length > 0 ? items : FALLBACK_ITEMS;
 
   return (
