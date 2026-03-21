@@ -14,6 +14,7 @@ export interface LiveInvestorEntry {
   category: "investor";
   dataSource: "verified" | "live";
   lastSynced: Date;
+  logo_url?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
