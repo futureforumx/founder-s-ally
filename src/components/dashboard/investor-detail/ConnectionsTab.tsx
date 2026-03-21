@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle } from "lucide-react";
+import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle, Mail, Clock, ArrowRight, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Connection {
@@ -89,39 +90,94 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
       transition={{ duration: 0.15 }}
       className="space-y-5"
     >
-      {/* Tier 1: Vibe Check Bento */}
+      {/* Tier 1: Community Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Network */}
+        {/* Card 1: Network Reach */}
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-primary/60 mb-2">In the Network</p>
-          <div className="flex items-center gap-2 mb-1">
-            <Users className="w-5 h-5 text-primary/70" />
-            <span className="text-4xl font-black text-foreground leading-none">14</span>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="w-4 h-4 text-primary" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 font-semibold">Network Reach</p>
           </div>
-          <p className="text-[10px] text-muted-foreground">Portfolio founders are active on this platform.</p>
+          <span className="text-5xl font-black text-foreground leading-none">14</span>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Connected founders in the community</p>
+          <div className="space-y-1.5 border-t border-primary/10 pt-3">
+            <div className="flex items-center gap-2">
+              <ThumbsUp className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">8</span> raised from this investor</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-3 h-3 text-accent" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">4</span> emailed / engaged</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-3 h-3 text-warning" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">2</span> pending intro opportunities</span>
+            </div>
+          </div>
         </div>
 
-        {/* Founder Rating */}
+        {/* Card 2: Community Rating */}
         <div className="rounded-2xl border border-success/20 bg-success/5 p-5">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-success/60 mb-2">Founder Rating</p>
-          <Star className="w-6 h-6 fill-success text-success mb-1.5" />
-          <span className="text-4xl font-black text-foreground leading-none">4.8</span>
-          <span className="text-sm font-semibold text-muted-foreground">/5</span>
-          <p className="text-[10px] text-muted-foreground mt-1">Top trait: <span className="font-semibold text-foreground">Fast Conviction</span></p>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
+              <Star className="w-4 h-4 fill-success text-success" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-success/70 font-semibold">Community Rating</p>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-5xl font-black text-foreground leading-none">4.8</span>
+            <span className="text-lg font-semibold text-muted-foreground">/5</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Based on 23 founder reviews</p>
+          <div className="space-y-1.5 border-t border-success/10 pt-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Top trait: <span className="font-semibold text-foreground">Fast Conviction</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Trending <span className="font-semibold text-success">+0.3</span> over 30 days</span>
+            </div>
+          </div>
         </div>
 
-        {/* Market Pulse */}
-        <div className="rounded-2xl border border-border bg-secondary/50 p-5">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Market Pulse</p>
-          <div className="flex items-center gap-2 mb-1.5">
+        {/* Card 3: Social Sentiment */}
+        <div className="rounded-2xl border border-success/20 bg-success/5 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
+              <MessageCircle className="w-4 h-4 text-success" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-success/70 font-semibold">Social Sentiment</p>
+          </div>
+          <div className="flex items-center gap-2.5 mb-1">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
             </span>
-            <span className="text-sm font-bold text-success">Highly Positive</span>
+            <span className="text-2xl font-black text-success leading-none">Highly Positive</span>
           </div>
-          <p className="text-[10px] text-muted-foreground leading-relaxed">Recent PR highlights their aggressive deployment in early-stage AI.</p>
+          <p className="text-[10px] text-muted-foreground mt-2 mb-3">Across founder chatter, PR, and social signals</p>
+          <div className="border-t border-success/10 pt-3">
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Recent activity highlights aggressive early-stage AI deployment and strong founder engagement post-close.
+            </p>
+          </div>
         </div>
+      </div>
+
+      {/* CTA below cards */}
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" className="text-xs gap-1.5">
+          <Users className="h-3 w-3" />
+          Explore founder connections
+          <ArrowRight className="h-3 w-3" />
+        </Button>
+        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1.5">
+          See sentiment drivers
+          <ArrowRight className="h-3 w-3" />
+        </Button>
       </div>
 
       {/* Tier 2: Warm Connections */}
