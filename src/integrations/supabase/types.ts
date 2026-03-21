@@ -325,6 +325,7 @@ export type Database = {
           lead_or_follow: string | null
           lead_partner: string | null
           location: string | null
+          logo_url: string | null
           market_sentiment: string | null
           max_check_size: number | null
           min_check_size: number | null
@@ -345,6 +346,7 @@ export type Database = {
           lead_or_follow?: string | null
           lead_partner?: string | null
           location?: string | null
+          logo_url?: string | null
           market_sentiment?: string | null
           max_check_size?: number | null
           min_check_size?: number | null
@@ -365,6 +367,7 @@ export type Database = {
           lead_or_follow?: string | null
           lead_partner?: string | null
           location?: string | null
+          logo_url?: string | null
           market_sentiment?: string | null
           max_check_size?: number | null
           min_check_size?: number | null
