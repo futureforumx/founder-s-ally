@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, ArrowLeft, Building2, Linkedin, ExternalLink, Sparkles,
-  Users, BookOpen, ChevronRight, Mail,
+  X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
+  BookOpen, ExternalLink, Sparkles, Target, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
 
 interface PersonProfileModalProps {
@@ -14,7 +16,38 @@ interface PersonProfileModalProps {
   onNavigateToFirm: (firmId: string) => void;
 }
 
+/* ── Mock data for personal intelligence ── */
+const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
+
+const MOCK_DEALS = [
+  { company: "Ramp", round: "Series A", logo: "R" },
+  { company: "Vanta", round: "Seed", logo: "V" },
+  { company: "Lattice", round: "Series A", logo: "L" },
+  { company: "Notion", round: "Seed", logo: "N" },
+];
+
+const MOCK_STAGES = ["Pre-Seed", "Seed", "Series A"];
+const MOCK_SECTORS = ["B2B SaaS", "Fintech", "Developer Tools", "Vertical Software"];
+const MOCK_QUALITIES = ["Product-led growth", "Technical founders", "Workflow automation", "Regulated markets"];
+
+const MOCK_ARTICLES = [
+  { title: "Why Vertical SaaS Will Win the Next Decade", domain: "substack.com", date: "Mar 2026" },
+];
+const MOCK_TWEETS = [
+  "Seeing an incredible wave of AI-native vertical SaaS companies. The best ones aren't just adding AI — they're rethinking the entire workflow.",
+];
+
+const SOCIALS = [
+  { icon: Linkedin, label: "LinkedIn", hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]" },
+  { icon: Twitter, label: "X", hoverClass: "hover:border-foreground/40 hover:text-foreground" },
+  { icon: Globe, label: "Website", hoverClass: "hover:border-accent/40 hover:text-accent" },
+] as const;
+
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
+  const [emailRevealed, setEmailRevealed] = useState(false);
+
+  const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
+
   return (
     <AnimatePresence>
       {person && (
@@ -30,13 +63,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
-              className="pointer-events-auto max-w-3xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
+              className="pointer-events-auto max-w-4xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
               initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
-              {/* Back + Close */}
+              {/* Top bar */}
               <div className="px-8 pt-5 pb-0 flex items-center justify-between shrink-0">
                 {firm && (
                   <button
@@ -55,95 +88,180 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 </button>
               </div>
 
-              {/* Header */}
-              <div className="px-8 pt-5 pb-6 border-b border-border shrink-0">
-                <div className="flex items-center gap-5">
-                  <Avatar className="h-20 w-20 border-2 border-border shadow-sm">
-                    <AvatarFallback className="text-2xl font-bold bg-secondary text-muted-foreground">
-                      {person.full_name.split(" ").map(n => n[0]).join("")}
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-8 py-6">
+                {/* ── Hero Header ── */}
+                <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
+                  <Avatar className="h-20 w-20 rounded-2xl border-2 border-border shadow-sm shrink-0">
+                    <AvatarFallback className="rounded-2xl text-2xl font-bold bg-secondary text-muted-foreground">
+                      {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">{person.title || "Investor"}</p>
-
-                    {firm && (
-                      <button
-                        onClick={() => onNavigateToFirm(firm.id)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 mt-2.5 bg-secondary/50 border border-border rounded-lg hover:bg-accent/10 hover:border-accent/30 cursor-pointer transition-colors"
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center rounded bg-muted border border-border">
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                        <span className="text-xs font-medium text-foreground">
-                          {person.title || "Partner"} at <span className="text-accent">{firm.name}</span>
-                        </span>
-                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    )}
-
-                    {firm?.sectors && firm.sectors.length > 0 && (
-                      <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
-                        {firm.sectors.slice(0, 4).map(s => (
-                          <Badge key={s} variant="secondary" className="text-[10px] px-2 py-0.5">{s}</Badge>
-                        ))}
-                      </div>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>
+                      <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> San Francisco, CA
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {firm && (
+                        <button
+                          onClick={() => onNavigateToFirm(firm.id)}
+                          className="bg-accent/10 text-accent hover:bg-accent/20 px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                        >
+                          🏛️ {firm.name}
+                        </button>
+                      )}
+                      <span className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-default">
+                        👔 {person.title || "Investor"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-                {person.email && (
-                  <div>
-                    <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      Contact
-                    </h4>
-                    <a
-                      href={`mailto:${person.email}`}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card hover:border-accent/30 hover:shadow-sm transition-all text-sm font-medium text-foreground"
+                {/* ── Quick-Contact Bar ── */}
+                <div className="flex flex-wrap gap-3 mb-6">
+                  {person.email ? (
+                    emailRevealed ? (
+                      <a
+                        href={`mailto:${person.email}`}
+                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                      >
+                        <Mail className="w-4 h-4" /> {person.email}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => setEmailRevealed(true)}
+                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                      >
+                        <Mail className="w-4 h-4" /> Get Email
+                      </button>
+                    )
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="inline-flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-xl text-sm font-semibold cursor-not-allowed opacity-60">
+                            <Mail className="w-4 h-4" /> Email Unavailable
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>No email on file for this investor.</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {SOCIALS.map(({ icon: Icon, label, hoverClass }) => (
+                    <button
+                      key={label}
+                      title={label}
+                      className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border border-border bg-card text-muted-foreground transition-all duration-200 hover:scale-105 ${hoverClass}`}
                     >
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {person.email}
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    </a>
-                  </div>
-                )}
+                      <Icon className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
 
-                {firm && (
-                  <div>
-                    <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
-                      <Building2 className="h-3 w-3 inline mr-1" /> Firm Details
-                    </h4>
-                    <div className="rounded-xl bg-secondary/30 border border-border p-4 space-y-3">
-                      {firm.description && (
-                        <p className="text-sm text-foreground leading-relaxed">{firm.description}</p>
-                      )}
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        {firm.aum && (
-                          <div>
-                            <span className="text-muted-foreground text-xs">AUM</span>
-                            <p className="font-medium text-foreground">{firm.aum}</p>
+                {/* ── 2-Column Bento Body ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column (2 cols) */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Background */}
+                    <div>
+                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Background</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{MOCK_BIO}</p>
+                    </div>
+
+                    {/* Led or Sponsored Deals */}
+                    <div>
+                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Led or Sponsored Deals</h4>
+                      <div className="space-y-0 rounded-xl border border-border overflow-hidden">
+                        {MOCK_DEALS.map((deal, i) => (
+                          <div
+                            key={deal.company}
+                            className={`flex items-center gap-3 px-4 py-3 hover:bg-secondary/40 transition-colors group ${
+                              i < MOCK_DEALS.length - 1 ? "border-b border-border" : ""
+                            }`}
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
+                              {deal.logo}
+                            </div>
+                            <span className="text-sm font-semibold text-foreground flex-1">{deal.company}</span>
+                            <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{deal.round}</Badge>
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
-                        )}
-                        {firm.sweet_spot && (
-                          <div>
-                            <span className="text-muted-foreground text-xs">Sweet Spot</span>
-                            <p className="font-medium text-foreground">{firm.sweet_spot}</p>
-                          </div>
-                        )}
+                        ))}
                       </div>
-                      {firm.stages && firm.stages.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {firm.stages.map(st => (
-                            <Badge key={st} variant="outline" className="text-[10px]">{st}</Badge>
+                    </div>
+                  </div>
+
+                  {/* Right Column (1 col) */}
+                  <div className="lg:col-span-1 space-y-6">
+                    {/* Personal Focus */}
+                    <div className="bg-secondary/30 p-5 rounded-2xl border border-border">
+                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Personal Focus</h4>
+
+                      <div className="mb-3">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Stage</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {MOCK_STAGES.map(s => (
+                            <span key={s} className="bg-accent/10 text-accent text-[10px] px-2 py-0.5 rounded-full font-medium">{s}</span>
                           ))}
                         </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Sector</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {MOCK_SECTORS.map(s => (
+                            <span key={s} className="bg-secondary text-secondary-foreground text-[10px] px-2 py-0.5 rounded-full font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Qualities</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {MOCK_QUALITIES.map(q => (
+                            <span key={q} className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5" /> {q}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Latest Insights */}
+                    <div className="border border-border p-5 rounded-2xl">
+                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Latest Insights</h4>
+
+                      {MOCK_ARTICLES.length > 0 ? (
+                        <div className="space-y-3">
+                          {MOCK_ARTICLES.map((article, i) => (
+                            <div key={i} className="flex items-start gap-2.5 group cursor-pointer">
+                              <BookOpen className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground group-hover:text-accent transition-colors line-clamp-2">{article.title}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{article.domain} · {article.date}</p>
+                              </div>
+                            </div>
+                          ))}
+
+                          {MOCK_TWEETS.map((tweet, i) => (
+                            <div key={i} className="bg-secondary/40 rounded-xl p-3 border-l-2 border-muted-foreground/20">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <Twitter className="w-3 h-3 text-muted-foreground" />
+                                <span className="text-[10px] font-semibold text-muted-foreground">Recent post</span>
+                              </div>
+                              <p className="text-xs text-foreground/80 leading-relaxed italic">"{tweet}"</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">No recent public publications detected.</p>
                       )}
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </motion.div>
           </div>
