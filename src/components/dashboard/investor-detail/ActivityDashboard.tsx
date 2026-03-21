@@ -55,6 +55,33 @@ const RECENT_DEALS: RecentDeal[] = [
   { company: "CodeVault", initial: "C", description: "Developer security tooling", amount: "$1.5M", stage: "Pre-Seed", role: "Participated", date: "Dec 2025", sector: "DevTools" },
 ];
 
+type SortField = "date" | "stage" | "sector";
+type SortDir = "asc" | "desc";
+
+const STAGE_ORDER: Record<string, number> = { "Pre-Seed": 0, "Seed": 1, "Series A": 2, "Series B": 3, "Series C": 4 };
+
+const MONTH_ORDER: Record<string, number> = {
+  "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+  "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+};
+
+function parseDateValue(d: string): number {
+  const parts = d.split(" ");
+  const month = MONTH_ORDER[parts[0]] || 0;
+  const year = parseInt(parts[1] || "2025", 10);
+  return year * 100 + month;
+}
+
+function sortDeals(deals: RecentDeal[], field: SortField, dir: SortDir): RecentDeal[] {
+  return [...deals].sort((a, b) => {
+    let cmp = 0;
+    if (field === "date") cmp = parseDateValue(a.date) - parseDateValue(b.date);
+    else if (field === "stage") cmp = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
+    else cmp = a.sector.localeCompare(b.sector);
+    return dir === "desc" ? -cmp : cmp;
+  });
+}
+
 const stageColor = (stage: string) => {
   if (stage.toLowerCase().includes("seed") || stage.toLowerCase().includes("pre-seed")) return "bg-success/15 text-success border-success/20";
   if (stage.toLowerCase().includes("series a")) return "bg-accent/15 text-accent border-accent/20";
