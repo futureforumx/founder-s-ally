@@ -31,6 +31,7 @@ const REGION_STYLES = {
 
 export function GeographicFocus() {
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const [hoveredSpot, setHoveredSpot] = useState<string | null>(null);
   return (
     <div className="rounded-xl border border-border bg-card p-5 pb-4 flex flex-col">
       <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
