@@ -305,29 +305,85 @@ export function PortfolioTab({ companySector }: PortfolioTabProps) {
         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
           Recent Investments
         </h4>
+
+        {/* Filter Bar */}
+        <div className="flex items-center justify-between pb-3 border-b border-border mb-2">
+          <div className="relative w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 text-xs bg-secondary/50 border-border"
+            />
+          </div>
+          <Select value={sectorFilter} onValueChange={setSectorFilter}>
+            <SelectTrigger className="w-36 h-8 text-xs">
+              <SelectValue placeholder="All Sectors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sectors</SelectItem>
+              {allSectors.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
-          {RECENT_INVESTMENTS.map((co) => (
-            <div
-              key={co.name}
-              className="group flex items-center justify-between rounded-xl border border-border bg-card p-3 hover:bg-secondary/40 hover:shadow-sm cursor-pointer transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <FaviconAvatar website={co.website} name={co.name} />
-                <div>
-                  <span className="text-sm font-medium text-foreground">{co.name}</span>
-                  <div className="flex gap-1.5 mt-0.5">
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+          {filteredInvestments.map((co) => {
+            const isSectorMatch = companySector && co.sector.toLowerCase().includes(companySector.toLowerCase());
+            return (
+              <div
+                key={co.name}
+                className={`group flex items-center justify-between rounded-xl border bg-card p-3 hover:shadow-sm cursor-pointer transition-all ${
+                  isSectorMatch
+                    ? "bg-primary/5 border-l-4 border-l-primary border-t-border border-r-border border-b-border"
+                    : "border-border hover:bg-secondary/40"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <CompanyLogo website={co.website} name={co.name} />
+                  <div className="max-w-md">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-foreground">{co.name}</span>
+                      {isSectorMatch && (
+                        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary">
+                          <Sparkles className="w-2.5 h-2.5" /> Relevant Comp
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
+                    <div className="flex gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">{co.stage}</Badge>
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{co.sector}</Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-secondary border border-border flex items-center justify-center text-[7px] font-bold text-muted-foreground shrink-0">
+                      {co.partner.charAt(0)}
+                    </div>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Led by {co.partner}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{co.date}</span>
+                    <span className="text-sm font-semibold text-foreground">{co.amount}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      co.role === "LEAD" ? "bg-primary/10 text-primary" :
+                      co.role === "CO-LED" ? "bg-accent/10 text-accent" :
+                      "bg-secondary text-muted-foreground"
+                    }`}>{co.role}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground font-medium">{co.date}</span>
-                <span className="text-sm font-semibold text-foreground">{co.amount}</span>
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
+          {filteredInvestments.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-6">No investments match your filters.</p>
+          )}
         </div>
       </div>
     </div>
