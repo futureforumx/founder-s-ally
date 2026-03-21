@@ -38,6 +38,12 @@ const SCOPE_RECOMMENDATIONS: Record<EntityScope, string[]> = {
     "Second-time founders in Climate Tech",
     "YC alumni building in healthcare",
   ],
+  operators: [
+    "VP Engineering with B2B SaaS experience",
+    "Fractional CFOs for Seed-stage startups",
+    "Growth leads from fintech backgrounds",
+    "Operators who've scaled to Series B",
+  ],
   investors: [
     "Active Pre-Seed climate funds",
     "Investors who lead Seed rounds in SaaS",

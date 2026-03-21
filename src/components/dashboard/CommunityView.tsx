@@ -164,6 +164,10 @@ const SCOPE_PLACEHOLDERS: Record<EntityScope, string[]> = {
   'Search founders or try "Technical co-founders in NYC..."',
   'Try "Solo founders with enterprise traction..."'],
 
+  operators: [
+  'Search operators or try "VP Eng scaling SaaS..."',
+  'Try "Fractional CFOs for early-stage startups..."'],
+
   investors: [
   'Search investors or try "Active Pre-Seed climate funds..."',
   'Try "Lead investors for Seed rounds in SaaS..."'],
