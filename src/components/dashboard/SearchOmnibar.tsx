@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, forwardRef } from "react";
 import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -76,7 +76,7 @@ function addToSearchHistory(term: string) {
   localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
 }
 
-export function SearchOmnibar({ value, onChange, scope, placeholder }: SearchOmnibarProps) {
+export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(function SearchOmnibar({ value, onChange, scope, placeholder }, _ref) {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [aiResults, setAiResults] = useState<SearchResult[]>([]);
@@ -340,4 +340,4 @@ export function SearchOmnibar({ value, onChange, scope, placeholder }: SearchOmn
       )}
     </div>
   );
-}
+});

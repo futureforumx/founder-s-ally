@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock, Bookmark, BookmarkCheck, X, Users } from "lucide-react";
@@ -104,7 +105,7 @@ function formatVerifiedDate(iso: string): string {
   }
 }
 
-export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip }: MatchesTabProps) {
+export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs, onSave, onUnsave, onSkip }, _ref) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
@@ -273,4 +274,4 @@ export function MatchesTab({ scoredInvestors, bannerText, enrichedData, enrichin
       </div>
     </div>
   );
-}
+});
