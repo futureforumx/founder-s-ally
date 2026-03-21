@@ -476,7 +476,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       default: // "all"
         return investors;
     }
-  }, [filteredAll, activeInvestorTab, userStage, userSector, isInvestorSearch]);
+  }, [filteredAll, activeInvestorTab, userStage, userSector, companyData?.subsectors, isInvestorSearch]);
 
   // Use tab-filtered list for investor-search, otherwise the standard filteredAll
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
