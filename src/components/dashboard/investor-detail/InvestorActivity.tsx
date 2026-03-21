@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import {
   CircleDollarSign, RefreshCw, Newspaper, ArrowUpRight, Loader2,
-  Calendar, Bookmark, Eye, UserPlus, MessageSquare, AtSign, Heart, Repeat2,
+  Bookmark, Eye, UserPlus, MessageSquare, AtSign, Heart, Repeat2,
+  TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -49,13 +50,12 @@ function getTweets(firmName: string): TweetItem[] {
   ];
 }
 
-function getCommunityItems(firmName: string): CommunityItem[] {
+function getCommunityItems(): CommunityItem[] {
   return [
     { action: "saved", actor: "3 founders", time: "2h" },
     { action: "viewed", actor: "12 founders", time: "today" },
     { action: "added_to_cap_table", actor: "1 company", time: "1d" },
     { action: "requested_intro", actor: "2 founders", time: "3d" },
-    { action: "viewed", actor: "8 founders", time: "this week" },
   ];
 }
 
@@ -81,6 +81,19 @@ const COMMUNITY_LABELS: Record<CommunityItem["action"], string> = {
   requested_intro: "Requested intro",
 };
 
+// ── Analytics Pill ──
+function StatPill({ value, label, trend }: { value: string; label: string; trend?: "up" | "down" | "flat" }) {
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+  const trendColor = trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-secondary/60 border border-border/50">
+      <span className="text-xs font-bold text-foreground leading-none">{value}</span>
+      <span className="text-[9px] text-muted-foreground leading-none">{label}</span>
+      {trend && <TrendIcon className={`h-2.5 w-2.5 ${trendColor}`} />}
+    </div>
+  );
+}
+
 export function InvestorActivity({ firmName }: { firmName: string }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
@@ -92,12 +105,14 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
 
   const news = getNewsItems(firmName);
   const tweets = getTweets(firmName);
-  const community = getCommunityItems(firmName);
+  const community = getCommunityItems();
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => { setLastRefreshed(new Date()); setIsRefreshing(false); }, 1200);
   };
+
+  const totalEngagement = tweets.reduce((s, t) => s + t.likes + t.retweets, 0);
 
   return (
     <div className="space-y-2">
@@ -122,61 +137,70 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
       {/* 3-Column Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* ── COL 1: NEWS ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Newspaper className="h-3 w-3" /> News
-          </h4>
-          <div className="space-y-1.5">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Newspaper className="h-3 w-3" /> News
+            </h4>
+          </div>
+          {/* Analytics row */}
+          <div className="flex flex-wrap gap-1.5">
+            <StatPill value="5" label="mentions" trend="up" />
+            <StatPill value="3" label="sources" trend="flat" />
+            <StatPill value="2" label="this week" trend="up" />
+          </div>
+          {/* Feed */}
+          <div className="space-y-0">
             {news.map((item, i) => {
               const cfg = NEWS_TYPE_CONFIG[item.type];
               return (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 py-1.5 border-b border-border/50 last:border-0 group cursor-pointer"
-                >
+                <div key={i} className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium text-foreground leading-tight line-clamp-2 group-hover:text-accent transition-colors">
+                    <p className="text-[10px] font-medium text-foreground leading-tight line-clamp-1 group-hover:text-accent transition-colors">
                       {item.title}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Badge className={`text-[8px] px-1 py-0 leading-tight ${cfg.cls}`}>{cfg.label}</Badge>
-                      <span className="text-[9px] text-muted-foreground">{item.source}</span>
-                      <span className="text-[9px] text-muted-foreground/50">·</span>
-                      <span className="text-[9px] text-muted-foreground">{item.time}</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Badge className={`text-[7px] px-1 py-0 leading-tight ${cfg.cls}`}>{cfg.label}</Badge>
+                      <span className="text-[8px] text-muted-foreground">{item.source}</span>
+                      <span className="text-[8px] text-muted-foreground/50">·</span>
+                      <span className="text-[8px] text-muted-foreground">{item.time}</span>
                     </div>
                   </div>
-                  <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-accent transition-colors" />
+                  <ArrowUpRight className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-accent transition-colors" />
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* ── COL 2: SOCIAL (X/Twitter) ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <AtSign className="h-3 w-3" /> Social
-          </h4>
-          <div className="space-y-1.5">
+        {/* ── COL 2: SOCIAL ── */}
+        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <AtSign className="h-3 w-3" /> Social
+            </h4>
+          </div>
+          {/* Analytics row */}
+          <div className="flex flex-wrap gap-1.5">
+            <StatPill value={String(totalEngagement)} label="engagements" trend="up" />
+            <StatPill value={String(tweets.length)} label="posts" trend="flat" />
+          </div>
+          {/* Feed */}
+          <div className="space-y-0">
             {tweets.map((tweet, i) => (
-              <div
-                key={i}
-                className="py-1.5 border-b border-border/50 last:border-0"
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-semibold text-accent">{tweet.handle}</span>
-                  <span className="text-[9px] text-muted-foreground/50">·</span>
-                  <span className="text-[9px] text-muted-foreground">{tweet.time}</span>
+              <div key={i} className="py-1 border-b border-border/40 last:border-0">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="text-[9px] font-semibold text-accent">{tweet.handle}</span>
+                  <span className="text-[8px] text-muted-foreground/50">·</span>
+                  <span className="text-[8px] text-muted-foreground">{tweet.time}</span>
                 </div>
-                <p className="text-[11px] text-foreground/80 leading-tight line-clamp-2">
-                  {tweet.text}
-                </p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
-                    <Heart className="h-2.5 w-2.5" /> {tweet.likes}
+                <p className="text-[10px] text-foreground/80 leading-tight line-clamp-1">{tweet.text}</p>
+                <div className="flex items-center gap-2.5 mt-0.5">
+                  <span className="flex items-center gap-0.5 text-[8px] text-muted-foreground">
+                    <Heart className="h-2 w-2" /> {tweet.likes}
                   </span>
-                  <span className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
-                    <Repeat2 className="h-2.5 w-2.5" /> {tweet.retweets}
+                  <span className="flex items-center gap-0.5 text-[8px] text-muted-foreground">
+                    <Repeat2 className="h-2 w-2" /> {tweet.retweets}
                   </span>
                 </div>
               </div>
@@ -185,46 +209,40 @@ export function InvestorActivity({ firmName }: { firmName: string }) {
         </div>
 
         {/* ── COL 3: COMMUNITY ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-          <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <UserPlus className="h-3 w-3" /> Community
-          </h4>
+        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <UserPlus className="h-3 w-3" /> Community
+            </h4>
+          </div>
+          {/* Analytics row */}
+          <div className="flex flex-wrap gap-1.5">
+            <StatPill value="27" label="views" trend="up" />
+            <StatPill value="5" label="saves" trend="up" />
+            <StatPill value="2" label="intros" trend="flat" />
+          </div>
+          {/* Timeline */}
           <div className="space-y-0">
             {community.map((item, i) => {
               const Icon = COMMUNITY_ICONS[item.action];
               return (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 py-2 relative"
-                >
+                <div key={i} className="flex items-center gap-1.5 py-1 relative">
                   {i < community.length - 1 && (
-                    <div className="absolute left-[9px] top-7 bottom-0 w-px bg-border" />
+                    <div className="absolute left-[7px] top-5 bottom-0 w-px bg-border" />
                   )}
-                  <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-secondary border border-border z-10">
-                    <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+                  <div className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-secondary border border-border z-10">
+                    <Icon className="h-2 w-2 text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] text-foreground leading-tight">
+                    <p className="text-[10px] text-foreground leading-tight">
                       <span className="font-semibold">{item.actor}</span>{" "}
                       <span className="text-muted-foreground">{COMMUNITY_LABELS[item.action].toLowerCase()}</span>
+                      <span className="text-muted-foreground/50 ml-1">· {item.time}</span>
                     </p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{item.time}</p>
                   </div>
                 </div>
               );
             })}
-          </div>
-
-          {/* Mini stats */}
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
-            <div className="text-center py-1">
-              <p className="text-sm font-bold text-foreground">27</p>
-              <p className="text-[9px] text-muted-foreground">Views this week</p>
-            </div>
-            <div className="text-center py-1">
-              <p className="text-sm font-bold text-foreground">5</p>
-              <p className="text-[9px] text-muted-foreground">Saves this week</p>
-            </div>
           </div>
         </div>
       </div>
