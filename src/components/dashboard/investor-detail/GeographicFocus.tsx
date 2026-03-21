@@ -133,19 +133,26 @@ export function GeographicFocus() {
         </svg>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-1.5">
-        {REGIONS.map((region) => (
-          <Badge
-            key={region.label}
-            className={`text-[9px] px-2 py-0.5 font-medium ${REGION_STYLES[region.type]}`}
-          >
-            {region.type === "primary" && "● "}
-            {region.type === "secondary" && "○ "}
-            {region.type === "none" && "✕ "}
-            {region.label}
-          </Badge>
-        ))}
+      {/* Region buttons — anchored bottom */}
+      <div className="grid grid-cols-3 gap-2 mt-4">
+        {REGIONS.map((region) => {
+          const isActive = activeRegion === region.label;
+          const styles = REGION_STYLES[region.type];
+          return (
+            <button
+              key={region.label}
+              onClick={() => setActiveRegion(isActive ? null : region.label)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[10px] font-semibold transition-all cursor-pointer ${
+                isActive ? styles.active : styles.base
+              }`}
+            >
+              {region.type === "primary" && "●"}
+              {region.type === "secondary" && "○"}
+              {region.type === "none" && "✕"}
+              {region.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
