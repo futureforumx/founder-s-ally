@@ -11,11 +11,11 @@ interface AppSidebarProps {
 }
 
 const topItems = [
-  { id: "dashboard" as const, label: "Dashboard", icon: Gauge },
+  { id: "dashboard" as const, label: "Mission Control", icon: Gauge },
 ];
 
 const companyItems = [
-  { id: "company" as const, label: "Mission Control", icon: Building2 },
+  { id: "company" as const, label: "Company Settings", icon: Building2 },
   { id: "competitors" as const, label: "Competitors", icon: Swords },
   { id: "sector" as const, label: "Sector", icon: Layers },
   { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
