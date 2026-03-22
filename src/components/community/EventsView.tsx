@@ -353,7 +353,7 @@ export function EventsView() {
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Events</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Community meetups, workshops, and networking events</p>
         </div>
-        <CreateEventDialog onCreated={fetchEvents} />
+        <CreateEventDialog onCreated={fetchEvents} defaults={defaults} />
       </div>
 
       <div className="flex gap-1 border-b border-border/60 pb-0">
