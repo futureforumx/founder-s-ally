@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
