@@ -89,7 +89,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => setInvestorsOpen(!investorsOpen)}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "investors" || activeView === "investor-search")
+              (activeView === "investors" || activeView === "investor-search" || activeView === "connections")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
