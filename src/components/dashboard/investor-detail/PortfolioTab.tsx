@@ -395,7 +395,7 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
                   </div>
 
                   {/* Col 6: Investor (2 cols) */}
-                  <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-start md:justify-end">
+                  <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
                     {co.partnerInDb ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
