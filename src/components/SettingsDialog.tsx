@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2
+  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
+import { toast } from "sonner";
 
 type SettingsTab = "account" | "company" | "connections" | "notifications" | "billing";
 
@@ -107,7 +110,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <div className="flex-1 overflow-y-auto p-6">
             <AnimatePresence mode="wait">
               {activeTab === "account" && (
-                <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} />
+                <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} />
               )}
               {activeTab === "connections" && <ConnectionsTab key="connections" />}
               {activeTab === "company" && <CompanyTab key="company" />}
@@ -122,9 +125,65 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 }
 
 // ── Account Tab ──
-function AccountTab({ displayName, displayEmail, initials }: { displayName: string; displayEmail: string; initials: string }) {
+function AccountTab({ displayName, displayEmail, initials, userId }: { displayName: string; displayEmail: string; initials: string; userId?: string }) {
+  const { profile, upsertProfile, loading: profileLoading } = useProfile();
   const [name, setName] = useState(displayName);
-  const [email] = useState(displayEmail);
+  const [title, setTitle] = useState("");
+  const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
+  const [userType, setUserType] = useState<string>("founder");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [twitterUrl, setTwitterUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Sync from profile when loaded
+  useEffect(() => {
+    if (profile) {
+      if (profile.full_name) setName(profile.full_name);
+      if (profile.title) setTitle(profile.title);
+      if (profile.bio) setBio(profile.bio);
+      if (profile.location) setLocation(profile.location);
+      if (profile.user_type) setUserType(profile.user_type);
+      if (profile.linkedin_url) setLinkedinUrl(profile.linkedin_url);
+      if (profile.twitter_url) setTwitterUrl(profile.twitter_url);
+    }
+  }, [profile]);
+
+  const USER_TYPES = [
+    { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
+    { id: "operator", label: "Operator", icon: UserCog, desc: "Fractional or advisory" },
+    { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
+  ];
+
+  const handleSave = async () => {
+    setSaving(true);
+    
+    // Auto-link company_id if user is a founder
+    let companyId: string | null = null;
+    if (userType === "founder" && userId) {
+      const { data: comp } = await (supabase as any)
+        .from("company_analyses")
+        .select("id")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (comp) companyId = comp.id;
+    }
+
+    await upsertProfile({
+      full_name: name,
+      title,
+      bio,
+      location,
+      user_type: userType,
+      linkedin_url: linkedinUrl || null,
+      twitter_url: twitterUrl || null,
+      ...(companyId ? { company_id: companyId } : {}),
+    } as any);
+    setSaving(false);
+    toast.success("Profile saved");
+  };
 
   return (
     <motion.div initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
@@ -152,6 +211,49 @@ function AccountTab({ displayName, displayEmail, initials }: { displayName: stri
 
       <Separator />
 
+      {/* User Type Selection */}
+      <div className="space-y-2">
+        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">I am a</label>
+        <div className="flex gap-2">
+          {USER_TYPES.map((type) => {
+            const Icon = type.icon;
+            const isActive = userType === type.id;
+            return (
+              <button
+                key={type.id}
+                onClick={() => setUserType(type.id)}
+                className={`flex-1 flex items-center gap-2.5 rounded-xl border-2 px-3 py-3 transition-all ${
+                  isActive
+                    ? "border-accent bg-accent/5 shadow-sm"
+                    : "border-border hover:border-border/80 hover:bg-muted/20"
+                }`}
+              >
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${
+                  isActive ? "bg-accent/10" : "bg-muted"
+                }`}>
+                  <Icon className={`h-4 w-4 ${isActive ? "text-accent" : "text-muted-foreground"}`} />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className={`text-sm font-semibold ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{type.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{type.desc}</p>
+                </div>
+                {isActive && <CheckCircle2 className="h-4 w-4 text-accent shrink-0 ml-auto" />}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          {userType === "founder" 
+            ? "Your profile will appear in the Founders directory and link to your Mission Control company."
+            : userType === "operator"
+            ? "Your profile will appear in the Operators directory as fractional talent."
+            : "Your profile will be visible to founders seeking investment."
+          }
+        </p>
+      </div>
+
+      <Separator />
+
       {/* Editable Fields */}
       <div className="space-y-4">
         <div className="space-y-1.5">
@@ -159,9 +261,37 @@ function AccountTab({ displayName, displayEmail, initials }: { displayName: stri
           <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg" />
         </div>
         <div className="space-y-1.5">
+          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg" />
+        </div>
+        <div className="space-y-1.5">
           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Email Address</label>
-          <Input value={email} disabled className="rounded-lg bg-muted/30 text-muted-foreground" />
+          <Input value={displayEmail} disabled className="rounded-lg bg-muted/30 text-muted-foreground" />
           <p className="text-[10px] text-muted-foreground">Contact support to change your email</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
+          <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. San Francisco, CA" className="rounded-lg" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Brief description of what you're building or your expertise..."
+            rows={3}
+            className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
+            <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+            <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg" />
+          </div>
         </div>
       </div>
 
@@ -197,7 +327,9 @@ function AccountTab({ displayName, displayEmail, initials }: { displayName: stri
       </div>
 
       <div className="pt-2">
-        <Button size="sm" className="rounded-lg font-semibold text-xs">Save Changes</Button>
+        <Button size="sm" className="rounded-lg font-semibold text-xs" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
       </div>
     </motion.div>
   );
