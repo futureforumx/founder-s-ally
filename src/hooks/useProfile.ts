@@ -71,8 +71,8 @@ export function useFounderProfiles() {
     async function load() {
       setLoading(true);
       // Fetch public founder profiles
-      const { data: profiles } = await supabase
-        .from("profiles" as any)
+      const { data: profiles } = await (supabase as any)
+        .from("profiles")
         .select("*")
         .eq("user_type", "founder")
         .eq("is_public", true);
