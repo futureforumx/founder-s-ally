@@ -1656,163 +1656,32 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       />
                     </div>
 
-                    {/* Sector Selector (full-width tile grid) */}
+                    {/* Sector · Business Model · Target Customer — Dense Chip Grid */}
                     <div className="space-y-1">
                       <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                         Sector {renderFieldBadge("sector")}
                       </label>
-                      <SectorSelector
+                      <SectorChipGrid
                         value={{
                           primary_sector: form.sector || null,
                           secondary_sectors: form.subsectors || [],
                         }}
-                        onChange={(sel: SectorSelection) => {
+                        onChange={(sel: SectorChipSelection) => {
                           update("sector", sel.primary_sector || "");
                           setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
                         }}
+                        businessModel={form.businessModel}
+                        onBusinessModelChange={(val) => update("businessModel", val)}
+                        targetCustomer={form.targetCustomer}
+                        onTargetCustomerChange={(val) => update("targetCustomer", val)}
+                        aiSuggestedSectors={
+                          aiUpdatedFields.has("sector")
+                            ? [form.sector, ...(form.subsectors || [])].filter(Boolean)
+                            : []
+                        }
+                        aiSuggestedModels={aiUpdatedFields.has("businessModel") ? form.businessModel : []}
+                        aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
                       />
-                    </div>
-
-                    {/* Row 2: Business Model | Target Customer */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Business Model {renderFieldBadge("businessModel")}
-                        </label>
-                        <div className="relative">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button type="button" className={`w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center gap-1.5 overflow-hidden transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${form.businessModel.length ? 'border-input' : 'border-input text-muted-foreground'}`}>
-                                {form.businessModel.length > 0 ? (
-                                  <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0">
-                                    {form.businessModel.slice(0, 3).map(bm => (
-                                      <span key={bm} className="inline-flex items-center rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0 text-[11px] font-medium text-accent whitespace-nowrap">
-                                        {bm}
-                                      </span>
-                                    ))}
-                                    {form.businessModel.length > 3 && (
-                                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">+{form.businessModel.length - 3}</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span>Select model...</span>
-                                )}
-                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[260px] p-2" align="start">
-                              <div className="space-y-1">
-                                {BUSINESS_MODEL_OPTIONS.map(opt => {
-                                  const selected = form.businessModel.includes(opt.label);
-                                  return (
-                                    <button key={opt.label} type="button"
-                                      onClick={() => {
-                                        if (selected) {
-                                          update("businessModel", form.businessModel.filter(t => t !== opt.label));
-                                        } else {
-                                          update("businessModel", [...form.businessModel, opt.label]);
-                                        }
-                                      }}
-                                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
-                                        selected ? "bg-accent/10 text-accent font-medium" : "text-foreground hover:bg-muted"
-                                      }`}>
-                                      {opt.label}
-                                      {selected && <Check className="h-3 w-3 text-accent" />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {form.businessModel.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-border">
-                                  <div className="flex flex-wrap gap-1">
-                                    {form.businessModel.map(bm => (
-                                      <span key={bm} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
-                                        {bm}
-                                        <button type="button" onClick={() => update("businessModel", form.businessModel.filter(t => t !== bm))} className="text-accent/60 hover:text-accent transition-colors">
-                                          <X className="h-2.5 w-2.5" />
-                                        </button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <button type="button" onClick={() => update("businessModel", [])}
-                                    className="w-full mt-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors py-1 text-center">
-                                    Clear all
-                                  </button>
-                                </div>
-                              )}
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                         <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
-                          Target Customer {renderFieldBadge("targetCustomer")}
-                        </label>
-                        <div className="relative">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button type="button" className={`w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center gap-1.5 overflow-hidden transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${form.targetCustomer.length ? 'border-input' : 'border-input text-muted-foreground'}`}>
-                                {form.targetCustomer.length > 0 ? (
-                                  <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0">
-                                    {form.targetCustomer.slice(0, 3).map(tc => (
-                                      <span key={tc} className="inline-flex items-center rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0 text-[11px] font-medium text-accent whitespace-nowrap">
-                                        {tc}
-                                      </span>
-                                    ))}
-                                    {form.targetCustomer.length > 3 && (
-                                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">+{form.targetCustomer.length - 3}</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span>Select markets...</span>
-                                )}
-                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto shrink-0" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[260px] p-2" align="start">
-                              <div className="space-y-1">
-                                {TARGET_CUSTOMER_OPTIONS.map(opt => {
-                                  const selected = form.targetCustomer.includes(opt.label);
-                                  return (
-                                    <button key={opt.label} type="button"
-                                      onClick={() => {
-                                        if (selected) {
-                                          update("targetCustomer", form.targetCustomer.filter(t => t !== opt.label));
-                                        } else {
-                                          update("targetCustomer", [...form.targetCustomer, opt.label]);
-                                        }
-                                      }}
-                                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between ${
-                                        selected ? "bg-accent/10 text-accent font-medium" : "text-foreground hover:bg-muted"
-                                      }`}>
-                                      {opt.label}
-                                      {selected && <Check className="h-3 w-3 text-accent" />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {form.targetCustomer.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-border">
-                                  <div className="flex flex-wrap gap-1">
-                                    {form.targetCustomer.map(tc => (
-                                      <span key={tc} className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-1.5 py-0.5 text-[11px] font-medium text-accent">
-                                        {tc}
-                                        <button type="button" onClick={() => update("targetCustomer", form.targetCustomer.filter(t => t !== tc))} className="text-accent/60 hover:text-accent transition-colors">
-                                          <X className="h-2.5 w-2.5" />
-                                        </button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <button type="button" onClick={() => update("targetCustomer", [])}
-                                    className="w-full mt-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors py-1 text-center">
-                                    Clear all
-                                  </button>
-                                </div>
-                              )}
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Row 3: HQ Location (full width) */}
