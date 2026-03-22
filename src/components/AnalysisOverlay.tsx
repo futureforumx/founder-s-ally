@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
@@ -20,11 +21,42 @@ interface AnalysisOverlayProps {
 export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverlayProps) {
   const [currentStep, setCurrentStep] = useState(-1);
   const [done, setDone] = useState(false);
+  const hasFiredConfetti = useRef(false);
+
+  const fireConfetti = useCallback(() => {
+    if (hasFiredConfetti.current) return;
+    hasFiredConfetti.current = true;
+
+    const colors = ["#39FF14", "#00FF88", "#88FFB8", "#FFFFFF"];
+    const end = Date.now() + 600;
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0.35, y: 0.5 },
+        colors,
+        disableForReducedMotion: true,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 0.65, y: 0.5 },
+        colors,
+        disableForReducedMotion: true,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  }, []);
 
   useEffect(() => {
     if (!open) {
       setCurrentStep(-1);
       setDone(false);
+      hasFiredConfetti.current = false;
       return;
     }
 
@@ -39,6 +71,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
       // All steps done
       const doneTimer = setTimeout(() => {
         setDone(true);
+        fireConfetti();
         setTimeout(onComplete, 600);
       }, 400);
       return () => clearTimeout(doneTimer);
