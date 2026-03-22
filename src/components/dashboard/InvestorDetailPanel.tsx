@@ -24,6 +24,8 @@ import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
+import { ContactRevealButton } from "./investor-detail/ContactRevealButton";
+import { useUserCredits } from "@/hooks/useContactReveal";
 
 interface CompanyContext {
   name?: string;
