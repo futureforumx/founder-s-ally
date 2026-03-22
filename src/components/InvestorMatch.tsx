@@ -321,6 +321,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           </p>
         </div>
         <TimeRangeControl value={timeRange} onChange={setTimeRange} />
+        <ExportGateButton recordCount={scoredInvestors.length} />
       </div>
 
       {/* Intelligence Cards */}
