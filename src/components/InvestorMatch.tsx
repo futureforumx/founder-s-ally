@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { Lock } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
+import { ExportGateButton } from "@/components/investor-match/ExportGateButton";
 import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
