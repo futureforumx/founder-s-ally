@@ -1703,8 +1703,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 2 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 2 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>
               <div ref={el => { sectionRefs.current.positioning = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "positioning" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
