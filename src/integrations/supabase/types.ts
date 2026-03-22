@@ -244,6 +244,33 @@ export type Database = {
         }
         Relationships: []
       }
+      export_audit_logs: {
+        Row: {
+          created_at: string
+          export_type: string
+          id: string
+          intent: string | null
+          row_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          export_type?: string
+          id?: string
+          intent?: string | null
+          row_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          export_type?: string
+          id?: string
+          intent?: string | null
+          row_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       firm_recent_deals: {
         Row: {
           amount: string | null
@@ -280,6 +307,13 @@ export type Database = {
             referencedRelation: "investor_database"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "firm_recent_deals_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       founder_vc_interactions: {
@@ -312,6 +346,13 @@ export type Database = {
             referencedRelation: "investor_database"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "founder_vc_interactions_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       investor_database: {
@@ -319,6 +360,8 @@ export type Database = {
           aum: string | null
           ca_sb54_compliant: boolean | null
           created_at: string
+          email: string | null
+          email_source: string | null
           firm_name: string
           id: string
           last_enriched_at: string | null
@@ -340,6 +383,8 @@ export type Database = {
           aum?: string | null
           ca_sb54_compliant?: boolean | null
           created_at?: string
+          email?: string | null
+          email_source?: string | null
           firm_name: string
           id?: string
           last_enriched_at?: string | null
@@ -361,6 +406,8 @@ export type Database = {
           aum?: string | null
           ca_sb54_compliant?: boolean | null
           created_at?: string
+          email?: string | null
+          email_source?: string | null
           firm_name?: string
           id?: string
           last_enriched_at?: string | null
@@ -414,6 +461,13 @@ export type Database = {
             columns: ["firm_id"]
             isOneToOne: false
             referencedRelation: "investor_database"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investor_partners_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -474,9 +528,107 @@ export type Database = {
           },
         ]
       }
+      user_credits: {
+        Row: {
+          created_at: string
+          credits_remaining: number
+          id: string
+          tier: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_remaining?: number
+          id?: string
+          tier?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_remaining?: number
+          id?: string
+          tier?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      investor_directory_safe: {
+        Row: {
+          aum: string | null
+          ca_sb54_compliant: boolean | null
+          created_at: string | null
+          email: string | null
+          email_source: string | null
+          firm_name: string | null
+          id: string | null
+          last_enriched_at: string | null
+          lead_or_follow: string | null
+          lead_partner: string | null
+          location: string | null
+          logo_url: string | null
+          market_sentiment: string | null
+          max_check_size: number | null
+          min_check_size: number | null
+          preferred_stage: string | null
+          recent_deals: string[] | null
+          sector_embedding: string | null
+          sentiment_detail: string | null
+          thesis_verticals: string[] | null
+          website_url: string | null
+        }
+        Insert: {
+          aum?: string | null
+          ca_sb54_compliant?: boolean | null
+          created_at?: string | null
+          email?: never
+          email_source?: never
+          firm_name?: string | null
+          id?: string | null
+          last_enriched_at?: string | null
+          lead_or_follow?: string | null
+          lead_partner?: string | null
+          location?: string | null
+          logo_url?: string | null
+          market_sentiment?: string | null
+          max_check_size?: number | null
+          min_check_size?: number | null
+          preferred_stage?: string | null
+          recent_deals?: string[] | null
+          sector_embedding?: string | null
+          sentiment_detail?: string | null
+          thesis_verticals?: string[] | null
+          website_url?: string | null
+        }
+        Update: {
+          aum?: string | null
+          ca_sb54_compliant?: boolean | null
+          created_at?: string | null
+          email?: never
+          email_source?: never
+          firm_name?: string | null
+          id?: string | null
+          last_enriched_at?: string | null
+          lead_or_follow?: string | null
+          lead_partner?: string | null
+          location?: string | null
+          logo_url?: string | null
+          market_sentiment?: string | null
+          max_check_size?: number | null
+          min_check_size?: number | null
+          preferred_stage?: string | null
+          recent_deals?: string[] | null
+          sector_embedding?: string | null
+          sentiment_detail?: string | null
+          thesis_verticals?: string[] | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       find_connections_by_investor: {
@@ -546,6 +698,7 @@ export type Database = {
           website: string
         }[]
       }
+      reveal_contact_info: { Args: { _investor_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
