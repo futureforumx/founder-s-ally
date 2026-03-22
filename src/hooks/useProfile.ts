@@ -31,8 +31,8 @@ export function useProfile() {
   const fetchProfile = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from("profiles" as any)
+    const { data } = await (supabase as any)
+      .from("profiles")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
