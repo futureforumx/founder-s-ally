@@ -4,6 +4,7 @@ import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp,
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConnectionsGate } from "./ConnectionsGate";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Connection {
