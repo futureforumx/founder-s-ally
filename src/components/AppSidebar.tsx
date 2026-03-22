@@ -11,7 +11,7 @@ interface AppSidebarProps {
 }
 
 const topItems = [
-  { id: "dashboard" as const, label: "Dashboard", icon: Gauge },
+  { id: "dashboard" as const, label: "Mission Control", icon: Gauge },
 ];
 
 const companyItems = [
