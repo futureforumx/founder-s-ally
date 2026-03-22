@@ -156,6 +156,20 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
 
   const handleSave = async () => {
     setSaving(true);
+    
+    // Auto-link company_id if user is a founder
+    let companyId: string | null = null;
+    if (userType === "founder" && userId) {
+      const { data: comp } = await (supabase as any)
+        .from("company_analyses")
+        .select("id")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (comp) companyId = comp.id;
+    }
+
     await upsertProfile({
       full_name: name,
       title,
@@ -164,6 +178,7 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
       user_type: userType,
       linkedin_url: linkedinUrl || null,
       twitter_url: twitterUrl || null,
+      ...(companyId ? { company_id: companyId } : {}),
     } as any);
     setSaving(false);
     toast.success("Profile saved");
