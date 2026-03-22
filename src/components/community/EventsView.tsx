@@ -265,11 +265,23 @@ export function EventsView() {
   const [events, setEvents] = useState<CommunityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<EventFilter>("upcoming");
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const { profile } = useProfile();
+  const [companyData, setCompanyData] = useState<{ sector: string | null; stage: string | null } | null>(null);
 
+  // Fetch company data for defaults
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-  }, []);
+    if (!user) return;
+    supabase.from("company_analyses").select("sector, stage").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (data) setCompanyData(data); });
+  }, [user]);
+
+  const defaults = {
+    location: profile?.location || "Virtual",
+    sector: companyData?.sector || "",
+    stage: companyData?.stage || "",
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
