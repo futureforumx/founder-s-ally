@@ -375,15 +375,56 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
         </h4>
 
         {/* Filter Bar */}
-        <div className="flex items-center justify-between pb-3 border-b border-border mb-2">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border mb-2">
+          <div ref={searchRef} className="relative flex-1 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground z-10" />
             <Input
+              ref={inputRef}
               placeholder="Search by company, sector, stage, investor, date..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs bg-secondary/50 border-border"
+              onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); setSelectedIdx(-1); }}
+              onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
+              onKeyDown={handleKeyDown}
+              className="h-8 pl-8 pr-8 text-xs bg-secondary/50 border-border"
             />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); setShowDropdown(false); inputRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors z-10"
+              >
+                <X className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
+
+            {/* Smart Dropdown */}
+            <AnimatePresence>
+              {showDropdown && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-[calc(100%+4px)] left-0 w-full bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
+                >
+                  {suggestions.map((s, i) => {
+                    const Icon = s.icon;
+                    return (
+                      <button
+                        key={`${s.category}-${s.value}`}
+                        onClick={() => handleSelectSuggestion(s.value)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                          i === selectedIdx ? "bg-primary/10" : "hover:bg-secondary/60"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-medium text-foreground truncate">{s.label}</span>
+                        <span className="ml-auto text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">{s.category}</span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <Select value={sectorFilter} onValueChange={setSectorFilter}>
             <SelectTrigger className="w-36 h-8 text-xs">
