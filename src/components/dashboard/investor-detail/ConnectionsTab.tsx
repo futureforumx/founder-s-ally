@@ -4,6 +4,7 @@ import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp,
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConnectionsGate } from "./ConnectionsGate";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Connection {
@@ -88,6 +89,7 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
   }
 
   return (
+    <ConnectionsGate>
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -286,5 +288,6 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
         </div>
       </div>
     </motion.div>
+    </ConnectionsGate>
   );
 }
