@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { MapPin, Layers, TrendingUp, Users, Building2, Calendar, Sparkles, ChevronDown, ArrowRight, Globe, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
