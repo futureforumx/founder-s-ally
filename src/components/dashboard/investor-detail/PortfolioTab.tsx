@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search, ExternalLink } from "lucide-react";
+import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search, ExternalLink, X, Building2, User, Tag, Layers, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -233,8 +233,71 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
 export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const allSectors = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.sector))], []);
+  const allStages = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.stage))], []);
+  const allPartners = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.partner))], []);
+
+  // Smart suggestions grouped by category
+  const suggestions = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    type Suggestion = { label: string; category: string; icon: typeof Building2; value: string };
+    const results: Suggestion[] = [];
+    
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.name.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Company"))
+        results.push({ label: co.name, category: "Company", icon: Building2, value: co.name });
+    });
+    allPartners.forEach(p => {
+      if (p.toLowerCase().includes(q) && !results.some(r => r.value === p && r.category === "Investor"))
+        results.push({ label: p, category: "Investor", icon: User, value: p });
+    });
+    allSectors.forEach(s => {
+      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Sector"))
+        results.push({ label: s, category: "Sector", icon: Tag, value: s });
+    });
+    allStages.forEach(s => {
+      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Stage"))
+        results.push({ label: s, category: "Stage", icon: Layers, value: s });
+    });
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.date.toLowerCase().includes(q) && !results.some(r => r.value === co.date && r.category === "Date"))
+        results.push({ label: co.date, category: "Date", icon: Calendar, value: co.date });
+    });
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.description.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Keyword Match"))
+        results.push({ label: co.name, category: "Keyword Match", icon: Sparkles, value: co.name });
+    });
+    return results.slice(0, 8);
+  }, [searchQuery, allSectors, allStages, allPartners]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelectSuggestion = (value: string) => {
+    setSearchQuery(value);
+    setShowDropdown(false);
+    setSelectedIdx(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && selectedIdx >= 0) { e.preventDefault(); handleSelectSuggestion(suggestions[selectedIdx].value); }
+    else if (e.key === "Escape") { setShowDropdown(false); }
+  };
 
   const filteredInvestments = useMemo(() => {
     return RECENT_INVESTMENTS.filter((co) => {
@@ -312,15 +375,56 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
         </h4>
 
         {/* Filter Bar */}
-        <div className="flex items-center justify-between pb-3 border-b border-border mb-2">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border mb-2">
+          <div ref={searchRef} className="relative flex-1 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground z-10" />
             <Input
+              ref={inputRef}
               placeholder="Search by company, sector, stage, investor, date..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs bg-secondary/50 border-border"
+              onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); setSelectedIdx(-1); }}
+              onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
+              onKeyDown={handleKeyDown}
+              className="h-8 pl-8 pr-8 text-xs bg-secondary/50 border-border"
             />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); setShowDropdown(false); inputRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted transition-colors z-10"
+              >
+                <X className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
+
+            {/* Smart Dropdown */}
+            <AnimatePresence>
+              {showDropdown && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-[calc(100%+4px)] left-0 w-full bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden"
+                >
+                  {suggestions.map((s, i) => {
+                    const Icon = s.icon;
+                    return (
+                      <button
+                        key={`${s.category}-${s.value}`}
+                        onClick={() => handleSelectSuggestion(s.value)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                          i === selectedIdx ? "bg-primary/10" : "hover:bg-secondary/60"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs font-medium text-foreground truncate">{s.label}</span>
+                        <span className="ml-auto text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">{s.category}</span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <Select value={sectorFilter} onValueChange={setSectorFilter}>
             <SelectTrigger className="w-36 h-8 text-xs">
