@@ -359,9 +359,33 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       }));
   }, [vcFirms]);
 
+  // Convert real founder profiles to DirectoryEntry format
+  const realFounderEntries: DirectoryEntry[] = useMemo(() => {
+    return realFounders.map(f => ({
+      name: f.full_name || "Unknown Founder",
+      sector: f.company_sector || "—",
+      stage: f.company_stage || "—",
+      description: f.bio || (f.company_name ? `Building ${f.company_name}` : "Founder"),
+      location: f.location || "",
+      model: f.title || "Founder",
+      initial: (f.full_name || "?").charAt(0).toUpperCase(),
+      matchReason: null,
+      category: "founder" as const,
+      _sectors: [] as string[],
+      _stages: [] as string[],
+      _isRealProfile: true,
+      _companyName: f.company_name,
+      _profileId: f.id,
+    }));
+  }, [realFounders]);
+
   const mergedEntries = useMemo(() => {
-    return [...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })), ...vcEntries];
-  }, [vcEntries]);
+    return [
+      ...realFounderEntries,
+      ...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })),
+      ...vcEntries,
+    ];
+  }, [vcEntries, realFounderEntries]);
 
   const hasProfile = !!companyData?.name;
 
