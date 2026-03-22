@@ -886,6 +886,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (!form.website.trim() && !deckText) { setError("Provide a website URL or upload a pitch deck."); return; }
 
     setIsAnalyzing(true);
+    setShowAnalysisOverlay(true);
+    setRevealPhase(-1);
     setError(null);
     setHasNewInputs(false);
     let scrapedMarkdown = "";
