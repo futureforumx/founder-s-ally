@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink, Calendar
+  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -12,11 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { CompanyTab } from "@/components/settings/CompanyTab";
 
-type SettingsTab = "account" | "connections" | "notifications" | "billing";
+type SettingsTab = "account" | "company" | "connections" | "notifications" | "billing";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
+  { id: "company", label: "Company", icon: Building2 },
   { id: "connections", label: "Connections", icon: Mail },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "billing", label: "Billing", icon: CreditCard },
@@ -108,6 +110,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} />
               )}
               {activeTab === "connections" && <ConnectionsTab key="connections" />}
+              {activeTab === "company" && <CompanyTab key="company" />}
               {activeTab === "notifications" && <NotificationsTab key="notifications" />}
               {activeTab === "billing" && <BillingTab key="billing" />}
             </AnimatePresence>
