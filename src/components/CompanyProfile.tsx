@@ -740,9 +740,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         const userVal = prev[key];
         const touched = userTouched.has(key);
         if (!touched && (!userVal || userVal === "" || (Array.isArray(userVal) && userVal.length === 0))) {
-          // Convert AI string to array for targetCustomer and businessModel
-          if ((key === "targetCustomer" || key === "businessModel") && typeof aiVal === "string") {
-            (next as any)[key] = [aiVal];
+          // Convert AI string to array for targetCustomer and businessModel, with normalization
+          if (key === "businessModel" && typeof aiVal === "string") {
+            const normalized = normalizeBusinessModel(aiVal);
+            (next as any)[key] = normalized ? [normalized] : [aiVal];
+          } else if (key === "targetCustomer" && typeof aiVal === "string") {
+            const normalized = normalizeTargetCustomer(aiVal);
+            (next as any)[key] = normalized ? [normalized] : [aiVal];
           } else {
             (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
           }
