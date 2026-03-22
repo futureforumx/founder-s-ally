@@ -286,8 +286,7 @@ export function EventsView() {
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const uid = user?.id;
+      const uid = userId;
 
       const client = supabase as any;
       let query = client.from("community_events").select("*").order("event_date", { ascending: true });
