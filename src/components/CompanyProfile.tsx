@@ -1591,50 +1591,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
 
-        {/* Analysis Terminal (during analysis) */}
-        {isAnalyzing && (
-          <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
-            <div className="w-full max-w-lg rounded-2xl border border-accent/30 overflow-hidden"
-              style={{ background: "linear-gradient(145deg, hsl(222 47% 8%), hsl(222 47% 12%))" }}>
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-accent/15">
-                <div className="flex gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
-                </div>
-                <div className="flex-1 flex items-center justify-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                  <span className="font-mono text-[11px] text-accent font-medium tracking-wider">ANALYSIS ENGINE</span>
-                </div>
-              </div>
-              <div className="px-5 py-5 space-y-3">
-                <div className="font-mono text-[11px] leading-loose space-y-2" style={{ color: "rgba(226, 232, 240, 0.75)" }}>
-                  {analyzeStep === "scraping" && <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400 font-semibold">[PDF]</span><span>Parsing Deck Structure...</span><Loader2 className="h-3 w-3 animate-spin text-purple-400 ml-auto mt-0.5" /></div>}
-                  {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-purple-400 font-semibold">[PDF]</span> Deck layers extracted ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400 font-semibold">[WEB]</span><span>Scraping website content...</span>{analyzeStep === "analyzing" && <Loader2 className="h-3 w-3 animate-spin text-cyan-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-cyan-400 font-semibold">[WEB]</span> Website scraped ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400 font-semibold">[SEARCH]</span><span>Cross-referencing filings...</span>{analyzeStep === "deepSearch" && <Loader2 className="h-3 w-3 animate-spin text-yellow-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-yellow-400 font-semibold">[SEARCH]</span> Data captured ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400 font-semibold">[AI]</span><span>Mapping sectors & landscape...</span>{analyzeStep === "verifying" && <Loader2 className="h-3 w-3 animate-spin text-emerald-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {analyzeStep === "mapping" && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-emerald-400 font-semibold">[AI]</span> Sectors mapped ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400 font-semibold">[MAP]</span><span>Mapping competitive landscape...</span><Loader2 className="h-3 w-3 animate-spin text-orange-400 ml-auto mt-0.5" /></div></>
-                  )}
-                </div>
-              </div>
-              <div className="px-5 py-3 border-t border-accent/15 flex items-center justify-between">
-                <span className="font-mono text-[9px] text-accent/40">Triple-source triangulation active</span>
-                <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /><span className="font-mono text-[9px] text-accent/60">LIVE</span></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Analysis overlay is now rendered as a portal — no inline terminal needed */}
 
         {/* Pre-analysis placeholder */}
         {!analysisComplete && !isAnalyzing && (
