@@ -1602,9 +1602,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         )}
 
         {/* ═══ Cards only shown after analysis or when data exists ═══ */}
-        {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
+        {(analysisComplete || form.hqLocation || form.sector) && !showAnalysisOverlay && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 1 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 1 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
               <div ref={el => { sectionRefs.current.overview = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
