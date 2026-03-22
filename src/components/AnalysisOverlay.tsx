@@ -71,6 +71,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
       // All steps done
       const doneTimer = setTimeout(() => {
         setDone(true);
+        fireConfetti();
         setTimeout(onComplete, 600);
       }, 400);
       return () => clearTimeout(doneTimer);
