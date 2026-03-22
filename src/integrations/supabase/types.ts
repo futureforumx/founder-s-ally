@@ -56,6 +56,51 @@ export type Database = {
         }
         Relationships: []
       }
+      community_events: {
+        Row: {
+          created_at: string
+          creator_id: string
+          description: string | null
+          event_date: string
+          event_type: string
+          id: string
+          location: string
+          max_attendees: number | null
+          sector: string | null
+          stage: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          event_date: string
+          event_type?: string
+          id?: string
+          location?: string
+          max_attendees?: number | null
+          sector?: string | null
+          stage?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          location?: string
+          max_attendees?: number | null
+          sector?: string | null
+          stage?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       company_analyses: {
         Row: {
           burn_rate: string | null
@@ -278,6 +323,38 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      event_rsvps: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_rsvps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "community_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       export_audit_logs: {
         Row: {
