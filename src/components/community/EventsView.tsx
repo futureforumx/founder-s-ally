@@ -42,12 +42,13 @@ const sectorOptions = ["AI / ML", "FinTech", "HealthTech", "Climate Tech", "SaaS
 const stageOptions = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Growth"];
 
 // ── Create Event Form ──
-function CreateEventDialog({ onCreated }: { onCreated: () => void }) {
+function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; defaults: { location: string; sector: string; stage: string } }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     title: "", description: "", event_date: "", event_time: "18:00",
-    location: "Virtual", event_type: "Meetup", sector: "", stage: "", max_attendees: "",
+    location: defaults.location || "Virtual", event_type: "Meetup",
+    sector: defaults.sector || "", stage: defaults.stage || "", max_attendees: "",
   });
 
   const handleSubmit = async () => {
