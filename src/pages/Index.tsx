@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { GroupsView } from "@/components/community/GroupsView";
+import { EventsView } from "@/components/community/EventsView";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
@@ -512,6 +513,8 @@ const Index = () => {
             </div>
           ) : activeView === "groups" ? (
             <GroupsView />
+          ) : activeView === "events" ? (
+            <EventsView />
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (
