@@ -233,6 +233,7 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
 export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -306,9 +307,10 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
         co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website
       ].some(field => field.toLowerCase().includes(q));
       const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
-      return matchesSearch && matchesSector;
+      const matchesStage = stageFilter === "all" || co.stage === stageFilter;
+      return matchesSearch && matchesSector && matchesStage;
     });
-  }, [searchQuery, sectorFilter]);
+  }, [searchQuery, sectorFilter, stageFilter]);
 
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
     if (!companySector) return "unknown";
@@ -426,17 +428,30 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
               )}
             </AnimatePresence>
           </div>
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue placeholder="All Sectors" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sectors</SelectItem>
-              {allSectors.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue placeholder="All Stages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {allStages.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sectorFilter} onValueChange={setSectorFilter}>
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue placeholder="All Sectors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sectors</SelectItem>
+                {allSectors.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex flex-col w-full">
