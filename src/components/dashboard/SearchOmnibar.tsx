@@ -106,6 +106,11 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
       abortRef.current = controller;
 
       try {
+        if (isRateLimited("semantic-search", 30, 60_000)) {
+          toast.error("Too many searches. Please slow down.");
+          setIsSearching(false);
+          return;
+        }
         const { data, error } = await supabase.functions.invoke("semantic-search", {
           body: { query: value.trim(), scope },
         });
