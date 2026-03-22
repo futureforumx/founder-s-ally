@@ -1,8 +1,14 @@
 User-agent: Googlebot
-Allow: /
+Allow: /$
+Disallow: /api/
+Disallow: /search/
+Disallow: /investors/
 
 User-agent: Bingbot
-Allow: /
+Allow: /$
+Disallow: /api/
+Disallow: /search/
+Disallow: /investors/
 
 User-agent: Twitterbot
 Allow: /
@@ -11,4 +17,7 @@ User-agent: facebookexternalhit
 Allow: /
 
 User-agent: *
-Allow: /
+Disallow: /api/
+Disallow: /search/
+Disallow: /investors/
+Allow: /$

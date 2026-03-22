@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, forwardRef } from "r
 import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isRateLimited } from "@/lib/rateLimit";
 
 export type EntityScope = "founders" | "investors" | "companies" | "operators" | "all";
 
@@ -105,6 +106,11 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
       abortRef.current = controller;
 
       try {
+        if (isRateLimited("semantic-search", 30, 60_000)) {
+          toast.error("Too many searches. Please slow down.");
+          setIsSearching(false);
+          return;
+        }
         const { data, error } = await supabase.functions.invoke("semantic-search", {
           body: { query: value.trim(), scope },
         });
