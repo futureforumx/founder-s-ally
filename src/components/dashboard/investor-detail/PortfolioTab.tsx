@@ -233,6 +233,7 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
 export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
