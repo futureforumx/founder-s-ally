@@ -224,6 +224,14 @@ export function GroupsView() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={!hasFilters ? "default" : "outline"}
+          size="sm"
+          className="text-xs font-medium h-9"
+          onClick={() => { setLocation(null); setSector(null); setStage(null); }}
+        >
+          All
+        </Button>
         <FilterDropdown label="Location" icon={MapPin} options={locationOptions} value={location} onChange={setLocation} />
         <FilterDropdown label="Sector" icon={Layers} options={sectorOptions} value={sector} onChange={setSector} />
         <FilterDropdown label="Stage" icon={TrendingUp} options={stageOptions} value={stage} onChange={setStage} />
