@@ -41,6 +41,12 @@ interface DirectoryEntry {
   _sectors?: string[];
   /** Original stage strings from VC JSON for exact matching */
   _stages?: string[];
+  /** Whether this is a real DB-backed profile */
+  _isRealProfile?: boolean;
+  /** Linked company name for founder profiles */
+  _companyName?: string | null;
+  /** Profile ID for navigation */
+  _profileId?: string;
 }
 
 // ── Mock data: Suggested ──
