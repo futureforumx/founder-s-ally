@@ -56,6 +56,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
     if (!open) {
       setCurrentStep(-1);
       setDone(false);
+      hasFiredConfetti.current = false;
       return;
     }
 
