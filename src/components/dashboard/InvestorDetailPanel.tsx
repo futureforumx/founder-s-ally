@@ -188,38 +188,49 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 {/* Top Row: Identity & Actions */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
-                    {effectiveInvestor.logo_url ? (
+                    {liveLoading ? (
+                      <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
+                    ) : heroLogo ? (
                       <img
-                        src={effectiveInvestor.logo_url}
-                        alt={effectiveInvestor.name}
+                        src={heroLogo}
+                        alt={heroName}
                         className="h-16 w-16 rounded-xl border border-border object-contain bg-background shrink-0"
                       />
                     ) : (
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                        {effectiveInvestor.initial}
+                        {heroInitial}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5">
-                        <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
-                      </div>
-                      {/* Meta Details Row – tighter */}
-                      <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
-                        <Landmark className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
-                        <span className="text-border">·</span>
-                        <Users className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{metaFacts[2].value !== "—" ? metaFacts[2].value : "45"}</span>
-                        <span className="text-border">·</span>
-                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{effectiveInvestor?.location || "San Francisco, CA"}</span>
-                      </div>
+                      {liveLoading ? (
+                        <>
+                          <Skeleton className="h-7 w-48 rounded-lg mb-2" />
+                          <Skeleton className="h-4 w-64 rounded-md" />
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="text-2xl font-bold text-foreground truncate">{heroName}</h2>
+                            <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                          </div>
+                          {/* Meta Details Row */}
+                          <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
+                            <Landmark className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
+                            <span className="text-border">·</span>
+                            <Users className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{heroPartnerCount ?? "45"}</span>
+                            <span className="text-border">·</span>
+                            <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{heroLocation}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     {/* Match Score – spans both rows */}
                     <MatchScoreDropdown
                       matchScore={matchScore}
-                      firmName={effectiveInvestor.name}
+                      firmName={heroName}
                       companyContext={companyData}
                       investorContext={investorContext}
                     />
@@ -241,8 +252,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       </button>
                     </div>
                     <DataProvenanceBadge
-                      dataSource={enrichedData ? "live" : "verified"}
-                      lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
+                      dataSource={heroDataSource}
+                      lastSynced={heroLastSynced}
                     />
                   </div>
                 </div>
