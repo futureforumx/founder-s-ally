@@ -54,6 +54,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
+  const { data: userCredits } = useUserCredits();
+  const isAdmin = userCredits?.tier === "admin";
 
   // ── Live data hook ──
   const liveQuery = useInvestorProfileByName(
