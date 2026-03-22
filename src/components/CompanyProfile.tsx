@@ -2025,7 +2025,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
 
+            </Collapsible>
+            </div>
+
             {/* ─── CARD 4: Social Links ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 4 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 4 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.social} onOpenChange={v => handleManualToggle("social", v)}>
               <div ref={el => { sectionRefs.current.social = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
