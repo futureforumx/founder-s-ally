@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, Swords, Layers, Search } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, Swords, Layers, Search, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/SettingsDialog";
 
