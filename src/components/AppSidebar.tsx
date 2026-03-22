@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, Swords, Layers, Search } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, Swords, Layers, Search, ChevronDown, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/SettingsDialog";
 
@@ -36,6 +36,9 @@ const communityItems = [
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [investorsOpen, setInvestorsOpen] = useState(
+    activeView === "investors" || activeView === "investor-search"
+  );
 
   return (
     <>
@@ -82,21 +85,35 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               {item.label}
             </button>
           )}
-          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Investors</div>
-          {investorItems.map((item) =>
           <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => setInvestorsOpen(!investorsOpen)}
             className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              activeView === item.id ?
-              "bg-sidebar-accent text-sidebar-accent-foreground" :
-              "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
+              (activeView === "investors" || activeView === "investor-search")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
-            
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </button>
+            <Users className="h-4 w-4" />
+            Investors
+            <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", investorsOpen && "rotate-180")} />
+          </button>
+          {investorsOpen && (
+            <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
+              {investorItems.map((item) =>
+                <button
+                  key={item.id}
+                  onClick={() => onViewChange(item.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-light transition-colors",
+                    activeView === item.id
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  )}>
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </button>
+              )}
+            </div>
           )}
           <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Community</div>
           {communityItems.map((item) =>
