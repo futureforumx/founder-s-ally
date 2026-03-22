@@ -73,7 +73,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-md mx-4 rounded-2xl overflow-hidden"
+            className="w-full max-w-2xl mx-4 rounded-2xl overflow-hidden"
             style={{
               background: "#0e0e0e",
               boxShadow: "0 0 80px rgba(57, 255, 20, 0.08), 0 25px 60px rgba(0, 0, 0, 0.6)",
