@@ -29,9 +29,9 @@ const investorItems = [
 
 
 const communityItems = [
-{ id: "directory" as const, label: "Directory", icon: BookOpen },
-{ id: "messages" as const, label: "Messages", icon: MessageSquare },
-{ id: "events" as const, label: "Hubs", icon: MapPin }];
+  { id: "directory" as const, label: "Directory", icon: BookOpen },
+  { id: "messages" as const, label: "\n", icon: MessageSquare },
+  { id: "events" as const, label: "", icon: MapPin }];
 
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
