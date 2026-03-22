@@ -338,7 +338,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         const targetCustomerArr = Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []);
         const bm = sanitized.businessModel;
         const businessModelArr = Array.isArray(bm) ? bm.filter(Boolean) : (typeof bm === "string" && bm ? [bm] : []);
-        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr, businessModel: businessModelArr };
+        // Bridge old sector names to new taxonomy
+        const sectorVal = bridgeOldSector(sanitized.sector || "");
+        return { ...EMPTY_FORM, ...sanitized, sector: sectorVal, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr, businessModel: businessModelArr };
       }
     } catch {}
     return { ...EMPTY_FORM };
