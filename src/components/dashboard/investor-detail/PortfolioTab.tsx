@@ -238,7 +238,10 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
   const filteredInvestments = useMemo(() => {
     return RECENT_INVESTMENTS.filter((co) => {
-      const matchesSearch = !searchQuery || co.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q || [
+        co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website
+      ].some(field => field.toLowerCase().includes(q));
       const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
       return matchesSearch && matchesSector;
     });
@@ -310,10 +313,10 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
         {/* Filter Bar */}
         <div className="flex items-center justify-between pb-3 border-b border-border mb-2">
-          <div className="relative w-48">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search company..."
+              placeholder="Search by company, sector, stage, investor, date..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 pl-8 text-xs bg-secondary/50 border-border"
