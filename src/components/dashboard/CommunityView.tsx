@@ -335,6 +335,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
   } = useVCDirectory();
 
+  // Real founder profiles from database
+  const { founders: realFounders, loading: foundersLoading } = useFounderProfiles();
+
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
   const vcEntries = useMemo(() => {
