@@ -100,13 +100,16 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     viewedRef.current = displayName;
 
     (async () => {
-      // Resolve firm_id from investor_database by name
-      const { data: firms } = await supabase
-        .from("investor_database")
-        .select("id")
-        .ilike("firm_name", displayName.trim())
-        .limit(1);
-      const firmId = firms?.[0]?.id;
+      // Use live profile ID if available, else resolve by name
+      let firmId = liveProfile?.id;
+      if (!firmId) {
+        const { data: firms } = await supabase
+          .from("investor_database")
+          .select("id")
+          .ilike("firm_name", displayName.trim())
+          .limit(1);
+        firmId = firms?.[0]?.id;
+      }
       if (!firmId) return;
       setResolvedFirmId(firmId);
 
