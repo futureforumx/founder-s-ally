@@ -2024,8 +2024,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
-
-            </Collapsible>
             </div>
 
             {/* ─── CARD 4: Social Links ─── */}
