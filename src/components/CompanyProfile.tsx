@@ -1357,9 +1357,25 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     toast({ title: "✅ Profile Verified", description: "Your company profile has been confirmed." });
   };
 
+  // Staggered section reveal after overlay closes
+  const handleOverlayComplete = useCallback(() => {
+    setShowAnalysisOverlay(false);
+    // Start staggered reveal: phase 0 = data sources visible, 1-4 = each card
+    setRevealPhase(0);
+    const REVEAL_SECTIONS = ["overview", "positioning", "metrics", "social"];
+    REVEAL_SECTIONS.forEach((_, i) => {
+      setTimeout(() => setRevealPhase(i + 1), (i + 1) * 350);
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
-
+      {/* Full-page analysis overlay */}
+      <AnalysisOverlay
+        open={showAnalysisOverlay}
+        onComplete={handleOverlayComplete}
+        companyName={form.name || undefined}
+      />
       {/* ═══════════════════════════════════════════════
           DATA SOURCES
           ═══════════════════════════════════════════════ */}
