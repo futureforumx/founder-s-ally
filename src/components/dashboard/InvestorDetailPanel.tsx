@@ -231,6 +231,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                             <MapPin className="w-3 h-3 text-muted-foreground/50" />
                             <span className="font-semibold text-foreground">{heroLocation}</span>
                           </div>
+                          {/* Contact Reveal */}
+                          <div className="mt-2">
+                            <ContactRevealButton
+                              investorId={resolvedFirmId || liveProfile?.id || null}
+                              firmName={heroName}
+                              isAdmin={isAdmin}
+                            />
+                          </div>
                         </>
                       )}
                     </div>
