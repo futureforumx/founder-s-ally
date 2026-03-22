@@ -20,6 +20,8 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
+import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
 
