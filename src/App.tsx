@@ -9,7 +9,16 @@ import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,    // 5 min — prevent tab-switch spam
+      gcTime: 30 * 60 * 1000,       // 30 min cache retention
+      retry: 1,                      // single retry on failure
+      refetchOnWindowFocus: false,   // manual invalidation only
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
