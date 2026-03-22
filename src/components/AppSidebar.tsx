@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MessageSquare, MapPin, Swords, Layers, Search, ChevronDown, Users } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/SettingsDialog";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -13,7 +13,6 @@ interface AppSidebarProps {
 const topItems = [
 { id: "dashboard" as const, label: "Mission Control", icon: Gauge }];
 
-
 const companyItems = [
 { id: "company" as const, label: "Company Settings", icon: Building2 },
 { id: "competitors" as const, label: "Competitors", icon: Swords },
@@ -21,21 +20,23 @@ const companyItems = [
 { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
 { id: "audit" as const, label: "Deck Audit", icon: FileText }];
 
-
 const investorItems = [
 { id: "investors" as const, label: "Matches", icon: Handshake },
 { id: "investor-search" as const, label: "Search", icon: Search },
 { id: "connections" as const, label: "Connections", icon: Link2 }];
 
-
 const communityItems = [
-  { id: "directory" as const, label: "Directory", icon: BookOpen }];
-
+  { id: "directory" as const, label: "Directory", icon: BookOpen },
+  { id: "groups" as const, label: "Groups", icon: UsersRound },
+  { id: "events" as const, label: "Events", icon: MapPin }];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [investorsOpen, setInvestorsOpen] = useState(
     activeView === "investors" || activeView === "investor-search" || activeView === "connections"
+  );
+  const [communityOpen, setCommunityOpen] = useState(
+    activeView === "directory" || activeView === "groups" || activeView === "events"
   );
 
   return (
@@ -73,7 +74,6 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             key={item.id}
             onClick={() => onViewChange(item.id)}
             className={cn("gap-2.5 rounded-lg py-2 transition-colors text-xs text-left items-center justify-start flex flex-row font-light font-sans px-[8px]",
-
             activeView === item.id ?
             "bg-sidebar-accent text-sidebar-accent-foreground" :
             "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
@@ -113,21 +113,35 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               )}
             </div>
           )}
-          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Community</div>
-          {communityItems.map((item) =>
           <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => setCommunityOpen(!communityOpen)}
             className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              activeView === item.id ?
-              "bg-sidebar-accent text-sidebar-accent-foreground" :
-              "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
+              (activeView === "directory" || activeView === "groups" || activeView === "events")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
-            
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </button>
+            <Users className="h-4 w-4" />
+            Community
+            <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", communityOpen && "rotate-180")} />
+          </button>
+          {communityOpen && (
+            <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
+              {communityItems.map((item) =>
+                <button
+                  key={item.id}
+                  onClick={() => onViewChange(item.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-light transition-colors",
+                    activeView === item.id
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  )}>
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </button>
+              )}
+            </div>
           )}
         </nav>
 
