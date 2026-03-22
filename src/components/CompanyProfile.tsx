@@ -2096,6 +2096,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {confirmed && (
               <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
