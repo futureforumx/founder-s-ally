@@ -24,12 +24,12 @@ const companyItems = [
 
 const investorItems = [
 { id: "investors" as const, label: "Matches", icon: Handshake },
-{ id: "investor-search" as const, label: "Search", icon: Search }];
+{ id: "investor-search" as const, label: "Search", icon: Search },
+{ id: "connections" as const, label: "Connections", icon: Link2 }];
 
 
 const communityItems = [
 { id: "directory" as const, label: "Directory", icon: BookOpen },
-{ id: "connections" as const, label: "Connections", icon: Link2 },
 { id: "messages" as const, label: "Messages", icon: MessageSquare },
 { id: "events" as const, label: "Hubs", icon: MapPin }];
 
