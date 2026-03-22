@@ -24,12 +24,12 @@ const companyItems = [
 
 const investorItems = [
 { id: "investors" as const, label: "Matches", icon: Handshake },
-{ id: "investor-search" as const, label: "Search", icon: Search }];
+{ id: "investor-search" as const, label: "Search", icon: Search },
+{ id: "connections" as const, label: "Connections", icon: Link2 }];
 
 
 const communityItems = [
 { id: "directory" as const, label: "Directory", icon: BookOpen },
-{ id: "connections" as const, label: "Connections", icon: Link2 },
 { id: "messages" as const, label: "Messages", icon: MessageSquare },
 { id: "events" as const, label: "Hubs", icon: MapPin }];
 
@@ -37,7 +37,7 @@ const communityItems = [
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [investorsOpen, setInvestorsOpen] = useState(
-    activeView === "investors" || activeView === "investor-search"
+    activeView === "investors" || activeView === "investor-search" || activeView === "connections"
   );
 
   return (
@@ -89,7 +89,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => setInvestorsOpen(!investorsOpen)}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "investors" || activeView === "investor-search")
+              (activeView === "investors" || activeView === "investor-search" || activeView === "connections")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
