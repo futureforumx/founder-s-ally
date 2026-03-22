@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, MapPin, Users, Plus, Clock, Tag, Layers, TrendingUp, CheckCircle2, X } from "lucide-react";
+import { Calendar, MapPin, Users, Plus, Clock, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -30,6 +29,12 @@ interface CommunityEvent {
   user_rsvp?: string | null;
 }
 
+interface EventRsvp {
+  event_id: string;
+  user_id: string;
+  status: string;
+}
+
 const eventTypes = ["Meetup", "Dinner", "Demo Day", "Workshop", "Pitch Night", "Fireside Chat", "Hackathon"];
 const sectorOptions = ["AI / ML", "FinTech", "HealthTech", "Climate Tech", "SaaS", "Consumer", "Web3 / Crypto", "DevTools", "EdTech", "BioTech", "Cybersecurity", "Logistics"];
 const stageOptions = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Growth"];
@@ -39,15 +44,8 @@ function CreateEventDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    event_date: "",
-    event_time: "18:00",
-    location: "Virtual",
-    event_type: "Meetup",
-    sector: "",
-    stage: "",
-    max_attendees: "",
+    title: "", description: "", event_date: "", event_time: "18:00",
+    location: "Virtual", event_type: "Meetup", sector: "", stage: "", max_attendees: "",
   });
 
   const handleSubmit = async () => {
@@ -58,10 +56,10 @@ function CreateEventDialog({ onCreated }: { onCreated: () => void }) {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { toast.error("Please sign in to create events"); return; }
+      if (!user) { toast.error("Please sign in to create events"); setLoading(false); return; }
 
       const dateTime = new Date(`${form.event_date}T${form.event_time}`).toISOString();
-      const { error } = await supabase.from("community_events").insert({
+      const { error } = await (supabase as any).from("community_events").insert({
         creator_id: user.id,
         title: form.title,
         description: form.description || null,
@@ -174,10 +172,10 @@ function RsvpButton({ event, userId, onToggle }: { event: CommunityEvent; userId
     setLoading(true);
     try {
       if (isGoing) {
-        await supabase.from("event_rsvps").delete().eq("event_id", event.id).eq("user_id", userId);
+        await (supabase as any).from("event_rsvps").delete().eq("event_id", event.id).eq("user_id", userId);
       } else {
-        if (isFull) { toast.error("Event is full"); return; }
-        await supabase.from("event_rsvps").insert({ event_id: event.id, user_id: userId });
+        if (isFull) { toast.error("Event is full"); setLoading(false); return; }
+        await (supabase as any).from("event_rsvps").insert({ event_id: event.id, user_id: userId });
       }
       onToggle();
     } catch (err: any) {
@@ -191,17 +189,16 @@ function RsvpButton({ event, userId, onToggle }: { event: CommunityEvent; userId
     <Button
       size="sm"
       variant={isGoing ? "default" : "outline"}
-      className={cn("w-full text-xs h-8 transition-colors", isGoing && "bg-green-600 hover:bg-green-700 text-white")}
+      className={cn(
+        "w-full text-xs h-8 transition-colors",
+        isGoing && "bg-primary hover:bg-primary/90 text-primary-foreground"
+      )}
       onClick={toggle}
       disabled={loading || (!isGoing && isFull)}
     >
       {isGoing ? (
         <><CheckCircle2 className="h-3 w-3 mr-1" /> Going</>
-      ) : isFull ? (
-        "Full"
-      ) : (
-        "RSVP"
-      )}
+      ) : isFull ? "Full" : "RSVP"}
     </Button>
   );
 }
@@ -277,8 +274,8 @@ export function EventsView() {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id;
 
-      // Fetch events
-      let query = supabase.from("community_events").select("*").order("event_date", { ascending: true });
+      const client = supabase as any;
+      let query = client.from("community_events").select("*").order("event_date", { ascending: true });
 
       if (filter === "upcoming") {
         query = query.gte("event_date", new Date().toISOString());
@@ -291,22 +288,21 @@ export function EventsView() {
       const { data: eventsData, error } = await query;
       if (error) throw error;
 
-      // Fetch RSVP counts
-      const eventIds = (eventsData || []).map(e => e.id);
+      const eventIds = (eventsData || []).map((e: any) => e.id);
       let rsvpCounts: Record<string, number> = {};
       let userRsvps: Record<string, string> = {};
 
       if (eventIds.length > 0) {
-        const { data: rsvps } = await supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", eventIds);
+        const { data: rsvps } = await client.from("event_rsvps").select("event_id, user_id, status").in("event_id", eventIds);
         if (rsvps) {
-          rsvps.forEach(r => {
+          (rsvps as EventRsvp[]).forEach((r) => {
             rsvpCounts[r.event_id] = (rsvpCounts[r.event_id] || 0) + 1;
             if (r.user_id === uid) userRsvps[r.event_id] = r.status;
           });
         }
       }
 
-      let enriched = (eventsData || []).map(e => ({
+      let enriched: CommunityEvent[] = (eventsData || []).map((e: any) => ({
         ...e,
         rsvp_count: rsvpCounts[e.id] || 0,
         user_rsvp: userRsvps[e.id] || null,
@@ -317,7 +313,7 @@ export function EventsView() {
       }
 
       setEvents(enriched);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load events");
     } finally {
       setLoading(false);
@@ -337,7 +333,6 @@ export function EventsView() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Events</h1>
@@ -346,7 +341,6 @@ export function EventsView() {
         <CreateEventDialog onCreated={fetchEvents} />
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex gap-1 border-b border-border/60 pb-0">
         {filterTabs.map(tab => (
           <button
@@ -364,7 +358,6 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Events Grid */}
       <div className="min-h-[360px]">
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
