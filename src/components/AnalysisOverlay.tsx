@@ -23,9 +23,34 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
   const [done, setDone] = useState(false);
   const hasFiredConfetti = useRef(false);
 
+  const playCompletionChime = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + i * 0.12 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(80);
+    } catch { /* gracefully ignore audio failures */ }
+  }, []);
+
   const fireConfetti = useCallback(() => {
     if (hasFiredConfetti.current) return;
     hasFiredConfetti.current = true;
+
+    playCompletionChime();
 
     const colors = ["#39FF14", "#00FF88", "#88FFB8", "#FFFFFF"];
     const end = Date.now() + 600;
@@ -50,7 +75,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
       if (Date.now() < end) requestAnimationFrame(frame);
     };
     frame();
-  }, []);
+  }, [playCompletionChime]);
 
   useEffect(() => {
     if (!open) {
