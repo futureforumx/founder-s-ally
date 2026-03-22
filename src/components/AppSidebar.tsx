@@ -37,7 +37,7 @@ const communityItems = [
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [investorsOpen, setInvestorsOpen] = useState(
-    activeView === "investors" || activeView === "investor-search"
+    activeView === "investors" || activeView === "investor-search" || activeView === "connections"
   );
 
   return (
