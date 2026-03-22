@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { MapPin, Layers, TrendingUp, Users, Building2, Calendar, Sparkles, ChevronDown, ArrowRight, Globe, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,10 +177,36 @@ const resultTabs: { id: ResultTab; label: string; icon: React.ElementType }[] = 
 
 // ── Main Component ──
 export function GroupsView() {
+  const { user } = useAuth();
+  const { profile } = useProfile();
+  const [companyData, setCompanyData] = useState<{ sector: string | null; stage: string | null; location?: string | null } | null>(null);
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+
   const [location, setLocation] = useState<string | null>(null);
   const [sector, setSector] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ResultTab>("connections");
+
+  // Fetch company data
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("company_analyses").select("sector, stage").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (data) setCompanyData(data); });
+  }, [user]);
+
+  // Apply defaults once profile + company data load
+  useEffect(() => {
+    if (defaultsApplied) return;
+    const loc = profile?.location || null;
+    const sec = companyData?.sector || null;
+    const stg = companyData?.stage || null;
+    if (loc || sec || stg) {
+      if (loc) setLocation(loc);
+      if (sec) setSector(sec);
+      if (stg) setStage(stg);
+      setDefaultsApplied(true);
+    }
+  }, [profile, companyData, defaultsApplied]);
 
   const hasFilters = location || sector || stage;
   const filterSummary = [location, sector, stage].filter(Boolean).join(" · ") || "All Groups";
