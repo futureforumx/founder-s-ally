@@ -265,6 +265,8 @@ function FounderCardSkeleton() {
 
 // ── Founder Card ──
 function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+  const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
+  
   return (
     <Card
       onClick={onClick}
@@ -272,13 +274,22 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
       }>
       {/* Color banner */}
-      <div className={`h-10 ${trending ? "bg-gradient-to-r from-accent/10 to-primary/5" : "bg-gradient-to-r from-muted to-secondary/30"}`} />
+      <div className={`h-10 ${trending ? "bg-gradient-to-r from-accent/10 to-primary/5" : founder._isRealProfile ? "bg-gradient-to-r from-primary/10 to-accent/5" : "bg-gradient-to-r from-muted to-secondary/30"}`} />
       <CardContent className="p-5 -mt-5 space-y-3">
         <div className="flex items-start justify-between">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border-2 border-background shadow-sm text-sm font-bold text-muted-foreground shrink-0">
-            {founder.initial}
+            {founder._isRealProfile ? (
+              <Users className="h-4 w-4 text-primary" />
+            ) : (
+              founder.initial
+            )}
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end mt-2">
+            {founder._isRealProfile && (
+              <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Verified
+              </Badge>
+            )}
             {trending &&
             <Badge className="text-[9px] font-medium px-2 py-0.5 bg-accent/10 text-accent border-accent/20">
                 <Flame className="h-2.5 w-2.5 mr-0.5" /> Trending
@@ -290,6 +301,17 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          {/* Show title/role for person profiles */}
+          {founder._isRealProfile && founder.model && (
+            <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
+          )}
+          {/* Company link for founder profiles */}
+          {founder._companyName && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <Building2 className="h-3 w-3 text-accent/70" />
+              <span className="text-[11px] font-semibold text-accent">{founder._companyName}</span>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">{founder.description}</p>
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-border/40">
@@ -306,7 +328,6 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
         </div>
       </CardContent>
     </Card>);
-
 }
 
 // ── Carousel-ready card wrapper ──
