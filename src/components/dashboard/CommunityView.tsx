@@ -71,10 +71,10 @@ const SUGGESTED_ENTRIES: DirectoryEntry[] = [
 
 // ── Mock data: Trending ──
 const TRENDING_ENTRIES: DirectoryEntry[] = [
-// Founders
-{ name: "DefenseKit", sector: "Defense & GovTech", stage: "Seed", description: "Dual-use drone swarm coordination software for search-and-rescue and perimeter defense operations.", location: "Arlington, VA", model: "Licensing", initial: "D", matchReason: null, category: "founder" },
-{ name: "QuantumForge", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum computing compiler toolchain that reduces qubit error rates by 60%. Making quantum practical for pharma R&D.", location: "Boulder, CO", model: "B2B SaaS", initial: "Q", matchReason: null, category: "founder" },
-{ name: "AeroMind", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Autonomous satellite constellation management using multi-agent AI for collision avoidance and orbit optimization.", location: "Los Angeles, CA", model: "B2B SaaS", initial: "A", matchReason: null, category: "founder" },
+// Founders (people)
+{ name: "Wei Zhang", sector: "Defense & GovTech", stage: "Seed", description: "Former DARPA researcher building dual-use drone swarm coordination software for search-and-rescue operations.", location: "Arlington, VA", model: "Founder & CEO", initial: "W", matchReason: null, category: "founder" },
+{ name: "Leila Farouk", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum physicist turned founder. Building compiler toolchains that reduce qubit error rates by 60%.", location: "Boulder, CO", model: "Co-founder & CTO", initial: "L", matchReason: null, category: "founder" },
+{ name: "Ryan Nakamura", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Ex-SpaceX engineer building autonomous satellite constellation management using multi-agent AI systems.", location: "Los Angeles, CA", model: "Founder & CEO", initial: "R", matchReason: null, category: "founder" },
 // Investors
 { name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor" },
 { name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
