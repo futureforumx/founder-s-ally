@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink
+  Sparkles, Crown, Zap, ExternalLink, Calendar
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -22,12 +22,13 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
-// ── Connection status persistence ──
-const CONN_KEY = "settings-connected-accounts";
-interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean }
+// ── Connection status persistence (synced with ConnectionsGate) ──
+const CONN_KEY = "community-connections-status";
+interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean; calendar: boolean; angellist: boolean }
+const ALL_KEYS: (keyof ConnStatus)[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
 function loadConn(): ConnStatus {
   try { const r = localStorage.getItem(CONN_KEY); if (r) return JSON.parse(r); } catch {}
-  return { gmail: false, linkedin: false, twitter: false };
+  return { gmail: false, linkedin: false, twitter: false, calendar: false, angellist: false };
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
@@ -200,10 +201,12 @@ function AccountTab({ displayName, displayEmail, initials }: { displayName: stri
 }
 
 // ── Connections Tab ──
-const INTEGRATIONS = [
-  { key: "gmail" as const, label: "Gmail", icon: Mail, desc: "Sync email threads for warm intro discovery", color: "text-red-500", bg: "bg-red-500/10" },
+const SETTINGS_INTEGRATIONS = [
+  { key: "gmail" as const, label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", color: "text-red-500", bg: "bg-red-500/10" },
   { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", color: "text-blue-600", bg: "bg-blue-600/10" },
   { key: "twitter" as const, label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", color: "text-foreground", bg: "bg-foreground/5" },
+  { key: "calendar" as const, label: "Google Calendar", icon: Calendar, desc: "Detect past VC meetings and intro calls", color: "text-blue-500", bg: "bg-blue-500/10" },
+  { key: "angellist" as const, label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", color: "text-foreground", bg: "bg-foreground/5" },
 ];
 
 function ConnectionsTab() {
@@ -212,37 +215,20 @@ function ConnectionsTab() {
 
   const handleToggle = async (key: keyof ConnStatus) => {
     if (status[key]) {
-      // Disconnect
       const next = { ...status, [key]: false };
       setStatus(next);
       saveConn(next);
-      // Also sync with community gate
-      try {
-        const gateRaw = localStorage.getItem("community-connections-status");
-        if (gateRaw) {
-          const gate = JSON.parse(gateRaw);
-          gate[key] = false;
-          localStorage.setItem("community-connections-status", JSON.stringify(gate));
-        }
-      } catch {}
     } else {
       setConnecting(key);
       await new Promise((r) => setTimeout(r, 1500));
       const next = { ...status, [key]: true };
       setStatus(next);
       saveConn(next);
-      // Sync with community gate
-      try {
-        const gateRaw = localStorage.getItem("community-connections-status") || "{}";
-        const gate = JSON.parse(gateRaw);
-        gate[key] = true;
-        localStorage.setItem("community-connections-status", JSON.stringify(gate));
-      } catch {}
       setConnecting(null);
     }
   };
 
-  const connectedCount = [status.gmail, status.linkedin, status.twitter].filter(Boolean).length;
+  const connectedCount = ALL_KEYS.filter((k) => status[k]).length;
 
   return (
     <motion.div initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
@@ -257,17 +243,17 @@ function ConnectionsTab() {
           <Sparkles className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground">{connectedCount}/3 sources linked</p>
+          <p className="text-sm font-semibold text-foreground">{connectedCount}/5 sources linked</p>
           <p className="text-[10px] text-muted-foreground">More connections = better intro paths</p>
         </div>
         <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
-          <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${(connectedCount / 3) * 100}%` }} />
+          <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${(connectedCount / 5) * 100}%` }} />
         </div>
       </div>
 
       {/* Integration Cards */}
       <div className="space-y-2.5">
-        {INTEGRATIONS.map((int) => {
+        {SETTINGS_INTEGRATIONS.map((int) => {
           const Icon = int.icon;
           const isConnected = status[int.key];
           const isConnecting = connecting === int.key;
