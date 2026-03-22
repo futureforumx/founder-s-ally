@@ -47,13 +47,13 @@ export function useProfile() {
     const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
     
     if (profile) {
-      await supabase
-        .from("profiles" as any)
+      await (supabase as any)
+        .from("profiles")
         .update(payload)
         .eq("user_id", user.id);
     } else {
-      await supabase
-        .from("profiles" as any)
+      await (supabase as any)
+        .from("profiles")
         .insert(payload);
     }
     await fetchProfile();
