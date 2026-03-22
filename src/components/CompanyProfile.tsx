@@ -16,7 +16,7 @@ import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
 import { SectorChipGrid, type SectorChipSelection } from "./company-profile/SectorChipGrid";
 import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
-import { normalizeSector } from "./company-profile/sectorNormalization";
+import { normalizeSector, normalizeBusinessModel, normalizeTargetCustomer, bridgeOldSector } from "./company-profile/sectorNormalization";
 import {
   STAGE_OPTIONS, SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS,
   type SectorOption,
@@ -338,7 +338,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         const targetCustomerArr = Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []);
         const bm = sanitized.businessModel;
         const businessModelArr = Array.isArray(bm) ? bm.filter(Boolean) : (typeof bm === "string" && bm ? [bm] : []);
-        return { ...EMPTY_FORM, ...sanitized, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr, businessModel: businessModelArr };
+        // Bridge old sector names to new taxonomy
+        const sectorVal = bridgeOldSector(sanitized.sector || "");
+        return { ...EMPTY_FORM, ...sanitized, sector: sectorVal, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr, businessModel: businessModelArr };
       }
     } catch {}
     return { ...EMPTY_FORM };
@@ -740,9 +742,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         const userVal = prev[key];
         const touched = userTouched.has(key);
         if (!touched && (!userVal || userVal === "" || (Array.isArray(userVal) && userVal.length === 0))) {
-          // Convert AI string to array for targetCustomer and businessModel
-          if ((key === "targetCustomer" || key === "businessModel") && typeof aiVal === "string") {
-            (next as any)[key] = [aiVal];
+          // Convert AI string to array for targetCustomer and businessModel, with normalization
+          if (key === "businessModel" && typeof aiVal === "string") {
+            const normalized = normalizeBusinessModel(aiVal);
+            (next as any)[key] = normalized ? [normalized] : [aiVal];
+          } else if (key === "targetCustomer" && typeof aiVal === "string") {
+            const normalized = normalizeTargetCustomer(aiVal);
+            (next as any)[key] = normalized ? [normalized] : [aiVal];
           } else {
             (next as any)[key] = typeof aiVal === "string" ? aiVal : aiVal;
           }

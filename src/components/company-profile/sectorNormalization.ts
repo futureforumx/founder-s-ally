@@ -1,3 +1,4 @@
+import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
 import { SECTOR_TAXONOMY, sectors, subsectorsFor } from "./types";
 
 /**
@@ -5,18 +6,36 @@ import { SECTOR_TAXONOMY, sectors, subsectorsFor } from "./types";
  * Uses fuzzy matching, keyword extraction, and synonym mapping.
  */
 
+// New taxonomy labels from SECTOR_OPTIONS
+const NEW_SECTOR_LABELS = SECTOR_OPTIONS.map(o => o.label);
+
+// Bridge from old taxonomy → new taxonomy
+const OLD_TO_NEW_SECTOR: Record<string, string> = {
+  "Construction & Real Estate": "PropTech & Construction Tech",
+  "Industrial & Manufacturing": "IndustrialTech, Manufacturing & Robotics",
+  "Enterprise Software & SaaS": "Enterprise Software & SaaS",
+  "Artificial Intelligence": "AI, Data & Analytics",
+  "Fintech": "Fintech",
+  "Climate & Energy": "Climate, Energy & Sustainability",
+  "Health & Biotech": "HealthTech, Biotech & Life Sciences",
+  "Consumer & Retail": "Consumer, E\u2011commerce & CPG",
+  "Deep Tech & Space": "GovTech, Defense & Space",
+  "Defense & GovTech": "GovTech, Defense & Space",
+};
+
 const SECTOR_ALIASES: Record<string, string> = {
-  // Exact canonical names (lowercase)
-  "construction & real estate": "Construction & Real Estate",
-  "industrial & manufacturing": "Industrial & Manufacturing",
-  "enterprise software & saas": "Enterprise Software & SaaS",
-  "artificial intelligence": "Artificial Intelligence",
-  "fintech": "Fintech",
-  "climate & energy": "Climate & Energy",
-  "health & biotech": "Health & Biotech",
-  "consumer & retail": "Consumer & Retail",
-  "deep tech & space": "Deep Tech & Space",
-  "defense & govtech": "Defense & GovTech",
+  // Direct new taxonomy names (lowercase)
+  ...Object.fromEntries(NEW_SECTOR_LABELS.map(l => [l.toLowerCase(), l])),
+
+  // Old taxonomy names → new labels
+  "construction & real estate": "PropTech & Construction Tech",
+  "industrial & manufacturing": "IndustrialTech, Manufacturing & Robotics",
+  "artificial intelligence": "AI, Data & Analytics",
+  "climate & energy": "Climate, Energy & Sustainability",
+  "health & biotech": "HealthTech, Biotech & Life Sciences",
+  "consumer & retail": "Consumer, E\u2011commerce & CPG",
+  "deep tech & space": "GovTech, Defense & Space",
+  "defense & govtech": "GovTech, Defense & Space",
 
   // Common AI output variations
   "enterprise software": "Enterprise Software & SaaS",
@@ -25,137 +44,194 @@ const SECTOR_ALIASES: Record<string, string> = {
   "software": "Enterprise Software & SaaS",
   "saas / b2b software": "Enterprise Software & SaaS",
 
-  "ai": "Artificial Intelligence",
-  "ai / ml": "Artificial Intelligence",
-  "machine learning": "Artificial Intelligence",
+  "ai": "AI, Data & Analytics",
+  "ai / ml": "AI, Data & Analytics",
+  "machine learning": "AI, Data & Analytics",
+  "data analytics": "AI, Data & Analytics",
+  "data": "AI, Data & Analytics",
 
-  "health tech": "Health & Biotech",
-  "healthtech": "Health & Biotech",
-  "biotech": "Health & Biotech",
-  "healthcare": "Health & Biotech",
-  "digital health": "Health & Biotech",
-  "medtech": "Health & Biotech",
+  "health tech": "HealthTech, Biotech & Life Sciences",
+  "healthtech": "HealthTech, Biotech & Life Sciences",
+  "biotech": "HealthTech, Biotech & Life Sciences",
+  "healthcare": "HealthTech, Biotech & Life Sciences",
+  "digital health": "HealthTech, Biotech & Life Sciences",
+  "medtech": "HealthTech, Biotech & Life Sciences",
+  "life sciences": "HealthTech, Biotech & Life Sciences",
 
-  "climate tech": "Climate & Energy",
-  "cleantech": "Climate & Energy",
-  "clean tech": "Climate & Energy",
-  "energy": "Climate & Energy",
-  "agtech": "Climate & Energy",
-  "agriculture": "Climate & Energy",
+  "climate tech": "Climate, Energy & Sustainability",
+  "cleantech": "Climate, Energy & Sustainability",
+  "clean tech": "Climate, Energy & Sustainability",
+  "energy": "Climate, Energy & Sustainability",
+  "agtech": "Climate, Energy & Sustainability",
+  "agriculture": "Climate, Energy & Sustainability",
+  "sustainability": "Climate, Energy & Sustainability",
 
-  "construction": "Construction & Real Estate",
-  "real estate": "Construction & Real Estate",
-  "contech": "Construction & Real Estate",
-  "proptech": "Construction & Real Estate",
-  "building": "Construction & Real Estate",
-  "building software": "Construction & Real Estate",
+  "construction": "PropTech & Construction Tech",
+  "real estate": "PropTech & Construction Tech",
+  "contech": "PropTech & Construction Tech",
+  "proptech": "PropTech & Construction Tech",
+  "building": "PropTech & Construction Tech",
+  "building software": "PropTech & Construction Tech",
+  "construction tech": "PropTech & Construction Tech",
 
-  "manufacturing": "Industrial & Manufacturing",
-  "industrial": "Industrial & Manufacturing",
-  "robotics": "Industrial & Manufacturing",
-  "supply chain": "Industrial & Manufacturing",
-  "logistics": "Industrial & Manufacturing",
+  "manufacturing": "IndustrialTech, Manufacturing & Robotics",
+  "industrial": "IndustrialTech, Manufacturing & Robotics",
+  "robotics": "IndustrialTech, Manufacturing & Robotics",
+  "supply chain": "Mobility, Transportation & Logistics",
+  "logistics": "Mobility, Transportation & Logistics",
+  "transportation": "Mobility, Transportation & Logistics",
+  "mobility": "Mobility, Transportation & Logistics",
 
   "financial technology": "Fintech",
   "financial services": "Fintech",
   "payments": "Fintech",
-  "crypto": "Fintech",
-  "blockchain": "Fintech",
-  "web3": "Fintech",
-  "defi": "Fintech",
+  "crypto": "Web3, Crypto & DeFi",
+  "blockchain": "Web3, Crypto & DeFi",
+  "web3": "Web3, Crypto & DeFi",
+  "defi": "Web3, Crypto & DeFi",
   "insurtech": "Fintech",
 
-  "consumer": "Consumer & Retail",
-  "retail": "Consumer & Retail",
-  "ecommerce": "Consumer & Retail",
-  "e-commerce": "Consumer & Retail",
-  "d2c": "Consumer & Retail",
-  "edtech": "Consumer & Retail",
-  "gaming": "Consumer & Retail",
+  "consumer": "Consumer, E\u2011commerce & CPG",
+  "retail": "Consumer, E\u2011commerce & CPG",
+  "ecommerce": "Consumer, E\u2011commerce & CPG",
+  "e-commerce": "Consumer, E\u2011commerce & CPG",
+  "d2c": "Consumer, E\u2011commerce & CPG",
+  "cpg": "Consumer, E\u2011commerce & CPG",
 
-  "deep tech": "Deep Tech & Space",
-  "space": "Deep Tech & Space",
-  "quantum": "Deep Tech & Space",
-  "semiconductors": "Deep Tech & Space",
+  "edtech": "EdTech & Future of Work",
+  "education": "EdTech & Future of Work",
+  "future of work": "EdTech & Future of Work",
 
-  "defense": "Defense & GovTech",
-  "govtech": "Defense & GovTech",
-  "government": "Defense & GovTech",
-  "military": "Defense & GovTech",
-  "dual-use": "Defense & GovTech",
+  "gaming": "Media, Gaming & Creator Economy",
+  "media": "Media, Gaming & Creator Economy",
+  "creator economy": "Media, Gaming & Creator Economy",
+  "entertainment": "Media, Gaming & Creator Economy",
+
+  "deep tech": "GovTech, Defense & Space",
+  "space": "GovTech, Defense & Space",
+  "quantum": "GovTech, Defense & Space",
+  "semiconductors": "GovTech, Defense & Space",
+  "defense": "GovTech, Defense & Space",
+  "govtech": "GovTech, Defense & Space",
+  "government": "GovTech, Defense & Space",
+  "military": "GovTech, Defense & Space",
+  "dual-use": "GovTech, Defense & Space",
+
+  "cybersecurity": "Cybersecurity & Privacy",
+  "security": "Cybersecurity & Privacy",
+  "privacy": "Cybersecurity & Privacy",
+  "identity": "Cybersecurity & Privacy",
+
+  "martech": "Marketing, Sales & Retail Infrastructure",
+  "marketing": "Marketing, Sales & Retail Infrastructure",
+  "adtech": "Marketing, Sales & Retail Infrastructure",
+  "sales enablement": "Marketing, Sales & Retail Infrastructure",
 };
 
-// Maps common subsector keywords to their canonical subsector + parent sector
-const SUBSECTOR_KEYWORDS: Record<string, { sector: string; subsector: string }> = {
-  "contech": { sector: "Construction & Real Estate", subsector: "ConTech (Construction Tech)" },
-  "construction tech": { sector: "Construction & Real Estate", subsector: "ConTech (Construction Tech)" },
-  "proptech": { sector: "Construction & Real Estate", subsector: "PropTech" },
-  "property tech": { sector: "Construction & Real Estate", subsector: "PropTech" },
-  "bim": { sector: "Construction & Real Estate", subsector: "Digital Twins & BIM" },
-  "digital twin": { sector: "Construction & Real Estate", subsector: "Digital Twins & BIM" },
-  "sustainable materials": { sector: "Construction & Real Estate", subsector: "Sustainable Materials" },
+// Business model normalization: AI might return "SaaS" → we need "B2B SaaS"
+const BIZ_MODEL_ALIASES: Record<string, string> = {
+  ...Object.fromEntries(BUSINESS_MODEL_OPTIONS.map(o => [o.label.toLowerCase(), o.label])),
+  "saas": "B2B SaaS",
+  "b2b saas": "B2B SaaS",
+  "subscription": "B2B SaaS",
+  "platform": "Marketplace",
+  "two-sided": "Marketplace",
+  "d2c": "E-Commerce",
+  "dtc": "E-Commerce",
+  "online retail": "E-Commerce",
+  "device": "Hardware",
+  "iot": "Hardware",
+  "consulting": "Services",
+  "agency": "Services",
+  "managed services": "Services",
+  "free tier": "Freemium",
+  "consumption": "Usage-Based",
+  "metered": "Usage-Based",
+  "pay per use": "Usage-Based",
+  "license": "Licensing",
+  "perpetual": "Licensing",
+  "ads": "Advertising",
+  "ad-supported": "Advertising",
+  "commission": "Transaction Fee",
+  "take rate": "Transaction Fee",
+};
 
-  "industry 4.0": { sector: "Industrial & Manufacturing", subsector: "Industrial Tech (Industry 4.0)" },
-  "robotics": { sector: "Industrial & Manufacturing", subsector: "Robotics & Automation" },
-  "automation": { sector: "Industrial & Manufacturing", subsector: "Robotics & Automation" },
-  "supply chain": { sector: "Industrial & Manufacturing", subsector: "Supply Chain Tech" },
-  "warehousing": { sector: "Industrial & Manufacturing", subsector: "Warehousing Tech" },
-  "3d printing": { sector: "Industrial & Manufacturing", subsector: "3D Printing" },
+// Target customer normalization
+const TARGET_ALIASES: Record<string, string> = {
+  ...Object.fromEntries(TARGET_CUSTOMER_OPTIONS.map(o => [o.label.toLowerCase(), o.label])),
+  "business to business": "B2B",
+  "business": "B2B",
+  "consumer": "B2C",
+  "direct to consumer": "B2C",
+  "small business": "SMB",
+  "medium business": "SMB",
+  "sme": "SMB",
+  "large enterprise": "Enterprise",
+  "fortune 500": "Enterprise",
+  "corporate": "Enterprise",
+  "federal": "Government",
+  "public sector": "Government",
+  "gov": "Government",
+  "b2g": "Government",
+  "power user": "Prosumer",
+  "creator": "Prosumer",
+  "freelancer": "Prosumer",
+};
+
+// Maps common subsector keywords to their canonical subsector + parent sector (NEW taxonomy)
+const SUBSECTOR_KEYWORDS: Record<string, { sector: string; subsector: string }> = {
+  "contech": { sector: "PropTech & Construction Tech", subsector: "ConTech" },
+  "construction tech": { sector: "PropTech & Construction Tech", subsector: "ConTech" },
+  "proptech": { sector: "PropTech & Construction Tech", subsector: "PropTech" },
+  "property tech": { sector: "PropTech & Construction Tech", subsector: "PropTech" },
+  "bim": { sector: "PropTech & Construction Tech", subsector: "Digital Twins & BIM" },
+  "digital twin": { sector: "PropTech & Construction Tech", subsector: "Digital Twins & BIM" },
+  "sustainable materials": { sector: "PropTech & Construction Tech", subsector: "Sustainable Materials" },
+
+  "industry 4.0": { sector: "IndustrialTech, Manufacturing & Robotics", subsector: "Industrial IoT" },
+  "robotics": { sector: "IndustrialTech, Manufacturing & Robotics", subsector: "Robotics & Automation" },
+  "automation": { sector: "IndustrialTech, Manufacturing & Robotics", subsector: "Robotics & Automation" },
+  "3d printing": { sector: "IndustrialTech, Manufacturing & Robotics", subsector: "3D Printing" },
 
   "vertical saas": { sector: "Enterprise Software & SaaS", subsector: "Vertical SaaS" },
   "horizontal saas": { sector: "Enterprise Software & SaaS", subsector: "Horizontal SaaS" },
-  "cybersecurity": { sector: "Enterprise Software & SaaS", subsector: "Cybersecurity" },
   "devtools": { sector: "Enterprise Software & SaaS", subsector: "DevTools & Open Source" },
   "developer tools": { sector: "Enterprise Software & SaaS", subsector: "DevTools & Open Source" },
   "hrtech": { sector: "Enterprise Software & SaaS", subsector: "HRTech" },
-  "martech": { sector: "Enterprise Software & SaaS", subsector: "MarTech" },
   "legaltech": { sector: "Enterprise Software & SaaS", subsector: "LegalTech" },
 
-  "llm": { sector: "Artificial Intelligence", subsector: "LLMOps & Infrastructure" },
-  "ai agent": { sector: "Artificial Intelligence", subsector: "Vertical AI Agents" },
-  "computer vision": { sector: "Artificial Intelligence", subsector: "Computer Vision" },
-  "generative ai": { sector: "Artificial Intelligence", subsector: "Generative Media" },
-  "ai safety": { sector: "Artificial Intelligence", subsector: "AI Safety & Governance" },
-  "edge ai": { sector: "Artificial Intelligence", subsector: "Edge AI" },
+  "llm": { sector: "AI, Data & Analytics", subsector: "LLMOps & Infrastructure" },
+  "ai agent": { sector: "AI, Data & Analytics", subsector: "Vertical AI Agents" },
+  "computer vision": { sector: "AI, Data & Analytics", subsector: "Computer Vision" },
+  "generative ai": { sector: "AI, Data & Analytics", subsector: "Generative Media" },
+  "ai safety": { sector: "AI, Data & Analytics", subsector: "AI Safety & Governance" },
 
   "embedded finance": { sector: "Fintech", subsector: "Embedded Finance" },
   "payments": { sector: "Fintech", subsector: "Payments Infrastructure" },
   "insurtech": { sector: "Fintech", subsector: "Insurtech" },
-  "rwa": { sector: "Fintech", subsector: "Real World Asset (RWA) Tokenization" },
-  "tokenization": { sector: "Fintech", subsector: "Real World Asset (RWA) Tokenization" },
   "regtech": { sector: "Fintech", subsector: "RegTech" },
   "wealthtech": { sector: "Fintech", subsector: "WealthTech" },
 
-  "carbon capture": { sector: "Climate & Energy", subsector: "Carbon Capture" },
-  "energy storage": { sector: "Climate & Energy", subsector: "Energy Storage" },
-  "circular economy": { sector: "Climate & Energy", subsector: "Circular Economy" },
-  "grid": { sector: "Climate & Energy", subsector: "Grid Optimization" },
-  "agtech": { sector: "Climate & Energy", subsector: "AgTech" },
-  "water tech": { sector: "Climate & Energy", subsector: "Water Tech" },
+  "carbon capture": { sector: "Climate, Energy & Sustainability", subsector: "Carbon Capture" },
+  "energy storage": { sector: "Climate, Energy & Sustainability", subsector: "Energy Storage" },
+  "circular economy": { sector: "Climate, Energy & Sustainability", subsector: "Circular Economy" },
+  "agtech": { sector: "Climate, Energy & Sustainability", subsector: "AgTech" },
+  "water tech": { sector: "Climate, Energy & Sustainability", subsector: "Water Tech" },
 
-  "digital health": { sector: "Health & Biotech", subsector: "Digital Health" },
-  "medtech": { sector: "Health & Biotech", subsector: "MedTech" },
-  "biopharma": { sector: "Health & Biotech", subsector: "Biopharma" },
-  "genomics": { sector: "Health & Biotech", subsector: "Genomics" },
-  "neurotech": { sector: "Health & Biotech", subsector: "Neurotech" },
-  "longevity": { sector: "Health & Biotech", subsector: "Longevity" },
+  "digital health": { sector: "HealthTech, Biotech & Life Sciences", subsector: "Digital Health" },
+  "medtech": { sector: "HealthTech, Biotech & Life Sciences", subsector: "MedTech" },
+  "biopharma": { sector: "HealthTech, Biotech & Life Sciences", subsector: "Biopharma" },
+  "genomics": { sector: "HealthTech, Biotech & Life Sciences", subsector: "Genomics" },
+  "neurotech": { sector: "HealthTech, Biotech & Life Sciences", subsector: "Neurotech" },
+  "longevity": { sector: "HealthTech, Biotech & Life Sciences", subsector: "Longevity" },
 
-  "ecommerce": { sector: "Consumer & Retail", subsector: "E-commerce Infrastructure" },
-  "gaming": { sector: "Consumer & Retail", subsector: "Gaming & Interactive" },
-  "edtech": { sector: "Consumer & Retail", subsector: "EdTech" },
-  "social commerce": { sector: "Consumer & Retail", subsector: "Social Commerce" },
-  "adtech": { sector: "Consumer & Retail", subsector: "AdTech" },
+  "cybersecurity": { sector: "Cybersecurity & Privacy", subsector: "Cloud Security" },
+  "zero trust": { sector: "Cybersecurity & Privacy", subsector: "Zero Trust" },
 
-  "quantum": { sector: "Deep Tech & Space", subsector: "Quantum Computing" },
-  "satellite": { sector: "Deep Tech & Space", subsector: "Satcom" },
-  "space infrastructure": { sector: "Deep Tech & Space", subsector: "Space Infrastructure" },
-  "photonics": { sector: "Deep Tech & Space", subsector: "Photonics" },
-  "semiconductor": { sector: "Deep Tech & Space", subsector: "Semiconductors" },
-
-  "dual-use": { sector: "Defense & GovTech", subsector: "Dual-Use Tech" },
-  "public safety": { sector: "Defense & GovTech", subsector: "Public Safety" },
-  "drone": { sector: "Defense & GovTech", subsector: "Drones & UAVs" },
-  "national security": { sector: "Defense & GovTech", subsector: "National Security" },
+  "quantum": { sector: "GovTech, Defense & Space", subsector: "Quantum Computing" },
+  "satellite": { sector: "GovTech, Defense & Space", subsector: "Space Infrastructure" },
+  "drone": { sector: "GovTech, Defense & Space", subsector: "Drones & UAVs" },
+  "dual-use": { sector: "GovTech, Defense & Space", subsector: "Dual-Use Tech" },
 };
 
 export interface NormalizationResult {
@@ -167,7 +243,7 @@ export interface NormalizationResult {
 
 /**
  * Normalizes a raw sector string from AI to a canonical taxonomy sector.
- * Also attempts to extract subsectors from the raw string and sectorMapping data.
+ * Targets the NEW taxonomy labels from SECTOR_OPTIONS.
  */
 export function normalizeSector(
   rawSector: string | undefined | null,
@@ -189,11 +265,20 @@ export function normalizeSector(
   const raw = rawSector.trim();
   const rawLower = raw.toLowerCase();
 
-  // 1. Exact match against canonical names
-  const exactMatch = sectors.find(s => s.toLowerCase() === rawLower);
+  // 1. Exact match against new taxonomy labels
+  const exactMatch = NEW_SECTOR_LABELS.find(s => s.toLowerCase() === rawLower);
   if (exactMatch) {
     result.sector = exactMatch;
     result.confidence = "exact";
+  }
+
+  // 1b. Exact match against old taxonomy → bridge to new
+  if (!result.sector) {
+    const oldMatch = sectors.find(s => s.toLowerCase() === rawLower);
+    if (oldMatch && OLD_TO_NEW_SECTOR[oldMatch]) {
+      result.sector = OLD_TO_NEW_SECTOR[oldMatch];
+      result.confidence = "exact";
+    }
   }
 
   // 2. Alias lookup
@@ -205,9 +290,9 @@ export function normalizeSector(
     }
   }
 
-  // 3. Fuzzy: check if raw contains any canonical sector name or vice versa
+  // 3. Fuzzy: check if raw contains any new taxonomy label or vice versa
   if (!result.sector) {
-    for (const s of sectors) {
+    for (const s of NEW_SECTOR_LABELS) {
       if (rawLower.includes(s.toLowerCase()) || s.toLowerCase().includes(rawLower)) {
         result.sector = s;
         result.confidence = "fuzzy";
@@ -230,7 +315,7 @@ export function normalizeSector(
     }
   }
 
-  // 5. Word-level alias fallback — split raw into words and check each
+  // 5. Word-level alias fallback
   if (!result.sector) {
     const words = rawLower.split(/[\s,&/+\-]+/).filter(Boolean);
     for (const word of words) {
@@ -243,11 +328,11 @@ export function normalizeSector(
     }
   }
 
-  // If still nothing, pick closest match via substring overlap
+  // 6. Substring overlap fallback
   if (!result.sector) {
     let bestScore = 0;
-    let bestSector = sectors[0];
-    for (const s of sectors) {
+    let bestSector = NEW_SECTOR_LABELS[0];
+    for (const s of NEW_SECTOR_LABELS) {
       const sLower = s.toLowerCase();
       const words = rawLower.split(/\s+/);
       let score = 0;
@@ -266,30 +351,25 @@ export function normalizeSector(
   }
 
   // Resolve subsectors from subTag
-  if (rawSubTag) {
+  if (rawSubTag && result.sector) {
     const subTagLower = rawSubTag.toLowerCase().trim();
-    // Check if it exactly matches any subsector in the resolved sector
-    if (result.sector) {
-      const subs = subsectorsFor(result.sector);
-      const exactSub = subs.find(s => s.toLowerCase() === subTagLower);
-      if (exactSub && !result.subsectors.includes(exactSub)) {
-        result.subsectors.push(exactSub);
-      } else {
-        // Fuzzy match within the sector's subsectors
-        const fuzzySub = subs.find(s => s.toLowerCase().includes(subTagLower) || subTagLower.includes(s.toLowerCase()));
-        if (fuzzySub && !result.subsectors.includes(fuzzySub)) {
-          result.subsectors.push(fuzzySub);
-        }
+    const subs = subsectorsFor(result.sector);
+    const exactSub = subs.find(s => s.toLowerCase() === subTagLower);
+    if (exactSub && !result.subsectors.includes(exactSub)) {
+      result.subsectors.push(exactSub);
+    } else {
+      const fuzzySub = subs.find(s => s.toLowerCase().includes(subTagLower) || subTagLower.includes(s.toLowerCase()));
+      if (fuzzySub && !result.subsectors.includes(fuzzySub)) {
+        result.subsectors.push(fuzzySub);
       }
     }
-    // Also check global keyword map
     const kwMatch = SUBSECTOR_KEYWORDS[subTagLower];
     if (kwMatch && !result.subsectors.includes(kwMatch.subsector)) {
       result.subsectors.push(kwMatch.subsector);
     }
   }
 
-  // Extract subsectors from keywords array too
+  // Extract subsectors from keywords array
   if (keywords?.length) {
     for (const kw of keywords) {
       const kwLower = kw.toLowerCase().trim();
@@ -300,12 +380,60 @@ export function normalizeSector(
     }
   }
 
-  // Cap at 3 subsectors
   result.subsectors = result.subsectors.slice(0, 3);
 
   console.log(`[AI Extraction] Raw: "${raw}" | Mapped to: "${result.sector}" (${result.confidence}) | Subsectors: [${result.subsectors.join(", ")}]`);
 
   return result;
+}
+
+/**
+ * Normalize a business model string from AI output to canonical label.
+ */
+export function normalizeBusinessModel(raw: string): string | null {
+  if (!raw) return null;
+  const rawLower = raw.toLowerCase().trim();
+  const alias = BIZ_MODEL_ALIASES[rawLower];
+  if (alias) return alias;
+  // Fuzzy: check if any label contains the raw or vice versa
+  for (const opt of BUSINESS_MODEL_OPTIONS) {
+    if (opt.label.toLowerCase().includes(rawLower) || rawLower.includes(opt.label.toLowerCase())) {
+      return opt.label;
+    }
+  }
+  return null;
+}
+
+/**
+ * Normalize a target customer string from AI output to canonical label.
+ */
+export function normalizeTargetCustomer(raw: string): string | null {
+  if (!raw) return null;
+  const rawLower = raw.toLowerCase().trim();
+  const alias = TARGET_ALIASES[rawLower];
+  if (alias) return alias;
+  for (const opt of TARGET_CUSTOMER_OPTIONS) {
+    if (opt.label.toLowerCase().includes(rawLower) || rawLower.includes(opt.label.toLowerCase())) {
+      return opt.label;
+    }
+  }
+  return null;
+}
+
+/**
+ * Bridge: convert an old taxonomy sector name to the new taxonomy label.
+ */
+export function bridgeOldSector(oldSector: string): string {
+  if (!oldSector) return oldSector;
+  // Already a new label?
+  if (NEW_SECTOR_LABELS.includes(oldSector)) return oldSector;
+  // Check bridge map
+  const bridged = OLD_TO_NEW_SECTOR[oldSector];
+  if (bridged) return bridged;
+  // Try alias
+  const alias = SECTOR_ALIASES[oldSector.toLowerCase()];
+  if (alias) return alias;
+  return oldSector;
 }
 
 /**
@@ -315,7 +443,6 @@ export function normalizeSubsector(raw: string, parentSector?: string): string |
   if (!raw) return null;
   const rawLower = raw.toLowerCase().trim();
 
-  // Check within parent sector first
   if (parentSector) {
     const subs = subsectorsFor(parentSector);
     const exact = subs.find(s => s.toLowerCase() === rawLower);
@@ -324,12 +451,10 @@ export function normalizeSubsector(raw: string, parentSector?: string): string |
     if (fuzzy) return fuzzy;
   }
 
-  // Check global keyword map
   const kwMatch = SUBSECTOR_KEYWORDS[rawLower];
   if (kwMatch) return kwMatch.subsector;
 
-  // Check all sectors
-  for (const s of sectors) {
+  for (const s of [...NEW_SECTOR_LABELS, ...sectors]) {
     const subs = subsectorsFor(s);
     const match = subs.find(sub => sub.toLowerCase() === rawLower || sub.toLowerCase().includes(rawLower));
     if (match) return match;
