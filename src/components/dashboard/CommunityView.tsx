@@ -51,11 +51,11 @@ interface DirectoryEntry {
 
 // ── Mock data: Suggested ──
 const SUGGESTED_ENTRIES: DirectoryEntry[] = [
-// Founders
-{ name: "Constructiv AI", sector: "Construction & Real Estate", stage: "Seed", description: "AI-powered project management for mid-size contractors. Automates scheduling, risk forecasting, and compliance tracking.", location: "San Francisco, CA", model: "B2B SaaS", initial: "C", matchReason: null, category: "founder" },
-{ name: "GridShift Energy", sector: "Climate & Energy", stage: "Series A", description: "Smart grid optimization platform using reinforcement learning to reduce energy waste by 40% for commercial buildings.", location: "Austin, TX", model: "Usage-Based", initial: "G", matchReason: "Matches your stage", category: "founder" },
-{ name: "VaultMed", sector: "Health & Biotech", stage: "Pre-Seed", description: "Decentralized health records platform giving patients full ownership of their medical data via zero-knowledge proofs.", location: "Boston, MA", model: "B2B SaaS", initial: "V", matchReason: null, category: "founder" },
-{ name: "Mosaic Retail", sector: "Consumer & Retail", stage: "Series B", description: "AI visual merchandising engine for e-commerce brands. Increases conversion by dynamically optimizing product layouts.", location: "New York, NY", model: "Marketplace", initial: "M", matchReason: "Matches your sector", category: "founder" },
+// Founders (people)
+{ name: "Sarah Kim", sector: "Construction & Real Estate", stage: "Seed", description: "Technical co-founder building AI-powered project management tools for mid-size contractors. Ex-Google engineer.", location: "San Francisco, CA", model: "CEO & Co-founder", initial: "S", matchReason: null, category: "founder" },
+{ name: "James Okoro", sector: "Climate & Energy", stage: "Series A", description: "Serial entrepreneur focused on smart grid optimization. Previously scaled an energy analytics startup to $8M ARR.", location: "Austin, TX", model: "Founder & CEO", initial: "J", matchReason: "Matches your stage", category: "founder" },
+{ name: "Priya Patel", sector: "Health & Biotech", stage: "Pre-Seed", description: "Biomedical engineer turned founder. Building decentralized health records with zero-knowledge proofs.", location: "Boston, MA", model: "Co-founder & CTO", initial: "P", matchReason: null, category: "founder" },
+{ name: "Alex Rivera", sector: "Consumer & Retail", stage: "Series B", description: "Second-time founder with a $45M exit in e-commerce. Now building AI visual merchandising for brands.", location: "New York, NY", model: "Founder & CEO", initial: "A", matchReason: "Matches your sector", category: "founder" },
 // Investors
 { name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor" },
 { name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor" },
