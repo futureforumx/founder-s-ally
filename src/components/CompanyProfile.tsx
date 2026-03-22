@@ -395,6 +395,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [hasNewInputs, setHasNewInputs] = useState(false);
+  const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
+  const [revealPhase, setRevealPhase] = useState<number>(-1); // -1 = not revealing, 0+ = staggered section index
   const [showOverrideWarning, setShowOverrideWarning] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
     try { return localStorage.getItem("company-logo-url"); } catch { return null; }
