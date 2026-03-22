@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
+import { AnalysisOverlay } from "./AnalysisOverlay";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -394,6 +395,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [error, setError] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [hasNewInputs, setHasNewInputs] = useState(false);
+  const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
+  const [revealPhase, setRevealPhase] = useState<number>(-1); // -1 = not revealing, 0+ = staggered section index
   const [showOverrideWarning, setShowOverrideWarning] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
     try { return localStorage.getItem("company-logo-url"); } catch { return null; }
@@ -883,6 +886,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (!form.website.trim() && !deckText) { setError("Provide a website URL or upload a pitch deck."); return; }
 
     setIsAnalyzing(true);
+    setShowAnalysisOverlay(true);
+    setRevealPhase(-1);
     setError(null);
     setHasNewInputs(false);
     let scrapedMarkdown = "";
@@ -1352,9 +1357,25 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     toast({ title: "✅ Profile Verified", description: "Your company profile has been confirmed." });
   };
 
+  // Staggered section reveal after overlay closes
+  const handleOverlayComplete = useCallback(() => {
+    setShowAnalysisOverlay(false);
+    // Start staggered reveal: phase 0 = data sources visible, 1-4 = each card
+    setRevealPhase(0);
+    const REVEAL_SECTIONS = ["overview", "positioning", "metrics", "social"];
+    REVEAL_SECTIONS.forEach((_, i) => {
+      setTimeout(() => setRevealPhase(i + 1), (i + 1) * 350);
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
-
+      {/* Full-page analysis overlay */}
+      <AnalysisOverlay
+        open={showAnalysisOverlay}
+        onComplete={handleOverlayComplete}
+        companyName={form.name || undefined}
+      />
       {/* ═══════════════════════════════════════════════
           DATA SOURCES
           ═══════════════════════════════════════════════ */}
@@ -1570,50 +1591,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
 
-        {/* Analysis Terminal (during analysis) */}
-        {isAnalyzing && (
-          <div className="flex items-center justify-center py-12 animate-in fade-in duration-500">
-            <div className="w-full max-w-lg rounded-2xl border border-accent/30 overflow-hidden"
-              style={{ background: "linear-gradient(145deg, hsl(222 47% 8%), hsl(222 47% 12%))" }}>
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-accent/15">
-                <div className="flex gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
-                </div>
-                <div className="flex-1 flex items-center justify-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                  <span className="font-mono text-[11px] text-accent font-medium tracking-wider">ANALYSIS ENGINE</span>
-                </div>
-              </div>
-              <div className="px-5 py-5 space-y-3">
-                <div className="font-mono text-[11px] leading-loose space-y-2" style={{ color: "rgba(226, 232, 240, 0.75)" }}>
-                  {analyzeStep === "scraping" && <div className="flex gap-2 animate-in fade-in"><span className="text-purple-400 font-semibold">[PDF]</span><span>Parsing Deck Structure...</span><Loader2 className="h-3 w-3 animate-spin text-purple-400 ml-auto mt-0.5" /></div>}
-                  {(analyzeStep === "analyzing" || analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-purple-400 font-semibold">[PDF]</span> Deck layers extracted ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-cyan-400 font-semibold">[WEB]</span><span>Scraping website content...</span>{analyzeStep === "analyzing" && <Loader2 className="h-3 w-3 animate-spin text-cyan-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {(analyzeStep === "deepSearch" || analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-cyan-400 font-semibold">[WEB]</span> Website scraped ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-yellow-400 font-semibold">[SEARCH]</span><span>Cross-referencing filings...</span>{analyzeStep === "deepSearch" && <Loader2 className="h-3 w-3 animate-spin text-yellow-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {(analyzeStep === "verifying" || analyzeStep === "mapping") && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-yellow-400 font-semibold">[SEARCH]</span> Data captured ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-emerald-400 font-semibold">[AI]</span><span>Mapping sectors & landscape...</span>{analyzeStep === "verifying" && <Loader2 className="h-3 w-3 animate-spin text-emerald-400 ml-auto mt-0.5" />}</div></>
-                  )}
-                  {analyzeStep === "mapping" && (
-                    <><div className="flex gap-2 opacity-50"><span className="text-emerald-400 font-semibold">[AI]</span> Sectors mapped ✓</div>
-                    <div className="flex gap-2 animate-in fade-in"><span className="text-orange-400 font-semibold">[MAP]</span><span>Mapping competitive landscape...</span><Loader2 className="h-3 w-3 animate-spin text-orange-400 ml-auto mt-0.5" /></div></>
-                  )}
-                </div>
-              </div>
-              <div className="px-5 py-3 border-t border-accent/15 flex items-center justify-between">
-                <span className="font-mono text-[9px] text-accent/40">Triple-source triangulation active</span>
-                <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /><span className="font-mono text-[9px] text-accent/60">LIVE</span></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Analysis overlay is now rendered as a portal — no inline terminal needed */}
 
         {/* Pre-analysis placeholder */}
         {!analysisComplete && !isAnalyzing && (
@@ -1624,9 +1602,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         )}
 
         {/* ═══ Cards only shown after analysis or when data exists ═══ */}
-        {(analysisComplete || form.hqLocation || form.sector) && !isAnalyzing && (
+        {(analysisComplete || form.hqLocation || form.sector) && !showAnalysisOverlay && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 1 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 1 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
               <div ref={el => { sectionRefs.current.overview = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
@@ -1724,8 +1703,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {/* ─── CARD 2: Positioning & Links ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 2 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 2 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>
               <div ref={el => { sectionRefs.current.positioning = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "positioning" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
@@ -1787,8 +1768,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 3 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 3 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
               <div ref={el => { sectionRefs.current.metrics = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
@@ -2041,8 +2024,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {/* ─── CARD 4: Social Links ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 4 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 4 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.social} onOpenChange={v => handleManualToggle("social", v)}>
               <div ref={el => { sectionRefs.current.social = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "social" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
@@ -2109,6 +2094,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {confirmed && (
               <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">
