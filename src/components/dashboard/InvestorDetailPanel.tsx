@@ -53,6 +53,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
 
+  // ── Live data hook ──
+  const liveQuery = useInvestorProfileByName(
+    investor?.name || vcFirm?.name || null
+  );
+  const liveProfile = liveQuery.data;
+  const liveLoading = liveQuery.isLoading;
+
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
     if (investor) return investor;
