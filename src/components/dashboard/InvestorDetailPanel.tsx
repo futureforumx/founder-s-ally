@@ -24,6 +24,8 @@ import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
+import { ContactRevealButton } from "./investor-detail/ContactRevealButton";
+import { useUserCredits } from "@/hooks/useContactReveal";
 
 interface CompanyContext {
   name?: string;
@@ -52,6 +54,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
+  const { data: userCredits } = useUserCredits();
+  const isAdmin = userCredits?.tier === "admin";
 
   // ── Live data hook ──
   const liveQuery = useInvestorProfileByName(
@@ -226,6 +230,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                             <span className="text-border">·</span>
                             <MapPin className="w-3 h-3 text-muted-foreground/50" />
                             <span className="font-semibold text-foreground">{heroLocation}</span>
+                          </div>
+                          {/* Contact Reveal */}
+                          <div className="mt-2">
+                            <ContactRevealButton
+                              investorId={resolvedFirmId || liveProfile?.id || null}
+                              firmName={heroName}
+                              isAdmin={isAdmin}
+                            />
                           </div>
                         </>
                       )}
