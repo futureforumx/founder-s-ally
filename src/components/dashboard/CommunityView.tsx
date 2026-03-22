@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
+import { useFounderProfiles, type FounderProfile } from "@/hooks/useProfile";
 import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
