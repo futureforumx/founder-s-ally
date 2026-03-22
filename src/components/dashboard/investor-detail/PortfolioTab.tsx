@@ -239,6 +239,65 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
   const inputRef = useRef<HTMLInputElement>(null);
 
   const allSectors = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.sector))], []);
+  const allStages = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.stage))], []);
+  const allPartners = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.partner))], []);
+
+  // Smart suggestions grouped by category
+  const suggestions = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    type Suggestion = { label: string; category: string; icon: typeof Building2; value: string };
+    const results: Suggestion[] = [];
+    
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.name.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Company"))
+        results.push({ label: co.name, category: "Company", icon: Building2, value: co.name });
+    });
+    allPartners.forEach(p => {
+      if (p.toLowerCase().includes(q) && !results.some(r => r.value === p && r.category === "Investor"))
+        results.push({ label: p, category: "Investor", icon: User, value: p });
+    });
+    allSectors.forEach(s => {
+      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Sector"))
+        results.push({ label: s, category: "Sector", icon: Tag, value: s });
+    });
+    allStages.forEach(s => {
+      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Stage"))
+        results.push({ label: s, category: "Stage", icon: Layers, value: s });
+    });
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.date.toLowerCase().includes(q) && !results.some(r => r.value === co.date && r.category === "Date"))
+        results.push({ label: co.date, category: "Date", icon: Calendar, value: co.date });
+    });
+    RECENT_INVESTMENTS.forEach(co => {
+      if (co.description.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Keyword Match"))
+        results.push({ label: co.name, category: "Keyword Match", icon: Sparkles, value: co.name });
+    });
+    return results.slice(0, 8);
+  }, [searchQuery, allSectors, allStages, allPartners]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelectSuggestion = (value: string) => {
+    setSearchQuery(value);
+    setShowDropdown(false);
+    setSelectedIdx(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && selectedIdx >= 0) { e.preventDefault(); handleSelectSuggestion(suggestions[selectedIdx].value); }
+    else if (e.key === "Escape") { setShowDropdown(false); }
+  };
 
   const filteredInvestments = useMemo(() => {
     return RECENT_INVESTMENTS.filter((co) => {
