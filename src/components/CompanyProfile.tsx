@@ -16,7 +16,7 @@ import { LocationAutocomplete } from "./company-profile/LocationAutocomplete";
 import { SectorSubsectorPicker } from "./company-profile/SectorSubsectorPicker";
 import { SectorChipGrid, type SectorChipSelection } from "./company-profile/SectorChipGrid";
 import { TaxonomyCombobox } from "./company-profile/TaxonomyCombobox";
-import { normalizeSector } from "./company-profile/sectorNormalization";
+import { normalizeSector, normalizeBusinessModel, normalizeTargetCustomer, bridgeOldSector } from "./company-profile/sectorNormalization";
 import {
   STAGE_OPTIONS, SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS,
   type SectorOption,
