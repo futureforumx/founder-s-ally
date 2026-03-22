@@ -307,9 +307,10 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
         co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website
       ].some(field => field.toLowerCase().includes(q));
       const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
-      return matchesSearch && matchesSector;
+      const matchesStage = stageFilter === "all" || co.stage === stageFilter;
+      return matchesSearch && matchesSector && matchesStage;
     });
-  }, [searchQuery, sectorFilter]);
+  }, [searchQuery, sectorFilter, stageFilter]);
 
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
     if (!companySector) return "unknown";
