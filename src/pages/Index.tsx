@@ -513,6 +513,8 @@ const Index = () => {
             </div>
           ) : activeView === "groups" ? (
             <GroupsView />
+          ) : activeView === "events" ? (
+            <EventsView />
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : (
