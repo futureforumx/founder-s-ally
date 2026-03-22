@@ -1768,8 +1768,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleContent>
               </div>
             </Collapsible>
+            </div>
 
             {/* ─── CARD 3: Health & Unit Economics ─── */}
+            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 3 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 3 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.metrics} onOpenChange={v => handleManualToggle("metrics", v)}>
               <div ref={el => { sectionRefs.current.metrics = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "metrics" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
                 <CollapsibleTrigger asChild>
