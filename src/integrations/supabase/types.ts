@@ -563,6 +563,65 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          company_id: string | null
+          created_at: string
+          full_name: string
+          id: string
+          is_public: boolean
+          linkedin_url: string | null
+          location: string | null
+          title: string | null
+          twitter_url: string | null
+          updated_at: string
+          user_id: string
+          user_type: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          company_id?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_public?: boolean
+          linkedin_url?: string | null
+          location?: string | null
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          user_id: string
+          user_type?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          company_id?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_public?: boolean
+          linkedin_url?: string | null
+          location?: string | null
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          user_id?: string
+          user_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_credits: {
         Row: {
           created_at: string
