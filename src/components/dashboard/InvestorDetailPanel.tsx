@@ -20,6 +20,8 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
+import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,6 +52,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
+
+  // ── Live data hook ──
+  const liveQuery = useInvestorProfileByName(
+    investor?.name || vcFirm?.name || null
+  );
+  const liveProfile = liveQuery.data;
+  const liveLoading = liveQuery.isLoading;
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
@@ -91,13 +100,16 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     viewedRef.current = displayName;
 
     (async () => {
-      // Resolve firm_id from investor_database by name
-      const { data: firms } = await supabase
-        .from("investor_database")
-        .select("id")
-        .ilike("firm_name", displayName.trim())
-        .limit(1);
-      const firmId = firms?.[0]?.id;
+      // Use live profile ID if available, else resolve by name
+      let firmId = liveProfile?.id;
+      if (!firmId) {
+        const { data: firms } = await supabase
+          .from("investor_database")
+          .select("id")
+          .ilike("firm_name", displayName.trim())
+          .limit(1);
+        firmId = firms?.[0]?.id;
+      }
       if (!firmId) return;
       setResolvedFirmId(firmId);
 
@@ -132,10 +144,20 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     };
   }, [effectiveInvestor, enrichedData]);
 
+  // Prefer live profile data, fallback to vcFirm/effectiveInvestor
+  const heroName = liveProfile?.firm_name ?? effectiveInvestor?.name ?? "";
+  const heroLogo = liveProfile?.logo_url ?? effectiveInvestor?.logo_url ?? null;
+  const heroInitial = heroName.charAt(0).toUpperCase() || "?";
+  const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
+  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? "San Francisco, CA";
+  const heroPartnerCount = liveProfile?.partners?.length ?? (vcPartners.length > 0 ? vcPartners.length : null);
+  const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
+  const heroLastSynced = liveProfile?.last_enriched_at ? new Date(liveProfile.last_enriched_at) : enrichedData ? new Date(enrichedData.profile.lastVerified) : null;
+
   const metaFacts = [
-    { label: "AUM", value: vcFirm?.aum || "$85B" },
+    { label: "AUM", value: heroAum },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
-    { label: "Team", value: vcPartners.length > 0 ? String(vcPartners.length) : "—" },
+    { label: "Team", value: heroPartnerCount ? String(heroPartnerCount) : "—" },
   ];
 
   const handleClose = () => {
@@ -169,38 +191,49 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 {/* Top Row: Identity & Actions */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 min-w-0">
-                    {effectiveInvestor.logo_url ? (
+                    {liveLoading ? (
+                      <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
+                    ) : heroLogo ? (
                       <img
-                        src={effectiveInvestor.logo_url}
-                        alt={effectiveInvestor.name}
+                        src={heroLogo}
+                        alt={heroName}
                         className="h-16 w-16 rounded-xl border border-border object-contain bg-background shrink-0"
                       />
                     ) : (
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                        {effectiveInvestor.initial}
+                        {heroInitial}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5">
-                        <h2 className="text-2xl font-bold text-foreground truncate">{effectiveInvestor.name}</h2>
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
-                      </div>
-                      {/* Meta Details Row – tighter */}
-                      <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
-                        <Landmark className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
-                        <span className="text-border">·</span>
-                        <Users className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{metaFacts[2].value !== "—" ? metaFacts[2].value : "45"}</span>
-                        <span className="text-border">·</span>
-                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                        <span className="font-semibold text-foreground">{effectiveInvestor?.location || "San Francisco, CA"}</span>
-                      </div>
+                      {liveLoading ? (
+                        <>
+                          <Skeleton className="h-7 w-48 rounded-lg mb-2" />
+                          <Skeleton className="h-4 w-64 rounded-md" />
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2.5">
+                            <h2 className="text-2xl font-bold text-foreground truncate">{heroName}</h2>
+                            <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                          </div>
+                          {/* Meta Details Row */}
+                          <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
+                            <Landmark className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
+                            <span className="text-border">·</span>
+                            <Users className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{heroPartnerCount ?? "45"}</span>
+                            <span className="text-border">·</span>
+                            <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                            <span className="font-semibold text-foreground">{heroLocation}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                     {/* Match Score – spans both rows */}
                     <MatchScoreDropdown
                       matchScore={matchScore}
-                      firmName={effectiveInvestor.name}
+                      firmName={heroName}
                       companyContext={companyData}
                       investorContext={investorContext}
                     />
@@ -222,8 +255,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       </button>
                     </div>
                     <DataProvenanceBadge
-                      dataSource={enrichedData ? "live" : "verified"}
-                      lastSynced={enrichedData ? new Date(enrichedData.profile.lastVerified) : null}
+                      dataSource={heroDataSource}
+                      lastSynced={heroLastSynced}
                     />
                   </div>
                 </div>
