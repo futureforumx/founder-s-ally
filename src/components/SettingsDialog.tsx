@@ -22,12 +22,13 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
-// ── Connection status persistence ──
-const CONN_KEY = "settings-connected-accounts";
-interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean }
+// ── Connection status persistence (synced with ConnectionsGate) ──
+const CONN_KEY = "community-connections-status";
+interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean; calendar: boolean; angellist: boolean }
+const ALL_KEYS: (keyof ConnStatus)[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
 function loadConn(): ConnStatus {
   try { const r = localStorage.getItem(CONN_KEY); if (r) return JSON.parse(r); } catch {}
-  return { gmail: false, linkedin: false, twitter: false };
+  return { gmail: false, linkedin: false, twitter: false, calendar: false, angellist: false };
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
