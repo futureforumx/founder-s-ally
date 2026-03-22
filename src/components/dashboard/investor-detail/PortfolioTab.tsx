@@ -200,12 +200,9 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="absolute top-[calc(100%+8px)] right-0 w-80 md:w-96 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden"
           >
-            {/* Header */}
             <div className="bg-secondary/50 border-b border-border p-4">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Conflict Check</p>
             </div>
-
-            {/* Data Rows */}
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Companies Scanned</span>
@@ -220,8 +217,6 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
                 <span className="text-sm font-bold text-success">0</span>
               </div>
             </div>
-
-            {/* Footer */}
             <div className="p-4 bg-success/5 border-t border-success/20 text-xs text-success font-medium">
               No immediate competitive threats detected in their active portfolio.
             </div>
@@ -232,12 +227,114 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
   );
 }
 
+// ── Missing Profile Modal ──
+function MissingProfileModal({
+  open,
+  onOpenChange,
+  partnerName,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  partnerName: string;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const initials = partnerName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  useEffect(() => {
+    if (!generating) { setProgress(0); return; }
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 92) { clearInterval(interval); return 92; }
+        return p + Math.random() * 6;
+      });
+    }, 800);
+    return () => clearInterval(interval);
+  }, [generating]);
+
+  const handleGenerate = () => setGenerating(true);
+
+  useEffect(() => {
+    if (!open) { setGenerating(false); setProgress(0); }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!generating) onOpenChange(v); }}>
+      <DialogContent className="bg-background rounded-2xl max-w-md w-full p-0 shadow-2xl border-border overflow-hidden [&>button]:hidden">
+        <AnimatePresence mode="wait">
+          {!generating ? (
+            <motion.div
+              key="request"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="p-6"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground font-bold text-sm">
+                  {initials}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">{partnerName}</h3>
+                  <p className="text-sm text-muted-foreground">Partner profile not yet generated</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                We have transactional data for this partner, but their full intelligence dossier has not been generated yet.
+              </p>
+
+              <button
+                onClick={handleGenerate}
+                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl mb-3 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Auto-Generate Profile
+              </button>
+
+              <button
+                onClick={() => onOpenChange(false)}
+                className="w-full text-sm font-medium text-muted-foreground hover:text-foreground py-2 transition-colors"
+              >
+                I have their details, let me add them manually
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="p-6 text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Generating Profile</h3>
+              <Progress value={progress} className="h-2 mb-4" />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Our AI agents are currently scanning Apollo and public sources to build <strong className="text-foreground">{partnerName}</strong>'s profile. This usually takes about 60 seconds. We will notify you when it is ready.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
+  const [missingProfilePartner, setMissingProfilePartner] = useState<string | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -324,6 +421,13 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
   return (
     <div className="space-y-5">
+      {/* Missing Profile Modal */}
+      <MissingProfileModal
+        open={!!missingProfilePartner}
+        onOpenChange={(v) => { if (!v) setMissingProfilePartner(null); }}
+        partnerName={missingProfilePartner || ""}
+      />
+
       {/* Top Row: Stats + Compatibility */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Portfolio Stats — spans 2 cols */}
@@ -518,33 +622,30 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
                     <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{co.date}</span>
                   </div>
 
-                  {/* Col 6: Investor (2 cols) */}
+                  {/* Col 6: Investor (2 cols) — Conditional Routing */}
                   <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
                     {co.partnerInDb ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
-                        className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                        className="flex items-center gap-2 text-muted-foreground hover:text-primary cursor-pointer transition-colors group/investor"
                       >
                         <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
                           {co.partner.charAt(0)}
                         </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide group-hover:text-primary transition-colors whitespace-nowrap">{co.partner}</span>
-                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap transition-colors">{co.partner}</span>
+                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/investor:opacity-100 transition-opacity shrink-0" />
                       </button>
                     ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help opacity-80">
-                            <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
-                              {co.partner.charAt(0)}
-                            </div>
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{co.partner}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="text-xs max-w-[200px]">
-                          Investor profile is not yet available in the database.
-                        </TooltipContent>
-                      </Tooltip>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMissingProfilePartner(co.partner); }}
+                        className="flex items-center gap-2 text-muted-foreground cursor-pointer group/missing"
+                      >
+                        <div className="w-5 h-5 rounded-full bg-secondary border border-dashed border-muted-foreground/40 flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                          {co.partner.charAt(0)}
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap border-b border-dashed border-muted-foreground/40 group-hover/missing:border-foreground/60 group-hover/missing:text-foreground transition-colors">{co.partner}</span>
+                        <Plus className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/missing:opacity-100 transition-opacity shrink-0" />
+                      </button>
                     )}
                   </div>
                 </div>
