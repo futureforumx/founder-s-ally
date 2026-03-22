@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
 
 // ── Types ──
 interface CommunityEvent {
@@ -40,12 +42,13 @@ const sectorOptions = ["AI / ML", "FinTech", "HealthTech", "Climate Tech", "SaaS
 const stageOptions = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "Growth"];
 
 // ── Create Event Form ──
-function CreateEventDialog({ onCreated }: { onCreated: () => void }) {
+function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; defaults: { location: string; sector: string; stage: string } }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     title: "", description: "", event_date: "", event_time: "18:00",
-    location: "Virtual", event_type: "Meetup", sector: "", stage: "", max_attendees: "",
+    location: defaults.location || "Virtual", event_type: "Meetup",
+    sector: defaults.sector || "", stage: defaults.stage || "", max_attendees: "",
   });
 
   const handleSubmit = async () => {
@@ -262,17 +265,28 @@ export function EventsView() {
   const [events, setEvents] = useState<CommunityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<EventFilter>("upcoming");
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const { profile } = useProfile();
+  const [companyData, setCompanyData] = useState<{ sector: string | null; stage: string | null } | null>(null);
 
+  // Fetch company data for defaults
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-  }, []);
+    if (!user) return;
+    supabase.from("company_analyses").select("sector, stage").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (data) setCompanyData(data); });
+  }, [user]);
+
+  const defaults = {
+    location: profile?.location || "Virtual",
+    sector: companyData?.sector || "",
+    stage: companyData?.stage || "",
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const uid = user?.id;
+      const uid = userId;
 
       const client = supabase as any;
       let query = client.from("community_events").select("*").order("event_date", { ascending: true });
@@ -338,7 +352,7 @@ export function EventsView() {
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Events</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Community meetups, workshops, and networking events</p>
         </div>
-        <CreateEventDialog onCreated={fetchEvents} />
+        <CreateEventDialog onCreated={fetchEvents} defaults={defaults} />
       </div>
 
       <div className="flex gap-1 border-b border-border/60 pb-0">
