@@ -238,7 +238,10 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
   const filteredInvestments = useMemo(() => {
     return RECENT_INVESTMENTS.filter((co) => {
-      const matchesSearch = !searchQuery || co.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q || [
+        co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website
+      ].some(field => field.toLowerCase().includes(q));
       const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
       return matchesSearch && matchesSector;
     });
