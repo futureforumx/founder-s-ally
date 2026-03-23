@@ -236,21 +236,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
   return (
     <TabWrapper>
-      <div className="space-y-8">
+      <div className="space-y-4">
         {/* Avatar & Name */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           <div className="relative group">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-xl font-bold text-primary">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-lg font-bold text-primary">
               {initials}
             </div>
             <button className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="h-5 w-5" />
+              <Camera className="h-4 w-4" />
             </button>
           </div>
           <div>
-            <p className="text-lg font-semibold text-foreground">{displayName}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-sm text-muted-foreground">{displayEmail}</p>
+            <p className="text-base font-semibold text-foreground">{displayName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">{displayEmail}</p>
               <Badge className="bg-success/10 text-success border-success/20 text-[9px] uppercase font-bold">Verified</Badge>
             </div>
           </div>
@@ -259,42 +259,42 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         <Separator />
 
         {/* Personal Info */}
-        <div className="space-y-5">
+        <div className="space-y-3">
           <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Personal Information</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg" />
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
               <div className="relative">
-                <Input value={displayEmail} disabled className="rounded-lg bg-muted/30 text-muted-foreground pr-20" />
+                <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
                 <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg" />
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
               <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
             </div>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value.slice(0, 160))}
               placeholder="Brief description of what you're building..."
-              rows={3}
-              className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              rows={2}
+              className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
           </div>
         </div>
@@ -302,9 +302,9 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         <Separator />
 
         {/* User Type */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">I am a</h3>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             {USER_TYPES.map((type) => {
               const Icon = type.icon;
               const isActive = userType === type.id;
@@ -313,18 +313,18 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   key={type.id}
                   onClick={() => setUserType(type.id)}
                   className={cn(
-                    "flex-1 flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all",
+                    "flex-1 flex items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 transition-all",
                     isActive ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border/80 hover:bg-muted/20"
                   )}
                 >
-                  <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
-                    <Icon className={cn("h-4 w-4", isActive ? "text-accent" : "text-muted-foreground")} />
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
+                    <Icon className={cn("h-3.5 w-3.5", isActive ? "text-accent" : "text-muted-foreground")} />
                   </div>
                   <div className="text-left">
-                    <p className={cn("text-sm font-semibold", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{type.desc}</p>
+                    <p className={cn("text-xs font-semibold", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
+                    <p className="text-[9px] text-muted-foreground">{type.desc}</p>
                   </div>
-                  {isActive && <CheckCircle2 className="h-4 w-4 text-accent shrink-0 ml-auto" />}
+                  {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 ml-auto" />}
                 </button>
               );
             })}
@@ -333,25 +333,19 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
         <Separator />
 
-        {/* Social Links */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Social Profiles</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
-              <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
-              <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg" />
-            </div>
+        {/* Social Links + Theme — compact row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
+            <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg h-9 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+            <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg h-9 text-sm" />
           </div>
         </div>
 
-        <Separator />
-
-        {/* Theme */}
-        <div className="space-y-3">
+        <div className="flex items-center justify-between">
           <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Theme</h3>
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
             {([
@@ -363,11 +357,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 key={id}
                 onClick={() => setTheme(id)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
                   theme === id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-3 w-3" />
                 {label}
               </button>
             ))}
@@ -376,38 +370,31 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
         <Separator />
 
-        {/* Security */}
-        <div className="space-y-3">
+        {/* Security — inline compact */}
+        <div className="space-y-2">
           <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Security</h3>
-          <button className="flex w-full items-center justify-between rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-              </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="flex items-center gap-2.5 rounded-lg border border-border p-3 hover:bg-muted/30 transition-colors">
+              <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="text-left">
-                <p className="text-sm font-medium text-foreground">Change Password</p>
-                <p className="text-[10px] text-muted-foreground">Last updated 30 days ago</p>
+                <p className="text-xs font-medium text-foreground">Change Password</p>
+                <p className="text-[9px] text-muted-foreground">Updated 30d ago</p>
               </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <button className="flex w-full items-center justify-between rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <Shield className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="text-left">
+                  <p className="text-xs font-medium text-foreground">2FA</p>
+                  <p className="text-[9px] text-muted-foreground">Not enabled</p>
+                </div>
               </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-                <p className="text-[10px] text-muted-foreground">Not enabled</p>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-[9px] uppercase font-bold">Off</Badge>
-          </button>
+              <Badge variant="outline" className="text-[8px] uppercase font-bold">Off</Badge>
+            </button>
+          </div>
         </div>
 
-        <Separator />
-
-        {/* Admin Access */}
+        {/* Admin Access — compact */}
         <AdminAccessSection userId={userId} />
 
         <Separator />
@@ -415,13 +402,13 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         {/* Sign Out */}
         <button
           onClick={async () => { await onSignOut(); }}
-          className="flex items-center gap-2.5 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors py-2"
+          className="flex items-center gap-2 text-xs font-medium text-destructive hover:text-destructive/80 transition-colors py-1"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-3.5 w-3.5" />
           Sign Out
         </button>
 
-        <div className="h-16" /> {/* Footer spacer */}
+        <div className="h-12" />
       </div>
       <StickyFormFooter dirty={isDirty} saving={saving} onDiscard={handleDiscard} onSave={handleSave} />
     </TabWrapper>
