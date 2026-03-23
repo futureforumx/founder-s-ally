@@ -17,7 +17,7 @@ export interface LiveInvestorEntry {
   logo_url?: string | null;
   firm_type?: string;
   is_actively_deploying?: boolean;
-  founder_sentiment_score?: number | null;
+  founder_reputation_score?: number | null;
   headcount?: string | null;
   aum?: string | null;
 }
