@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, TrendingUp, Target, Zap } from "lucide-react";
+import { Sparkles, ArrowRight, TrendingUp, Target, Zap, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
@@ -17,10 +17,13 @@ interface MissionStep {
   insight: string;
 }
 
+type SaveStatus = "idle" | "saving" | "saved";
+
 interface CopilotMissionBannerProps {
   profileCompletion: number;
   onNavigate: (tab: string, field?: string) => void;
   completedFields?: string[];
+  saveStatus?: SaveStatus;
 }
 
 // ── Mission Steps (ordered by impact) ──
@@ -178,12 +181,44 @@ function RadialProgress({
   );
 }
 
+// ── Auto-Save Indicator ──
+
+function AutoSaveIndicator({ status }: { status: SaveStatus }) {
+  if (status === "idle") return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={status}
+        initial={{ opacity: 0, x: 8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-center gap-1.5 ml-auto shrink-0"
+      >
+        {status === "saving" ? (
+          <>
+            <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+            <span className="text-[10px] font-mono text-muted-foreground tracking-wide">Auto-saving...</span>
+          </>
+        ) : (
+          <>
+            <Check className="h-3 w-3 text-success" />
+            <span className="text-[10px] font-mono text-success/80 tracking-wide">Saved</span>
+          </>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Main Banner ──
 
 export function CopilotMissionBanner({
   profileCompletion,
   onNavigate,
   completedFields = [],
+  saveStatus = "idle",
 }: CopilotMissionBannerProps) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [prevCompletion, setPrevCompletion] = useState(profileCompletion);
@@ -217,7 +252,7 @@ export function CopilotMissionBanner({
         animate={{ opacity: 1, y: 0 }}
         className="mx-8 mt-4 mb-1 rounded-2xl border border-success/20 bg-success/5 backdrop-blur-xl p-4"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
             <Sparkles className="h-5 w-5 text-success" />
           </div>
@@ -225,6 +260,7 @@ export function CopilotMissionBanner({
             <p className="text-sm font-bold text-foreground">Profile Complete — Tier-1 Visibility Unlocked</p>
             <p className="text-xs text-muted-foreground">Your profile is now featured in premium investor searches.</p>
           </div>
+          <AutoSaveIndicator status={saveStatus} />
         </div>
       </motion.div>
     );
@@ -246,7 +282,7 @@ export function CopilotMissionBanner({
       )}
     >
       {/* Desktop: row layout / Mobile: stacked */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5 w-full">
         {/* Left: Radial Progress */}
         <RadialProgress
           percent={profileCompletion}
@@ -314,6 +350,9 @@ export function CopilotMissionBanner({
             <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </div>
+
+        {/* Auto-save indicator */}
+        <AutoSaveIndicator status={saveStatus} />
       </div>
     </motion.button>
   );

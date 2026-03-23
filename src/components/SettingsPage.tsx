@@ -92,6 +92,8 @@ function setTabInUrl(tab: SettingsTab) {
 // ── Main Page ──
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, signOut } = useAuth();
 
   // Derive profile completion from real localStorage data
@@ -107,14 +109,31 @@ export function SettingsPage() {
     const sync = () => {
       try {
         const saved = localStorage.getItem("company-profile");
-        if (saved) setFormSnapshot({ ...EMPTY_FORM, ...JSON.parse(saved) });
+        if (saved) setFormSnapshot((prev) => {
+          const next = { ...EMPTY_FORM, ...JSON.parse(saved) };
+          if (JSON.stringify(prev) !== JSON.stringify(next)) return next;
+          return prev;
+        });
       } catch {}
     };
     window.addEventListener("storage", sync);
-    // Also poll on an interval since same-tab localStorage writes don't fire "storage"
     const interval = setInterval(sync, 2000);
     return () => { window.removeEventListener("storage", sync); clearInterval(interval); };
   }, []);
+
+  // Auto-save indicator lifecycle
+  const prevFormRef = useRef(formSnapshot);
+  useEffect(() => {
+    if (prevFormRef.current === formSnapshot) return;
+    prevFormRef.current = formSnapshot;
+
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      setSaveStatus("saved");
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+    }, 2500);
+  }, [formSnapshot]);
 
   const profileCompletion = useMemo(() => getCompletionPercent(formSnapshot), [formSnapshot]);
 
@@ -184,6 +203,7 @@ export function SettingsPage() {
         profileCompletion={profileCompletion}
         onNavigate={handleMissionNavigate}
         completedFields={completedFields}
+        saveStatus={saveStatus}
       />
 
       {/* Sticky Section + Tab Bar */}
