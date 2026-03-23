@@ -24,7 +24,7 @@ function loadConnected(): Record<SourceKey, boolean> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { gmail: false, linkedin: false, twitter: false, calendar: false, angellist: false };
+  return { gmail: false, linkedin: false, twitter: false, angellist: false };
 }
 
 function saveConnected(s: Record<SourceKey, boolean>) {
