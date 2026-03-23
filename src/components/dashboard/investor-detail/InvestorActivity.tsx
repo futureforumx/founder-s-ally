@@ -35,11 +35,11 @@ interface CommunityItem {
 
 function getNewsItems(firmName: string): NewsItem[] {
   return [
-    { title: `${firmName} closes $1.5B Fund III`, source: "TechCrunch", type: "funding", time: "6h" },
-    { title: `GP publishes thesis on vertical AI infra`, source: "Substack", type: "thought_leadership", time: "2d" },
-    { title: `${firmName} leads $12M Series A in Synthara Bio`, source: "Crunchbase", type: "investment", time: "3d" },
-    { title: `${firmName} hires new Partner from Tiger Global`, source: "Bloomberg", type: "hire", time: "5d" },
-    { title: `Mentioned in Forbes investor roundup`, source: "Forbes", type: "article", time: "1w" },
+    { title: `${firmName} closes $1.5B Fund III`, source: "TechCrunch", type: "funding", time: "6h", url: `https://techcrunch.com/search/${encodeURIComponent(firmName)}` },
+    { title: `GP publishes thesis on vertical AI infra`, source: "Substack", type: "thought_leadership", time: "2d", url: `https://substack.com/search/${encodeURIComponent(firmName)}` },
+    { title: `${firmName} leads $12M Series A in Synthara Bio`, source: "Crunchbase", type: "investment", time: "3d", url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firmName)}` },
+    { title: `${firmName} hires new Partner from Tiger Global`, source: "Bloomberg", type: "hire", time: "5d", url: `https://www.bloomberg.com/search?query=${encodeURIComponent(firmName)}` },
+    { title: `Mentioned in Forbes investor roundup`, source: "Forbes", type: "article", time: "1w", url: `https://www.forbes.com/search/?q=${encodeURIComponent(firmName)}` },
   ];
 }
 
