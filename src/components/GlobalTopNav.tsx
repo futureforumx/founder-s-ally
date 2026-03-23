@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, Lock, CircleHelp,
+  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff,
 } from "lucide-react";
+import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -204,6 +205,8 @@ export function GlobalTopNav({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
+
+  const autosaveStatus = useAutosaveStatus();
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -462,6 +465,38 @@ export function GlobalTopNav({
         <Sparkles className="h-4 w-4" />
         Agent
       </button>
+
+      {/* ── Autosave Status ── */}
+      {autosaveStatus !== "idle" && (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 shrink-0">
+                {autosaveStatus === "saving" && (
+                  <Cloud className="h-3.5 w-3.5 text-muted-foreground/60 animate-pulse" />
+                )}
+                {autosaveStatus === "saved" && (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success animate-fade-in" />
+                )}
+                {autosaveStatus === "error" && (
+                  <WifiOff className="h-3.5 w-3.5 text-destructive animate-pulse" />
+                )}
+                <span className={cn(
+                  "text-[9px] font-mono uppercase tracking-wider hidden sm:inline",
+                  autosaveStatus === "saving" && "text-muted-foreground/60",
+                  autosaveStatus === "saved" && "text-success",
+                  autosaveStatus === "error" && "text-destructive",
+                )}>
+                  {autosaveStatus === "saving" ? "Saving" : autosaveStatus === "saved" ? "Saved" : "Offline"}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {autosaveStatus === "saving" ? "Saving changes..." : autosaveStatus === "saved" ? "All changes saved" : "Changes not saved — will retry"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
       {/* ── Divider ── */}
       <div className="w-[1px] h-4 bg-border/40 shrink-0" />

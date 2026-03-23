@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatSocialUrl } from "@/lib/socialFormat";
+import { useAutosave } from "@/hooks/useAutosave";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
@@ -316,27 +317,7 @@ function TabWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Dirty form footer ──
-function StickyFormFooter({ dirty, saving, onDiscard, onSave }: { dirty: boolean; saving: boolean; onDiscard: () => void; onSave: () => void }) {
-  return (
-    <AnimatePresence>
-      {dirty && (
-        <motion.div
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm px-8 py-3 flex items-center justify-end gap-3 shadow-lg"
-        >
-          <Button variant="outline" size="sm" className="rounded-lg text-xs" onClick={onDiscard}>Discard</Button>
-          <Button size="sm" className="rounded-lg text-xs font-semibold" onClick={onSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+// StickyFormFooter removed — autosave handles persistence
 
 // ── Account Tab ──
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
@@ -348,8 +329,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [userType, setUserType] = useState<string>("founder");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [twitterUrl, setTwitterUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
@@ -362,46 +341,48 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncApplying, setSyncApplying] = useState(false);
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
 
-  // Track original values for dirty detection
-  const [original, setOriginal] = useState({ name: displayName, title: "", bio: "", location: "", userType: "founder", linkedinUrl: "", twitterUrl: "" });
+  // ── Autosave ──
+  const persistProfile = useCallback(async (updates: Record<string, any>) => {
+    // Map field names to DB column names
+    const dbUpdates: Record<string, any> = {};
+    if ("name" in updates) dbUpdates.full_name = updates.name;
+    if ("title" in updates) dbUpdates.title = updates.title;
+    if ("bio" in updates) dbUpdates.bio = updates.bio;
+    if ("location" in updates) dbUpdates.location = updates.location;
+    if ("userType" in updates) dbUpdates.user_type = updates.userType;
+    if ("linkedinUrl" in updates) dbUpdates.linkedin_url = updates.linkedinUrl || null;
+    if ("twitterUrl" in updates) dbUpdates.twitter_url = updates.twitterUrl || null;
+    // Handle company_id for founders
+    if (updates.userType === "founder" && userId) {
+      const { data: comp } = await (supabase as any)
+        .from("company_analyses")
+        .select("id")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (comp) dbUpdates.company_id = comp.id;
+    }
+    await upsertProfile(dbUpdates as any);
+  }, [userId, upsertProfile]);
+
+  const { save: autosave, saveImmediate } = useAutosave(persistProfile);
 
   useEffect(() => {
     if (profile) {
-      const vals = {
-        name: profile.full_name || displayName,
-        title: profile.title || "",
-        bio: profile.bio || "",
-        location: profile.location || "",
-        userType: profile.user_type || "founder",
-        linkedinUrl: profile.linkedin_url || "",
-        twitterUrl: profile.twitter_url || "",
-      };
-      setName(vals.name);
-      setTitle(vals.title);
-      setBio(vals.bio);
-      setLocation(vals.location);
-      setUserType(vals.userType);
-      setLinkedinUrl(vals.linkedinUrl);
-      setTwitterUrl(vals.twitterUrl);
-      setOriginal(vals);
+      setName(profile.full_name || displayName);
+      setTitle(profile.title || "");
+      setBio(profile.bio || "");
+      setLocation(profile.location || "");
+      setUserType(profile.user_type || "founder");
+      setLinkedinUrl(profile.linkedin_url || "");
+      setTwitterUrl(profile.twitter_url || "");
       if (profile.avatar_url) {
         setAvatarUrl(profile.avatar_url);
         setAvatarError(false);
       }
     }
   }, [profile, displayName]);
-
-  const isDirty = name !== original.name || title !== original.title || bio !== original.bio || location !== original.location || userType !== original.userType || linkedinUrl !== original.linkedinUrl || twitterUrl !== original.twitterUrl;
-
-  const handleDiscard = () => {
-    setName(original.name);
-    setTitle(original.title);
-    setBio(original.bio);
-    setLocation(original.location);
-    setUserType(original.userType);
-    setLinkedinUrl(original.linkedinUrl);
-    setTwitterUrl(original.twitterUrl);
-  };
 
   const USER_TYPES = [
     { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
@@ -443,13 +424,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     { value: "Bangalore, India", label: "Bangalore, India", desc: "Asia" },
   ];
 
-  // Auto-save on blur for combobox fields
+  // Auto-save on blur for combobox fields — delegates to autosave
   const handleFieldBlur = useCallback(async (field: string, val: string) => {
     if (!userId) return;
-    const updates: Record<string, string> = { [field]: val };
-    await upsertProfile(updates as any);
-    setOriginal(prev => ({ ...prev, [field === "title" ? "title" : "location"]: val }));
-  }, [userId, upsertProfile]);
+    await saveImmediate({ [field]: val });
+  }, [userId, saveImmediate]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -483,33 +462,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    let companyId: string | null = null;
-    if (userType === "founder" && userId) {
-      const { data: comp } = await (supabase as any)
-        .from("company_analyses")
-        .select("id")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (comp) companyId = comp.id;
-    }
-    await upsertProfile({
-      full_name: name,
-      title,
-      bio,
-      location,
-      user_type: userType,
-      linkedin_url: linkedinUrl || null,
-      twitter_url: twitterUrl || null,
-      ...(companyId ? { company_id: companyId } : {}),
-    } as any);
-    setOriginal({ name, title, bio, location, userType, linkedinUrl, twitterUrl });
-    setSaving(false);
-    toast.success("Profile saved");
-  };
+  // handleSave removed — autosave handles persistence
 
   // ── Magic Sync ──
   const handleSyncProfile = async () => {
@@ -561,9 +514,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       if (key === "location") setLocation(val);
     }
 
-    // Save to profile
-    await upsertProfile(updates as any);
-    setOriginal(prev => ({ ...prev, ...updates }));
+    // Save to profile via autosave (immediate)
+    await saveImmediate(updates);
 
     // Track synced keys for highlight animation
     setSyncedKeys(new Set(selectedKeys));
@@ -625,10 +577,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     )}
                     <input
                       value={linkedinUrl}
-                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      onChange={(e) => { setLinkedinUrl(e.target.value); autosave({ linkedinUrl: e.target.value }); }}
                       onBlur={(e) => {
                         const formatted = formatSocialUrl("linkedin_personal", e.target.value);
-                        if (formatted !== linkedinUrl) setLinkedinUrl(formatted);
+                        if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
                       }}
                       placeholder="https://linkedin.com/in/..."
                       className={cn(
@@ -673,10 +625,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     )}
                     <input
                       value={twitterUrl}
-                      onChange={(e) => setTwitterUrl(e.target.value)}
+                      onChange={(e) => { setTwitterUrl(e.target.value); autosave({ twitterUrl: e.target.value }); }}
                       onBlur={(e) => {
                         const formatted = formatSocialUrl("x", e.target.value);
-                        if (formatted !== twitterUrl) setTwitterUrl(formatted);
+                        if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
                       }}
                       placeholder="https://x.com/..."
                       className={cn(
@@ -802,7 +754,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   <div className="grid grid-cols-2 gap-3">
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
+                      <Input value={name} onChange={(e) => { setName(e.target.value); autosave({ name: e.target.value }); }} className="rounded-lg h-9 text-sm" />
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
@@ -843,7 +795,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
                       <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
                     </div>
-                    <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 160))} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+                    <textarea value={bio} onChange={(e) => { const v = e.target.value.slice(0, 160); setBio(v); autosave({ bio: v }); }} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
                   </div>
                 </div>
               </div>
@@ -860,9 +812,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           Sign Out
         </button>
 
-        <div className="h-12" />
       </div>
-      <StickyFormFooter dirty={isDirty} saving={saving} onDiscard={handleDiscard} onSave={handleSave} />
 
       {/* Sync Review Modal */}
       <SyncReviewModal
