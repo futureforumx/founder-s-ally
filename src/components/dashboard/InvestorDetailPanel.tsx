@@ -255,6 +255,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                        className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-3 py-2.5 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                      >
+                        <Star className="h-4 w-4" /> Rate
+                      </button>
                       <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
                         <Zap className="h-4 w-4" /> Connect
                       </button>
