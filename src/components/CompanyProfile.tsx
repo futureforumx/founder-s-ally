@@ -1426,13 +1426,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* ── Left: Company Name + Website URL ── */}
             <div className="space-y-2.5">
-              {/* COMPANY NAME */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
-                <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                  placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
-              </div>
-
               {/* WEBSITE URL */}
               <div className="space-y-1" data-field="website-url">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
@@ -1704,7 +1697,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
 
-        {/* Analysis overlay is now rendered as a portal — no inline terminal needed */}
+        {/* Company Name — first field in Generated Profile */}
+        <div className="space-y-1" data-field="company-name">
+          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
+          <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+            placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+        </div>
 
         {/* Pre-analysis placeholder */}
         {!analysisComplete && !isAnalyzing && (
