@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Check, Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 interface SectorAlignmentProps {
@@ -28,105 +28,36 @@ function seedHash(s: string): number {
   return s.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
 }
 
+function intensityTier(v: number, max: number): 0 | 1 | 2 | 3 | 4 {
+  if (max === 0) return 0;
+  const pct = v / max;
+  if (pct >= 0.75) return 4;
+  if (pct >= 0.5) return 3;
+  if (pct >= 0.25) return 2;
+  if (pct > 0) return 1;
+  return 0;
+}
+
+const TIER_BG: Record<number, string> = {
+  0: "bg-violet-50 dark:bg-violet-950/20",
+  1: "bg-violet-100 dark:bg-violet-900/30",
+  2: "bg-violet-200 dark:bg-violet-800/40",
+  3: "bg-violet-400 dark:bg-violet-600",
+  4: "bg-violet-600 dark:bg-violet-500",
+};
+
+const TIER_TEXT: Record<number, string> = {
+  0: "text-violet-400",
+  1: "text-violet-600",
+  2: "text-violet-700",
+  3: "text-white",
+  4: "text-white",
+};
+
 function formatDollars(v: number): string {
   if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}B`;
   if (v >= 1) return `$${v.toFixed(0)}M`;
   return `$${(v * 1000).toFixed(0)}K`;
-}
-
-type Recency = "recent" | "older" | "none";
-type ActivityLevel = "active" | "inactive";
-
-interface SectorBadgeData {
-  name: string;
-  isUserMatch: boolean;
-  recency: Recency;
-  dealCount: number;
-  activityLevel: ActivityLevel;
-  amount: number;
-}
-
-function computeSectorData(
-  vcSectors: string[],
-  primarySector: string | null | undefined,
-  secondarySectors: string[],
-  timeRange: TimeRange,
-): SectorBadgeData[] {
-  const seed = seedHash(vcSectors.join(",") || "default");
-  const userSectors = [primarySector, ...secondarySectors].filter(Boolean).map(s => s!.toLowerCase());
-
-  return CANONICAL_SECTORS.map((sector, i) => {
-    const isActive = vcSectors.some(
-      (v) => v.toLowerCase().includes(sector.split(" ")[0].toLowerCase()) ||
-             sector.toLowerCase().includes(v.split(" ")[0].toLowerCase())
-    );
-
-    const isUserMatch = userSectors.some(
-      (u) => u.includes(sector.split(" ")[0].toLowerCase()) ||
-             sector.toLowerCase().includes(u.split(" ")[0].toLowerCase())
-    );
-
-    const base = isActive ? 40 + ((seed * (i + 3) * 17) % 160) : ((seed * (i + 7) * 13) % 30);
-    const mult = timeRange === "6m" ? 0.3 : timeRange === "18m" ? 0.65 : 1;
-    const amount = Math.round(base * mult);
-
-    // Simulate recency based on seed
-    const recencyScore = (seed * (i + 11) * 23) % 100;
-    let recency: Recency = "none";
-    if (isActive) {
-      recency = recencyScore > 40 ? "recent" : "older";
-    }
-
-    const dealCount = isActive
-      ? Math.max(1, Math.round((recencyScore / 20) * (timeRange === "6m" ? 0.4 : timeRange === "18m" ? 0.7 : 1)))
-      : 0;
-
-    return {
-      name: sector,
-      isUserMatch: isUserMatch && isActive,
-      recency,
-      dealCount,
-      activityLevel: isActive ? "active" : "inactive",
-      amount,
-    };
-  });
-}
-
-function RecencyDot({ recency }: { recency: Recency }) {
-  if (recency === "none") return null;
-  return (
-    <span
-      className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-card ${
-        recency === "recent" ? "bg-emerald-500" : "bg-muted-foreground/40"
-      }`}
-    />
-  );
-}
-
-function FitIndicator({ matched, total }: { matched: number; total: number }) {
-  const dots = Array.from({ length: total }, (_, i) => i < matched);
-  const label = matched === total ? "Strong fit" : matched > 0 ? "Partial fit" : "No match";
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">{matched}</span> of {total} sectors match
-      </span>
-      <span className="flex items-center gap-0.5">
-        {dots.map((filled, i) => (
-          <span
-            key={i}
-            className={`w-1.5 h-1.5 rounded-full ${filled ? "bg-emerald-500" : "bg-muted-foreground/25"}`}
-          />
-        ))}
-      </span>
-      <span className={`text-[10px] font-semibold ${
-        matched === total ? "text-emerald-600" : matched > 0 ? "text-amber-600" : "text-muted-foreground"
-      }`}>
-        {label}
-      </span>
-    </div>
-  );
 }
 
 export function SectorAlignment({
@@ -138,23 +69,32 @@ export function SectorAlignment({
 }: SectorAlignmentProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
 
-  const sectorData = useMemo(
-    () => computeSectorData(vcSectors, primarySector, secondarySectors, timeRange),
-    [vcSectors, primarySector, secondarySectors, timeRange],
-  );
+  const sectorData = useMemo(() => {
+    const seed = seedHash(vcSectors.join(",") || "default");
+    return CANONICAL_SECTORS.map((sector, i) => {
+      const isActive = vcSectors.some(
+        (v) => v.toLowerCase().includes(sector.split(" ")[0].toLowerCase()) ||
+               sector.toLowerCase().includes(v.split(" ")[0].toLowerCase())
+      );
+      const base = isActive ? 40 + ((seed * (i + 3) * 17) % 160) : ((seed * (i + 7) * 13) % 30);
+      const mult = timeRange === "6m" ? 0.3 : timeRange === "18m" ? 0.65 : 1;
+      const amount = Math.round(base * mult);
+      const isPrimary = primarySector?.toLowerCase().includes(sector.split(" ")[0].toLowerCase()) || false;
+      const isSecondary = secondarySectors.some((s) => s.toLowerCase().includes(sector.split(" ")[0].toLowerCase()));
+      return { name: sector, amount, isPrimary, isSecondary, isActive };
+    });
+  }, [vcSectors, primarySector, secondarySectors, timeRange]);
 
+  const maxAmount = Math.max(...sectorData.map((d) => d.amount), 1);
   const totalDeployed = sectorData.reduce((sum, d) => sum + d.amount, 0);
-  const userSectorCount = [primarySector, ...secondarySectors].filter(Boolean).length || 3;
-  const matchedCount = sectorData.filter(d => d.isUserMatch).length;
-  const activeCount = sectorData.filter(d => d.activityLevel === "active").length;
 
-  const pace = activeCount >= 8 ? "High" : activeCount >= 5 ? "Medium" : "Low";
+  const cols = isExpanded ? 4 : 3;
+  const cellH = isExpanded ? "min-h-[56px]" : "min-h-[36px]";
+  const fontSize = isExpanded ? "text-[10px]" : "text-[8px]";
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className={`rounded-xl border border-border bg-card p-3 flex flex-col ${
-        isExpanded ? "h-[calc(100vh-280px)] max-h-[520px]" : "h-full"
-      }`}>
+      <div className={`rounded-xl border border-border bg-card p-3 flex flex-col ${isExpanded ? "h-[calc(100vh-280px)] max-h-[520px]" : "h-full"}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-[10px] font-bold text-muted-foreground/60 tracking-[0.2em] uppercase">
@@ -184,91 +124,47 @@ export function SectorAlignment({
           </div>
         </div>
 
-        {/* Match summary bar */}
-        <div className="mb-3 pb-2 border-b border-border">
-          <FitIndicator matched={matchedCount} total={Math.min(userSectorCount, 3)} />
-        </div>
-
-        {/* Badge grid */}
-        <div className={`flex flex-wrap gap-1.5 flex-1 content-start ${isExpanded ? "gap-2" : ""}`}>
+        {/* Heatmap Grid */}
+        <div className={`grid grid-cols-${cols} gap-1 flex-1`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
           {sectorData.map((d) => {
-            // State 1: Match
-            if (d.isUserMatch) {
-              return (
-                <Tooltip key={d.name}>
-                  <TooltipTrigger asChild>
-                    <span className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold cursor-default transition-all hover:shadow-sm bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                      <Check className="h-3 w-3" />
-                      {d.name}
-                      <RecencyDot recency={d.recency} />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-emerald-900 text-white text-[11px] px-3 py-2 border-0 shadow-lg max-w-[200px]">
-                    <p className="font-bold">Matches your profile</p>
-                    <p className="text-emerald-200 mt-0.5">{d.dealCount} deal{d.dealCount !== 1 ? "s" : ""} in selected period</p>
-                    <p className="text-emerald-300/60 text-[9px] mt-1">{formatDollars(d.amount)} deployed</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            // State 2: Active but no match
-            if (d.activityLevel === "active") {
-              return (
-                <Tooltip key={d.name}>
-                  <TooltipTrigger asChild>
-                    <span className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold cursor-default transition-all hover:shadow-sm bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                      {d.name}
-                      <RecencyDot recency={d.recency} />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-violet-900 text-white text-[11px] px-3 py-2 border-0 shadow-lg max-w-[200px]">
-                    <p className="font-bold">Active sector</p>
-                    <p className="text-violet-200 mt-0.5">{d.dealCount} deal{d.dealCount !== 1 ? "s" : ""} · Not in your profile</p>
-                    <p className="text-violet-300/60 text-[9px] mt-1">{formatDollars(d.amount)} deployed</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            // State 3: Inactive
+            const tier = intensityTier(d.amount, maxAmount);
             return (
               <Tooltip key={d.name}>
                 <TooltipTrigger asChild>
-                  <span className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium cursor-default transition-all border border-border text-muted-foreground/50">
-                    {d.name}
-                  </span>
+                  <div
+                    className={`relative rounded-lg ${TIER_BG[tier]} flex items-center justify-center p-1 ${cellH} cursor-default transition-all hover:ring-1 hover:ring-violet-400/40`}
+                  >
+                    <span className={`${fontSize} font-semibold leading-tight text-center ${TIER_TEXT[tier]}`}>
+                      {d.name}
+                    </span>
+                    {d.isPrimary && (
+                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[hsl(var(--success))]" />
+                    )}
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="bg-popover text-popover-foreground text-[11px] px-3 py-2 shadow-lg max-w-[200px]">
-                  <p className="font-bold">No recent activity</p>
-                  <p className="text-muted-foreground text-[9px] mt-0.5">No recent activity in this sector</p>
+                <TooltipContent
+                  side="top"
+                  className="bg-violet-900 text-white text-[11px] px-3 py-2 border-0 shadow-lg max-w-[180px]"
+                >
+                  <p className="font-bold">{d.name}</p>
+                  <p className="text-violet-200 mt-0.5">{formatDollars(d.amount)} deployed</p>
+                  <p className="text-violet-300/70 text-[9px] mt-1">Total capital invested in this sector over the selected period</p>
                 </TooltipContent>
               </Tooltip>
             );
           })}
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-3 mt-2 pt-1.5 text-[8px] text-muted-foreground/50">
-          <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> active last 6mo
-          </span>
-          <span className="flex items-center gap-1">
-            <Check className="h-2.5 w-2.5" /> matches your profile
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-2.5 rounded-sm border border-muted-foreground/30" /> inactive
-          </span>
-        </div>
-
         {/* Footer */}
-        <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border">
+        <div className="flex items-center justify-between pt-1.5 mt-1">
           <p className="text-[9px] text-muted-foreground">{formatDollars(totalDeployed)} total deployed</p>
-          <p className="text-[9px] text-muted-foreground">
-            Deployment pace: <span className={`font-semibold ${
-              pace === "High" ? "text-emerald-600" : pace === "Medium" ? "text-amber-600" : "text-muted-foreground"
-            }`}>{pace}</span>
-          </p>
+          <div className="flex items-center gap-1">
+            <span className="text-[8px] font-mono text-muted-foreground">Low</span>
+            {[0, 1, 2, 3, 4].map((t) => (
+              <div key={t} className={`h-2.5 w-2.5 rounded-sm ${TIER_BG[t]}`} />
+            ))}
+            <span className="text-[8px] font-mono text-muted-foreground">High</span>
+          </div>
         </div>
       </div>
     </TooltipProvider>
