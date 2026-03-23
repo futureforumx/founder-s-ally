@@ -184,6 +184,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState<string | undefined>();
   const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
+  const [weightsOpen, setWeightsOpen] = useState(false);
+  const [weights, setWeights] = useState<WeightConfig>({ fit: 50, sentiment: 50, responsiveness: 50, activity: 50 });
 
   // Get current user ID
   useEffect(() => {
