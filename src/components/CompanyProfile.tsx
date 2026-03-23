@@ -236,6 +236,10 @@ interface CompanyProfileProps {
   onWalkthroughComplete?: () => void;
   onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
   onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
+  onSyncCompany?: (url: string) => void;
+  companySyncing?: boolean;
+  sectionConfirmedState?: Record<string, boolean>;
+  companyData?: CompanyData | null;
 }
 
 export interface CompanyProfileHandle {

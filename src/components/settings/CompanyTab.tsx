@@ -534,114 +534,6 @@ export function CompanyTab() {
 
             {/* Profile Strength moved to Copilot Mission Banner modal */}
 
-            {/* ── Magic Sync: Company LinkedIn / Website ── */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                  <Linkedin className="h-3.5 w-3.5" />
-                  Company Data Sync
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    const url = companySyncUrl.trim() || companyData?.website || "";
-                    if (!url) {
-                      toast.error("Enter a Company LinkedIn URL or website first");
-                      return;
-                    }
-                    setCompanySyncing(true);
-                    try {
-                      const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
-                        body: { companyUrl: url },
-                      });
-                      if (error) throw error;
-                      if (!data?.success) throw new Error(data?.error || "Sync failed");
-
-                      const incoming = data.data;
-                      const fields: SyncField[] = [
-                        { key: "name", label: "Company Name", existing: companyData?.name || null, incoming: incoming.company_name },
-                        { key: "description", label: "Description", existing: companyData?.description || null, incoming: incoming.description?.slice(0, 500) || null },
-                        { key: "sector", label: "Sector", existing: companyData?.sector || null, incoming: incoming.sector },
-                        { key: "website", label: "Website", existing: companyData?.website || null, incoming: incoming.website_url },
-                        { key: "hqLocation", label: "HQ Location", existing: companyData?.hqLocation || null, incoming: incoming.hq_location },
-                        { key: "totalHeadcount", label: "Employee Count", existing: companyData?.totalHeadcount || null, incoming: incoming.employee_count },
-                      ];
-
-                      setCompanySyncFields(fields);
-                      setCompanySyncReviewOpen(true);
-                    } catch (err: any) {
-                      toast.error("Sync failed: " + (err.message || "Unknown error"));
-                    } finally {
-                      setCompanySyncing(false);
-                    }
-                  }}
-                  disabled={companySyncing}
-                  className={cn(
-                    "rounded-lg text-xs font-semibold gap-1.5 border-accent/30 text-accent hover:bg-accent/10 hover:text-accent",
-                    companySyncing && "animate-pulse"
-                  )}
-                >
-                  {companySyncing ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Mining Data...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Sync Company Data
-                    </>
-                  )}
-                </Button>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company LinkedIn URL or Website</label>
-                <input
-                  type="text"
-                  value={companySyncUrl}
-                  onChange={(e) => setCompanySyncUrl(e.target.value)}
-                  placeholder={companyData?.website || "https://linkedin.com/company/... or https://yourcompany.com"}
-                  className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                />
-              </div>
-            </div>
-
-            {/* AI Insight — full width */}
-            <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
-              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> AI Insight
-              </p>
-              <p className="text-xs text-foreground leading-relaxed">
-                Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
-              </p>
-              {!sectionConfirmed.metrics && (
-                <button
-                  onClick={() => {
-                    // First expand the metrics accordion section
-                    window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }));
-                    // Then highlight the LTV/CAC field after accordion opens
-                    setTimeout(() => {
-                      const el = document.querySelector('[data-field="ltv-cac"]');
-                      if (el) {
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                        setTimeout(() => {
-                          el.classList.add("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-                          el.classList.add("animate-shake");
-                          setTimeout(() => el.classList.remove("animate-shake"), 500);
-                          setTimeout(() => {
-                            el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-                          }, 2500);
-                        }, 200);
-                      }
-                    }, 500);
-                  }}
-                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
-                >
-                  Verify Metrics <ChevronRight className="h-3 w-3" />
-                </button>
-              )}
-            </div>
 
             {/* Company Profile Editor */}
             <CompanyProfile
@@ -653,6 +545,36 @@ export function CompanyTab() {
               onProfileVerified={setIsProfileVerified}
               onSectionConfirmedChange={setSectionConfirmed}
               onCompletionChange={setProfileCompletion}
+              onSyncCompany={async (url: string) => {
+                setCompanySyncing(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+                    body: { companyUrl: url },
+                  });
+                  if (error) throw error;
+                  if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+                  const incoming = data.data;
+                  const fields: SyncField[] = [
+                    { key: "name", label: "Company Name", existing: companyData?.name || null, incoming: incoming.company_name },
+                    { key: "description", label: "Description", existing: companyData?.description || null, incoming: incoming.description?.slice(0, 500) || null },
+                    { key: "sector", label: "Sector", existing: companyData?.sector || null, incoming: incoming.sector },
+                    { key: "website", label: "Website", existing: companyData?.website || null, incoming: incoming.website_url },
+                    { key: "hqLocation", label: "HQ Location", existing: companyData?.hqLocation || null, incoming: incoming.hq_location },
+                    { key: "totalHeadcount", label: "Employee Count", existing: companyData?.totalHeadcount || null, incoming: incoming.employee_count },
+                  ];
+
+                  setCompanySyncFields(fields);
+                  setCompanySyncReviewOpen(true);
+                } catch (err: any) {
+                  toast.error("Sync failed: " + (err.message || "Unknown error"));
+                } finally {
+                  setCompanySyncing(false);
+                }
+              }}
+              companySyncing={companySyncing}
+              sectionConfirmedState={sectionConfirmed}
+              companyData={companyData}
             />
 
             {/* Investors Section */}
