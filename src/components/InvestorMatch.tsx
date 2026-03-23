@@ -380,6 +380,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           enrichingKeys={enrichingKeys}
           savedFirmIds={savedFirmIds}
           collaborativeRecs={collaborativeRecs.data || []}
+          weights={weights}
+          companySector={sectorClassification?.primary_sector || companyData?.sector}
+          companyStage={companyData?.stage}
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
           onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
           onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
