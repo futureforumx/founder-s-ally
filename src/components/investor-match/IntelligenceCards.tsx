@@ -40,49 +40,43 @@ function MetricCard({
 
   return (
     <div
-      className="relative rounded-2xl p-6 overflow-hidden"
+      className="relative rounded-xl px-5 py-4 overflow-hidden"
       style={{
         background: "hsl(var(--primary))",
         border: "1px solid hsl(var(--border) / 0.15)",
       }}
     >
-      {/* Subtle glow */}
       <div
         className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-10 pointer-events-none"
         style={{ background: accentColor }}
       />
 
       <div className="relative z-10">
-        {/* Label row */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           {icon}
-          <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">
             {label}
           </span>
         </div>
 
-        {/* Big value with green glow */}
-        <div className="flex-1 flex items-center my-2">
-          <p
-            className="text-6xl md:text-7xl font-black text-primary-foreground tracking-tighter font-mono leading-none animate-glow-pulse"
-            style={{
-              textShadow: "0 0 20px hsl(var(--success) / 0.5), 0 0 40px hsl(var(--success) / 0.2)",
-            }}
-          >
-            {value}
-          </p>
-        </div>
+        <p
+          className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tighter font-mono leading-none animate-glow-pulse my-1"
+          style={{
+            textShadow: "0 0 20px hsl(var(--success) / 0.5), 0 0 40px hsl(var(--success) / 0.2)",
+          }}
+        >
+          {value}
+        </p>
 
-        {/* Trend row */}
-        <div className="flex items-center gap-2 mt-4">
+        <div className="flex items-center gap-2 mt-1">
           <span
-            className="inline-flex items-center gap-1 text-xs font-semibold"
+            className="inline-flex items-center gap-1 text-[11px] font-semibold"
             style={{ color: isPositive ? "hsl(var(--success))" : "hsl(var(--destructive))" }}
           >
             <TrendIcon className="h-3 w-3" />
             {isPositive ? "↑" : "↓"}{Math.abs(trendValue).toFixed(1)}%
           </span>
-          <span className="text-[10px] text-primary-foreground/30 font-medium">{trendLabel}</span>
+          <span className="text-[9px] text-primary-foreground/30 font-medium">{trendLabel}</span>
         </div>
       </div>
     </div>
