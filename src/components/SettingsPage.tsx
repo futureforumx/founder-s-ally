@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
+import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -87,10 +88,50 @@ function setTabInUrl(tab: SettingsTab) {
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
   const { user, signOut } = useAuth();
-  const [profileCompletion, setProfileCompletion] = useState(84);
-  const [completedFields, setCompletedFields] = useState<string[]>([
-    "website", "sector", "pitch-deck", "mrr", "executive-summary",
-  ]);
+
+  // Derive profile completion from real localStorage data
+  const [formSnapshot, setFormSnapshot] = useState<CompanyData>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      return saved ? { ...EMPTY_FORM, ...JSON.parse(saved) } : EMPTY_FORM;
+    } catch { return EMPTY_FORM; }
+  });
+
+  // Listen for localStorage changes from the CompanyProfile editor
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const saved = localStorage.getItem("company-profile");
+        if (saved) setFormSnapshot({ ...EMPTY_FORM, ...JSON.parse(saved) });
+      } catch {}
+    };
+    window.addEventListener("storage", sync);
+    // Also poll on an interval since same-tab localStorage writes don't fire "storage"
+    const interval = setInterval(sync, 2000);
+    return () => { window.removeEventListener("storage", sync); clearInterval(interval); };
+  }, []);
+
+  const profileCompletion = useMemo(() => getCompletionPercent(formSnapshot), [formSnapshot]);
+
+  const completedFields = useMemo(() => {
+    const fields: string[] = [];
+    if (formSnapshot.website) fields.push("website");
+    if (formSnapshot.sector) fields.push("sector");
+    if (formSnapshot.ltv && formSnapshot.cac) fields.push("ltv-cac");
+    if (formSnapshot.currentARR) fields.push("mrr");
+    if (formSnapshot.description) fields.push("executive-summary");
+    // Check if a pitch deck exists
+    try {
+      const deckActive = localStorage.getItem("company-profile");
+      if (deckActive) {
+        const parsed = JSON.parse(deckActive);
+        // If analysis was completed, deck was likely uploaded
+        const analysisRaw = localStorage.getItem("company-analysis");
+        if (analysisRaw) fields.push("pitch-deck");
+      }
+    } catch {}
+    return fields;
+  }, [formSnapshot]);
 
   const activeSection = getSectionForTab(activeTab);
   const currentTabs = SECTION_TABS[activeSection];
