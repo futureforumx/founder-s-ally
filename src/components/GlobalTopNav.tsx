@@ -34,6 +34,7 @@ interface GlobalTopNavProps {
   onOpenCommandPalette?: () => void;
   userSector?: string | null;
   userStage?: string | null;
+  profileCompletion?: number;
 }
 
 // ── View metadata for breadcrumbs ──
