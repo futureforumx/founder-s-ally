@@ -317,10 +317,25 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
               </Badge>
             )}
             <div className="flex items-center gap-2">
-              <div className="flex flex-col items-center">
-                <span className={`text-sm font-black leading-none ${matchColor}`}>{matchScore}%</span>
-                <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-col items-center cursor-help">
+                      <span className={`text-sm font-black leading-none ${matchColor}`}>{matchScore}%</span>
+                      <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5">
+                    <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Measures alignment between your company profile and this investor's thesis across sector, stage, geography, and check size using vector similarity.
+                    </p>
+                    <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
+                      = cosine_sim(sector) × stage_match × geo_fit × check_range
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               {sentimentScore != null && (
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
