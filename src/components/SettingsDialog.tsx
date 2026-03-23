@@ -277,11 +277,6 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
 
       <Separator />
 
-      {/* Admin Access */}
-      <AdminAccessSection userId={userId} />
-
-      <Separator />
-
       {/* Security */}
       <div className="space-y-3">
         <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Security</h4>
