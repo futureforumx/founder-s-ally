@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase,
+  Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,11 +31,11 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
 
 // ── Connection status persistence (synced with ConnectionsGate) ──
 const CONN_KEY = "community-connections-status";
-interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean; calendar: boolean; angellist: boolean }
-const ALL_KEYS: (keyof ConnStatus)[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
+interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean; angellist: boolean }
+const ALL_KEYS: (keyof ConnStatus)[] = ["gmail", "linkedin", "twitter", "angellist"];
 function loadConn(): ConnStatus {
   try { const r = localStorage.getItem(CONN_KEY); if (r) return JSON.parse(r); } catch {}
-  return { gmail: false, linkedin: false, twitter: false, calendar: false, angellist: false };
+  return { gmail: false, linkedin: false, twitter: false, angellist: false };
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
@@ -396,7 +396,7 @@ const SETTINGS_INTEGRATIONS = [
   { key: "gmail" as const, label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", color: "text-red-500", bg: "bg-red-500/10" },
   { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", color: "text-blue-600", bg: "bg-blue-600/10" },
   { key: "twitter" as const, label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", color: "text-foreground", bg: "bg-foreground/5" },
-  { key: "calendar" as const, label: "Google Calendar", icon: Calendar, desc: "Detect past VC meetings and intro calls", color: "text-blue-500", bg: "bg-blue-500/10" },
+  
   { key: "angellist" as const, label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", color: "text-foreground", bg: "bg-foreground/5" },
 ];
 
@@ -588,7 +588,7 @@ function PrivacyTab() {
     { key: "aiInboxPaths" as const, title: "Let the AI find warm investor paths in my inbox", sub: "Thread subjects + contact names only. Email bodies never stored.", icon: Mail },
     { key: "shareAnonMetrics" as const, title: "Share anonymized metrics with my founder cohort", sub: "You see how you compare. They never see it's you.", icon: Users },
     { key: "discoverableToInvestors" as const, title: "Make me discoverable to matching investors", sub: "Only investors whose thesis matches your profile will see you.", icon: Sparkles },
-    { key: "useMeetingNotes" as const, title: "Use my meeting notes to improve recommendations", sub: "Granola and calendar data only. Delete anytime.", icon: Calendar },
+    { key: "useMeetingNotes" as const, title: "Use my meeting notes to improve recommendations", sub: "Granola and calendar data only. Delete anytime.", icon: Bell },
   ];
 
   return (
