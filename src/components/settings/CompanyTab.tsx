@@ -4,8 +4,9 @@ import {
   Building2, Globe, MapPin, Layers, TrendingUp,
   CheckCircle2, Unlink, RefreshCw, ExternalLink,
   Search, PlusCircle, Clock, X, Shield, Lock,
-  ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight
+  ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight, Loader2, Linkedin
 } from "lucide-react";
+import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
@@ -119,6 +120,14 @@ export function CompanyTab() {
   const [profileCompletion, setProfileCompletion] = useState({ percent: 0, sectionsApproved: 0, totalSections: 4, allDone: false });
   const [profileKey, setProfileKey] = useState(0);
   const investorSectionRef = useRef<HTMLDivElement>(null);
+
+  // Company Magic Sync state
+  const [companySyncUrl, setCompanySyncUrl] = useState("");
+  const [companySyncing, setCompanySyncing] = useState(false);
+  const [companySyncReviewOpen, setCompanySyncReviewOpen] = useState(false);
+  const [companySyncFields, setCompanySyncFields] = useState<SyncField[]>([]);
+  const [companySyncApplying, setCompanySyncApplying] = useState(false);
+  const [companySyncedKeys, setCompanySyncedKeys] = useState<Set<string>>(new Set());
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -525,6 +534,79 @@ export function CompanyTab() {
 
             {/* Profile Strength moved to Copilot Mission Banner modal */}
 
+            {/* ── Magic Sync: Company LinkedIn / Website ── */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                  <Linkedin className="h-3.5 w-3.5" />
+                  Company Data Sync
+                </h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const url = companySyncUrl.trim() || companyData?.website || "";
+                    if (!url) {
+                      toast.error("Enter a Company LinkedIn URL or website first");
+                      return;
+                    }
+                    setCompanySyncing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+                        body: { companyUrl: url },
+                      });
+                      if (error) throw error;
+                      if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+                      const incoming = data.data;
+                      const fields: SyncField[] = [
+                        { key: "name", label: "Company Name", existing: companyData?.name || null, incoming: incoming.company_name },
+                        { key: "description", label: "Description", existing: companyData?.description || null, incoming: incoming.description?.slice(0, 500) || null },
+                        { key: "sector", label: "Sector", existing: companyData?.sector || null, incoming: incoming.sector },
+                        { key: "website", label: "Website", existing: companyData?.website || null, incoming: incoming.website_url },
+                        { key: "hqLocation", label: "HQ Location", existing: companyData?.hqLocation || null, incoming: incoming.hq_location },
+                        { key: "totalHeadcount", label: "Employee Count", existing: companyData?.totalHeadcount || null, incoming: incoming.employee_count },
+                      ];
+
+                      setCompanySyncFields(fields);
+                      setCompanySyncReviewOpen(true);
+                    } catch (err: any) {
+                      toast.error("Sync failed: " + (err.message || "Unknown error"));
+                    } finally {
+                      setCompanySyncing(false);
+                    }
+                  }}
+                  disabled={companySyncing}
+                  className={cn(
+                    "rounded-lg text-xs font-semibold gap-1.5 border-accent/30 text-accent hover:bg-accent/10 hover:text-accent",
+                    companySyncing && "animate-pulse"
+                  )}
+                >
+                  {companySyncing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Mining Data...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Sync Company Data
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company LinkedIn URL or Website</label>
+                <input
+                  type="text"
+                  value={companySyncUrl}
+                  onChange={(e) => setCompanySyncUrl(e.target.value)}
+                  placeholder={companyData?.website || "https://linkedin.com/company/... or https://yourcompany.com"}
+                  className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
+            </div>
+
             {/* AI Insight — full width */}
             <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
               <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
@@ -611,6 +693,39 @@ export function CompanyTab() {
           ))}
         </div>
       )}
+      {/* Company Sync Review Modal */}
+      <SyncReviewModal
+        open={companySyncReviewOpen}
+        onOpenChange={setCompanySyncReviewOpen}
+        title="Review Company Data"
+        fields={companySyncFields}
+        onApply={(selectedKeys) => {
+          setCompanySyncApplying(true);
+          const fieldMap = Object.fromEntries(companySyncFields.map(f => [f.key, f.incoming]));
+
+          // Update localStorage company-profile with new values
+          try {
+            const saved = localStorage.getItem("company-profile");
+            const current = saved ? JSON.parse(saved) : {};
+            for (const key of selectedKeys) {
+              const val = fieldMap[key];
+              if (val) current[key] = val;
+            }
+            localStorage.setItem("company-profile", JSON.stringify(current));
+            setCompanyData(current);
+          } catch {}
+
+          // Track synced keys for highlight animation
+          setCompanySyncedKeys(new Set(selectedKeys));
+          setTimeout(() => setCompanySyncedKeys(new Set()), 2500);
+
+          setCompanySyncApplying(false);
+          setCompanySyncReviewOpen(false);
+          setProfileKey(prev => prev + 1);
+          toast.success(`Applied ${selectedKeys.length} company field${selectedKeys.length !== 1 ? "s" : ""}`);
+        }}
+        applying={companySyncApplying}
+      />
     </motion.div>
   );
 }

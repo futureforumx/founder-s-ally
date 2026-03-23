@@ -6,7 +6,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
-  MessageSquare, AlertTriangle
+  MessageSquare, AlertTriangle, Loader2
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
+import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -314,6 +315,13 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [avatarError, setAvatarError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Magic Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncReviewOpen, setSyncReviewOpen] = useState(false);
+  const [syncFields, setSyncFields] = useState<SyncField[]>([]);
+  const [syncApplying, setSyncApplying] = useState(false);
+  const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
+
   // Track original values for dirty detection
   const [original, setOriginal] = useState({ name: displayName, title: "", bio: "", location: "", userType: "founder", linkedinUrl: "", twitterUrl: "" });
 
@@ -421,9 +429,111 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     toast.success("Profile saved");
   };
 
+  // ── Magic Sync ──
+  const handleSyncProfile = async () => {
+    if (!linkedinUrl.trim()) {
+      toast.error("Enter a LinkedIn URL first");
+      return;
+    }
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
+        body: { linkedinUrl: linkedinUrl.trim() },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+      const incoming = data.data;
+      const fields: SyncField[] = [
+        { key: "full_name", label: "Full Name", existing: name, incoming: incoming.full_name },
+        { key: "title", label: "Title / Role", existing: title, incoming: incoming.title },
+        { key: "bio", label: "Bio", existing: bio, incoming: incoming.bio?.slice(0, 160) || null },
+        { key: "location", label: "Location", existing: location, incoming: incoming.location },
+      ];
+
+      setSyncFields(fields);
+      setSyncReviewOpen(true);
+    } catch (err: any) {
+      toast.error("Sync failed: " + (err.message || "Unknown error"));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleApplySyncFields = async (selectedKeys: string[]) => {
+    setSyncApplying(true);
+    const fieldMap = Object.fromEntries(syncFields.map(f => [f.key, f.incoming]));
+    const updates: Record<string, string> = {};
+
+    for (const key of selectedKeys) {
+      const val = fieldMap[key];
+      if (!val) continue;
+      updates[key] = val;
+      if (key === "full_name") setName(val);
+      if (key === "title") setTitle(val);
+      if (key === "bio") setBio(val);
+      if (key === "location") setLocation(val);
+    }
+
+    // Save to profile
+    await upsertProfile(updates as any);
+    setOriginal(prev => ({ ...prev, ...updates }));
+
+    // Track synced keys for highlight animation
+    setSyncedKeys(new Set(selectedKeys));
+    setTimeout(() => setSyncedKeys(new Set()), 2500);
+
+    setSyncApplying(false);
+    setSyncReviewOpen(false);
+    toast.success(`Applied ${selectedKeys.length} field${selectedKeys.length !== 1 ? "s" : ""} from LinkedIn`);
+  };
+
   return (
     <TabWrapper>
       <div className="space-y-4">
+        {/* ── Magic Sync: LinkedIn & X at top ── */}
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+              <Linkedin className="h-3.5 w-3.5" />
+              Social Profiles
+            </h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSyncProfile}
+              disabled={syncing || !linkedinUrl.trim()}
+              className={cn(
+                "rounded-lg text-xs font-semibold gap-1.5 border-accent/30 text-accent hover:bg-accent/10 hover:text-accent",
+                syncing && "animate-pulse"
+              )}
+            >
+              {syncing ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Mining Data...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Sync My Profile
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
+              <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg h-9 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+              <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg h-9 text-sm" />
+            </div>
+          </div>
+        </div>
+
         {/* Avatar & Name */}
         <div className="flex items-center gap-4">
           <div className="relative group">
@@ -476,11 +586,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         <div className="space-y-3">
           <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Personal Information</h3>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
               <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
               <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
             </div>
-            <div className="space-y-1">
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
               <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
             </div>
@@ -493,12 +603,12 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
               </div>
             </div>
-            <div className="space-y-1">
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
               <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
               <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
             </div>
           </div>
-          <div className="space-y-1">
+          <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
               <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
@@ -510,21 +620,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
               rows={2}
               className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
-          </div>
-        </div>
-
-
-        <Separator />
-
-        {/* Social Links + Theme — compact row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
-            <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg h-9 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
-            <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg h-9 text-sm" />
           </div>
         </div>
 
@@ -545,6 +640,16 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         <div className="h-12" />
       </div>
       <StickyFormFooter dirty={isDirty} saving={saving} onDiscard={handleDiscard} onSave={handleSave} />
+
+      {/* Sync Review Modal */}
+      <SyncReviewModal
+        open={syncReviewOpen}
+        onOpenChange={setSyncReviewOpen}
+        title="Review LinkedIn Data"
+        fields={syncFields}
+        onApply={handleApplySyncFields}
+        applying={syncApplying}
+      />
     </TabWrapper>
   );
 }
