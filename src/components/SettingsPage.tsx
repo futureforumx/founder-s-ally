@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
 type SettingsSection = "personal" | "entity" | "network-sec" | "preferences" | "account-sec";
-type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "subscription";
+type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
@@ -48,6 +48,8 @@ const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]
   "preferences": [
     { id: "notifications", label: "Notifications" },
     { id: "privacy", label: "Privacy" },
+    { id: "theme", label: "Theme" },
+    { id: "security", label: "Security" },
   ],
   "account-sec": [
     { id: "subscription", label: "Subscription" },
@@ -60,6 +62,8 @@ const ALL_TABS: { id: SettingsTab; label: string }[] = [
   { id: "network", label: "Network" },
   { id: "notifications", label: "Notifications" },
   { id: "privacy", label: "Privacy" },
+  { id: "theme", label: "Theme" },
+  { id: "security", label: "Security" },
   { id: "subscription", label: "Subscription" },
 ];
 
@@ -248,6 +252,8 @@ export function SettingsPage() {
           {activeTab === "network" && <NetworkTab key="network" />}
           {activeTab === "notifications" && <NotificationsTab key="notifications" />}
           {activeTab === "privacy" && <PrivacyTab key="privacy" />}
+          {activeTab === "theme" && <ThemeTab key="theme" />}
+          {activeTab === "security" && <SecurityTab key="security" />}
           {activeTab === "subscription" && <SubscriptionTab key="subscription" />}
         </AnimatePresence>
       </div>
@@ -552,55 +558,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Theme</h3>
-          <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30">
-            {([
-              { id: "light" as const, icon: Sun, label: "Light" },
-              { id: "dark" as const, icon: Moon, label: "Dark" },
-              { id: "system" as const, icon: Monitor, label: "System" },
-            ]).map(({ id, icon: Icon, label }) => (
-              <button
-                key={id}
-                onClick={() => setTheme(id)}
-                className={cn(
-                  "flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
-                  theme === id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Security — inline compact */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Security</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="flex items-center gap-2.5 rounded-lg border border-border p-3 hover:bg-muted/30 transition-colors">
-              <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="text-left">
-                <p className="text-xs font-medium text-foreground">Change Password</p>
-                <p className="text-[9px] text-muted-foreground">Updated 30d ago</p>
-              </div>
-            </button>
-            <button className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-muted/30 transition-colors">
-              <div className="flex items-center gap-2.5">
-                <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
-                <div className="text-left">
-                  <p className="text-xs font-medium text-foreground">2FA</p>
-                  <p className="text-[9px] text-muted-foreground">Not enabled</p>
-                </div>
-              </div>
-              <Badge variant="outline" className="text-[8px] uppercase font-bold">Off</Badge>
-            </button>
-          </div>
-        </div>
-
         {/* Admin Access — compact */}
         <AdminAccessSection userId={userId} />
 
@@ -854,6 +811,101 @@ function PrivacyTab() {
         </div>
       </div>
     </TabWrapper>
+  );
+}
+
+// ── Theme Tab ──
+function ThemeTab() {
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-6"
+    >
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Appearance</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Choose your preferred color theme</p>
+      </div>
+
+      <div className="space-y-3">
+        {([
+          { id: "light" as const, icon: Sun, label: "Light", desc: "Clean and bright interface" },
+          { id: "dark" as const, icon: Moon, label: "Dark", desc: "Easy on the eyes in low light" },
+          { id: "system" as const, icon: Monitor, label: "System", desc: "Follows your OS preference" },
+        ]).map(({ id, icon: Icon, label, desc }) => (
+          <button
+            key={id}
+            onClick={() => setTheme(id)}
+            className={cn(
+              "w-full flex items-center gap-3 rounded-xl border p-4 transition-all text-left",
+              theme === id
+                ? "border-accent/40 bg-accent/5 ring-1 ring-accent/20"
+                : "border-border hover:bg-muted/30"
+            )}
+          >
+            <div className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-lg shrink-0",
+              theme === id ? "bg-accent/10" : "bg-muted"
+            )}>
+              <Icon className={cn("h-4 w-4", theme === id ? "text-accent" : "text-muted-foreground")} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">{label}</p>
+              <p className="text-[10px] text-muted-foreground">{desc}</p>
+            </div>
+            {theme === id && <CheckCircle2 className="h-4 w-4 text-accent shrink-0" />}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Security Tab ──
+function SecurityTab() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-6"
+    >
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Security</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Manage your account security settings</p>
+      </div>
+
+      <div className="space-y-3">
+        <button className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
+            <Lock className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Change Password</p>
+            <p className="text-[10px] text-muted-foreground">Last updated 30 days ago</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
+        </button>
+
+        <div className="flex items-center justify-between rounded-xl border border-border p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
+              <p className="text-[10px] text-muted-foreground">Add an extra layer of protection</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="text-[9px] uppercase font-bold">Off</Badge>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
