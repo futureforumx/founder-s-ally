@@ -415,6 +415,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => setSelectedInvestor(null)}
       />
+
+      <PersonalizeWeightsSidebar
+        open={weightsOpen}
+        onClose={() => setWeightsOpen(false)}
+        weights={weights}
+        onChange={setWeights}
+      />
     </div>
   );
 }
