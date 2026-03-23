@@ -226,12 +226,39 @@ export function GlobalTopNav({
           onOpenCommandPalette();
         } else {
           setSearchOpen(o => !o);
+          setHighlightIdx(0);
         }
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onOpenCommandPalette]);
+
+  // Keyboard navigation for search dropdown (Esc, Enter, Arrow keys)
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      const sug = getContextSuggestions(activeView, userSector, userStage);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSearchOpen(false);
+        setHighlightIdx(0);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIdx(i => (i < sug.length - 1 ? i + 1 : 0));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIdx(i => (i > 0 ? i - 1 : sug.length - 1));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        setSearchOpen(false);
+        setHighlightIdx(0);
+        onOpenCommandPalette?.();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [searchOpen, activeView, userSector, userStage, onOpenCommandPalette]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
