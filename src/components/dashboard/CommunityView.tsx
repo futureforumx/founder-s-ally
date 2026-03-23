@@ -5,6 +5,7 @@ import {
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
   DollarSign, Activity, Heart, Info } from
 "lucide-react";
+import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
