@@ -71,8 +71,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 rounded-2xl overflow-hidden border-border bg-card max-h-[80vh]">
-        <div className="flex h-full min-h-[480px]">
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 rounded-2xl overflow-hidden border-border bg-card max-h-[85vh]">
+        <div className="flex h-full min-h-[480px] max-h-[85vh]">
           {/* Sidebar */}
           <div className="w-48 border-r border-border bg-muted/20 p-4 shrink-0 flex flex-col">
             <h2 className="text-sm font-bold text-foreground mb-4 px-2">Settings</h2>
@@ -107,7 +107,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 max-h-[85vh]">
             <AnimatePresence mode="wait">
               {activeTab === "account" && (
                 <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} />
@@ -297,6 +297,11 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
 
       <Separator />
 
+      {/* Admin Access */}
+      <AdminAccessSection userId={userId} />
+
+      <Separator />
+
       {/* Security */}
       <div className="space-y-3">
         <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Security</h4>
@@ -326,12 +331,60 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
         </button>
       </div>
 
-      <div className="pt-2">
+      <div className="pt-2 pb-4">
         <Button size="sm" className="rounded-lg font-semibold text-xs" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
     </motion.div>
+  );
+}
+
+// ── Admin Access Section ──
+function AdminAccessSection({ userId }: { userId?: string }) {
+  const { user } = useAuth();
+  const [toggling, setToggling] = useState(false);
+  const isAdmin = user?.user_metadata?.role === "admin";
+
+  const handleToggleAdmin = async () => {
+    if (!userId) return;
+    setToggling(true);
+    try {
+      const newRole = isAdmin ? "user" : "admin";
+      const { error } = await supabase.auth.updateUser({
+        data: { role: newRole },
+      });
+      if (error) throw error;
+      toast.success(newRole === "admin" ? "Admin access enabled" : "Admin access revoked", {
+        description: newRole === "admin" ? "Navigate to /admin/intelligence" : "You no longer have admin privileges",
+      });
+    } catch (e: any) {
+      toast.error("Failed to update role", { description: e.message });
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Admin Access</h4>
+      <div className="flex items-center justify-between rounded-xl border border-border p-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+            <Crown className="h-4 w-4 text-amber-500" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-foreground">Platform Admin</p>
+            <p className="text-[10px] text-muted-foreground">Access the Intelligence Dashboard at /admin/intelligence</p>
+          </div>
+        </div>
+        <Switch
+          checked={isAdmin}
+          onCheckedChange={handleToggleAdmin}
+          disabled={toggling}
+        />
+      </div>
+    </div>
   );
 }
 
