@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart } from
+  DollarSign, Activity, Heart, Info } from
 "lucide-react";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
