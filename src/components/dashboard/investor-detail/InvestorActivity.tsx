@@ -14,6 +14,7 @@ interface NewsItem {
   source: string;
   type: "funding" | "article" | "hire" | "investment" | "thought_leadership";
   time: string;
+  url: string;
 }
 
 interface TweetItem {
