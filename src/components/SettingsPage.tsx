@@ -62,6 +62,8 @@ const ALL_TABS: { id: SettingsTab; label: string }[] = [
   { id: "network", label: "Network" },
   { id: "notifications", label: "Notifications" },
   { id: "privacy", label: "Privacy" },
+  { id: "theme", label: "Theme" },
+  { id: "security", label: "Security" },
   { id: "subscription", label: "Subscription" },
 ];
 
