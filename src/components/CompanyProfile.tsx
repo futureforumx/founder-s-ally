@@ -2283,16 +2283,3 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     </div>
   );
 });
-
-  // Track companySyncing transition to mark source as verified
-  const prevCompanySyncingRef = useRef(companySyncing);
-  useEffect(() => {
-    if (prevCompanySyncingRef.current && !companySyncing) {
-      // Sync just completed
-      setSourceVerified(true);
-      setSourceVerifiedAnim(true);
-      try { localStorage.setItem("company-source-verified", "true"); } catch {}
-    }
-    prevCompanySyncingRef.current = companySyncing;
-  }, [companySyncing]);
-
