@@ -34,6 +34,8 @@ interface ScoredInvestor {
   is_trending?: boolean;
   is_popular?: boolean;
   is_recent?: boolean;
+  logo_url?: string | null;
+  website_url?: string | null;
 }
 
 interface EnrichedProfile {
