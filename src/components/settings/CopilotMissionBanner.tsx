@@ -282,7 +282,7 @@ export function CopilotMissionBanner({
       )}
     >
       {/* Desktop: row layout / Mobile: stacked */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 sm:p-5 w-full">
         {/* Left: Radial Progress */}
         <RadialProgress
           percent={profileCompletion}
