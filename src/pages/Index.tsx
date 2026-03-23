@@ -429,18 +429,6 @@ const Index = () => {
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
         </div>
-
-        {/* ═══ Global Sticky Footer ═══ */}
-        {activeView === "company" && analysisResult && !isProfileVerified && (
-          <StickyProfileFooter
-            sectionConfirmed={sectionConfirmed}
-            investorsConfirmed={investorsConfirmed}
-            onComplete={() => {
-              setIsProfileVerified(true);
-              try { localStorage.setItem("company-profile-verified", "true"); } catch {}
-            }}
-          />
-        )}
       </main>
     </div>
   );
