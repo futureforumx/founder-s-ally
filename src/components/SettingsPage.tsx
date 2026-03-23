@@ -578,10 +578,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     )}
                     <input
                       value={linkedinUrl}
-                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      onChange={(e) => { setLinkedinUrl(e.target.value); autosave({ linkedinUrl: e.target.value }); }}
                       onBlur={(e) => {
                         const formatted = formatSocialUrl("linkedin_personal", e.target.value);
-                        if (formatted !== linkedinUrl) setLinkedinUrl(formatted);
+                        if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
                       }}
                       placeholder="https://linkedin.com/in/..."
                       className={cn(
