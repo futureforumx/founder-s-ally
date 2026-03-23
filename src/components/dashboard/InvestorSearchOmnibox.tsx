@@ -191,9 +191,13 @@ export function InvestorSearchOmnibox({
                         highlightIdx === i ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
                       }`}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                      </div>
+                      <FirmLogo
+                        firmName={result.name}
+                        logoUrl={result.logoUrl}
+                        websiteUrl={result.websiteUrl}
+                        size="sm"
+                        className="shrink-0"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">{result.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
