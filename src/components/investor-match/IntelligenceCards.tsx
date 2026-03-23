@@ -288,8 +288,6 @@ export function IntelligenceCards({
         <SectorHeatmap
           sector={sector}
           timeRange={timeRange}
-          selectedCell={selectedHeatCell}
-          onCellSelect={onHeatCellSelect}
         />
       </GlassCard>
 
