@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
+import { SettingsPage } from "@/components/SettingsPage";
 import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
 
@@ -30,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
 // ── Sticky Profile Footer ──
 function StickyProfileFooter({
@@ -517,6 +518,8 @@ const Index = () => {
             <EventsView />
           ) : activeView === "audit" ? (
             <DeckAuditView />
+          ) : activeView === "settings" ? (
+            <SettingsPage />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

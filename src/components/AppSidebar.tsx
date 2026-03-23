@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SettingsDialog } from "@/components/SettingsDialog";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -31,7 +30,6 @@ const communityItems = [
   { id: "events" as const, label: "Events", icon: MapPin }];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [investorsOpen, setInvestorsOpen] = useState(
     activeView === "investors" || activeView === "investor-search" || activeView === "connections"
   );
@@ -40,7 +38,6 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   );
 
   return (
-    <>
       <aside className="flex h-screen w-44 flex-col bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent">
@@ -147,16 +144,17 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
         <div className="border-t border-sidebar-border px-3 py-4">
           <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground hover:bg-sidebar-accent/50">
-            
+            onClick={() => onViewChange("settings")}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+              activeView === "settings"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            )}>
             <Settings className="h-4 w-4" />
             Settings
           </button>
         </div>
       </aside>
-
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-    </>);
-
+  );
 }
