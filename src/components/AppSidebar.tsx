@@ -144,7 +144,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
         <div className="border-t border-sidebar-border px-3 py-4">
           <button
-            onClick={() => onViewChange("settings" as any)}
+            onClick={() => onViewChange("settings")}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
               activeView === "settings"
