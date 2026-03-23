@@ -146,6 +146,23 @@ const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}
 
 const PAGE_SIZE = 9;
 
+const normalizeFirmName = (name: string) =>
+  name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+
+const getAliasKeys = (normalizedName: string) => {
+  const keys = [normalizedName];
+  if (normalizedName.includes("andreessenhorowitz")) keys.push("a16z");
+  if (normalizedName === "a16z") keys.push("andreessenhorowitz");
+  return keys;
+};
+
+const deriveWebsiteUrlFromFirmId = (firmId?: string | null): string | null => {
+  if (!firmId) return null;
+  const normalized = firmId.trim().toLowerCase().replace(/^https?:\/\//, "");
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) return null;
+  return `https://${normalized}`;
+};
+
 const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
   all: [
   "Match me with Seed investors",
