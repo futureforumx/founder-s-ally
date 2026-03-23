@@ -31,15 +31,14 @@ serve(async (req) => {
     console.log("Scraping LinkedIn profile:", linkedinUrl);
 
     // Run the Apify LinkedIn Profile Scraper actor synchronously
-    const actorId = "anchor~linkedin-profile-scraper";
+    const actorId = "scrapium~linkedin-profile-scraper";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_KEY}&timeout=60`;
 
     const response = await fetch(runUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        startUrls: [{ url: linkedinUrl }],
-        maxItems: 1,
+        urls: [linkedinUrl],
       }),
     });
 
