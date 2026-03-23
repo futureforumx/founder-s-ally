@@ -30,22 +30,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
-// ── Connection status persistence (synced with ConnectionsPage) ──
-const CONN_KEY = "community-connections-status";
-interface ConnStatus { google: boolean; linkedin: boolean; twitter: boolean; angellist: boolean }
-const ALL_KEYS: (keyof ConnStatus)[] = ["google", "linkedin", "twitter", "angellist"];
-function loadConn(): ConnStatus {
-  try {
-    const r = localStorage.getItem(CONN_KEY);
-    if (r) {
-      const parsed = JSON.parse(r);
-      if ("gmail" in parsed && !("google" in parsed)) { parsed.google = parsed.gmail; delete parsed.gmail; }
-      return { google: false, linkedin: false, twitter: false, angellist: false, ...parsed };
-    }
-  } catch {}
-  return { google: false, linkedin: false, twitter: false, angellist: false };
-}
-function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
+// Connection status is now managed by the shared SensorSuiteGrid component
 
 // Notification and privacy prefs are now DB-backed via useUserPreferences
 
