@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 // ── Types ──
-type SourceKey = "gmail" | "linkedin" | "twitter" | "calendar" | "angellist";
+type SourceKey = "gmail" | "linkedin" | "twitter" | "angellist";
 
 interface SourceStatus {
   state: "idle" | "authenticating" | "syncing" | "complete";
