@@ -4,8 +4,9 @@ import {
   Building2, Globe, MapPin, Layers, TrendingUp,
   CheckCircle2, Unlink, RefreshCw, ExternalLink,
   Search, PlusCircle, Clock, X, Shield, Lock,
-  ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight
+  ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight, Loader2, Linkedin
 } from "lucide-react";
+import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
