@@ -6,7 +6,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
-  MessageSquare, AlertTriangle
+  MessageSquare, AlertTriangle, Loader2
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
+import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
