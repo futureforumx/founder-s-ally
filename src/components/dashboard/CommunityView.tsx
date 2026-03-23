@@ -323,7 +323,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
               {sentimentScore != null && (
                 <div className="flex flex-col items-center">
                   <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
-                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Vibe</span>
+                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
                 </div>
               )}
             </div>

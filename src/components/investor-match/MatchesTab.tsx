@@ -398,7 +398,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                     <div className="grid grid-cols-3 gap-2.5">
                       <SensorCell
                         icon={Heart}
-                        label="Founder Vibe"
+                        label="Founder Reputation"
                         value={vibe.label}
                         sublabel={`${reviewCount} reviews`}
                         valueClass={vibe.cls}
