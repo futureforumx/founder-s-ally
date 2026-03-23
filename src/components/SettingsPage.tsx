@@ -252,6 +252,8 @@ export function SettingsPage() {
           {activeTab === "network" && <NetworkTab key="network" />}
           {activeTab === "notifications" && <NotificationsTab key="notifications" />}
           {activeTab === "privacy" && <PrivacyTab key="privacy" />}
+          {activeTab === "theme" && <ThemeTab key="theme" />}
+          {activeTab === "security" && <SecurityTab key="security" />}
           {activeTab === "subscription" && <SubscriptionTab key="subscription" />}
         </AnimatePresence>
       </div>
