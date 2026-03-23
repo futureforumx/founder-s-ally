@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
+import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
