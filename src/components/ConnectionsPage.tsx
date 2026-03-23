@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Users, Star, TrendingUp, MessageCircle, Mail, Clock,
-  ArrowRight, ThumbsUp, Newspaper, MessagesSquare, Share2,
+  ArrowRight, ThumbsUp, ThumbsDown, Newspaper, MessagesSquare, Share2,
   MessageSquare, Building2, Sparkles, Network
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
