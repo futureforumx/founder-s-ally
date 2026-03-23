@@ -335,17 +335,8 @@ const Index = () => {
           userSector={companyData?.sector}
           userStage={companyData?.stage}
         />
-        <div className={`px-8 pt-16 pb-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
-          {activeView === "company" ? (
-            (() => {
-              // Redirect to Settings > Entity
-              setActiveView("settings");
-              const url = new URL(window.location.href);
-              url.searchParams.set("tab", "company");
-              window.history.replaceState({}, "", url.toString());
-              return null;
-            })()
-          ) : activeView === "dashboard" ? (
+        <div className={`px-8 pt-16 pb-6`}>
+          {activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
                 <div>
