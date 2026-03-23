@@ -244,8 +244,6 @@ export function IntelligenceCards({
   companyData,
   formatCurrency,
   timeRange,
-  selectedHeatCell,
-  onHeatCellSelect,
 }: IntelligenceCardsProps) {
   const sector = sectorClassification?.primary_sector || companyData?.sector;
   const roundTarget = totalRaised > 0 ? Math.max(totalRaised * 2, 1_000_000) : 1_000_000;
