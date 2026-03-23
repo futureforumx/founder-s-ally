@@ -200,11 +200,11 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
           <Area
             type="monotone"
             dataKey="total"
-            stroke="hsl(var(--accent))"
-            strokeWidth={2}
+            stroke="hsl(var(--neon-purple))"
+            strokeWidth={2.5}
             fill="url(#colorFundingGrad)"
             dot={false}
-            activeDot={{ r: 3, fill: "hsl(var(--accent))", strokeWidth: 0 }}
+            activeDot={{ r: 3, fill: "hsl(var(--neon-purple-glow))", strokeWidth: 0 }}
           />
         </AreaChart>
       </ResponsiveContainer>

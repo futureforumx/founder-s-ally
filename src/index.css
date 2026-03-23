@@ -155,9 +155,9 @@
     background: conic-gradient(
       from 0deg,
       transparent 0deg,
-      hsl(217 91% 60% / 0.6) 60deg,
-      hsl(217 91% 60% / 0.9) 90deg,
-      hsl(217 91% 60% / 0.6) 120deg,
+      hsl(var(--neon-purple) / 0.6) 60deg,
+      hsl(var(--neon-purple) / 0.9) 90deg,
+      hsl(var(--neon-purple) / 0.6) 120deg,
       transparent 180deg,
       transparent 360deg
     );
