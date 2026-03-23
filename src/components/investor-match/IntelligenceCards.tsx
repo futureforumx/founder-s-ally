@@ -150,14 +150,6 @@ function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: Sector
             Sector Heat
           </p>
           <div className="flex items-center gap-2">
-            {selectedCell !== null && (
-              <button
-                onClick={() => onCellSelect(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive/70 hover:text-destructive transition-colors"
-              >
-                <X className="h-2.5 w-2.5" /> Clear filter
-              </button>
-            )}
             {momentum.gradient ? (
               <span
                 className="text-[10px] font-semibold text-white px-3 py-1 rounded-md"
@@ -177,19 +169,11 @@ function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: Sector
         <div className="grid grid-cols-6 gap-[2px]">
           {cells.map((v, i) => {
             const tier = intensityTier(v);
-            const isSelected = selectedCell === i;
             return (
               <Tooltip key={i}>
                 <TooltipTrigger asChild>
                   <div
-                    onClick={() => onCellSelect(isSelected ? null : i)}
-                    className={`h-7 w-full rounded-sm cursor-crosshair transition-all ${TIER_CLASS[tier]} ${
-                      isSelected
-                        ? "ring-2 ring-accent ring-offset-2 ring-offset-card scale-110 z-10"
-                        : selectedCell !== null
-                        ? "opacity-40"
-                        : "hover:ring-2 hover:ring-offset-1 hover:ring-accent"
-                    }`}
+                    className={`h-7 w-full rounded-sm cursor-default transition-all ${TIER_CLASS[tier]} hover:ring-2 hover:ring-offset-1 hover:ring-accent`}
                   />
                 </TooltipTrigger>
                 <TooltipContent
