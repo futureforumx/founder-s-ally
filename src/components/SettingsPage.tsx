@@ -48,6 +48,8 @@ const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]
   "preferences": [
     { id: "notifications", label: "Notifications" },
     { id: "privacy", label: "Privacy" },
+    { id: "theme", label: "Theme" },
+    { id: "security", label: "Security" },
   ],
   "account-sec": [
     { id: "subscription", label: "Subscription" },
