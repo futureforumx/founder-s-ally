@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Building2, User, X, Loader2, ArrowRight } from "lucide-react";
+import { Search, User, X, Loader2, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 export interface InvestorTypeaheadResult {
