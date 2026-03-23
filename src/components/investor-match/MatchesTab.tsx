@@ -122,7 +122,7 @@ function getVelocityLabel(v: number): { label: string; cls: string } {
   return { label: "Paused", cls: "text-destructive" };
 }
 
-function getVibeLabel(v: number): { label: string; cls: string } {
+function getReputationLabel(v: number): { label: string; cls: string } {
   if (v >= 80) return { label: "Excellent", cls: "text-success" };
   if (v >= 60) return { label: "Good", cls: "text-warning" };
   return { label: "Mixed", cls: "text-destructive" };
