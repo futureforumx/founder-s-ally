@@ -37,9 +37,9 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   let cleaned = value.trim();
 
-  // Already a fully-qualified URL — leave it alone
+  // Already a fully-qualified URL — lowercase it
   if (/^https?:\/\//i.test(cleaned)) {
-    return cleaned;
+    return cleaned.toLowerCase();
   }
 
   // Strip leading protocol-less "www."
@@ -47,7 +47,7 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   // If input contains the platform domain, just prepend https://
   if (DOMAIN_PATTERNS[platform].test(cleaned)) {
-    return `https://${cleaned}`;
+    return `https://${cleaned}`.toLowerCase();
   }
 
   // At this point it's likely a bare username/handle
@@ -56,9 +56,9 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   // If still contains slashes or dots it might be an unknown domain — prepend https://
   if (cleaned.includes("/") || cleaned.includes(".")) {
-    return `https://${cleaned}`;
+    return `https://${cleaned}`.toLowerCase();
   }
 
   // Pure username → prepend base URL
-  return `${BASE_URLS[platform]}${cleaned}`;
+  return `${BASE_URLS[platform]}${cleaned}`.toLowerCase();
 }

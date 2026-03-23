@@ -1428,7 +1428,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                   <input type="url" value={form.website} disabled={isAnalyzing}
                     onChange={e => {
-                      const url = e.target.value;
+                      const url = e.target.value.toLowerCase();
                       update("website", url);
                       // Clear source verification on manual edit
                       setSourceVerified(false);
