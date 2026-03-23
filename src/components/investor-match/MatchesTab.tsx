@@ -304,7 +304,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
 
             const speed = getSpeedLabel(dims.responsiveness);
             const velocity = getVelocityLabel(dims.activity);
-            const vibe = getVibeLabel(dims.sentiment);
+            const vibe = getReputationLabel(dims.sentiment);
             const reviewCount = Math.floor(dims.sentiment / 5);
 
             const warning = getContextualWarning(dims.fit, dims.sentiment, dims.activity);
