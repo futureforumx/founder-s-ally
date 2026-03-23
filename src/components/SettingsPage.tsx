@@ -137,6 +137,24 @@ export function SettingsPage() {
 
   const profileCompletion = useMemo(() => getCompletionPercent(formSnapshot), [formSnapshot]);
 
+  // Milestone toast notifications
+  const lastMilestoneRef = useRef<number>(0);
+  useEffect(() => {
+    const milestones = [25, 50, 75];
+    const reached = milestones.filter(m => profileCompletion >= m && lastMilestoneRef.current < m);
+    if (reached.length > 0) {
+      const highest = reached[reached.length - 1];
+      lastMilestoneRef.current = highest;
+      const messages: Record<number, { title: string; desc: string }> = {
+        25: { title: "🚀 25% Complete", desc: "Great start! Keep going to unlock investor matching." },
+        50: { title: "🔥 Halfway There!", desc: "You're 50% done — visibility is increasing." },
+        75: { title: "⚡ 75% Complete", desc: "Almost there! Just a few more steps to Tier-1." },
+      };
+      const m = messages[highest];
+      if (m) toast.success(m.title, { description: m.desc, duration: 5000 });
+    }
+  }, [profileCompletion]);
+
   const completedFields = useMemo(() => {
     const fields: string[] = [];
     if (formSnapshot.website) fields.push("website");
