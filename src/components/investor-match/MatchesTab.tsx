@@ -360,9 +360,13 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                     {/* Left: Investor identity */}
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm shrink-0">
-                          {investor.firm_name.charAt(0)}
-                        </div>
+                        <FirmLogo
+                          firmName={investor.firm_name}
+                          logoUrl={investor.logo_url}
+                          websiteUrl={investor.website_url}
+                          size="md"
+                          onClick={(e) => { e.stopPropagation(); onViewInvestor?.(investor); }}
+                        />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="text-sm font-semibold text-foreground truncate">{investor.firm_name}</h3>
