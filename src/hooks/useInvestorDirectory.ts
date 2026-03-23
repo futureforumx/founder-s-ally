@@ -52,6 +52,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     is_trending: row.is_trending ?? false,
     is_popular: row.is_popular ?? false,
     is_recent: row.is_recent ?? false,
+    website_url: row.website_url ?? null,
   };
 }
 
