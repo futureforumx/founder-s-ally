@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
+import { SettingsPage } from "@/components/SettingsPage";
 import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
 
