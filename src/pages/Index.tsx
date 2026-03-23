@@ -19,16 +19,131 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { ArrowRight, ShieldCheck, Sparkles, ChevronRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 
-
-
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
+const Index = () => {
+  const capTable = useCapTable();
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    // Default to dashboard instead of company since company is now in settings
+    return "dashboard";
+  });
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
+  });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-analysis");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+  const [dashboardView, setDashboardView] = useState<DashboardView>("company");
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.name) return false;
+      }
+    } catch {}
+    return true;
+  });
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [profileKey, setProfileKey] = useState(0);
 
+  const [isProfileVerified, setIsProfileVerified] = useState(() => {
+    try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
+  });
+  const [stageClassification, setStageClassification] = useState<{
+    detected_stage: string; confidence_score: number; reasoning: string; conflicting_signals?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-stage-classification");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-sector-tags");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const profileComplete = !!companyData && !!analysisResult;
+  const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
+
+  // Last synced state
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
+    try {
+      const saved = localStorage.getItem("last-synced-at");
+      return saved ? new Date(saved) : null;
+    } catch { return null; }
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFlash, setSyncFlash] = useState(false);
+  const [relativeTime, setRelativeTime] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      if (lastSyncedAt) {
+        setRelativeTime(formatDistanceToNow(lastSyncedAt, { addSuffix: true }));
+      }
+    };
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [lastSyncedAt]);
+
+  const handleResync = useCallback(async () => {
+    setIsSyncing(true);
+    await new Promise(r => setTimeout(r, 2000));
+    const now = new Date();
+    setLastSyncedAt(now);
+    try { localStorage.setItem("last-synced-at", now.toISOString()); } catch {}
+    setIsSyncing(false);
+    setSyncFlash(true);
+    setTimeout(() => setSyncFlash(false), 1500);
+  }, []);
+
+  // Listen for navigate-view events from child components
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const view = (e as CustomEvent).detail as ViewType;
+      if (view) setActiveView(view);
+    };
+    window.addEventListener("navigate-view", handler);
+    return () => window.removeEventListener("navigate-view", handler);
+  }, []);
+
+  // Redirect "company" sidebar to Settings > Entity
+  useEffect(() => {
+    if (activeView === "company") {
+      setActiveView("settings");
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "company");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [activeView]);
+
+  const handleMetricEdit = (key: string, value: string) => {
+    if (!analysisResult) return;
+    setAnalysisResult({
+      ...analysisResult,
+      metrics: {
+        ...analysisResult.metrics,
+        [key]: { value, confidence: "high" as const },
+      },
+    });
+  };
 
   const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
     setCompanyData(company);
@@ -36,7 +151,6 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
     setShowOnboarding(false);
     setShowTerminal(true);
 
-    // Update Index-level state directly from analysis
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);
     }
@@ -47,7 +161,6 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
       });
     }
 
-    // Persist to localStorage so CompanyProfile picks it up on remount
     try {
       localStorage.setItem("company-profile", JSON.stringify(company));
       localStorage.setItem("company-analysis", JSON.stringify(analysis));
@@ -63,7 +176,6 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
       if (analysis.metricSources) {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
-      // Persist logo URL from website
       if (company.website) {
         const domain = (() => {
           try {
@@ -77,32 +189,25 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
           localStorage.setItem("company-logo-url", logoUrl);
         }
       }
-      // Sync timestamp
       const now = new Date();
       setLastSyncedAt(now);
       localStorage.setItem("last-synced-at", now.toISOString());
     } catch {}
 
-    // Force CompanyProfile to remount with fresh localStorage data
     setProfileKey(k => k + 1);
   };
 
   const handleTerminalComplete = () => {
     setShowTerminal(false);
-    setActiveView("dashboard");
+    setActiveView("settings");
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "company");
+    window.history.replaceState({}, "", url.toString());
   };
 
-
-  const handleCompanyFieldEdit = (field: keyof CompanyData, value: string) => {
-    if (!companyData) return;
-    setCompanyData({ ...companyData, [field]: value });
-  };
-
-  // Track when analysis starts/stops via the analysis result callback
   const handleAnalysis = (result: AnalysisResult) => {
     setAnalysisResult(result);
     setIsAnalysisRunning(false);
-    // Update sync timestamp on every analysis completion
     const now = new Date();
     setLastSyncedAt(now);
     try { localStorage.setItem("last-synced-at", now.toISOString()); } catch {}
@@ -112,7 +217,6 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Onboarding modal */}
       {showOnboarding && !profileComplete && (
         <OnboardingStepper
           onComplete={handleOnboardingComplete}
@@ -120,21 +224,12 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
         />
       )}
 
-      {/* AI Analysis Terminal transition */}
       {showTerminal && (
         <AnalysisTerminal
           companyName={companyData?.name}
           onComplete={handleTerminalComplete}
         />
       )}
-
-      {/* DEV: Re-trigger terminal */}
-      <button
-        onClick={() => setShowTerminal(true)}
-        className="fixed bottom-4 right-4 z-[100] bg-destructive text-destructive-foreground text-[10px] font-mono px-2 py-1 rounded shadow-lg opacity-60 hover:opacity-100 transition-opacity"
-      >
-        ▶ Terminal
-      </button>
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
       <main className="flex-1 overflow-y-auto relative">
@@ -151,7 +246,7 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
           userSector={companyData?.sector}
           userStage={companyData?.stage}
         />
-        <div className={`px-8 pt-16 pb-6`}>
+        <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
@@ -163,7 +258,6 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 
               <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
 
-              {/* Cross-fade content */}
               <div className="mt-6 animate-fade-in" key={dashboardView}>
                 {dashboardView === "company" && (
                   <CompanyView
