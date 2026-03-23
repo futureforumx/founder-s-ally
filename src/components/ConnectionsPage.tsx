@@ -1,674 +1,291 @@
-import { useState, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
-  Mail, Linkedin, Twitter, CheckCircle2, Lock,
-  Shield, RefreshCw, Sparkles, AlertCircle,
-  Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
-  Settings2, Activity, Check, CreditCard, BookOpen, FileText,
-  MessageSquare, Contact, Layers
+  Users, Star, TrendingUp, MessageCircle, Mail, Clock,
+  ArrowRight, ThumbsUp, Newspaper, MessagesSquare, Share2,
+  MessageSquare, Building2, Sparkles, Network
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import confetti from "canvas-confetti";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
+import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 
-// ── Types ──
-type SourceKey = "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter";
-
-const STORAGE_KEY = "community-connections-status";
-const SYNC_DETAIL_KEY = "connections-sync-detail";
-
-const ALL_KEYS: SourceKey[] = ["google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter"];
-
-function loadConnected(): Record<SourceKey, boolean> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if ("gmail" in parsed && !("google" in parsed)) { parsed.google = parsed.gmail; delete parsed.gmail; }
-      const result: any = {};
-      ALL_KEYS.forEach(k => result[k] = parsed[k] || false);
-      return result;
-    }
-  } catch {}
-  const def: any = {};
-  ALL_KEYS.forEach(k => def[k] = false);
-  return def;
-}
-function saveConnected(s: Record<SourceKey, boolean>) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
-
-function loadSyncDetails(): Record<SourceKey, { lastSynced: string | null }> {
-  try {
-    const raw = localStorage.getItem(SYNC_DETAIL_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  const def: any = {};
-  ALL_KEYS.forEach(k => def[k] = { lastSynced: null });
-  return def;
-}
-function saveSyncDetails(d: Record<SourceKey, { lastSynced: string | null }>) { localStorage.setItem(SYNC_DETAIL_KEY, JSON.stringify(d)); }
-
-// ── Sensor Config ──
-type SensorSection = "recommended" | "power" | "signal";
-
-interface SourceConfig {
-  key: SourceKey;
-  label: string;
-  icon: React.ElementType;
-  glowColor: string;
-  glowHsl: string;
-  description: string;
-  categoryTag: string;
-  liveStats: string;
-  connectedStats: { label: string; value: string }[];
-  syncStages: string[];
-  unlockToast: string;
-  connectLabel: string;
-  disconnectWarning: string;
-  section: SensorSection;
-  note?: string;
+interface Connection {
+  user_id: string;
+  company_name: string;
+  sector: string | null;
+  stage: string | null;
+  investor_amount: number;
+  instrument: string;
 }
 
-const SOURCES: SourceConfig[] = [
-  // ── RECOMMENDED ──
+const WARM_PATHS = [
+  { name: "Alex Rivera", company: "FlowMetrics", badge: "1st Degree", context: "Raised Series A from this firm in Oct 2023.", avatar: "AR" },
+  { name: "Priya Sharma", company: "DataLens AI", badge: "2nd Degree", context: "Participated in their Seed round, Jun 2024.", avatar: "PS" },
+  { name: "Marcus Chen", company: "BuildStack", badge: "1st Degree", context: "Co-led their Pre-Seed in Mar 2024.", avatar: "MC" },
+];
+
+const WHISPER_FEED = [
   {
-    key: "google", label: "Google Workspace", icon: Mail, section: "recommended",
-    categoryTag: "INTELLIGENCE PIPELINE",
-    glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
-    description: "Gmail + Calendar — unified workspace sync",
-    liveStats: "142 threads analyzed",
-    connectedStats: [
-      { label: "Threads Analyzed", value: "142" },
-      { label: "VC Contacts", value: "47" },
-      { label: "Signals Found", value: "12" },
-    ],
-    syncStages: ["Authenticating...", "Scanning inbox...", "Mapping calendar...", "Building signal graph...", "Complete ✓"],
-    unlockToast: "🔓 Warm Intro Paths unlocked",
-    connectLabel: "Connect with Google",
-    disconnectWarning: "Disconnect Google Workspace? This will pause email thread analysis.",
+    header: "Anonymous Founder • Seed Stage SaaS",
+    tags: ["Passed after 2nd Meeting", "Helpful Feedback"],
+    tagColors: ["bg-secondary text-muted-foreground", "bg-success/10 text-success"],
+    text: "They dug really deep into our GTM motion. Ultimately passed because market size was too small for their fund math, but the partner gave us incredibly actionable advice.",
   },
   {
-    key: "linkedin", label: "LinkedIn", icon: Linkedin, section: "recommended",
-    categoryTag: "PROFESSIONAL IDENTITY",
-    glowColor: "shadow-[0_0_24px_rgba(59,130,246,0.3)]", glowHsl: "bg-blue-500",
-    description: "Map your professional network graph",
-    liveStats: "2nd Degree: +4,218",
-    connectedStats: [
-      { label: "Connections", value: "312" },
-      { label: "2nd Degree", value: "4,218" },
-      { label: "Mutual Intros", value: "7" },
-    ],
-    syncStages: ["Authenticating...", "Mapping network...", "Resolving paths...", "Building graph...", "Complete ✓"],
-    unlockToast: "🔓 Network Graph + 2nd-degree paths unlocked",
-    connectLabel: "Connect with LinkedIn",
-    disconnectWarning: "Disconnect LinkedIn? This will pause network graph updates.",
+    header: "Anonymous Founder • Series A Fintech",
+    tags: ["Term Sheet in 3 Weeks", "Board Seat"],
+    tagColors: ["bg-success/10 text-success", "bg-primary/10 text-primary"],
+    text: "Fastest process we experienced. Very data-driven diligence, asked for cohort data upfront. Partner was deeply engaged and added real value post-close.",
   },
   {
-    key: "notion", label: "Notion", icon: BookOpen, section: "recommended",
-    categoryTag: "KNOWLEDGE BASE",
-    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-white",
-    description: "Import your investor tracker + research docs",
-    liveStats: "24 pages synced · 18 investors imported",
-    connectedStats: [
-      { label: "Pages Synced", value: "24" },
-      { label: "Investors Imported", value: "18" },
-      { label: "Docs Indexed", value: "7" },
-    ],
-    syncStages: ["Authenticating...", "Scanning workspace...", "Indexing pages...", "Extracting investors...", "Complete ✓"],
-    unlockToast: "🔓 Knowledge Base synced",
-    connectLabel: "Connect with Notion",
-    disconnectWarning: "Disconnect Notion? This will pause document syncing.",
-  },
-  // ── POWER SENSORS ──
-  {
-    key: "stripe", label: "Stripe", icon: CreditCard, section: "power",
-    categoryTag: "TRACTION SIGNALS",
-    glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
-    description: "Real-time MRR, churn, and growth signals",
-    liveStats: "MRR: $12.4K · +18% MoM",
-    connectedStats: [
-      { label: "MRR", value: "$12.4K" },
-      { label: "Growth", value: "+18%" },
-      { label: "Churn", value: "2.1%" },
-    ],
-    syncStages: ["Authenticating...", "Fetching metrics...", "Calculating MRR...", "Analyzing trends...", "Complete ✓"],
-    unlockToast: "🔓 Traction Metrics verified",
-    connectLabel: "Connect with Stripe",
-    disconnectWarning: "Disconnect Stripe? This will pause revenue metric updates.",
-    note: "Read-only restricted key",
-  },
-  {
-    key: "granola", label: "Granola", icon: FileText, section: "power",
-    categoryTag: "MEETING INTELLIGENCE",
-    glowColor: "shadow-[0_0_24px_rgba(234,179,8,0.3)]", glowHsl: "bg-yellow-500",
-    description: "Turns investor meeting notes into action items",
-    liveStats: "8 meetings processed · 3 follow-ups surfaced",
-    connectedStats: [
-      { label: "Meetings", value: "8" },
-      { label: "Follow-ups", value: "3" },
-      { label: "Actions", value: "12" },
-    ],
-    syncStages: ["Authenticating...", "Scanning meetings...", "Extracting notes...", "Generating actions...", "Complete ✓"],
-    unlockToast: "🔓 Meeting Intelligence active",
-    connectLabel: "Connect with Granola",
-    disconnectWarning: "Disconnect Granola? This will pause meeting note processing.",
-  },
-  {
-    key: "hubspot", label: "HubSpot", icon: Contact, section: "power",
-    categoryTag: "CRM PIPELINE",
-    glowColor: "shadow-[0_0_24px_rgba(251,146,60,0.3)]", glowHsl: "bg-orange-500",
-    description: "Import investor + customer pipeline",
-    liveStats: "156 contacts synced · 23 deals imported",
-    connectedStats: [
-      { label: "Contacts Synced", value: "156" },
-      { label: "Deals Imported", value: "23" },
-      { label: "Pipeline Value", value: "$1.2M" },
-    ],
-    syncStages: ["Authenticating...", "Fetching contacts...", "Syncing deals...", "Building pipeline...", "Complete ✓"],
-    unlockToast: "🔓 CRM Pipeline synced",
-    connectLabel: "Connect with HubSpot",
-    disconnectWarning: "Disconnect HubSpot? This will pause contact and deal syncing.",
-  },
-  {
-    key: "attio", label: "Attio", icon: Layers, section: "power",
-    categoryTag: "VC-NATIVE CRM",
-    glowColor: "shadow-[0_0_24px_rgba(168,85,247,0.3)]", glowHsl: "bg-purple-500",
-    description: "Sync your VC-native relationship CRM",
-    liveStats: "89 people synced · 4 lists imported",
-    connectedStats: [
-      { label: "People Synced", value: "89" },
-      { label: "Lists Imported", value: "4" },
-      { label: "Relationships", value: "234" },
-    ],
-    syncStages: ["Authenticating...", "Fetching people...", "Syncing lists...", "Mapping relationships...", "Complete ✓"],
-    unlockToast: "🔓 VC CRM synced",
-    connectLabel: "Connect with Attio",
-    disconnectWarning: "Disconnect Attio? This will pause relationship syncing.",
-  },
-  // ── SIGNAL SOURCES ──
-  {
-    key: "twitter", label: "X (Twitter)", icon: Twitter, section: "signal",
-    categoryTag: "SOCIAL INTELLIGENCE",
-    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-white",
-    description: "Investor thesis signals + competitor moves",
-    liveStats: "89 mutual follows · 7 investor signals this week",
-    connectedStats: [
-      { label: "Mutual Follows", value: "89" },
-      { label: "Signals/Week", value: "7" },
-      { label: "VCs Tracked", value: "12" },
-    ],
-    syncStages: ["Authenticating...", "Scanning timeline...", "Analyzing sentiment...", "Mapping investors...", "Complete ✓"],
-    unlockToast: "🔓 Social Intelligence unlocked",
-    connectLabel: "Connect with X",
-    disconnectWarning: "Disconnect X (Twitter)? This will pause social signal tracking.",
+    header: "Anonymous Founder • Pre-Seed Climate",
+    tags: ["Ghosted after IC", "Slow Process"],
+    tagColors: ["bg-destructive/10 text-destructive", "bg-warning/10 text-warning"],
+    text: "Great initial conversations, felt like strong alignment. After IC presentation there was radio silence for 6 weeks. Eventually got a pass via email with no feedback.",
   },
 ];
 
-const SECTIONS: { key: SensorSection; label: string; sub: string }[] = [
-  { key: "recommended", label: "RECOMMENDED", sub: "Connect these first — highest impact on your matches" },
-  { key: "power", label: "POWER SENSORS", sub: "For founders actively fundraising" },
-  { key: "signal", label: "SIGNAL SOURCES", sub: "Social and market intelligence" },
-];
-
-// ── Sync simulation ──
-async function simulateSync(key: SourceKey, onProgress: (p: number, m: string) => void) {
-  const source = SOURCES.find(s => s.key === key)!;
-  const stages = source.syncStages;
-  const stops = [10, 60, 85, 99, 100];
-  for (let i = 0; i < stages.length; i++) {
-    onProgress(stops[i], stages[i]);
-    await new Promise(r => setTimeout(r, i === stages.length - 1 ? 400 : 800));
-  }
-}
-
-// ── Sparkline ──
-function SparklinePulse() {
-  return (
-    <div className="flex items-end gap-[2px] h-3">
-      {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3, 0.7, 0.5, 0.8, 0.6].map((h, i) => (
-        <motion.div
-          key={i}
-          className="w-[2px] rounded-full bg-emerald-400/70"
-          animate={{ height: [`${h * 12}px`, `${h * 5}px`, `${h * 12}px`] }}
-          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ── Terminal Logs ──
-const TERMINAL_LOGS = [
-  { time: "19:02", source: "GMAIL", msg: "4 new investor threads identified" },
-  { time: "19:03", source: "CALENDAR", msg: "VC meeting detected → auto-tagged" },
-  { time: "19:05", source: "STRIPE", msg: "MRR metrics recalculated → $12.4K" },
-  { time: "19:07", source: "LINKEDIN", msg: "2nd-degree graph updated (+14 nodes)" },
-  { time: "19:09", source: "NOTION", msg: "Investor tracker synced — 3 new entries" },
-  { time: "19:11", source: "SYSTEM", msg: "Intelligence Engine score: 72%" },
-];
-
-// ── Page Component ──
 export function ConnectionsPage() {
-  const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
-  const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
-  const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
-    const init: any = {};
-    ALL_KEYS.forEach(k => init[k] = { syncing: false, progress: 0, message: "" });
-    return init;
-  });
-  const [activeConnect, setActiveConnect] = useState<SourceKey | null>(null);
-  const [hoveredCard, setHoveredCard] = useState<SourceKey | null>(null);
-  const [disconnectTarget, setDisconnectTarget] = useState<SourceKey | null>(null);
+  const { user } = useAuth();
+  const [connections, setConnections] = useState<Connection[]>([]);
 
-  const connectedCount = ALL_KEYS.filter(k => connected[k]).length;
+  // Fetch live DB connections
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function fetchConns() {
+      // Get a sample investor name from cap_table for community connections
+      const { data } = await supabase
+        .from("cap_table")
+        .select("investor_name")
+        .eq("user_id", user!.id)
+        .limit(1)
+        .maybeSingle();
+      
+      if (data?.investor_name && !cancelled) {
+        const { data: conns } = await supabase.rpc("find_connections_by_investor", {
+          _investor_name: data.investor_name,
+        });
+        if (conns && !cancelled) {
+          setConnections((conns as Connection[]).filter(c => c.user_id !== user!.id));
+        }
+      }
+    }
+    fetchConns();
+    return () => { cancelled = true; };
+  }, [user]);
 
-  const handleConnect = useCallback(async (key: SourceKey) => {
-    if (activeConnect) return;
-    setActiveConnect(key);
-    setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress: 0, message: "Connecting..." } }));
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-6"
+    >
+      {/* Page Header */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <h1 className="text-2xl font-bold text-foreground">Connections</h1>
+        <p className="text-sm text-muted-foreground mt-1">Network intelligence, warm intros, and data pipelines</p>
+      </motion.div>
 
-    await new Promise(r => setTimeout(r, 1500));
-    await simulateSync(key, (progress, message) => {
-      setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress, message } }));
-    });
+      {/* Intro Pathfinder */}
+      <IntroPathfinder investorName="your target investors" />
 
-    const now = new Date().toISOString();
-    const nextConnected = { ...connected, [key]: true };
-    const nextDetails = { ...syncDetails, [key]: { lastSynced: now } };
-
-    setConnected(nextConnected);
-    setSyncDetails(nextDetails);
-    saveConnected(nextConnected);
-    saveSyncDetails(nextDetails);
-    setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 100, message: "" } }));
-    setActiveConnect(null);
-
-    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ["#6366f1", "#34d399", "#818cf8"] });
-    const source = SOURCES.find(s => s.key === key)!;
-    toast.success("Intelligence Pipeline Established", { description: source.unlockToast });
-  }, [activeConnect, connected, syncDetails]);
-
-  const handleResync = useCallback(async (key: SourceKey) => {
-    if (activeConnect) return;
-    setActiveConnect(key);
-    setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress: 0, message: "Re-syncing..." } }));
-    await simulateSync(key, (progress, message) => {
-      setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress, message } }));
-    });
-    const now = new Date().toISOString();
-    const nextDetails = { ...syncDetails, [key]: { lastSynced: now } };
-    setSyncDetails(nextDetails);
-    saveSyncDetails(nextDetails);
-    setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 100, message: "" } }));
-    setActiveConnect(null);
-    toast.success(`${SOURCES.find(s => s.key === key)!.label} re-synced`);
-  }, [activeConnect, syncDetails]);
-
-  const confirmDisconnect = () => {
-    if (!disconnectTarget) return;
-    const nextConnected = { ...connected, [disconnectTarget]: false };
-    setConnected(nextConnected);
-    saveConnected(nextConnected);
-    toast(`${SOURCES.find(s => s.key === disconnectTarget)!.label} disconnected`);
-    setDisconnectTarget(null);
-  };
-
-  function formatLastSynced(iso: string | null): string {
-    if (!iso) return "Never";
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  }
-
-  // ── Sensor Card ──
-  function SensorCard({ source, index }: { source: SourceConfig; index: number }) {
-    const Icon = source.icon;
-    const isConnected = connected[source.key];
-    const sync = syncStates[source.key];
-    const isSyncing = sync.syncing;
-    const isHovered = hoveredCard === source.key;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: index * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
-        onMouseEnter={() => setHoveredCard(source.key)}
-        onMouseLeave={() => setHoveredCard(null)}
-        style={{
-          transform: isHovered ? "perspective(800px) rotateX(-1.5deg) rotateY(1.5deg)" : "perspective(800px) rotateX(0) rotateY(0)",
-          transition: "transform 0.3s ease",
-          boxShadow: isConnected ? `0 0 28px ${source.glowColor.match(/rgba\([^)]+\)/)?.[0] || "transparent"}` : "none",
-        }}
-        className={`group relative rounded-2xl border transition-all duration-300 overflow-hidden ${
-          isConnected
-            ? "border-white/[0.12] bg-[#0A0A0A]/95 backdrop-blur-xl"
-            : "border-white/[0.06] bg-[#0A0A0A]/80 hover:border-white/[0.12]"
-        }`}
-      >
-        {isConnected && (
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent pointer-events-none" />
-        )}
-
-        <div className="relative p-5">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
-                  isConnected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
-                }`}>
-                  {isConnected
-                    ? <Check className="h-4 w-4 text-emerald-400" />
-                    : <Icon className="h-4 w-4 text-white/40" />
-                  }
-                </div>
-                {isConnected && (
-                  <motion.div
-                    className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${source.glowHsl}`}
-                    animate={{ scale: [1, 1.4, 1], opacity: [0.9, 0.3, 0.9] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                )}
-              </div>
-              <div>
-                <h3 className="text-[15px] font-semibold text-white tracking-tight">{source.label}</h3>
-                <p className="text-[10px] text-white/25 font-mono uppercase tracking-wider mt-0.5">{source.categoryTag}</p>
-              </div>
+      {/* Community Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Network Reach */}
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 flex flex-col min-h-[260px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="w-4 h-4 text-primary" />
             </div>
-
+            <p className="text-[10px] font-mono uppercase tracking-wider text-primary/70 font-semibold">Network Reach</p>
+          </div>
+          <span className="text-5xl font-black text-foreground leading-none">14</span>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Connected founders in the community</p>
+          <div className="space-y-1.5 border-t border-primary/10 pt-3">
             <div className="flex items-center gap-2">
-              {isConnected && !isSyncing && (
-                <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
-                  <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                  <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
-                </div>
-              )}
-              {!isConnected && !isSyncing && (
-                <div className="flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] px-2.5 py-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
-                  <span className="text-[10px] font-medium text-white/25 uppercase tracking-wider">Not Connected</span>
-                </div>
-              )}
-              <AnimatePresence>
-                {isHovered && isConnected && !isSyncing && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
-                  >
-                    <Settings2 className="h-3.5 w-3.5 text-white/40" />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+              <ThumbsUp className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">8</span> raised from investors</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mail className="w-3 h-3 text-accent" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">4</span> emailed / engaged</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-3 h-3 text-warning" />
+              <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">2</span> pending intro opportunities</span>
             </div>
           </div>
-
-          <p className="text-[11px] text-white/30 mb-4">{source.description}</p>
-
-          {/* Live telemetry */}
-          {isConnected && !isSyncing && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <SparklinePulse />
-                <span className="text-[10px] text-emerald-400/80 font-mono">{source.liveStats}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {source.connectedStats.map(stat => (
-                  <div key={stat.label} className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
-                    <p className="text-lg font-bold text-white font-mono tracking-tight">{stat.value}</p>
-                    <p className="text-[9px] text-white/25 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-              {syncDetails[source.key]?.lastSynced && (
-                <p className="text-[10px] text-white/20 font-mono mt-2">Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* Sync progress */}
-          <AnimatePresence>
-            {isSyncing && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-4">
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-white/50 font-mono">{sync.message}</span>
-                    <span className="text-[11px] text-white/30 font-mono">{sync.progress}%</span>
-                  </div>
-                  <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full"
-                      animate={{ width: `${sync.progress}%` }}
-                      transition={{ duration: 0.4, ease: "easeOut" }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-white/20 font-mono">Historical backfill in progress...</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between">
-            {!isConnected && !isSyncing && (
-              <div className="space-y-1.5">
-                <Button
-                  size="sm"
-                  onClick={() => handleConnect(source.key)}
-                  disabled={activeConnect !== null}
-                  className="rounded-lg text-xs font-semibold h-9 px-5 bg-transparent border border-white/20 text-white/70 hover:bg-white/[0.06] hover:border-white/30 hover:text-white transition-all"
-                >
-                  {source.connectLabel}
-                </Button>
-                {source.note && <p className="text-[10px] text-white/20 font-mono">{source.note}</p>}
-              </div>
-            )}
-
-            {isConnected && !isSyncing && (
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-white/30 hover:text-white/60 hover:bg-white/[0.04]" onClick={() => handleResync(source.key)} disabled={activeConnect !== null}>
-                    <RefreshCw className="h-3 w-3 mr-1" /> Re-sync
-                  </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-red-400/50 hover:text-red-400 hover:bg-red-500/[0.06]" onClick={() => setDisconnectTarget(source.key)}>
-                    Disconnect
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {isSyncing && (
-              <div className="flex items-center gap-2">
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-4 w-4 border-2 border-white/10 border-t-white/60 rounded-full" />
-                <span className="text-[11px] text-white/40 font-mono">Syncing...</span>
-              </div>
-            )}
+          <div className="mt-auto pt-3">
+            <button className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
+              Explore founder connections <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
-        {/* Bottom progress bar */}
-        {isSyncing && (
-          <div className="h-[2px] bg-white/[0.04]">
-            <motion.div className="h-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500" animate={{ width: `${sync.progress}%` }} transition={{ duration: 0.4 }} />
+        {/* Community Rating */}
+        <div className="rounded-2xl border border-success/20 bg-success/5 p-5 flex flex-col min-h-[260px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
+              <Star className="w-4 h-4 fill-success text-success" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-success/70 font-semibold">Community Rating</p>
           </div>
-        )}
-      </motion.div>
-    );
-  }
+          <div className="flex items-baseline gap-1">
+            <span className="text-5xl font-black text-foreground leading-none">4.8</span>
+            <span className="text-lg font-semibold text-muted-foreground">/5</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Based on 23 founder reviews</p>
+          <div className="space-y-1.5 border-t border-success/10 pt-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Top trait: <span className="font-semibold text-foreground">Fast Conviction</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Trending <span className="font-semibold text-success">+0.3</span> over 30 days</span>
+            </div>
+          </div>
+        </div>
 
-  return (
-    <div className="relative">
-      {/* ═══ DISCONNECT CONFIRMATION MODAL ═══ */}
-      <AnimatePresence>
-        {disconnectTarget && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setDisconnectTarget(null)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 350 }}
-              className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-            >
-              <div className="w-full max-w-sm rounded-2xl bg-[#0A0A0A] border border-white/[0.08] shadow-2xl shadow-black/50 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20">
-                    <AlertCircle className="h-5 w-5 text-red-400" />
+        {/* Social Sentiment */}
+        <div className="rounded-2xl border border-success/20 bg-success/5 p-5 flex flex-col min-h-[260px]">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-success/10">
+              <MessageCircle className="w-4 h-4 text-success" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-success/70 font-semibold">Social Sentiment</p>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+            </span>
+            <span className="text-sm font-bold text-success uppercase tracking-wide">Highly Positive</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1 mb-3">Across founder chatter, PR, and social signals</p>
+          <div className="space-y-1.5 border-t border-success/10 pt-3">
+            <div className="flex items-center gap-2">
+              <Newspaper className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">PR mentions <span className="font-semibold text-success">trending up</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MessagesSquare className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Founder chatter <span className="font-semibold text-foreground">active</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Share2 className="w-3 h-3 text-success" />
+              <span className="text-[10px] text-muted-foreground">Social signals <span className="font-semibold text-success">positive</span></span>
+            </div>
+          </div>
+          <div className="mt-auto pt-3">
+            <button className="text-[10px] font-semibold text-success hover:text-success/80 transition-colors flex items-center gap-1">
+              See sentiment drivers <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Warm Paths */}
+      <div>
+        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Your Warm Paths</p>
+        <div className="space-y-2">
+          {WARM_PATHS.map((path) => (
+            <div key={path.name} className="flex items-center justify-between p-3.5 bg-card border border-border rounded-xl hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
+                  {path.avatar}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{path.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{path.company}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                      path.badge === "1st Degree" ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
+                    }`}>
+                      {path.badge}
+                    </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">Confirm Disconnect</h3>
-                </div>
-                <p className="text-sm text-white/40 mb-6">
-                  {SOURCES.find(s => s.key === disconnectTarget)?.disconnectWarning}
-                </p>
-                <div className="flex items-center justify-end gap-3">
-                  <Button size="sm" variant="ghost" className="rounded-lg text-xs h-9 px-4 text-white/50 hover:text-white hover:bg-white/[0.06]" onClick={() => setDisconnectTarget(null)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" className="rounded-lg text-xs h-9 px-4 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20" onClick={confirmDisconnect}>
-                    Disconnect
-                  </Button>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{path.context}</p>
                 </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* ═══ PAGE ═══ */}
-      <div className="space-y-6">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-2xl font-bold text-foreground">Intelligence Sensor Suite</h1>
-          <p className="text-sm text-muted-foreground mt-1">Network intelligence, warm intros, and data pipelines</p>
-        </motion.div>
-
-        {/* Header KPI Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
-          className="rounded-2xl border border-white/[0.08] bg-[#0A0A0A] p-5"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <Database className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">{connectedCount}/9 sensors active</h2>
-                <p className="text-xs text-white/30">More connections = richer intelligence</p>
-              </div>
+              <button className="shrink-0 ml-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border hover:bg-secondary px-3.5 py-1.5 rounded-lg transition-colors">
+                <MessageSquare className="h-3 w-3" />
+                Ask for Intro
+              </button>
             </div>
-            {connectedCount >= 3 && (
-              <div className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-emerald-400" /><span className="text-xs font-semibold text-emerald-400">Full Intelligence</span></div>
-            )}
-          </div>
-          <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden mb-2">
-            <motion.div
-              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
-              animate={{ width: `${(connectedCount / 9) * 100}%` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            />
-          </div>
-          <p className="text-[11px] text-white/25 font-mono">
-            {connectedCount} connected · Investor matches improve with each sensor
-          </p>
-        </motion.div>
+          ))}
 
-        {/* Empty State */}
-        {connectedCount === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="rounded-2xl border border-dashed border-white/[0.1] bg-[#0A0A0A]/60 p-12 flex flex-col items-center justify-center text-center"
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-4">
-              <Sparkles className="h-7 w-7 text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-1">Your Intelligence Engine is waiting</h3>
-            <p className="text-sm text-white/30 max-w-xs mb-6">
-              Connect Gmail or Notion to get your first investor recommendations
-            </p>
-            <Button
-              size="sm"
-              onClick={() => handleConnect("google")}
-              disabled={activeConnect !== null}
-              className="rounded-lg text-sm font-semibold h-10 px-6 bg-indigo-500 text-white hover:bg-indigo-600 transition-all"
+          {/* Live DB connections */}
+          {connections.map((conn) => (
+            <div
+              key={conn.user_id}
+              className="flex items-center justify-between p-3.5 bg-card border border-border rounded-xl hover:border-accent/30 transition-colors"
             >
-              Connect Gmail →
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Sensor Sections */}
-        {SECTIONS.map((section, si) => {
-          const sectionSources = SOURCES.filter(s => s.section === section.key);
-          return (
-            <div key={section.key}>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 + si * 0.1 }}
-                className="mb-4"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Activity className="h-3.5 w-3.5 text-white/20" />
-                  <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-white/30 font-semibold">{section.label}</h2>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-border shrink-0">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <p className="text-[11px] text-white/20 ml-5.5">{section.sub}</p>
-              </motion.div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {sectionSources.map((source, i) => (
-                  <SensorCard key={source.key} source={source} index={si * 3 + i} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground truncate">{conn.company_name || "Unnamed Startup"}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-primary/10 text-primary">Cap Table</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {conn.sector && <span className="text-[10px] text-muted-foreground">{conn.sector}</span>}
+                    {conn.stage && <><span className="text-muted-foreground/40">·</span><span className="text-[10px] text-muted-foreground">{conn.stage}</span></>}
+                  </div>
+                </div>
+              </div>
+              <button className="shrink-0 ml-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground border border-border hover:bg-secondary px-3.5 py-1.5 rounded-lg transition-colors">
+                <MessageSquare className="h-3 w-3" />
+                Ask for Intro
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Intelligence Sensor Suite */}
+      <div>
+        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Intelligence Sensor Suite</p>
+        <SensorSuiteGrid showHeader={true} showTerminal={true} />
+      </div>
+
+      {/* Founder Experiences */}
+      <div>
+        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Founder Experiences</p>
+
+        {/* CTA Box */}
+        <div className="bg-foreground text-background rounded-2xl p-5 flex items-center justify-between mb-4 shadow-lg">
+          <div className="min-w-0 mr-4">
+            <p className="text-sm font-semibold leading-snug">Pitched an investor recently?</p>
+            <p className="text-xs text-background/60 mt-0.5">Share your experience to help the community.</p>
+          </div>
+          <button className="shrink-0 bg-background text-foreground font-bold text-xs px-4 py-2 rounded-xl hover:bg-background/90 transition-colors">
+            Log Interaction
+          </button>
+        </div>
+
+        {/* Whisper Feed */}
+        <div className="space-y-2">
+          {WHISPER_FEED.map((review, i) => (
+            <div key={i} className="bg-card border border-border p-4 rounded-xl">
+              <p className="text-[10px] text-muted-foreground mb-2">{review.header}</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {review.tags.map((tag, j) => (
+                  <span key={tag} className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${review.tagColors[j]}`}>
+                    {tag}
+                  </span>
                 ))}
               </div>
-
-              {/* Ghost card for Signal Sources */}
-              {section.key === "signal" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="mt-3 rounded-2xl border border-dashed border-white/[0.06] bg-transparent p-5 flex items-center justify-center"
-                >
-                  <p className="text-[12px] text-white/20 font-mono">More integrations coming: Mercury · Ashby · Salesforce</p>
-                </motion.div>
-              )}
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{review.text}</p>
             </div>
-          );
-        })}
-
-        {/* Live Traffic Terminal */}
-        {connectedCount >= 1 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-white/[0.06] bg-[#050505] p-5 overflow-hidden">
-            <div className="flex items-center gap-2 mb-4">
-              <motion.div className="h-2 w-2 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/30">Live Traffic</span>
-            </div>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto">
-              {TERMINAL_LOGS.map((log, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.1 }} className="flex items-center gap-2 text-[11px] font-mono">
-                  <span className="text-white/20">[{log.time}]</span>
-                  <span className="text-indigo-400 font-semibold">{log.source}:</span>
-                  <span className="text-white/40">{log.msg}</span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.02] border border-white/[0.06] p-4">
-          <Lock className="h-3.5 w-3.5 text-white/20" />
-          <p className="text-[11px] text-white/25">🔒 Read-only access · AES-256 encrypted · Never shared</p>
-        </motion.div>
+          ))}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
