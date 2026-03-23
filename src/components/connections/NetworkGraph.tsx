@@ -25,19 +25,19 @@ interface GraphEdge {
   strength: "strong" | "medium" | "weak";
 }
 
-// ── Static data (demo) ──
-const NODES: GraphNode[] = [
-  { id: "you", label: "You", type: "you", x: 0.5, y: 0.5, initials: "Y", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=You", profileLink: "#" },
-  { id: "sj", label: "Sarah Jenkins", type: "contact", x: 0.25, y: 0.28, subtitle: "Angel Investor", initials: "SJ", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah", profileLink: "#sarah" },
-  { id: "ar", label: "Alex Rivera", type: "contact", x: 0.72, y: 0.22, subtitle: "CEO, FlowMetrics", initials: "AR", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex", profileLink: "#alex" },
-  { id: "ps", label: "Priya Sharma", type: "contact", x: 0.18, y: 0.68, subtitle: "CTO, DataLens AI", initials: "PS", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya", profileLink: "#priya" },
-  { id: "mc", label: "Marcus Chen", type: "contact", x: 0.78, y: 0.72, subtitle: "Founder, BuildStack", initials: "MC", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus", profileLink: "#marcus" },
-  { id: "jw", label: "James Wu", type: "contact", x: 0.38, y: 0.15, subtitle: "VP Eng, Stripe", initials: "JW", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=James", profileLink: "#james" },
-  { id: "f1", label: "1855 Capital", type: "firm", x: 0.12, y: 0.42, subtitle: "VC Fund", initials: "18", avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=1855", profileLink: "#1855" },
-  { id: "f2", label: "Sequoia", type: "firm", x: 0.88, y: 0.42, subtitle: "VC Fund", initials: "SQ", avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Sequoia", profileLink: "#sequoia" },
-  { id: "i1", label: "Mike March", type: "investor", x: 0.05, y: 0.2, subtitle: "Partner, 1855 Capital", initials: "MM", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike", profileLink: "#mike" },
-  { id: "i2", label: "Lisa Patel", type: "investor", x: 0.92, y: 0.18, subtitle: "Partner, Sequoia", initials: "LP", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa", profileLink: "#lisa" },
-  { id: "i3", label: "Tom Reid", type: "investor", x: 0.55, y: 0.85, subtitle: "Angel", initials: "TR", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tom", profileLink: "#tom" },
+// ── Static data (demo) — avatarUrl will be enriched at runtime for "you" node ──
+const BASE_NODES: GraphNode[] = [
+  { id: "you", label: "You", type: "you", x: 0.5, y: 0.5, initials: "Y", avatarUrl: "", profileLink: "#" },
+  { id: "sj", label: "Sarah Jenkins", type: "contact", x: 0.25, y: 0.28, subtitle: "Angel Investor", initials: "SJ", avatarUrl: "https://i.pravatar.cc/96?u=sarah-jenkins", profileLink: "#sarah" },
+  { id: "ar", label: "Alex Rivera", type: "contact", x: 0.72, y: 0.22, subtitle: "CEO, FlowMetrics", initials: "AR", avatarUrl: "https://i.pravatar.cc/96?u=alex-rivera", profileLink: "#alex" },
+  { id: "ps", label: "Priya Sharma", type: "contact", x: 0.18, y: 0.68, subtitle: "CTO, DataLens AI", initials: "PS", avatarUrl: "https://i.pravatar.cc/96?u=priya-sharma", profileLink: "#priya" },
+  { id: "mc", label: "Marcus Chen", type: "contact", x: 0.78, y: 0.72, subtitle: "Founder, BuildStack", initials: "MC", avatarUrl: "https://i.pravatar.cc/96?u=marcus-chen", profileLink: "#marcus" },
+  { id: "jw", label: "James Wu", type: "contact", x: 0.38, y: 0.15, subtitle: "VP Eng, Stripe", initials: "JW", avatarUrl: "https://i.pravatar.cc/96?u=james-wu", profileLink: "#james" },
+  { id: "f1", label: "1855 Capital", type: "firm", x: 0.12, y: 0.42, subtitle: "VC Fund", initials: "18", avatarUrl: "https://www.google.com/s2/favicons?domain=1855capital.com&sz=128", profileLink: "#1855" },
+  { id: "f2", label: "Sequoia", type: "firm", x: 0.88, y: 0.42, subtitle: "VC Fund", initials: "SQ", avatarUrl: "https://www.google.com/s2/favicons?domain=sequoiacap.com&sz=128", profileLink: "#sequoia" },
+  { id: "i1", label: "Mike March", type: "investor", x: 0.05, y: 0.2, subtitle: "Partner, 1855 Capital", initials: "MM", avatarUrl: "https://i.pravatar.cc/96?u=mike-march", profileLink: "#mike" },
+  { id: "i2", label: "Lisa Patel", type: "investor", x: 0.92, y: 0.18, subtitle: "Partner, Sequoia", initials: "LP", avatarUrl: "https://i.pravatar.cc/96?u=lisa-patel", profileLink: "#lisa" },
+  { id: "i3", label: "Tom Reid", type: "investor", x: 0.55, y: 0.85, subtitle: "Angel", initials: "TR", avatarUrl: "https://i.pravatar.cc/96?u=tom-reid", profileLink: "#tom" },
 ];
 
 const EDGES: GraphEdge[] = [
