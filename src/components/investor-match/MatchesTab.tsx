@@ -396,13 +396,30 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                       <div className="flex-1 h-px bg-border/50" />
                     </div>
                     <div className="grid grid-cols-3 gap-2.5">
-                      <SensorCell
-                        icon={Heart}
-                        label="Founder Reputation"
-                        value={vibe.label}
-                        sublabel={`${reviewCount} reviews`}
-                        valueClass={vibe.cls}
-                      />
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <SensorCell
+                                icon={Heart}
+                                label="Founder Reputation"
+                                value={vibe.label}
+                                sublabel={`${reviewCount} reviews`}
+                                valueClass={vibe.cls}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5">
+                            <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
+                            </p>
+                            <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
+                              = avg(NPS) × response_rate × recency_weight
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <SensorCell
                         icon={Gauge}
                         label="Reply Speed"

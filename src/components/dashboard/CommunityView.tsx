@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart } from
+  DollarSign, Activity, Heart, Info } from
 "lucide-react";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
@@ -18,6 +18,7 @@ import { FounderCarousel } from "./FounderCarousel";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
 import { PersonProfileModal } from "./PersonProfileModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -321,10 +322,25 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
                 <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
               </div>
               {sentimentScore != null && (
-                <div className="flex flex-col items-center">
-                  <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
-                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
-                </div>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex flex-col items-center cursor-help">
+                        <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
+                        <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5">
+                      <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
+                      </p>
+                      <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
+                        = avg(NPS) × response_rate × recency_weight
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>
