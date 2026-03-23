@@ -93,7 +93,7 @@ function setTabInUrl(tab: SettingsTab) {
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, signOut } = useAuth();
 
   // Derive profile completion from real localStorage data
