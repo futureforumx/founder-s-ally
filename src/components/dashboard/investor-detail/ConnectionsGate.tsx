@@ -35,7 +35,7 @@ function loadCompletedSources(): Set<SourceKey> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const obj = JSON.parse(raw);
-      const keys: SourceKey[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
+      const keys: SourceKey[] = ["gmail", "linkedin", "twitter", "angellist"];
       return new Set(keys.filter((k) => obj[k] === true));
     }
   } catch {}
