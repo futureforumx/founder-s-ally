@@ -6,6 +6,7 @@ import {
   DollarSign, Activity, Heart, Info } from
 "lucide-react";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
