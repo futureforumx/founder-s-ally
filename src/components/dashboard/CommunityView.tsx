@@ -10,6 +10,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
+import { InvestorCommandPalette, InvestorSearchTrigger } from "./InvestorCommandPalette";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -527,6 +528,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
@@ -1006,24 +1008,38 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Search Omnibar — use rich omnibox for investor-search */}
+      {/* Search Omnibar — use command palette for investor-search */}
       {isInvestorSearch ? (
-        <InvestorSearchOmnibox
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder={placeholder}
-          firms={vcFirms}
-          people={vcPeople}
-          firmMap={firmMap}
-          onSelectFirm={(firmId) => {
-            const firm = getFirmById(firmId);
-            if (firm) setSelectedVCFirm(firm);
-          }}
-          onSelectPerson={(personId) => {
-            const person = vcPeople.find(p => p.id === personId);
-            if (person) setSelectedVCPerson(person);
-          }}
-        />
+        <>
+          <InvestorSearchTrigger
+            placeholder={placeholder}
+            onClick={() => setCommandPaletteOpen(true)}
+          />
+          <InvestorCommandPalette
+            open={commandPaletteOpen}
+            onOpenChange={setCommandPaletteOpen}
+            firms={vcFirms}
+            people={vcPeople}
+            firmMap={firmMap}
+            dbInvestors={dbInvestors}
+            userSector={companyData?.sector}
+            userStage={companyData?.stage}
+            onSelectFirm={(firmId) => {
+              const firm = getFirmById(firmId);
+              if (firm) {
+                setSelectedVCFirm(firm);
+                // Also open investor detail
+                const entry = mergedEntries.find(e => e.name.toLowerCase() === firm.name.toLowerCase());
+                if (entry) setSelectedInvestor(entry);
+              }
+            }}
+            onSelectPerson={(personId) => {
+              const person = vcPeople.find(p => p.id === personId);
+              if (person) setSelectedVCPerson(person);
+            }}
+            onNavigateMatches={() => setActiveInvestorTab("matches")}
+          />
+        </>
       ) : (
         <SearchOmnibar
           value={searchQuery}
