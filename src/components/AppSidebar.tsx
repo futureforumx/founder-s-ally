@@ -144,16 +144,17 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
         <div className="border-t border-sidebar-border px-3 py-4">
           <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground hover:bg-sidebar-accent/50">
-            
+            onClick={() => onViewChange("settings" as any)}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+              activeView === "settings"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            )}>
             <Settings className="h-4 w-4" />
             Settings
           </button>
         </div>
       </aside>
-
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-    </>);
-
+  );
 }
