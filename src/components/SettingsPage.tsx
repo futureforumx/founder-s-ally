@@ -9,6 +9,7 @@ import {
   MessageSquare, AlertTriangle, Loader2
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
