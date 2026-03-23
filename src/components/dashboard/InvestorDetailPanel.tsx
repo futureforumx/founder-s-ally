@@ -17,6 +17,7 @@ import { InvestorThemes } from "./investor-detail/InvestorThemes";
 import { MatchScoreDropdown } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
+import { FeedbackTab } from "./investor-detail/FeedbackTab";
 import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
@@ -358,6 +359,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <InvestorPartnersTab firmId={vcFirm?.id || ""} firmName={effectiveInvestor.name} partners={vcPartners} onSelectPerson={onSelectPerson} />
+                      </motion.div>
+                    )}
+
+                    {activeTab === "Feedback" && (
+                      <motion.div key="feedback" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
+                        <FeedbackTab investorName={effectiveInvestor.name} />
                       </motion.div>
                     )}
 
