@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { NetworkGraph } from "@/components/connections/NetworkGraph";
 
 interface Connection {
   user_id: string;
