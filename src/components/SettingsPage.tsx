@@ -623,9 +623,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           </div>
         </div>
 
-        {/* Admin Access — compact */}
-        <AdminAccessSection userId={userId} />
-
         <Separator />
 
         {/* Sign Out */}
@@ -654,42 +651,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   );
 }
 
-// ── Admin Access Section ──
-function AdminAccessSection({ userId }: { userId?: string }) {
-  const { user } = useAuth();
-  const [toggling, setToggling] = useState(false);
-  const isAdmin = user?.user_metadata?.role === "admin";
-
-  const handleToggleAdmin = async () => {
-    if (!userId) return;
-    setToggling(true);
-    try {
-      const newRole = isAdmin ? "user" : "admin";
-      const { error } = await supabase.auth.updateUser({ data: { role: newRole } });
-      if (error) throw error;
-      toast.success(newRole === "admin" ? "Admin access enabled" : "Admin access revoked");
-    } catch (e: any) {
-      toast.error("Failed to update role", { description: e.message });
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border p-3">
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10">
-          <Crown className="h-3.5 w-3.5 text-amber-500" />
-        </div>
-        <div className="text-left">
-          <p className="text-xs font-medium text-foreground">Platform Admin</p>
-          <p className="text-[9px] text-muted-foreground">Intelligence Dashboard</p>
-        </div>
-      </div>
-      <Switch checked={isAdmin} onCheckedChange={handleToggleAdmin} disabled={toggling} />
-    </div>
-  );
-}
 
 // ── Network Tab (Sensor Suite) ──
 function NetworkTab() {
