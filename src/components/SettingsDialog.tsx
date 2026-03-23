@@ -7,6 +7,7 @@ import {
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye
 } from "lucide-react";
+import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
