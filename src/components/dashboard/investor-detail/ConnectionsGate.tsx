@@ -23,7 +23,6 @@ interface ConnStatus {
   gmail: SourceStatus;
   linkedin: SourceStatus;
   twitter: SourceStatus;
-  calendar: SourceStatus;
   angellist: SourceStatus;
 }
 
