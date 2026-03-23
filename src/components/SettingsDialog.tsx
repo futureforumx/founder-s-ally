@@ -107,7 +107,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 max-h-[85vh]">
             <AnimatePresence mode="wait">
               {activeTab === "account" && (
                 <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} />
