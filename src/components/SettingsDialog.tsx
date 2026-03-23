@@ -30,13 +30,20 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
-// ── Connection status persistence (synced with ConnectionsGate) ──
+// ── Connection status persistence (synced with ConnectionsPage) ──
 const CONN_KEY = "community-connections-status";
-interface ConnStatus { gmail: boolean; linkedin: boolean; twitter: boolean; angellist: boolean }
-const ALL_KEYS: (keyof ConnStatus)[] = ["gmail", "linkedin", "twitter", "angellist"];
+interface ConnStatus { google: boolean; linkedin: boolean; twitter: boolean; angellist: boolean }
+const ALL_KEYS: (keyof ConnStatus)[] = ["google", "linkedin", "twitter", "angellist"];
 function loadConn(): ConnStatus {
-  try { const r = localStorage.getItem(CONN_KEY); if (r) return JSON.parse(r); } catch {}
-  return { gmail: false, linkedin: false, twitter: false, angellist: false };
+  try {
+    const r = localStorage.getItem(CONN_KEY);
+    if (r) {
+      const parsed = JSON.parse(r);
+      if ("gmail" in parsed && !("google" in parsed)) { parsed.google = parsed.gmail; delete parsed.gmail; }
+      return { google: false, linkedin: false, twitter: false, angellist: false, ...parsed };
+    }
+  } catch {}
+  return { google: false, linkedin: false, twitter: false, angellist: false };
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
@@ -376,19 +383,23 @@ function AdminAccessSection({ userId }: { userId?: string }) {
 }
 
 // ── Connections Tab ──
+type SensorType = "identity" | "pipeline" | "ingestor";
+
 const SETTINGS_INTEGRATIONS: {
   key: keyof ConnStatus;
   label: string;
   icon: React.ElementType;
   desc: string;
-  actionType: "login" | "sync";
+  sensorType: SensorType;
+  typeLabel: string;
   liveMsg: string;
   glowBg: string;
+  buttonLabel: string;
 }[] = [
-  { key: "gmail", label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", actionType: "sync", liveMsg: "12 new signals today", glowBg: "bg-blue-500" },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", actionType: "login", liveMsg: "2nd degree: 4.2k", glowBg: "bg-blue-600" },
-  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", actionType: "sync", liveMsg: "89 mutual follows", glowBg: "bg-foreground" },
-  { key: "angellist", label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", actionType: "sync", liveMsg: "3 apps tracked", glowBg: "bg-amber-400" },
+  { key: "google", label: "Google Workspace", icon: Mail, desc: "Gmail + Calendar — unified workspace sync", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "142 threads analyzed", glowBg: "bg-indigo-500", buttonLabel: "Sync Google Workspace" },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", sensorType: "identity", typeLabel: "Professional Identity", liveMsg: "2nd Degree: +4,218", glowBg: "bg-blue-500", buttonLabel: "Verify Identity" },
+  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "89 mutual follows", glowBg: "bg-white", buttonLabel: "Sync Pipeline" },
+  { key: "angellist", label: "AngelList", icon: Zap, desc: "Import investors via CSV for AI enrichment", sensorType: "ingestor", typeLabel: "Portfolio Discovery", liveMsg: "47 investors imported", glowBg: "bg-amber-400", buttonLabel: "Import CSV" },
 ];
 
 function ConnectionsTab() {
@@ -478,6 +489,7 @@ function ConnectionsTab() {
                         </div>
                       )}
                     </div>
+                    <p className={`text-[9px] font-mono uppercase tracking-wider mt-0.5 ${isConnected ? "text-white/20" : "text-muted-foreground/50"}`}>{int.typeLabel}</p>
                     <p className={`text-[10px] mt-0.5 ${isConnected ? "text-white/30" : "text-muted-foreground"}`}>{int.desc}</p>
                     {isConnected && (
                       <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{int.liveMsg}</p>
@@ -491,16 +503,16 @@ function ConnectionsTab() {
                       ? "bg-transparent border border-white/10"
                       : isConnected
                       ? "bg-transparent border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 hover:bg-red-500/[0.06]"
-                      : int.actionType === "login"
-                      ? "bg-foreground text-background hover:bg-foreground/90"
-                      : "bg-transparent border border-foreground/20 text-foreground hover:bg-foreground hover:text-background"
+                      : int.sensorType === "identity"
+                      ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                      : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06] hover:border-white/30"
                   }`}
                   onClick={() => handleToggle(int.key)}
                   disabled={isConnecting || (connecting !== null && connecting !== int.key)}
                 >
                   {isConnecting ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-white/10 border-t-white/60 rounded-full" />
-                  ) : isConnected ? "Disconnect" : int.actionType === "login" ? `Login` : "Sync"}
+                  ) : isConnected ? "Disconnect" : int.buttonLabel}
                 </Button>
               </div>
             </motion.div>
