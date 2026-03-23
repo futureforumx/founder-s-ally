@@ -153,10 +153,16 @@ export function SettingsPage() {
         const el = document.querySelector(`[data-field="${field}"]`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.classList.add("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
+          // Pulse highlight
+          el.classList.add("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
+          // Shake animation
+          el.classList.add("animate-shake");
           setTimeout(() => {
-            el.classList.remove("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
-          }, 3000);
+            el.classList.remove("animate-shake");
+          }, 500);
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
+          }, 2500);
         }
       }, 400);
     }

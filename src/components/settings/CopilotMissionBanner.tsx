@@ -300,7 +300,17 @@ export function CopilotMissionBanner({
           {/* CTA hint */}
           <div className="flex items-center gap-1 mt-2 text-[10px] font-mono uppercase tracking-widest text-accent/70 group-hover:text-accent transition-colors justify-center sm:justify-start">
             <Zap className="h-3 w-3" />
-            <span>Click to complete</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={nextStep?.id ?? "done"}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                {nextStep ? `Click to ${nextStep.label}` : "All done"}
+              </motion.span>
+            </AnimatePresence>
             <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </div>
