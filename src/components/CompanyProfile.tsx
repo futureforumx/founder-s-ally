@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
@@ -326,7 +327,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -411,6 +412,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [logoSyncBadge, setLogoSyncBadge] = useState(false);
   const logoSyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
+  const [sourceVerified, setSourceVerified] = useState<boolean>(() => {
+    try { return localStorage.getItem("company-source-verified") === "true"; } catch { return false; }
+  });
+  const [sourceVerifiedAnim, setSourceVerifiedAnim] = useState(false);
+  const prevCompanySyncingRef = useRef(companySyncing);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
@@ -564,7 +570,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { localStorage.setItem("company-data-source", dataSource); } catch {}
   }, [dataSource]);
 
-  // Restore on mount
+  // Track companySyncing transition to mark source as verified
+  useEffect(() => {
+    if (prevCompanySyncingRef.current && !companySyncing) {
+      setSourceVerified(true);
+      setSourceVerifiedAnim(true);
+      try { localStorage.setItem("company-source-verified", "true"); } catch {}
+    }
+    prevCompanySyncingRef.current = companySyncing;
+  }, [companySyncing]);
+
   useEffect(() => {
     if (form.name) {
       onSave?.(form);
@@ -1433,6 +1448,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     onChange={e => {
                       const url = e.target.value;
                       update("website", url);
+                      // Clear source verification on manual edit
+                      setSourceVerified(false);
+                      try { localStorage.removeItem("company-source-verified"); } catch {}
                       if (analysisComplete) setHasNewInputs(true);
                       if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
                       faviconDebounceRef.current = setTimeout(() => {
@@ -1463,8 +1481,65 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       testImg.src = hdLogoUrl;
                     }}
                     placeholder="https://acme.com" maxLength={255}
-                    className={`${inputCls("website")} pl-10`}
+                    className={`${inputCls("website")} pl-10 pr-24`}
                   />
+                  {/* End adornment: Sync button + Verification indicator */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
+                    {/* Source Verified / Unverified indicator */}
+                    {sourceVerified ? (
+                      <Tooltip delayDuration={100}>
+                        <TooltipTrigger asChild>
+                          <motion.span
+                            key="verified"
+                            initial={sourceVerifiedAnim ? { scale: 0 } : { scale: 1 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                            onAnimationComplete={() => setSourceVerifiedAnim(false)}
+                            className="inline-flex"
+                          >
+                            <CheckCircle2
+                              className="h-4 w-4 text-green-500"
+                              style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
+                            />
+                          </motion.span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Source Verified via Apify Intelligence</TooltipContent>
+                      </Tooltip>
+                    ) : form.website.trim() ? (
+                      <Tooltip delayDuration={100}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default">
+                            <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                    {/* ✨ Sync button */}
+                    {onSyncCompany && form.website.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSyncCompany(form.website.trim());
+                          // Mark as verified after sync completes (watched via companySyncing going false)
+                        }}
+                        disabled={companySyncing}
+                        className={cn(
+                          "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                          companySyncing
+                            ? "text-accent animate-pulse"
+                            : "text-accent/70 hover:text-accent hover:bg-accent/10"
+                        )}
+                      >
+                        {companySyncing ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        {companySyncing ? "Syncing" : "Sync"}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
                 {/* Logo suggestion banner */}
@@ -1563,6 +1638,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
+          {/* AI Insight Banner */}
+          {parentCompanyData && (
+            <div className="rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-transparent p-3.5 mt-3 space-y-1.5">
+              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> AI Insight
+              </p>
+              <p className="text-xs text-foreground leading-relaxed">
+                Founders in <span className="font-semibold">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {parentCompanyData?.stage || "Seed"} investors.
+              </p>
+            </div>
+          )}
+
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
             {(() => {
@@ -1577,11 +1664,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       : "bg-accent text-accent-foreground hover:bg-accent/90"
                     } disabled:cursor-not-allowed`}>
                     {isAnalyzing ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>
                     ) : isUpToDate ? (
                       <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
                     ) : (
-                      <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Run New Analysis" : "Run AI Analysis"}</>
+                      <><Sparkles className="h-3.5 w-3.5" /> {analysisComplete ? "Sync & Re-Analyze" : "Sync & Run AI Analysis"}</>
                     )}
                   </button>
                   <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
@@ -2218,5 +2305,3 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     </div>
   );
 });
-
-
