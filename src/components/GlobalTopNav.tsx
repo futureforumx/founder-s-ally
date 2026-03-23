@@ -393,18 +393,19 @@ export function GlobalTopNav({
                 <button
                   key={suggestion}
                   onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseEnter={() => setHighlightIdx(i)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer group/item",
-                    i === 0
+                    i === highlightIdx
                       ? "bg-accent/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
                   <div className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
-                    i === 0 ? "bg-accent/20" : "bg-muted/60"
+                    i === highlightIdx ? "bg-accent/20" : "bg-muted/60"
                   )}>
-                    <Sparkles className={cn("h-4 w-4", i === 0 ? "text-accent" : "text-muted-foreground/60")} />
+                    <Sparkles className={cn("h-4 w-4", i === highlightIdx ? "text-accent" : "text-muted-foreground/60")} />
                   </div>
                   <span className="text-sm flex-1">{suggestion}</span>
                   <span className="text-[10px] text-muted-foreground/40 italic opacity-0 group-hover/item:opacity-100 transition-opacity">try this</span>
