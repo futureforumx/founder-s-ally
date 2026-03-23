@@ -136,18 +136,18 @@ function SectorHeatmapCard({ sector, timeRange }: { sector: string | undefined; 
 
   return (
     <div
-      className="relative rounded-2xl p-6 overflow-hidden"
+      className="relative rounded-xl px-5 py-4 overflow-hidden"
       style={{
         background: "hsl(var(--primary))",
         border: "1px solid hsl(var(--border) / 0.15)",
       }}
     >
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-foreground/60">
             Sector Heat
           </span>
-          <Badge variant="secondary" className="text-[9px] font-medium border-0 rounded-md px-2 py-0.5 bg-primary-foreground/10 text-primary-foreground/70">
+          <Badge variant="secondary" className="text-[8px] font-medium border-0 rounded-md px-1.5 py-0 bg-primary-foreground/10 text-primary-foreground/70">
             {momentum.label}
           </Badge>
         </div>
@@ -160,7 +160,7 @@ function SectorHeatmapCard({ sector, timeRange }: { sector: string | undefined; 
                 <Tooltip key={i}>
                   <TooltipTrigger asChild>
                     <div
-                      className={`h-6 w-full rounded-sm cursor-default transition-all ${TIER_CLASS[tier]} hover:ring-2 hover:ring-offset-1 hover:ring-accent`}
+                      className={`h-5 w-full rounded-sm cursor-default transition-all ${TIER_CLASS[tier]} hover:ring-2 hover:ring-offset-1 hover:ring-accent`}
                     />
                   </TooltipTrigger>
                   <TooltipContent
@@ -177,34 +177,33 @@ function SectorHeatmapCard({ sector, timeRange }: { sector: string | undefined; 
           </div>
         </TooltipProvider>
 
-        <div className="flex justify-between mt-1.5">
-          <span className="text-[8px] font-mono text-primary-foreground/30 uppercase tracking-widest">18 mo ago</span>
-          <span className="text-[8px] font-mono text-primary-foreground/30 uppercase tracking-widest">Current</span>
+        <div className="flex justify-between mt-1">
+          <span className="text-[7px] font-mono text-primary-foreground/30 uppercase tracking-widest">18 mo ago</span>
+          <span className="text-[7px] font-mono text-primary-foreground/30 uppercase tracking-widest">Current</span>
         </div>
 
-        <div className="flex items-center justify-between mt-3">
-          <p className="text-[10px] text-primary-foreground/40">
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-[9px] text-primary-foreground/40">
             <span className="font-medium text-primary-foreground/60">{sector || "Your sector"}</span>
           </p>
-          <div className="flex items-center gap-1">
-            <span className="text-[7px] font-mono text-primary-foreground/30 mr-0.5">Cold</span>
+          <div className="flex items-center gap-0.5">
+            <span className="text-[6px] font-mono text-primary-foreground/30 mr-0.5">Cold</span>
             {[0, 1, 2, 3, 4].map(t => (
-              <div key={t} className={`h-2.5 w-2.5 rounded-sm ${TIER_CLASS[t]}`} />
+              <div key={t} className={`h-2 w-2 rounded-sm ${TIER_CLASS[t]}`} />
             ))}
-            <span className="text-[7px] font-mono text-primary-foreground/30 ml-0.5">Hot</span>
+            <span className="text-[6px] font-mono text-primary-foreground/30 ml-0.5">Hot</span>
           </div>
         </div>
 
-        {/* Trend */}
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-primary-foreground/5">
+        <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-primary-foreground/5">
           <span
-            className="inline-flex items-center gap-1 text-xs font-semibold"
+            className="inline-flex items-center gap-1 text-[11px] font-semibold"
             style={{ color: trendPct >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}
           >
             {trendPct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {trendPct >= 0 ? "↑" : "↓"}{Math.abs(trendPct).toFixed(1)}%
           </span>
-          <span className="text-[10px] text-primary-foreground/30 font-medium">vs prior 6 months</span>
+          <span className="text-[9px] text-primary-foreground/30 font-medium">vs prior 6 months</span>
         </div>
       </div>
     </div>
