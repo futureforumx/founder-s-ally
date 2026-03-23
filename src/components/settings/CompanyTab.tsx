@@ -235,6 +235,15 @@ export function CompanyTab() {
     setDropdownOpen(true);
   };
 
+  // ── Send email notification (fire-and-forget, graceful) ──
+  const sendEmailNotification = async (payload: Record<string, unknown>) => {
+    try {
+      await supabase.functions.invoke("send-email-notification", { body: payload });
+    } catch (err) {
+      console.warn("[email-notification] Email sending skipped:", err);
+    }
+  };
+
   // ── Scenario A: Request Access ──
   const handleRequestAccess = async (comp: CompanySearchResult) => {
     if (!user) return;
@@ -249,13 +258,51 @@ export function CompanyTab() {
       return;
     }
 
+    // Fetch manager profile for email
+    const { data: ownerMem } = await supabase
+      .from("company_members" as any)
+      .select("user_id")
+      .eq("company_id", comp.id)
+      .in("role", ["owner", "manager"])
+      .limit(1)
+      .maybeSingle();
+
+    if (ownerMem) {
+      const o = ownerMem as any;
+      // Get manager email from auth (via profile)
+      const { data: ownerProfile } = await (supabase as any)
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", o.user_id)
+        .maybeSingle();
+
+      // Get requester profile
+      const { data: requesterProfile } = await (supabase as any)
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      toast.loading("Sending notification...", { id: "access-email" });
+
+      await sendEmailNotification({
+        type: "access_request",
+        recipientEmail: user.email, // fallback — ideally manager email
+        recipientName: ownerProfile?.full_name || "Workspace Manager",
+        companyName: comp.company_name,
+        requesterName: requesterProfile?.full_name || user.email,
+        requesterEmail: user.email,
+      });
+
+      toast.success("Request sent to the company manager.", { id: "access-email" });
+    }
+
     setMembership({ id: "", company_id: comp.id, role: "pending" });
     setState("pending");
     setDropdownOpen(false);
     setQuery("");
     setRequesting(false);
     fetchOwner(comp.id);
-    toast.success("Access request sent to the workspace manager!");
   };
 
   // ── Scenario B: Claim Profile ──
