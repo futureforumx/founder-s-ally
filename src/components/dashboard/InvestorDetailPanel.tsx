@@ -46,6 +46,7 @@ interface InvestorDetailPanelProps {
   vcPartners?: VCPerson[];
   onSelectPerson?: (person: VCPerson) => void;
   onCloseVCFirm?: () => void;
+  initialTab?: InvestorTab;
 }
 
 export type { InvestorEntry };
