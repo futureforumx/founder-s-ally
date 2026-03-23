@@ -491,6 +491,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
+  const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
