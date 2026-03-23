@@ -362,9 +362,14 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
           </div>
         </div>
 
-        {/* ── Row 2: Name + description ── */}
+        {/* ── Row 2: Name + badges + description ── */}
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          <VCBadgeContainer vc_firm={{
+            is_trending: (founder as any)._isTrending,
+            is_popular: (founder as any)._isPopular,
+            is_recent: (founder as any)._isRecent,
+          }} />
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{founder.description}</p>
         </div>
 

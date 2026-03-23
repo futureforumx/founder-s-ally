@@ -48,6 +48,9 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
     aum: row.aum ?? null,
+    is_trending: row.is_trending ?? false,
+    is_popular: row.is_popular ?? false,
+    is_recent: row.is_recent ?? false,
   };
 }
 
