@@ -585,7 +585,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries]);
+  }, [vcEntries, realFounderEntries, dbInvestorMap]);
 
   const hasProfile = !!companyData?.name;
 
