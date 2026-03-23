@@ -476,7 +476,7 @@ export type Database = {
           email_source: string | null
           firm_name: string
           firm_type: string | null
-          founder_sentiment_score: number | null
+          founder_reputation_score: number | null
           headcount: string | null
           id: string
           is_actively_deploying: boolean | null
@@ -503,7 +503,7 @@ export type Database = {
           email_source?: string | null
           firm_name: string
           firm_type?: string | null
-          founder_sentiment_score?: number | null
+          founder_reputation_score?: number | null
           headcount?: string | null
           id?: string
           is_actively_deploying?: boolean | null
@@ -530,7 +530,7 @@ export type Database = {
           email_source?: string | null
           firm_name?: string
           firm_type?: string | null
-          founder_sentiment_score?: number | null
+          founder_reputation_score?: number | null
           headcount?: string | null
           id?: string
           is_actively_deploying?: boolean | null
