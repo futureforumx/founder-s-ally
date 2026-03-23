@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
-  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2 } from
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
+  DollarSign, Activity, Heart } from
 "lucide-react";
+import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
 import { Card, CardContent } from "@/components/ui/card";
