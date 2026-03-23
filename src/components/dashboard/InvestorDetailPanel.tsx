@@ -211,7 +211,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <FirmLogo
                         firmName={heroName}
                         logoUrl={heroLogo}
-                        websiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
+                        websiteUrl={liveProfile?.website_url ?? null}
                         size="lg"
                         className="h-16 w-16"
                       />
