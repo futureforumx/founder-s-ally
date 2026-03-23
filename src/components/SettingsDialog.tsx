@@ -520,15 +520,18 @@ function ConnectionsTab() {
 
 // ── Notifications Tab ──
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState<NotifPrefs>(loadNotifs);
+  const { notifications, upsertPrefs } = useUserPreferences();
+  const [prefs, setPrefs] = useState(notifications);
 
-  const toggle = (key: keyof NotifPrefs) => {
+  useEffect(() => { setPrefs(notifications); }, [notifications]);
+
+  const toggle = (key: keyof typeof prefs) => {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
-    saveNotifs(next);
+    upsertPrefs({ notification_settings: next });
   };
 
-  const ITEMS: { key: keyof NotifPrefs; label: string; desc: string; icon: React.ElementType }[] = [
+  const ITEMS: { key: keyof typeof prefs; label: string; desc: string; icon: React.ElementType }[] = [
     { key: "matchAlerts", label: "Match Alerts", desc: "Get notified when new investor matches are found", icon: Zap },
     { key: "emailDigest", label: "Weekly Digest", desc: "Summary of activity, new matches, and community updates", icon: Mail },
     { key: "communityUpdates", label: "Community Updates", desc: "New reviews, intro requests, and founder activity", icon: User },
