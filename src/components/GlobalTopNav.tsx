@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, Lock,
+  X, Eye, Radar, Lock, CircleHelp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -405,24 +405,27 @@ export function GlobalTopNav({
         )}
       </div>
 
-      {/* ── HUD Badges: Analytics ── */}
+      {/* ── Divider ── */}
+      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
+
+      {/* ── Smart Stats ── */}
       <TooltipProvider delayDuration={200}>
-        <div className="flex items-center gap-0 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           {(() => {
             const locked = profileCompletion < 100;
-            const views = locked ? 0 : 12;
-            const searches = locked ? 0 : 85;
+            const views = 12;
+            const searches = 85;
             return (
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 border-r border-border/30",
-                      locked && "opacity-40"
-                    )}>
-                      <Eye className="h-3 w-3 text-muted-foreground/70" />
-                      <span className="text-xs font-bold text-foreground">{locked ? "—" : views}</span>
-                      {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                    <div className="flex items-center gap-1.5 cursor-default">
+                      <Eye className="h-4 w-4 text-muted-foreground/60" />
+                      {locked ? (
+                        <Lock className="h-3 w-3 text-muted-foreground/40" />
+                      ) : (
+                        <span className="text-xs font-medium text-foreground">{views}</span>
+                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
@@ -432,13 +435,13 @@ export function GlobalTopNav({
 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5",
-                      locked && "opacity-40"
-                    )}>
-                      <Radar className="h-3 w-3 text-muted-foreground/70" />
-                      <span className="text-xs font-bold text-foreground">{locked ? "—" : searches}</span>
-                      {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                    <div className="flex items-center gap-1.5 cursor-default">
+                      <Radar className="h-4 w-4 text-muted-foreground/60" />
+                      {locked ? (
+                        <Lock className="h-3 w-3 text-muted-foreground/40" />
+                      ) : (
+                        <span className="text-xs font-medium text-foreground">{searches}</span>
+                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
@@ -451,8 +454,31 @@ export function GlobalTopNav({
         </div>
       </TooltipProvider>
 
-      {/* ── Right: Persona Switcher + Live dot ── */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* ── Divider ── */}
+      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
+
+      {/* ── AGENT Button ── */}
+      <button className="flex items-center gap-1.5 rounded-lg border border-violet-300/30 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-violet-500 hover:bg-violet-500/5 transition-all shrink-0 shadow-[0_0_8px_-2px_rgba(139,92,246,0.15)]">
+        <Sparkles className="h-4 w-4" />
+        Agent
+      </button>
+
+      {/* ── Divider ── */}
+      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
+
+      {/* ── Right: Help + Persona Switcher ── */}
+      <div className="flex items-center gap-4 shrink-0">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                <CircleHelp className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Help Center</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
             <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
@@ -463,7 +489,7 @@ export function GlobalTopNav({
                   {companyName?.charAt(0).toUpperCase() || "?"}
                 </span>
               ) : (
-                <Building2 className="h-3 w-3 text-muted-foreground/40" />
+                <Building2 className="h-4 w-4 text-muted-foreground/40" />
               )}
             </div>
             <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
@@ -485,16 +511,6 @@ export function GlobalTopNav({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {hasProfile && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-            </span>
-            <span className="text-[10px] font-medium text-success hidden lg:inline">Live</span>
-          </div>
-        )}
       </div>
     </div>
   );
