@@ -535,42 +535,6 @@ export function CompanyTab() {
             {/* Profile Strength moved to Copilot Mission Banner modal */}
 
 
-            {/* AI Insight — full width */}
-            <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
-              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> AI Insight
-              </p>
-              <p className="text-xs text-foreground leading-relaxed">
-                Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
-              </p>
-              {!sectionConfirmed.metrics && (
-                <button
-                  onClick={() => {
-                    // First expand the metrics accordion section
-                    window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }));
-                    // Then highlight the LTV/CAC field after accordion opens
-                    setTimeout(() => {
-                      const el = document.querySelector('[data-field="ltv-cac"]');
-                      if (el) {
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                        setTimeout(() => {
-                          el.classList.add("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-                          el.classList.add("animate-shake");
-                          setTimeout(() => el.classList.remove("animate-shake"), 500);
-                          setTimeout(() => {
-                            el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-                          }, 2500);
-                        }, 200);
-                      }
-                    }, 500);
-                  }}
-                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
-                >
-                  Verify Metrics <ChevronRight className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-
             {/* Company Profile Editor */}
             <CompanyProfile
               key={profileKey}
@@ -581,6 +545,36 @@ export function CompanyTab() {
               onProfileVerified={setIsProfileVerified}
               onSectionConfirmedChange={setSectionConfirmed}
               onCompletionChange={setProfileCompletion}
+              onSyncCompany={async (url: string) => {
+                setCompanySyncing(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+                    body: { companyUrl: url },
+                  });
+                  if (error) throw error;
+                  if (!data?.success) throw new Error(data?.error || "Sync failed");
+
+                  const incoming = data.data;
+                  const fields: SyncField[] = [
+                    { key: "name", label: "Company Name", existing: companyData?.name || null, incoming: incoming.company_name },
+                    { key: "description", label: "Description", existing: companyData?.description || null, incoming: incoming.description?.slice(0, 500) || null },
+                    { key: "sector", label: "Sector", existing: companyData?.sector || null, incoming: incoming.sector },
+                    { key: "website", label: "Website", existing: companyData?.website || null, incoming: incoming.website_url },
+                    { key: "hqLocation", label: "HQ Location", existing: companyData?.hqLocation || null, incoming: incoming.hq_location },
+                    { key: "totalHeadcount", label: "Employee Count", existing: companyData?.totalHeadcount || null, incoming: incoming.employee_count },
+                  ];
+
+                  setCompanySyncFields(fields);
+                  setCompanySyncReviewOpen(true);
+                } catch (err: any) {
+                  toast.error("Sync failed: " + (err.message || "Unknown error"));
+                } finally {
+                  setCompanySyncing(false);
+                }
+              }}
+              companySyncing={companySyncing}
+              sectionConfirmedState={sectionConfirmed}
+              companyData={companyData}
             />
 
             {/* Investors Section */}
