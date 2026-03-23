@@ -18,13 +18,14 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { toast } from "sonner";
 
-type SettingsTab = "account" | "company" | "connections" | "notifications" | "billing";
+type SettingsTab = "account" | "company" | "connections" | "notifications" | "privacy" | "billing";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
   { id: "company", label: "Company", icon: Building2 },
   { id: "connections", label: "Connections", icon: Mail },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "privacy", label: "Privacy", icon: Eye },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
