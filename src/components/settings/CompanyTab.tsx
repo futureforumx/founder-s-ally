@@ -535,7 +535,20 @@ export function CompanyTab() {
               </p>
               {!sectionConfirmed.metrics && (
                 <button
-                  onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
+                  onClick={() => {
+                    const el = document.querySelector('[data-field="ltv-cac"]');
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      setTimeout(() => {
+                        el.classList.add("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
+                        el.classList.add("animate-shake");
+                        setTimeout(() => el.classList.remove("animate-shake"), 500);
+                        setTimeout(() => {
+                          el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
+                        }, 2500);
+                      }, 400);
+                    }
+                  }}
                   className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
                 >
                   Verify Metrics <ChevronRight className="h-3 w-3" />
