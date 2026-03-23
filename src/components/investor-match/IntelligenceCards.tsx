@@ -16,6 +16,47 @@ interface IntelligenceCardsProps {
   timeRange: TimeRange;
 }
 
+// ── Animated counter hook ──
+
+function useCountUp(target: string, duration = 1200) {
+  const [display, setDisplay] = useState(target);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    // Extract numeric value and preserve prefix/suffix (e.g. "$", "M", ",")
+    const match = target.match(/^([^0-9]*?)([\d,.]+)(.*)$/);
+    if (!match) { setDisplay(target); return; }
+
+    const prefix = match[1];
+    const suffix = match[3];
+    const cleanNum = match[2].replace(/,/g, "");
+    const endVal = parseFloat(cleanNum);
+    if (isNaN(endVal)) { setDisplay(target); return; }
+
+    const hasDecimals = cleanNum.includes(".");
+    const decimalPlaces = hasDecimals ? (cleanNum.split(".")[1]?.length || 0) : 0;
+    const useCommas = match[2].includes(",");
+
+    const start = performance.now();
+    const animate = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const current = eased * endVal;
+      let formatted = hasDecimals ? current.toFixed(decimalPlaces) : Math.round(current).toString();
+      if (useCommas) {
+        const [int, dec] = formatted.split(".");
+        formatted = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (dec ? "." + dec : "");
+      }
+      setDisplay(prefix + formatted + suffix);
+      if (p < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+
+  return display;
+}
+
 // ── Dark Metric Card ──
 
 function MetricCard({
@@ -37,6 +78,7 @@ function MetricCard({
 }) {
   const isPositive = trendValue >= 0;
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+  const animatedValue = useCountUp(value);
 
   return (
     <div
@@ -65,7 +107,7 @@ function MetricCard({
             textShadow: "0 0 20px hsl(var(--success) / 0.5), 0 0 40px hsl(var(--success) / 0.2)",
           }}
         >
-          {value}
+          {animatedValue}
         </p>
 
         <div className="flex items-center gap-2 mt-1">
