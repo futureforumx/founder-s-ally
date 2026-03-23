@@ -105,6 +105,7 @@ export type Database = {
         Row: {
           burn_rate: string | null
           cac: string | null
+          claimed_by: string | null
           company_name: string
           created_at: string
           deck_file_path: string | null
@@ -112,6 +113,7 @@ export type Database = {
           executive_summary: string | null
           health_score: number | null
           id: string
+          is_claimed: boolean | null
           ltv: string | null
           mrr: string | null
           raw_ai_response: Json | null
@@ -128,6 +130,7 @@ export type Database = {
         Insert: {
           burn_rate?: string | null
           cac?: string | null
+          claimed_by?: string | null
           company_name?: string
           created_at?: string
           deck_file_path?: string | null
@@ -135,6 +138,7 @@ export type Database = {
           executive_summary?: string | null
           health_score?: number | null
           id?: string
+          is_claimed?: boolean | null
           ltv?: string | null
           mrr?: string | null
           raw_ai_response?: Json | null
@@ -151,6 +155,7 @@ export type Database = {
         Update: {
           burn_rate?: string | null
           cac?: string | null
+          claimed_by?: string | null
           company_name?: string
           created_at?: string
           deck_file_path?: string | null
@@ -158,6 +163,7 @@ export type Database = {
           executive_summary?: string | null
           health_score?: number | null
           id?: string
+          is_claimed?: boolean | null
           ltv?: string | null
           mrr?: string | null
           raw_ai_response?: Json | null
