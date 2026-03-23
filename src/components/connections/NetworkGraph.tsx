@@ -57,7 +57,21 @@ const EDGES: GraphEdge[] = [
   { from: "i2", to: "f2", strength: "strong" },
 ];
 
-const strengthWidth = { strong: 2.5, medium: 1.8, weak: 1 };
+// strand count and base width per strength
+const STRAND_CONFIG = {
+  strong: { count: 5, baseWidth: 1.8 },
+  medium: { count: 3, baseWidth: 1.2 },
+  weak:   { count: 2, baseWidth: 0.8 },
+};
+
+// Blue palette shades for strands (light to dark)
+const BLUE_SHADES = [
+  "hsl(210 80% 75%)",   // lightest
+  "hsl(215 85% 65%)",
+  "hsl(220 90% 55%)",
+  "hsl(225 85% 45%)",
+  "hsl(230 80% 38%)",   // darkest
+];
 
 const typeRingColor: Record<GraphNode["type"], string> = {
   you: "ring-primary/40",
@@ -74,20 +88,31 @@ const typeBorderColor: Record<GraphNode["type"], string> = {
 };
 
 /** Build a smooth quadratic bezier curve with a perpendicular offset */
-function curvePath(x1: number, y1: number, x2: number, y2: number, index: number): string {
+function curvePath(x1: number, y1: number, x2: number, y2: number, offsetAmount: number): string {
   const mx = (x1 + x2) / 2;
   const my = (y1 + y2) / 2;
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len === 0) return `M${x1},${y1} L${x2},${y2}`;
-  const sign = index % 2 === 0 ? 1 : -1;
-  const offset = sign * Math.min(len * 0.25, 55 + (index % 3) * 12);
   const px = -dy / len;
   const py = dx / len;
-  const cx = mx + px * offset;
-  const cy = my + py * offset;
+  const cx = mx + px * offsetAmount;
+  const cy = my + py * offsetAmount;
   return `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+}
+
+/** Generate offsets for multiple strands fanning out from a base curve */
+function strandOffsets(edgeIndex: number, count: number, len: number): number[] {
+  const baseSign = edgeIndex % 2 === 0 ? 1 : -1;
+  const baseOffset = baseSign * Math.min(len * 0.22, 50 + (edgeIndex % 3) * 10);
+  const spread = Math.min(len * 0.08, 18);
+  const offsets: number[] = [];
+  for (let s = 0; s < count; s++) {
+    const t = count === 1 ? 0 : (s / (count - 1)) * 2 - 1; // -1 to 1
+    offsets.push(baseOffset + t * spread);
+  }
+  return offsets;
 }
 
 export function NetworkGraph() {
