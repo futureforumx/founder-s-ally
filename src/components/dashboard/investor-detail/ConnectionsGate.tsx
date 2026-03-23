@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 // ── Types ──
-type SourceKey = "gmail" | "linkedin" | "twitter" | "angellist";
+type SourceKey = "google" | "linkedin" | "twitter" | "angellist";
 
 interface SourceStatus {
   state: "idle" | "authenticating" | "syncing" | "complete";
@@ -20,7 +20,7 @@ interface SourceStatus {
 }
 
 interface ConnStatus {
-  gmail: SourceStatus;
+  google: SourceStatus;
   linkedin: SourceStatus;
   twitter: SourceStatus;
   angellist: SourceStatus;
@@ -35,7 +35,9 @@ function loadCompletedSources(): Set<SourceKey> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const obj = JSON.parse(raw);
-      const keys: SourceKey[] = ["gmail", "linkedin", "twitter", "angellist"];
+      // migrate old "gmail" key
+      if ("gmail" in obj && !("google" in obj)) obj.google = obj.gmail;
+      const keys: SourceKey[] = ["google", "linkedin", "twitter", "angellist"];
       return new Set(keys.filter((k) => obj[k] === true));
     }
   } catch {}
@@ -44,7 +46,7 @@ function loadCompletedSources(): Set<SourceKey> {
 
 function saveCompletedSources(completed: Set<SourceKey>) {
   const obj: Record<string, boolean> = {};
-  (["gmail", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach(
+  (["google", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach(
     (k) => (obj[k] = completed.has(k))
   );
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
@@ -58,41 +60,42 @@ const SOURCES: {
   description: string;
   stats: string;
   unlockMessage: string;
-  actionType: "login" | "sync";
+  sensorType: "identity" | "pipeline" | "ingestor";
+  typeLabel: string;
   glowBg: string;
   liveMsg: string;
 }[] = [
   {
-    key: "gmail", label: "Gmail", icon: Mail,
-    description: "Scan email threads for warm intro paths and VC contact graph",
+    key: "google", label: "Google Workspace", icon: Mail,
+    description: "Gmail + Calendar — unified workspace sync for intro paths",
     stats: "2,340 emails scanned · 47 VC contacts found",
     unlockMessage: "🔓 Warm Intro Paths unlocked",
-    actionType: "sync", glowBg: "bg-blue-500",
-    liveMsg: "12 new signals today",
+    sensorType: "pipeline", typeLabel: "Intelligence Pipeline",
+    glowBg: "bg-indigo-500", liveMsg: "142 threads analyzed",
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin,
     description: "Map your professional network to discover 1st & 2nd degree paths",
     stats: "312 connections mapped · 18 investor paths",
     unlockMessage: "🔓 Network Graph + 2nd-degree paths unlocked",
-    actionType: "login", glowBg: "bg-blue-600",
-    liveMsg: "2nd degree: 4.2k",
+    sensorType: "identity", typeLabel: "Professional Identity",
+    glowBg: "bg-blue-500", liveMsg: "2nd Degree: +4,218",
   },
   {
     key: "twitter", label: "X (Twitter)", icon: Twitter,
     description: "Track social sentiment, mentions, and investor engagement",
     stats: "1,280 interactions analyzed · 9 VCs engaged",
     unlockMessage: "🔓 Social Sentiment Analysis unlocked",
-    actionType: "sync", glowBg: "bg-foreground",
-    liveMsg: "89 mutual follows",
+    sensorType: "pipeline", typeLabel: "Intelligence Pipeline",
+    glowBg: "bg-white", liveMsg: "89 mutual follows",
   },
   {
     key: "angellist", label: "AngelList", icon: Zap,
-    description: "Sync portfolio follows, past applications, and investor activity",
-    stats: "8 applications synced · 23 investors tracked",
-    unlockMessage: "🔓 Investor Activity Feed unlocked",
-    actionType: "sync", glowBg: "bg-amber-400",
-    liveMsg: "3 apps tracked",
+    description: "Import investors via CSV for AI enrichment",
+    stats: "47 investors imported · 23 enriched",
+    unlockMessage: "🔓 Portfolio Intelligence unlocked",
+    sensorType: "ingestor", typeLabel: "Portfolio Discovery",
+    glowBg: "bg-amber-400", liveMsg: "47 investors imported",
   },
 ];
 
