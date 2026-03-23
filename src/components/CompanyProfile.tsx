@@ -1470,7 +1470,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
 
             {/* ── Right: Pitch Deck dropzone / Active Deck Card ── */}
-            <div className="space-y-1 flex flex-col">
+            <div className="space-y-1 flex flex-col" data-field="pitch-deck">
               <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <FileText className="h-3 w-3" /> Pitch Deck (PDF)
               </label>
