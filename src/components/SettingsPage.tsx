@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
+import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,10 @@ function setTabInUrl(tab: SettingsTab) {
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
   const { user, signOut } = useAuth();
+  const [profileCompletion, setProfileCompletion] = useState(84);
+  const [completedFields, setCompletedFields] = useState<string[]>([
+    "website", "sector", "pitch-deck", "mrr", "executive-summary",
+  ]);
 
   const activeSection = getSectionForTab(activeTab);
   const currentTabs = SECTION_TABS[activeSection];
@@ -100,12 +105,35 @@ export function SettingsPage() {
     handleTabChange(firstTab.id);
   };
 
+  const handleMissionNavigate = useCallback((tab: string, field?: string) => {
+    handleTabChange(tab as SettingsTab);
+    if (field) {
+      setTimeout(() => {
+        const el = document.querySelector(`[data-field="${field}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
+          }, 3000);
+        }
+      }, 400);
+    }
+  }, []);
+
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen">
+      {/* Copilot Mission Banner */}
+      <CopilotMissionBanner
+        profileCompletion={profileCompletion}
+        onNavigate={handleMissionNavigate}
+        completedFields={completedFields}
+      />
+
       {/* Sticky Section + Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
         {/* Top-level sections */}
