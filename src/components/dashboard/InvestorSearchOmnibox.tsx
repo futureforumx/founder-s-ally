@@ -57,6 +57,8 @@ export function InvestorSearchOmnibox({
         name: f.name,
         subtitle: [f.stages?.slice(0, 2).join(", "), f.aum].filter(Boolean).join(" · ") || "Investor",
         type: "firm" as const,
+        logoUrl: f.logo_url,
+        websiteUrl: f.website_url,
       }));
 
     const pr: InvestorTypeaheadResult[] = people
