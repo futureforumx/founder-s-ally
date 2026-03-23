@@ -652,7 +652,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                         </motion.button>
                       )}
                       {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />}
-                      {!isLinkedinValid && linkedinUrl.trim() && (
+                      {!isLinkedinValid && isLinkedinInvalid && (
                         <span className="text-[9px] text-destructive font-mono">Invalid</span>
                       )}
                     </div>
