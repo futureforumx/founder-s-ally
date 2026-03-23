@@ -410,7 +410,7 @@ export function CompanyTab() {
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="absolute inset-0 z-20 flex items-start justify-center pt-6"
           >
-            <div className="w-full max-w-md rounded-2xl border-2 border-border bg-card shadow-2xl shadow-foreground/5 overflow-hidden">
+            <div className="w-full max-w-md rounded-2xl border-2 border-border bg-card shadow-2xl shadow-foreground/5 overflow-visible">
               {state === "search" ? (
                 <WorkspaceLinkingModal
                   query={query}
