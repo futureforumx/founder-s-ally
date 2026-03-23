@@ -489,6 +489,7 @@ function ConnectionsTab() {
                         </div>
                       )}
                     </div>
+                    <p className={`text-[9px] font-mono uppercase tracking-wider mt-0.5 ${isConnected ? "text-white/20" : "text-muted-foreground/50"}`}>{int.typeLabel}</p>
                     <p className={`text-[10px] mt-0.5 ${isConnected ? "text-white/30" : "text-muted-foreground"}`}>{int.desc}</p>
                     {isConnected && (
                       <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{int.liveMsg}</p>
@@ -502,16 +503,16 @@ function ConnectionsTab() {
                       ? "bg-transparent border border-white/10"
                       : isConnected
                       ? "bg-transparent border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 hover:bg-red-500/[0.06]"
-                      : int.actionType === "login"
-                      ? "bg-foreground text-background hover:bg-foreground/90"
-                      : "bg-transparent border border-foreground/20 text-foreground hover:bg-foreground hover:text-background"
+                      : int.sensorType === "identity"
+                      ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                      : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06] hover:border-white/30"
                   }`}
                   onClick={() => handleToggle(int.key)}
                   disabled={isConnecting || (connecting !== null && connecting !== int.key)}
                 >
                   {isConnecting ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-white/10 border-t-white/60 rounded-full" />
-                  ) : isConnected ? "Disconnect" : int.actionType === "login" ? `Login` : "Sync"}
+                  ) : isConnected ? "Disconnect" : int.buttonLabel}
                 </Button>
               </div>
             </motion.div>
