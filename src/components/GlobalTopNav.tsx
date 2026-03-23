@@ -206,6 +206,8 @@ export function GlobalTopNav({
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
 
+  const autosaveStatus = useAutosaveStatus();
+
   useEffect(() => {
     const main = document.querySelector("main");
     if (!main) return;
