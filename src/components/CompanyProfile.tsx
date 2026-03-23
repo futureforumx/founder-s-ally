@@ -1692,9 +1692,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           </div>
                         </label>
                         {logoUrl && (
-                          <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-success border-2 border-card flex items-center justify-center">
-                            <Check className="h-2.5 w-2.5 text-white" />
-                          </div>
+                          <>
+                            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-success border-2 border-card flex items-center justify-center">
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setLogoUrl(null); }}
+                              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-destructive border-2 border-card flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+                              title="Remove logo"
+                            >
+                              <X className="h-2.5 w-2.5 text-white" />
+                            </button>
+                          </>
                         )}
                       </div>
 
