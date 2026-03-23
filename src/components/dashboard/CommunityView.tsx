@@ -297,22 +297,13 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
         {/* ── Row 1: Logo left, Alerts right ── */}
         <div className="flex items-start justify-between gap-3">
           {/* Logo */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary border border-border/50 shrink-0 overflow-hidden">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={founder.name}
-                className="h-full w-full object-contain p-1"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                }}
-              />
-            ) : null}
-            <span className={`text-lg font-bold text-muted-foreground ${logoUrl ? "hidden" : ""}`}>
-              {founder.initial}
-            </span>
-          </div>
+          <FirmLogo
+            firmName={founder.name}
+            logoUrl={logoUrl}
+            websiteUrl={websiteUrl}
+            size="lg"
+            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+          />
 
           {/* Upper right: deploying status + scores */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
