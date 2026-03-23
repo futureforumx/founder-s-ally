@@ -66,7 +66,7 @@ interface MatchesTabProps {
 type SortMetric = "match" | "sentiment" | "responsiveness" | "activity";
 const SORT_OPTIONS: { key: SortMetric; label: string }[] = [
   { key: "match", label: "Structural Fit" },
-  { key: "sentiment", label: "Founder Vibe" },
+  { key: "sentiment", label: "Founder Reputation" },
   { key: "responsiveness", label: "Reply Speed" },
   { key: "activity", label: "Check Velocity" },
 ];
