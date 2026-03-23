@@ -626,10 +626,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     )}
                     <input
                       value={twitterUrl}
-                      onChange={(e) => setTwitterUrl(e.target.value)}
+                      onChange={(e) => { setTwitterUrl(e.target.value); autosave({ twitterUrl: e.target.value }); }}
                       onBlur={(e) => {
                         const formatted = formatSocialUrl("x", e.target.value);
-                        if (formatted !== twitterUrl) setTwitterUrl(formatted);
+                        if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
                       }}
                       placeholder="https://x.com/..."
                       className={cn(
