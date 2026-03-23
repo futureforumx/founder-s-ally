@@ -383,19 +383,23 @@ function AdminAccessSection({ userId }: { userId?: string }) {
 }
 
 // ── Connections Tab ──
+type SensorType = "identity" | "pipeline" | "ingestor";
+
 const SETTINGS_INTEGRATIONS: {
   key: keyof ConnStatus;
   label: string;
   icon: React.ElementType;
   desc: string;
-  actionType: "login" | "sync";
+  sensorType: SensorType;
+  typeLabel: string;
   liveMsg: string;
   glowBg: string;
+  buttonLabel: string;
 }[] = [
-  { key: "gmail", label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", actionType: "sync", liveMsg: "12 new signals today", glowBg: "bg-blue-500" },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", actionType: "login", liveMsg: "2nd degree: 4.2k", glowBg: "bg-blue-600" },
-  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", actionType: "sync", liveMsg: "89 mutual follows", glowBg: "bg-foreground" },
-  { key: "angellist", label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", actionType: "sync", liveMsg: "3 apps tracked", glowBg: "bg-amber-400" },
+  { key: "google", label: "Google Workspace", icon: Mail, desc: "Gmail + Calendar — unified workspace sync", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "142 threads analyzed", glowBg: "bg-indigo-500", buttonLabel: "Sync Google Workspace" },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", sensorType: "identity", typeLabel: "Professional Identity", liveMsg: "2nd Degree: +4,218", glowBg: "bg-blue-500", buttonLabel: "Verify Identity" },
+  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "89 mutual follows", glowBg: "bg-white", buttonLabel: "Sync Pipeline" },
+  { key: "angellist", label: "AngelList", icon: Zap, desc: "Import investors via CSV for AI enrichment", sensorType: "ingestor", typeLabel: "Portfolio Discovery", liveMsg: "47 investors imported", glowBg: "bg-amber-400", buttonLabel: "Import CSV" },
 ];
 
 function ConnectionsTab() {
