@@ -117,6 +117,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {activeTab === "connections" && <ConnectionsTab key="connections" />}
               {activeTab === "company" && <CompanyTab key="company" />}
               {activeTab === "notifications" && <NotificationsTab key="notifications" />}
+              {activeTab === "privacy" && <PrivacyTab key="privacy" />}
               {activeTab === "billing" && <BillingTab key="billing" />}
             </AnimatePresence>
           </div>
