@@ -157,8 +157,19 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
             )}>
-            <Settings className="h-4 w-4" />
-            Settings
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                className="h-5 w-5 rounded-full object-cover shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary shrink-0">
+                {initials}
+              </div>
+            )}
+            <span className="truncate">{displayName}</span>
           </button>
         </div>
       </aside>
