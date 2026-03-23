@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, Lock, X, CheckCircle2, Mail, Linkedin, Twitter,
-  Calendar, ArrowRight, Sparkles, Zap
+  ArrowRight, Sparkles, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 // ── Types ──
-type SourceKey = "gmail" | "linkedin" | "twitter" | "calendar" | "angellist";
+type SourceKey = "gmail" | "linkedin" | "twitter" | "angellist";
 
 interface SourceStatus {
   state: "idle" | "authenticating" | "syncing" | "complete";
@@ -23,7 +23,6 @@ interface ConnStatus {
   gmail: SourceStatus;
   linkedin: SourceStatus;
   twitter: SourceStatus;
-  calendar: SourceStatus;
   angellist: SourceStatus;
 }
 
@@ -36,7 +35,7 @@ function loadCompletedSources(): Set<SourceKey> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const obj = JSON.parse(raw);
-      const keys: SourceKey[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
+      const keys: SourceKey[] = ["gmail", "linkedin", "twitter", "angellist"];
       return new Set(keys.filter((k) => obj[k] === true));
     }
   } catch {}
@@ -45,7 +44,7 @@ function loadCompletedSources(): Set<SourceKey> {
 
 function saveCompletedSources(completed: Set<SourceKey>) {
   const obj: Record<string, boolean> = {};
-  (["gmail", "linkedin", "twitter", "calendar", "angellist"] as SourceKey[]).forEach(
+  (["gmail", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach(
     (k) => (obj[k] = completed.has(k))
   );
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
@@ -95,17 +94,6 @@ const SOURCES: {
     description: "Track social sentiment, mentions, and engagement with investor accounts",
     stats: "1,280 interactions analyzed · 9 VCs engaged",
     unlockMessage: "🔓 Social Sentiment Analysis unlocked",
-  },
-  {
-    key: "calendar",
-    label: "Google Calendar",
-    icon: Calendar,
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/20",
-    description: "Detect past VC meetings, intro calls, and recurring investor contacts",
-    stats: "14 VC meetings found · 6 recurring contacts",
-    unlockMessage: "🔓 Meeting History unlocked",
   },
   {
     key: "angellist",
