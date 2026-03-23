@@ -75,7 +75,7 @@ export function OnboardingWizard() {
         location: state.location || null,
         avatar_url: state.avatarUrl || null,
         linkedin_url: state.linkedinUrl || null,
-        user_type: "founder",
+        user_type: state.userType || "founder",
         ...(companyId ? { company_id: companyId } : {}),
       } as any);
 
