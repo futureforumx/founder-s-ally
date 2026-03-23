@@ -1200,7 +1200,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
-        onClose={() => setSelectedInvestor(null)}
+        onClose={() => { setSelectedInvestor(null); setInvestorInitialTab("Updates"); }}
+        initialTab={investorInitialTab}
         vcFirm={selectedVCFirm}
         vcPartners={selectedVCFirm ? getVCPartners(selectedVCFirm.id) : []}
         onSelectPerson={(person) => {
