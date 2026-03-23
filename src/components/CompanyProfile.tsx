@@ -411,6 +411,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [logoSyncBadge, setLogoSyncBadge] = useState(false);
   const logoSyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveIndicator, setSaveIndicator] = useState<string | null>(null);
+  const [sourceVerified, setSourceVerified] = useState<boolean>(() => {
+    try { return localStorage.getItem("company-source-verified") === "true"; } catch { return false; }
+  });
+  const [sourceVerifiedAnim, setSourceVerifiedAnim] = useState(false);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
