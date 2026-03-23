@@ -14,6 +14,7 @@ interface NewsItem {
   source: string;
   type: "funding" | "article" | "hire" | "investment" | "thought_leadership";
   time: string;
+  url: string;
 }
 
 interface TweetItem {
@@ -34,11 +35,11 @@ interface CommunityItem {
 
 function getNewsItems(firmName: string): NewsItem[] {
   return [
-    { title: `${firmName} closes $1.5B Fund III`, source: "TechCrunch", type: "funding", time: "6h" },
-    { title: `GP publishes thesis on vertical AI infra`, source: "Substack", type: "thought_leadership", time: "2d" },
-    { title: `${firmName} leads $12M Series A in Synthara Bio`, source: "Crunchbase", type: "investment", time: "3d" },
-    { title: `${firmName} hires new Partner from Tiger Global`, source: "Bloomberg", type: "hire", time: "5d" },
-    { title: `Mentioned in Forbes investor roundup`, source: "Forbes", type: "article", time: "1w" },
+    { title: `${firmName} closes $1.5B Fund III`, source: "TechCrunch", type: "funding", time: "6h", url: `https://techcrunch.com/search/${encodeURIComponent(firmName)}` },
+    { title: `GP publishes thesis on vertical AI infra`, source: "Substack", type: "thought_leadership", time: "2d", url: `https://substack.com/search/${encodeURIComponent(firmName)}` },
+    { title: `${firmName} leads $12M Series A in Synthara Bio`, source: "Crunchbase", type: "investment", time: "3d", url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firmName)}` },
+    { title: `${firmName} hires new Partner from Tiger Global`, source: "Bloomberg", type: "hire", time: "5d", url: `https://www.bloomberg.com/search?query=${encodeURIComponent(firmName)}` },
+    { title: `Mentioned in Forbes investor roundup`, source: "Forbes", type: "article", time: "1w", url: `https://www.forbes.com/search/?q=${encodeURIComponent(firmName)}` },
   ];
 }
 
@@ -245,7 +246,7 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
             {news.map((item, i) => {
               const cfg = NEWS_TYPE_CONFIG[item.type];
               return (
-                <div key={i} className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer">
+                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer no-underline">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-medium text-foreground leading-tight line-clamp-1 group-hover:text-accent transition-colors">
                       {item.title}
@@ -258,7 +259,7 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
                     </div>
                   </div>
                   <ArrowUpRight className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-accent transition-colors" />
-                </div>
+                </a>
               );
             })}
           </div>
