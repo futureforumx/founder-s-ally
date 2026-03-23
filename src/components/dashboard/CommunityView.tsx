@@ -62,6 +62,9 @@ interface DirectoryEntry {
   _matchScore?: number | null;
   _firmId?: string | null;
   _websiteUrl?: string | null;
+  _isTrending?: boolean;
+  _isPopular?: boolean;
+  _isRecent?: boolean;
 }
 
 // ── Mock data: Suggested ──
@@ -145,6 +148,23 @@ const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}
 };
 
 const PAGE_SIZE = 9;
+
+const normalizeFirmName = (name: string) =>
+  name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+
+const getAliasKeys = (normalizedName: string) => {
+  const keys = [normalizedName];
+  if (normalizedName.includes("andreessenhorowitz")) keys.push("a16z");
+  if (normalizedName === "a16z") keys.push("andreessenhorowitz");
+  return keys;
+};
+
+const deriveWebsiteUrlFromFirmId = (firmId?: string | null): string | null => {
+  if (!firmId) return null;
+  const normalized = firmId.trim().toLowerCase().replace(/^https?:\/\//, "");
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) return null;
+  return `https://${normalized}`;
+};
 
 const MAGIC_PROMPTS: Record<EntityScope, string[]> = {
   all: [
@@ -521,16 +541,36 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
   const { data: dbInvestors } = useInvestorDirectory();
 
-  // Build a lookup map from DB investors by firm name (lowercase)
+  // Build lookup maps with normalized keys and aliases
   const dbInvestorMap = useMemo(() => {
-    const m = new Map<string, typeof dbInvestors extends (infer T)[] | undefined ? T : never>();
+    const m = new Map<string, any>();
     if (dbInvestors) {
       for (const inv of dbInvestors) {
-        m.set(inv.name.toLowerCase().trim(), inv);
+        const normalized = normalizeFirmName(inv.name);
+        for (const key of getAliasKeys(normalized)) m.set(key, inv);
       }
     }
     return m;
   }, [dbInvestors]);
+
+  const vcFirmMap = useMemo(() => {
+    const m = new Map<string, VCFirm>();
+    for (const firm of vcFirms) {
+      const normalized = normalizeFirmName(firm.name);
+      for (const key of getAliasKeys(normalized)) m.set(key, firm);
+    }
+    return m;
+  }, [vcFirms]);
+
+  const getDbMatch = useCallback(
+    (name: string) => dbInvestorMap.get(normalizeFirmName(name)) ?? null,
+    [dbInvestorMap]
+  );
+
+  const getVCFirmMatch = useCallback(
+    (name: string) => vcFirmMap.get(normalizeFirmName(name)) ?? null,
+    [vcFirmMap]
+  );
 
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
@@ -539,7 +579,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
       .map(f => {
-        const dbMatch = dbInvestorMap.get(f.name.toLowerCase().trim());
+        const dbMatch = getDbMatch(f.name);
+        const fallbackWebsite = f.website_url || deriveWebsiteUrlFromFirmId(f.id);
+
         return {
           name: f.name,
           sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
@@ -557,15 +599,15 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: f.aum || (dbMatch as any)?.aum || null,
-          _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+          _logoUrl: (dbMatch as any)?.logo_url || f.logo_url || null,
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
           _firmId: (dbMatch as any)?.id || f.id || null,
-          _websiteUrl: (dbMatch as any)?.website_url || null,
+          _websiteUrl: (dbMatch as any)?.website_url || fallbackWebsite || null,
         };
       });
-  }, [vcFirms, dbInvestorMap]);
+  }, [vcFirms, getDbMatch]);
 
   // Convert real founder profiles to DirectoryEntry format
   const realFounderEntries: DirectoryEntry[] = useMemo(() => {
@@ -591,7 +633,18 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return [
       ...realFounderEntries,
       ...ALL_ENTRIES.map(e => {
-        const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+        if (e.category !== "investor") {
+          return {
+            ...e,
+            _sectors: [] as string[],
+            _stages: [] as string[],
+          };
+        }
+
+        const dbMatch = getDbMatch(e.name);
+        const vcMatch = getVCFirmMatch(e.name);
+        const fallbackWebsite = vcMatch?.website_url || deriveWebsiteUrlFromFirmId(vcMatch?.id);
+
         return {
           ...e,
           _sectors: [] as string[],
@@ -599,14 +652,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
-          _firmId: (dbMatch as any)?.id ?? null,
-          _websiteUrl: (dbMatch as any)?.website_url ?? null,
+          _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? null,
+          _websiteUrl: (dbMatch as any)?.website_url ?? e._websiteUrl ?? fallbackWebsite ?? null,
           _logoUrl: (dbMatch as any)?.logo_url ?? e._logoUrl ?? null,
         };
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries, dbInvestorMap]);
+  }, [vcEntries, realFounderEntries, getDbMatch, getVCFirmMatch]);
 
   const hasProfile = !!companyData?.name;
 
@@ -754,14 +807,33 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Missing context detection for smart empty states
   const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
   const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor").map(e => {
-    const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
-    return dbMatch ? { ...e, _isTrending: (dbMatch as any)?.is_trending ?? false, _isPopular: (dbMatch as any)?.is_popular ?? false, _isRecent: (dbMatch as any)?.is_recent ?? false } : e;
-  });
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor").map(e => {
-    const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
-    return dbMatch ? { ...e, _isTrending: (dbMatch as any)?.is_trending ?? false, _isPopular: (dbMatch as any)?.is_popular ?? false, _isRecent: (dbMatch as any)?.is_recent ?? false } : e;
-  });
+
+  const enrichInvestorSeedEntry = useCallback((entry: DirectoryEntry) => {
+    if (entry.category !== "investor") return entry;
+
+    const dbMatch = getDbMatch(entry.name);
+    const vcMatch = getVCFirmMatch(entry.name);
+    const fallbackWebsite = vcMatch?.website_url || deriveWebsiteUrlFromFirmId(vcMatch?.id);
+
+    return {
+      ...entry,
+      _isTrending: (dbMatch as any)?.is_trending ?? entry._isTrending ?? false,
+      _isPopular: (dbMatch as any)?.is_popular ?? entry._isPopular ?? false,
+      _isRecent: (dbMatch as any)?.is_recent ?? entry._isRecent ?? false,
+      _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? entry._firmId ?? null,
+      _websiteUrl: (dbMatch as any)?.website_url ?? entry._websiteUrl ?? fallbackWebsite ?? null,
+      _logoUrl: (dbMatch as any)?.logo_url ?? entry._logoUrl ?? null,
+    };
+  }, [getDbMatch, getVCFirmMatch]);
+
+  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope)
+    .filter(e => isInvestorSearch || e.category !== "investor")
+    .map(enrichInvestorSeedEntry);
+
+  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
+    .filter(e => isInvestorSearch || e.category !== "investor")
+    .map(enrichInvestorSeedEntry);
+
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
@@ -792,19 +864,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // When clicking an investor card, try to resolve VCFirm for rich profile
   const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
     setInvestorInitialTab("Updates");
-    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
-    if (vcMatch) {
-      setSelectedVCFirm(vcMatch);
-    }
+    const vcMatch = getVCFirmMatch(entry.name);
+    if (vcMatch) setSelectedVCFirm(vcMatch);
     setSelectedInvestor(entry);
-  }, [vcFirms]);
+  }, [getVCFirmMatch]);
 
   const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
     setInvestorInitialTab("Activity");
-    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    const vcMatch = getVCFirmMatch(entry.name);
     if (vcMatch) setSelectedVCFirm(vcMatch);
     setSelectedInvestor(entry);
-  }, [vcFirms]);
+  }, [getVCFirmMatch]);
 
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
