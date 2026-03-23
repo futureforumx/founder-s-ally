@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -7,6 +7,7 @@ import { EventsView } from "@/components/community/EventsView";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
+import { getCompletionPercent, EMPTY_FORM } from "@/components/company-profile/types";
 import { SectorClassification } from "@/components/SectorTags";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
@@ -79,6 +80,10 @@ const Index = () => {
   });
 
   const profileComplete = !!companyData && !!analysisResult;
+  const profileCompletion = useMemo(() => {
+    if (!companyData) return 0;
+    return getCompletionPercent({ ...EMPTY_FORM, ...companyData });
+  }, [companyData]);
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
 
   // Last synced state
@@ -245,6 +250,7 @@ const Index = () => {
           onViewChange={setActiveView}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
+          profileCompletion={profileCompletion}
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
