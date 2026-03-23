@@ -14,8 +14,6 @@ interface IntelligenceCardsProps {
   companyData?: CompanyData | null;
   formatCurrency: (n: number) => string;
   timeRange: TimeRange;
-  selectedHeatCell: number | null;
-  onHeatCellSelect: (index: number | null) => void;
 }
 
 // ── Shared card wrapper ──
