@@ -30,7 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
 // ── Sticky Profile Footer ──
 function StickyProfileFooter({
