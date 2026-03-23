@@ -121,6 +121,14 @@ export function CompanyTab() {
   const [profileKey, setProfileKey] = useState(0);
   const investorSectionRef = useRef<HTMLDivElement>(null);
 
+  // Company Magic Sync state
+  const [companySyncUrl, setCompanySyncUrl] = useState("");
+  const [companySyncing, setCompanySyncing] = useState(false);
+  const [companySyncReviewOpen, setCompanySyncReviewOpen] = useState(false);
+  const [companySyncFields, setCompanySyncFields] = useState<SyncField[]>([]);
+  const [companySyncApplying, setCompanySyncApplying] = useState(false);
+  const [companySyncedKeys, setCompanySyncedKeys] = useState<Set<string>>(new Set());
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
