@@ -61,7 +61,8 @@ type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 export function ConnectionsPage() {
   const { user } = useAuth();
   const [connections, setConnections] = useState<Connection[]>([]);
-
+  const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
+  const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
   // Fetch live DB connections
   useEffect(() => {
     if (!user) return;
