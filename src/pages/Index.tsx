@@ -518,6 +518,8 @@ const Index = () => {
             <EventsView />
           ) : activeView === "audit" ? (
             <DeckAuditView />
+          ) : activeView === "settings" ? (
+            <SettingsPage />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
