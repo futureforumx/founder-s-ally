@@ -40,7 +40,7 @@ const WHISPER_FEED = [
     text: "Fastest process we experienced. Very data-driven diligence, asked for cohort data upfront. Partner was deeply engaged and added real value post-close.",
   },
   {
-    header: "Anonymous Founder • Pre-Seed Climate",
+    header: "Pre-Seed • Climate",
     tags: ["Ghosted after IC", "Slow Process"],
     tagColors: ["bg-destructive/10 text-destructive", "bg-warning/10 text-warning"],
     text: "Great initial conversations, felt like strong alignment. After IC presentation there was radio silence for 6 weeks. Eventually got a pass via email with no feedback.",
