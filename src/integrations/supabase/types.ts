@@ -471,6 +471,7 @@ export type Database = {
         Row: {
           aum: string | null
           ca_sb54_compliant: boolean | null
+          community_rating: number | null
           created_at: string
           email: string | null
           email_source: string | null
@@ -491,16 +492,21 @@ export type Database = {
           market_sentiment: string | null
           max_check_size: number | null
           min_check_size: number | null
+          news_sentiment_score: number | null
           preferred_stage: string | null
           recent_deals: string[] | null
+          reputation_score: number | null
+          reputation_updated_at: string | null
           sector_embedding: string | null
           sentiment_detail: string | null
+          social_sentiment_score: number | null
           thesis_verticals: string[]
           website_url: string | null
         }
         Insert: {
           aum?: string | null
           ca_sb54_compliant?: boolean | null
+          community_rating?: number | null
           created_at?: string
           email?: string | null
           email_source?: string | null
@@ -521,16 +527,21 @@ export type Database = {
           market_sentiment?: string | null
           max_check_size?: number | null
           min_check_size?: number | null
+          news_sentiment_score?: number | null
           preferred_stage?: string | null
           recent_deals?: string[] | null
+          reputation_score?: number | null
+          reputation_updated_at?: string | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          social_sentiment_score?: number | null
           thesis_verticals?: string[]
           website_url?: string | null
         }
         Update: {
           aum?: string | null
           ca_sb54_compliant?: boolean | null
+          community_rating?: number | null
           created_at?: string
           email?: string | null
           email_source?: string | null
@@ -551,10 +562,14 @@ export type Database = {
           market_sentiment?: string | null
           max_check_size?: number | null
           min_check_size?: number | null
+          news_sentiment_score?: number | null
           preferred_stage?: string | null
           recent_deals?: string[] | null
+          reputation_score?: number | null
+          reputation_updated_at?: string | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          social_sentiment_score?: number | null
           thesis_verticals?: string[]
           website_url?: string | null
         }
@@ -749,6 +764,63 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "company_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reputation_logs: {
+        Row: {
+          calculated_at: string
+          community_rating: number | null
+          firm_id: string
+          id: string
+          news_sentiment_score: number | null
+          reputation_score: number
+          social_sentiment_score: number | null
+          source_details: Json | null
+          weight_community: number
+          weight_news: number
+          weight_social: number
+        }
+        Insert: {
+          calculated_at?: string
+          community_rating?: number | null
+          firm_id: string
+          id?: string
+          news_sentiment_score?: number | null
+          reputation_score: number
+          social_sentiment_score?: number | null
+          source_details?: Json | null
+          weight_community?: number
+          weight_news?: number
+          weight_social?: number
+        }
+        Update: {
+          calculated_at?: string
+          community_rating?: number | null
+          firm_id?: string
+          id?: string
+          news_sentiment_score?: number | null
+          reputation_score?: number
+          social_sentiment_score?: number | null
+          source_details?: Json | null
+          weight_community?: number
+          weight_news?: number
+          weight_social?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reputation_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_database"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reputation_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
             referencedColumns: ["id"]
           },
         ]
