@@ -91,9 +91,47 @@ function curvePath(x1: number, y1: number, x2: number, y2: number, index: number
 }
 
 export function NetworkGraph() {
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 420 });
+
+  // Fetch user's profile avatar from DB
+  const { data: profile } = useQuery({
+    queryKey: ["profile-avatar", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  // Enrich the "you" node with user's real avatar
+  const NODES = useMemo(() => {
+    const userAvatar =
+      profile?.avatar_url ||
+      user?.user_metadata?.avatar_url ||
+      user?.user_metadata?.picture ||
+      "";
+    const userName = profile?.full_name || user?.user_metadata?.full_name || "You";
+    const initials = userName
+      .split(" ")
+      .map((w: string) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
+    return BASE_NODES.map((n) =>
+      n.id === "you"
+        ? { ...n, label: userName, avatarUrl: userAvatar, initials }
+        : n
+    );
+  }, [profile, user]);
 
   useEffect(() => {
     const el = containerRef.current;
