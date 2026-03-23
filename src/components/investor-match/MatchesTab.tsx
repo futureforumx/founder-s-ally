@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useState } from "react";
+import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
