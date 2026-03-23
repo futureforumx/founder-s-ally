@@ -280,7 +280,8 @@ function FounderCardSkeleton() {
 
 // ── Investor Card ──
 function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void; onDeployingClick?: () => void;}) {
-  const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
+  const websiteUrl = founder._websiteUrl || null;
+  const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore;
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
