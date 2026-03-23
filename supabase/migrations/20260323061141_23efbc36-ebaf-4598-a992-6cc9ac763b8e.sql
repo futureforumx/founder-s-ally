@@ -1,0 +1,1 @@
+ALTER TABLE public.investor_database RENAME COLUMN founder_sentiment_score TO founder_reputation_score;

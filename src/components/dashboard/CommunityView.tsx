@@ -323,7 +323,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
               {sentimentScore != null && (
                 <div className="flex flex-col items-center">
                   <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
-                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Vibe</span>
+                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
                 </div>
               )}
             </div>
@@ -501,7 +501,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _stages: f.stages || [] as string[],
           _firmType: (dbMatch as any)?.firm_type || "Institutional",
           _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
-          _founderSentimentScore: (dbMatch as any)?.founder_sentiment_score ?? null,
+          _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: f.aum || (dbMatch as any)?.aum || null,
           _logoUrl: f.logo_url || dbMatch?.logo_url || null,

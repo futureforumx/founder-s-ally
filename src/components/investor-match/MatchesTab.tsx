@@ -66,7 +66,7 @@ interface MatchesTabProps {
 type SortMetric = "match" | "sentiment" | "responsiveness" | "activity";
 const SORT_OPTIONS: { key: SortMetric; label: string }[] = [
   { key: "match", label: "Structural Fit" },
-  { key: "sentiment", label: "Founder Vibe" },
+  { key: "sentiment", label: "Founder Reputation" },
   { key: "responsiveness", label: "Reply Speed" },
   { key: "activity", label: "Check Velocity" },
 ];
@@ -122,7 +122,7 @@ function getVelocityLabel(v: number): { label: string; cls: string } {
   return { label: "Paused", cls: "text-destructive" };
 }
 
-function getVibeLabel(v: number): { label: string; cls: string } {
+function getReputationLabel(v: number): { label: string; cls: string } {
   if (v >= 80) return { label: "Excellent", cls: "text-success" };
   if (v >= 60) return { label: "Good", cls: "text-warning" };
   return { label: "Mixed", cls: "text-destructive" };
@@ -304,7 +304,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
 
             const speed = getSpeedLabel(dims.responsiveness);
             const velocity = getVelocityLabel(dims.activity);
-            const vibe = getVibeLabel(dims.sentiment);
+            const vibe = getReputationLabel(dims.sentiment);
             const reviewCount = Math.floor(dims.sentiment / 5);
 
             const warning = getContextualWarning(dims.fit, dims.sentiment, dims.activity);
@@ -398,7 +398,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                     <div className="grid grid-cols-3 gap-2.5">
                       <SensorCell
                         icon={Heart}
-                        label="Founder Vibe"
+                        label="Founder Reputation"
                         value={vibe.label}
                         sublabel={`${reviewCount} reviews`}
                         valueClass={vibe.cls}
