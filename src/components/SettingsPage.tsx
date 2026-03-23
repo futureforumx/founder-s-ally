@@ -9,6 +9,7 @@ import {
   MessageSquare, AlertTriangle, Loader2
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -407,6 +408,48 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
   ];
 
+  const ROLE_OPTIONS: ComboboxOption[] = [
+    { value: "CEO & Founder", label: "CEO & Founder", desc: "Chief Executive Officer" },
+    { value: "CEO & Co-Founder", label: "CEO & Co-Founder", desc: "Co-founded the company" },
+    { value: "CTO & Co-Founder", label: "CTO & Co-Founder", desc: "Technical co-founder" },
+    { value: "CTO", label: "CTO", desc: "Chief Technology Officer" },
+    { value: "COO", label: "COO", desc: "Chief Operating Officer" },
+    { value: "CPO", label: "CPO", desc: "Chief Product Officer" },
+    { value: "Head of Product", label: "Head of Product", desc: "Product leadership" },
+    { value: "Head of Engineering", label: "Head of Engineering", desc: "Engineering leadership" },
+    { value: "Solo Founder", label: "Solo Founder", desc: "Single founder" },
+    { value: "Managing Partner", label: "Managing Partner", desc: "Fund or firm partner" },
+    { value: "General Partner", label: "General Partner", desc: "GP at a fund" },
+    { value: "VP of Engineering", label: "VP of Engineering", desc: "Engineering executive" },
+    { value: "VP of Operations", label: "VP of Operations", desc: "Operations executive" },
+  ];
+
+  const LOCATION_OPTIONS: ComboboxOption[] = [
+    { value: "San Francisco, CA", label: "San Francisco, CA", desc: "Bay Area" },
+    { value: "New York, NY", label: "New York, NY", desc: "East Coast" },
+    { value: "Los Angeles, CA", label: "Los Angeles, CA", desc: "SoCal" },
+    { value: "Austin, TX", label: "Austin, TX", desc: "Texas" },
+    { value: "Miami, FL", label: "Miami, FL", desc: "Florida" },
+    { value: "Boston, MA", label: "Boston, MA", desc: "New England" },
+    { value: "Seattle, WA", label: "Seattle, WA", desc: "Pacific NW" },
+    { value: "Chicago, IL", label: "Chicago, IL", desc: "Midwest" },
+    { value: "London, UK", label: "London, UK", desc: "Europe" },
+    { value: "Berlin, Germany", label: "Berlin, Germany", desc: "Europe" },
+    { value: "Singapore", label: "Singapore", desc: "Asia-Pacific" },
+    { value: "Tel Aviv, Israel", label: "Tel Aviv, Israel", desc: "Middle East" },
+    { value: "Toronto, Canada", label: "Toronto, Canada", desc: "North America" },
+    { value: "Dubai, UAE", label: "Dubai, UAE", desc: "Middle East" },
+    { value: "Bangalore, India", label: "Bangalore, India", desc: "Asia" },
+  ];
+
+  // Auto-save on blur for combobox fields
+  const handleFieldBlur = useCallback(async (field: string, val: string) => {
+    if (!userId) return;
+    const updates: Record<string, string> = { [field]: val };
+    await upsertProfile(updates as any);
+    setOriginal(prev => ({ ...prev, [field === "title" ? "title" : "location"]: val }));
+  }, [userId, upsertProfile]);
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userId) return;
@@ -745,7 +788,15 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
-                      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
+                      <SmartCombobox
+                        value={title}
+                        onChange={setTitle}
+                        onBlur={() => handleFieldBlur("title", title)}
+                        options={ROLE_OPTIONS}
+                        placeholder="e.g. CEO & Co-Founder"
+                        verified={syncedKeys.has("title")}
+                        highlightSync={syncedKeys.has("title")}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -758,7 +809,15 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
-                      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
+                      <SmartCombobox
+                        value={location}
+                        onChange={setLocation}
+                        onBlur={() => handleFieldBlur("location", location)}
+                        options={LOCATION_OPTIONS}
+                        placeholder="San Francisco, CA"
+                        verified={syncedKeys.has("location")}
+                        highlightSync={syncedKeys.has("location")}
+                      />
                     </div>
                   </div>
                   <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
