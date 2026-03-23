@@ -885,14 +885,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           )}
         </AnimatePresence>
 
-        {/* Sign Out */}
-        <button
-          onClick={async () => { await onSignOut(); }}
-          className="flex items-center gap-2 text-xs font-medium text-destructive hover:text-destructive/80 transition-colors py-1"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign Out
-        </button>
 
       </div>
 
