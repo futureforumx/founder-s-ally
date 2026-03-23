@@ -189,9 +189,9 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
               if (!active || !payload?.length) return null;
               const d = payload[0].payload;
               return (
-                <div className="px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg whitespace-nowrap">
+                <div className="px-2.5 py-1.5 rounded-lg bg-card border border-white/10 text-foreground text-[10px] font-mono shadow-lg whitespace-nowrap">
                   <span className="font-semibold">{fmt(d.total)}</span>
-                  <span className="text-background/60 ml-1">· {d.investor}</span>
+                  <span className="text-muted-foreground ml-1">· {d.investor}</span>
                 </div>
               );
             }}
