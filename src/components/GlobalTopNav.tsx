@@ -1,5 +1,4 @@
-import { Building2, Bug } from "lucide-react";
-import * as Sentry from "@sentry/react";
+import { Building2 } from "lucide-react";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
