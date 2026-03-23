@@ -788,7 +788,15 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
-                      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
+                      <SmartCombobox
+                        value={title}
+                        onChange={setTitle}
+                        onBlur={() => handleFieldBlur("title", title)}
+                        options={ROLE_OPTIONS}
+                        placeholder="e.g. CEO & Co-Founder"
+                        verified={syncedKeys.has("title")}
+                        highlightSync={syncedKeys.has("title")}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
