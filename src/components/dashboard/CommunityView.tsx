@@ -1073,7 +1073,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
             {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
