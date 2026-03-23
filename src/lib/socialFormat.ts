@@ -56,7 +56,7 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   // If still contains slashes or dots it might be an unknown domain — prepend https://
   if (cleaned.includes("/") || cleaned.includes(".")) {
-    return `https://${cleaned}`;
+    return `https://${cleaned}`.toLowerCase();
   }
 
   // Pure username → prepend base URL
