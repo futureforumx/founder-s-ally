@@ -5,61 +5,67 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 210 20% 98%;
-    --foreground: 215 25% 12%;
+  :root,
+  .dark {
+    --background: 240 20% 4%;
+    --foreground: 0 0% 100%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 12%;
+    --card: 260 18% 8%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 12%;
+    --popover: 260 18% 8%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 95%;
-    --secondary-foreground: 215 25% 12%;
+    --secondary: 260 20% 14%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 260 15% 14%;
+    --muted-foreground: 220 15% 60%;
 
-    --accent: 217 91% 60%;
+    --accent: 263 70% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 44%;
+    --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 142 76% 42%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 210 20% 92%;
-    --input: 210 20% 92%;
-    --ring: 217 91% 60%;
+    --border: 260 15% 14%;
+    --input: 260 15% 14%;
+    --ring: 263 70% 55%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --shadow-sm: 0 0 0 1px rgba(0,0,0,.03), 0 1px 2px rgba(0,0,0,.04);
-    --shadow-md: 0 0 0 1px rgba(0,0,0,.03), 0 4px 6px -1px rgba(0,0,0,.04), 0 2px 4px -1px rgba(0,0,0,.02);
-    --shadow-lg: 0 0 0 1px rgba(0,0,0,.03), 0 10px 15px -3px rgba(0,0,0,.05), 0 4px 6px -2px rgba(0,0,0,.02);
+    --shadow-sm: 0 0 0 1px rgba(139,92,246,0.06), 0 1px 3px rgba(0,0,0,.3);
+    --shadow-md: 0 0 0 1px rgba(139,92,246,0.08), 0 4px 12px rgba(0,0,0,.4);
+    --shadow-lg: 0 0 30px rgba(107,70,193,0.15), 0 8px 24px rgba(0,0,0,.4);
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 260 20% 6%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 263 70% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 16%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 260 25% 14%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 260 15% 14%;
+    --sidebar-ring: 263 70% 55%;
 
-    --heat-0: 210 20% 95%;
-    --heat-1: 213 60% 82%;
-    --heat-2: 217 70% 60%;
-    --heat-3: 220 75% 45%;
-    --heat-4: 222 80% 25%;
+    --heat-0: 260 15% 12%;
+    --heat-1: 263 40% 30%;
+    --heat-2: 263 60% 45%;
+    --heat-3: 263 70% 55%;
+    --heat-4: 263 80% 65%;
+
+    --neon-purple: 263 70% 55%;
+    --neon-purple-glow: 263 80% 65%;
+    --ice-blue: 213 94% 78%;
+    --ice-blue-glow: 213 94% 87%;
   }
 }
 
