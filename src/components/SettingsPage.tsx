@@ -809,7 +809,15 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
-                      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
+                      <SmartCombobox
+                        value={location}
+                        onChange={setLocation}
+                        onBlur={() => handleFieldBlur("location", location)}
+                        options={LOCATION_OPTIONS}
+                        placeholder="San Francisco, CA"
+                        verified={syncedKeys.has("location")}
+                        highlightSync={syncedKeys.has("location")}
+                      />
                     </div>
                   </div>
                   <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
