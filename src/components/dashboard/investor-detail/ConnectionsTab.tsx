@@ -168,6 +168,7 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
           ))}
         </div>
       </div>
+    </motion.div>
     </ConnectionsGate>
   );
 }
