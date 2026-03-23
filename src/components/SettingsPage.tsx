@@ -642,29 +642,111 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
               </div>
 
               {/* Right column: Identity Verification zone */}
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 min-h-[120px] p-4 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 mb-2">
-                  <Shield className="h-5 w-5 text-accent" />
-                </div>
-                <p className="text-xs font-semibold text-foreground mb-0.5">Identity Verification</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed max-w-[180px]">
-                  Connect LinkedIn & X to unlock verified founder badge
-                </p>
-                {(isLinkedinValid || twitterUrl.trim()) && (
-                  <div className="flex items-center gap-1.5 mt-2">
-                    {isLinkedinValid && (
-                      <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold gap-0.5">
-                        <CheckCircle2 className="h-2.5 w-2.5" /> LinkedIn
-                      </Badge>
-                    )}
-                    {twitterUrl.trim() && (
-                      <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold gap-0.5">
-                        <CheckCircle2 className="h-2.5 w-2.5" /> X
-                      </Badge>
+              {(() => {
+                const isVerified = isLinkedinValid && !!twitterUrl.trim() && hasSynced;
+                const linkedinDone = isLinkedinValid;
+                const twitterDone = !!twitterUrl.trim();
+                return (
+                  <div className={cn(
+                    "flex flex-col rounded-xl border min-h-[120px] p-4 transition-all duration-500",
+                    isVerified
+                      ? "border-success/30 bg-success/5"
+                      : "border-dashed border-border/60 bg-muted/20"
+                  )}>
+                    {/* Header */}
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-colors",
+                        isVerified ? "bg-success/10" : "bg-accent/10"
+                      )}>
+                        {isVerified ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400 }}>
+                            <CheckCircle2 className="h-5 w-5 text-success" />
+                          </motion.div>
+                        ) : (
+                          <Shield className="h-5 w-5 text-accent" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground leading-tight">Identity Verification</p>
+                        <Badge className={cn(
+                          "mt-0.5 text-[8px] uppercase font-bold",
+                          isVerified
+                            ? "bg-success/10 text-success border-success/20"
+                            : "bg-warning/10 text-warning border-warning/20"
+                        )}>
+                          {isVerified ? "Verified" : "Unverified"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Checklist */}
+                    <div className="space-y-2 flex-1">
+                      {/* LinkedIn check */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", linkedinDone ? "border-success bg-success/10" : "border-muted-foreground/30")}>
+                            {linkedinDone && <CheckCircle2 className="h-3 w-3 text-success" />}
+                          </div>
+                          <span className={cn("text-[11px]", linkedinDone ? "text-foreground" : "text-muted-foreground")}>LinkedIn URL</span>
+                        </div>
+                        {!linkedinDone && (
+                          <button
+                            onClick={() => {
+                              const el = document.querySelector('input[placeholder*="linkedin"]');
+                              if (el) (el as HTMLInputElement).focus();
+                            }}
+                            className="text-[9px] font-semibold text-accent hover:text-accent/80 transition-colors"
+                          >
+                            Connect
+                          </button>
+                        )}
+                      </div>
+
+                      {/* X check */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", twitterDone ? "border-success bg-success/10" : "border-muted-foreground/30")}>
+                            {twitterDone && <CheckCircle2 className="h-3 w-3 text-success" />}
+                          </div>
+                          <span className={cn("text-[11px]", twitterDone ? "text-foreground" : "text-muted-foreground")}>X / Twitter</span>
+                        </div>
+                        {!twitterDone && (
+                          <button
+                            onClick={() => {
+                              const el = document.querySelector('input[placeholder*="x.com"]');
+                              if (el) (el as HTMLInputElement).focus();
+                            }}
+                            className="text-[9px] font-semibold text-accent hover:text-accent/80 transition-colors"
+                          >
+                            Connect
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Profile Synced check */}
+                      <div className="flex items-center gap-2">
+                        <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", hasSynced ? "border-success bg-success/10" : "border-muted-foreground/30")}>
+                          {hasSynced && <CheckCircle2 className="h-3 w-3 text-success" />}
+                        </div>
+                        <span className={cn("text-[11px]", hasSynced ? "text-foreground" : "text-muted-foreground")}>Profile Synced</span>
+                      </div>
+                    </div>
+
+                    {/* Footer badge */}
+                    {isVerified && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-3 pt-2.5 border-t border-success/20 flex items-center justify-center gap-1.5"
+                      >
+                        <Crown className="h-3.5 w-3.5 text-success" />
+                        <span className="text-[10px] font-bold text-success uppercase tracking-wider">Verified Founder</span>
+                      </motion.div>
                     )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
 
             {/* AI Insight Banner */}
