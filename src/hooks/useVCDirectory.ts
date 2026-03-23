@@ -10,6 +10,7 @@ export interface VCFirm {
   stages: string[] | null;
   sectors: string[] | null;
   logo_url: string | null;
+  website_url: string | null;
 }
 
 export interface VCPerson {

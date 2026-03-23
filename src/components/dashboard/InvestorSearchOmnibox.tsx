@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Building2, User, X, Loader2, ArrowRight } from "lucide-react";
+import { Search, User, X, Loader2, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 export interface InvestorTypeaheadResult {
@@ -8,6 +9,8 @@ export interface InvestorTypeaheadResult {
   name: string;
   subtitle: string;
   type: "firm" | "person";
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 interface InvestorSearchOmniboxProps {
@@ -56,6 +59,8 @@ export function InvestorSearchOmnibox({
         name: f.name,
         subtitle: [f.stages?.slice(0, 2).join(", "), f.aum].filter(Boolean).join(" · ") || "Investor",
         type: "firm" as const,
+        logoUrl: f.logo_url,
+        websiteUrl: f.website_url,
       }));
 
     const pr: InvestorTypeaheadResult[] = people
@@ -186,9 +191,13 @@ export function InvestorSearchOmnibox({
                         highlightIdx === i ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
                       }`}
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                      </div>
+                      <FirmLogo
+                        firmName={result.name}
+                        logoUrl={result.logoUrl}
+                        websiteUrl={result.websiteUrl}
+                        size="sm"
+                        className="shrink-0"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">{result.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
