@@ -54,6 +54,11 @@ export type { InvestorEntry };
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm, initialTab }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
   const [reviewOpen, setReviewOpen] = useState(false);
+
+  // Reset tab when initialTab or investor changes
+  useEffect(() => {
+    setActiveTab(initialTab || "Updates");
+  }, [initialTab, investor?.name]);
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
