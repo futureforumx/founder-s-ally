@@ -71,8 +71,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 rounded-2xl overflow-hidden border-border bg-card max-h-[80vh]">
-        <div className="flex h-full min-h-[480px]">
+      <DialogContent className="sm:max-w-2xl p-0 gap-0 rounded-2xl overflow-hidden border-border bg-card max-h-[85vh]">
+        <div className="flex h-full min-h-[480px] max-h-[85vh]">
           {/* Sidebar */}
           <div className="w-48 border-r border-border bg-muted/20 p-4 shrink-0 flex flex-col">
             <h2 className="text-sm font-bold text-foreground mb-4 px-2">Settings</h2>
