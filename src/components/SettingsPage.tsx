@@ -623,9 +623,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           </div>
         </div>
 
-        {/* Admin Access — compact */}
-        <AdminAccessSection userId={userId} />
-
         <Separator />
 
         {/* Sign Out */}
