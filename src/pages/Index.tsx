@@ -192,6 +192,16 @@ const Index = () => {
     return () => window.removeEventListener("navigate-view", handler);
   }, []);
 
+  // Redirect "company" sidebar to Settings > Entity
+  useEffect(() => {
+    if (activeView === "company") {
+      setActiveView("settings");
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "company");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [activeView]);
+
   const handleMetricEdit = (key: string, value: string) => {
     if (!analysisResult) return;
     setAnalysisResult({
