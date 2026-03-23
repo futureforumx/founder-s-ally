@@ -7,6 +7,8 @@ const STATS = [
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
 
+type AdminView = "overview" | "api-health" | "sync-logs" | "ai-debugger";
+
 interface AdminOverviewProps {
   onNavigate: (view: string) => void;
 }
