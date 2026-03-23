@@ -538,16 +538,36 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
   const { data: dbInvestors } = useInvestorDirectory();
 
-  // Build a lookup map from DB investors by firm name (lowercase)
+  // Build lookup maps with normalized keys and aliases
   const dbInvestorMap = useMemo(() => {
-    const m = new Map<string, typeof dbInvestors extends (infer T)[] | undefined ? T : never>();
+    const m = new Map<string, any>();
     if (dbInvestors) {
       for (const inv of dbInvestors) {
-        m.set(inv.name.toLowerCase().trim(), inv);
+        const normalized = normalizeFirmName(inv.name);
+        for (const key of getAliasKeys(normalized)) m.set(key, inv);
       }
     }
     return m;
   }, [dbInvestors]);
+
+  const vcFirmMap = useMemo(() => {
+    const m = new Map<string, VCFirm>();
+    for (const firm of vcFirms) {
+      const normalized = normalizeFirmName(firm.name);
+      for (const key of getAliasKeys(normalized)) m.set(key, firm);
+    }
+    return m;
+  }, [vcFirms]);
+
+  const getDbMatch = useCallback(
+    (name: string) => dbInvestorMap.get(normalizeFirmName(name)) ?? null,
+    [dbInvestorMap]
+  );
+
+  const getVCFirmMatch = useCallback(
+    (name: string) => vcFirmMap.get(normalizeFirmName(name)) ?? null,
+    [vcFirmMap]
+  );
 
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
@@ -556,7 +576,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
       .map(f => {
-        const dbMatch = dbInvestorMap.get(f.name.toLowerCase().trim());
+        const dbMatch = getDbMatch(f.name);
+        const fallbackWebsite = f.website_url || deriveWebsiteUrlFromFirmId(f.id);
+
         return {
           name: f.name,
           sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
@@ -574,15 +596,15 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: f.aum || (dbMatch as any)?.aum || null,
-          _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+          _logoUrl: (dbMatch as any)?.logo_url || f.logo_url || null,
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
           _firmId: (dbMatch as any)?.id || f.id || null,
-          _websiteUrl: (dbMatch as any)?.website_url || null,
+          _websiteUrl: (dbMatch as any)?.website_url || fallbackWebsite || null,
         };
       });
-  }, [vcFirms, dbInvestorMap]);
+  }, [vcFirms, getDbMatch]);
 
   // Convert real founder profiles to DirectoryEntry format
   const realFounderEntries: DirectoryEntry[] = useMemo(() => {
@@ -608,7 +630,18 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     return [
       ...realFounderEntries,
       ...ALL_ENTRIES.map(e => {
-        const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+        if (e.category !== "investor") {
+          return {
+            ...e,
+            _sectors: [] as string[],
+            _stages: [] as string[],
+          };
+        }
+
+        const dbMatch = getDbMatch(e.name);
+        const vcMatch = getVCFirmMatch(e.name);
+        const fallbackWebsite = vcMatch?.website_url || deriveWebsiteUrlFromFirmId(vcMatch?.id);
+
         return {
           ...e,
           _sectors: [] as string[],
@@ -616,14 +649,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
-          _firmId: (dbMatch as any)?.id ?? null,
-          _websiteUrl: (dbMatch as any)?.website_url ?? null,
+          _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? null,
+          _websiteUrl: (dbMatch as any)?.website_url ?? e._websiteUrl ?? fallbackWebsite ?? null,
           _logoUrl: (dbMatch as any)?.logo_url ?? e._logoUrl ?? null,
         };
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries, dbInvestorMap]);
+  }, [vcEntries, realFounderEntries, getDbMatch, getVCFirmMatch]);
 
   const hasProfile = !!companyData?.name;
 
