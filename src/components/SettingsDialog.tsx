@@ -40,24 +40,7 @@ function loadConn(): ConnStatus {
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
-// ── Notification prefs persistence ──
-const NOTIF_KEY = "settings-notification-prefs";
-interface NotifPrefs {
-  emailDigest: boolean;
-  matchAlerts: boolean;
-  communityUpdates: boolean;
-  productNews: boolean;
-  pushEnabled: boolean;
-}
-const DEFAULT_NOTIFS: NotifPrefs = {
-  emailDigest: true, matchAlerts: true, communityUpdates: false,
-  productNews: true, pushEnabled: false,
-};
-function loadNotifs(): NotifPrefs {
-  try { const r = localStorage.getItem(NOTIF_KEY); if (r) return JSON.parse(r); } catch {}
-  return DEFAULT_NOTIFS;
-}
-function saveNotifs(n: NotifPrefs) { localStorage.setItem(NOTIF_KEY, JSON.stringify(n)); }
+// Notification and privacy prefs are now DB-backed via useUserPreferences
 
 interface SettingsDialogProps {
   open: boolean;
