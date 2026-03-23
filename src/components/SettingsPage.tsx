@@ -21,10 +21,38 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// ── Tab definitions ──
+// ── Section & Tab definitions ──
+type SettingsSection = "personal" | "entity" | "network-sec" | "preferences" | "account-sec";
 type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "subscription";
 
-const TABS: { id: SettingsTab; label: string }[] = [
+const SECTIONS: { id: SettingsSection; label: string }[] = [
+  { id: "personal", label: "Personal" },
+  { id: "entity", label: "Entity" },
+  { id: "network-sec", label: "Network" },
+  { id: "preferences", label: "Preferences" },
+  { id: "account-sec", label: "Account" },
+];
+
+const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]> = {
+  "personal": [
+    { id: "account", label: "Profile" },
+  ],
+  "entity": [
+    { id: "company", label: "Company" },
+  ],
+  "network-sec": [
+    { id: "network", label: "Connections" },
+  ],
+  "preferences": [
+    { id: "notifications", label: "Notifications" },
+    { id: "privacy", label: "Privacy" },
+  ],
+  "account-sec": [
+    { id: "subscription", label: "Subscription" },
+  ],
+};
+
+const ALL_TABS: { id: SettingsTab; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "company", label: "Company" },
   { id: "network", label: "Network" },
@@ -33,11 +61,18 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: "subscription", label: "Subscription" },
 ];
 
+function getSectionForTab(tab: SettingsTab): SettingsSection {
+  for (const [section, tabs] of Object.entries(SECTION_TABS)) {
+    if (tabs.some(t => t.id === tab)) return section as SettingsSection;
+  }
+  return "personal";
+}
+
 // ── URL sync helper ──
 function getTabFromUrl(): SettingsTab {
   const params = new URLSearchParams(window.location.search);
   const tab = params.get("tab") as SettingsTab | null;
-  if (tab && TABS.some(t => t.id === tab)) return tab;
+  if (tab && ALL_TABS.some(t => t.id === tab)) return tab;
   return "account";
 }
 
@@ -52,9 +87,17 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
   const { user, signOut } = useAuth();
 
+  const activeSection = getSectionForTab(activeTab);
+  const currentTabs = SECTION_TABS[activeSection];
+
   const handleTabChange = (tab: SettingsTab) => {
     setActiveTab(tab);
     setTabInUrl(tab);
+  };
+
+  const handleSectionChange = (section: SettingsSection) => {
+    const firstTab = SECTION_TABS[section][0];
+    handleTabChange(firstTab.id);
   };
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -63,38 +106,61 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Sticky Tab Bar */}
+      {/* Sticky Section + Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="px-8">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide relative">
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab.id;
+        {/* Top-level sections */}
+        <div className="px-8 pt-3">
+          <div className="flex items-center gap-1">
+            {SECTIONS.map((sec) => {
+              const isActive = activeSection === sec.id;
               return (
                 <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
+                  key={sec.id}
+                  onClick={() => handleSectionChange(sec.id)}
                   className={cn(
-                    "relative px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap",
+                    "px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest rounded-md transition-all",
                     isActive
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-accent/10 text-accent font-bold"
+                      : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30"
                   )}
                 >
-                  {tab.label}
-                  {isActive && (
-                    <motion.div
-                      layoutId="settings-tab-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-0.5"
-                      style={{ backgroundColor: "#00C48C" }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    />
-                  )}
+                  {sec.label}
                 </button>
               );
             })}
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
           </div>
         </div>
+        {/* Sub-tabs (only when section has multiple tabs) */}
+        {currentTabs.length > 1 && (
+          <div className="px-8">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide relative">
+              {currentTabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={cn(
+                      "relative px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {tab.label}
+                    {isActive && (
+                      <motion.div
+                        layoutId="settings-tab-indicator"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tab Content */}
