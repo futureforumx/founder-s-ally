@@ -791,7 +791,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
   // When clicking an investor card, try to resolve VCFirm for rich profile
   const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
-    // Try to find matching VCFirm by name
+    setInvestorInitialTab("Updates");
     const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
     if (vcMatch) {
       setSelectedVCFirm(vcMatch);
