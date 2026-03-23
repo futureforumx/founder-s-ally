@@ -375,26 +375,49 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Real founder profiles from database
   const { founders: realFounders, loading: foundersLoading } = useFounderProfiles();
 
+  // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
+  const { data: dbInvestors } = useInvestorDirectory();
+
+  // Build a lookup map from DB investors by firm name (lowercase)
+  const dbInvestorMap = useMemo(() => {
+    const m = new Map<string, typeof dbInvestors extends (infer T)[] | undefined ? T : never>();
+    if (dbInvestors) {
+      for (const inv of dbInvestors) {
+        m.set(inv.name.toLowerCase().trim(), inv);
+      }
+    }
+    return m;
+  }, [dbInvestors]);
+
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
   const vcEntries = useMemo(() => {
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
     return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
-      .map(f => ({
-        name: f.name,
-        sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
-        stage: f.stages?.join(", ") || "Multi-stage",
-        description: f.description || `${f.name} is an active investment firm.`,
-        location: "",
-        model: f.sweet_spot || f.aum || "",
-        initial: f.name.charAt(0).toUpperCase(),
-        matchReason: null,
-        category: "investor" as const,
-        _sectors: f.sectors || [] as string[], // exact sector strings for matching
-        _stages: f.stages || [] as string[],
-      }));
-  }, [vcFirms]);
+      .map(f => {
+        const dbMatch = dbInvestorMap.get(f.name.toLowerCase().trim());
+        return {
+          name: f.name,
+          sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+          stage: f.stages?.join(", ") || "Multi-stage",
+          description: f.description || `${f.name} is an active investment firm.`,
+          location: dbMatch?.location || "",
+          model: f.sweet_spot || f.aum || "",
+          initial: f.name.charAt(0).toUpperCase(),
+          matchReason: null,
+          category: "investor" as const,
+          _sectors: f.sectors || [] as string[],
+          _stages: f.stages || [] as string[],
+          _firmType: (dbMatch as any)?.firm_type || "Institutional",
+          _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
+          _founderSentimentScore: (dbMatch as any)?.founder_sentiment_score ?? null,
+          _headcount: (dbMatch as any)?.headcount ?? null,
+          _aum: f.aum || (dbMatch as any)?.aum || null,
+          _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+        };
+      });
+  }, [vcFirms, dbInvestorMap]);
 
   // Convert real founder profiles to DirectoryEntry format
   const realFounderEntries: DirectoryEntry[] = useMemo(() => {
