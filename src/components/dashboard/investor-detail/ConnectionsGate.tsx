@@ -55,56 +55,44 @@ const SOURCES: {
   key: SourceKey;
   label: string;
   icon: React.ElementType;
-  color: string;
-  bgColor: string;
-  borderColor: string;
   description: string;
   stats: string;
   unlockMessage: string;
+  actionType: "login" | "sync";
+  glowBg: string;
+  liveMsg: string;
 }[] = [
   {
-    key: "gmail",
-    label: "Gmail",
-    icon: Mail,
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/20",
+    key: "gmail", label: "Gmail", icon: Mail,
     description: "Scan email threads for warm intro paths and VC contact graph",
     stats: "2,340 emails scanned · 47 VC contacts found",
     unlockMessage: "🔓 Warm Intro Paths unlocked",
+    actionType: "sync", glowBg: "bg-blue-500",
+    liveMsg: "12 new signals today",
   },
   {
-    key: "linkedin",
-    label: "LinkedIn",
-    icon: Linkedin,
-    color: "text-blue-600",
-    bgColor: "bg-blue-600/10",
-    borderColor: "border-blue-600/20",
-    description: "Map your professional network to discover 1st & 2nd degree paths to investors",
+    key: "linkedin", label: "LinkedIn", icon: Linkedin,
+    description: "Map your professional network to discover 1st & 2nd degree paths",
     stats: "312 connections mapped · 18 investor paths",
     unlockMessage: "🔓 Network Graph + 2nd-degree paths unlocked",
+    actionType: "login", glowBg: "bg-blue-600",
+    liveMsg: "2nd degree: 4.2k",
   },
   {
-    key: "twitter",
-    label: "X (Twitter)",
-    icon: Twitter,
-    color: "text-foreground",
-    bgColor: "bg-foreground/5",
-    borderColor: "border-foreground/10",
-    description: "Track social sentiment, mentions, and engagement with investor accounts",
+    key: "twitter", label: "X (Twitter)", icon: Twitter,
+    description: "Track social sentiment, mentions, and investor engagement",
     stats: "1,280 interactions analyzed · 9 VCs engaged",
     unlockMessage: "🔓 Social Sentiment Analysis unlocked",
+    actionType: "sync", glowBg: "bg-foreground",
+    liveMsg: "89 mutual follows",
   },
   {
-    key: "angellist",
-    label: "AngelList",
-    icon: Zap,
-    color: "text-foreground",
-    bgColor: "bg-foreground/5",
-    borderColor: "border-foreground/10",
+    key: "angellist", label: "AngelList", icon: Zap,
     description: "Sync portfolio follows, past applications, and investor activity",
     stats: "8 applications synced · 23 investors tracked",
     unlockMessage: "🔓 Investor Activity Feed unlocked",
+    actionType: "sync", glowBg: "bg-amber-400",
+    liveMsg: "3 apps tracked",
   },
 ];
 
