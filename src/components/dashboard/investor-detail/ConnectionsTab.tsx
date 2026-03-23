@@ -312,47 +312,42 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
               const origIdx = WHISPER_FEED.indexOf(review);
               const vote = votes[origIdx] ?? null;
               return (
-                <div key={origIdx} className="bg-card border border-border p-4 rounded-xl flex gap-4">
+                <div key={origIdx} className="bg-card border border-border px-3 py-2 rounded-lg flex items-center gap-3">
+                  <div className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
+                    review.nps >= 8 ? "border-success/30 bg-success/10 text-success"
+                      : review.nps >= 5 ? "border-warning/30 bg-warning/10 text-warning"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}>
+                    {review.nps}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-muted-foreground mb-2"><span className="font-bold text-foreground">{review.sector} {review.stage} Founder</span></p>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-[10px] text-foreground">{review.sector} {review.stage} Founder</span>
                       {review.tags.map((tag, j) => (
-                        <span key={tag} className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${review.tagColors[j]}`}>
+                        <span key={tag} className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${review.tagColors[j]}`}>
                           {tag}
                         </span>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{review.text}</p>
+                    <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">{review.text}</p>
                   </div>
-                  {/* Rating + Voting */}
-                  <div className="flex flex-col items-center gap-2 shrink-0">
-                    <div className={`flex items-center justify-center h-10 w-10 rounded-xl border text-sm font-black ${
-                      review.nps >= 8
-                        ? "border-success/30 bg-success/10 text-success"
-                        : review.nps >= 5
-                        ? "border-warning/30 bg-warning/10 text-warning"
-                        : "border-destructive/30 bg-destructive/10 text-destructive"
-                    }`}>
-                      {review.nps}
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
-                        className={`flex items-center justify-center h-7 w-7 rounded-lg transition-colors ${
-                          vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        <ThumbsUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
-                        className={`flex items-center justify-center h-7 w-7 rounded-lg transition-colors ${
-                          vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        <ThumbsDown className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
+                      className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                        vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      <ThumbsUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
+                      className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                        vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      <ThumbsDown className="h-3 w-3" />
+                    </button>
                   </div>
                 </div>
               );
