@@ -165,13 +165,13 @@ function StructuralFitBox({ score, reasons }: { score: number; reasons: string[]
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="left" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5">
+        <TooltipContent side="left" className="z-[9999] max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
           <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Measures alignment between your company profile and this investor's thesis across sector, stage, geography, and check size using vector similarity.
+            Measures alignment between your company profile and this investor&apos;s thesis across sector, stage, geography, and check size using vector similarity.
           </p>
           <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
-            = cosine_sim(sector) × stage_match × geo_fit × check_range
+            {"= cosine_sim(sector) \u00D7 stage_match \u00D7 geo_fit \u00D7 check_range"}
           </p>
         </TooltipContent>
       </Tooltip>
