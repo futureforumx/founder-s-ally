@@ -50,7 +50,7 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
         ].map((card) => (
           <button
             key={card.key}
-            onClick={() => onNavigate(card.key)}
+            onClick={() => onNavigate(card.key as AdminView)}
             className="group flex flex-col items-start rounded-xl border p-5 text-left transition-colors hover:border-emerald-500/20"
             style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a0a0a" }}
           >
