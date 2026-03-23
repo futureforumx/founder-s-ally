@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle, Mail, Clock, ArrowRight, ThumbsUp, ThumbsDown, Newspaper, MessagesSquare, Share2, ChevronDown } from "lucide-react";
+import { Network, MessageSquare, Building2, Loader2, Users, Mail, Clock, ArrowRight, ThumbsUp } from "lucide-react";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
