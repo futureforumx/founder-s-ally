@@ -881,6 +881,24 @@ function SecurityTab() {
 
 // ── Subscription Tab ──
 function SubscriptionTab() {
+  const { profile, upsertProfile } = useProfile();
+  const [userType, setUserType] = useState(profile?.user_type || "founder");
+
+  useEffect(() => {
+    if (profile?.user_type) setUserType(profile.user_type);
+  }, [profile?.user_type]);
+
+  const handleUserTypeChange = (type: string) => {
+    setUserType(type);
+    upsertProfile({ user_type: type });
+  };
+
+  const USER_TYPES = [
+    { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
+    { id: "operator", label: "Operator", icon: UserCog, desc: "Fractional or advisory" },
+    { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
+  ];
+
   const PLANS = [
     {
       name: "Free",
@@ -911,6 +929,38 @@ function SubscriptionTab() {
   return (
     <TabWrapper>
       <div className="space-y-8">
+        {/* User Type Selector */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">I am a</h3>
+          <div className="flex gap-2">
+            {USER_TYPES.map((type) => {
+              const Icon = type.icon;
+              const isActive = userType === type.id;
+              return (
+                <button
+                  key={type.id}
+                  onClick={() => handleUserTypeChange(type.id)}
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 transition-all",
+                    isActive ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border/80 hover:bg-muted/20"
+                  )}
+                >
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
+                    <Icon className={cn("h-3.5 w-3.5", isActive ? "text-accent" : "text-muted-foreground")} />
+                  </div>
+                  <div className="text-left">
+                    <p className={cn("text-xs font-semibold", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
+                    <p className="text-[9px] text-muted-foreground">{type.desc}</p>
+                  </div>
+                  {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 ml-auto" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Current Plan — Dark Bento Card */}
         <div className="rounded-2xl p-6 text-white" style={{ backgroundColor: "#0A0A0A" }}>
           <div className="flex items-center justify-between mb-4">
