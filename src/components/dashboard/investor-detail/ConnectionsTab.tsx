@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle, Mail, Clock, ArrowRight, ThumbsUp, Newspaper, MessagesSquare, Share2 } from "lucide-react";
+import { Network, MessageSquare, Sparkles, Building2, Loader2, Star, TrendingUp, Users, MessageCircle, Mail, Clock, ArrowRight, ThumbsUp, ThumbsDown, Newspaper, MessagesSquare, Share2, ChevronDown } from "lucide-react";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ const WHISPER_FEED = [
   {
     sector: "SaaS",
     stage: "Seed",
+    nps: 8,
+    date: "2025-12-14",
     tags: ["Passed after 2nd Meeting", "Helpful Feedback"],
     tagColors: ["bg-secondary text-muted-foreground", "bg-success/10 text-success"],
     text: "They dug really deep into our GTM motion. Ultimately passed because market size was too small for their fund math, but the partner gave us incredibly actionable advice.",
@@ -38,6 +40,8 @@ const WHISPER_FEED = [
   {
     sector: "Fintech",
     stage: "Series A",
+    nps: 10,
+    date: "2026-01-22",
     tags: ["Term Sheet in 3 Weeks", "Board Seat"],
     tagColors: ["bg-success/10 text-success", "bg-primary/10 text-primary"],
     text: "Fastest process we experienced. Very data-driven diligence, asked for cohort data upfront. Partner was deeply engaged and added real value post-close.",
@@ -45,15 +49,20 @@ const WHISPER_FEED = [
   {
     sector: "Climate",
     stage: "Pre-Seed",
+    nps: 3,
+    date: "2026-02-08",
     tags: ["Ghosted after IC", "Slow Process"],
     tagColors: ["bg-destructive/10 text-destructive", "bg-warning/10 text-warning"],
     text: "Great initial conversations, felt like strong alignment. After IC presentation there was radio silence for 6 weeks. Eventually got a pass via email with no feedback.",
   },
 ];
 
+type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
+  const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
 
   useEffect(() => {
     if (!investorName) {
@@ -260,7 +269,24 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
 
       {/* Tier 3: Structured Feedback */}
       <div>
-        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Founder Experiences</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Founder Experiences</p>
+          <div className="flex items-center gap-1">
+            {(["latest", "earliest", "highest", "lowest"] as ReviewSort[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setReviewSort(s)}
+                className={`text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
+                  reviewSort === s
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* CTA Box */}
         <div className="bg-foreground text-background rounded-2xl p-5 flex items-center justify-between mb-4 shadow-lg">
@@ -275,19 +301,62 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
 
         {/* Whisper Feed */}
         <div className="space-y-2">
-          {WHISPER_FEED.map((review, i) => (
-            <div key={i} className="bg-card border border-border p-4 rounded-xl">
-              <p className="text-[10px] text-muted-foreground mb-2"><span className="font-bold text-foreground">{review.sector} {review.stage} Founder</span></p>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {review.tags.map((tag, j) => (
-                  <span key={tag} className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${review.tagColors[j]}`}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{review.text}</p>
-            </div>
-          ))}
+          {[...WHISPER_FEED]
+            .sort((a, b) => {
+              if (reviewSort === "latest") return new Date(b.date).getTime() - new Date(a.date).getTime();
+              if (reviewSort === "earliest") return new Date(a.date).getTime() - new Date(b.date).getTime();
+              if (reviewSort === "highest") return b.nps - a.nps;
+              return a.nps - b.nps;
+            })
+            .map((review, i) => {
+              const origIdx = WHISPER_FEED.indexOf(review);
+              const vote = votes[origIdx] ?? null;
+              return (
+                <div key={origIdx} className="bg-card border border-border p-4 rounded-xl flex gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-muted-foreground mb-2"><span className="font-bold text-foreground">{review.sector} {review.stage} Founder</span></p>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {review.tags.map((tag, j) => (
+                        <span key={tag} className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${review.tagColors[j]}`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{review.text}</p>
+                  </div>
+                  {/* Rating + Voting */}
+                  <div className="flex flex-col items-center gap-2 shrink-0">
+                    <div className={`flex items-center justify-center h-10 w-10 rounded-xl border text-sm font-black ${
+                      review.nps >= 8
+                        ? "border-success/30 bg-success/10 text-success"
+                        : review.nps >= 5
+                        ? "border-warning/30 bg-warning/10 text-warning"
+                        : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }`}>
+                      {review.nps}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
+                        className={`flex items-center justify-center h-7 w-7 rounded-lg transition-colors ${
+                          vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
+                        className={`flex items-center justify-center h-7 w-7 rounded-lg transition-colors ${
+                          vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
     </motion.div>
