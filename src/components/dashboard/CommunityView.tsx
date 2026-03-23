@@ -59,6 +59,8 @@ interface DirectoryEntry {
   _aum?: string | null;
   _logoUrl?: string | null;
   _matchScore?: number | null;
+  _firmId?: string | null;
+  _websiteUrl?: string | null;
 }
 
 // ── Mock data: Suggested ──
