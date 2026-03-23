@@ -1,33 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2, Globe, MapPin, Layers, TrendingUp,
   CheckCircle2, Unlink, RefreshCw, ExternalLink,
   Search, PlusCircle, Clock, X, Shield, Lock,
-  ArrowRight, AlertTriangle, Mail
+  ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useCapTable } from "@/hooks/useCapTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CompanyProfile, type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
+import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
+import { ProfileStrength } from "@/components/company-profile/ProfileStrength";
+import type { SectorClassification } from "@/components/SectorTags";
 
 // ── Types ──
-
-interface CompanyData {
-  id: string;
-  company_name: string;
-  website_url: string | null;
-  sector: string | null;
-  stage: string | null;
-  health_score: number | null;
-  updated_at: string;
-  is_claimed?: boolean;
-  claimed_by?: string | null;
-  user_id?: string;
-}
 
 interface CompanySearchResult {
   id: string;
@@ -86,8 +78,8 @@ function emailMatchesDomain(email: string, domain: string): boolean {
 
 export function CompanyTab() {
   const { user } = useAuth();
+  const capTable = useCapTable();
   const [state, setState] = useState<TabState>("search");
-  const [company, setCompany] = useState<CompanyData | null>(null);
   const [membership, setMembership] = useState<MembershipRow | null>(null);
   const [ownerInfo, setOwnerInfo] = useState<OwnerInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,6 +94,32 @@ export function CompanyTab() {
 
   const debouncedQuery = useDebounce(query, 300);
 
+  // Company profile editor state
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
+  });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-analysis");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+  const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
+  const [stageClassification, setStageClassification] = useState<any>(null);
+  const [isProfileVerified, setIsProfileVerified] = useState(() => {
+    try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
+  });
+  const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>({});
+  const [investorsConfirmed, setInvestorsConfirmed] = useState(false);
+  const [profileCompletion, setProfileCompletion] = useState({ percent: 0, sectionsApproved: 0, totalSections: 4, allDone: false });
+  const [profileKey, setProfileKey] = useState(0);
+  const investorSectionRef = useRef<HTMLDivElement>(null);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -111,6 +129,17 @@ export function CompanyTab() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Auto-scroll to investors
+  useEffect(() => {
+    const handler = () => {
+      setTimeout(() => {
+        investorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    };
+    window.addEventListener("scroll-to-investors", handler);
+    return () => window.removeEventListener("scroll-to-investors", handler);
   }, []);
 
   // Bootstrap
@@ -133,14 +162,6 @@ export function CompanyTab() {
       const m = mem as any;
       setMembership({ id: m.id, company_id: m.company_id, role: m.role });
 
-      const { data: comp } = await supabase
-        .from("company_analyses")
-        .select("id, company_name, website_url, sector, stage, health_score, updated_at")
-        .eq("id", m.company_id)
-        .maybeSingle();
-
-      if (comp) setCompany(comp);
-
       if (m.role === "pending") {
         setState("pending");
         fetchOwner(m.company_id);
@@ -150,14 +171,13 @@ export function CompanyTab() {
     } else {
       const { data: ownCompany } = await supabase
         .from("company_analyses")
-        .select("id, company_name, website_url, sector, stage, health_score, updated_at")
+        .select("id")
         .eq("user_id", user!.id)
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (ownCompany) {
-        setCompany(ownCompany);
         setState("linked");
       } else {
         setState("search");
@@ -167,7 +187,6 @@ export function CompanyTab() {
   };
 
   const fetchOwner = async (companyId: string) => {
-    // Try profiles first for better data
     const { data: ownerMem } = await supabase
       .from("company_members" as any)
       .select("user_id")
@@ -216,7 +235,7 @@ export function CompanyTab() {
     setDropdownOpen(true);
   };
 
-  // ── Scenario A: Company is claimed → Request Access ──
+  // ── Scenario A: Request Access ──
   const handleRequestAccess = async (comp: CompanySearchResult) => {
     if (!user) return;
     setRequesting(true);
@@ -230,7 +249,6 @@ export function CompanyTab() {
       return;
     }
 
-    setCompany({ ...comp, health_score: null, updated_at: new Date().toISOString() });
     setMembership({ id: "", company_id: comp.id, role: "pending" });
     setState("pending");
     setDropdownOpen(false);
@@ -240,12 +258,11 @@ export function CompanyTab() {
     toast.success("Access request sent to the workspace manager!");
   };
 
-  // ── Scenario B: Company is unclaimed → Claim Profile ──
+  // ── Scenario B: Claim Profile ──
   const handleClaimProfile = async (comp: CompanySearchResult) => {
     if (!user?.email) return;
     setRequesting(true);
 
-    // Domain verification
     const companyDomain = extractDomain(comp.website_url);
     const userEmail = user.email;
 
@@ -258,7 +275,6 @@ export function CompanyTab() {
       return;
     }
 
-    // Claim it: update company, create membership as manager
     await (supabase as any)
       .from("company_analyses")
       .update({ claimed_by: user.id, is_claimed: true })
@@ -268,13 +284,11 @@ export function CompanyTab() {
       .from("company_members" as any)
       .insert({ user_id: user.id, company_id: comp.id, role: "manager" });
 
-    // Link profile
     await (supabase as any)
       .from("profiles")
       .update({ company_id: comp.id })
       .eq("user_id", user.id);
 
-    setCompany({ ...comp, health_score: null, updated_at: new Date().toISOString() });
     setMembership({ id: "", company_id: comp.id, role: "manager" });
     setState("linked");
     setDropdownOpen(false);
@@ -283,12 +297,11 @@ export function CompanyTab() {
     toast.success("Profile claimed! You are now the manager.");
   };
 
-  // ── Scenario C: Create new workspace ──
+  // ── Scenario C: Create Workspace ──
   const handleCreateWorkspace = async (name: string) => {
     if (!user) return;
     setRequesting(true);
 
-    // Create company row
     const { data: newComp, error: compError } = await supabase
       .from("company_analyses")
       .insert({
@@ -297,7 +310,7 @@ export function CompanyTab() {
         is_claimed: true,
         claimed_by: user.id,
       } as any)
-      .select("id, company_name, website_url, sector, stage, health_score, updated_at")
+      .select("id")
       .single();
 
     if (compError || !newComp) {
@@ -306,36 +319,27 @@ export function CompanyTab() {
       return;
     }
 
-    // Create membership as manager
     await supabase
       .from("company_members" as any)
       .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
 
-    // Link profile
     await (supabase as any)
       .from("profiles")
       .update({ company_id: newComp.id })
       .eq("user_id", user.id);
 
-    setCompany(newComp);
     setMembership({ id: "", company_id: newComp.id, role: "manager" });
     setState("linked");
     setDropdownOpen(false);
     setQuery("");
     setRequesting(false);
-    toast.success("Workspace created! Redirecting to Company Profile...");
-
-    // Navigate to company profile editor
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("navigate-to-tab", { detail: "company" }));
-    }, 600);
+    toast.success("Workspace created! Set up your company profile below.");
   };
 
   const handleCancelRequest = async () => {
     if (!membership) return;
     await supabase.from("company_members" as any).delete().eq("id", membership.id);
     setMembership(null);
-    setCompany(null);
     setState("search");
     toast.success("Request cancelled");
   };
@@ -345,14 +349,24 @@ export function CompanyTab() {
       await supabase.from("company_members" as any).delete().eq("id", membership.id);
       setMembership(null);
     }
-    setCompany(null);
     setState("search");
     toast.success("Company unlinked from your account");
   };
 
-  const lastUpdated = company
-    ? new Date(company.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : null;
+  const handleAnalysis = (result: AnalysisResult) => {
+    setAnalysisResult(result);
+  };
+
+  const handleMetricEdit = (key: string, value: string) => {
+    if (!analysisResult) return;
+    setAnalysisResult({
+      ...analysisResult,
+      metrics: {
+        ...analysisResult.metrics,
+        [key]: { value, confidence: "high" as const },
+      },
+    });
+  };
 
   // Determine if we need the overlay modal (not linked)
   const needsLinking = state === "search" || state === "pending";
@@ -366,39 +380,40 @@ export function CompanyTab() {
       className="relative"
     >
       {/* Grayed-out entity content behind the modal */}
-      <div className={cn("space-y-6 transition-all duration-300", needsLinking && "opacity-20 blur-[2px] pointer-events-none select-none")}>
-        <div>
-          <h3 className="text-lg font-bold text-foreground">Entity Settings</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage your company workspace, team, and profile
-          </p>
-        </div>
-        <Separator />
-        {/* Placeholder entity content */}
-        <div className="space-y-3">
-          {[
-            { icon: Globe, label: "Website", value: company?.website_url || "Not set" },
-            { icon: Layers, label: "Sector", value: company?.sector || "Not classified" },
-            { icon: TrendingUp, label: "Stage", value: company?.stage || "Not set" },
-            { icon: MapPin, label: "Health Score", value: company?.health_score != null ? `${company.health_score}/100` : "Not analyzed" },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.label} className="flex items-center justify-between rounded-xl border border-border p-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{item.label}</p>
-                    <p className="text-sm font-medium text-muted-foreground">{item.value}</p>
+      {needsLinking && (
+        <div className="space-y-6 opacity-20 blur-[2px] pointer-events-none select-none">
+          <div>
+            <h3 className="text-lg font-bold text-foreground">Entity Settings</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage your company workspace, team, and profile
+            </p>
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            {[
+              { icon: Globe, label: "Website", value: "Not set" },
+              { icon: Layers, label: "Sector", value: "Not classified" },
+              { icon: TrendingUp, label: "Stage", value: "Not set" },
+              { icon: MapPin, label: "Health Score", value: "Not analyzed" },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="flex items-center justify-between rounded-xl border border-border p-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                      <p className="text-sm font-medium text-muted-foreground">{item.value}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Overlay Modal */}
       <AnimatePresence>
@@ -429,7 +444,6 @@ export function CompanyTab() {
                 />
               ) : (
                 <PendingModal
-                  company={company}
                   ownerInfo={ownerInfo}
                   onCancel={handleCancelRequest}
                 />
@@ -439,14 +453,118 @@ export function CompanyTab() {
         )}
       </AnimatePresence>
 
-      {/* Linked State (no overlay) */}
-      {state === "linked" && !loading && company && (
-        <LinkedState
-          company={company}
-          lastUpdated={lastUpdated}
-          onRefresh={bootstrapState}
-          onUnlink={handleUnlink}
-        />
+      {/* ── Linked: Full Company Profile Editor ── */}
+      {state === "linked" && !loading && (
+        <div className="space-y-6">
+          {/* ═══ Asymmetric 2-Column Grid ═══ */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+            {/* ── Left Column: Performance & Status (sticky) ── */}
+            <div className="lg:col-span-4 sticky top-8 flex flex-col gap-5">
+
+              {/* Profile Analytics */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Analytics</h3>
+                <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
+                  {profileCompletion.percent >= 100 && isProfileVerified ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
+                        <p className="text-lg font-bold text-foreground">12</p>
+                        <p className="text-[9px] text-success font-medium">+3 this week</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
+                        <p className="text-lg font-bold text-foreground">45</p>
+                        <p className="text-[9px] text-success font-medium">+8 this week</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
+                        <p className="text-lg font-bold text-muted-foreground/40">—</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 space-y-1">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
+                        <p className="text-lg font-bold text-muted-foreground/40">—</p>
+                      </div>
+                    </div>
+                  )}
+                  {profileCompletion.percent < 100 && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Complete your profile to unlock analytics.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Profile Strength */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
+                <ProfileStrength
+                  completionPercent={profileCompletion.percent}
+                  sectionConfirmed={sectionConfirmed}
+                  investorsConfirmed={investorsConfirmed}
+                  investorSectionRef={investorSectionRef}
+                />
+              </div>
+
+              {/* AI Insight */}
+              <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
+                <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" /> AI Insight
+                </p>
+                <p className="text-xs text-foreground leading-relaxed">
+                  Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
+                </p>
+                {!sectionConfirmed.metrics && (
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
+                    className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
+                  >
+                    Verify Metrics <ChevronRight className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Unlink */}
+              <button onClick={handleUnlink} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors">
+                <Unlink className="h-3 w-3" />
+                Unlink Company
+              </button>
+            </div>
+
+            {/* ── Right Column: The Payload/Editor ── */}
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <CompanyProfile
+                key={profileKey}
+                onSave={setCompanyData}
+                onAnalysis={handleAnalysis}
+                onSectorChange={setSectorClassification}
+                onStageClassification={setStageClassification}
+                onProfileVerified={setIsProfileVerified}
+                onSectionConfirmedChange={setSectionConfirmed}
+                onCompletionChange={setProfileCompletion}
+              />
+
+              {/* Investors Section */}
+              <div ref={investorSectionRef}>
+                <MissionControlInvestors
+                  backers={capTable.backers}
+                  totalRaised={capTable.totalRaised}
+                  formatCurrency={capTable.formatCurrency}
+                  addInvestor={capTable.addInvestor}
+                  onNavigateInvestors={() => window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }))}
+                  analysisResult={analysisResult}
+                  companyData={companyData}
+                  previousSectionApproved={!!sectionConfirmed.social}
+                  onConfirmedChange={setInvestorsConfirmed}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {loading && (
@@ -483,17 +601,13 @@ function WorkspaceLinkingModal({
 }) {
   const showDropdown = dropdownOpen && query.trim().length > 0;
 
-  // Determine scenario for each result
   function getScenario(comp: CompanySearchResult): "claimed" | "unclaimed" {
-    // If a company has an owner/manager (claimed_by set or is_claimed=true and user_id exists)
     if (comp.is_claimed && comp.claimed_by) return "claimed";
-    // If the company exists but nobody has claimed it
     return "unclaimed";
   }
 
   return (
     <div className="p-6 space-y-5">
-      {/* Header */}
       <div className="text-center space-y-2">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20 mx-auto">
           <Lock className="h-6 w-6 text-accent" />
@@ -504,7 +618,6 @@ function WorkspaceLinkingModal({
         </p>
       </div>
 
-      {/* Search Input */}
       <div ref={containerRef} className="relative">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" />
@@ -527,9 +640,8 @@ function WorkspaceLinkingModal({
           )}
         </div>
 
-        {/* Results Dropdown */}
         {showDropdown && (
-          <div className="absolute z-50 mt-2 w-full rounded-xl border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="absolute z-50 mt-2 w-full rounded-xl border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 max-h-[300px] overflow-y-auto">
             {searching ? (
               <div className="px-4 py-3 text-xs text-muted-foreground flex items-center gap-2">
                 <motion.div
@@ -547,13 +659,7 @@ function WorkspaceLinkingModal({
                     return (
                       <button
                         key={comp.id}
-                        onClick={() => {
-                          if (scenario === "claimed") {
-                            onRequestAccess(comp);
-                          } else {
-                            onClaimProfile(comp);
-                          }
-                        }}
+                        onClick={() => scenario === "claimed" ? onRequestAccess(comp) : onClaimProfile(comp)}
                         disabled={requesting}
                         className="w-full text-left px-4 py-3 hover:bg-muted/50 flex items-center gap-3 border-b border-border last:border-0 transition-colors disabled:opacity-50"
                       >
@@ -584,7 +690,6 @@ function WorkspaceLinkingModal({
                   </div>
                 )}
 
-                {/* Create new — always pinned */}
                 <button
                   onClick={() => onCreateWorkspace(query.trim())}
                   disabled={requesting}
@@ -606,7 +711,6 @@ function WorkspaceLinkingModal({
         )}
       </div>
 
-      {/* Info footer */}
       <div className="flex items-start gap-2 px-1">
         <Shield className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-0.5" />
         <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
@@ -620,15 +724,13 @@ function WorkspaceLinkingModal({
 // ── Pending Modal ──
 
 function PendingModal({
-  company, ownerInfo, onCancel,
+  ownerInfo, onCancel,
 }: {
-  company: CompanyData | null;
   ownerInfo: OwnerInfo | null;
   onCancel: () => void;
 }) {
   return (
     <div className="p-6 flex flex-col items-center text-center space-y-4">
-      {/* Pulsing status */}
       <div className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
@@ -639,14 +741,6 @@ function PendingModal({
         </Badge>
       </div>
 
-      {company && (
-        <div className="space-y-1">
-          <p className="text-base font-bold text-foreground">{company.company_name}</p>
-          {company.sector && <p className="text-xs text-muted-foreground">{company.sector}</p>}
-        </div>
-      )}
-
-      {/* Owner gatekeeper card */}
       {ownerInfo && (
         <div className="p-4 bg-muted/30 border border-border rounded-xl w-full max-w-sm flex items-center gap-4 text-left">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-border text-sm font-bold text-primary shrink-0">
@@ -661,7 +755,7 @@ function PendingModal({
       )}
 
       <p className="text-xs text-muted-foreground max-w-[320px]">
-        Your request has been sent.{ownerInfo ? ` ${ownerInfo.full_name} must approve your access before you can view or edit the entity profile.` : " The workspace manager must approve your access."}
+        Your request has been sent.{ownerInfo ? ` ${ownerInfo.full_name} must approve your access.` : " The workspace manager must approve your access."}
       </p>
 
       <button
@@ -671,96 +765,6 @@ function PendingModal({
         <X className="h-3 w-3" />
         Cancel Request
       </button>
-    </div>
-  );
-}
-
-// ── Linked State ──
-
-function LinkedState({
-  company, lastUpdated, onRefresh, onUnlink,
-}: {
-  company: CompanyData;
-  lastUpdated: string | null;
-  onRefresh: () => void;
-  onUnlink: () => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-bold text-foreground">Entity Settings</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Manage your company workspace, team, and profile
-        </p>
-      </div>
-
-      {/* Linked Company Card */}
-      <div className="rounded-2xl border-2 border-accent/20 bg-accent/5 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
-              <Building2 className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-foreground">
-                  {company.company_name || "Unnamed Company"}
-                </span>
-                <Badge className="bg-accent/10 text-accent border-accent/20 text-[9px] uppercase font-bold">
-                  Linked
-                </Badge>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Last updated {lastUpdated}
-              </p>
-            </div>
-          </div>
-          <CheckCircle2 className="h-5 w-5 text-accent shrink-0 mt-1" />
-        </div>
-      </div>
-
-      {/* Company Details */}
-      <div className="space-y-2.5">
-        {[
-          { icon: Globe, label: "Website", value: company.website_url || "Not set", hasValue: !!company.website_url },
-          { icon: Layers, label: "Sector", value: company.sector || "Not classified", hasValue: !!company.sector },
-          { icon: TrendingUp, label: "Stage", value: company.stage || "Not set", hasValue: !!company.stage },
-          { icon: MapPin, label: "Health Score", value: company.health_score != null ? `${company.health_score}/100` : "Not analyzed", hasValue: company.health_score != null },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="flex items-center justify-between rounded-xl border border-border p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{item.label}</p>
-                  <p className={`text-sm font-medium ${item.hasValue ? "text-foreground" : "text-muted-foreground"}`}>{item.value}</p>
-                </div>
-              </div>
-              {item.label === "Website" && item.hasValue && (
-                <a href={company.website_url!} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <Separator />
-
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" className="rounded-lg text-xs font-semibold" onClick={onRefresh}>
-          <RefreshCw className="h-3 w-3 mr-1.5" />
-          Refresh
-        </Button>
-        <button onClick={onUnlink} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors">
-          <Unlink className="h-3 w-3" />
-          Unlink Company
-        </button>
-      </div>
     </div>
   );
 }
