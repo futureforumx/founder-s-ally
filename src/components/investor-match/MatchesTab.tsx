@@ -30,6 +30,9 @@ interface ScoredInvestor {
   score: number;
   reasoning: string;
   coInvestLink: string | null;
+  is_trending?: boolean;
+  is_popular?: boolean;
+  is_recent?: boolean;
 }
 
 interface EnrichedProfile {
