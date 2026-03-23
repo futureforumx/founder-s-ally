@@ -127,6 +127,13 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Copilot Mission Banner */}
+      <CopilotMissionBanner
+        profileCompletion={profileCompletion}
+        onNavigate={handleMissionNavigate}
+        completedFields={completedFields}
+      />
+
       {/* Sticky Section + Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
         {/* Top-level sections */}
