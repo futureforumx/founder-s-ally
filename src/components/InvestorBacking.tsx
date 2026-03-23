@@ -178,8 +178,8 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
         <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="colorFundingGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--neon-purple))" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="hsl(var(--neon-purple))" stopOpacity={0.02} />
+              <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.02} />
             </linearGradient>
           </defs>
           <XAxis dataKey="date" hide />
@@ -189,9 +189,9 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
               if (!active || !payload?.length) return null;
               const d = payload[0].payload;
               return (
-                <div className="px-2.5 py-1.5 rounded-lg bg-card border border-white/10 text-foreground text-[10px] font-mono shadow-lg whitespace-nowrap">
+                <div className="px-2.5 py-1.5 rounded-lg bg-foreground text-background text-[10px] font-mono shadow-lg whitespace-nowrap">
                   <span className="font-semibold">{fmt(d.total)}</span>
-                  <span className="text-muted-foreground ml-1">· {d.investor}</span>
+                  <span className="text-background/60 ml-1">· {d.investor}</span>
                 </div>
               );
             }}
@@ -200,11 +200,11 @@ function FundingAreaChart({ rows }: { rows: CapRow[] }) {
           <Area
             type="monotone"
             dataKey="total"
-            stroke="hsl(var(--neon-purple))"
-            strokeWidth={2.5}
+            stroke="hsl(var(--accent))"
+            strokeWidth={2}
             fill="url(#colorFundingGrad)"
             dot={false}
-            activeDot={{ r: 3, fill: "hsl(var(--neon-purple-glow))", strokeWidth: 0 }}
+            activeDot={{ r: 3, fill: "hsl(var(--accent))", strokeWidth: 0 }}
           />
         </AreaChart>
       </ResponsiveContainer>
