@@ -311,14 +311,14 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                       <Button
                         size="sm"
                         className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3.5 ${
-                          source.actionType === "login"
+                          source.sensorType === "identity"
                             ? "bg-white text-[#0A0A0A] hover:bg-white/90"
                             : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06]"
                         }`}
                         onClick={() => handleConnect(source.key)}
                         disabled={connectingKey !== null}
                       >
-                        {source.actionType === "login" ? "Login" : "Sync"}
+                        {source.sensorType === "identity" ? "Verify" : source.sensorType === "ingestor" ? "Import" : "Sync"}
                       </Button>
                     )}
 
