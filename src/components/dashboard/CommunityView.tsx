@@ -49,6 +49,14 @@ interface DirectoryEntry {
   _companyName?: string | null;
   /** Profile ID for navigation */
   _profileId?: string;
+  /** Investor-specific enrichment fields */
+  _firmType?: string;
+  _isActivelyDeploying?: boolean;
+  _founderSentimentScore?: number | null;
+  _headcount?: string | null;
+  _aum?: string | null;
+  _logoUrl?: string | null;
+  _matchScore?: number | null;
 }
 
 // ── Mock data: Suggested ──
