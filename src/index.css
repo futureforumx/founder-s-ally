@@ -246,4 +246,13 @@
     0%, 100% { box-shadow: 0 0 10px 2px rgba(52,211,153,0.2); }
     50% { box-shadow: 0 0 18px 4px rgba(52,211,153,0.4); }
   }
+
+  @keyframes text-glow-pulse {
+    0%, 100% { text-shadow: 0 0 16px hsl(142 71% 45% / 0.4), 0 0 32px hsl(142 71% 45% / 0.15); }
+    50% { text-shadow: 0 0 24px hsl(142 71% 45% / 0.6), 0 0 48px hsl(142 71% 45% / 0.3); }
+  }
+
+  .animate-glow-pulse {
+    animation: text-glow-pulse 2.5s ease-in-out infinite;
+  }
 }

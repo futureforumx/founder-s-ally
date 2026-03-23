@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
@@ -61,14 +61,17 @@ function MetricCard({
           </span>
         </div>
 
-        {/* Big value */}
-        <p className="text-4xl font-extrabold text-primary-foreground tracking-tight font-mono leading-none">
-          {value}
-        </p>
-
-        {subtitle && (
-          <p className="text-xs text-primary-foreground/40 mt-1.5 font-medium">{subtitle}</p>
-        )}
+        {/* Big value with green glow */}
+        <div className="flex-1 flex items-center my-2">
+          <p
+            className="text-6xl md:text-7xl font-black text-primary-foreground tracking-tighter font-mono leading-none animate-glow-pulse"
+            style={{
+              textShadow: "0 0 20px hsl(var(--success) / 0.5), 0 0 40px hsl(var(--success) / 0.2)",
+            }}
+          >
+            {value}
+          </p>
+        </div>
 
         {/* Trend row */}
         <div className="flex items-center gap-2 mt-4">
