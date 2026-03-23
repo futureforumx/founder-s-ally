@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase
+  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase,
+  Eye
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
