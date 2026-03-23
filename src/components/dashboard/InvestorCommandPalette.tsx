@@ -470,26 +470,59 @@ export function InvestorCommandPalette({
   );
 }
 
-/** Trigger bar that opens the command palette on click or Cmd+K */
+/** Dark inline search bar + filter chips matching Raycast aesthetic */
 export function InvestorSearchTrigger({
   placeholder,
   onClick,
+  activeChip,
+  onChipChange,
 }: {
   placeholder?: string;
   onClick: () => void;
+  activeChip?: string;
+  onChipChange?: (chip: string) => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex h-14 w-full items-center gap-3 rounded-2xl border border-border bg-card pl-4 pr-4 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group"
-    >
-      <Search className="h-5 w-5 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors" />
-      <span className="flex-1 text-left text-base text-muted-foreground/50 truncate">
-        {placeholder || "Search investors or type a command…"}
-      </span>
-      <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted px-2 py-1 text-[11px] font-mono text-muted-foreground/60">
-        ⌘K
-      </kbd>
-    </button>
+    <div className="w-full space-y-0">
+      {/* ── Search bar ── */}
+      <button
+        onClick={onClick}
+        className="flex h-14 w-full items-center gap-3 rounded-t-2xl border border-zinc-700/60 bg-zinc-900/95 backdrop-blur-xl pl-5 pr-5 shadow-lg hover:border-zinc-600/80 transition-all cursor-text group"
+      >
+        <Search className="h-5 w-5 text-zinc-500 shrink-0 group-hover:text-zinc-400 transition-colors" />
+        <span className="flex-1 text-left text-[15px] text-zinc-500 truncate font-normal">
+          {placeholder || "Search or type a command…"}
+        </span>
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-[11px] font-mono text-zinc-500">
+          ⌘K
+        </kbd>
+      </button>
+
+      {/* ── Filter chips row ── */}
+      <div className="flex items-center gap-2 px-5 py-2.5 rounded-b-2xl border border-t-0 border-zinc-700/60 bg-zinc-900/90 backdrop-blur-xl overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+        <span className="text-[11px] text-zinc-500 font-medium shrink-0 mr-0.5">I'm looking for</span>
+        {FILTER_CHIPS.map(chip => {
+          const Icon = chip.icon;
+          const isActive = activeChip === chip.id;
+          return (
+            <button
+              key={chip.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChipChange?.(chip.id);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all shrink-0 cursor-pointer ${
+                isActive
+                  ? "bg-zinc-700 text-zinc-100 shadow-sm"
+                  : "bg-zinc-800/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 border border-zinc-700/40"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

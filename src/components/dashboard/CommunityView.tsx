@@ -777,6 +777,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             e.description.toLowerCase().includes(sectorNorm);
         });
       }
+      case "trending":
+        return investors.filter((e) => e._isTrending);
+      case "popular":
+        return investors.filter((e) => e._isPopular);
+      case "recent":
+        return investors.filter((e) => e._isRecent);
       default: // "all"
         return investors;
     }
@@ -801,6 +807,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         return userSector
           ? { title: `Top investors in ${userSector}`, subtitle: `Funds with active thesis in ${userSector}` }
           : { title: "Sector-Matched Investors", subtitle: "Set your sector to filter" };
+      case "trending":
+        return { title: "Trending Investors", subtitle: "Funds generating the most buzz right now" };
+      case "popular":
+        return { title: "Popular Investors", subtitle: "Most viewed and saved by founders" };
+      case "recent":
+        return { title: "Recently Added", subtitle: "Newest additions to the directory" };
       default:
         return { title: "All Investors", subtitle: "The complete investor directory" };
     }
@@ -981,39 +993,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Investor Search Tabs */}
-      {isInvestorSearch && (
-      <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
-        {([
-          { id: "all", label: "All", icon: LayoutGrid },
-          { id: "matches", label: "Matches", icon: Handshake },
-          { id: "stage", label: "Stage", icon: Zap },
-          { id: "sector", label: "Sector", icon: Layers },
-        ] as const).map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeInvestorTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveInvestorTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-              isActive ?
-              "bg-card text-foreground shadow-sm" :
-              "text-muted-foreground hover:text-foreground"}`
-              }>
-              <Icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </button>);
-        })}
-      </div>
-      )}
-
-      {/* Search Omnibar — use command palette for investor-search */}
+      {/* Search bar with inline filter chips — investor-search variant */}
       {isInvestorSearch ? (
         <>
           <InvestorSearchTrigger
             placeholder={placeholder}
             onClick={() => setCommandPaletteOpen(true)}
+            activeChip={activeInvestorTab}
+            onChipChange={(chip) => setActiveInvestorTab(chip)}
           />
           <InvestorCommandPalette
             open={commandPaletteOpen}
