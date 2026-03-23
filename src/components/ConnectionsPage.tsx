@@ -28,7 +28,7 @@ const WARM_PATHS = [
 
 const WHISPER_FEED = [
   {
-    header: "Anonymous Founder • Seed Stage SaaS",
+    header: "Seed Stage • SaaS",
     tags: ["Passed after 2nd Meeting", "Helpful Feedback"],
     tagColors: ["bg-secondary text-muted-foreground", "bg-success/10 text-success"],
     text: "They dug really deep into our GTM motion. Ultimately passed because market size was too small for their fund math, but the partner gave us incredibly actionable advice.",
