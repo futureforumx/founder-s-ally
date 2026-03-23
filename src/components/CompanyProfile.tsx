@@ -603,6 +603,27 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   }, []);
 
+  // Listen for scroll-to-section events from external components (e.g., AI Insight "Verify Metrics")
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const section = (e as CustomEvent).detail as typeof REVIEW_ORDER[number];
+      if (section && (REVIEW_ORDER as readonly string[]).includes(section)) {
+        // Expand the target section
+        const newOpen: Record<string, boolean> = {};
+        REVIEW_ORDER.forEach(s => { newOpen[s] = s === section; });
+        setOpenSections(newOpen);
+        if (isInReviewMode) setActiveReviewSection(null);
+
+        // Scroll to the section after accordion animation
+        setTimeout(() => {
+          sectionRefs.current[section]?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 250);
+      }
+    };
+    window.addEventListener("scroll-to-section", handler);
+    return () => window.removeEventListener("scroll-to-section", handler);
+  }, [isInReviewMode]);
+
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) { setError("Logo must be under 5 MB."); return; }
