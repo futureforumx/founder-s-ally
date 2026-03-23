@@ -37,9 +37,9 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   let cleaned = value.trim();
 
-  // Already a fully-qualified URL — leave it alone
+  // Already a fully-qualified URL — lowercase it
   if (/^https?:\/\//i.test(cleaned)) {
-    return cleaned;
+    return cleaned.toLowerCase();
   }
 
   // Strip leading protocol-less "www."
