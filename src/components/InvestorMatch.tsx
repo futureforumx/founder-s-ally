@@ -331,7 +331,6 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
             <SlidersHorizontal className="h-3.5 w-3.5" /> Tune
           </button>
           <TimeRangeControl value={timeRange} onChange={setTimeRange} />
-          <ExportGateButton recordCount={scoredInvestors.length} />
         </div>
       </div>
 
