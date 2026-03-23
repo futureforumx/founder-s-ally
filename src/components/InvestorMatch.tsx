@@ -5,7 +5,7 @@ import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { Lock, SlidersHorizontal } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
 import { PersonalizeWeightsSidebar, type WeightConfig } from "@/components/investor-match/PersonalizeWeightsSidebar";
-import { ExportGateButton } from "@/components/investor-match/ExportGateButton";
+
 import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
 import { ActivityTab } from "@/components/investor-match/ActivityTab";
@@ -331,7 +331,6 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
             <SlidersHorizontal className="h-3.5 w-3.5" /> Tune
           </button>
           <TimeRangeControl value={timeRange} onChange={setTimeRange} />
-          <ExportGateButton recordCount={scoredInvestors.length} />
         </div>
       </div>
 
