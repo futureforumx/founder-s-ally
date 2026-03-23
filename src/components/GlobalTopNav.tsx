@@ -65,6 +65,21 @@ export function GlobalTopNav({
             {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
           </span>
         ) : null}
+        <button
+          onClick={() => {
+            try {
+              throw new Error("Sentry Test Error — safe to ignore");
+            } catch (e) {
+              Sentry.captureException(e);
+              alert("Test error sent to Sentry! Check your Sentry dashboard.");
+            }
+          }}
+          className="ml-4 flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] font-medium text-destructive hover:bg-destructive/20 transition-colors"
+          title="Send a test error to Sentry"
+        >
+          <Bug className="h-3 w-3" />
+          Test Sentry
+        </button>
       </div>
     </div>
   );
