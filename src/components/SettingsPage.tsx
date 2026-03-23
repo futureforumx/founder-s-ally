@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatSocialUrl } from "@/lib/socialFormat";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
