@@ -1808,7 +1808,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                       <div className="grid grid-cols-3 gap-4">
                         {/* Revenue (MRR/ARR) */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5" data-field="mrr">
                           <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             {metricPeriod === "annual" ? "ARR" : "MRR"} {renderFieldBadge("currentARR")}
                             <MetricTooltip metricKey={metricPeriod === "annual" ? "arr" : "mrr"} />
