@@ -330,7 +330,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [twitterUrl, setTwitterUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
