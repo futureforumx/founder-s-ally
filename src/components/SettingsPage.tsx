@@ -509,141 +509,252 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     toast.success(`Applied ${selectedKeys.length} field${selectedKeys.length !== 1 ? "s" : ""} from LinkedIn`);
   };
 
+  // ── Progressive disclosure logic ──
+  const isLinkedinValid = /linkedin\.com\/in\/.+/i.test(linkedinUrl.trim());
+  const hasSynced = !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
+  const isComplete = !!(name.trim() && title.trim() && bio.trim() && location.trim() && linkedinUrl.trim());
+  const showTwitter = isLinkedinValid || isComplete;
+  const showPersonalInfo = hasSynced || isComplete;
+
+  // LinkedIn domain extraction for favicon
+  const linkedinDomain = (() => {
+    try {
+      if (!linkedinUrl.trim()) return null;
+      let u = linkedinUrl.trim();
+      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+      return new URL(u).hostname.replace(/^www\./, "") || null;
+    } catch { return null; }
+  })();
+
   return (
     <TabWrapper>
       <div className="space-y-4">
-        {/* ── Magic Sync: LinkedIn & X at top ── */}
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-              <Linkedin className="h-3.5 w-3.5" />
+        {/* ── Social Profiles (Data Sources style) ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {/* Header */}
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
               Social Profiles
             </h3>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* 2-column grid: Left = inputs, Right = Identity Verification */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Left column */}
+              <div className="space-y-3">
+                {/* LinkedIn URL (always visible) */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
+                  <div className="relative">
+                    {linkedinDomain && (
+                      <img
+                        src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${linkedinDomain}&size=32`}
+                        alt=""
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    )}
+                    <input
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://linkedin.com/in/..."
+                      className={cn(
+                        "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
+                        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        linkedinDomain ? "pl-9" : ""
+                      )}
+                    />
+                    {/* Inline sync + info icons */}
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {isLinkedinValid && !syncing && (
+                        <motion.button
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          onClick={(e) => { e.stopPropagation(); handleSyncProfile(); }}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
+                          title="Sync from LinkedIn"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Sync
+                        </motion.button>
+                      )}
+                      {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />}
+                      {!isLinkedinValid && linkedinUrl.trim() && (
+                        <span className="text-[9px] text-destructive font-mono">Invalid</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* X / Twitter URL (appears after LinkedIn is valid) */}
+                <AnimatePresence>
+                  {showTwitter && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className="space-y-1 overflow-hidden"
+                    >
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+                      <input
+                        value={twitterUrl}
+                        onChange={(e) => setTwitterUrl(e.target.value)}
+                        placeholder="https://x.com/..."
+                        className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Right column: Identity Verification zone */}
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 min-h-[120px] p-4 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 mb-2">
+                  <Shield className="h-5 w-5 text-accent" />
+                </div>
+                <p className="text-xs font-semibold text-foreground mb-0.5">Identity Verification</p>
+                <p className="text-[10px] text-muted-foreground leading-relaxed max-w-[180px]">
+                  Connect LinkedIn & X to unlock verified founder badge
+                </p>
+                {(isLinkedinValid || twitterUrl.trim()) && (
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {isLinkedinValid && (
+                      <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold gap-0.5">
+                        <CheckCircle2 className="h-2.5 w-2.5" /> LinkedIn
+                      </Badge>
+                    )}
+                    {twitterUrl.trim() && (
+                      <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold gap-0.5">
+                        <CheckCircle2 className="h-2.5 w-2.5" /> X
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* AI Insight Banner */}
+            <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5">
+              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
+                <Sparkles className="h-3 w-3 text-accent" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
+                <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
+                  Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
+                </p>
+              </div>
+            </div>
+
+            {/* Primary CTA */}
             <Button
-              size="sm"
-              variant="outline"
               onClick={handleSyncProfile}
               disabled={syncing || !linkedinUrl.trim()}
-              className={cn(
-                "rounded-lg text-xs font-semibold gap-1.5 border-accent/30 text-accent hover:bg-accent/10 hover:text-accent",
-                syncing && "animate-pulse"
-              )}
+              className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
             >
               {syncing ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Mining Data...
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Sync My Profile
+                  <Sparkles className="h-4 w-4" />
+                  Sync & Enrich Profile
                 </>
               )}
             </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
-              <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/..." className="rounded-lg h-9 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
-              <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="https://x.com/..." className="rounded-lg h-9 text-sm" />
-            </div>
+
+            {/* Footer */}
+            <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide">
+              Identity verification: LinkedIn + X + Public Data
+            </p>
           </div>
         </div>
 
-        {/* Avatar & Name */}
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarUpload}
-            />
-            {avatarUploading ? (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted border-2 border-border">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full"
-                />
-              </div>
-            ) : avatarUrl && !avatarError ? (
-              <img
-                src={avatarUrl}
-                alt="Profile"
-                className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-lg font-bold text-primary">
-                {initials}
-              </div>
-            )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        {/* ── Personal Information (revealed after sync / or if complete) ── */}
+        <AnimatePresence>
+          {showPersonalInfo && (
+            <motion.div
+              initial={{ opacity: 0, y: 16, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: 16, height: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="overflow-hidden"
             >
-              <Camera className="h-4 w-4" />
-            </button>
-          </div>
-          <div>
-            <p className="text-base font-semibold text-foreground">{displayName}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">{displayEmail}</p>
-              <Badge className="bg-success/10 text-success border-success/20 text-[9px] uppercase font-bold">Verified</Badge>
-            </div>
-          </div>
-        </div>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-5 pt-4 pb-3 border-b border-border/60">
+                  <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5" />
+                    Personal Information
+                  </h3>
+                </div>
+                <div className="p-5 space-y-4">
+                  {/* Avatar & Name */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative group">
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                      {avatarUploading ? (
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted border-2 border-border">
+                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full" />
+                        </div>
+                      ) : avatarUrl && !avatarError ? (
+                        <img src={avatarUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border-2 border-primary/20" onError={() => setAvatarError(true)} />
+                      ) : (
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-base font-bold text-primary">{initials}</div>
+                      )}
+                      <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Camera className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-muted-foreground">{displayEmail}</p>
+                        <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
+                      </div>
+                    </div>
+                  </div>
 
-        <Separator />
-
-        {/* Personal Info */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Personal Information</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
-            </div>
-            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
-              <div className="relative">
-                <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
-                <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
+                  {/* Form grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
+                      <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
+                    </div>
+                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
+                      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. CEO & Co-Founder" className="rounded-lg h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+                      <div className="relative">
+                        <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
+                        <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
+                      </div>
+                    </div>
+                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
+                      <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
+                      <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
+                    </div>
+                    <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 160))} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="San Francisco, CA" className="rounded-lg h-9 text-sm" />
-            </div>
-          </div>
-          <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
-              <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
-            </div>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value.slice(0, 160))}
-              placeholder="Brief description of what you're building..."
-              rows={2}
-              className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            />
-          </div>
-        </div>
-
-        <Separator />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Sign Out */}
         <button
