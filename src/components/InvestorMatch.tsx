@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SectorClassification } from "@/components/SectorTags";
 import { supabase } from "@/integrations/supabase/client";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { Lock } from "lucide-react";
+import { Lock, SlidersHorizontal } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
+import { PersonalizeWeightsSidebar, type WeightConfig } from "@/components/investor-match/PersonalizeWeightsSidebar";
 import { ExportGateButton } from "@/components/investor-match/ExportGateButton";
 import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
@@ -183,6 +184,8 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState<string | undefined>();
   const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
+  const [weightsOpen, setWeightsOpen] = useState(false);
+  const [weights, setWeights] = useState<WeightConfig>({ fit: 50, sentiment: 50, responsiveness: 50, activity: 50 });
 
   // Get current user ID
   useEffect(() => {
@@ -320,8 +323,16 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
             AI-driven investor discovery based on your profile and current cap table.
           </p>
         </div>
-        <TimeRangeControl value={timeRange} onChange={setTimeRange} />
-        <ExportGateButton recordCount={scoredInvestors.length} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeightsOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Tune
+          </button>
+          <TimeRangeControl value={timeRange} onChange={setTimeRange} />
+          <ExportGateButton recordCount={scoredInvestors.length} />
+        </div>
       </div>
 
       {/* Intelligence Cards */}
@@ -369,6 +380,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           enrichingKeys={enrichingKeys}
           savedFirmIds={savedFirmIds}
           collaborativeRecs={collaborativeRecs.data || []}
+          weights={weights}
+          companySector={sectorClassification?.primary_sector || companyData?.sector}
+          companyStage={companyData?.stage}
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
           onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
           onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
@@ -400,6 +414,13 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => setSelectedInvestor(null)}
+      />
+
+      <PersonalizeWeightsSidebar
+        open={weightsOpen}
+        onClose={() => setWeightsOpen(false)}
+        weights={weights}
+        onChange={setWeights}
       />
     </div>
   );

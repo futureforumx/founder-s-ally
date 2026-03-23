@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Zap, MessageSquare, CheckCircle2,
-  ArrowUpRight, Landmark, Target, MapPin, Users,
+  ArrowUpRight, Landmark, Target, MapPin, Users, Star,
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ export type { InvestorEntry };
 
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Updates");
+  const [reviewOpen, setReviewOpen] = useState(false);
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
@@ -253,6 +255,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                        className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-3 py-2.5 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                      >
+                        <Star className="h-4 w-4" /> Rate
+                      </button>
                       <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
                         <Zap className="h-4 w-4" /> Connect
                       </button>
@@ -368,6 +376,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
           </div>
         </>
       )}
+      <ReviewSubmissionModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        firmName={heroName}
+        firmId={resolvedFirmId || liveProfile?.id}
+      />
     </AnimatePresence>
   );
 }
