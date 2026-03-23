@@ -606,8 +606,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Listen for scroll-to-section events from external components (e.g., AI Insight "Verify Metrics")
   useEffect(() => {
     const handler = (e: Event) => {
-      const section = (e as CustomEvent).detail as string;
-      if (section && REVIEW_ORDER.includes(section)) {
+      const section = (e as CustomEvent).detail as typeof REVIEW_ORDER[number];
+      if (section && (REVIEW_ORDER as readonly string[]).includes(section)) {
         // Expand the target section
         const newOpen: Record<string, boolean> = {};
         REVIEW_ORDER.forEach(s => { newOpen[s] = s === section; });
