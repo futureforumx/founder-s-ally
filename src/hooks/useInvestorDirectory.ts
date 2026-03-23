@@ -15,6 +15,11 @@ export interface LiveInvestorEntry {
   dataSource: "verified" | "live";
   lastSynced: Date;
   logo_url?: string | null;
+  firm_type?: string;
+  is_actively_deploying?: boolean;
+  founder_sentiment_score?: number | null;
+  headcount?: string | null;
+  aum?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
