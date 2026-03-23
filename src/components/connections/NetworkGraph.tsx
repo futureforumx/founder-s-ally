@@ -228,46 +228,62 @@ export function NetworkGraph() {
             const to = nodePos(toNode);
             const isHighlighted = hoveredNode && connectedIds.has(edge.from) && connectedIds.has(edge.to);
             const isDimmed = hoveredNode && !isHighlighted;
-            const d = curvePath(from.x, from.y, to.x, to.y, i);
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const cfg = STRAND_CONFIG[edge.strength];
+            const offsets = strandOffsets(i, cfg.count, len);
 
             return (
               <g key={i}>
-                {/* Soft glow behind highlighted edges */}
-                {isHighlighted && (
-                  <path
-                    d={d}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={7}
-                    opacity={0.12}
-                    filter="url(#edge-blur)"
-                  />
-                )}
-                {/* Main curve */}
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={
-                    isHighlighted
-                      ? "url(#edge-glow)"
-                      : `hsl(var(--primary) / ${edge.strength === "strong" ? 0.3 : edge.strength === "medium" ? 0.15 : 0.07})`
-                  }
-                  strokeWidth={isHighlighted ? 2.5 : strengthWidth[edge.strength]}
-                  opacity={isDimmed ? 0.05 : 1}
-                  strokeLinecap="round"
-                  className="transition-all duration-300"
-                />
+                {/* Multi-strand blue curves */}
+                {offsets.map((offset, s) => {
+                  const d = curvePath(from.x, from.y, to.x, to.y, offset);
+                  const shade = BLUE_SHADES[s % BLUE_SHADES.length];
+                  const highlightShade = BLUE_SHADES[Math.min(s, 2)];
+                  return (
+                    <g key={s}>
+                      {/* Glow on highlight */}
+                      {isHighlighted && s === Math.floor(cfg.count / 2) && (
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke="hsl(215 90% 60%)"
+                          strokeWidth={8}
+                          opacity={0.1}
+                          filter="url(#edge-blur)"
+                        />
+                      )}
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke={isHighlighted ? highlightShade : shade}
+                        strokeWidth={isHighlighted ? cfg.baseWidth * 1.4 : cfg.baseWidth}
+                        opacity={isDimmed ? 0.04 : isHighlighted ? 0.9 : 0.35 + s * 0.08}
+                        strokeLinecap="round"
+                        className="transition-all duration-300"
+                      />
+                    </g>
+                  );
+                })}
                 {/* Edge label on highlight */}
-                {edge.label && isHighlighted && (
-                  <text
-                    x={(from.x + to.x) / 2}
-                    y={(from.y + to.y) / 2 - 10}
-                    textAnchor="middle"
-                    className="fill-primary text-[9px] font-mono font-semibold"
-                  >
-                    {edge.label}
-                  </text>
-                )}
+                {edge.label && isHighlighted && (() => {
+                  const midOffset = offsets[Math.floor(offsets.length / 2)];
+                  const mx = (from.x + to.x) / 2;
+                  const my = (from.y + to.y) / 2;
+                  const pxN = len > 0 ? -dy / len : 0;
+                  const pyN = len > 0 ? dx / len : 0;
+                  return (
+                    <text
+                      x={mx + pxN * midOffset * 0.3}
+                      y={my + pyN * midOffset * 0.3 - 10}
+                      textAnchor="middle"
+                      className="fill-[hsl(215_90%_70%)] text-[9px] font-mono font-semibold"
+                    >
+                      {edge.label}
+                    </text>
+                  );
+                })()}
               </g>
             );
           })}
@@ -277,9 +293,14 @@ export function NetworkGraph() {
             EDGES.filter((e) => connectedIds.has(e.from) && connectedIds.has(e.to)).map((edge, i) => {
               const from = nodePos(NODES.find((n) => n.id === edge.from)!);
               const to = nodePos(NODES.find((n) => n.id === edge.to)!);
-              const d = curvePath(from.x, from.y, to.x, to.y, EDGES.indexOf(edge));
+              const dx = to.x - from.x;
+              const dy = to.y - from.y;
+              const len = Math.sqrt(dx * dx + dy * dy);
+              const offsets = strandOffsets(EDGES.indexOf(edge), STRAND_CONFIG[edge.strength].count, len);
+              const midOffset = offsets[Math.floor(offsets.length / 2)];
+              const d = curvePath(from.x, from.y, to.x, to.y, midOffset);
               return (
-                <circle key={`pulse-${i}`} r="3" fill="hsl(var(--primary))" opacity="0.8">
+                <circle key={`pulse-${i}`} r="3" fill="hsl(210 85% 70%)" opacity="0.8">
                   <animateMotion dur="2s" repeatCount="indefinite" path={d} />
                 </circle>
               );
