@@ -1888,7 +1888,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
 
                   {/* LTV */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5" data-field="ltv-cac">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       LTV {renderFieldBadge("ltv")}
                       <MetricTooltip metricKey="ltv" />
