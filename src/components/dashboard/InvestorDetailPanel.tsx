@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Zap, MessageSquare, CheckCircle2,
