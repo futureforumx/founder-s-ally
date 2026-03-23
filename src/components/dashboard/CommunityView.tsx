@@ -537,6 +537,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: f.aum || (dbMatch as any)?.aum || null,
           _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+          _isTrending: (dbMatch as any)?.is_trending ?? false,
+          _isPopular: (dbMatch as any)?.is_popular ?? false,
+          _isRecent: (dbMatch as any)?.is_recent ?? false,
         };
       });
   }, [vcFirms, dbInvestorMap]);
