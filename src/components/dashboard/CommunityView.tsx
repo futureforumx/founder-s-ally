@@ -418,10 +418,10 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
     </Card>);
 }
 
-function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void; onDeployingClick?: () => void;}) {
   // Use specialized investor card for investor entries
   if (founder.category === "investor") {
-    return <InvestorCard founder={founder} trending={trending} onClick={onClick} />;
+    return <InvestorCard founder={founder} trending={trending} onClick={onClick} onDeployingClick={onDeployingClick} />;
   }
 
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
