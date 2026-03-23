@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2 } from "lucide-react";
+import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 import type { OnboardingState } from "./types";
 
 interface StepIdentityProps {
@@ -13,6 +15,12 @@ interface StepIdentityProps {
   update: (p: Partial<OnboardingState>) => void;
   onNext: () => void;
 }
+
+const USER_TYPES = [
+  { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
+  { id: "operator", label: "Operator", icon: UserCog, desc: "Fractional or advisory" },
+  { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
+];
 
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [loading, setLoading] = useState(false);
@@ -30,7 +38,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
         body: { url: url.trim() },
       });
       if (error) throw error;
-      // Try to extract name from scraped data
       const name = data?.title?.split("|")?.[0]?.trim() || "";
       update({
         linkedinUrl: url,
@@ -65,6 +72,38 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
           We'll personalize your experience based on your background.
         </p>
       </div>
+
+      {/* User Type Selector */}
+      <div className="w-full space-y-3">
+        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">I am a</h3>
+        <div className="flex gap-2">
+          {USER_TYPES.map((type) => {
+            const Icon = type.icon;
+            const isActive = state.userType === type.id;
+            return (
+              <button
+                key={type.id}
+                onClick={() => update({ userType: type.id })}
+                className={cn(
+                  "flex-1 flex items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 transition-all",
+                  isActive ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border/80 hover:bg-muted/20"
+                )}
+              >
+                <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
+                  <Icon className={cn("h-3.5 w-3.5", isActive ? "text-accent" : "text-muted-foreground")} />
+                </div>
+                <div className="text-left">
+                  <p className={cn("text-xs font-semibold", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
+                  <p className="text-[9px] text-muted-foreground">{type.desc}</p>
+                </div>
+                {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 ml-auto" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Separator className="w-full" />
 
       {loading ? (
         <div className="w-full space-y-4 py-8">
