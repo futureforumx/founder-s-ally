@@ -23,6 +23,7 @@ export interface LiveInvestorEntry {
   is_trending?: boolean;
   is_popular?: boolean;
   is_recent?: boolean;
+  website_url?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
@@ -51,6 +52,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     is_trending: row.is_trending ?? false,
     is_popular: row.is_popular ?? false,
     is_recent: row.is_recent ?? false,
+    website_url: row.website_url ?? null,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   DollarSign, Activity, Heart, Info } from
 "lucide-react";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
@@ -59,6 +60,8 @@ interface DirectoryEntry {
   _aum?: string | null;
   _logoUrl?: string | null;
   _matchScore?: number | null;
+  _firmId?: string | null;
+  _websiteUrl?: string | null;
 }
 
 // ── Mock data: Suggested ──
@@ -277,7 +280,8 @@ function FounderCardSkeleton() {
 
 // ── Investor Card ──
 function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void; onDeployingClick?: () => void;}) {
-  const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
+  const websiteUrl = founder._websiteUrl || null;
+  const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore;
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
@@ -293,22 +297,13 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
         {/* ── Row 1: Logo left, Alerts right ── */}
         <div className="flex items-start justify-between gap-3">
           {/* Logo */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary border border-border/50 shrink-0 overflow-hidden">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={founder.name}
-                className="h-full w-full object-contain p-1"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                }}
-              />
-            ) : null}
-            <span className={`text-lg font-bold text-muted-foreground ${logoUrl ? "hidden" : ""}`}>
-              {founder.initial}
-            </span>
-          </div>
+          <FirmLogo
+            firmName={founder.name}
+            logoUrl={logoUrl}
+            websiteUrl={websiteUrl}
+            size="lg"
+            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+          />
 
           {/* Upper right: deploying status + scores */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -566,6 +561,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
+          _firmId: (dbMatch as any)?.id || f.id || null,
+          _websiteUrl: (dbMatch as any)?.website_url || null,
         };
       });
   }, [vcFirms, dbInvestorMap]);
@@ -602,6 +599,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _isTrending: (dbMatch as any)?.is_trending ?? false,
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
+          _firmId: (dbMatch as any)?.id ?? null,
+          _websiteUrl: (dbMatch as any)?.website_url ?? null,
+          _logoUrl: (dbMatch as any)?.logo_url ?? e._logoUrl ?? null,
         };
       }),
       ...vcEntries,
