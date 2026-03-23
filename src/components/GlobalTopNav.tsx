@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, Lock, CircleHelp,
+  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff,
 } from "lucide-react";
+import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
