@@ -62,6 +62,9 @@ interface DirectoryEntry {
   _matchScore?: number | null;
   _firmId?: string | null;
   _websiteUrl?: string | null;
+  _isTrending?: boolean;
+  _isPopular?: boolean;
+  _isRecent?: boolean;
 }
 
 // ── Mock data: Suggested ──
