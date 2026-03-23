@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Mail, Linkedin, Twitter, Calendar, Zap, CheckCircle2, Lock,
+  Mail, Linkedin, Twitter, Zap, CheckCircle2, Lock,
   Shield, RefreshCw, Clock, ArrowRight, Sparkles, AlertCircle,
   Database, Users, Network, TrendingUp, BarChart3, X as XIcon
 } from "lucide-react";
