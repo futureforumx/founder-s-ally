@@ -520,76 +520,76 @@ export function CompanyTab() {
       {/* ── Linked: Full Company Profile Editor ── */}
       {state === "linked" && !loading && (
         <div className="space-y-6">
-          {/* ═══ Asymmetric 2-Column Grid ═══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ═══ Full-Width Stacked Layout ═══ */}
+          <div className="flex flex-col gap-6">
 
-            {/* ── Left Column: Performance & Status (sticky) ── */}
-            <div className="lg:col-span-4 sticky top-8 flex flex-col gap-5">
-
-
-              {/* Profile Strength */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
-                <ProfileStrength
-                  completionPercent={profileCompletion.percent}
-                  sectionConfirmed={sectionConfirmed}
-                  investorsConfirmed={investorsConfirmed}
-                  investorSectionRef={investorSectionRef}
-                />
-              </div>
-
-              {/* AI Insight */}
-              <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
-                <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3" /> AI Insight
-                </p>
-                <p className="text-xs text-foreground leading-relaxed">
-                  Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
-                </p>
-                {!sectionConfirmed.metrics && (
-                  <button
-                    onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
-                    className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
-                  >
-                    Verify Metrics <ChevronRight className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-
-              {/* Unlink */}
-              <button onClick={handleUnlink} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors">
-                <Unlink className="h-3 w-3" />
-                Unlink Company
-              </button>
+            {/* Profile Strength — full width */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
+              <ProfileStrength
+                completionPercent={profileCompletion.percent}
+                sectionConfirmed={sectionConfirmed}
+                investorsConfirmed={investorsConfirmed}
+                investorSectionRef={investorSectionRef}
+              />
             </div>
 
-            {/* ── Right Column: The Payload/Editor ── */}
-            <div className="lg:col-span-8 flex flex-col gap-6">
-              <CompanyProfile
-                key={profileKey}
-                onSave={setCompanyData}
-                onAnalysis={handleAnalysis}
-                onSectorChange={setSectorClassification}
-                onStageClassification={setStageClassification}
-                onProfileVerified={setIsProfileVerified}
-                onSectionConfirmedChange={setSectionConfirmed}
-                onCompletionChange={setProfileCompletion}
-              />
+            {/* AI Insight — full width */}
+            <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
+              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> AI Insight
+              </p>
+              <p className="text-xs text-foreground leading-relaxed">
+                Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
+              </p>
+              {!sectionConfirmed.metrics && (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
+                  className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
+                >
+                  Verify Metrics <ChevronRight className="h-3 w-3" />
+                </button>
+              )}
+            </div>
 
-              {/* Investors Section */}
-              <div ref={investorSectionRef}>
-                <MissionControlInvestors
-                  backers={capTable.backers}
-                  totalRaised={capTable.totalRaised}
-                  formatCurrency={capTable.formatCurrency}
-                  addInvestor={capTable.addInvestor}
-                  onNavigateInvestors={() => window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }))}
-                  analysisResult={analysisResult}
-                  companyData={companyData}
-                  previousSectionApproved={!!sectionConfirmed.social}
-                  onConfirmedChange={setInvestorsConfirmed}
-                />
+            {/* Company Profile Editor */}
+            <CompanyProfile
+              key={profileKey}
+              onSave={setCompanyData}
+              onAnalysis={handleAnalysis}
+              onSectorChange={setSectorClassification}
+              onStageClassification={setStageClassification}
+              onProfileVerified={setIsProfileVerified}
+              onSectionConfirmedChange={setSectionConfirmed}
+              onCompletionChange={setProfileCompletion}
+            />
+
+            {/* Investors Section */}
+            <div ref={investorSectionRef}>
+              <MissionControlInvestors
+                backers={capTable.backers}
+                totalRaised={capTable.totalRaised}
+                formatCurrency={capTable.formatCurrency}
+                addInvestor={capTable.addInvestor}
+                onNavigateInvestors={() => window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }))}
+                analysisResult={analysisResult}
+                companyData={companyData}
+                previousSectionApproved={!!sectionConfirmed.social}
+                onConfirmedChange={setInvestorsConfirmed}
+              />
+            </div>
+
+            {/* ── Danger Zone: Unlink ── */}
+            <Separator />
+            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Unlink Company</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Remove this company from your account. This won't delete any data.</p>
               </div>
+              <Button variant="outline" size="sm" onClick={handleUnlink} className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive">
+                <Unlink className="h-3.5 w-3.5 mr-1.5" />
+                Unlink
+              </Button>
             </div>
           </div>
         </div>
