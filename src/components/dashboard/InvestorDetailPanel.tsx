@@ -10,11 +10,7 @@ import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
-import { StageTimeline } from "./investor-detail/StageTimeline";
-import { DealDynamics } from "./investor-detail/DealDynamics";
-import { GeographicFocus } from "./investor-detail/GeographicFocus";
-import { SectorAlignment } from "./investor-detail/SectorAlignment";
-import { InvestorThemes } from "./investor-detail/InvestorThemes";
+import { ThesisTabContent } from "./investor-detail/ThesisTabContent";
 import { MatchScoreDropdown } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
@@ -323,33 +319,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     )}
 
                     {activeTab === "Investment Thesis" && (
-                      <motion.div key="thesis" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <div className="space-y-4">
-                          {/* Row 1: Sector Alignment (1col) + Stage Timeline (2col) */}
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="lg:col-span-1 h-full">
-                              <SectorAlignment
-                                vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map(s => s.trim())}
-                                primarySector={companyData?.sector}
-                                secondarySectors={(companyData as any)?.subsectors || []}
-                              />
-                            </div>
-                            <div className="lg:col-span-2 h-full"><StageTimeline /></div>
-                          </div>
-                          {/* Row 2: Current Themes (1col) + Deal Dynamics (1col) + Geographic Focus (1col) */}
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="lg:col-span-1 h-full">
-                              <InvestorThemes
-                                currentThesis={enrichedData?.profile?.currentThesis}
-                                recentDeals={enrichedData?.profile?.recentDeals}
-                                firmName={displayName}
-                              />
-                            </div>
-                            <div className="lg:col-span-1 h-full"><DealDynamics /></div>
-                            <div className="lg:col-span-1 h-full"><GeographicFocus /></div>
-                          </div>
-                        </div>
-                      </motion.div>
+                      <ThesisTabContent
+                        vcFirm={vcFirm}
+                        effectiveInvestor={effectiveInvestor}
+                        companyData={companyData}
+                        enrichedData={enrichedData}
+                        displayName={displayName}
+                      />
+                    
                     )}
 
                     {activeTab === "Portfolio" && (
