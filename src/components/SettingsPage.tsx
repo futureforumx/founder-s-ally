@@ -519,8 +519,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
     setSyncing(true);
     try {
+      // Normalize to full URL before sending
+      const normalizedUrl = formatSocialUrl("linkedin_personal", linkedinUrl.trim());
+      if (normalizedUrl !== linkedinUrl) setLinkedinUrl(normalizedUrl);
       const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: linkedinUrl.trim() },
+        body: { linkedinUrl: normalizedUrl },
       });
 
       if (error) throw error;
@@ -572,7 +575,9 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   };
 
   // ── Progressive disclosure logic ──
-  const isLinkedinValid = /linkedin\.com\/in\/.+/i.test(linkedinUrl.trim());
+  // Accept full linkedin URLs, partial paths, or bare usernames (alphanumeric, dots, hyphens)
+  const isLinkedinInvalid = linkedinUrl.trim() !== "" && /[@\s]|^\d+$/.test(linkedinUrl.trim()) && !/linkedin\.com/i.test(linkedinUrl.trim());
+  const isLinkedinValid = linkedinUrl.trim() !== "" && !isLinkedinInvalid;
   const hasSynced = !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
   const isComplete = !!(name.trim() && title.trim() && bio.trim() && location.trim() && linkedinUrl.trim());
   const showTwitter = isLinkedinValid || isComplete;
@@ -647,7 +652,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                         </motion.button>
                       )}
                       {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />}
-                      {!isLinkedinValid && linkedinUrl.trim() && (
+                      {!isLinkedinValid && isLinkedinInvalid && (
                         <span className="text-[9px] text-destructive font-mono">Invalid</span>
                       )}
                     </div>
