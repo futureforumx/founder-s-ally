@@ -584,6 +584,39 @@ export type Database = {
           },
         ]
       }
+      investor_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          did_respond: boolean
+          firm_id: string
+          founder_id: string
+          id: string
+          interaction_type: string
+          nps_score: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          did_respond?: boolean
+          firm_id: string
+          founder_id: string
+          id?: string
+          interaction_type?: string
+          nps_score: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          did_respond?: boolean
+          firm_id?: string
+          founder_id?: string
+          id?: string
+          interaction_type?: string
+          nps_score?: number
+        }
+        Relationships: []
+      }
       pending_investors: {
         Row: {
           amount: number
