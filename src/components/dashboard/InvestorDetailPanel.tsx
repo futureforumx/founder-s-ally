@@ -51,6 +51,7 @@ export type { InvestorEntry };
 
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>("Updates");
+  const [reviewOpen, setReviewOpen] = useState(false);
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
