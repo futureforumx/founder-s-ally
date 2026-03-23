@@ -342,46 +342,48 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncApplying, setSyncApplying] = useState(false);
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
 
-  // Track original values for dirty detection
-  const [original, setOriginal] = useState({ name: displayName, title: "", bio: "", location: "", userType: "founder", linkedinUrl: "", twitterUrl: "" });
+  // ── Autosave ──
+  const persistProfile = useCallback(async (updates: Record<string, any>) => {
+    // Map field names to DB column names
+    const dbUpdates: Record<string, any> = {};
+    if ("name" in updates) dbUpdates.full_name = updates.name;
+    if ("title" in updates) dbUpdates.title = updates.title;
+    if ("bio" in updates) dbUpdates.bio = updates.bio;
+    if ("location" in updates) dbUpdates.location = updates.location;
+    if ("userType" in updates) dbUpdates.user_type = updates.userType;
+    if ("linkedinUrl" in updates) dbUpdates.linkedin_url = updates.linkedinUrl || null;
+    if ("twitterUrl" in updates) dbUpdates.twitter_url = updates.twitterUrl || null;
+    // Handle company_id for founders
+    if (updates.userType === "founder" && userId) {
+      const { data: comp } = await (supabase as any)
+        .from("company_analyses")
+        .select("id")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (comp) dbUpdates.company_id = comp.id;
+    }
+    await upsertProfile(dbUpdates as any);
+  }, [userId, upsertProfile]);
+
+  const { save: autosave, saveImmediate } = useAutosave(persistProfile);
 
   useEffect(() => {
     if (profile) {
-      const vals = {
-        name: profile.full_name || displayName,
-        title: profile.title || "",
-        bio: profile.bio || "",
-        location: profile.location || "",
-        userType: profile.user_type || "founder",
-        linkedinUrl: profile.linkedin_url || "",
-        twitterUrl: profile.twitter_url || "",
-      };
-      setName(vals.name);
-      setTitle(vals.title);
-      setBio(vals.bio);
-      setLocation(vals.location);
-      setUserType(vals.userType);
-      setLinkedinUrl(vals.linkedinUrl);
-      setTwitterUrl(vals.twitterUrl);
-      setOriginal(vals);
+      setName(profile.full_name || displayName);
+      setTitle(profile.title || "");
+      setBio(profile.bio || "");
+      setLocation(profile.location || "");
+      setUserType(profile.user_type || "founder");
+      setLinkedinUrl(profile.linkedin_url || "");
+      setTwitterUrl(profile.twitter_url || "");
       if (profile.avatar_url) {
         setAvatarUrl(profile.avatar_url);
         setAvatarError(false);
       }
     }
   }, [profile, displayName]);
-
-  const isDirty = name !== original.name || title !== original.title || bio !== original.bio || location !== original.location || userType !== original.userType || linkedinUrl !== original.linkedinUrl || twitterUrl !== original.twitterUrl;
-
-  const handleDiscard = () => {
-    setName(original.name);
-    setTitle(original.title);
-    setBio(original.bio);
-    setLocation(original.location);
-    setUserType(original.userType);
-    setLinkedinUrl(original.linkedinUrl);
-    setTwitterUrl(original.twitterUrl);
-  };
 
   const USER_TYPES = [
     { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
