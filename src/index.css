@@ -226,8 +226,8 @@
 
   /* Center-stage terminal glow pulse */
   @keyframes terminal-glow-pulse {
-    0%, 100% { box-shadow: 0 0 20px hsl(217 91% 60% / 0.15), 0 0 40px hsl(217 91% 60% / 0.08); }
-    50% { box-shadow: 0 0 30px hsl(217 91% 60% / 0.25), 0 0 60px hsl(217 91% 60% / 0.12); }
+    0%, 100% { box-shadow: 0 0 20px hsl(var(--neon-purple) / 0.15), 0 0 40px hsl(var(--neon-purple) / 0.08); }
+    50% { box-shadow: 0 0 30px hsl(var(--neon-purple) / 0.25), 0 0 60px hsl(var(--neon-purple) / 0.12); }
   }
 
   .terminal-glow {
