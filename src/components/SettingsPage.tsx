@@ -109,14 +109,31 @@ export function SettingsPage() {
     const sync = () => {
       try {
         const saved = localStorage.getItem("company-profile");
-        if (saved) setFormSnapshot({ ...EMPTY_FORM, ...JSON.parse(saved) });
+        if (saved) setFormSnapshot((prev) => {
+          const next = { ...EMPTY_FORM, ...JSON.parse(saved) };
+          if (JSON.stringify(prev) !== JSON.stringify(next)) return next;
+          return prev;
+        });
       } catch {}
     };
     window.addEventListener("storage", sync);
-    // Also poll on an interval since same-tab localStorage writes don't fire "storage"
     const interval = setInterval(sync, 2000);
     return () => { window.removeEventListener("storage", sync); clearInterval(interval); };
   }, []);
+
+  // Auto-save indicator lifecycle
+  const prevFormRef = useRef(formSnapshot);
+  useEffect(() => {
+    if (prevFormRef.current === formSnapshot) return;
+    prevFormRef.current = formSnapshot;
+
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      setSaveStatus("saved");
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+    }, 2500);
+  }, [formSnapshot]);
 
   const profileCompletion = useMemo(() => getCompletionPercent(formSnapshot), [formSnapshot]);
 
