@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CompanyProfile, type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
-import { ProfileStrength } from "@/components/company-profile/ProfileStrength";
+
 import type { SectorClassification } from "@/components/SectorTags";
 
 // ── Types ──
