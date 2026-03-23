@@ -44,7 +44,7 @@ function loadCompletedSources(): Set<SourceKey> {
 
 function saveCompletedSources(completed: Set<SourceKey>) {
   const obj: Record<string, boolean> = {};
-  (["gmail", "linkedin", "twitter", "calendar", "angellist"] as SourceKey[]).forEach(
+  (["gmail", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach(
     (k) => (obj[k] = completed.has(k))
   );
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
