@@ -425,13 +425,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     { value: "Bangalore, India", label: "Bangalore, India", desc: "Asia" },
   ];
 
-  // Auto-save on blur for combobox fields
+  // Auto-save on blur for combobox fields — delegates to autosave
   const handleFieldBlur = useCallback(async (field: string, val: string) => {
     if (!userId) return;
-    const updates: Record<string, string> = { [field]: val };
-    await upsertProfile(updates as any);
-    setOriginal(prev => ({ ...prev, [field === "title" ? "title" : "location"]: val }));
-  }, [userId, upsertProfile]);
+    await saveImmediate({ [field]: val });
+  }, [userId, saveImmediate]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
