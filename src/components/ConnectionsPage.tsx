@@ -93,6 +93,9 @@ export function ConnectionsPage() {
       {/* Intro Pathfinder */}
       <IntroPathfinder investorName="your target investors" />
 
+      {/* Network Graph */}
+      <NetworkGraph />
+
       {/* Community Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Network Reach */}
