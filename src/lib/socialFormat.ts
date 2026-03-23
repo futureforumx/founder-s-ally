@@ -60,5 +60,5 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
   }
 
   // Pure username → prepend base URL
-  return `${BASE_URLS[platform]}${cleaned}`;
+  return `${BASE_URLS[platform]}${cleaned}`.toLowerCase();
 }
