@@ -777,6 +777,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             e.description.toLowerCase().includes(sectorNorm);
         });
       }
+      case "trending":
+        return investors.filter((e) => e._isTrending);
+      case "popular":
+        return investors.filter((e) => e._isPopular);
+      case "recent":
+        return investors.filter((e) => e._isRecent);
       default: // "all"
         return investors;
     }
