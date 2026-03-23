@@ -317,27 +317,7 @@ function TabWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Dirty form footer ──
-function StickyFormFooter({ dirty, saving, onDiscard, onSave }: { dirty: boolean; saving: boolean; onDiscard: () => void; onSave: () => void }) {
-  return (
-    <AnimatePresence>
-      {dirty && (
-        <motion.div
-          initial={{ y: 80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm px-8 py-3 flex items-center justify-end gap-3 shadow-lg"
-        >
-          <Button variant="outline" size="sm" className="rounded-lg text-xs" onClick={onDiscard}>Discard</Button>
-          <Button size="sm" className="rounded-lg text-xs font-semibold" onClick={onSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+// StickyFormFooter removed — autosave handles persistence
 
 // ── Account Tab ──
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
