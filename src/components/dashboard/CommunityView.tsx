@@ -275,8 +275,8 @@ function FounderCardSkeleton() {
 
 }
 
-// ── Founder Card ──
-function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void;}) {
+// ── Investor Card ──
+function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void; onDeployingClick?: () => void;}) {
   const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
   const sentimentScore = founder._founderSentimentScore;
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
@@ -313,9 +313,29 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
           {/* Upper right: deploying status + scores */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             {founder._isActivelyDeploying !== false && (
-              <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider">
-                <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
-              </Badge>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeployingClick?.();
+                      }}
+                      className="inline-flex items-center"
+                    >
+                      <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider hover:bg-success/15 transition-colors">
+                        <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+                      </Badge>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] bg-popover/95 backdrop-blur-md p-2.5">
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground">Actively Deploying</span> — This fund is currently writing checks and evaluating new deals. Click to view their recent activity.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             <div className="flex items-center gap-2">
               <TooltipProvider delayDuration={200}>
@@ -326,7 +346,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
                       <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="z-[9999] max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
+                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
                     <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Measures alignment between your company profile and this investor&apos;s thesis across sector, stage, geography, and check size using vector similarity.
@@ -346,7 +366,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
                         <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="z-[9999] max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
+                    <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
                       <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
