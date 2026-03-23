@@ -1,11 +1,21 @@
-import { forwardRef, useMemo } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock, Bookmark, BookmarkCheck, X, Users } from "lucide-react";
+import {
+  ArrowRight, DollarSign, Sparkles, Zap, ShieldCheck, Database, Clock,
+  Bookmark, BookmarkCheck, X, Users, AlertTriangle, ThumbsUp,
+  Heart, Gauge, TrendingUp, ArrowUpDown, ChevronDown,
+} from "lucide-react";
 import { CollaborativeRec } from "@/hooks/useVCInteractions";
 import { motion, LayoutGroup } from "framer-motion";
-import { InvestorIntelligenceCard, buildDimensions } from "./InvestorIntelligenceCard";
+import { buildDimensions } from "./InvestorIntelligenceCard";
 import type { WeightConfig } from "./PersonalizeWeightsSidebar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+// ── Types ──
 
 interface ScoredInvestor {
   id: string;
@@ -53,70 +63,126 @@ interface MatchesTabProps {
   onViewInvestor?: (investor: ScoredInvestor) => void;
 }
 
+type SortMetric = "match" | "sentiment" | "responsiveness" | "activity";
+const SORT_OPTIONS: { key: SortMetric; label: string }[] = [
+  { key: "match", label: "Structural Fit" },
+  { key: "sentiment", label: "Founder Vibe" },
+  { key: "responsiveness", label: "Reply Speed" },
+  { key: "activity", label: "Check Velocity" },
+];
+
+// ── Helpers ──
+
 function formatCheckSize(amount: number): string {
   if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`;
   if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
   return `$${amount}`;
 }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "bg-success/10 text-success";
-  if (score >= 60) return "bg-warning/10 text-warning";
-  return "bg-destructive/10 text-destructive";
-}
-
 function SourceBadge({ source }: { source: "exa" | "gemini_grounded" | "local_db" }) {
   if (source === "exa") {
     return (
       <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent animate-fade-in">
-        <Zap className="h-2.5 w-2.5" /> Live Signal
+        <Zap className="h-2.5 w-2.5" /> Live
       </span>
     );
   }
   if (source === "gemini_grounded") {
     return (
       <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary animate-fade-in">
-        <ShieldCheck className="h-2.5 w-2.5" /> Grounding Verified
+        <ShieldCheck className="h-2.5 w-2.5" /> Verified
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground animate-fade-in">
-      <Database className="h-2.5 w-2.5" /> Verified Directory
+      <Database className="h-2.5 w-2.5" /> Directory
     </span>
-  );
-}
-
-function EnrichShimmerCard() {
-  return (
-    <div className="animate-pulse space-y-3 mt-3">
-      <div className="flex gap-2">
-        <div className="h-3.5 w-20 rounded-full bg-secondary" />
-        <div className="h-3.5 w-32 rounded-full bg-secondary/70" />
-      </div>
-      <div className="flex gap-1.5">
-        <div className="h-5 w-16 rounded-md bg-secondary/60" />
-        <div className="h-5 w-20 rounded-md bg-secondary/50" />
-        <div className="h-5 w-14 rounded-md bg-secondary/40" />
-      </div>
-      <div className="h-3 w-28 rounded-full bg-secondary/50" />
-    </div>
   );
 }
 
 function formatVerifiedDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   } catch {
-    return "Unknown";
+    return "—";
   }
 }
 
-function getMomentum(score: number): "high" | "moderate" | "low" {
-  if (score >= 80) return "high";
-  if (score >= 60) return "moderate";
-  return "low";
+function getSpeedLabel(v: number): { label: string; cls: string } {
+  if (v >= 85) return { label: "Lightning Fast", cls: "text-success" };
+  if (v >= 70) return { label: "Quick", cls: "text-success" };
+  if (v >= 50) return { label: "Moderate", cls: "text-warning" };
+  return { label: "Slow", cls: "text-destructive" };
 }
+
+function getVelocityLabel(v: number): { label: string; cls: string } {
+  if (v >= 80) return { label: "Active", cls: "text-success" };
+  if (v >= 55) return { label: "Steady", cls: "text-warning" };
+  return { label: "Paused", cls: "text-destructive" };
+}
+
+function getVibeLabel(v: number): { label: string; cls: string } {
+  if (v >= 80) return { label: "Excellent", cls: "text-success" };
+  if (v >= 60) return { label: "Good", cls: "text-warning" };
+  return { label: "Mixed", cls: "text-destructive" };
+}
+
+// ── Contextual warning logic ──
+function getContextualWarning(matchScore: number, sentiment: number, activity: number): { message: string; type: "warning" | "info" } | null {
+  if (matchScore >= 75 && activity < 45) {
+    return { message: "Perfect fit, but likely not writing checks right now.", type: "warning" };
+  }
+  if (matchScore < 60 && sentiment >= 75) {
+    return { message: "Not a direct fit, but highly recommended by peers.", type: "info" };
+  }
+  return null;
+}
+
+// ── Structural Fit Score Box ──
+function StructuralFitBox({ score, reasons }: { score: number; reasons: string[] }) {
+  const color = score >= 80 ? "border-success/40 bg-success/5" : score >= 60 ? "border-warning/40 bg-warning/5" : "border-destructive/40 bg-destructive/5";
+  const textColor = score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive";
+
+  return (
+    <div className={`rounded-xl border-2 ${color} p-4 flex flex-col items-center justify-center min-w-[100px] shrink-0`}>
+      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Structural Fit</span>
+      <motion.span
+        className={`text-3xl font-black leading-none ${textColor}`}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
+        {score}%
+      </motion.span>
+      {reasons.length > 0 && (
+        <p className="text-[9px] text-muted-foreground mt-2 text-center leading-relaxed max-w-[140px]">
+          Matches: {reasons.slice(0, 3).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Behavioral Sensor Cell ──
+function SensorCell({ icon: Icon, label, value, sublabel, valueClass }: {
+  icon: typeof Heart;
+  label: string;
+  value: string;
+  sublabel: string;
+  valueClass: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-lg bg-secondary/40 border border-border/50 p-3 min-w-0">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground/70" />
+      <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className={`text-xs font-bold ${valueClass}`}>{value}</span>
+      <span className="text-[8px] text-muted-foreground/60">{sublabel}</span>
+    </div>
+  );
+}
+
+// ── Main ──
 
 export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function MatchesTab({
   scoredInvestors, bannerText, enrichedData, enrichingKeys, savedFirmIds, collaborativeRecs,
@@ -124,29 +190,76 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
   onSave, onUnsave, onSkip, onViewInvestor,
 }, _ref) {
 
-  // Apply weight-based re-ordering
-  const orderedInvestors = useMemo(() => {
-    if (!weights) return scoredInvestors;
-    const totalWeight = weights.fit + weights.sentiment + weights.responsiveness + weights.activity;
-    if (totalWeight === 0) return scoredInvestors;
+  const [sortBy, setSortBy] = useState<SortMetric>("match");
 
-    return [...scoredInvestors].sort((a, b) => {
-      const aDims = buildDimensions(a.score, companySector, companyStage, a.firm_name);
-      const bDims = buildDimensions(b.score, companySector, companyStage, b.firm_name);
-      const aWeighted = (aDims[0].value * weights.fit + aDims[1].value * weights.sentiment + aDims[2].value * weights.responsiveness + aDims[3].value * weights.activity) / totalWeight;
-      const bWeighted = (bDims[0].value * weights.fit + bDims[1].value * weights.sentiment + bDims[2].value * weights.responsiveness + bDims[3].value * weights.activity) / totalWeight;
-      return bWeighted - aWeighted;
+  // Build dimensions + apply sort
+  const orderedInvestors = useMemo(() => {
+    const withDims = scoredInvestors.map(inv => {
+      const dims = buildDimensions(inv.score, companySector, companyStage, inv.firm_name);
+      return {
+        ...inv,
+        dims: {
+          fit: inv.score,
+          sentiment: dims[1].value,
+          responsiveness: dims[2].value,
+          activity: dims[3].value,
+        },
+      };
     });
-  }, [scoredInvestors, weights, companySector, companyStage]);
+
+    // Apply weights if provided (override sort)
+    if (weights) {
+      const totalWeight = weights.fit + weights.sentiment + weights.responsiveness + weights.activity;
+      if (totalWeight > 0) {
+        return [...withDims].sort((a, b) => {
+          const aW = (a.dims.fit * weights.fit + a.dims.sentiment * weights.sentiment + a.dims.responsiveness * weights.responsiveness + a.dims.activity * weights.activity) / totalWeight;
+          const bW = (b.dims.fit * weights.fit + b.dims.sentiment * weights.sentiment + b.dims.responsiveness * weights.responsiveness + b.dims.activity * weights.activity) / totalWeight;
+          return bW - aW;
+        });
+      }
+    }
+
+    // Sort by selected metric
+    return [...withDims].sort((a, b) => {
+      if (sortBy === "match") return b.dims.fit - a.dims.fit;
+      return b.dims[sortBy] - a.dims[sortBy];
+    });
+  }, [scoredInvestors, weights, companySector, companyStage, sortBy]);
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.key === sortBy)?.label || "Structural Fit";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-4 animate-fade-in">
-        <Sparkles className="h-5 w-5 text-accent shrink-0" />
-        <p className="text-xs text-muted-foreground leading-relaxed">{bannerText}</p>
+    <div className="space-y-5">
+      {/* Banner */}
+      <div className="flex items-center gap-3 rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-accent/10 p-3.5 animate-fade-in">
+        <Sparkles className="h-4 w-4 text-accent shrink-0" />
+        <p className="text-xs text-muted-foreground leading-relaxed flex-1">{bannerText}</p>
+
+        {/* Sort Control */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors shrink-0">
+              <ArrowUpDown className="h-3 w-3" />
+              {currentSortLabel}
+              <ChevronDown className="h-2.5 w-2.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {SORT_OPTIONS.map(opt => (
+              <DropdownMenuItem
+                key={opt.key}
+                onClick={() => setSortBy(opt.key)}
+                className={`text-xs ${sortBy === opt.key ? "font-bold text-accent" : ""}`}
+              >
+                {opt.label}
+                {sortBy === opt.key && <span className="ml-auto text-accent">✓</span>}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Collaborative Recommendations */}
+      {/* Collaborative Recs */}
       {collaborativeRecs && collaborativeRecs.length > 0 && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 animate-fade-in">
           <div className="flex items-center gap-2 mb-3">
@@ -173,15 +286,28 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
         </div>
       )}
 
+      {/* Investor Cards */}
       <LayoutGroup>
         <div className="grid gap-4 sm:grid-cols-1">
           {orderedInvestors.map(investor => {
             const key = investor.firm_name.toLowerCase().trim();
             const enriched = enrichedData?.[key];
             const isEnriching = enrichingKeys?.has(key);
-            const reasoningParts = investor.reasoning.split(" · ");
             const isSaved = savedFirmIds?.has(investor.id) || false;
-            const dimensions = buildDimensions(investor.score, companySector, companyStage, investor.firm_name);
+            const { dims } = investor;
+
+            // Build readable reasons
+            const reasonParts: string[] = [];
+            if (investor.preferred_stage) reasonParts.push(`${investor.preferred_stage} Stage`);
+            if (investor.thesis_verticals.length > 0) reasonParts.push(investor.thesis_verticals[0]);
+            reasonParts.push(`${formatCheckSize(investor.min_check_size)} Check`);
+
+            const speed = getSpeedLabel(dims.responsiveness);
+            const velocity = getVelocityLabel(dims.activity);
+            const vibe = getVibeLabel(dims.sentiment);
+            const reviewCount = Math.floor(dims.sentiment / 5);
+
+            const warning = getContextualWarning(dims.fit, dims.sentiment, dims.activity);
 
             return (
               <motion.div
@@ -189,134 +315,146 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                 layout
                 layoutId={investor.id}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-accent/30 cursor-pointer"
+                className={`group rounded-2xl border bg-card/80 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer ${
+                  warning?.type === "warning" ? "border-warning/30" : warning?.type === "info" ? "border-accent/30" : "border-border hover:border-accent/30"
+                }`}
                 onClick={() => onViewInvestor?.(investor)}
               >
-                {/* Intelligence Card Bento */}
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-                  {/* Left: Investor Info */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm">
-                        {investor.firm_name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-foreground">{investor.firm_name}</h3>
-                          {enriched && <SourceBadge source={enriched.profile.source} />}
-                          {isEnriching && !enriched && (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground animate-pulse">
-                              Enriching…
-                            </span>
-                          )}
+                {/* Contextual Warning Banner */}
+                {warning && (
+                  <div className={`flex items-center gap-2 px-5 py-2 text-[11px] font-medium ${
+                    warning.type === "warning"
+                      ? "bg-warning/10 text-warning border-b border-warning/20"
+                      : "bg-accent/5 text-accent border-b border-accent/20"
+                  }`}>
+                    {warning.type === "warning" ? <AlertTriangle className="h-3 w-3 shrink-0" /> : <ThumbsUp className="h-3 w-3 shrink-0" />}
+                    {warning.message}
+                  </div>
+                )}
+
+                <div className="p-5">
+                  {/* ── Row 1: Header with Structural Fit ── */}
+                  <div className="flex items-start gap-4">
+                    {/* Left: Investor identity */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm shrink-0">
+                          {investor.firm_name.charAt(0)}
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {investor.preferred_stage} · {investor.lead_or_follow}
-                          {investor.lead_partner && ` · ${investor.lead_partner}`}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-foreground truncate">{investor.firm_name}</h3>
+                            {enriched && <SourceBadge source={enriched.profile.source} />}
+                            {isEnriching && !enriched && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground animate-pulse">Enriching…</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {investor.preferred_stage} · {investor.lead_or_follow}
+                            {investor.lead_partner && ` · ${investor.lead_partner}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Thesis / Reasoning */}
+                      {enriched?.profile.currentThesis ? (
+                        <p className="text-xs text-muted-foreground leading-relaxed italic animate-fade-in line-clamp-2">
+                          "{enriched.profile.currentThesis}"
                         </p>
-                      </div>
-                    </div>
+                      ) : !isEnriching ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {investor.thesis_verticals.slice(0, 4).map(v => (
+                            <Badge key={v} variant="secondary" className="text-[10px] font-normal">{v}</Badge>
+                          ))}
+                        </div>
+                      ) : null}
 
-                    {isEnriching && !enriched && <EnrichShimmerCard />}
-
-                    {enriched?.profile.currentThesis ? (
-                      <p className="text-xs text-muted-foreground leading-relaxed italic animate-fade-in">
-                        "{enriched.profile.currentThesis}"
-                      </p>
-                    ) : !isEnriching ? (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Matches your{" "}
-                        {reasoningParts.map((part, i) => (
-                          <span key={i}>
-                            {i > 0 && " and "}
-                            {investor.coInvestLink && part.includes(investor.coInvestLink) ? (
-                              <>frequently co-invests at this stage with <span className="font-semibold text-foreground">{investor.coInvestLink}</span></>
-                            ) : part}
-                          </span>
-                        ))}.
-                      </p>
-                    ) : null}
-
-                    {enriched && enriched.profile.recentDeals.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 animate-fade-in">
-                        <span className="text-[10px] text-muted-foreground mr-1">Recent:</span>
-                        {enriched.profile.recentDeals.slice(0, 3).map((deal, i) => (
-                          <Badge key={i} variant="outline" className="text-[10px] font-normal">{deal}</Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {!isEnriching && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {investor.thesis_verticals.slice(0, 4).map(v => (
-                          <Badge key={v} variant="secondary" className="text-[10px] font-normal">{v}</Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
-                        {formatCheckSize(investor.min_check_size)}–{formatCheckSize(investor.max_check_size)}
-                      </span>
-                      {investor.location && <span>{investor.location}</span>}
-                      {enriched && (
-                        <span className="flex items-center gap-1 ml-auto animate-fade-in">
-                          <Clock className="h-3 w-3" />
-                          Verified: {formatVerifiedDate(enriched.profile.lastVerified)}
+                      {/* Meta Row */}
+                      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {formatCheckSize(investor.min_check_size)}–{formatCheckSize(investor.max_check_size)}
                         </span>
-                      )}
+                        {investor.location && <span>{investor.location}</span>}
+                        {enriched && (
+                          <span className="flex items-center gap-1 animate-fade-in">
+                            <Clock className="h-3 w-3" />
+                            {formatVerifiedDate(enriched.profile.lastVerified)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Structural Fit Score */}
+                    <StructuralFitBox score={dims.fit} reasons={reasonParts} />
+                  </div>
+
+                  {/* ── Row 2: Behavioral Sensor Grid ── */}
+                  <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">Behavioral Signals</span>
+                      <div className="flex-1 h-px bg-border/50" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <SensorCell
+                        icon={Heart}
+                        label="Founder Vibe"
+                        value={vibe.label}
+                        sublabel={`${reviewCount} reviews`}
+                        valueClass={vibe.cls}
+                      />
+                      <SensorCell
+                        icon={Gauge}
+                        label="Reply Speed"
+                        value={speed.label}
+                        sublabel={`${dims.responsiveness}% rate`}
+                        valueClass={speed.cls}
+                      />
+                      <SensorCell
+                        icon={TrendingUp}
+                        label="Check Velocity"
+                        value={velocity.label}
+                        sublabel={`${Math.floor(dims.activity / 10)} deals / 90d`}
+                        valueClass={velocity.cls}
+                      />
                     </div>
                   </div>
 
-                  {/* Right: Intelligence Card */}
-                  <div onClick={e => e.stopPropagation()}>
-                    <InvestorIntelligenceCard
-                      firmName={investor.firm_name}
-                      compositeScore={investor.score}
-                      momentum={getMomentum(investor.score)}
-                      dimensions={dimensions}
-                      lastScanned="4 hours ago"
-                      companySector={companySector}
-                      companyStage={companyStage}
-                    />
+                  {/* ── Row 3: Actions ── */}
+                  <div className="mt-4 flex items-center gap-3 pt-3 border-t border-border/50">
+                    {isSaved ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 border-success/30 text-success hover:bg-success/5"
+                        onClick={(e) => { e.stopPropagation(); onUnsave?.(investor.id); }}
+                      >
+                        <BookmarkCheck className="h-3 w-3" /> Saved
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
+                        onClick={(e) => { e.stopPropagation(); onSave?.(investor.id); }}
+                      >
+                        <Bookmark className="h-3 w-3" /> Save
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => { e.stopPropagation(); onSkip?.(investor.id); }}
+                    >
+                      <X className="h-3 w-3" /> Skip
+                    </Button>
+                    <button
+                      className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); onViewInvestor?.(investor); }}
+                    >
+                      View Thesis <ArrowRight className="inline h-3 w-3 ml-0.5" />
+                    </button>
                   </div>
-                </div>
-
-                {/* Actions */}
-                <div className="mt-4 flex items-center gap-3 pt-3 border-t border-border">
-                  {isSaved ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 border-success/30 text-success hover:bg-success/5"
-                      onClick={(e) => { e.stopPropagation(); onUnsave?.(investor.id); }}
-                    >
-                      <BookmarkCheck className="h-3 w-3" /> Saved
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
-                      onClick={(e) => { e.stopPropagation(); onSave?.(investor.id); }}
-                    >
-                      <Bookmark className="h-3 w-3" /> Save
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-1 text-muted-foreground hover:text-foreground"
-                    onClick={(e) => { e.stopPropagation(); onSkip?.(investor.id); }}
-                  >
-                    <X className="h-3 w-3" /> Skip
-                  </Button>
-                  <button
-                    className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onViewInvestor?.(investor); }}
-                  >
-                    View Thesis <ArrowRight className="inline h-3 w-3 ml-0.5" />
-                  </button>
                 </div>
               </motion.div>
             );
