@@ -193,6 +193,7 @@ export function GlobalTopNav({
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeChip, setActiveChip] = useState("all");
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
 
