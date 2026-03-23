@@ -572,7 +572,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const mergedEntries = useMemo(() => {
     return [
       ...realFounderEntries,
-      ...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })),
+      ...ALL_ENTRIES.map(e => {
+        const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+        return {
+          ...e,
+          _sectors: [] as string[],
+          _stages: [] as string[],
+          _isTrending: (dbMatch as any)?.is_trending ?? false,
+          _isPopular: (dbMatch as any)?.is_popular ?? false,
+          _isRecent: (dbMatch as any)?.is_recent ?? false,
+        };
+      }),
       ...vcEntries,
     ];
   }, [vcEntries, realFounderEntries]);
