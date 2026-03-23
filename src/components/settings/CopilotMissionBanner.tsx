@@ -252,7 +252,7 @@ export function CopilotMissionBanner({
         animate={{ opacity: 1, y: 0 }}
         className="mx-8 mt-4 mb-1 rounded-2xl border border-success/20 bg-success/5 backdrop-blur-xl p-4"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
             <Sparkles className="h-5 w-5 text-success" />
           </div>
