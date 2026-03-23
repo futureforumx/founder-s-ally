@@ -323,8 +323,16 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
             AI-driven investor discovery based on your profile and current cap table.
           </p>
         </div>
-        <TimeRangeControl value={timeRange} onChange={setTimeRange} />
-        <ExportGateButton recordCount={scoredInvestors.length} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWeightsOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Tune
+          </button>
+          <TimeRangeControl value={timeRange} onChange={setTimeRange} />
+          <ExportGateButton recordCount={scoredInvestors.length} />
+        </div>
       </div>
 
       {/* Intelligence Cards */}
