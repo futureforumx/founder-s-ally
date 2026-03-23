@@ -145,22 +145,37 @@ function StructuralFitBox({ score, reasons }: { score: number; reasons: string[]
   const textColor = score >= 80 ? "text-success" : score >= 60 ? "text-warning" : "text-destructive";
 
   return (
-    <div className={`rounded-xl border-2 ${color} p-4 flex flex-col items-center justify-center min-w-[100px] shrink-0`}>
-      <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Structural Fit</span>
-      <motion.span
-        className={`text-3xl font-black leading-none ${textColor}`}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-      >
-        {score}%
-      </motion.span>
-      {reasons.length > 0 && (
-        <p className="text-[9px] text-muted-foreground mt-2 text-center leading-relaxed max-w-[140px]">
-          Matches: {reasons.slice(0, 3).join(", ")}
-        </p>
-      )}
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`rounded-xl border-2 ${color} p-4 flex flex-col items-center justify-center min-w-[100px] shrink-0 cursor-help`}>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Structural Fit</span>
+            <motion.span
+              className={`text-3xl font-black leading-none ${textColor}`}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              {score}%
+            </motion.span>
+            {reasons.length > 0 && (
+              <p className="text-[9px] text-muted-foreground mt-2 text-center leading-relaxed max-w-[140px]">
+                Matches: {reasons.slice(0, 3).join(", ")}
+              </p>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5">
+          <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Measures alignment between your company profile and this investor's thesis across sector, stage, geography, and check size using vector similarity.
+          </p>
+          <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
+            = cosine_sim(sector) × stage_match × geo_fit × check_range
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
