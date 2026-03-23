@@ -1062,7 +1062,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
             {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
