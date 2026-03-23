@@ -279,8 +279,8 @@ export function GlobalTopNav({
       className={cn(
         "fixed top-0 right-0 z-50 px-5 py-2 flex items-center gap-3 transition-all duration-300",
         scrolled
-          ? "bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
-          : "bg-transparent border-b border-transparent"
+          ? "bg-card/80 backdrop-blur-md border-b border-border shadow-surface"
+          : "bg-card/50 backdrop-blur-sm border-b border-border/50"
       )}
       style={{ left: "11rem" }}
     >
