@@ -10,7 +10,7 @@ const STATS = [
 type AdminView = "overview" | "api-health" | "sync-logs" | "ai-debugger";
 
 interface AdminOverviewProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: AdminView) => void;
 }
 
 export function AdminOverview({ onNavigate }: AdminOverviewProps) {
