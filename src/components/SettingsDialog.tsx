@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
-  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase
+  Sparkles, Crown, Zap, ExternalLink, Calendar, Building2, Users, UserCog, Briefcase,
+  Eye
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -17,13 +18,14 @@ import { Badge } from "@/components/ui/badge";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { toast } from "sonner";
 
-type SettingsTab = "account" | "company" | "connections" | "notifications" | "billing";
+type SettingsTab = "account" | "company" | "connections" | "notifications" | "privacy" | "billing";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
   { id: "company", label: "Company", icon: Building2 },
   { id: "connections", label: "Connections", icon: Mail },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "privacy", label: "Privacy", icon: Eye },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
@@ -115,6 +117,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {activeTab === "connections" && <ConnectionsTab key="connections" />}
               {activeTab === "company" && <CompanyTab key="company" />}
               {activeTab === "notifications" && <NotificationsTab key="notifications" />}
+              {activeTab === "privacy" && <PrivacyTab key="privacy" />}
               {activeTab === "billing" && <BillingTab key="billing" />}
             </AnimatePresence>
           </div>
@@ -539,6 +542,179 @@ function NotificationsTab() {
         <BellOff className="h-4 w-4" />
         Mute all notifications
       </button>
+    </motion.div>
+  );
+}
+
+// ── Privacy Tab ──
+const ONBOARDING_KEY = "onboarding-wizard-state";
+
+function PrivacyTab() {
+  const [prefs, setPrefs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ONBOARDING_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          aiInboxPaths: parsed.aiInboxPaths ?? false,
+          shareAnonMetrics: parsed.shareAnonMetrics ?? false,
+          discoverableToInvestors: parsed.discoverableToInvestors ?? false,
+          useMeetingNotes: parsed.useMeetingNotes ?? false,
+        };
+      }
+    } catch {}
+    return { aiInboxPaths: false, shareAnonMetrics: false, discoverableToInvestors: false, useMeetingNotes: false };
+  });
+
+  const [onboardingData, setOnboardingData] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem(ONBOARDING_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const togglePref = (key: keyof typeof prefs) => {
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefs(next);
+    // Persist back to onboarding state
+    try {
+      const saved = localStorage.getItem(ONBOARDING_KEY);
+      const data = saved ? JSON.parse(saved) : {};
+      localStorage.setItem(ONBOARDING_KEY, JSON.stringify({ ...data, ...next }));
+    } catch {}
+  };
+
+  const TOGGLES = [
+    { key: "aiInboxPaths" as const, title: "Let the AI find warm investor paths in my inbox", sub: "Thread subjects + contact names only. Email bodies never stored.", icon: Mail },
+    { key: "shareAnonMetrics" as const, title: "Share anonymized metrics with my founder cohort", sub: "You see how you compare. They never see it's you.", icon: Users },
+    { key: "discoverableToInvestors" as const, title: "Make me discoverable to matching investors", sub: "Only investors whose thesis matches your profile will see you.", icon: Sparkles },
+    { key: "useMeetingNotes" as const, title: "Use my meeting notes to improve recommendations", sub: "Granola and calendar data only. Delete anytime.", icon: Calendar },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
+      <div>
+        <h3 className="text-lg font-bold text-foreground">Privacy & AI Consent</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Control how your data is used by the Intelligence Engine</p>
+      </div>
+
+      <div className="space-y-2">
+        {TOGGLES.map((t) => {
+          const Icon = t.icon;
+          return (
+            <div key={t.key} className="flex items-start gap-3 rounded-xl border border-border p-3.5 hover:bg-muted/20 transition-colors">
+              <Switch
+                checked={prefs[t.key]}
+                onCheckedChange={() => togglePref(t.key)}
+                className="mt-0.5 shrink-0"
+              />
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <p className="text-sm font-medium text-foreground leading-snug">{t.title}</p>
+                <p className="text-[10px] text-muted-foreground">{t.sub}</p>
+              </div>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Separator />
+
+      {/* Onboarding Preferences Summary */}
+      {onboardingData && (
+        <div className="space-y-4">
+          <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Onboarding Preferences</h4>
+
+          {onboardingData.stage && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Stage</span>
+              <Badge variant="outline" className="text-[10px]">{onboardingData.stage}</Badge>
+            </div>
+          )}
+
+          {onboardingData.sectors?.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">Sectors</span>
+              <div className="flex flex-wrap gap-1">
+                {onboardingData.sectors.map((s: string) => (
+                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {onboardingData.revenueBand && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Revenue Band</span>
+              <Badge variant="outline" className="text-[10px]">{onboardingData.revenueBand}</Badge>
+            </div>
+          )}
+
+          {onboardingData.cofounderCount && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Co-founders</span>
+              <Badge variant="outline" className="text-[10px]">{onboardingData.cofounderCount}</Badge>
+            </div>
+          )}
+
+          {onboardingData.superpowers?.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">Superpowers</span>
+              <div className="flex flex-wrap gap-1">
+                {onboardingData.superpowers.map((s: string) => (
+                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {onboardingData.currentlyRaising && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-foreground">Currently Raising</p>
+              {onboardingData.targetRaise && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Target</span>
+                  <span className="text-[10px] font-medium text-foreground">{onboardingData.targetRaise}</span>
+                </div>
+              )}
+              {onboardingData.roundType && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Round</span>
+                  <span className="text-[10px] font-medium text-foreground">{onboardingData.roundType}</span>
+                </div>
+              )}
+              {onboardingData.targetCloseDate && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">Close Date</span>
+                  <span className="text-[10px] font-medium text-foreground">
+                    {new Date(onboardingData.targetCloseDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {onboardingData.connectedIntegrations?.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">Connected Integrations</span>
+              <div className="flex flex-wrap gap-1">
+                {onboardingData.connectedIntegrations.map((s: string) => (
+                  <Badge key={s} variant="outline" className="text-[10px] capitalize">{s}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-xl bg-muted/20 border border-border p-3.5">
+        <div className="flex items-center gap-2">
+          <Shield className="h-3 w-3 text-muted-foreground" />
+          <p className="text-[10px] text-muted-foreground">Your data is encrypted at rest and in transit. We never sell your information.</p>
+        </div>
+      </div>
     </motion.div>
   );
 }
