@@ -1638,6 +1638,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
+          {/* AI Insight Banner */}
+          {parentCompanyData && (
+            <div className="rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-transparent p-3.5 mt-3 space-y-1.5">
+              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" /> AI Insight
+              </p>
+              <p className="text-xs text-foreground leading-relaxed">
+                Founders in <span className="font-semibold">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {parentCompanyData?.stage || "Seed"} investors.
+              </p>
+            </div>
+          )}
+
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
             {(() => {
@@ -1652,11 +1664,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       : "bg-accent text-accent-foreground hover:bg-accent/90"
                     } disabled:cursor-not-allowed`}>
                     {isAnalyzing ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</>
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>
                     ) : isUpToDate ? (
                       <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
                     ) : (
-                      <><RefreshCw className="h-3.5 w-3.5" /> {analysisComplete ? "Run New Analysis" : "Run AI Analysis"}</>
+                      <><Sparkles className="h-3.5 w-3.5" /> {analysisComplete ? "Sync & Re-Analyze" : "Sync & Run AI Analysis"}</>
                     )}
                   </button>
                   <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
