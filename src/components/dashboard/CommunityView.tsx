@@ -569,7 +569,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
           _firmId: (dbMatch as any)?.id || f.id || null,
-          _websiteUrl: (dbMatch as any)?.website_url || f.website || null,
+          _websiteUrl: (dbMatch as any)?.website_url || null,
         };
       });
   }, [vcFirms, dbInvestorMap]);
