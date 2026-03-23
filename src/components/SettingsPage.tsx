@@ -303,6 +303,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [twitterUrl, setTwitterUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Track original values for dirty detection
   const [original, setOriginal] = useState({ name: displayName, title: "", bio: "", location: "", userType: "founder", linkedinUrl: "", twitterUrl: "" });
@@ -326,6 +330,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       setLinkedinUrl(vals.linkedinUrl);
       setTwitterUrl(vals.twitterUrl);
       setOriginal(vals);
+      if (profile.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
+        setAvatarError(false);
+      }
     }
   }, [profile, displayName]);
 
@@ -346,6 +354,38 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     { id: "operator", label: "Operator", icon: UserCog, desc: "Fractional or advisory" },
     { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
   ];
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    setAvatarUploading(true);
+    setAvatarError(false);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${userId}/avatar-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(path);
+
+      await upsertProfile({ avatar_url: publicUrl } as any);
+      setAvatarUrl(publicUrl);
+      toast.success("Photo updated");
+    } catch (err: any) {
+      toast.error("Upload failed: " + (err.message || "Unknown error"));
+      setAvatarError(true);
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -381,10 +421,37 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         {/* Avatar & Name */}
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-lg font-bold text-primary">
-              {initials}
-            </div>
-            <button className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+            {avatarUploading ? (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted border-2 border-border">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full"
+                />
+              </div>
+            ) : avatarUrl && !avatarError ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-lg font-bold text-primary">
+                {initials}
+              </div>
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            >
               <Camera className="h-4 w-4" />
             </button>
           </div>
