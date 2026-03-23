@@ -7,6 +7,7 @@ import {
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye
 } from "lucide-react";
+import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,22 +31,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
-// ── Connection status persistence (synced with ConnectionsPage) ──
-const CONN_KEY = "community-connections-status";
-interface ConnStatus { google: boolean; linkedin: boolean; twitter: boolean; angellist: boolean }
-const ALL_KEYS: (keyof ConnStatus)[] = ["google", "linkedin", "twitter", "angellist"];
-function loadConn(): ConnStatus {
-  try {
-    const r = localStorage.getItem(CONN_KEY);
-    if (r) {
-      const parsed = JSON.parse(r);
-      if ("gmail" in parsed && !("google" in parsed)) { parsed.google = parsed.gmail; delete parsed.gmail; }
-      return { google: false, linkedin: false, twitter: false, angellist: false, ...parsed };
-    }
-  } catch {}
-  return { google: false, linkedin: false, twitter: false, angellist: false };
-}
-function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
+// Connection status is now managed by the shared SensorSuiteGrid component
 
 // Notification and privacy prefs are now DB-backed via useUserPreferences
 
@@ -382,155 +368,18 @@ function AdminAccessSection({ userId }: { userId?: string }) {
   );
 }
 
-// ── Connections Tab ──
-type SensorType = "identity" | "pipeline" | "ingestor";
-
-const SETTINGS_INTEGRATIONS: {
-  key: keyof ConnStatus;
-  label: string;
-  icon: React.ElementType;
-  desc: string;
-  sensorType: SensorType;
-  typeLabel: string;
-  liveMsg: string;
-  glowBg: string;
-  buttonLabel: string;
-}[] = [
-  { key: "google", label: "Google Workspace", icon: Mail, desc: "Gmail + Calendar — unified workspace sync", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "142 threads analyzed", glowBg: "bg-indigo-500", buttonLabel: "Sync Google Workspace" },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", sensorType: "identity", typeLabel: "Professional Identity", liveMsg: "2nd Degree: +4,218", glowBg: "bg-blue-500", buttonLabel: "Verify Identity" },
-  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", sensorType: "pipeline", typeLabel: "Intelligence Pipeline", liveMsg: "89 mutual follows", glowBg: "bg-white", buttonLabel: "Sync Pipeline" },
-  { key: "angellist", label: "AngelList", icon: Zap, desc: "Import investors via CSV for AI enrichment", sensorType: "ingestor", typeLabel: "Portfolio Discovery", liveMsg: "47 investors imported", glowBg: "bg-amber-400", buttonLabel: "Import CSV" },
-];
-
+// ── Connections Tab (uses shared SensorSuiteGrid) ──
 function ConnectionsTab() {
-  const [status, setStatus] = useState<ConnStatus>(loadConn);
-  const [connecting, setConnecting] = useState<string | null>(null);
-
-  const handleToggle = async (key: keyof ConnStatus) => {
-    if (status[key]) {
-      const next = { ...status, [key]: false };
-      setStatus(next);
-      saveConn(next);
-    } else {
-      setConnecting(key);
-      await new Promise((r) => setTimeout(r, 1500));
-      const next = { ...status, [key]: true };
-      setStatus(next);
-      saveConn(next);
-      setConnecting(null);
-    }
-  };
-
-  const connectedCount = ALL_KEYS.filter((k) => status[k]).length;
-
   return (
     <motion.div initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
       <div>
         <h3 className="text-lg font-bold text-foreground">Sensor Suite</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Linked data sources powering your intelligence engine</p>
       </div>
-
-      {/* Progress */}
-      <div className="flex items-center gap-3 rounded-xl bg-[#0A0A0A] border border-white/[0.08] p-3.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06]">
-          <Sparkles className="h-4 w-4 text-white/50" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white">{connectedCount}/4 sensors active</p>
-          <p className="text-[10px] text-white/30">More connections = richer intelligence</p>
-        </div>
-        <div className="h-1.5 w-20 rounded-full bg-white/[0.06] overflow-hidden">
-          <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${(connectedCount / 4) * 100}%` }} />
-        </div>
-      </div>
-
-      {/* Sensor Cards */}
-      <div className="space-y-2.5">
-        {SETTINGS_INTEGRATIONS.map((int, i) => {
-          const Icon = int.icon;
-          const isConnected = status[int.key];
-          const isConnecting = connecting === int.key;
-
-          return (
-            <motion.div
-              key={int.key}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className={`group rounded-xl border p-4 transition-all duration-200 ${
-                isConnected
-                  ? "border-white/[0.08] bg-[#0A0A0A]"
-                  : "border-border bg-card hover:border-white/[0.1]"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                      isConnected ? "bg-white/[0.06] border border-white/10" : "bg-muted border border-border"
-                    }`}>
-                      <Icon className={`h-4 w-4 ${isConnected ? "text-white" : "text-muted-foreground"}`} />
-                    </div>
-                    {isConnected && (
-                      <motion.div
-                        className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${int.glowBg}`}
-                        animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.4, 0.8] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold ${isConnected ? "text-white" : "text-foreground"}`}>{int.label}</span>
-                      {isConnected && (
-                        <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5">
-                          <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className={`text-[9px] font-mono uppercase tracking-wider mt-0.5 ${isConnected ? "text-white/20" : "text-muted-foreground/50"}`}>{int.typeLabel}</p>
-                    <p className={`text-[10px] mt-0.5 ${isConnected ? "text-white/30" : "text-muted-foreground"}`}>{int.desc}</p>
-                    {isConnected && (
-                      <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{int.liveMsg}</p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3 ${
-                    isConnecting
-                      ? "bg-transparent border border-white/10"
-                      : isConnected
-                      ? "bg-transparent border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 hover:bg-red-500/[0.06]"
-                      : int.sensorType === "identity"
-                      ? "bg-white text-[#0A0A0A] hover:bg-white/90"
-                      : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06] hover:border-white/30"
-                  }`}
-                  onClick={() => handleToggle(int.key)}
-                  disabled={isConnecting || (connecting !== null && connecting !== int.key)}
-                >
-                  {isConnecting ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-white/10 border-t-white/60 rounded-full" />
-                  ) : isConnected ? "Disconnect" : int.buttonLabel}
-                </Button>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <div className="rounded-xl bg-[#0A0A0A] border border-white/[0.06] p-3.5">
-        <div className="flex items-center gap-2">
-          <Lock className="h-3 w-3 text-white/20" />
-          <p className="text-[10px] text-white/30">Read-only access · AES-256 encrypted · Never shared</p>
-        </div>
-      </div>
+      <SensorSuiteGrid compact showHeader={true} showTerminal={false} />
     </motion.div>
   );
 }
-
-// ── Notifications Tab ──
 function NotificationsTab() {
   const { notifications, upsertPrefs } = useUserPreferences();
   const [prefs, setPrefs] = useState(notifications);
