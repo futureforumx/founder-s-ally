@@ -20,6 +20,9 @@ export interface LiveInvestorEntry {
   founder_reputation_score?: number | null;
   headcount?: string | null;
   aum?: string | null;
+  is_trending?: boolean;
+  is_popular?: boolean;
+  is_recent?: boolean;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
