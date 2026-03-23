@@ -588,7 +588,7 @@ function PrivacyTab() {
     { key: "aiInboxPaths" as const, title: "Let the AI find warm investor paths in my inbox", sub: "Thread subjects + contact names only. Email bodies never stored.", icon: Mail },
     { key: "shareAnonMetrics" as const, title: "Share anonymized metrics with my founder cohort", sub: "You see how you compare. They never see it's you.", icon: Users },
     { key: "discoverableToInvestors" as const, title: "Make me discoverable to matching investors", sub: "Only investors whose thesis matches your profile will see you.", icon: Sparkles },
-    { key: "useMeetingNotes" as const, title: "Use my meeting notes to improve recommendations", sub: "Granola and calendar data only. Delete anytime.", icon: Calendar },
+    { key: "useMeetingNotes" as const, title: "Use my meeting notes to improve recommendations", sub: "Granola and calendar data only. Delete anytime.", icon: Bell },
   ];
 
   return (
