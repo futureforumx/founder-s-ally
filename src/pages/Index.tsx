@@ -327,114 +327,14 @@ const Index = () => {
         />
         <div className={`px-8 pt-16 pb-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
-            <div className="space-y-6">
-
-
-
-              {/* ═══ Asymmetric 2-Column Grid ═══ */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-
-                {/* ── Left Column: Performance & Status (sticky) ── */}
-                <div className="lg:col-span-4 sticky top-8 flex flex-col gap-5">
-
-                  {/* ── Section Header: Profile Analytics ── */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Analytics</h3>
-                    <div className="rounded-2xl border border-border bg-card shadow-sm p-5 space-y-4">
-                      {profileCompletion.percent >= 100 && isProfileVerified ? (
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
-                            <p className="text-lg font-bold text-foreground">12</p>
-                            <p className="text-[9px] text-success font-medium">+3 this week</p>
-                          </div>
-                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
-                            <p className="text-lg font-bold text-foreground">45</p>
-                            <p className="text-[9px] text-success font-medium">+8 this week</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Investor Views</p>
-                            <p className="text-lg font-bold text-muted-foreground/40">—</p>
-                          </div>
-                          <div className="rounded-xl bg-muted/40 p-3 space-y-1">
-                            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Search Appearances</p>
-                            <p className="text-lg font-bold text-muted-foreground/40">—</p>
-                          </div>
-                        </div>
-                      )}
-                      {profileCompletion.percent < 100 && (
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <ShieldCheck className="h-3 w-3" /> Complete your profile to unlock analytics.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ── Section Header: Profile Strength ── */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Profile Strength</h3>
-                    <ProfileStrength
-                      completionPercent={profileCompletion.percent}
-                      sectionConfirmed={sectionConfirmed}
-                      investorsConfirmed={investorsConfirmed}
-                      investorSectionRef={investorSectionRef}
-                    />
-                  </div>
-
-                  {/* ── Card 3: AI Profile Insight ── */}
-                  <div className="rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/5 to-card p-5 space-y-2.5">
-                    <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3" /> AI Insight
-                    </p>
-                    <p className="text-xs text-foreground leading-relaxed">
-                      Founders in <span className="font-semibold">{companyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {companyData?.stage || "Seed"} investors.
-                    </p>
-                    {!sectionConfirmed.metrics && (
-                      <button
-                        onClick={() => window.dispatchEvent(new CustomEvent("scroll-to-section", { detail: "metrics" }))}
-                        className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors inline-flex items-center gap-1 mt-1"
-                      >
-                        Verify Metrics <ChevronRight className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Right Column: The Payload/Editor ── */}
-                <div className="lg:col-span-8 flex flex-col gap-6">
-                  {/* Company Profile (Data Sources + Generated Profile) */}
-                  <CompanyProfile
-                    key={profileKey}
-                    onSave={setCompanyData}
-                    onAnalysis={handleAnalysis}
-                    onSectorChange={setSectorClassification}
-                    onStageClassification={setStageClassification}
-                    onProfileVerified={setIsProfileVerified}
-                    onSectionConfirmedChange={setSectionConfirmed}
-                    onCompletionChange={setProfileCompletion}
-                  />
-
-                  {/* Investors Section */}
-                  <div ref={investorSectionRef}>
-                    <MissionControlInvestors
-                      backers={capTable.backers}
-                      totalRaised={capTable.totalRaised}
-                      formatCurrency={capTable.formatCurrency}
-                      addInvestor={capTable.addInvestor}
-                      onNavigateInvestors={() => setActiveView("investors")}
-                      analysisResult={analysisResult}
-                      companyData={companyData}
-                      previousSectionApproved={!!sectionConfirmed.social}
-                      onConfirmedChange={setInvestorsConfirmed}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            (() => {
+              // Redirect to Settings > Entity
+              setActiveView("settings");
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", "company");
+              window.history.replaceState({}, "", url.toString());
+              return null;
+            })()
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
