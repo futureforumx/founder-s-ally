@@ -8,6 +8,7 @@ import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
+import Onboarding from "./pages/Onboarding.tsx";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
