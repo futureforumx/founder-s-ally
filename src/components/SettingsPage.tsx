@@ -796,7 +796,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
                       <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
                     </div>
-                    <textarea value={bio} onChange={(e) => setBio(e.target.value.slice(0, 160))} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+                    <textarea value={bio} onChange={(e) => { const v = e.target.value.slice(0, 160); setBio(v); autosave({ bio: v }); }} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
                   </div>
                 </div>
               </div>
