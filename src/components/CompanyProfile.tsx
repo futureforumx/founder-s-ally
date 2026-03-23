@@ -570,7 +570,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { localStorage.setItem("company-data-source", dataSource); } catch {}
   }, [dataSource]);
 
-  // Restore on mount
+  // Track companySyncing transition to mark source as verified
+  useEffect(() => {
+    if (prevCompanySyncingRef.current && !companySyncing) {
+      setSourceVerified(true);
+      setSourceVerifiedAnim(true);
+      try { localStorage.setItem("company-source-verified", "true"); } catch {}
+    }
+    prevCompanySyncingRef.current = companySyncing;
+  }, [companySyncing]);
+
   useEffect(() => {
     if (form.name) {
       onSave?.(form);
