@@ -621,6 +621,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     <input
                       value={linkedinUrl}
                       onChange={(e) => setLinkedinUrl(e.target.value)}
+                      onBlur={(e) => {
+                        const formatted = formatSocialUrl("linkedin_personal", e.target.value);
+                        if (formatted !== linkedinUrl) setLinkedinUrl(formatted);
+                      }}
                       placeholder="https://linkedin.com/in/..."
                       className={cn(
                         "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
