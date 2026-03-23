@@ -87,6 +87,7 @@ export default function AdminIntelligence() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8">
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
+        {activeView === "users" && <AdminUserManagement />}
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
         {activeView === "ai-debugger" && <AdminAiDebugger />}

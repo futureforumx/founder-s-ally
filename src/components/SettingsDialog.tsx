@@ -315,53 +315,6 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
   );
 }
 
-// ── Admin Access Section ──
-function AdminAccessSection({ userId }: { userId?: string }) {
-  const { user } = useAuth();
-  const [toggling, setToggling] = useState(false);
-  const isAdmin = user?.user_metadata?.role === "admin";
-
-  const handleToggleAdmin = async () => {
-    if (!userId) return;
-    setToggling(true);
-    try {
-      const newRole = isAdmin ? "user" : "admin";
-      const { error } = await supabase.auth.updateUser({
-        data: { role: newRole },
-      });
-      if (error) throw error;
-      toast.success(newRole === "admin" ? "Admin access enabled" : "Admin access revoked", {
-        description: newRole === "admin" ? "Navigate to /admin/intelligence" : "You no longer have admin privileges",
-      });
-    } catch (e: any) {
-      toast.error("Failed to update role", { description: e.message });
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Admin Access</h4>
-      <div className="flex items-center justify-between rounded-xl border border-border p-3.5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
-            <Crown className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-foreground">Platform Admin</p>
-            <p className="text-[10px] text-muted-foreground">Access the Intelligence Dashboard at /admin/intelligence</p>
-          </div>
-        </div>
-        <Switch
-          checked={isAdmin}
-          onCheckedChange={handleToggleAdmin}
-          disabled={toggling}
-        />
-      </div>
-    </div>
-  );
-}
 
 // ── Connections Tab (uses shared SensorSuiteGrid) ──
 function ConnectionsTab() {
