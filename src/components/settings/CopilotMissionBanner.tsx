@@ -181,12 +181,44 @@ function RadialProgress({
   );
 }
 
+// ── Auto-Save Indicator ──
+
+function AutoSaveIndicator({ status }: { status: SaveStatus }) {
+  if (status === "idle") return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={status}
+        initial={{ opacity: 0, x: 8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-center gap-1.5 ml-auto shrink-0"
+      >
+        {status === "saving" ? (
+          <>
+            <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+            <span className="text-[10px] font-mono text-muted-foreground tracking-wide">Auto-saving...</span>
+          </>
+        ) : (
+          <>
+            <Check className="h-3 w-3 text-success" />
+            <span className="text-[10px] font-mono text-success/80 tracking-wide">Saved</span>
+          </>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Main Banner ──
 
 export function CopilotMissionBanner({
   profileCompletion,
   onNavigate,
   completedFields = [],
+  saveStatus = "idle",
 }: CopilotMissionBannerProps) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [prevCompletion, setPrevCompletion] = useState(profileCompletion);
