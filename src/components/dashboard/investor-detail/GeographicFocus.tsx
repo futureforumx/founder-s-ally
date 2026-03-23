@@ -48,9 +48,9 @@ function classifyLocation(location: string): string | null {
 
 const TIME_OPTIONS = ["6M", "18M", "All Time"] as const;
 
+// ── Dot globe ──
 function DotGlobe({ radius }: { radius: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-
   useEffect(() => {
     if (!meshRef.current) return;
     const dummy = new THREE.Object3D();
@@ -72,7 +72,6 @@ function DotGlobe({ radius }: { radius: number }) {
     meshRef.current.count = idx;
     meshRef.current.instanceMatrix.needsUpdate = true;
   }, [radius]);
-
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, 8000]}>
       <sphereGeometry args={[0.012, 6, 6]} />
@@ -81,6 +80,16 @@ function DotGlobe({ radius }: { radius: number }) {
   );
 }
 
+// ── Portfolio company in tooltip ──
+interface PortfolioDeal {
+  company_name: string;
+  amount: string | null;
+  stage: string | null;
+  date_announced: string | null;
+  logo_url: string; // derived from company name
+}
+
+// ── Pin with tooltip ──
 interface PinProps {
   position: [number, number, number];
   count: number;
@@ -88,10 +97,10 @@ interface PinProps {
   isActive: boolean;
   isSelected: boolean;
   onSelect: () => void;
-  investorNames: string[];
+  deals: PortfolioDeal[];
 }
 
-function Pin({ position, count, name, isActive, isSelected, onSelect, investorNames }: PinProps) {
+function Pin({ position, count, name, isActive, isSelected, onSelect, deals }: PinProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const [hovered, setHovered] = useState(false);
   const scale = Math.min(0.03 + count * 0.004, 0.08);
@@ -107,6 +116,8 @@ function Pin({ position, count, name, isActive, isSelected, onSelect, investorNa
     e.stopPropagation();
     onSelect();
   }, [onSelect]);
+
+  const top3 = deals.slice(0, 3);
 
   return (
     <group>
@@ -128,24 +139,47 @@ function Pin({ position, count, name, isActive, isSelected, onSelect, investorNa
         <sphereGeometry args={[scale * 0.35, 8, 8]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      {/* Tooltip */}
+
       {isSelected && (
         <Html position={position} distanceFactor={4} center style={{ pointerEvents: "auto" }}>
           <div
-            className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700/60 rounded-lg px-3 py-2.5 shadow-2xl min-w-[160px] max-w-[220px]"
+            className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700/60 rounded-xl px-3.5 py-3 shadow-2xl min-w-[200px] max-w-[240px]"
             style={{ transform: "translateY(-120%)" }}
           >
-            <p className="text-[11px] font-bold text-white leading-tight">{name}</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">{count} investor{count !== 1 ? "s" : ""}</p>
-            {investorNames.length > 0 && (
-              <div className="mt-1.5 pt-1.5 border-t border-zinc-700/50 space-y-0.5 max-h-[80px] overflow-y-auto">
-                {investorNames.slice(0, 6).map((n) => (
-                  <p key={n} className="text-[9px] text-zinc-300 truncate">• {n}</p>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[11px] font-bold text-white leading-tight">{name}</p>
+              <span className="text-[9px] text-zinc-500 font-medium">{count} firm{count !== 1 ? "s" : ""}</span>
+            </div>
+
+            {/* Portfolio companies */}
+            {top3.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-zinc-700/50 space-y-2">
+                <p className="text-[8px] font-mono uppercase tracking-wider text-zinc-500">Recent Investments</p>
+                {top3.map((deal, i) => (
+                  <div key={`${deal.company_name}-${i}`} className="flex items-center gap-2">
+                    <img
+                      src={deal.logo_url}
+                      alt=""
+                      className="w-5 h-5 rounded bg-zinc-800 object-contain shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-white font-semibold truncate leading-tight">{deal.company_name}</p>
+                      <p className="text-[9px] text-zinc-400 truncate">
+                        {[deal.amount, deal.stage].filter(Boolean).join(" · ") || "Undisclosed"}
+                      </p>
+                    </div>
+                  </div>
                 ))}
-                {investorNames.length > 6 && (
-                  <p className="text-[9px] text-zinc-500">+{investorNames.length - 6} more</p>
+                {deals.length > 3 && (
+                  <p className="text-[9px] text-zinc-500 pt-0.5">+{deals.length - 3} more</p>
                 )}
               </div>
+            )}
+
+            {top3.length === 0 && (
+              <p className="text-[9px] text-zinc-500 mt-1">No recent deal data available</p>
             )}
           </div>
         </Html>
@@ -156,16 +190,14 @@ function Pin({ position, count, name, isActive, isSelected, onSelect, investorNa
 
 function AutoRotate({ paused }: { paused: boolean }) {
   const { scene } = useThree();
-  useFrame(() => {
-    if (!paused) scene.rotation.y += 0.001;
-  });
+  useFrame(() => { if (!paused) scene.rotation.y += 0.001; });
   return null;
 }
 
 interface SpotData extends GeoCluster {
   intensity: "high" | "medium";
   investments: Record<string, number>;
-  investorNames: Record<string, string[]>;
+  deals: Record<string, PortfolioDeal[]>;
 }
 
 function GlobeScene({ spots, timeRange, selectedPin, onSelectPin }: {
@@ -175,19 +207,12 @@ function GlobeScene({ spots, timeRange, selectedPin, onSelectPin }: {
   onSelectPin: (name: string | null) => void;
 }) {
   const radius = 1.4;
-
   return (
     <>
       <ambientLight intensity={0.6} />
       <pointLight position={[5, 5, 5]} intensity={0.8} />
-      <mesh>
-        <sphereGeometry args={[radius - 0.01, 64, 64]} />
-        <meshBasicMaterial color="#1a2e4a" />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[radius + 0.06, 64, 64]} />
-        <meshBasicMaterial color="#3b6daa" transparent opacity={0.08} side={THREE.BackSide} />
-      </mesh>
+      <mesh><sphereGeometry args={[radius - 0.01, 64, 64]} /><meshBasicMaterial color="#1a2e4a" /></mesh>
+      <mesh><sphereGeometry args={[radius + 0.06, 64, 64]} /><meshBasicMaterial color="#3b6daa" transparent opacity={0.08} side={THREE.BackSide} /></mesh>
       <DotGlobe radius={radius} />
       {spots.map((spot) => {
         const count = spot.investments[timeRange] || 0;
@@ -202,7 +227,7 @@ function GlobeScene({ spots, timeRange, selectedPin, onSelectPin }: {
             isActive
             isSelected={selectedPin === spot.name}
             onSelect={() => onSelectPin(selectedPin === spot.name ? null : spot.name)}
-            investorNames={spot.investorNames[timeRange] || []}
+            deals={spot.deals[timeRange] || []}
           />
         );
       })}
@@ -218,19 +243,49 @@ interface GeographicFocusProps {
   onToggleExpand?: () => void;
 }
 
+interface FirmLocationRow {
+  id: string;
+  location: string;
+  created_at: string;
+  firm_name: string;
+  website_url: string | null;
+}
+
+interface DealRow {
+  firm_id: string;
+  company_name: string;
+  amount: string | null;
+  stage: string | null;
+  date_announced: string | null;
+  created_at: string;
+}
+
+function companyLogoUrl(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `https://logo.clearbit.com/${slug}.com`;
+}
+
 export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: GeographicFocusProps) {
   const [timeRange, setTimeRange] = useState<string>("All Time");
-  const [locations, setLocations] = useState<{ location: string; created_at: string; firm_name: string }[]>([]);
+  const [firmLocations, setFirmLocations] = useState<FirmLocationRow[]>([]);
+  const [deals, setDeals] = useState<DealRow[]>([]);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("investor_database")
-      .select("location, created_at, firm_name")
-      .not("location", "is", null)
-      .then(({ data }) => {
-        if (data) setLocations(data as { location: string; created_at: string; firm_name: string }[]);
-      });
+    // Fetch firms with locations and deals in parallel
+    Promise.all([
+      supabase
+        .from("investor_database")
+        .select("id, location, created_at, firm_name, website_url")
+        .not("location", "is", null),
+      supabase
+        .from("firm_recent_deals")
+        .select("firm_id, company_name, amount, stage, date_announced, created_at")
+        .order("created_at", { ascending: false }),
+    ]).then(([locRes, dealRes]) => {
+      if (locRes.data) setFirmLocations(locRes.data as FirmLocationRow[]);
+      if (dealRes.data) setDeals(dealRes.data as DealRow[]);
+    });
   }, []);
 
   const spots: SpotData[] = useMemo(() => {
@@ -241,25 +296,66 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       "All Time": null,
     };
 
+    // Build firmId → cluster mapping
+    const firmCluster = new Map<string, string>();
     const counts: Record<string, Record<string, number>> = {};
-    const names: Record<string, Record<string, string[]>> = {};
+    const clusterFirmIds: Record<string, Record<string, Set<string>>> = {};
+
     for (const cluster of GEO_CLUSTERS) {
       counts[cluster.name] = { "6M": 0, "18M": 0, "All Time": 0 };
-      names[cluster.name] = { "6M": [], "18M": [], "All Time": [] };
+      clusterFirmIds[cluster.name] = { "6M": new Set(), "18M": new Set(), "All Time": new Set() };
     }
 
-    for (const loc of locations) {
-      if (!loc.location) continue;
-      const clusterName = classifyLocation(loc.location);
+    for (const firm of firmLocations) {
+      if (!firm.location) continue;
+      const clusterName = classifyLocation(firm.location);
       if (!clusterName) continue;
-      const createdAt = new Date(loc.created_at);
+      firmCluster.set(firm.id, clusterName);
+      const createdAt = new Date(firm.created_at);
       counts[clusterName]["All Time"]++;
-      names[clusterName]["All Time"].push(loc.firm_name);
+      clusterFirmIds[clusterName]["All Time"].add(firm.id);
       for (const key of ["6M", "18M"] as const) {
         if (cutoffs[key] && createdAt >= cutoffs[key]!) {
           counts[clusterName][key]++;
-          names[clusterName][key].push(loc.firm_name);
+          clusterFirmIds[clusterName][key].add(firm.id);
         }
+      }
+    }
+
+    // Build deals per cluster per time range, sorted by recency
+    const clusterDeals: Record<string, Record<string, PortfolioDeal[]>> = {};
+    for (const cluster of GEO_CLUSTERS) {
+      clusterDeals[cluster.name] = { "6M": [], "18M": [], "All Time": [] };
+    }
+
+    // Group deals by firm, then assign to clusters
+    for (const deal of deals) {
+      const clusterName = firmCluster.get(deal.firm_id);
+      if (!clusterName) continue;
+      const pd: PortfolioDeal = {
+        company_name: deal.company_name,
+        amount: deal.amount,
+        stage: deal.stage,
+        date_announced: deal.date_announced,
+        logo_url: companyLogoUrl(deal.company_name),
+      };
+
+      for (const key of ["6M", "18M", "All Time"] as const) {
+        if (clusterFirmIds[clusterName]?.[key]?.has(deal.firm_id)) {
+          clusterDeals[clusterName][key].push(pd);
+        }
+      }
+    }
+
+    // Deduplicate deals per cluster (same company name)
+    for (const cluster of GEO_CLUSTERS) {
+      for (const key of ["6M", "18M", "All Time"] as const) {
+        const seen = new Set<string>();
+        clusterDeals[cluster.name][key] = clusterDeals[cluster.name][key].filter((d) => {
+          if (seen.has(d.company_name)) return false;
+          seen.add(d.company_name);
+          return true;
+        });
       }
     }
 
@@ -270,22 +366,20 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       ...cluster,
       intensity: (counts[cluster.name]["All Time"] / maxCount >= 0.5 ? "high" : "medium") as "high" | "medium",
       investments: counts[cluster.name],
-      investorNames: names[cluster.name],
+      deals: clusterDeals[cluster.name],
     }));
-  }, [locations]);
+  }, [firmLocations, deals]);
 
   const activeSpots = spots.filter((s) => (s.investments[timeRange] || 0) > 0);
   const totalInvestments = activeSpots.reduce((sum, s) => sum + (s.investments[timeRange] || 0), 0);
 
   return (
-    <div className={`rounded-xl border border-border bg-card flex flex-col transition-all duration-300 overflow-hidden ${isExpanded ? "" : "h-full"}`}
+    <div
+      className={`rounded-xl border border-border bg-card flex flex-col transition-all duration-300 overflow-hidden ${isExpanded ? "" : "h-full"}`}
       style={isExpanded ? { height: "calc(100vh - 280px)", maxHeight: "520px" } : undefined}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0">
-        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          Geographic Focus
-        </h4>
+        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Geographic Focus</h4>
         <div className="flex items-center gap-2">
           <div className="inline-flex bg-secondary/60 p-0.5 rounded-md">
             {TIME_OPTIONS.map((opt) => (
@@ -308,7 +402,6 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
         </div>
       </div>
 
-      {/* Globe — fills remaining space */}
       <div className="relative flex-1 min-h-0">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-3/4 h-3/4 rounded-full bg-accent/5 blur-2xl" />
@@ -320,25 +413,16 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
         </Canvas>
       </div>
 
-      {/* Stats footer */}
       <div className="flex items-center justify-between px-4 py-1.5 border-t border-border shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-muted-foreground">
-            <span className="font-semibold text-foreground">{activeSpots.length}</span> regions
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            <span className="font-semibold text-foreground">{totalInvestments}</span> investors
-          </span>
+          <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">{activeSpots.length}</span> regions</span>
+          <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">{totalInvestments}</span> investors</span>
         </div>
         <div className="flex items-center gap-1">
           {activeSpots.slice(0, 3).map((s) => (
-            <span key={s.name} className="text-[9px] px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium">
-              {s.name}
-            </span>
+            <span key={s.name} className="text-[9px] px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium">{s.name}</span>
           ))}
-          {activeSpots.length > 3 && (
-            <span className="text-[9px] text-muted-foreground">+{activeSpots.length - 3}</span>
-          )}
+          {activeSpots.length > 3 && <span className="text-[9px] text-muted-foreground">+{activeSpots.length - 3}</span>}
         </div>
       </div>
     </div>
