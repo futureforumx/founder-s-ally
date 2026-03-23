@@ -193,6 +193,7 @@ export function GlobalTopNav({
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeChip, setActiveChip] = useState("all");
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
 
@@ -225,12 +226,39 @@ export function GlobalTopNav({
           onOpenCommandPalette();
         } else {
           setSearchOpen(o => !o);
+          setHighlightIdx(0);
         }
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onOpenCommandPalette]);
+
+  // Keyboard navigation for search dropdown (Esc, Enter, Arrow keys)
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      const sug = getContextSuggestions(activeView, userSector, userStage);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSearchOpen(false);
+        setHighlightIdx(0);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIdx(i => (i < sug.length - 1 ? i + 1 : 0));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIdx(i => (i > 0 ? i - 1 : sug.length - 1));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        setSearchOpen(false);
+        setHighlightIdx(0);
+        onOpenCommandPalette?.();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [searchOpen, activeView, userSector, userStage, onOpenCommandPalette]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
@@ -365,18 +393,19 @@ export function GlobalTopNav({
                 <button
                   key={suggestion}
                   onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseEnter={() => setHighlightIdx(i)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer group/item",
-                    i === 0
+                    i === highlightIdx
                       ? "bg-accent/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
                   <div className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
-                    i === 0 ? "bg-accent/20" : "bg-muted/60"
+                    i === highlightIdx ? "bg-accent/20" : "bg-muted/60"
                   )}>
-                    <Sparkles className={cn("h-4 w-4", i === 0 ? "text-accent" : "text-muted-foreground/60")} />
+                    <Sparkles className={cn("h-4 w-4", i === highlightIdx ? "text-accent" : "text-muted-foreground/60")} />
                   </div>
                   <span className="text-sm flex-1">{suggestion}</span>
                   <span className="text-[10px] text-muted-foreground/40 italic opacity-0 group-hover/item:opacity-100 transition-opacity">try this</span>
