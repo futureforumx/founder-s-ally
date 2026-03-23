@@ -6,9 +6,12 @@ import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger } from "@/components/admin/AdminAiDebugger";
+import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
+import { Users } from "lucide-react";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
+  { key: "users", label: "Users", icon: Users },
   { key: "api-health", label: "API Health", icon: Wifi },
   { key: "sync-logs", label: "Sync Logs", icon: ScrollText },
   { key: "ai-debugger", label: "AI Debugger", icon: Brain },
