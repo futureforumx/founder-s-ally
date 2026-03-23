@@ -807,6 +807,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         return userSector
           ? { title: `Top investors in ${userSector}`, subtitle: `Funds with active thesis in ${userSector}` }
           : { title: "Sector-Matched Investors", subtitle: "Set your sector to filter" };
+      case "trending":
+        return { title: "Trending Investors", subtitle: "Funds generating the most buzz right now" };
+      case "popular":
+        return { title: "Popular Investors", subtitle: "Most viewed and saved by founders" };
+      case "recent":
+        return { title: "Recently Added", subtitle: "Newest additions to the directory" };
       default:
         return { title: "All Investors", subtitle: "The complete investor directory" };
     }
