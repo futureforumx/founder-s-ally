@@ -207,16 +207,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <div className="flex items-center gap-4 min-w-0">
                     {liveLoading ? (
                       <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
-                    ) : heroLogo ? (
-                      <img
-                        src={heroLogo}
-                        alt={heroName}
-                        className="h-16 w-16 rounded-xl border border-border object-contain bg-background shrink-0"
-                      />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                        {heroInitial}
-                      </div>
+                      <FirmLogo
+                        firmName={heroName}
+                        logoUrl={heroLogo}
+                        websiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
+                        size="lg"
+                        className="h-16 w-16"
+                      />
                     )}
                     <div className="min-w-0 flex-1">
                       {liveLoading ? (
