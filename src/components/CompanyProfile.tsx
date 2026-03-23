@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef, type FocusEvent } from "react";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { AnalysisOverlay } from "./AnalysisOverlay";
@@ -1647,8 +1648,58 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
-                    {/* Stage */}
-                    <div className="space-y-1 max-w-sm">
+                    {/* ── Company Logo + Stage row ── */}
+                    <div className="flex items-start gap-5">
+                      {/* Logo Upload Slot */}
+                      <div className="relative group shrink-0">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="overview-logo-upload"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
+                        />
+                        <label
+                          htmlFor="overview-logo-upload"
+                          className={cn(
+                            "flex items-center justify-center h-20 w-20 rounded-xl border-2 border-dashed cursor-pointer transition-all overflow-hidden",
+                            "bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                            logoUrl ? "border-border shadow-sm" : "border-border/60",
+                            uploadingLogo && "opacity-60 pointer-events-none"
+                          )}
+                        >
+                          {uploadingLogo ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          ) : logoUrl ? (
+                            <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain p-1.5" />
+                          ) : (
+                            (() => {
+                              const domain = extractDomain(form.website);
+                              const fallbackUrl = domain ? faviconSrc(domain) : null;
+                              return fallbackUrl ? (
+                                <img src={fallbackUrl} alt="Favicon" className="h-full w-full object-contain p-2 opacity-50 group-hover:opacity-70 transition-opacity" />
+                              ) : (
+                                <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
+                                  <Building2 className="h-6 w-6" />
+                                  <span className="text-[8px] font-medium uppercase tracking-wide">Logo</span>
+                                </div>
+                              );
+                            })()
+                          )}
+                          {/* Hover edit overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera className="h-4 w-4 text-white" />
+                          </div>
+                        </label>
+                        {logoUrl && (
+                          <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-success border-2 border-card flex items-center justify-center">
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stage field next to logo */}
+                      <div className="space-y-1 flex-1 max-w-sm">
                       <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                         Stage {renderFieldBadge("stage")}
                       </label>
@@ -1661,8 +1712,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         isAiDraft={isFieldAiDraft("stage")}
                       />
                     </div>
+                    </div>{/* end logo + stage row */}
 
-                    {/* Sector · Business Model · Target Customer — Dense Chip Grid */}
                     <div className="space-y-1" data-field="sector-tags">
                       <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                         Sector {renderFieldBadge("sector")}
