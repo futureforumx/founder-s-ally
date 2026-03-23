@@ -572,10 +572,20 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const mergedEntries = useMemo(() => {
     return [
       ...realFounderEntries,
-      ...ALL_ENTRIES.map(e => ({ ...e, _sectors: [] as string[], _stages: [] as string[] })),
+      ...ALL_ENTRIES.map(e => {
+        const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+        return {
+          ...e,
+          _sectors: [] as string[],
+          _stages: [] as string[],
+          _isTrending: (dbMatch as any)?.is_trending ?? false,
+          _isPopular: (dbMatch as any)?.is_popular ?? false,
+          _isRecent: (dbMatch as any)?.is_recent ?? false,
+        };
+      }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries]);
+  }, [vcEntries, realFounderEntries, dbInvestorMap]);
 
   const hasProfile = !!companyData?.name;
 
@@ -723,8 +733,14 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Missing context detection for smart empty states
   const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
   const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
+  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor").map(e => {
+    const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+    return dbMatch ? { ...e, _isTrending: (dbMatch as any)?.is_trending ?? false, _isPopular: (dbMatch as any)?.is_popular ?? false, _isRecent: (dbMatch as any)?.is_recent ?? false } : e;
+  });
+  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope).filter(e => isInvestorSearch || e.category !== "investor").map(e => {
+    const dbMatch = dbInvestorMap.get(e.name.toLowerCase().trim());
+    return dbMatch ? { ...e, _isTrending: (dbMatch as any)?.is_trending ?? false, _isPopular: (dbMatch as any)?.is_popular ?? false, _isRecent: (dbMatch as any)?.is_recent ?? false } : e;
+  });
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
