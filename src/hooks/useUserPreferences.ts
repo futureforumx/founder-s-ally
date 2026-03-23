@@ -42,6 +42,11 @@ const DEFAULT_PRIVACY: PrivacySettings = {
   useMeetingNotes: false,
 };
 
+const DEFAULT_APP_TOGGLES: AppToggleSettings = {
+  liveSync: true,
+  copilotMode: false,
+};
+
 const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   emailDigest: true,
   matchAlerts: true,
