@@ -190,7 +190,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, transparent, hsl(217 91% 60% / 0.5), hsl(217 91% 60% / 0.8), hsl(217 91% 60% / 0.5), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--neon-purple) / 0.5), hsl(var(--neon-purple) / 0.8), hsl(var(--neon-purple) / 0.5), transparent);
     animation: scan-horizontal 2s ease-in-out infinite;
     z-index: 10;
   }
