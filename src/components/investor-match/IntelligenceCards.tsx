@@ -118,11 +118,9 @@ function deploymentAmount(v: number, seed: number, _i: number): string {
 interface SectorHeatmapProps {
   sector: string | undefined;
   timeRange: TimeRange;
-  selectedCell: number | null;
-  onCellSelect: (index: number | null) => void;
 }
 
-function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: SectorHeatmapProps) {
+function SectorHeatmap({ sector, timeRange }: SectorHeatmapProps) {
   const cells = useMemo(() => {
     const seed = (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     const mult = timeMultiplier(timeRange);
