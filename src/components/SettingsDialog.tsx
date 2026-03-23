@@ -577,41 +577,16 @@ function NotificationsTab() {
 }
 
 // ── Privacy Tab ──
-const ONBOARDING_KEY = "onboarding-wizard-state";
-
 function PrivacyTab() {
-  const [prefs, setPrefs] = useState(() => {
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          aiInboxPaths: parsed.aiInboxPaths ?? false,
-          shareAnonMetrics: parsed.shareAnonMetrics ?? false,
-          discoverableToInvestors: parsed.discoverableToInvestors ?? false,
-          useMeetingNotes: parsed.useMeetingNotes ?? false,
-        };
-      }
-    } catch {}
-    return { aiInboxPaths: false, shareAnonMetrics: false, discoverableToInvestors: false, useMeetingNotes: false };
-  });
+  const { privacy, onboardingData, upsertPrefs } = useUserPreferences();
+  const [prefs, setPrefs] = useState(privacy);
 
-  const [onboardingData, setOnboardingData] = useState<any>(() => {
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  useEffect(() => { setPrefs(privacy); }, [privacy]);
 
   const togglePref = (key: keyof typeof prefs) => {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
-    // Persist back to onboarding state
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      const data = saved ? JSON.parse(saved) : {};
-      localStorage.setItem(ONBOARDING_KEY, JSON.stringify({ ...data, ...next }));
-    } catch {}
+    upsertPrefs({ privacy_settings: next });
   };
 
   const TOGGLES = [
