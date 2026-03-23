@@ -20,6 +20,9 @@ export interface LiveInvestorEntry {
   founder_reputation_score?: number | null;
   headcount?: string | null;
   aum?: string | null;
+  is_trending?: boolean;
+  is_popular?: boolean;
+  is_recent?: boolean;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
@@ -45,6 +48,9 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
     aum: row.aum ?? null,
+    is_trending: row.is_trending ?? false,
+    is_popular: row.is_popular ?? false,
+    is_recent: row.is_recent ?? false,
   };
 }
 

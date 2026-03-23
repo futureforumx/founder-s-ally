@@ -5,6 +5,7 @@ import {
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
   DollarSign, Activity, Heart, Info } from
 "lucide-react";
+import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
@@ -361,9 +362,14 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
           </div>
         </div>
 
-        {/* ── Row 2: Name + description ── */}
+        {/* ── Row 2: Name + badges + description ── */}
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          <VCBadgeContainer vc_firm={{
+            is_trending: (founder as any)._isTrending,
+            is_popular: (founder as any)._isPopular,
+            is_recent: (founder as any)._isRecent,
+          }} />
           <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{founder.description}</p>
         </div>
 
@@ -536,6 +542,9 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: f.aum || (dbMatch as any)?.aum || null,
           _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+          _isTrending: (dbMatch as any)?.is_trending ?? false,
+          _isPopular: (dbMatch as any)?.is_popular ?? false,
+          _isRecent: (dbMatch as any)?.is_recent ?? false,
         };
       });
   }, [vcFirms, dbInvestorMap]);
