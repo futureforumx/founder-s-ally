@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Sparkles, X } from "lucide-react";
+import { Link2, Sparkles } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { CompanyData } from "@/components/CompanyProfile";
@@ -14,8 +14,6 @@ interface IntelligenceCardsProps {
   companyData?: CompanyData | null;
   formatCurrency: (n: number) => string;
   timeRange: TimeRange;
-  selectedHeatCell: number | null;
-  onHeatCellSelect: (index: number | null) => void;
 }
 
 // ── Shared card wrapper ──
@@ -118,11 +116,9 @@ function deploymentAmount(v: number, seed: number, _i: number): string {
 interface SectorHeatmapProps {
   sector: string | undefined;
   timeRange: TimeRange;
-  selectedCell: number | null;
-  onCellSelect: (index: number | null) => void;
 }
 
-function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: SectorHeatmapProps) {
+function SectorHeatmap({ sector, timeRange }: SectorHeatmapProps) {
   const cells = useMemo(() => {
     const seed = (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     const mult = timeMultiplier(timeRange);
@@ -150,14 +146,6 @@ function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: Sector
             Sector Heat
           </p>
           <div className="flex items-center gap-2">
-            {selectedCell !== null && (
-              <button
-                onClick={() => onCellSelect(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive/70 hover:text-destructive transition-colors"
-              >
-                <X className="h-2.5 w-2.5" /> Clear filter
-              </button>
-            )}
             {momentum.gradient ? (
               <span
                 className="text-[10px] font-semibold text-white px-3 py-1 rounded-md"
@@ -177,19 +165,11 @@ function SectorHeatmap({ sector, timeRange, selectedCell, onCellSelect }: Sector
         <div className="grid grid-cols-6 gap-[2px]">
           {cells.map((v, i) => {
             const tier = intensityTier(v);
-            const isSelected = selectedCell === i;
             return (
               <Tooltip key={i}>
                 <TooltipTrigger asChild>
                   <div
-                    onClick={() => onCellSelect(isSelected ? null : i)}
-                    className={`h-7 w-full rounded-sm cursor-crosshair transition-all ${TIER_CLASS[tier]} ${
-                      isSelected
-                        ? "ring-2 ring-accent ring-offset-2 ring-offset-card scale-110 z-10"
-                        : selectedCell !== null
-                        ? "opacity-40"
-                        : "hover:ring-2 hover:ring-offset-1 hover:ring-accent"
-                    }`}
+                    className={`h-7 w-full rounded-sm cursor-default transition-all ${TIER_CLASS[tier]} hover:ring-2 hover:ring-offset-1 hover:ring-accent`}
                   />
                 </TooltipTrigger>
                 <TooltipContent
@@ -264,8 +244,6 @@ export function IntelligenceCards({
   companyData,
   formatCurrency,
   timeRange,
-  selectedHeatCell,
-  onHeatCellSelect,
 }: IntelligenceCardsProps) {
   const sector = sectorClassification?.primary_sector || companyData?.sector;
   const roundTarget = totalRaised > 0 ? Math.max(totalRaised * 2, 1_000_000) : 1_000_000;
@@ -310,8 +288,6 @@ export function IntelligenceCards({
         <SectorHeatmap
           sector={sector}
           timeRange={timeRange}
-          selectedCell={selectedHeatCell}
-          onCellSelect={onHeatCellSelect}
         />
       </GlassCard>
 

@@ -183,7 +183,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [internalBackers, setInternalBackers] = useState<CapBacker[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("updates");
   const [timeRange, setTimeRange] = useState<TimeRange>("ytd");
-  const [selectedHeatCell, setSelectedHeatCell] = useState<number | null>(null);
+  
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
@@ -348,8 +348,6 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         companyData={companyData}
         formatCurrency={fmt}
         timeRange={timeRange}
-        selectedHeatCell={selectedHeatCell}
-        onHeatCellSelect={setSelectedHeatCell}
       />
 
       {/* Sticky Tab Bar */}
@@ -375,7 +373,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
       </div>
 
       {/* Tab Content */}
-      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={selectedHeatCell} onViewAllMatches={() => setActiveTab("matches")} />}
+      {activeTab === "updates" && <UpdatesTab topMatches={scoredInvestors} enrichedData={enrichedData} enrichingKeys={enrichingKeys} timeRange={timeRange} selectedHeatCell={null} onViewAllMatches={() => setActiveTab("matches")} />}
       {activeTab === "matches" && (
         <MatchesTab
           scoredInvestors={scoredInvestors}
