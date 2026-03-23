@@ -7,6 +7,7 @@ import { EventsView } from "@/components/community/EventsView";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
+import { getCompletionPercent, EMPTY_FORM } from "@/components/company-profile/types";
 import { SectorClassification } from "@/components/SectorTags";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
