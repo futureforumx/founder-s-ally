@@ -275,8 +275,8 @@ function FounderCardSkeleton() {
 
 }
 
-// ── Founder Card ──
-function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void;}) {
+// ── Investor Card ──
+function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void; onDeployingClick?: () => void;}) {
   const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
   const sentimentScore = founder._founderSentimentScore;
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
@@ -313,9 +313,29 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
           {/* Upper right: deploying status + scores */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             {founder._isActivelyDeploying !== false && (
-              <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider">
-                <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
-              </Badge>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeployingClick?.();
+                      }}
+                      className="inline-flex items-center"
+                    >
+                      <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider hover:bg-success/15 transition-colors">
+                        <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+                      </Badge>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px] bg-popover/95 backdrop-blur-md p-2.5">
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground">Actively Deploying</span> — This fund is currently writing checks and evaluating new deals. Click to view their recent activity.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             <div className="flex items-center gap-2">
               <TooltipProvider delayDuration={200}>
@@ -326,7 +346,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
                       <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="z-[9999] max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
+                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
                     <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Measures alignment between your company profile and this investor&apos;s thesis across sector, stage, geography, and check size using vector similarity.
@@ -346,7 +366,7 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
                         <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="z-[9999] max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
+                    <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
                       <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
@@ -398,10 +418,10 @@ function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; 
     </Card>);
 }
 
-function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void; onDeployingClick?: () => void;}) {
   // Use specialized investor card for investor entries
   if (founder.category === "investor") {
-    return <InvestorCard founder={founder} trending={trending} onClick={onClick} />;
+    return <InvestorCard founder={founder} trending={trending} onClick={onClick} onDeployingClick={onDeployingClick} />;
   }
 
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
@@ -468,10 +488,10 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+function CarouselCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void; onDeployingClick?: () => void;}) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
-      <FounderCard founder={founder} trending={trending} onClick={onClick} />
+      <FounderCard founder={founder} trending={trending} onClick={onClick} onDeployingClick={onDeployingClick} />
     </div>);
 
 }
@@ -491,6 +511,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
+  const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
@@ -770,11 +791,18 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
   // When clicking an investor card, try to resolve VCFirm for rich profile
   const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
-    // Try to find matching VCFirm by name
+    setInvestorInitialTab("Updates");
     const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
     if (vcMatch) {
       setSelectedVCFirm(vcMatch);
     }
+    setSelectedInvestor(entry);
+  }, [vcFirms]);
+
+  const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
+    setInvestorInitialTab("Activity");
+    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    if (vcMatch) setSelectedVCFirm(vcMatch);
     setSelectedInvestor(entry);
   }, [vcFirms]);
 
@@ -984,7 +1012,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleFounders.map((founder, i) =>
-            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
+            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} onDeployingClick={() => handleDeployingClick(founder)} />
             )}
                 {isLoadingMore &&
             Array.from({ length: 3 }).map((_, i) =>
@@ -1034,7 +1062,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
             {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -1045,7 +1073,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
             {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} />
+          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -1111,7 +1139,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {visibleFounders.map((founder, i) =>
-                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} />
+                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} onDeployingClick={() => handleDeployingClick(founder)} />
                   )}
                   {isLoadingMore &&
                     Array.from({ length: 3 }).map((_, i) =>
@@ -1172,7 +1200,8 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
-        onClose={() => setSelectedInvestor(null)}
+        onClose={() => { setSelectedInvestor(null); setInvestorInitialTab("Updates"); }}
+        initialTab={investorInitialTab}
         vcFirm={selectedVCFirm}
         vcPartners={selectedVCFirm ? getVCPartners(selectedVCFirm.id) : []}
         onSelectPerson={(person) => {
