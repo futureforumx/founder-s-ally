@@ -246,7 +246,7 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
             {news.map((item, i) => {
               const cfg = NEWS_TYPE_CONFIG[item.type];
               return (
-                <div key={i} className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer">
+                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer no-underline">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-medium text-foreground leading-tight line-clamp-1 group-hover:text-accent transition-colors">
                       {item.title}
@@ -259,7 +259,7 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
                     </div>
                   </div>
                   <ArrowUpRight className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-accent transition-colors" />
-                </div>
+                </a>
               );
             })}
           </div>
