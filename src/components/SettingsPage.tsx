@@ -654,26 +654,34 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   </div>
                 </div>
 
-                {/* X / Twitter URL (appears after LinkedIn is valid) */}
-                <AnimatePresence>
-                  {showTwitter && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className="space-y-1 overflow-hidden"
-                    >
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
-                      <input
-                        value={twitterUrl}
-                        onChange={(e) => setTwitterUrl(e.target.value)}
-                        placeholder="https://x.com/..."
-                        className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                {/* X / Twitter URL (always visible) */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+                  <div className="relative">
+                    {twitterUrl.trim() && (
+                      <img
+                        src="https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.com&size=32"
+                        alt=""
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                    <input
+                      value={twitterUrl}
+                      onChange={(e) => setTwitterUrl(e.target.value)}
+                      onBlur={(e) => {
+                        const formatted = formatSocialUrl("x", e.target.value);
+                        if (formatted !== twitterUrl) setTwitterUrl(formatted);
+                      }}
+                      placeholder="https://x.com/..."
+                      className={cn(
+                        "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
+                        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        twitterUrl.trim() ? "pl-9" : ""
+                      )}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Right column: Identity Verification zone */}
