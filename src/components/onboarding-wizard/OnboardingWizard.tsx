@@ -1,7 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { supabase } from "@/integrations/supabase/client";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
@@ -11,14 +15,100 @@ import { toast } from "@/hooks/use-toast";
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
+  const { user } = useAuth();
+  const { upsertProfile } = useProfile();
+  const { upsertPrefs } = useUserPreferences();
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
 
-  const handleFinish = () => {
-    toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Here's your Intelligence Engine." });
-    reset();
-    navigate("/");
+  const handleFinish = async () => {
+    if (!user || saving) return;
+    setSaving(true);
+
+    try {
+      // 1. Save profile data
+      let companyId: string | null = null;
+
+      // 2. Upsert company_analyses if company name exists
+      if (state.companyName) {
+        const { data: existing } = await (supabase as any)
+          .from("company_analyses")
+          .select("id")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          companyId = existing.id;
+          await (supabase as any)
+            .from("company_analyses")
+            .update({
+              company_name: state.companyName,
+              stage: state.stage || null,
+              sector: state.sectors?.[0] || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existing.id);
+        } else {
+          const { data: newComp } = await (supabase as any)
+            .from("company_analyses")
+            .insert({
+              user_id: user.id,
+              company_name: state.companyName,
+              stage: state.stage || null,
+              sector: state.sectors?.[0] || null,
+            })
+            .select("id")
+            .single();
+          if (newComp) companyId = newComp.id;
+        }
+      }
+
+      // 3. Save profile
+      await upsertProfile({
+        full_name: state.fullName || undefined,
+        title: state.title || null,
+        bio: state.bio || null,
+        location: state.location || null,
+        avatar_url: state.avatarUrl || null,
+        linkedin_url: state.linkedinUrl || null,
+        user_type: "founder",
+        ...(companyId ? { company_id: companyId } : {}),
+      } as any);
+
+      // 4. Save preferences (onboarding data + privacy)
+      await upsertPrefs({
+        onboarding_data: {
+          stage: state.stage,
+          sectors: state.sectors,
+          revenueBand: state.revenueBand,
+          cofounderCount: state.cofounderCount,
+          superpowers: state.superpowers,
+          currentlyRaising: state.currentlyRaising,
+          targetRaise: state.targetRaise,
+          roundType: state.roundType,
+          targetCloseDate: state.targetCloseDate,
+          connectedIntegrations: state.connectedIntegrations,
+        },
+        privacy_settings: {
+          aiInboxPaths: state.aiInboxPaths,
+          shareAnonMetrics: state.shareAnonMetrics,
+          discoverableToInvestors: state.discoverableToInvestors,
+          useMeetingNotes: state.useMeetingNotes,
+        },
+      });
+
+      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Here's your Intelligence Engine." });
+      reset();
+      navigate("/");
+    } catch (e: any) {
+      toast({ title: "Error saving", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

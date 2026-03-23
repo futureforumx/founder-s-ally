@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
@@ -39,24 +40,7 @@ function loadConn(): ConnStatus {
 }
 function saveConn(s: ConnStatus) { localStorage.setItem(CONN_KEY, JSON.stringify(s)); }
 
-// ── Notification prefs persistence ──
-const NOTIF_KEY = "settings-notification-prefs";
-interface NotifPrefs {
-  emailDigest: boolean;
-  matchAlerts: boolean;
-  communityUpdates: boolean;
-  productNews: boolean;
-  pushEnabled: boolean;
-}
-const DEFAULT_NOTIFS: NotifPrefs = {
-  emailDigest: true, matchAlerts: true, communityUpdates: false,
-  productNews: true, pushEnabled: false,
-};
-function loadNotifs(): NotifPrefs {
-  try { const r = localStorage.getItem(NOTIF_KEY); if (r) return JSON.parse(r); } catch {}
-  return DEFAULT_NOTIFS;
-}
-function saveNotifs(n: NotifPrefs) { localStorage.setItem(NOTIF_KEY, JSON.stringify(n)); }
+// Notification and privacy prefs are now DB-backed via useUserPreferences
 
 interface SettingsDialogProps {
   open: boolean;
@@ -536,15 +520,18 @@ function ConnectionsTab() {
 
 // ── Notifications Tab ──
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState<NotifPrefs>(loadNotifs);
+  const { notifications, upsertPrefs } = useUserPreferences();
+  const [prefs, setPrefs] = useState(notifications);
 
-  const toggle = (key: keyof NotifPrefs) => {
+  useEffect(() => { setPrefs(notifications); }, [notifications]);
+
+  const toggle = (key: keyof typeof prefs) => {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
-    saveNotifs(next);
+    upsertPrefs({ notification_settings: next });
   };
 
-  const ITEMS: { key: keyof NotifPrefs; label: string; desc: string; icon: React.ElementType }[] = [
+  const ITEMS: { key: keyof typeof prefs; label: string; desc: string; icon: React.ElementType }[] = [
     { key: "matchAlerts", label: "Match Alerts", desc: "Get notified when new investor matches are found", icon: Zap },
     { key: "emailDigest", label: "Weekly Digest", desc: "Summary of activity, new matches, and community updates", icon: Mail },
     { key: "communityUpdates", label: "Community Updates", desc: "New reviews, intro requests, and founder activity", icon: User },
@@ -590,41 +577,16 @@ function NotificationsTab() {
 }
 
 // ── Privacy Tab ──
-const ONBOARDING_KEY = "onboarding-wizard-state";
-
 function PrivacyTab() {
-  const [prefs, setPrefs] = useState(() => {
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          aiInboxPaths: parsed.aiInboxPaths ?? false,
-          shareAnonMetrics: parsed.shareAnonMetrics ?? false,
-          discoverableToInvestors: parsed.discoverableToInvestors ?? false,
-          useMeetingNotes: parsed.useMeetingNotes ?? false,
-        };
-      }
-    } catch {}
-    return { aiInboxPaths: false, shareAnonMetrics: false, discoverableToInvestors: false, useMeetingNotes: false };
-  });
+  const { privacy, onboardingData, upsertPrefs } = useUserPreferences();
+  const [prefs, setPrefs] = useState(privacy);
 
-  const [onboardingData, setOnboardingData] = useState<any>(() => {
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  useEffect(() => { setPrefs(privacy); }, [privacy]);
 
   const togglePref = (key: keyof typeof prefs) => {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
-    // Persist back to onboarding state
-    try {
-      const saved = localStorage.getItem(ONBOARDING_KEY);
-      const data = saved ? JSON.parse(saved) : {};
-      localStorage.setItem(ONBOARDING_KEY, JSON.stringify({ ...data, ...next }));
-    } catch {}
+    upsertPrefs({ privacy_settings: next });
   };
 
   const TOGGLES = [

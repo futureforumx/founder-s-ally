@@ -726,6 +726,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          notification_settings: Json | null
+          onboarding_data: Json | null
+          privacy_settings: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notification_settings?: Json | null
+          onboarding_data?: Json | null
+          privacy_settings?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notification_settings?: Json | null
+          onboarding_data?: Json | null
+          privacy_settings?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       investor_directory_safe: {
