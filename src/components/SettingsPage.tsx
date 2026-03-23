@@ -813,9 +813,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           Sign Out
         </button>
 
-        <div className="h-12" />
       </div>
-      <StickyFormFooter dirty={isDirty} saving={saving} onDiscard={handleDiscard} onSave={handleSave} />
 
       {/* Sync Review Modal */}
       <SyncReviewModal
