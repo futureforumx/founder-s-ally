@@ -350,6 +350,9 @@ export function CopilotMissionBanner({
             <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
           </div>
         </div>
+
+        {/* Auto-save indicator */}
+        <AutoSaveIndicator status={saveStatus} />
       </div>
     </motion.button>
   );
