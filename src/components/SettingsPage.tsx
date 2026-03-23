@@ -203,6 +203,7 @@ export function SettingsPage() {
         profileCompletion={profileCompletion}
         onNavigate={handleMissionNavigate}
         completedFields={completedFields}
+        saveStatus={saveStatus}
       />
 
       {/* Sticky Section + Tab Bar */}
