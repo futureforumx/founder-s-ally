@@ -6,28 +6,23 @@ import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { CompanyProfile, CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
-import { useCapTable } from "@/hooks/useCapTable";
+import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { SectorClassification } from "@/components/SectorTags";
-import { HealthDashboard } from "@/components/HealthDashboard";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorMatch } from "@/components/InvestorMatch";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { PulseCards } from "@/components/PulseCards";
 import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { RefreshCw, ShieldCheck, Check, ArrowRight, Eye, Zap, CheckCircle2, Sparkles, Circle, ChevronRight, Briefcase, Target, TrendingUp, Link } from "lucide-react";
+import { ArrowRight, ShieldCheck, Sparkles, ChevronRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
-import { ProfileStrength } from "@/components/company-profile/ProfileStrength";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { useCapTable } from "@/hooks/useCapTable";
 
 
 
