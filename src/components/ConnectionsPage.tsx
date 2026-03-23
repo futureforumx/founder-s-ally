@@ -98,19 +98,6 @@ const SOURCES: {
     unlockToast: "🔓 Social Sentiment unlocked",
   },
   {
-    key: "calendar", label: "Google Calendar", icon: Calendar,
-    color: "text-blue-500", bgColor: "bg-blue-500/10",
-    description: "Detect past VC meetings, intro calls, and recurring investor contacts",
-    statChip: "24 past meetings detected · 6 VC contacts",
-    connectedStats: [
-      { label: "VC Meetings", value: "24" },
-      { label: "Recurring", value: "6" },
-      { label: "Last Meeting", value: "3d ago" },
-    ],
-    syncStages: ["Authenticating...", "Scanning data...", "Extracting contacts...", "Building relationship graph...", "Complete ✓"],
-    unlockToast: "🔓 Meeting History unlocked",
-  },
-  {
     key: "angellist", label: "AngelList", icon: Zap,
     color: "text-foreground", bgColor: "bg-foreground/5",
     description: "Sync portfolio follows, past applications, and investor activity",

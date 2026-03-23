@@ -396,7 +396,7 @@ const SETTINGS_INTEGRATIONS = [
   { key: "gmail" as const, label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", color: "text-red-500", bg: "bg-red-500/10" },
   { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", color: "text-blue-600", bg: "bg-blue-600/10" },
   { key: "twitter" as const, label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", color: "text-foreground", bg: "bg-foreground/5" },
-  { key: "calendar" as const, label: "Google Calendar", icon: Calendar, desc: "Detect past VC meetings and intro calls", color: "text-blue-500", bg: "bg-blue-500/10" },
+  
   { key: "angellist" as const, label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", color: "text-foreground", bg: "bg-foreground/5" },
 ];
 
