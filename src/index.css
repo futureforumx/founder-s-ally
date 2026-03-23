@@ -101,17 +101,20 @@
 
 @layer utilities {
   .surface-card {
-    @apply bg-card rounded-xl;
+    @apply bg-card rounded-2xl;
+    border: 1px solid hsl(var(--neon-purple) / 0.08);
     box-shadow: var(--shadow-sm);
   }
 
   .surface-card-hover {
-    @apply bg-card rounded-xl transition-all duration-200;
+    @apply bg-card rounded-2xl transition-all duration-300;
+    border: 1px solid hsl(var(--neon-purple) / 0.08);
     box-shadow: var(--shadow-sm);
   }
 
   .surface-card-hover:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
+    border-color: hsl(var(--neon-purple) / 0.2);
     transform: translateY(-1px);
   }
 
