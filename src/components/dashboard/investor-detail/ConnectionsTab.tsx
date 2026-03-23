@@ -61,6 +61,8 @@ type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
+  const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
 
   useEffect(() => {
     if (!investorName) {
