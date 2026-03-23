@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
