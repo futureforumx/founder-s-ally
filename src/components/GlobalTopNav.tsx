@@ -405,6 +405,52 @@ export function GlobalTopNav({
         )}
       </div>
 
+      {/* ── HUD Badges: Analytics ── */}
+      <TooltipProvider delayDuration={200}>
+        <div className="flex items-center gap-0 shrink-0">
+          {(() => {
+            const locked = profileCompletion < 100;
+            const views = locked ? 0 : 12;
+            const searches = locked ? 0 : 85;
+            return (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 border-r border-border/30",
+                      locked && "opacity-40"
+                    )}>
+                      <Eye className="h-3 w-3 text-muted-foreground/70" />
+                      <span className="text-xs font-bold text-foreground">{locked ? "—" : views}</span>
+                      {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {locked ? "Complete your profile to unlock Investor Views" : `${views} Total Investor Views this week`}
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5",
+                      locked && "opacity-40"
+                    )}>
+                      <Radar className="h-3 w-3 text-muted-foreground/70" />
+                      <span className="text-xs font-bold text-foreground">{locked ? "—" : searches}</span>
+                      {locked && <Lock className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {locked ? "Complete your profile to unlock Search Appearances" : `${searches} Search Appearances this week`}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            );
+          })()}
+        </div>
+      </TooltipProvider>
+
       {/* ── Right: Persona Switcher + Live dot ── */}
       <div className="flex items-center gap-2 shrink-0">
         <DropdownMenu>
