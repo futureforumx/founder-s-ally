@@ -799,6 +799,13 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     setSelectedInvestor(entry);
   }, [vcFirms]);
 
+  const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
+    setInvestorInitialTab("Activity");
+    const vcMatch = vcFirms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    if (vcMatch) setSelectedVCFirm(vcMatch);
+    setSelectedInvestor(entry);
+  }, [vcFirms]);
+
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();
