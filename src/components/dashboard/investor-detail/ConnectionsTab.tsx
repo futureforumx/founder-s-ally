@@ -27,42 +27,9 @@ const WARM_PATHS = [
   { name: "Marcus Chen", company: "BuildStack", badge: "1st Degree", context: "Co-led their Pre-Seed in Mar 2024.", avatar: "MC" },
 ];
 
-const WHISPER_FEED = [
-  {
-    sector: "SaaS",
-    stage: "Seed",
-    nps: 8,
-    date: "2025-12-14",
-    tags: ["Passed after 2nd Meeting", "Helpful Feedback"],
-    tagColors: ["bg-secondary text-muted-foreground", "bg-success/10 text-success"],
-    text: "They dug really deep into our GTM motion. Ultimately passed because market size was too small for their fund math, but the partner gave us incredibly actionable advice.",
-  },
-  {
-    sector: "Fintech",
-    stage: "Series A",
-    nps: 10,
-    date: "2026-01-22",
-    tags: ["Term Sheet in 3 Weeks", "Board Seat"],
-    tagColors: ["bg-success/10 text-success", "bg-primary/10 text-primary"],
-    text: "Fastest process we experienced. Very data-driven diligence, asked for cohort data upfront. Partner was deeply engaged and added real value post-close.",
-  },
-  {
-    sector: "Climate",
-    stage: "Pre-Seed",
-    nps: 3,
-    date: "2026-02-08",
-    tags: ["Ghosted after IC", "Slow Process"],
-    tagColors: ["bg-destructive/10 text-destructive", "bg-warning/10 text-warning"],
-    text: "Great initial conversations, felt like strong alignment. After IC presentation there was radio silence for 6 weeks. Eventually got a pass via email with no feedback.",
-  },
-];
-
-type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
-  const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
 
   useEffect(() => {
     if (!investorName) {
