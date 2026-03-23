@@ -4,7 +4,7 @@ import { formatSocialUrl } from "@/lib/socialFormat";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
-  User, LogOut, Mail, Linkedin, Twitter, Bell, BellOff,
+  User, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
