@@ -17,7 +17,7 @@ const STORAGE_KEY = "community-connections-status";
 const SYNC_DETAIL_KEY = "connections-sync-detail";
 const MODAL_DISMISSED_KEY = "connections-modal-dismissed";
 
-const ALL_KEYS: SourceKey[] = ["gmail", "linkedin", "twitter", "calendar", "angellist"];
+const ALL_KEYS: SourceKey[] = ["gmail", "linkedin", "twitter", "angellist"];
 
 function loadConnected(): Record<SourceKey, boolean> {
   try {
