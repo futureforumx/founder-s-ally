@@ -86,7 +86,6 @@ export default {
         "surface": "var(--shadow-sm)",
         "surface-md": "var(--shadow-md)",
         "surface-lg": "var(--shadow-lg)",
-        "surface-xl": "var(--shadow-xl)",
       },
       keyframes: {
         "accordion-down": {
