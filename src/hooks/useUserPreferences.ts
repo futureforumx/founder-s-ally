@@ -9,6 +9,11 @@ export interface PrivacySettings {
   useMeetingNotes: boolean;
 }
 
+export interface AppToggleSettings {
+  liveSync: boolean;
+  copilotMode: boolean;
+}
+
 export interface OnboardingData {
   stage?: string;
   sectors?: string[];
