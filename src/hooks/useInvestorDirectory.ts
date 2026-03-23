@@ -15,6 +15,11 @@ export interface LiveInvestorEntry {
   dataSource: "verified" | "live";
   lastSynced: Date;
   logo_url?: string | null;
+  firm_type?: string;
+  is_actively_deploying?: boolean;
+  founder_sentiment_score?: number | null;
+  headcount?: string | null;
+  aum?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
@@ -35,6 +40,11 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     dataSource: "verified",
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
+    firm_type: row.firm_type || "Institutional",
+    is_actively_deploying: row.is_actively_deploying ?? true,
+    founder_sentiment_score: row.founder_sentiment_score ?? null,
+    headcount: row.headcount ?? null,
+    aum: row.aum ?? null,
   };
 }
 

@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
-  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2 } from
+  ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
+  DollarSign, Activity, Heart } from
 "lucide-react";
+import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +49,14 @@ interface DirectoryEntry {
   _companyName?: string | null;
   /** Profile ID for navigation */
   _profileId?: string;
+  /** Investor-specific enrichment fields */
+  _firmType?: string;
+  _isActivelyDeploying?: boolean;
+  _founderSentimentScore?: number | null;
+  _headcount?: string | null;
+  _aum?: string | null;
+  _logoUrl?: string | null;
+  _matchScore?: number | null;
 }
 
 // ── Mock data: Suggested ──
@@ -57,9 +67,9 @@ const SUGGESTED_ENTRIES: DirectoryEntry[] = [
 { name: "Priya Patel", sector: "Health & Biotech", stage: "Pre-Seed", description: "Biomedical engineer turned founder. Building decentralized health records with zero-knowledge proofs.", location: "Boston, MA", model: "Co-founder & CTO", initial: "P", matchReason: null, category: "founder" },
 { name: "Alex Rivera", sector: "Consumer & Retail", stage: "Series B", description: "Second-time founder with a $45M exit in e-commerce. Now building AI visual merchandising for brands.", location: "New York, NY", model: "Founder & CEO", initial: "A", matchReason: "Matches your sector", category: "founder" },
 // Investors
-{ name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor" },
-{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor" },
-{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor" },
+{ name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 88, _headcount: "250+", _aum: "$85B" },
+{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 76, _headcount: "45", _aum: "$4B" },
+{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 92, _headcount: "55", _aum: "$1.5B" },
 // Companies
 { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
 { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
@@ -76,8 +86,8 @@ const TRENDING_ENTRIES: DirectoryEntry[] = [
 { name: "Leila Farouk", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum physicist turned founder. Building compiler toolchains that reduce qubit error rates by 60%.", location: "Boulder, CO", model: "Co-founder & CTO", initial: "L", matchReason: null, category: "founder" },
 { name: "Ryan Nakamura", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Ex-SpaceX engineer building autonomous satellite constellation management using multi-agent AI systems.", location: "Los Angeles, CA", model: "Founder & CEO", initial: "R", matchReason: null, category: "founder" },
 // Investors
-{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor" },
-{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor" },
+{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 71, _headcount: "500+", _aum: "$42B" },
+{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 65, _headcount: "50", _aum: "$11B" },
 // Companies
 { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
 { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
@@ -93,8 +103,8 @@ const EXTRA_ENTRIES: DirectoryEntry[] = [
 { name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
 { name: "Omar Hassan", sector: "Enterprise AI", stage: "Series B", description: "Third-time founder building enterprise knowledge graph platforms. Previous exit to Salesforce for $120M.", location: "San Jose, CA", model: "Founder & CEO", initial: "O", matchReason: null, category: "founder" },
 { name: "Maria Santos", sector: "EdTech", stage: "Seed", description: "Former teacher turned founder. Building adaptive learning platforms for workforce upskilling with competency mapping.", location: "Washington, DC", model: "Co-founder & CEO", initial: "M", matchReason: "Matches your sector", category: "founder" },
-{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor" },
-{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor" },
+{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 82, _headcount: "80", _aum: "$18B" },
+{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: false, _founderSentimentScore: 79, _headcount: "100", _aum: "$22B" },
 { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company" },
 { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company" },
 { name: "Nina Kapoor", sector: "LegalTech", stage: "Seed", description: "Former BigLaw partner building AI contract analysis tools. Identifies risk clauses and suggests negotiation strategies.", location: "Philadelphia, PA", model: "Founder & CEO", initial: "N", matchReason: null, category: "founder" },
@@ -264,7 +274,99 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
+function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void;}) {
+  const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
+  const sentimentScore = founder._founderSentimentScore;
+  const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
+  const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
+  const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
+
+  return (
+    <Card
+      onClick={onClick}
+      className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
+      trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
+      }>
+      <CardContent className="p-4 space-y-3">
+        {/* ── Row 1: Logo left, Alerts right ── */}
+        <div className="flex items-start justify-between gap-3">
+          {/* Logo */}
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary border border-border/50 shrink-0 overflow-hidden">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={founder.name}
+                className="h-full w-full object-contain p-1"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                }}
+              />
+            ) : null}
+            <span className={`text-lg font-bold text-muted-foreground ${logoUrl ? "hidden" : ""}`}>
+              {founder.initial}
+            </span>
+          </div>
+
+          {/* Upper right: deploying status + scores */}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {founder._isActivelyDeploying !== false && (
+              <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider">
+                <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+              </Badge>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center">
+                <span className={`text-sm font-black leading-none ${matchColor}`}>{matchScore}%</span>
+                <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
+              </div>
+              {sentimentScore != null && (
+                <div className="flex flex-col items-center">
+                  <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
+                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Vibe</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 2: Name + description ── */}
+        <div>
+          <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{founder.description}</p>
+        </div>
+
+        {/* ── Row 3: HQ · AUM · Headcount · Type ── */}
+        <div className="flex items-center gap-3 pt-2 border-t border-border/40 text-[10px] text-muted-foreground flex-wrap">
+          {founder.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location || "—"}
+            </span>
+          )}
+          {(founder._aum || founder.model) && (
+            <span className="inline-flex items-center gap-1">
+              <DollarSign className="h-2.5 w-2.5 shrink-0" /> {founder._aum || founder.model}
+            </span>
+          )}
+          {founder._headcount && (
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-2.5 w-2.5 shrink-0" /> {founder._headcount}
+            </span>
+          )}
+          <Badge variant="outline" className="text-[8px] font-semibold px-1.5 py-0">
+            {founder._firmType || "Institutional"}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>);
+}
+
 function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+  // Use specialized investor card for investor entries
+  if (founder.category === "investor") {
+    return <InvestorCard founder={founder} trending={trending} onClick={onClick} />;
+  }
+
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
   
   return (
@@ -301,11 +403,9 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          {/* Show title/role for person profiles */}
           {founder._isRealProfile && founder.model && (
             <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
           )}
-          {/* Company link for founder profiles */}
           {founder._companyName && (
             <div className="flex items-center gap-1.5 mt-1">
               <Building2 className="h-3 w-3 text-accent/70" />
@@ -365,26 +465,49 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Real founder profiles from database
   const { founders: realFounders, loading: foundersLoading } = useFounderProfiles();
 
+  // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
+  const { data: dbInvestors } = useInvestorDirectory();
+
+  // Build a lookup map from DB investors by firm name (lowercase)
+  const dbInvestorMap = useMemo(() => {
+    const m = new Map<string, typeof dbInvestors extends (infer T)[] | undefined ? T : never>();
+    if (dbInvestors) {
+      for (const inv of dbInvestors) {
+        m.set(inv.name.toLowerCase().trim(), inv);
+      }
+    }
+    return m;
+  }, [dbInvestors]);
+
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
   const vcEntries = useMemo(() => {
     const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
     return vcFirms
       .filter(f => !seedNames.has(f.name.toLowerCase()))
-      .map(f => ({
-        name: f.name,
-        sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
-        stage: f.stages?.join(", ") || "Multi-stage",
-        description: f.description || `${f.name} is an active investment firm.`,
-        location: "",
-        model: f.sweet_spot || f.aum || "",
-        initial: f.name.charAt(0).toUpperCase(),
-        matchReason: null,
-        category: "investor" as const,
-        _sectors: f.sectors || [] as string[], // exact sector strings for matching
-        _stages: f.stages || [] as string[],
-      }));
-  }, [vcFirms]);
+      .map(f => {
+        const dbMatch = dbInvestorMap.get(f.name.toLowerCase().trim());
+        return {
+          name: f.name,
+          sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
+          stage: f.stages?.join(", ") || "Multi-stage",
+          description: f.description || `${f.name} is an active investment firm.`,
+          location: dbMatch?.location || "",
+          model: f.sweet_spot || f.aum || "",
+          initial: f.name.charAt(0).toUpperCase(),
+          matchReason: null,
+          category: "investor" as const,
+          _sectors: f.sectors || [] as string[],
+          _stages: f.stages || [] as string[],
+          _firmType: (dbMatch as any)?.firm_type || "Institutional",
+          _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
+          _founderSentimentScore: (dbMatch as any)?.founder_sentiment_score ?? null,
+          _headcount: (dbMatch as any)?.headcount ?? null,
+          _aum: f.aum || (dbMatch as any)?.aum || null,
+          _logoUrl: f.logo_url || dbMatch?.logo_url || null,
+        };
+      });
+  }, [vcFirms, dbInvestorMap]);
 
   // Convert real founder profiles to DirectoryEntry format
   const realFounderEntries: DirectoryEntry[] = useMemo(() => {
