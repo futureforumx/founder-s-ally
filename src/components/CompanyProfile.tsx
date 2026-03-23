@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
+import { formatSocialUrl } from "@/lib/socialFormat";
 import { AnalysisOverlay } from "./AnalysisOverlay";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
@@ -68,22 +69,10 @@ function cleanDomainToName(domain: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function formatSocialUrl(platform: "x" | "instagram" | "linkedin", value: string): string {
-  if (!value || value.trim() === "") return "";
-  let cleaned = value.trim().replace(/^(https?:\/\/)?(www\.)?/, "");
-  switch (platform) {
-    case "x":
-      cleaned = cleaned.replace(/^(twitter\.com\/|x\.com\/)/, "").replace(/^@/, "");
-      return `https://x.com/${cleaned}`;
-    case "instagram":
-      cleaned = cleaned.replace(/^instagram\.com\//, "").replace(/^@/, "");
-      return `https://instagram.com/${cleaned}`;
-    case "linkedin":
-      cleaned = cleaned.replace(/^linkedin\.com\/(company\/|in\/)?/, "").replace(/\/$/, "");
-      return `https://linkedin.com/company/${cleaned}`;
-    default:
-      return value;
-  }
+// Legacy wrapper — delegates to global utility
+// Kept for backward compatibility with any remaining call sites
+function formatSocialUrlLocal(platform: "x" | "instagram" | "linkedin", value: string): string {
+  return formatSocialUrl(platform, value);
 }
 
 function parseSmartNumber(value: string): number {
