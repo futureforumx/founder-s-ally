@@ -80,6 +80,10 @@ const Index = () => {
   });
 
   const profileComplete = !!companyData && !!analysisResult;
+  const profileCompletion = useMemo(() => {
+    if (!companyData) return 0;
+    return getCompletionPercent({ ...EMPTY_FORM, ...companyData });
+  }, [companyData]);
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
 
   // Last synced state
