@@ -30,7 +30,7 @@ export interface InvestorEntry {
   logo_url?: string | null;
 }
 
-export const INVESTOR_TABS = ["Updates", "Activity", "Investment Thesis", "Portfolio", "Investors", "Feedback", "Community"] as const;
+export const INVESTOR_TABS = ["Updates", "Activity", "Investment Thesis", "Portfolio", "Investors", "Feedback", "Connect"] as const;
 export type InvestorTab = typeof INVESTOR_TABS[number];
 
 // ── Mock Partners Data (Relational Glue) ──
