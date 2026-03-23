@@ -17,10 +17,13 @@ interface MissionStep {
   insight: string;
 }
 
+type SaveStatus = "idle" | "saving" | "saved";
+
 interface CopilotMissionBannerProps {
   profileCompletion: number;
   onNavigate: (tab: string, field?: string) => void;
   completedFields?: string[];
+  saveStatus?: SaveStatus;
 }
 
 // ── Mission Steps (ordered by impact) ──
