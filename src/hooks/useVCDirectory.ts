@@ -30,14 +30,25 @@ interface VCData {
 let cachedData: VCData | null = null;
 let loadingPromise: Promise<VCData> | null = null;
 
+function deriveWebsiteUrlFromFirmId(id: string | null | undefined): string | null {
+  if (!id) return null;
+  const normalized = id.trim().toLowerCase().replace(/^https?:\/\//, "");
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) return null;
+  return `https://${normalized}`;
+}
+
 async function loadVCData(): Promise<VCData> {
   if (cachedData) return cachedData;
   if (loadingPromise) return loadingPromise;
   loadingPromise = fetch("/data/vc_mdm_output.json")
     .then((r) => r.json())
     .then((d: VCData) => {
-      cachedData = d;
-      return d;
+      const firms = (d.firms || []).map((firm) => ({
+        ...firm,
+        website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
+      }));
+      cachedData = { ...d, firms };
+      return cachedData;
     });
   return loadingPromise;
 }
