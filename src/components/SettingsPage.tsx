@@ -87,6 +87,10 @@ function setTabInUrl(tab: SettingsTab) {
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
   const { user, signOut } = useAuth();
+  const [profileCompletion, setProfileCompletion] = useState(84);
+  const [completedFields, setCompletedFields] = useState<string[]>([
+    "website", "sector", "pitch-deck", "mrr", "executive-summary",
+  ]);
 
   const activeSection = getSectionForTab(activeTab);
   const currentTabs = SECTION_TABS[activeSection];
@@ -100,6 +104,22 @@ export function SettingsPage() {
     const firstTab = SECTION_TABS[section][0];
     handleTabChange(firstTab.id);
   };
+
+  const handleMissionNavigate = useCallback((tab: string, field?: string) => {
+    handleTabChange(tab as SettingsTab);
+    if (field) {
+      setTimeout(() => {
+        const el = document.querySelector(`[data-field="${field}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-accent", "ring-offset-2", "rounded-xl");
+          }, 3000);
+        }
+      }, 400);
+    }
+  }, []);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
