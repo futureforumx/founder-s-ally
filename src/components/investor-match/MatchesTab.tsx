@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useState } from "react";
+import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,9 @@ interface ScoredInvestor {
   score: number;
   reasoning: string;
   coInvestLink: string | null;
+  is_trending?: boolean;
+  is_popular?: boolean;
+  is_recent?: boolean;
 }
 
 interface EnrichedProfile {
@@ -368,6 +372,11 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                             {investor.preferred_stage} · {investor.lead_or_follow}
                             {investor.lead_partner && ` · ${investor.lead_partner}`}
                           </p>
+                          <VCBadgeContainer vc_firm={{
+                            is_trending: investor.is_trending,
+                            is_popular: investor.is_popular,
+                            is_recent: investor.is_recent,
+                          }} />
                         </div>
                       </div>
 

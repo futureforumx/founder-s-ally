@@ -31,6 +31,9 @@ interface Investor {
   ca_sb54_compliant: boolean;
   market_sentiment: string | null;
   sentiment_detail: string | null;
+  is_trending?: boolean;
+  is_popular?: boolean;
+  is_recent?: boolean;
 }
 
 interface ScoredInvestor extends Investor {
