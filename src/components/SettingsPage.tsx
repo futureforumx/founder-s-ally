@@ -437,20 +437,17 @@ function AdminAccessSection({ userId }: { userId?: string }) {
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Admin Access</h3>
-      <div className="flex items-center justify-between rounded-xl border border-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
-            <Crown className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-foreground">Platform Admin</p>
-            <p className="text-[10px] text-muted-foreground">Access the Intelligence Dashboard</p>
-          </div>
+    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500/10">
+          <Crown className="h-3.5 w-3.5 text-amber-500" />
         </div>
-        <Switch checked={isAdmin} onCheckedChange={handleToggleAdmin} disabled={toggling} />
+        <div className="text-left">
+          <p className="text-xs font-medium text-foreground">Platform Admin</p>
+          <p className="text-[9px] text-muted-foreground">Intelligence Dashboard</p>
+        </div>
       </div>
+      <Switch checked={isAdmin} onCheckedChange={handleToggleAdmin} disabled={toggling} />
     </div>
   );
 }
