@@ -376,6 +376,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
           </div>
         </>
       )}
+      <ReviewSubmissionModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        firmName={heroName}
+        firmId={resolvedFirmId || liveProfile?.id}
+      />
     </AnimatePresence>
   );
 }
