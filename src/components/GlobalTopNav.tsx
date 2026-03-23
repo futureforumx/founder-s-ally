@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp, Activity, Radio, Clock } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
+  Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -21,10 +25,12 @@ interface GlobalTopNavProps {
   activeView?: ViewType;
   onViewChange?: (view: ViewType) => void;
   onOpenCommandPalette?: () => void;
+  userSector?: string | null;
+  userStage?: string | null;
 }
 
 // ── View metadata for breadcrumbs ──
-const VIEW_META: Record<ViewType, { section: string; label: string; parent?: ViewType; siblings?: { id: ViewType; label: string }[] }> = {
+const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: { id: ViewType; label: string }[] }> = {
   dashboard: { section: "Mission Control", label: "Overview" },
   company: { section: "My Company", label: "Company Settings", siblings: [
     { id: "company", label: "Company Settings" },
@@ -33,28 +39,28 @@ const VIEW_META: Record<ViewType, { section: string; label: string; parent?: Vie
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  competitors: { section: "My Company", label: "Competitors", parent: "company", siblings: [
+  competitors: { section: "My Company", label: "Competitors", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
     { id: "sector", label: "Sector" },
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  sector: { section: "My Company", label: "Sector", parent: "company", siblings: [
+  sector: { section: "My Company", label: "Sector", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
     { id: "sector", label: "Sector" },
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  benchmarks: { section: "My Company", label: "Benchmarks", parent: "company", siblings: [
+  benchmarks: { section: "My Company", label: "Benchmarks", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
     { id: "sector", label: "Sector" },
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  audit: { section: "My Company", label: "Deck Audit", parent: "company", siblings: [
+  audit: { section: "My Company", label: "Deck Audit", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
     { id: "sector", label: "Sector" },
@@ -66,12 +72,12 @@ const VIEW_META: Record<ViewType, { section: string; label: string; parent?: Vie
     { id: "investor-search", label: "Search" },
     { id: "connections", label: "Connections" },
   ]},
-  "investor-search": { section: "Investors", label: "Search", parent: "investors", siblings: [
+  "investor-search": { section: "Investors", label: "Search", siblings: [
     { id: "investors", label: "Matches" },
     { id: "investor-search", label: "Search" },
     { id: "connections", label: "Connections" },
   ]},
-  connections: { section: "Investors", label: "Connections", parent: "investors", siblings: [
+  connections: { section: "Investors", label: "Connections", siblings: [
     { id: "investors", label: "Matches" },
     { id: "investor-search", label: "Search" },
     { id: "connections", label: "Connections" },
@@ -81,12 +87,12 @@ const VIEW_META: Record<ViewType, { section: string; label: string; parent?: Vie
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
-  groups: { section: "Community", label: "Groups", parent: "directory", siblings: [
+  groups: { section: "Community", label: "Groups", siblings: [
     { id: "directory", label: "Directory" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
-  events: { section: "Community", label: "Events", parent: "directory", siblings: [
+  events: { section: "Community", label: "Events", siblings: [
     { id: "directory", label: "Directory" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
@@ -95,7 +101,65 @@ const VIEW_META: Record<ViewType, { section: string; label: string; parent?: Vie
   settings: { section: "Settings", label: "Settings" },
 };
 
-// ── Live Market Pulse messages ──
+// ── Contextual AI suggestions per view ──
+function getContextSuggestions(view: ViewType, sector?: string | null, stage?: string | null): string[] {
+  const s = sector || "Technology";
+  const st = stage || "Seed";
+  switch (view) {
+    case "investor-search":
+    case "investors":
+      return [
+        `Lead ${s} investors`,
+        `Top ${s} funds actively deploying`,
+        `Investors writing ${st} checks`,
+      ];
+    case "connections":
+      return [
+        "Warm intros through shared investors",
+        `${s} investors in my network`,
+        "Recently connected funds",
+      ];
+    case "directory":
+      return [
+        `${s} founders near me`,
+        "Second-time founders raising now",
+        `Operators with ${s} experience`,
+      ];
+    case "competitors":
+    case "benchmarks":
+      return [
+        `Top ${s} competitors`,
+        "Companies at similar stage",
+        `${s} market leaders`,
+      ];
+    case "company":
+    case "sector":
+      return [
+        `${s} market trends`,
+        "Similar companies in my sector",
+        `${st} stage benchmarks`,
+      ];
+    default:
+      return [
+        `Lead ${s} investors`,
+        `${s} founders near me`,
+        "Trending startups this week",
+      ];
+  }
+}
+
+// ── Filter chips config ──
+const FILTER_CHIPS = [
+  { id: "all", label: "All", icon: ListFilter },
+  { id: "matches", label: "Matches", icon: Zap },
+  { id: "sector", label: "Sector", icon: Building2 },
+  { id: "stage", label: "Stage", icon: TrendingUp },
+  { id: "trending", label: "Trending", icon: Flame },
+  { id: "popular", label: "Popular", icon: Star },
+  { id: "recent", label: "Recent", icon: Clock },
+];
+
+// ── Live Market Pulse ──
 const PULSE_MESSAGES = [
   { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-400" },
   { text: "3 Funds Actively Deploying", icon: Activity, color: "text-sky-400" },
@@ -123,43 +187,79 @@ export function GlobalTopNav({
   activeView = "dashboard",
   onViewChange,
   onOpenCommandPalette,
+  userSector,
+  userStage,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
-  const [searchCollapsed, setSearchCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeChip, setActiveChip] = useState("all");
+  const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
 
-  // Detect scroll for glassmorphism effect
   useEffect(() => {
     const main = document.querySelector("main");
     if (!main) return;
-    const handler = () => {
-      setScrolled(main.scrollTop > 12);
-      setSearchCollapsed(main.scrollTop > 80);
-    };
+    const handler = () => setScrolled(main.scrollTop > 12);
     main.addEventListener("scroll", handler, { passive: true });
     return () => main.removeEventListener("scroll", handler);
   }, []);
 
+  // Close on outside click
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [searchOpen]);
+
+  // Cmd+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (onOpenCommandPalette) {
+          onOpenCommandPalette();
+        } else {
+          setSearchOpen(o => !o);
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onOpenCommandPalette]);
+
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
   const PulseIcon = pulse.icon;
+  const suggestions = getContextSuggestions(activeView, userSector, userStage);
+
+  const handleSearchClick = useCallback(() => {
+    setSearchOpen(true);
+  }, []);
+
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    setSearchOpen(false);
+    onOpenCommandPalette?.();
+  }, [onOpenCommandPalette]);
 
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 z-50 px-6 py-2.5 flex items-center gap-4 transition-all duration-300",
+        "fixed top-0 right-0 z-50 px-5 py-2 flex items-center gap-3 transition-all duration-300",
         scrolled
           ? "bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
           : "bg-transparent border-b border-transparent"
       )}
       style={{ left: "11rem" }}
     >
-      {/* ── Left: Contextual Intelligence ── */}
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        {/* Dropdown Breadcrumbs */}
+      {/* ── Left: Breadcrumbs + Pulse ── */}
+      <div className="flex items-center gap-2.5 min-w-0 shrink-0">
         <nav className="flex items-center gap-1 text-[12px] shrink-0">
           <span className="text-muted-foreground/60 font-medium">{viewMeta.section}</span>
-
           {viewMeta.siblings && viewMeta.siblings.length > 1 ? (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
@@ -173,10 +273,7 @@ export function GlobalTopNav({
                     <DropdownMenuItem
                       key={s.id}
                       onClick={() => onViewChange?.(s.id)}
-                      className={cn(
-                        "text-xs cursor-pointer",
-                        activeView === s.id && "bg-accent/10 text-accent font-semibold"
-                      )}
+                      className={cn("text-xs cursor-pointer", activeView === s.id && "bg-accent/10 text-accent font-semibold")}
                     >
                       {s.label}
                     </DropdownMenuItem>
@@ -187,116 +284,167 @@ export function GlobalTopNav({
           ) : (
             <>
               <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-              <span className="font-semibold text-foreground">{viewMeta.label}</span>
+              <span className="font-semibold text-foreground text-[12px]">{viewMeta.label}</span>
             </>
           )}
         </nav>
 
-        {/* Separator */}
-        <div className="h-4 w-px bg-border/50 shrink-0" />
+        <div className="h-4 w-px bg-border/40 shrink-0" />
 
-        {/* Live Market Pulse (investor views) or sync status */}
         {isInvestorArea ? (
-          <div
-            key={pulse.text}
-            className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in"
-          >
+          <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
             <span className="relative flex h-1.5 w-1.5 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
             </span>
             <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
-            <span className="text-muted-foreground truncate">{pulse.text}</span>
+            <span className="text-muted-foreground truncate hidden xl:inline">{pulse.text}</span>
           </div>
         ) : lastSyncedAt ? (
           <div className="flex items-center gap-1.5 text-[11px] font-medium">
             <Clock className="h-3 w-3 text-muted-foreground/50" />
-            <span className={cn(
-              "transition-colors duration-500 truncate",
-              syncFlash ? "text-success" : "text-muted-foreground/70"
-            )}>
+            <span className={cn("transition-colors duration-500 truncate hidden xl:inline", syncFlash ? "text-success" : "text-muted-foreground/70")}>
               {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
             </span>
           </div>
         ) : null}
       </div>
 
-      {/* ── Center: Omni-Search (shrinks on scroll) ── */}
-      <button
-        onClick={onOpenCommandPalette}
-        className={cn(
-          "flex items-center gap-2 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/50 hover:border-border transition-all cursor-text group",
-          searchCollapsed
-            ? "w-9 h-9 justify-center px-0"
-            : "h-9 px-3 min-w-[220px] max-w-[280px]"
-        )}
-      >
-        <Search className={cn(
-          "shrink-0 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors",
-          searchCollapsed ? "h-4 w-4" : "h-3.5 w-3.5"
-        )} />
-        {!searchCollapsed && (
-          <>
-            <span className="text-[12px] text-muted-foreground/40 truncate flex-1 text-left">
-              Search…
-            </span>
-            <kbd className="hidden sm:inline-flex items-center rounded border border-border/60 bg-background/50 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground/40">
-              ⌘K
-            </kbd>
-          </>
-        )}
-      </button>
-
-      {/* ── Right: Persona Switcher ── */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
-          <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-            {logoUrl ? (
-              <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
-            ) : hasProfile ? (
-              <span className="text-[10px] font-bold text-muted-foreground">
-                {companyName?.charAt(0).toUpperCase() || "?"}
-              </span>
-            ) : (
-              <Building2 className="h-3 w-3 text-muted-foreground/40" />
-            )}
-          </div>
-          <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[180px]">
-          <div className="px-3 py-2 border-b border-border/50">
-            <p className="text-xs font-semibold text-foreground truncate">
-              {hasProfile ? companyName : "My Company"}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {hasProfile ? "Active workspace" : "Set up your profile"}
-            </p>
-          </div>
-          <DropdownMenuItem
-            onClick={onNavigateProfile}
-            className="text-xs cursor-pointer"
-          >
-            Company Settings
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => onViewChange?.("settings")}
-            className="text-xs cursor-pointer"
-          >
-            Account Settings
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* ── Live indicator dot ── */}
-      {hasProfile && (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+      {/* ── Center: Expanded Omni-Search with dropdown ── */}
+      <div ref={searchRef} className="relative flex-1 max-w-xl min-w-[200px]">
+        <button
+          onClick={handleSearchClick}
+          className={cn(
+            "flex h-9 w-full items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 hover:bg-muted/50 transition-all cursor-text group",
+            searchOpen ? "border-accent/40 bg-muted/50 shadow-sm" : "border-border/50 hover:border-border"
+          )}
+        >
+          <Search className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors shrink-0" />
+          <span className="text-[13px] text-muted-foreground/40 truncate flex-1 text-left">
+            Search...
           </span>
-          <span className="text-[10px] font-medium text-success hidden lg:inline">Live</span>
-        </div>
-      )}
+          <kbd className="hidden sm:inline-flex items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40">
+            ⌘K
+          </kbd>
+        </button>
+
+        {/* ── Search dropdown ── */}
+        {searchOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl border border-border/60 bg-popover/95 backdrop-blur-2xl shadow-xl overflow-hidden z-50 animate-scale-in">
+            {/* Filter chips */}
+            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/40 overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+              <span className="text-[10px] text-muted-foreground/60 font-medium shrink-0 mr-0.5">I'm looking for</span>
+              {FILTER_CHIPS.map(chip => {
+                const Icon = chip.icon;
+                const isActive = activeChip === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    onClick={() => setActiveChip(chip.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all shrink-0 cursor-pointer",
+                      isActive
+                        ? "bg-accent/15 text-accent shadow-sm border border-accent/20"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* AI Suggestions */}
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-1.5 px-1 pb-2">
+                <Sparkles className="h-3 w-3 text-emerald-400" />
+                <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-400/80">AI Suggestions</span>
+              </div>
+              {suggestions.map((suggestion, i) => (
+                <button
+                  key={suggestion}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer group/item",
+                    i === 0
+                      ? "bg-accent/10 text-foreground"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  )}
+                >
+                  <div className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
+                    i === 0 ? "bg-accent/20" : "bg-muted/60"
+                  )}>
+                    <Sparkles className={cn("h-4 w-4", i === 0 ? "text-accent" : "text-muted-foreground/60")} />
+                  </div>
+                  <span className="text-sm flex-1">{suggestion}</span>
+                  <span className="text-[10px] text-muted-foreground/40 italic opacity-0 group-hover/item:opacity-100 transition-opacity">try this</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Footer hint */}
+            <div className="flex items-center justify-between border-t border-border/40 px-4 py-2">
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
+                <span className="flex items-center gap-1">
+                  <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">↵</kbd> Open
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">esc</kbd> Close
+                </span>
+              </div>
+              <span className="text-[9px] text-muted-foreground/30 font-mono">Contextual · AI</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Right: Persona Switcher + Live dot ── */}
+      <div className="flex items-center gap-2 shrink-0">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
+            <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
+              ) : hasProfile ? (
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  {companyName?.charAt(0).toUpperCase() || "?"}
+                </span>
+              ) : (
+                <Building2 className="h-3 w-3 text-muted-foreground/40" />
+              )}
+            </div>
+            <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            <div className="px-3 py-2 border-b border-border/50">
+              <p className="text-xs font-semibold text-foreground truncate">
+                {hasProfile ? companyName : "My Company"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {hasProfile ? "Active workspace" : "Set up your profile"}
+              </p>
+            </div>
+            <DropdownMenuItem onClick={onNavigateProfile} className="text-xs cursor-pointer">
+              Company Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewChange?.("settings")} className="text-xs cursor-pointer">
+              Account Settings
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {hasProfile && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            </span>
+            <span className="text-[10px] font-medium text-success hidden lg:inline">Live</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
