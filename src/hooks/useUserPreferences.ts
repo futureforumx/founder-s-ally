@@ -58,6 +58,7 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
 export function useUserPreferences() {
   const { user } = useAuth();
   const [privacy, setPrivacy] = useState<PrivacySettings>(DEFAULT_PRIVACY);
+  const [appToggles, setAppToggles] = useState<AppToggleSettings>(DEFAULT_APP_TOGGLES);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [notifications, setNotifications] = useState<NotificationSettings>(DEFAULT_NOTIFICATIONS);
   const [loading, setLoading] = useState(true);
@@ -72,7 +73,9 @@ export function useUserPreferences() {
       .maybeSingle();
 
     if (data) {
-      setPrivacy({ ...DEFAULT_PRIVACY, ...(data.privacy_settings || {}) });
+      const privData = data.privacy_settings || {};
+      setPrivacy({ ...DEFAULT_PRIVACY, ...privData });
+      setAppToggles({ ...DEFAULT_APP_TOGGLES, ...(privData._appToggles || {}) });
       setOnboardingData(data.onboarding_data || null);
       setNotifications({ ...DEFAULT_NOTIFICATIONS, ...(data.notification_settings || {}) });
     }
@@ -85,13 +88,24 @@ export function useUserPreferences() {
     privacy_settings?: PrivacySettings;
     onboarding_data?: OnboardingData;
     notification_settings?: NotificationSettings;
+    app_toggles?: AppToggleSettings;
   }) => {
     if (!user) return;
-    const payload = {
+
+    // Merge app_toggles into privacy_settings JSONB
+    let privacyPayload = updates.privacy_settings;
+    if (updates.app_toggles) {
+      const merged = privacyPayload || privacy;
+      privacyPayload = { ...merged, _appToggles: updates.app_toggles } as any;
+    }
+
+    const payload: any = {
       user_id: user.id,
       updated_at: new Date().toISOString(),
-      ...updates,
     };
+    if (privacyPayload) payload.privacy_settings = privacyPayload;
+    if (updates.onboarding_data) payload.onboarding_data = updates.onboarding_data;
+    if (updates.notification_settings) payload.notification_settings = updates.notification_settings;
 
     const { data: existing } = await (supabase as any)
       .from("user_preferences")
@@ -112,9 +126,10 @@ export function useUserPreferences() {
 
     // Update local state
     if (updates.privacy_settings) setPrivacy(updates.privacy_settings);
+    if (updates.app_toggles) setAppToggles(updates.app_toggles);
     if (updates.onboarding_data) setOnboardingData(updates.onboarding_data);
     if (updates.notification_settings) setNotifications(updates.notification_settings);
-  }, [user]);
+  }, [user, privacy]);
 
-  return { privacy, onboardingData, notifications, loading, upsertPrefs, refetch: fetchPrefs };
+  return { privacy, appToggles, onboardingData, notifications, loading, upsertPrefs, refetch: fetchPrefs };
 }
