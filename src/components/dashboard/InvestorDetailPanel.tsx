@@ -4,7 +4,7 @@ import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmiss
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Zap, MessageSquare, CheckCircle2,
-  ArrowUpRight, Landmark, Target, MapPin, Users,
+  ArrowUpRight, Landmark, Target, MapPin, Users, Star,
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
