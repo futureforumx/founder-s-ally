@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Link2, Sparkles, X } from "lucide-react";
+import { Link2, Sparkles } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { CompanyData } from "@/components/CompanyProfile";
