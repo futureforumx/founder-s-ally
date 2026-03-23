@@ -261,9 +261,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       >
                         <Star className="h-4 w-4" /> Rate
                       </button>
-                      <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
-                        <Zap className="h-4 w-4" /> Connect
-                      </button>
                       <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
                         <MessageSquare className="h-4 w-4" /> Request Intro
                       </button>
