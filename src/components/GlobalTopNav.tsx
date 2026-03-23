@@ -284,40 +284,8 @@ export function GlobalTopNav({
       )}
       style={{ left: "11rem" }}
     >
-      {/* ── Left: Breadcrumbs + Pulse ── */}
+      {/* ── Left: Pulse ── */}
       <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-        <nav className="flex items-center gap-1 text-[12px] shrink-0">
-          <span className="text-muted-foreground/60 font-medium">{viewMeta.section}</span>
-          {viewMeta.siblings && viewMeta.siblings.length > 1 ? (
-            <>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-              <DropdownMenu>
-                <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-                  {viewMeta.label}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[140px]">
-                  {viewMeta.siblings.map(s => (
-                    <DropdownMenuItem
-                      key={s.id}
-                      onClick={() => onViewChange?.(s.id)}
-                      className={cn("text-xs cursor-pointer", activeView === s.id && "bg-accent/10 text-accent font-semibold")}
-                    >
-                      {s.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            <>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-              <span className="font-semibold text-foreground text-[12px]">{viewMeta.label}</span>
-            </>
-          )}
-        </nav>
-
-        <div className="h-4 w-px bg-border/40 shrink-0" />
 
         {isInvestorArea ? (
           <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
