@@ -515,9 +515,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       if (key === "location") setLocation(val);
     }
 
-    // Save to profile
-    await upsertProfile(updates as any);
-    setOriginal(prev => ({ ...prev, ...updates }));
+    // Save to profile via autosave (immediate)
+    await saveImmediate(updates);
 
     // Track synced keys for highlight animation
     setSyncedKeys(new Set(selectedKeys));
