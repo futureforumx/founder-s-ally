@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 // ── Types ──
-type SourceKey = "gmail" | "linkedin" | "twitter" | "calendar" | "angellist";
+type SourceKey = "gmail" | "linkedin" | "twitter" | "angellist";
 
 // ── Persistence ──
 const STORAGE_KEY = "community-connections-status";
