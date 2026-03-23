@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { StageTimeline } from "./investor-detail/StageTimeline";
 import { DealDynamics } from "./investor-detail/DealDynamics";
