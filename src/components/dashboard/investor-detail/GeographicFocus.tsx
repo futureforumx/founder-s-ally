@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo, useRef, Suspense } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
+import { OrbitControls, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { supabase } from "@/integrations/supabase/client";
 import { Maximize2, Minimize2 } from "lucide-react";
 
-// ── Geo coordinate → 3D sphere position ──
 function latLonToXYZ(lat: number, lon: number, radius: number): [number, number, number] {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);
@@ -49,11 +48,8 @@ function classifyLocation(location: string): string | null {
 
 const TIME_OPTIONS = ["6M", "18M", "All Time"] as const;
 
-// ── Dot-matrix globe mesh ──
 function DotGlobe({ radius }: { radius: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
-  const dotRadius = 0.012;
-  const dotCount = useRef(0);
 
   useEffect(() => {
     if (!meshRef.current) return;
@@ -73,21 +69,29 @@ function DotGlobe({ radius }: { radius: number }) {
         idx++;
       }
     }
-    dotCount.current = idx;
     meshRef.current.count = idx;
     meshRef.current.instanceMatrix.needsUpdate = true;
   }, [radius]);
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, 8000]}>
-      <sphereGeometry args={[dotRadius, 6, 6]} />
+      <sphereGeometry args={[0.012, 6, 6]} />
       <meshBasicMaterial color="#4a7ab5" transparent opacity={0.5} />
     </instancedMesh>
   );
 }
 
-// ── Glowing pin markers ──
-function Pin({ position, count, name, isActive }: { position: [number, number, number]; count: number; name: string; isActive: boolean }) {
+interface PinProps {
+  position: [number, number, number];
+  count: number;
+  name: string;
+  isActive: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
+  investorNames: string[];
+}
+
+function Pin({ position, count, name, isActive, isSelected, onSelect, investorNames }: PinProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const [hovered, setHovered] = useState(false);
   const scale = Math.min(0.03 + count * 0.004, 0.08);
@@ -99,66 +103,92 @@ function Pin({ position, count, name, isActive }: { position: [number, number, n
     }
   });
 
+  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    onSelect();
+  }, [onSelect]);
+
   return (
     <group>
-      {/* Glow ring */}
       <mesh position={position}>
         <sphereGeometry args={[scale * 2.5, 16, 16]} />
         <meshBasicMaterial color="#f59e0b" transparent opacity={isActive ? 0.12 : 0.04} />
       </mesh>
-      {/* Core pin */}
       <mesh
         ref={ref}
         position={position}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
+        onClick={handleClick}
       >
         <sphereGeometry args={[1, 12, 12]} />
-        <meshBasicMaterial color={hovered ? "#fbbf24" : "#f59e0b"} />
+        <meshBasicMaterial color={hovered || isSelected ? "#fbbf24" : "#f59e0b"} />
       </mesh>
-      {/* White center dot */}
       <mesh position={position}>
         <sphereGeometry args={[scale * 0.35, 8, 8]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
+      {/* Tooltip */}
+      {isSelected && (
+        <Html position={position} distanceFactor={4} center style={{ pointerEvents: "auto" }}>
+          <div
+            className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700/60 rounded-lg px-3 py-2.5 shadow-2xl min-w-[160px] max-w-[220px]"
+            style={{ transform: "translateY(-120%)" }}
+          >
+            <p className="text-[11px] font-bold text-white leading-tight">{name}</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">{count} investor{count !== 1 ? "s" : ""}</p>
+            {investorNames.length > 0 && (
+              <div className="mt-1.5 pt-1.5 border-t border-zinc-700/50 space-y-0.5 max-h-[80px] overflow-y-auto">
+                {investorNames.slice(0, 6).map((n) => (
+                  <p key={n} className="text-[9px] text-zinc-300 truncate">• {n}</p>
+                ))}
+                {investorNames.length > 6 && (
+                  <p className="text-[9px] text-zinc-500">+{investorNames.length - 6} more</p>
+                )}
+              </div>
+            )}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
-// ── Auto-rotate ──
-function AutoRotate() {
+function AutoRotate({ paused }: { paused: boolean }) {
   const { scene } = useThree();
   useFrame(() => {
-    scene.rotation.y += 0.001;
+    if (!paused) scene.rotation.y += 0.001;
   });
   return null;
 }
 
-// ── Main Globe Scene ──
-function GlobeScene({ spots, timeRange }: { spots: SpotData[]; timeRange: string }) {
+interface SpotData extends GeoCluster {
+  intensity: "high" | "medium";
+  investments: Record<string, number>;
+  investorNames: Record<string, string[]>;
+}
+
+function GlobeScene({ spots, timeRange, selectedPin, onSelectPin }: {
+  spots: SpotData[];
+  timeRange: string;
+  selectedPin: string | null;
+  onSelectPin: (name: string | null) => void;
+}) {
   const radius = 1.4;
 
   return (
     <>
       <ambientLight intensity={0.6} />
       <pointLight position={[5, 5, 5]} intensity={0.8} />
-
-      {/* Ocean sphere */}
       <mesh>
         <sphereGeometry args={[radius - 0.01, 64, 64]} />
         <meshBasicMaterial color="#1a2e4a" />
       </mesh>
-
-      {/* Atmosphere glow */}
       <mesh>
         <sphereGeometry args={[radius + 0.06, 64, 64]} />
         <meshBasicMaterial color="#3b6daa" transparent opacity={0.08} side={THREE.BackSide} />
       </mesh>
-
-      {/* Dot matrix land */}
       <DotGlobe radius={radius} />
-
-      {/* Investment pins */}
       {spots.map((spot) => {
         const count = spot.investments[timeRange] || 0;
         if (count === 0) return null;
@@ -169,27 +199,17 @@ function GlobeScene({ spots, timeRange }: { spots: SpotData[]; timeRange: string
             position={pos}
             count={count}
             name={spot.name}
-            isActive={count > 0}
+            isActive
+            isSelected={selectedPin === spot.name}
+            onSelect={() => onSelectPin(selectedPin === spot.name ? null : spot.name)}
+            investorNames={spot.investorNames[timeRange] || []}
           />
         );
       })}
-
-      <AutoRotate />
-      <OrbitControls
-        enableZoom={true}
-        enablePan={false}
-        minDistance={2.2}
-        maxDistance={5}
-        rotateSpeed={0.5}
-        zoomSpeed={0.6}
-      />
+      <AutoRotate paused={!!selectedPin} />
+      <OrbitControls enableZoom enablePan={false} minDistance={2.2} maxDistance={5} rotateSpeed={0.5} zoomSpeed={0.6} />
     </>
   );
-}
-
-interface SpotData extends GeoCluster {
-  intensity: "high" | "medium";
-  investments: Record<string, number>;
 }
 
 interface GeographicFocusProps {
@@ -200,15 +220,16 @@ interface GeographicFocusProps {
 
 export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: GeographicFocusProps) {
   const [timeRange, setTimeRange] = useState<string>("All Time");
-  const [locations, setLocations] = useState<{ location: string; created_at: string }[]>([]);
+  const [locations, setLocations] = useState<{ location: string; created_at: string; firm_name: string }[]>([]);
+  const [selectedPin, setSelectedPin] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
       .from("investor_database")
-      .select("location, created_at")
+      .select("location, created_at, firm_name")
       .not("location", "is", null)
       .then(({ data }) => {
-        if (data) setLocations(data as { location: string; created_at: string }[]);
+        if (data) setLocations(data as { location: string; created_at: string; firm_name: string }[]);
       });
   }, []);
 
@@ -221,8 +242,10 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
     };
 
     const counts: Record<string, Record<string, number>> = {};
+    const names: Record<string, Record<string, string[]>> = {};
     for (const cluster of GEO_CLUSTERS) {
       counts[cluster.name] = { "6M": 0, "18M": 0, "All Time": 0 };
+      names[cluster.name] = { "6M": [], "18M": [], "All Time": [] };
     }
 
     for (const loc of locations) {
@@ -231,8 +254,12 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       if (!clusterName) continue;
       const createdAt = new Date(loc.created_at);
       counts[clusterName]["All Time"]++;
+      names[clusterName]["All Time"].push(loc.firm_name);
       for (const key of ["6M", "18M"] as const) {
-        if (cutoffs[key] && createdAt >= cutoffs[key]!) counts[clusterName][key]++;
+        if (cutoffs[key] && createdAt >= cutoffs[key]!) {
+          counts[clusterName][key]++;
+          names[clusterName][key].push(loc.firm_name);
+        }
       }
     }
 
@@ -243,17 +270,19 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       ...cluster,
       intensity: (counts[cluster.name]["All Time"] / maxCount >= 0.5 ? "high" : "medium") as "high" | "medium",
       investments: counts[cluster.name],
+      investorNames: names[cluster.name],
     }));
   }, [locations]);
 
-  // Active spots for current time range
   const activeSpots = spots.filter((s) => (s.investments[timeRange] || 0) > 0);
   const totalInvestments = activeSpots.reduce((sum, s) => sum + (s.investments[timeRange] || 0), 0);
 
   return (
-    <div className={`rounded-xl border border-border bg-card flex flex-col transition-all duration-300 ${isExpanded ? "col-span-3 row-span-2" : "h-full"}`}>
+    <div className={`rounded-xl border border-border bg-card flex flex-col transition-all duration-300 overflow-hidden ${isExpanded ? "" : "h-full"}`}
+      style={isExpanded ? { height: "calc(100vh - 280px)", maxHeight: "520px" } : undefined}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 pb-2">
+      <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           Geographic Focus
         </h4>
@@ -264,9 +293,7 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
                 key={opt}
                 onClick={() => setTimeRange(opt)}
                 className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all cursor-pointer ${
-                  timeRange === opt
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                  timeRange === opt ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {opt}
@@ -274,31 +301,27 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
             ))}
           </div>
           {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className="p-1 rounded-md hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
+            <button onClick={onToggleExpand} className="p-1 rounded-md hover:bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
               {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
           )}
         </div>
       </div>
 
-      {/* Globe */}
-      <div className={`relative w-full flex-1 min-h-0 ${isExpanded ? "min-h-[400px]" : "min-h-[180px]"}`}>
-        {/* Radial glow behind globe */}
+      {/* Globe — fills remaining space */}
+      <div className="relative flex-1 min-h-0">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-3/4 h-3/4 rounded-full bg-accent/5 blur-2xl" />
         </div>
-        <Canvas camera={{ position: [0, 0, 3.5], fov: 40 }} style={{ background: "transparent" }}>
+        <Canvas camera={{ position: [0, 0, 3.5], fov: 40 }} style={{ background: "transparent", width: "100%", height: "100%" }}>
           <Suspense fallback={null}>
-            <GlobeScene spots={spots} timeRange={timeRange} />
+            <GlobeScene spots={spots} timeRange={timeRange} selectedPin={selectedPin} onSelectPin={setSelectedPin} />
           </Suspense>
         </Canvas>
       </div>
 
       {/* Stats footer */}
-      <div className="flex items-center justify-between px-4 py-2 border-t border-border">
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-border shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-[10px] text-muted-foreground">
             <span className="font-semibold text-foreground">{activeSpots.length}</span> regions
