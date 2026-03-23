@@ -519,8 +519,11 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
     setSyncing(true);
     try {
+      // Normalize to full URL before sending
+      const normalizedUrl = formatSocialUrl("linkedin_personal", linkedinUrl.trim());
+      if (normalizedUrl !== linkedinUrl) setLinkedinUrl(normalizedUrl);
       const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: linkedinUrl.trim() },
+        body: { linkedinUrl: normalizedUrl },
       });
 
       if (error) throw error;
