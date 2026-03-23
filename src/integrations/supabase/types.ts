@@ -480,6 +480,9 @@ export type Database = {
           headcount: string | null
           id: string
           is_actively_deploying: boolean | null
+          is_popular: boolean | null
+          is_recent: boolean | null
+          is_trending: boolean | null
           last_enriched_at: string | null
           lead_or_follow: string | null
           lead_partner: string | null
@@ -507,6 +510,9 @@ export type Database = {
           headcount?: string | null
           id?: string
           is_actively_deploying?: boolean | null
+          is_popular?: boolean | null
+          is_recent?: boolean | null
+          is_trending?: boolean | null
           last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
@@ -534,6 +540,9 @@ export type Database = {
           headcount?: string | null
           id?: string
           is_actively_deploying?: boolean | null
+          is_popular?: boolean | null
+          is_recent?: boolean | null
+          is_trending?: boolean | null
           last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
