@@ -23,6 +23,7 @@ export interface LiveInvestorEntry {
   is_trending?: boolean;
   is_popular?: boolean;
   is_recent?: boolean;
+  website_url?: string | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
