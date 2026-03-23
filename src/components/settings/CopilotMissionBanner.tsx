@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, TrendingUp, Target, Zap } from "lucide-react";
+import { Sparkles, ArrowRight, TrendingUp, Target, Zap, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
