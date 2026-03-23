@@ -755,7 +755,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   <div className="grid grid-cols-2 gap-3">
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg h-9 text-sm" />
+                      <Input value={name} onChange={(e) => { setName(e.target.value); autosave({ name: e.target.value }); }} className="rounded-lg h-9 text-sm" />
                     </div>
                     <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
                       <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
