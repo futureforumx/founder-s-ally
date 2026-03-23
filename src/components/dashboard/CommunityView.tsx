@@ -10,6 +10,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
 import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
+import { InvestorCommandPalette, InvestorSearchTrigger } from "./InvestorCommandPalette";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
