@@ -164,7 +164,7 @@ export function SettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="px-8 py-5 max-w-3xl">
+      <div className="px-8 py-5 max-w-7xl">
         <AnimatePresence mode="wait">
           {activeTab === "account" && (
             <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} onSignOut={signOut} />
