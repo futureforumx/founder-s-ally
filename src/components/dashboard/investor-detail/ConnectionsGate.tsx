@@ -96,17 +96,6 @@ const SOURCES: {
     unlockMessage: "🔓 Social Sentiment Analysis unlocked",
   },
   {
-    key: "calendar",
-    label: "Google Calendar",
-    icon: Calendar,
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/20",
-    description: "Detect past VC meetings, intro calls, and recurring investor contacts",
-    stats: "14 VC meetings found · 6 recurring contacts",
-    unlockMessage: "🔓 Meeting History unlocked",
-  },
-  {
     key: "angellist",
     label: "AngelList",
     icon: Zap,
