@@ -475,7 +475,11 @@ export type Database = {
           email: string | null
           email_source: string | null
           firm_name: string
+          firm_type: string | null
+          founder_sentiment_score: number | null
+          headcount: string | null
           id: string
+          is_actively_deploying: boolean | null
           last_enriched_at: string | null
           lead_or_follow: string | null
           lead_partner: string | null
@@ -498,7 +502,11 @@ export type Database = {
           email?: string | null
           email_source?: string | null
           firm_name: string
+          firm_type?: string | null
+          founder_sentiment_score?: number | null
+          headcount?: string | null
           id?: string
+          is_actively_deploying?: boolean | null
           last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
@@ -521,7 +529,11 @@ export type Database = {
           email?: string | null
           email_source?: string | null
           firm_name?: string
+          firm_type?: string | null
+          founder_sentiment_score?: number | null
+          headcount?: string | null
           id?: string
+          is_actively_deploying?: boolean | null
           last_enriched_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
