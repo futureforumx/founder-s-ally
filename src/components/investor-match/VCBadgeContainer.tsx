@@ -13,7 +13,7 @@ interface VCFirm {
 }
 
 interface BadgeDef {
-  key: string;
+  key: keyof VCFirm;
   label: string;
   icon: typeof Flame;
   tooltip: string;
@@ -27,7 +27,7 @@ const BADGES: BadgeDef[] = [
     label: "Trending",
     icon: Flame,
     tooltip: "Trending: High social media/news activity right now",
-    colorClass: "bg-orange-500/15 text-orange-500 border-orange-500/30",
+    colorClass: "bg-warning/10 text-warning border-warning/30",
     pulse: true,
   },
   {
@@ -35,53 +35,51 @@ const BADGES: BadgeDef[] = [
     label: "Popular",
     icon: Users,
     tooltip: "Popular: Frequently saved and viewed by founders on the platform",
-    colorClass: "bg-blue-600/15 text-blue-600 border-blue-600/30",
+    colorClass: "bg-accent/10 text-accent border-accent/30",
   },
   {
     key: "is_recent",
     label: "Recent",
     icon: Clock,
     tooltip: "Recent: Made a new investment or update in the last 30 days",
-    colorClass: "bg-green-500/15 text-green-500 border-green-500/30",
+    colorClass: "bg-success/10 text-success border-success/30",
   },
 ];
 
 export function VCBadgeContainer({ vc_firm }: { vc_firm: VCFirm }) {
-  const activeBadges = BADGES.filter(
-    (b) => vc_firm[b.key as keyof VCFirm] === true
-  );
+  const activeBadges = BADGES.filter((badge) => vc_firm[badge.key] === true);
 
   if (activeBadges.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {activeBadges.map((badge) => {
-        const Icon = badge.icon;
-        return (
-          <TooltipProvider key={badge.key} delayDuration={200}>
-            <Tooltip>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {activeBadges.map((badge) => {
+          const Icon = badge.icon;
+          return (
+            <Tooltip key={badge.key}>
               <TooltipTrigger asChild>
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.colorClass} ${
-                    badge.pulse ? "animate-pulse" : ""
-                  }`}
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.colorClass} ${badge.pulse ? "animate-pulse" : ""}`}
+                  aria-label={`${badge.label} badge`}
                 >
                   <Icon className="h-3 w-3" />
                   {badge.label}
-                </span>
+                </button>
               </TooltipTrigger>
               <TooltipContent
                 side="bottom"
-                className="max-w-[220px] bg-popover/95 backdrop-blur-md p-2.5"
+                className="max-w-[220px] bg-popover/95 p-2.5 backdrop-blur-md"
               >
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
                   {badge.tooltip}
                 </p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
