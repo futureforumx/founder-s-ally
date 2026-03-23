@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
