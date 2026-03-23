@@ -260,6 +260,7 @@ export function CopilotMissionBanner({
             <p className="text-sm font-bold text-foreground">Profile Complete — Tier-1 Visibility Unlocked</p>
             <p className="text-xs text-muted-foreground">Your profile is now featured in premium investor searches.</p>
           </div>
+          <AutoSaveIndicator status={saveStatus} />
         </div>
       </motion.div>
     );
