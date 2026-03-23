@@ -277,7 +277,7 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
         <div className="space-y-2">
           {WHISPER_FEED.map((review, i) => (
             <div key={i} className="bg-card border border-border p-4 rounded-xl">
-              <p className="text-[10px] text-muted-foreground mb-2">{review.header}</p>
+              <p className="text-[10px] text-muted-foreground mb-2"><span className="font-bold text-foreground">{review.sector} {review.stage} Founder</span></p>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {review.tags.map((tag, j) => (
                   <span key={tag} className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${review.tagColors[j]}`}>
