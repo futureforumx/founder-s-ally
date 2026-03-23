@@ -21,10 +21,38 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// ── Tab definitions ──
+// ── Section & Tab definitions ──
+type SettingsSection = "personal" | "entity" | "network-sec" | "preferences" | "account-sec";
 type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "subscription";
 
-const TABS: { id: SettingsTab; label: string }[] = [
+const SECTIONS: { id: SettingsSection; label: string }[] = [
+  { id: "personal", label: "Personal" },
+  { id: "entity", label: "Entity" },
+  { id: "network-sec", label: "Network" },
+  { id: "preferences", label: "Preferences" },
+  { id: "account-sec", label: "Account" },
+];
+
+const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]> = {
+  "personal": [
+    { id: "account", label: "Profile" },
+  ],
+  "entity": [
+    { id: "company", label: "Company" },
+  ],
+  "network-sec": [
+    { id: "network", label: "Connections" },
+  ],
+  "preferences": [
+    { id: "notifications", label: "Notifications" },
+    { id: "privacy", label: "Privacy" },
+  ],
+  "account-sec": [
+    { id: "subscription", label: "Subscription" },
+  ],
+};
+
+const ALL_TABS: { id: SettingsTab; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "company", label: "Company" },
   { id: "network", label: "Network" },
@@ -32,6 +60,13 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: "privacy", label: "Privacy" },
   { id: "subscription", label: "Subscription" },
 ];
+
+function getSectionForTab(tab: SettingsTab): SettingsSection {
+  for (const [section, tabs] of Object.entries(SECTION_TABS)) {
+    if (tabs.some(t => t.id === tab)) return section as SettingsSection;
+  }
+  return "personal";
+}
 
 // ── URL sync helper ──
 function getTabFromUrl(): SettingsTab {
