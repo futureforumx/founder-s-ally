@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, Zap, CheckCircle2, Lock,
   Shield, RefreshCw, Clock, ArrowRight, Sparkles, AlertCircle,
-  Database, Users, Network, TrendingUp, BarChart3, X as XIcon
+  Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
+  Settings2, Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,68 +47,79 @@ function saveSyncDetails(d: Record<SourceKey, { lastSynced: string | null }>) {
 }
 
 // ── Source Configs ──
-const SOURCES: {
+interface SourceConfig {
   key: SourceKey;
   label: string;
   icon: React.ElementType;
-  color: string;
-  bgColor: string;
+  glowColor: string;
+  glowBg: string;
   description: string;
-  statChip: string;
+  actionType: "login" | "sync";
+  liveMessage: string;
   connectedStats: { label: string; value: string }[];
   syncStages: string[];
   unlockToast: string;
-}[] = [
+}
+
+const SOURCES: SourceConfig[] = [
   {
     key: "gmail", label: "Gmail", icon: Mail,
-    color: "text-red-500", bgColor: "bg-red-500/10",
+    glowColor: "shadow-[0_0_20px_rgba(59,130,246,0.3)]",
+    glowBg: "bg-blue-500",
     description: "Scan email threads for warm intro paths and VC contact graph",
-    statChip: "2,340 emails scanned · 47 VC contacts found",
+    actionType: "sync",
+    liveMessage: "Scanning inbox... 12 new signals found today.",
     connectedStats: [
       { label: "Emails Scanned", value: "2,340" },
       { label: "VC Contacts", value: "47" },
       { label: "Intro Paths", value: "12" },
     ],
-    syncStages: ["Authenticating...", "Scanning data...", "Extracting contacts...", "Building relationship graph...", "Complete ✓"],
+    syncStages: ["Authenticating...", "Scanning inbox...", "Extracting contacts...", "Building signal graph...", "Complete ✓"],
     unlockToast: "🔓 Warm Intro Paths unlocked",
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin,
-    color: "text-blue-600", bgColor: "bg-blue-600/10",
-    description: "Map your professional network to discover 1st & 2nd degree paths to investors",
-    statChip: "312 connections mapped · 18 investor paths",
+    glowColor: "shadow-[0_0_20px_rgba(37,99,235,0.3)]",
+    glowBg: "bg-blue-600",
+    description: "Map your professional network to discover 1st & 2nd degree paths",
+    actionType: "login",
+    liveMessage: "Network graph mapped (2nd Degree: 4.2k).",
     connectedStats: [
       { label: "Connections", value: "312" },
       { label: "Investor Paths", value: "18" },
       { label: "Mutual Intros", value: "7" },
     ],
-    syncStages: ["Authenticating...", "Scanning data...", "Extracting contacts...", "Building relationship graph...", "Complete ✓"],
+    syncStages: ["Authenticating...", "Mapping network...", "Resolving paths...", "Building graph...", "Complete ✓"],
     unlockToast: "🔓 Network Graph + 2nd-degree paths unlocked",
   },
   {
     key: "twitter", label: "X (Twitter)", icon: Twitter,
-    color: "text-foreground", bgColor: "bg-foreground/5",
-    description: "Track social sentiment, mentions, and engagement with investor accounts",
-    statChip: "89 mutual follows · 12 investor accounts tracked",
+    glowColor: "shadow-[0_0_20px_rgba(255,255,255,0.15)]",
+    glowBg: "bg-foreground",
+    description: "Track social sentiment, mentions, and investor engagement",
+    actionType: "sync",
+    liveMessage: "Sentiment analysis active. 89 mutual follows tracked.",
     connectedStats: [
       { label: "Mutual Follows", value: "89" },
       { label: "VCs Tracked", value: "12" },
       { label: "Sentiment", value: "Positive" },
     ],
-    syncStages: ["Authenticating...", "Scanning data...", "Extracting contacts...", "Building relationship graph...", "Complete ✓"],
+    syncStages: ["Authenticating...", "Scanning timeline...", "Analyzing sentiment...", "Mapping investors...", "Complete ✓"],
     unlockToast: "🔓 Social Sentiment unlocked",
   },
   {
     key: "angellist", label: "AngelList", icon: Zap,
-    color: "text-foreground", bgColor: "bg-foreground/5",
-    description: "Sync portfolio follows, past applications, and investor activity",
-    statChip: "3 applications synced · 15 investor follows",
+    glowColor: "shadow-[0_0_20px_rgba(251,191,36,0.3)]",
+    glowBg: "bg-amber-400",
+    description: "Sync portfolio follows, applications, and investor activity",
+    actionType: "sync",
+    liveMessage: "Pipeline synced. 3 applications tracked live.",
     connectedStats: [
       { label: "Applications", value: "3" },
       { label: "Investor Follows", value: "15" },
       { label: "Tracked VCs", value: "23" },
     ],
-    syncStages: ["Authenticating...", "Scanning data...", "Extracting contacts...", "Building relationship graph...", "Complete ✓"],
+    syncStages: ["Authenticating...", "Syncing portfolio...", "Resolving activity...", "Indexing investors...", "Complete ✓"],
     unlockToast: "🔓 Portfolio Intelligence unlocked",
   },
 ];
@@ -132,6 +144,22 @@ async function simulateSync(
   }
 }
 
+// ── Sparkline pulse component ──
+function SparklinePulse() {
+  return (
+    <div className="flex items-end gap-[2px] h-3">
+      {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3, 0.7, 0.5, 0.8, 0.6].map((h, i) => (
+        <motion.div
+          key={i}
+          className="w-[2px] rounded-full bg-emerald-400/70"
+          animate={{ height: [`${h * 12}px`, `${h * 5}px`, `${h * 12}px`] }}
+          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── Page Component ──
 export function ConnectionsPage() {
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
@@ -142,6 +170,7 @@ export function ConnectionsPage() {
     return init;
   });
   const [activeConnect, setActiveConnect] = useState<SourceKey | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<SourceKey | null>(null);
   const [showModal, setShowModal] = useState(() => {
     try {
       const dismissed = localStorage.getItem(MODAL_DISMISSED_KEY);
@@ -154,10 +183,8 @@ export function ConnectionsPage() {
   const connectedCount = ALL_KEYS.filter((k) => connected[k]).length;
   const remaining = Math.max(0, 3 - connectedCount);
 
-  // When 3+ sources connected inside modal, auto-enable CTA
   useEffect(() => {
     if (connectedCount >= 3) {
-      // toast for full analytics once
       const key = "full-analytics-toasted";
       try {
         if (!localStorage.getItem(key)) {
@@ -173,7 +200,6 @@ export function ConnectionsPage() {
     setActiveConnect(key);
     setSyncStates((prev) => ({ ...prev, [key]: { syncing: true, progress: 0, message: "Connecting..." } }));
 
-    // 1.5s OAuth simulation
     await new Promise((r) => setTimeout(r, 1500));
 
     await simulateSync(key, (progress, message) => {
@@ -236,99 +262,101 @@ export function ConnectionsPage() {
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  // ── Source Card (shared between modal and page) ──
-  function SourceCard({ source, inModal }: { source: typeof SOURCES[0]; inModal?: boolean }) {
+  // ── Sensor Card ──
+  function SensorCard({ source, index }: { source: SourceConfig; index: number }) {
     const Icon = source.icon;
     const isConnected = connected[source.key];
     const sync = syncStates[source.key];
     const isSyncing = sync.syncing;
-    const detail = syncDetails[source.key];
+    const isHovered = hoveredCard === source.key;
 
     return (
       <motion.div
-        layout
-        className={`rounded-xl border transition-all duration-200 ${
-          isSyncing
-            ? "border-primary/30 bg-primary/5"
-            : isConnected
-            ? "border-accent/20 bg-[hsl(142,76%,97%)]"
-            : "border-border bg-card hover:shadow-sm hover:border-muted-foreground/20"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: index * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+        onMouseEnter={() => setHoveredCard(source.key)}
+        onMouseLeave={() => setHoveredCard(null)}
+        className={`group relative rounded-2xl border transition-all duration-300 overflow-hidden ${
+          isConnected
+            ? `border-white/[0.08] bg-[#0A0A0A] backdrop-blur-xl ${source.glowColor}`
+            : "border-white/[0.06] bg-[#0A0A0A]/90 hover:border-white/[0.12]"
         }`}
       >
-        <div className={inModal ? "p-3" : "p-4"}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`flex ${inModal ? "h-9 w-9" : "h-10 w-10"} items-center justify-center rounded-xl shrink-0 ${
-                isConnected ? "bg-accent/10" : source.bgColor
-              }`}>
-                {isConnected ? (
-                  <CheckCircle2 className={`${inModal ? "h-4 w-4" : "h-5 w-5"} text-accent`} />
-                ) : (
-                  <Icon className={`${inModal ? "h-4 w-4" : "h-5 w-5"} ${source.color}`} />
+        {/* Subtle gradient overlay for connected cards */}
+        {isConnected && (
+          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
+        )}
+
+        <div className="relative p-5">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              {/* Icon with glow */}
+              <div className="relative">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-300 ${
+                  isConnected
+                    ? "border-white/10 bg-white/[0.06]"
+                    : "border-white/[0.06] bg-white/[0.03]"
+                }`}>
+                  <Icon className={`h-4.5 w-4.5 ${isConnected ? "text-white" : "text-white/40"}`} />
+                </div>
+                {isConnected && (
+                  <motion.div
+                    className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ${source.glowBg}`}
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.4, 0.8] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  />
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className={`${inModal ? "text-[13px]" : "text-sm"} font-bold text-foreground`}>{source.label}</span>
-                  {isConnected && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{source.description}</p>
-                {isConnected && !isSyncing && inModal && (
-                  <p className="text-[10px] text-accent font-medium mt-1">{source.statChip}</p>
-                )}
+              <div>
+                <h3 className="text-[15px] font-semibold text-white tracking-tight">{source.label}</h3>
+                <p className="text-[11px] text-white/30 mt-0.5">{source.description}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {!isConnected && !isSyncing && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg text-xs font-semibold h-8 px-4 border-foreground/20 text-foreground hover:bg-foreground hover:text-background"
-                  onClick={() => handleConnect(source.key)}
-                  disabled={activeConnect !== null}
+            {/* Configure cog on hover */}
+            <AnimatePresence>
+              {isHovered && isConnected && !isSyncing && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
                 >
-                  Connect
-                </Button>
+                  <Settings2 className="h-3.5 w-3.5 text-white/40" />
+                </motion.button>
               )}
-              {isConnected && !isSyncing && !inModal && (
-                <>
-                  <Button
-                    size="sm" variant="ghost"
-                    className="rounded-lg text-xs h-8 px-2.5 text-muted-foreground"
-                    onClick={() => handleResync(source.key)}
-                    disabled={activeConnect !== null}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-1" /> Sync
-                  </Button>
-                  <Button
-                    size="sm" variant="ghost"
-                    className="rounded-lg text-xs h-8 px-2.5 text-destructive hover:text-destructive"
-                    onClick={() => handleDisconnect(source.key)}
-                  >
-                    Disconnect
-                  </Button>
-                </>
-              )}
-              {isConnected && !isSyncing && inModal && (
-                <CheckCircle2 className="h-5 w-5 text-accent" />
-              )}
-              {isSyncing && (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                  className="h-5 w-5 border-2 border-muted-foreground/20 border-t-primary rounded-full"
-                />
-              )}
-            </div>
+            </AnimatePresence>
           </div>
 
-          {/* Sync Progress */}
+          {/* Live telemetry for connected cards */}
+          {isConnected && !isSyncing && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mb-4"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <SparklinePulse />
+                <span className="text-[11px] text-emerald-400/80 font-mono">{source.liveMessage}</span>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-3">
+                {source.connectedStats.map((stat) => (
+                  <div key={stat.label} className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
+                    <p className="text-lg font-bold text-white font-mono tracking-tight">{stat.value}</p>
+                    <p className="text-[9px] text-white/25 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Sync progress */}
           <AnimatePresence>
             {isSyncing && (
               <motion.div
@@ -336,45 +364,209 @@ export function ConnectionsPage() {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="overflow-hidden"
+                className="overflow-hidden mb-4"
               >
-                <div className="mt-3 ml-12 space-y-1.5">
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-white/50 font-mono">{sync.message}</span>
+                    <span className="text-[11px] text-white/30 font-mono">{sync.progress}%</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
                     <motion.div
-                      className="h-full bg-accent rounded-full"
+                      className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
                       animate={{ width: `${sync.progress}%` }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
                     />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground font-medium">{sync.message}</span>
-                    <span className="text-[11px] text-muted-foreground font-mono">{sync.progress}%</span>
-                  </div>
+                  <p className="text-[10px] text-white/20 font-mono">Historical backfill in progress...</p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Connected Stats (page only) */}
-          {isConnected && !isSyncing && !inModal && (
-            <div className="mt-3 ml-[52px] flex items-center gap-4">
-              {source.connectedStats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <p className="text-sm font-bold text-foreground">{stat.value}</p>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">{stat.label}</p>
+          {/* Action row */}
+          <div className="flex items-center justify-between">
+            {!isConnected && !isSyncing && (
+              <Button
+                size="sm"
+                onClick={() => handleConnect(source.key)}
+                disabled={activeConnect !== null}
+                className={`rounded-lg text-xs font-semibold h-9 px-5 transition-all ${
+                  source.actionType === "login"
+                    ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                    : "bg-transparent border border-white/20 text-white/70 hover:bg-white/[0.06] hover:border-white/30 hover:text-white"
+                }`}
+              >
+                {source.actionType === "login" ? `Login with ${source.label}` : "Sync Pipeline"}
+              </Button>
+            )}
+
+            {isConnected && !isSyncing && (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
+                    <motion.div
+                      className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                      animate={{ opacity: [1, 0.4, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
+                  </div>
+                  {syncDetails[source.key]?.lastSynced && (
+                    <span className="text-[10px] text-white/20 font-mono">
+                      {formatLastSynced(syncDetails[source.key].lastSynced)}
+                    </span>
+                  )}
                 </div>
-              ))}
-              {syncDetails[source.key]?.lastSynced && (
-                <div className="flex items-center gap-1 ml-auto">
-                  <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
-                  <span className="text-[10px] text-muted-foreground/60">
-                    Last synced {formatLastSynced(syncDetails[source.key].lastSynced)}
-                  </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm" variant="ghost"
+                    className="rounded-lg text-[11px] h-7 px-2.5 text-white/30 hover:text-white/60 hover:bg-white/[0.04]"
+                    onClick={() => handleResync(source.key)}
+                    disabled={activeConnect !== null}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" /> Re-sync
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="rounded-lg text-[11px] h-7 px-2.5 text-red-400/50 hover:text-red-400 hover:bg-red-500/[0.06]"
+                    onClick={() => handleDisconnect(source.key)}
+                  >
+                    Disconnect
+                  </Button>
                 </div>
+              </div>
+            )}
+
+            {isSyncing && (
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="h-4 w-4 border-2 border-white/10 border-t-white/60 rounded-full"
+                />
+                <span className="text-[11px] text-white/40 font-mono">Syncing...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom progress bar during backfill */}
+        {isSyncing && (
+          <div className="h-[2px] bg-white/[0.04]">
+            <motion.div
+              className="h-full bg-gradient-to-r from-blue-500 via-emerald-400 to-blue-500"
+              animate={{ width: `${sync.progress}%` }}
+              transition={{ duration: 0.4 }}
+            />
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ── Modal Source Card (compact) ──
+  function ModalSourceCard({ source }: { source: SourceConfig }) {
+    const Icon = source.icon;
+    const isConnected = connected[source.key];
+    const sync = syncStates[source.key];
+    const isSyncing = sync.syncing;
+
+    return (
+      <motion.div
+        layout
+        className={`rounded-xl border p-3.5 transition-all duration-200 ${
+          isConnected
+            ? `border-white/[0.08] bg-white/[0.03] ${source.glowColor.replace("20px", "10px")}`
+            : isSyncing
+            ? "border-white/[0.1] bg-white/[0.02]"
+            : "border-white/[0.06] bg-transparent hover:bg-white/[0.02]"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-lg border ${
+                isConnected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
+              }`}>
+                {isConnected
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  : <Icon className="h-4 w-4 text-white/40" />
+                }
+              </div>
+              {isConnected && (
+                <motion.div
+                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${source.glowBg}`}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
               )}
+            </div>
+            <div className="min-w-0">
+              <span className="text-[13px] font-semibold text-white">{source.label}</span>
+              <p className="text-[10px] text-white/30 mt-0.5 truncate">{source.description}</p>
+              {isConnected && !isSyncing && (
+                <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{source.liveMessage.split(".")[0]}.</p>
+              )}
+            </div>
+          </div>
+
+          {!isConnected && !isSyncing && (
+            <Button
+              size="sm"
+              className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3.5 ${
+                source.actionType === "login"
+                  ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                  : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06]"
+              }`}
+              onClick={() => handleConnect(source.key)}
+              disabled={activeConnect !== null}
+            >
+              {source.actionType === "login" ? "Login" : "Sync"}
+            </Button>
+          )}
+
+          {isSyncing && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+              className="h-4 w-4 border-2 border-white/10 border-t-white/60 rounded-full shrink-0"
+            />
+          )}
+
+          {isConnected && !isSyncing && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+              <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Live</span>
             </div>
           )}
         </div>
+
+        {/* Progress bar */}
+        <AnimatePresence>
+          {isSyncing && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 space-y-1.5">
+                <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
+                    animate={{ width: `${sync.progress}%` }}
+                    transition={{ duration: 0.4 }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/30 font-mono">{sync.message}</span>
+                  <span className="text-[10px] text-white/20 font-mono">{sync.progress}%</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -385,16 +577,13 @@ export function ConnectionsPage() {
       <AnimatePresence>
         {showModal && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-background/40 backdrop-blur-sm"
+              className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
               onClick={dismissModal}
             />
-
-            {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -402,19 +591,19 @@ export function ConnectionsPage() {
               transition={{ type: "spring", damping: 25, stiffness: 350 }}
               className="fixed inset-0 z-[70] flex items-center justify-center p-4"
             >
-              <div className="w-full max-w-[480px] rounded-2xl bg-card shadow-xl border border-border overflow-hidden">
+              <div className="w-full max-w-[480px] rounded-2xl bg-[#0A0A0A] border border-white/[0.08] shadow-2xl shadow-black/50 overflow-hidden">
                 {/* Modal Header */}
                 <div className="p-6 pb-4 flex items-start gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted shrink-0">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.06] shrink-0">
+                    <Shield className="h-5 w-5 text-white/40" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-bold text-foreground">Connect Your Sources</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">Link accounts to power community intelligence</p>
+                    <h2 className="text-lg font-bold text-white">Sensor Suite</h2>
+                    <p className="text-sm text-white/30 mt-0.5">Link accounts to power intelligence engine</p>
                   </div>
                   <button
                     onClick={dismissModal}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/[0.06] transition-colors text-white/30 hover:text-white/60 shrink-0"
                   >
                     <XIcon className="h-4 w-4" />
                   </button>
@@ -423,28 +612,28 @@ export function ConnectionsPage() {
                 {/* Source Cards */}
                 <div className="px-6 space-y-2 max-h-[50vh] overflow-y-auto">
                   {SOURCES.map((source) => (
-                    <SourceCard key={source.key} source={source} inModal />
+                    <ModalSourceCard key={source.key} source={source} />
                   ))}
                 </div>
 
-                {/* Progressive Unlock Gate */}
+                {/* Progress dots */}
                 <div className="px-6 pt-4 pb-2">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     {ALL_KEYS.map((k) => (
                       <div
                         key={k}
                         className={`h-2.5 w-2.5 rounded-full transition-colors duration-300 ${
-                          connected[k] ? "bg-accent" : "bg-muted-foreground/20"
+                          connected[k] ? "bg-emerald-400" : "bg-white/10"
                         }`}
                       />
                     ))}
                   </div>
                   {remaining > 0 ? (
-                    <p className="text-xs text-muted-foreground text-center">
+                    <p className="text-xs text-white/30 text-center">
                       Connect {remaining} more source{remaining !== 1 ? "s" : ""} to unlock full analytics
                     </p>
                   ) : (
-                    <p className="text-xs text-accent font-medium text-center">
+                    <p className="text-xs text-emerald-400 font-medium text-center">
                       ✓ Full analytics unlocked
                     </p>
                   )}
@@ -453,22 +642,19 @@ export function ConnectionsPage() {
                 {/* Modal Footer */}
                 <div className="p-6 pt-3 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Lock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[11px] text-muted-foreground">Read-only access · Data never shared</span>
+                    <Lock className="h-3 w-3 text-white/20" />
+                    <span className="text-[11px] text-white/20">Read-only · Data never shared</span>
                   </div>
                   {connectedCount >= 3 ? (
                     <Button
                       size="sm"
-                      className="rounded-lg text-xs font-semibold h-9 px-5 bg-foreground text-background hover:bg-foreground/90"
+                      className="rounded-lg text-xs font-semibold h-9 px-5 bg-white text-[#0A0A0A] hover:bg-white/90"
                       onClick={dismissModal}
                     >
-                      View My Network <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                      Launch Dashboard <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                     </Button>
                   ) : (
-                    <button
-                      onClick={dismissModal}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <button onClick={dismissModal} className="text-xs text-white/30 hover:text-white/50 transition-colors">
                       Skip for now
                     </button>
                   )}
@@ -483,14 +669,18 @@ export function ConnectionsPage() {
       <div className={showModal ? "pointer-events-none select-none" : ""}>
         <div className="space-y-6">
           {/* Header */}
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
             <h1 className="text-2xl font-bold text-foreground">Connections</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Network intelligence, warm intros, and founder experiences
             </p>
-          </div>
+          </motion.div>
 
-          {/* ── Amber Banner (0 sources, skipped) ── */}
+          {/* ── Amber Banner ── */}
           {connectedCount === 0 && !showModal && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
@@ -514,61 +704,49 @@ export function ConnectionsPage() {
             </motion.div>
           )}
 
-          {/* Overview Cards */}
+          {/* Overview KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-                  <Database className="w-3.5 h-3.5 text-primary" />
+            {[
+              { icon: Database, label: "Sources", value: `${connectedCount}`, sub: "/4", color: "bg-primary/10", iconColor: "text-primary" },
+              { icon: Users, label: "VC Contacts", value: connected.gmail ? "47" : "—", sub: null, color: "bg-accent/10", iconColor: "text-accent" },
+              { icon: Network, label: "Intro Paths", value: connected.linkedin ? "18" : "—", sub: null, color: "bg-accent/10", iconColor: "text-accent" },
+              { icon: TrendingUp, label: "Intelligence", value: connectedCount >= 3 ? "Active" : "Limited", sub: null, color: "bg-accent/10", iconColor: "text-accent" },
+            ].map((kpi, i) => (
+              <motion.div
+                key={kpi.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 + i * 0.05 }}
+                className="rounded-2xl border border-border bg-card p-4"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${kpi.color}`}>
+                    <kpi.icon className={`w-3.5 h-3.5 ${kpi.iconColor}`} />
+                  </div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">{kpi.label}</span>
                 </div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Sources</span>
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-foreground">{connectedCount}</span>
-                <span className="text-sm text-muted-foreground">/5</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                <motion.div className="h-full bg-accent rounded-full" animate={{ width: `${(connectedCount / 5) * 100}%` }} transition={{ duration: 0.5 }} />
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
-                  <Users className="w-3.5 h-3.5 text-accent" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-foreground">{kpi.value}</span>
+                  {kpi.sub && <span className="text-sm text-muted-foreground">{kpi.sub}</span>}
                 </div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">VC Contacts</span>
-              </div>
-              <span className="text-3xl font-black text-foreground">{connected.gmail ? "47" : "—"}</span>
-              <p className="text-[10px] text-muted-foreground mt-1">Extracted from email + LinkedIn</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
-                  <Network className="w-3.5 h-3.5 text-accent" />
-                </div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Intro Paths</span>
-              </div>
-              <span className="text-3xl font-black text-foreground">{connected.linkedin ? "18" : "—"}</span>
-              <p className="text-[10px] text-muted-foreground mt-1">1st & 2nd degree warm paths</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
-                  <TrendingUp className="w-3.5 h-3.5 text-accent" />
-                </div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Intelligence</span>
-              </div>
-              <span className="text-3xl font-black text-foreground">{connectedCount >= 3 ? "Active" : "Limited"}</span>
-              <p className="text-[10px] text-muted-foreground mt-1">{connectedCount >= 3 ? "Full analytics unlocked" : "Connect 3+ for full access"}</p>
-            </div>
+              </motion.div>
+            ))}
           </div>
 
-          {/* Source Cards */}
+          {/* ── SENSOR SUITE GRID ── */}
           <div>
-            <h2 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Data Sources</h2>
-            <div className="space-y-2.5">
-              {SOURCES.map((source) => (
-                <SourceCard key={source.key} source={source} />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="flex items-center gap-2 mb-4"
+            >
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <h2 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Sensor Suite</h2>
+            </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {SOURCES.map((source, i) => (
+                <SensorCard key={source.key} source={source} index={i} />
               ))}
             </div>
           </div>
@@ -602,44 +780,36 @@ export function ConnectionsPage() {
                 </div>
               </div>
 
-              {/* Network Graph Preview */}
+              {/* Network Graph */}
               <div className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Network className="h-4 w-4 text-accent" />
                   <h3 className="text-sm font-bold text-foreground">Network Graph</h3>
                 </div>
                 <div className="relative h-48 flex items-center justify-center">
-                  {/* Simple node map */}
                   <svg viewBox="0 0 200 200" className="w-full h-full max-w-[200px]">
-                    {/* Lines to 1st degree */}
                     {[45, 105, 165, 255, 315].map((angle, i) => {
                       const rad = (angle * Math.PI) / 180;
                       const x = 100 + Math.cos(rad) * 55;
                       const y = 100 + Math.sin(rad) * 55;
                       return <line key={`l1-${i}`} x1="100" y1="100" x2={x} y2={y} stroke="hsl(var(--accent))" strokeWidth="1.5" opacity="0.4" />;
                     })}
-                    {/* Lines to 2nd degree */}
                     {[20, 70, 130, 200, 240, 290, 340].map((angle, i) => {
                       const rad = (angle * Math.PI) / 180;
-                      const mid = 55;
-                      const outer = 85;
-                      const mx = 100 + Math.cos(rad) * mid;
-                      const my = 100 + Math.sin(rad) * mid;
-                      const ox = 100 + Math.cos(rad) * outer;
-                      const oy = 100 + Math.sin(rad) * outer;
+                      const mx = 100 + Math.cos(rad) * 55;
+                      const my = 100 + Math.sin(rad) * 55;
+                      const ox = 100 + Math.cos(rad) * 85;
+                      const oy = 100 + Math.sin(rad) * 85;
                       return <line key={`l2-${i}`} x1={mx} y1={my} x2={ox} y2={oy} stroke="hsl(var(--muted-foreground))" strokeWidth="1" opacity="0.2" />;
                     })}
-                    {/* Center node */}
                     <circle cx="100" cy="100" r="10" fill="hsl(var(--accent))" />
                     <text x="100" y="103" textAnchor="middle" fill="white" fontSize="6" fontWeight="bold">You</text>
-                    {/* 1st degree nodes */}
                     {[45, 105, 165, 255, 315].map((angle, i) => {
                       const rad = (angle * Math.PI) / 180;
                       const x = 100 + Math.cos(rad) * 55;
                       const y = 100 + Math.sin(rad) * 55;
                       return <circle key={`n1-${i}`} cx={x} cy={y} r="6" fill="hsl(var(--foreground))" opacity="0.7" />;
                     })}
-                    {/* 2nd degree nodes */}
                     {[20, 70, 130, 200, 240, 290, 340].map((angle, i) => {
                       const rad = (angle * Math.PI) / 180;
                       const x = 100 + Math.cos(rad) * 85;
@@ -660,7 +830,7 @@ export function ConnectionsPage() {
                 </div>
               </div>
 
-              {/* Sync Status Panel */}
+              {/* Sync Status */}
               <div className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <BarChart3 className="h-4 w-4 text-accent" />
@@ -672,7 +842,7 @@ export function ConnectionsPage() {
                     return (
                       <div key={source.key} className="flex items-center justify-between rounded-lg bg-muted/40 p-2.5">
                         <div className="flex items-center gap-2">
-                          <Icon className={`h-3.5 w-3.5 ${source.color}`} />
+                          <Icon className="h-3.5 w-3.5 text-foreground/60" />
                           <span className="text-xs font-medium text-foreground">{source.label}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -713,49 +883,34 @@ export function ConnectionsPage() {
           {/* Partial unlock: locked panels */}
           {connectedCount >= 1 && connectedCount < 3 && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-border bg-card p-5 relative overflow-hidden">
-                <div className="absolute inset-0 bg-card/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-                  <Lock className="h-5 w-5 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground font-medium">Connect Gmail to unlock</p>
-                </div>
-                <div className="opacity-30">
-                  <h3 className="text-sm font-bold text-foreground mb-3">Warm Intro Paths</h3>
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-12 rounded-lg bg-muted/40" />
-                    ))}
+              {[
+                { label: "Warm Intro Paths", lockMsg: "Connect Gmail to unlock" },
+                { label: "Network Graph", lockMsg: "Connect LinkedIn to unlock" },
+                { label: "Sync Status", lockMsg: "Connect 3+ sources to unlock" },
+              ].map((panel) => (
+                <div key={panel.label} className="rounded-2xl border border-border bg-card p-5 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-card/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
+                    <Lock className="h-5 w-5 text-muted-foreground mb-2" />
+                    <p className="text-xs text-muted-foreground font-medium">{panel.lockMsg}</p>
+                  </div>
+                  <div className="opacity-30">
+                    <h3 className="text-sm font-bold text-foreground mb-3">{panel.label}</h3>
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => <div key={i} className="h-12 rounded-lg bg-muted/40" />)}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-5 relative overflow-hidden">
-                <div className="absolute inset-0 bg-card/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-                  <Lock className="h-5 w-5 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground font-medium">Connect LinkedIn to unlock</p>
-                </div>
-                <div className="opacity-30">
-                  <h3 className="text-sm font-bold text-foreground mb-3">Network Graph</h3>
-                  <div className="h-40 rounded-lg bg-muted/40" />
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-5 relative overflow-hidden">
-                <div className="absolute inset-0 bg-card/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-                  <Lock className="h-5 w-5 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground font-medium">Connect 3+ sources to unlock</p>
-                </div>
-                <div className="opacity-30">
-                  <h3 className="text-sm font-bold text-foreground mb-3">Sync Status</h3>
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-8 rounded-lg bg-muted/40" />
-                    ))}
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between rounded-xl bg-muted/20 border border-border p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="flex items-center justify-between rounded-xl bg-muted/20 border border-border p-4"
+          >
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-muted-foreground" />
               <div>
@@ -769,7 +924,7 @@ export function ConnectionsPage() {
                 <span className="text-xs font-semibold text-accent">Full Intelligence Active</span>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>

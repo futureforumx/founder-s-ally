@@ -55,56 +55,44 @@ const SOURCES: {
   key: SourceKey;
   label: string;
   icon: React.ElementType;
-  color: string;
-  bgColor: string;
-  borderColor: string;
   description: string;
   stats: string;
   unlockMessage: string;
+  actionType: "login" | "sync";
+  glowBg: string;
+  liveMsg: string;
 }[] = [
   {
-    key: "gmail",
-    label: "Gmail",
-    icon: Mail,
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/20",
+    key: "gmail", label: "Gmail", icon: Mail,
     description: "Scan email threads for warm intro paths and VC contact graph",
     stats: "2,340 emails scanned · 47 VC contacts found",
     unlockMessage: "🔓 Warm Intro Paths unlocked",
+    actionType: "sync", glowBg: "bg-blue-500",
+    liveMsg: "12 new signals today",
   },
   {
-    key: "linkedin",
-    label: "LinkedIn",
-    icon: Linkedin,
-    color: "text-blue-600",
-    bgColor: "bg-blue-600/10",
-    borderColor: "border-blue-600/20",
-    description: "Map your professional network to discover 1st & 2nd degree paths to investors",
+    key: "linkedin", label: "LinkedIn", icon: Linkedin,
+    description: "Map your professional network to discover 1st & 2nd degree paths",
     stats: "312 connections mapped · 18 investor paths",
     unlockMessage: "🔓 Network Graph + 2nd-degree paths unlocked",
+    actionType: "login", glowBg: "bg-blue-600",
+    liveMsg: "2nd degree: 4.2k",
   },
   {
-    key: "twitter",
-    label: "X (Twitter)",
-    icon: Twitter,
-    color: "text-foreground",
-    bgColor: "bg-foreground/5",
-    borderColor: "border-foreground/10",
-    description: "Track social sentiment, mentions, and engagement with investor accounts",
+    key: "twitter", label: "X (Twitter)", icon: Twitter,
+    description: "Track social sentiment, mentions, and investor engagement",
     stats: "1,280 interactions analyzed · 9 VCs engaged",
     unlockMessage: "🔓 Social Sentiment Analysis unlocked",
+    actionType: "sync", glowBg: "bg-foreground",
+    liveMsg: "89 mutual follows",
   },
   {
-    key: "angellist",
-    label: "AngelList",
-    icon: Zap,
-    color: "text-foreground",
-    bgColor: "bg-foreground/5",
-    borderColor: "border-foreground/10",
+    key: "angellist", label: "AngelList", icon: Zap,
     description: "Sync portfolio follows, past applications, and investor activity",
     stats: "8 applications synced · 23 investors tracked",
     unlockMessage: "🔓 Investor Activity Feed unlocked",
+    actionType: "sync", glowBg: "bg-amber-400",
+    liveMsg: "3 apps tracked",
   },
 ];
 
@@ -245,16 +233,16 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
       {/* Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-[480px] p-0 gap-0 rounded-2xl overflow-hidden border-border shadow-xl">
+        <DialogContent className="sm:max-w-[480px] p-0 gap-0 rounded-2xl overflow-hidden border-white/[0.08] bg-[#0A0A0A] shadow-2xl shadow-black/50">
           {/* Header */}
-          <div className="px-6 pt-6 pb-4 border-b border-border">
+          <div className="px-6 pt-6 pb-4 border-b border-white/[0.06]">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                <Shield className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                <Shield className="h-5 w-5 text-white/40" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-foreground leading-tight">Connect Your Sources</h3>
-                <p className="text-sm text-muted-foreground mt-0.5">Link accounts to power community intelligence</p>
+                <h3 className="text-lg font-bold text-white leading-tight">Sensor Suite</h3>
+                <p className="text-sm text-white/30 mt-0.5">Link accounts to power intelligence engine</p>
               </div>
             </div>
           </div>
@@ -271,39 +259,46 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                 <motion.div
                   key={source.key}
                   layout
-                  className={`rounded-xl border p-4 transition-colors ${
+                  className={`rounded-xl border p-4 transition-all duration-200 ${
                     isComplete
-                      ? "border-accent/30 bg-accent/5"
+                      ? "border-white/[0.08] bg-white/[0.03]"
                       : isActive
-                      ? "border-primary/30 bg-primary/5"
-                      : `${source.borderColor} bg-card hover:bg-secondary/20`
+                      ? "border-white/[0.1] bg-white/[0.02]"
+                      : "border-white/[0.06] bg-transparent hover:bg-white/[0.02]"
                   }`}
                 >
                   {/* Main row */}
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                          isComplete ? "bg-accent/10" : source.bgColor
-                        }`}
-                      >
-                        {isComplete ? (
-                          <CheckCircle2 className="h-4.5 w-4.5 text-accent" />
-                        ) : (
-                          <Icon className={`h-4.5 w-4.5 ${source.color}`} />
+                      <div className="relative">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+                          isComplete ? "bg-white/[0.06] border border-white/10" : "bg-white/[0.03] border border-white/[0.06]"
+                        }`}>
+                          {isComplete ? (
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" />
+                          ) : (
+                            <Icon className="h-4.5 w-4.5 text-white/40" />
+                          )}
+                        </div>
+                        {isComplete && (
+                          <motion.div
+                            className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${source.glowBg}`}
+                            animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.4, 0.8] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
                         )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[15px] font-semibold text-foreground">{source.label}</span>
+                          <span className="text-[15px] font-semibold text-white">{source.label}</span>
                           {isComplete && (
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-                            </span>
+                            <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5">
+                              <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                              <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+                            </div>
                           )}
                         </div>
-                        <p className="text-[13px] text-muted-foreground mt-0.5 line-clamp-1">
+                        <p className="text-[13px] text-white/30 mt-0.5 line-clamp-1">
                           {source.description}
                         </p>
                       </div>
@@ -311,13 +306,16 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
                     {!isComplete && !isActive && (
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="shrink-0 rounded-lg text-xs font-semibold h-8 px-3.5 border-foreground/20"
+                        className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3.5 ${
+                          source.actionType === "login"
+                            ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                            : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06]"
+                        }`}
                         onClick={() => handleConnect(source.key)}
                         disabled={connectingKey !== null}
                       >
-                        Connect
+                        {source.actionType === "login" ? "Login" : "Sync"}
                       </Button>
                     )}
 
@@ -326,15 +324,15 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                          className="h-4 w-4 border-2 border-muted-foreground/20 border-t-primary rounded-full"
+                          className="h-4 w-4 border-2 border-white/10 border-t-white/60 rounded-full"
                         />
                       </div>
                     )}
 
                     {isComplete && (
                       <div className="shrink-0">
-                        <span className="text-[9px] uppercase font-bold text-accent bg-accent/10 px-2 py-1 rounded-md">
-                          Connected
+                        <span className="text-[10px] text-emerald-400/60 font-mono">
+                          {source.liveMsg}
                         </span>
                       </div>
                     )}
@@ -351,19 +349,19 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                         className="overflow-hidden"
                       >
                         <div className="mt-3 space-y-1.5">
-                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
                             <motion.div
-                              className="h-full bg-accent rounded-full"
+                              className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
                               initial={{ width: 0 }}
                               animate={{ width: `${status.progress}%` }}
                               transition={{ duration: 0.5, ease: "easeOut" }}
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-muted-foreground font-medium">
+                            <span className="text-[11px] text-white/30 font-mono">
                               {status.statusMessage}
                             </span>
-                            <span className="text-[11px] text-muted-foreground font-mono">
+                            <span className="text-[11px] text-white/20 font-mono">
                               {status.progress}%
                             </span>
                           </div>
@@ -381,7 +379,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                         transition={{ duration: 0.2, delay: 0.1 }}
                         className="overflow-hidden"
                       >
-                        <p className="text-[11px] text-accent font-medium mt-2 pl-12">
+                        <p className="text-[11px] text-emerald-400/50 font-mono mt-2 pl-12">
                           {status.stats}
                         </p>
                       </motion.div>
@@ -393,16 +391,16 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
           </div>
 
           {/* Footer */}
-          <div className="px-6 pb-5 pt-3 border-t border-border flex items-center justify-between">
+          <div className="px-6 pb-5 pt-3 border-t border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Lock className="h-3 w-3 text-muted-foreground" />
-              <p className="text-[11px] text-muted-foreground">Read-only access · Data never shared</p>
+              <Lock className="h-3 w-3 text-white/20" />
+              <p className="text-[11px] text-white/20">Read-only · Data never shared</p>
             </div>
             <div className="flex items-center gap-3">
               {!isUnlocked && (
                 <button
                   onClick={handleSkip}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-xs text-white/30 hover:text-white/50 transition-colors"
                 >
                   Skip for now
                 </button>
@@ -410,7 +408,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
               {isUnlocked && (
                 <Button
                   size="sm"
-                  className="rounded-lg font-semibold text-xs h-8 px-4"
+                  className="rounded-lg font-semibold text-xs h-8 px-4 bg-white text-[#0A0A0A] hover:bg-white/90"
                   onClick={() => setShowModal(false)}
                 >
                   Continue to Dashboard
@@ -422,9 +420,9 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
           {/* Bottom progress bar */}
           {completedCount > 0 && (
-            <div className="h-1 bg-muted">
+            <div className="h-[2px] bg-white/[0.04]">
               <motion.div
-                className="h-full bg-accent"
+                className="h-full bg-gradient-to-r from-blue-500 to-emerald-400"
                 initial={{ width: 0 }}
                 animate={{ width: `${(completedCount / SOURCES.length) * 100}%` }}
                 transition={{ duration: 0.5 }}

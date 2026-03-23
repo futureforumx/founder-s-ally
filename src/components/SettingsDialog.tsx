@@ -392,12 +392,19 @@ function AdminAccessSection({ userId }: { userId?: string }) {
 }
 
 // ── Connections Tab ──
-const SETTINGS_INTEGRATIONS = [
-  { key: "gmail" as const, label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", color: "text-red-500", bg: "bg-red-500/10" },
-  { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", color: "text-blue-600", bg: "bg-blue-600/10" },
-  { key: "twitter" as const, label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", color: "text-foreground", bg: "bg-foreground/5" },
-  
-  { key: "angellist" as const, label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", color: "text-foreground", bg: "bg-foreground/5" },
+const SETTINGS_INTEGRATIONS: {
+  key: keyof ConnStatus;
+  label: string;
+  icon: React.ElementType;
+  desc: string;
+  actionType: "login" | "sync";
+  liveMsg: string;
+  glowBg: string;
+}[] = [
+  { key: "gmail", label: "Gmail", icon: Mail, desc: "Scan email threads for warm intro discovery", actionType: "sync", liveMsg: "12 new signals today", glowBg: "bg-blue-500" },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, desc: "Map your professional network graph", actionType: "login", liveMsg: "2nd degree: 4.2k", glowBg: "bg-blue-600" },
+  { key: "twitter", label: "X (Twitter)", icon: Twitter, desc: "Track social signals and sentiment", actionType: "sync", liveMsg: "89 mutual follows", glowBg: "bg-foreground" },
+  { key: "angellist", label: "AngelList", icon: Zap, desc: "Sync portfolio follows and investor activity", actionType: "sync", liveMsg: "3 apps tracked", glowBg: "bg-amber-400" },
 ];
 
 function ConnectionsTab() {
@@ -424,67 +431,103 @@ function ConnectionsTab() {
   return (
     <motion.div initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }} className="space-y-6">
       <div>
-        <h3 className="text-lg font-bold text-foreground">Connected Accounts</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Link data sources to power network intelligence</p>
+        <h3 className="text-lg font-bold text-foreground">Sensor Suite</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Linked data sources powering your intelligence engine</p>
       </div>
 
       {/* Progress */}
-      <div className="flex items-center gap-3 rounded-xl bg-muted/30 border border-border p-3.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-          <Sparkles className="h-4 w-4 text-primary" />
+      <div className="flex items-center gap-3 rounded-xl bg-[#0A0A0A] border border-white/[0.08] p-3.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06]">
+          <Sparkles className="h-4 w-4 text-white/50" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground">{connectedCount}/5 sources linked</p>
-          <p className="text-[10px] text-muted-foreground">More connections = better intro paths</p>
+          <p className="text-sm font-semibold text-white">{connectedCount}/4 sensors active</p>
+          <p className="text-[10px] text-white/30">More connections = richer intelligence</p>
         </div>
-        <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
-          <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${(connectedCount / 5) * 100}%` }} />
+        <div className="h-1.5 w-20 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${(connectedCount / 4) * 100}%` }} />
         </div>
       </div>
 
-      {/* Integration Cards */}
+      {/* Sensor Cards */}
       <div className="space-y-2.5">
-        {SETTINGS_INTEGRATIONS.map((int) => {
+        {SETTINGS_INTEGRATIONS.map((int, i) => {
           const Icon = int.icon;
           const isConnected = status[int.key];
           const isConnecting = connecting === int.key;
 
           return (
-            <div key={int.key} className={`rounded-xl border p-4 transition-colors ${isConnected ? "border-accent/30 bg-accent/5" : "border-border bg-card"}`}>
+            <motion.div
+              key={int.key}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={`group rounded-xl border p-4 transition-all duration-200 ${
+                isConnected
+                  ? "border-white/[0.08] bg-[#0A0A0A]"
+                  : "border-border bg-card hover:border-white/[0.1]"
+              }`}
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${isConnected ? "bg-accent/10" : int.bg}`}>
-                    {isConnected ? <CheckCircle2 className="h-4 w-4 text-accent" /> : <Icon className={`h-4 w-4 ${int.color}`} />}
+                  <div className="relative">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+                      isConnected ? "bg-white/[0.06] border border-white/10" : "bg-muted border border-border"
+                    }`}>
+                      <Icon className={`h-4 w-4 ${isConnected ? "text-white" : "text-muted-foreground"}`} />
+                    </div>
+                    {isConnected && (
+                      <motion.div
+                        className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${int.glowBg}`}
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.4, 0.8] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground">{int.label}</span>
-                      {isConnected && <Badge variant="outline" className="text-[9px] text-accent border-accent/30 uppercase font-bold">Active</Badge>}
+                      <span className={`text-sm font-semibold ${isConnected ? "text-white" : "text-foreground"}`}>{int.label}</span>
+                      {isConnected && (
+                        <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5">
+                          <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{int.desc}</p>
+                    <p className={`text-[10px] mt-0.5 ${isConnected ? "text-white/30" : "text-muted-foreground"}`}>{int.desc}</p>
+                    {isConnected && (
+                      <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{int.liveMsg}</p>
+                    )}
                   </div>
                 </div>
                 <Button
                   size="sm"
-                  variant={isConnected ? "outline" : "default"}
-                  className="shrink-0 rounded-lg text-xs font-semibold h-8 px-3"
+                  className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3 ${
+                    isConnecting
+                      ? "bg-transparent border border-white/10"
+                      : isConnected
+                      ? "bg-transparent border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 hover:bg-red-500/[0.06]"
+                      : int.actionType === "login"
+                      ? "bg-foreground text-background hover:bg-foreground/90"
+                      : "bg-transparent border border-foreground/20 text-foreground hover:bg-foreground hover:text-background"
+                  }`}
                   onClick={() => handleToggle(int.key)}
                   disabled={isConnecting || (connecting !== null && connecting !== int.key)}
                 >
                   {isConnecting ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-muted-foreground/30 border-t-primary-foreground rounded-full" />
-                  ) : isConnected ? "Disconnect" : "Connect"}
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-white/10 border-t-white/60 rounded-full" />
+                  ) : isConnected ? "Disconnect" : int.actionType === "login" ? `Login` : "Sync"}
                 </Button>
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>
 
-      <div className="rounded-xl bg-muted/20 border border-border p-3.5">
+      <div className="rounded-xl bg-[#0A0A0A] border border-white/[0.06] p-3.5">
         <div className="flex items-center gap-2">
-          <Lock className="h-3 w-3 text-muted-foreground" />
-          <p className="text-[10px] text-muted-foreground">Read-only access · Your data is never shared with third parties</p>
+          <Lock className="h-3 w-3 text-white/20" />
+          <p className="text-[10px] text-white/30">Read-only access · AES-256 encrypted · Never shared</p>
         </div>
       </div>
     </motion.div>
