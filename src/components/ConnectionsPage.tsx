@@ -34,7 +34,7 @@ const WHISPER_FEED = [
     text: "They dug really deep into our GTM motion. Ultimately passed because market size was too small for their fund math, but the partner gave us incredibly actionable advice.",
   },
   {
-    header: "Anonymous Founder • Series A Fintech",
+    header: "Series A • Fintech",
     tags: ["Term Sheet in 3 Weeks", "Board Seat"],
     tagColors: ["bg-success/10 text-success", "bg-primary/10 text-primary"],
     text: "Fastest process we experienced. Very data-driven diligence, asked for cohort data upfront. Partner was deeply engaged and added real value post-close.",
