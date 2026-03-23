@@ -322,6 +322,8 @@ const Index = () => {
           onNavigateProfile={() => setActiveView("company")}
           activeView={activeView}
           onViewChange={setActiveView}
+          userSector={companyData?.sector}
+          userStage={companyData?.stage}
         />
         <div className={`px-8 pt-16 pb-6 ${activeView === "company" && analysisResult && !isProfileVerified ? "pb-24" : ""}`}>
           {activeView === "company" ? (
