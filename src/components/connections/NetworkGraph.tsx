@@ -57,7 +57,21 @@ const EDGES: GraphEdge[] = [
   { from: "i2", to: "f2", strength: "strong" },
 ];
 
-const strengthWidth = { strong: 2.5, medium: 1.8, weak: 1 };
+// strand count and base width per strength
+const STRAND_CONFIG = {
+  strong: { count: 5, baseWidth: 1.8 },
+  medium: { count: 3, baseWidth: 1.2 },
+  weak:   { count: 2, baseWidth: 0.8 },
+};
+
+// Blue palette shades for strands (light to dark)
+const BLUE_SHADES = [
+  "hsl(210 80% 75%)",   // lightest
+  "hsl(215 85% 65%)",
+  "hsl(220 90% 55%)",
+  "hsl(225 85% 45%)",
+  "hsl(230 80% 38%)",   // darkest
+];
 
 const typeRingColor: Record<GraphNode["type"], string> = {
   you: "ring-primary/40",
@@ -74,20 +88,31 @@ const typeBorderColor: Record<GraphNode["type"], string> = {
 };
 
 /** Build a smooth quadratic bezier curve with a perpendicular offset */
-function curvePath(x1: number, y1: number, x2: number, y2: number, index: number): string {
+function curvePath(x1: number, y1: number, x2: number, y2: number, offsetAmount: number): string {
   const mx = (x1 + x2) / 2;
   const my = (y1 + y2) / 2;
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len === 0) return `M${x1},${y1} L${x2},${y2}`;
-  const sign = index % 2 === 0 ? 1 : -1;
-  const offset = sign * Math.min(len * 0.25, 55 + (index % 3) * 12);
   const px = -dy / len;
   const py = dx / len;
-  const cx = mx + px * offset;
-  const cy = my + py * offset;
+  const cx = mx + px * offsetAmount;
+  const cy = my + py * offsetAmount;
   return `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+}
+
+/** Generate offsets for multiple strands fanning out from a base curve */
+function strandOffsets(edgeIndex: number, count: number, len: number): number[] {
+  const baseSign = edgeIndex % 2 === 0 ? 1 : -1;
+  const baseOffset = baseSign * Math.min(len * 0.22, 50 + (edgeIndex % 3) * 10);
+  const spread = Math.min(len * 0.08, 18);
+  const offsets: number[] = [];
+  for (let s = 0; s < count; s++) {
+    const t = count === 1 ? 0 : (s / (count - 1)) * 2 - 1; // -1 to 1
+    offsets.push(baseOffset + t * spread);
+  }
+  return offsets;
 }
 
 export function NetworkGraph() {
@@ -203,46 +228,62 @@ export function NetworkGraph() {
             const to = nodePos(toNode);
             const isHighlighted = hoveredNode && connectedIds.has(edge.from) && connectedIds.has(edge.to);
             const isDimmed = hoveredNode && !isHighlighted;
-            const d = curvePath(from.x, from.y, to.x, to.y, i);
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const cfg = STRAND_CONFIG[edge.strength];
+            const offsets = strandOffsets(i, cfg.count, len);
 
             return (
               <g key={i}>
-                {/* Soft glow behind highlighted edges */}
-                {isHighlighted && (
-                  <path
-                    d={d}
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={7}
-                    opacity={0.12}
-                    filter="url(#edge-blur)"
-                  />
-                )}
-                {/* Main curve */}
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={
-                    isHighlighted
-                      ? "url(#edge-glow)"
-                      : `hsl(var(--primary) / ${edge.strength === "strong" ? 0.3 : edge.strength === "medium" ? 0.15 : 0.07})`
-                  }
-                  strokeWidth={isHighlighted ? 2.5 : strengthWidth[edge.strength]}
-                  opacity={isDimmed ? 0.05 : 1}
-                  strokeLinecap="round"
-                  className="transition-all duration-300"
-                />
+                {/* Multi-strand blue curves */}
+                {offsets.map((offset, s) => {
+                  const d = curvePath(from.x, from.y, to.x, to.y, offset);
+                  const shade = BLUE_SHADES[s % BLUE_SHADES.length];
+                  const highlightShade = BLUE_SHADES[Math.min(s, 2)];
+                  return (
+                    <g key={s}>
+                      {/* Glow on highlight */}
+                      {isHighlighted && s === Math.floor(cfg.count / 2) && (
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke="hsl(215 90% 60%)"
+                          strokeWidth={8}
+                          opacity={0.1}
+                          filter="url(#edge-blur)"
+                        />
+                      )}
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke={isHighlighted ? highlightShade : shade}
+                        strokeWidth={isHighlighted ? cfg.baseWidth * 1.4 : cfg.baseWidth}
+                        opacity={isDimmed ? 0.04 : isHighlighted ? 0.9 : 0.35 + s * 0.08}
+                        strokeLinecap="round"
+                        className="transition-all duration-300"
+                      />
+                    </g>
+                  );
+                })}
                 {/* Edge label on highlight */}
-                {edge.label && isHighlighted && (
-                  <text
-                    x={(from.x + to.x) / 2}
-                    y={(from.y + to.y) / 2 - 10}
-                    textAnchor="middle"
-                    className="fill-primary text-[9px] font-mono font-semibold"
-                  >
-                    {edge.label}
-                  </text>
-                )}
+                {edge.label && isHighlighted && (() => {
+                  const midOffset = offsets[Math.floor(offsets.length / 2)];
+                  const mx = (from.x + to.x) / 2;
+                  const my = (from.y + to.y) / 2;
+                  const pxN = len > 0 ? -dy / len : 0;
+                  const pyN = len > 0 ? dx / len : 0;
+                  return (
+                    <text
+                      x={mx + pxN * midOffset * 0.3}
+                      y={my + pyN * midOffset * 0.3 - 10}
+                      textAnchor="middle"
+                      className="fill-[hsl(215_90%_70%)] text-[9px] font-mono font-semibold"
+                    >
+                      {edge.label}
+                    </text>
+                  );
+                })()}
               </g>
             );
           })}
@@ -252,9 +293,14 @@ export function NetworkGraph() {
             EDGES.filter((e) => connectedIds.has(e.from) && connectedIds.has(e.to)).map((edge, i) => {
               const from = nodePos(NODES.find((n) => n.id === edge.from)!);
               const to = nodePos(NODES.find((n) => n.id === edge.to)!);
-              const d = curvePath(from.x, from.y, to.x, to.y, EDGES.indexOf(edge));
+              const dx = to.x - from.x;
+              const dy = to.y - from.y;
+              const len = Math.sqrt(dx * dx + dy * dy);
+              const offsets = strandOffsets(EDGES.indexOf(edge), STRAND_CONFIG[edge.strength].count, len);
+              const midOffset = offsets[Math.floor(offsets.length / 2)];
+              const d = curvePath(from.x, from.y, to.x, to.y, midOffset);
               return (
-                <circle key={`pulse-${i}`} r="3" fill="hsl(var(--primary))" opacity="0.8">
+                <circle key={`pulse-${i}`} r="3" fill="hsl(210 85% 70%)" opacity="0.8">
                   <animateMotion dur="2s" repeatCount="indefinite" path={d} />
                 </circle>
               );
