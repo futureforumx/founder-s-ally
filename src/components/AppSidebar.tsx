@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -29,6 +31,11 @@ const communityItems = [
   { id: "events" as const, label: "Events", icon: MapPin }];
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
+  const { profile } = useProfile();
+  const { user } = useAuth();
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
   const [investorsOpen, setInvestorsOpen] = useState(
     activeView === "investors" || activeView === "investor-search" || activeView === "connections"
   );
@@ -150,8 +157,19 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
             )}>
-            <Settings className="h-4 w-4" />
-            Settings
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                className="h-5 w-5 rounded-full object-cover shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary shrink-0">
+                {initials}
+              </div>
+            )}
+            <span className="truncate">{displayName}</span>
           </button>
         </div>
       </aside>
