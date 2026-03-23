@@ -196,6 +196,7 @@ export function GlobalTopNav({
   onOpenCommandPalette,
   userSector,
   userStage,
+  profileCompletion = 0,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
