@@ -274,7 +274,99 @@ function FounderCardSkeleton() {
 }
 
 // ── Founder Card ──
+function InvestorCard({ founder, trending, onClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void;}) {
+  const logoUrl = founder._logoUrl || (founder.name.trim() ? `https://logo.clearbit.com/${founder.name.trim().toLowerCase().replace(/\s+/g, "")}.com` : null);
+  const sentimentScore = founder._founderSentimentScore;
+  const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
+  const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
+  const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
+
+  return (
+    <Card
+      onClick={onClick}
+      className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
+      trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
+      }>
+      <CardContent className="p-4 space-y-3">
+        {/* ── Row 1: Logo left, Alerts right ── */}
+        <div className="flex items-start justify-between gap-3">
+          {/* Logo */}
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary border border-border/50 shrink-0 overflow-hidden">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={founder.name}
+                className="h-full w-full object-contain p-1"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                }}
+              />
+            ) : null}
+            <span className={`text-lg font-bold text-muted-foreground ${logoUrl ? "hidden" : ""}`}>
+              {founder.initial}
+            </span>
+          </div>
+
+          {/* Upper right: deploying status + scores */}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {founder._isActivelyDeploying !== false && (
+              <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider">
+                <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+              </Badge>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center">
+                <span className={`text-sm font-black leading-none ${matchColor}`}>{matchScore}%</span>
+                <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
+              </div>
+              {sentimentScore != null && (
+                <div className="flex flex-col items-center">
+                  <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
+                  <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Vibe</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 2: Name + description ── */}
+        <div>
+          <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{founder.description}</p>
+        </div>
+
+        {/* ── Row 3: HQ · AUM · Headcount · Type ── */}
+        <div className="flex items-center gap-3 pt-2 border-t border-border/40 text-[10px] text-muted-foreground flex-wrap">
+          {founder.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location || "—"}
+            </span>
+          )}
+          {(founder._aum || founder.model) && (
+            <span className="inline-flex items-center gap-1">
+              <DollarSign className="h-2.5 w-2.5 shrink-0" /> {founder._aum || founder.model}
+            </span>
+          )}
+          {founder._headcount && (
+            <span className="inline-flex items-center gap-1">
+              <Users className="h-2.5 w-2.5 shrink-0" /> {founder._headcount}
+            </span>
+          )}
+          <Badge variant="outline" className="text-[8px] font-semibold px-1.5 py-0">
+            {founder._firmType || "Institutional"}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>);
+}
+
 function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void;}) {
+  // Use specialized investor card for investor entries
+  if (founder.category === "investor") {
+    return <InvestorCard founder={founder} trending={trending} onClick={onClick} />;
+  }
+
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
   
   return (
@@ -311,11 +403,9 @@ function FounderCard({ founder, trending, onClick }: {founder: DirectoryEntry;tr
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          {/* Show title/role for person profiles */}
           {founder._isRealProfile && founder.model && (
             <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
           )}
-          {/* Company link for founder profiles */}
           {founder._companyName && (
             <div className="flex items-center gap-1.5 mt-1">
               <Building2 className="h-3 w-3 text-accent/70" />
