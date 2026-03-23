@@ -76,6 +76,12 @@ export default {
           3: "hsl(var(--heat-3))",
           4: "hsl(var(--heat-4))",
         },
+        neon: {
+          purple: "hsl(var(--neon-purple))",
+          "purple-glow": "hsl(var(--neon-purple-glow))",
+          blue: "hsl(var(--ice-blue))",
+          "blue-glow": "hsl(var(--ice-blue-glow))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
