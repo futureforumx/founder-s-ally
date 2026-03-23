@@ -9,6 +9,8 @@ export interface InvestorTypeaheadResult {
   name: string;
   subtitle: string;
   type: "firm" | "person";
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 interface InvestorSearchOmniboxProps {
