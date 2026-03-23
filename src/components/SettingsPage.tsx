@@ -63,11 +63,6 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <div className="px-8 pt-8 pb-0">
-        <h1 className="text-[32px] font-bold text-foreground tracking-tight">Settings</h1>
-      </div>
-
       {/* Sticky Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="px-8">
@@ -79,7 +74,7 @@ export function SettingsPage() {
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={cn(
-                    "relative px-4 py-3.5 text-sm font-medium transition-colors whitespace-nowrap",
+                    "relative px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap",
                     isActive
                       ? "text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -97,14 +92,13 @@ export function SettingsPage() {
                 </button>
               );
             })}
-            {/* Right fade mask for mobile scroll */}
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none md:hidden" />
           </div>
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="px-8 py-8 max-w-3xl">
+      <div className="px-8 py-5 max-w-3xl">
         <AnimatePresence mode="wait">
           {activeTab === "account" && (
             <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} onSignOut={signOut} />
