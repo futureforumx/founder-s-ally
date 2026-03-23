@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { StageTimeline } from "./investor-detail/StageTimeline";
 import { DealDynamics } from "./investor-detail/DealDynamics";
@@ -206,16 +207,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <div className="flex items-center gap-4 min-w-0">
                     {liveLoading ? (
                       <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
-                    ) : heroLogo ? (
-                      <img
-                        src={heroLogo}
-                        alt={heroName}
-                        className="h-16 w-16 rounded-xl border border-border object-contain bg-background shrink-0"
-                      />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary border border-border text-xl font-bold text-muted-foreground shrink-0">
-                        {heroInitial}
-                      </div>
+                      <FirmLogo
+                        firmName={heroName}
+                        logoUrl={heroLogo}
+                        websiteUrl={liveProfile?.website_url ?? null}
+                        size="lg"
+                        className="h-16 w-16"
+                      />
                     )}
                     <div className="min-w-0 flex-1">
                       {liveLoading ? (
