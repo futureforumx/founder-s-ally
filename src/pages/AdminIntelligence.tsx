@@ -28,8 +28,8 @@ export default function AdminIntelligence() {
     );
   }
 
-  // RBAC: Only admins allowed
-  const role = user?.app_metadata?.role;
+  // RBAC: Only admins allowed (checks user_metadata.role set via Settings)
+  const role = user?.user_metadata?.role;
   if (!user || role !== "admin") {
     return <Navigate to="/" replace />;
   }
