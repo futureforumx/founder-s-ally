@@ -51,8 +51,8 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
-export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm }: InvestorDetailPanelProps) {
-  const [activeTab, setActiveTab] = useState<InvestorTab>("Updates");
+export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm, initialTab }: InvestorDetailPanelProps) {
+  const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
   const [reviewOpen, setReviewOpen] = useState(false);
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
