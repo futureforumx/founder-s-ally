@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
 type SettingsSection = "personal" | "entity" | "network-sec" | "preferences" | "account-sec";
-type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "subscription";
+type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
