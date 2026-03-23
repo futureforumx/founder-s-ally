@@ -693,6 +693,39 @@ export function CompanyTab() {
           ))}
         </div>
       )}
+      {/* Company Sync Review Modal */}
+      <SyncReviewModal
+        open={companySyncReviewOpen}
+        onOpenChange={setCompanySyncReviewOpen}
+        title="Review Company Data"
+        fields={companySyncFields}
+        onApply={(selectedKeys) => {
+          setCompanySyncApplying(true);
+          const fieldMap = Object.fromEntries(companySyncFields.map(f => [f.key, f.incoming]));
+
+          // Update localStorage company-profile with new values
+          try {
+            const saved = localStorage.getItem("company-profile");
+            const current = saved ? JSON.parse(saved) : {};
+            for (const key of selectedKeys) {
+              const val = fieldMap[key];
+              if (val) current[key] = val;
+            }
+            localStorage.setItem("company-profile", JSON.stringify(current));
+            setCompanyData(current);
+          } catch {}
+
+          // Track synced keys for highlight animation
+          setCompanySyncedKeys(new Set(selectedKeys));
+          setTimeout(() => setCompanySyncedKeys(new Set()), 2500);
+
+          setCompanySyncApplying(false);
+          setCompanySyncReviewOpen(false);
+          setProfileKey(prev => prev + 1);
+          toast.success(`Applied ${selectedKeys.length} company field${selectedKeys.length !== 1 ? "s" : ""}`);
+        }}
+        applying={companySyncApplying}
+      />
     </motion.div>
   );
 }
