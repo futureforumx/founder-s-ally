@@ -414,14 +414,19 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       </div>
 
       <div className="flex items-center justify-between px-4 py-1.5 border-t border-border shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">{activeSpots.length}</span> regions</span>
-          <span className="text-[10px] text-muted-foreground"><span className="font-semibold text-foreground">{totalInvestments}</span> investors</span>
-        </div>
         <div className="flex items-center gap-1">
-          {activeSpots.slice(0, 3).map((s) => (
-            <span key={s.name} className="text-[9px] px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium">{s.name}</span>
-          ))}
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Focus</span>
+          {activeSpots
+            .sort((a, b) => (b.investments[timeRange] || 0) - (a.investments[timeRange] || 0))
+            .slice(0, 3)
+            .map((s) => {
+              const pct = totalInvestments > 0 ? Math.round(((s.investments[timeRange] || 0) / totalInvestments) * 100) : 0;
+              return (
+                <span key={s.name} className="text-[9px] px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium">
+                  {s.name} <span className="text-accent/60">{pct}%</span>
+                </span>
+              );
+            })}
           {activeSpots.length > 3 && <span className="text-[9px] text-muted-foreground">+{activeSpots.length - 3}</span>}
         </div>
       </div>
