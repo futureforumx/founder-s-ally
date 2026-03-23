@@ -47,7 +47,7 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
 
   // If input contains the platform domain, just prepend https://
   if (DOMAIN_PATTERNS[platform].test(cleaned)) {
-    return `https://${cleaned}`;
+    return `https://${cleaned}`.toLowerCase();
   }
 
   // At this point it's likely a bare username/handle
