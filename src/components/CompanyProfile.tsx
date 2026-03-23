@@ -1642,7 +1642,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
 
                     {/* Sector · Business Model · Target Customer — Dense Chip Grid */}
-                    <div className="space-y-1">
+                    <div className="space-y-1" data-field="sector-tags">
                       <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
                         Sector {renderFieldBadge("sector")}
                       </label>
