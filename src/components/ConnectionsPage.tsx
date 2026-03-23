@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { NetworkGraph } from "@/components/connections/NetworkGraph";
 
 interface Connection {
   user_id: string;
@@ -91,6 +92,9 @@ export function ConnectionsPage() {
 
       {/* Intro Pathfinder */}
       <IntroPathfinder investorName="your target investors" />
+
+      {/* Network Graph */}
+      <NetworkGraph />
 
       {/* Community Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
