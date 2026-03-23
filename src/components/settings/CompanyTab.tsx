@@ -375,12 +375,29 @@ export function CompanyTab() {
       .update({ company_id: newComp.id })
       .eq("user_id", user.id);
 
+    // Get user profile name for welcome email
+    const { data: userProfile } = await (supabase as any)
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    toast.loading("Sending welcome email...", { id: "welcome-email" });
+
+    await sendEmailNotification({
+      type: "workspace_welcome",
+      recipientEmail: user.email,
+      recipientName: userProfile?.full_name || user.email?.split("@")[0],
+      companyName: name.trim(),
+    });
+
+    toast.success("Workspace created! Welcome email sent.", { id: "welcome-email" });
+
     setMembership({ id: "", company_id: newComp.id, role: "manager" });
     setState("linked");
     setDropdownOpen(false);
     setQuery("");
     setRequesting(false);
-    toast.success("Workspace created! Set up your company profile below.");
   };
 
   const handleCancelRequest = async () => {
