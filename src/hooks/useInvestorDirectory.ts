@@ -42,7 +42,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     logo_url: row.logo_url || null,
     firm_type: row.firm_type || "Institutional",
     is_actively_deploying: row.is_actively_deploying ?? true,
-    founder_sentiment_score: row.founder_sentiment_score ?? null,
+    founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
     aum: row.aum ?? null,
   };
