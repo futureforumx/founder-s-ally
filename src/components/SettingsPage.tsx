@@ -466,25 +466,12 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
   // handleSave removed — autosave handles persistence
 
-  // ── Magic Sync ──
+  // ── Magic Sync (Auth0 LinkedIn OAuth) ──
   const handleSyncProfile = async () => {
-    if (!linkedinUrl.trim()) {
-      toast.error("Enter a LinkedIn URL first");
-      return;
-    }
     setSyncing(true);
     try {
-      // Normalize to full URL before sending
-      const normalizedUrl = formatSocialUrl("linkedin_personal", linkedinUrl.trim());
-      if (normalizedUrl !== linkedinUrl) setLinkedinUrl(normalizedUrl);
-      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: normalizedUrl },
-      });
+      const incoming = await verifyLinkedIn();
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Sync failed");
-
-      const incoming = data.data;
       const fields: SyncField[] = [
         { key: "full_name", label: "Full Name", existing: name, incoming: incoming.full_name },
         { key: "title", label: "Title / Role", existing: title, incoming: incoming.title },
@@ -492,10 +479,33 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         { key: "location", label: "Location", existing: location, incoming: incoming.location },
       ];
 
+      // If we got an avatar, include it
+      if (incoming.avatar_url) {
+        fields.push({ key: "avatar_url", label: "Profile Photo", existing: avatarUrl, incoming: incoming.avatar_url });
+      }
+
+      // Auto-set LinkedIn URL if returned email or name verifies identity
+      if (incoming.full_name) {
+        // Mark as verified via LinkedIn OAuth
+        setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
+      }
+
+      // If we got a LinkedIn URL from the OAuth, update it
+      if (!linkedinUrl.trim() && incoming.full_name) {
+        const slug = incoming.full_name.toLowerCase().replace(/\s+/g, "");
+        const guessedUrl = `https://linkedin.com/in/${slug}`;
+        setLinkedinUrl(guessedUrl);
+        saveImmediate({ linkedinUrl: guessedUrl });
+      }
+
       setSyncFields(fields);
       setSyncReviewOpen(true);
     } catch (err: any) {
-      toast.error("Sync failed: " + (err.message || "Unknown error"));
+      if (err?.message?.includes("cancelled") || err?.message?.includes("Popup closed")) {
+        toast("LinkedIn sync cancelled", { description: "You can try again anytime." });
+      } else {
+        toast.error("Sync failed: " + (err.message || "Unknown error"));
+      }
     } finally {
       setSyncing(false);
     }
