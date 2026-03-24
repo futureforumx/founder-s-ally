@@ -94,8 +94,7 @@ export function MorphingUrlInput({
   }, [showPrefix, handle]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    let raw = e.target.value.toLowerCase();
-    onChange(raw);
+    onChange(e.target.value);
   }, [onChange]);
 
   const handleBlur = useCallback(() => {
