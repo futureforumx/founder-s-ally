@@ -342,6 +342,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncFields, setSyncFields] = useState<SyncField[]>([]);
   const [syncApplying, setSyncApplying] = useState(false);
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
+  const [xVerified, setXVerified] = useState(false);
+  const [xSyncing, setXSyncing] = useState(false);
 
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
@@ -537,6 +539,62 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     setSyncApplying(false);
     setSyncReviewOpen(false);
     toast.success(`Applied ${selectedKeys.length} field${selectedKeys.length !== 1 ? "s" : ""} from LinkedIn`);
+
+    // ── Auto-trigger X enrichment in background after LinkedIn sync ──
+    if (twitterUrl.trim()) {
+      enrichXProfile(twitterUrl);
+    }
+  };
+
+  const enrichXProfile = async (url: string) => {
+    setXSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-x-profile", {
+        body: { twitterUrl: url },
+      });
+
+      if (error || !data?.success) {
+        const msg = data?.error || error?.message || "Unknown error";
+        if (data?.skipped) {
+          toast("X enrichment skipped", { description: "Please fill bio manually." });
+        } else {
+          console.warn("X sync error:", msg);
+        }
+        return;
+      }
+
+      const xData = data.data;
+      const updates: Record<string, string> = {};
+
+      // Only apply bio if user hasn't written one
+      if (xData.bio && !bio.trim()) {
+        setBio(xData.bio.slice(0, 160));
+        updates.bio = xData.bio.slice(0, 160);
+      }
+      // Only apply location if empty
+      if (xData.location && !location.trim()) {
+        setLocation(xData.location);
+        updates.location = xData.location;
+      }
+      // Only apply avatar if user hasn't uploaded one
+      if (xData.avatar_url && !avatarUrl) {
+        setAvatarUrl(xData.avatar_url);
+        setAvatarError(false);
+        updates.avatar_url = xData.avatar_url;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await saveImmediate(updates);
+      }
+
+      setXVerified(true);
+      toast.success("X profile enriched successfully");
+    } catch (err: any) {
+      console.warn("X enrichment failed:", err);
+      toast("X enrichment skipped", { description: "Please fill bio manually." });
+    } finally {
+      setXSyncing(false);
+    }
   };
 
   // ── Progressive disclosure logic ──
@@ -652,6 +710,37 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                         twitterUrl.trim() ? "pl-9" : ""
                       )}
                     />
+                    {/* Inline verified badge / sync button */}
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {xSyncing && (
+                        <span className="flex items-center gap-1 text-[10px] text-accent">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Syncing…
+                        </span>
+                      )}
+                      {!xSyncing && xVerified && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="flex items-center gap-0.5 text-[10px] font-medium text-success"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Verified
+                        </motion.span>
+                      )}
+                      {!xSyncing && !xVerified && twitterUrl.trim() && (
+                        <motion.button
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          onClick={(e) => { e.stopPropagation(); enrichXProfile(twitterUrl); }}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
+                          title="Enrich X profile via Scrapingdog"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          Enrich
+                        </motion.button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
