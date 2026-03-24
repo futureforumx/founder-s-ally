@@ -55,6 +55,7 @@ interface SourceConfig {
   key: SourceKey;
   label: string;
   icon: React.ElementType;
+  customIcon?: string;
   glowColor: string;
   glowHsl: string;
   description: string;
