@@ -732,21 +732,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           );
         })()}
 
-        {/* ── Social Profiles (Data Sources style) ── */}
+        {/* ── Data Sources ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {/* Header */}
           <div className="px-5 pt-4 pb-3 border-b border-border/60">
             <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5" />
-              Social Profiles
+              Data Sources
             </h3>
           </div>
 
           <div className="p-5 space-y-4">
-            {/* 2-column grid: Left = inputs, Right = Identity Verification */}
+            {/* 2-column grid: Left = URL inputs + AI banner, Right = Resume dropzone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Left column */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {/* LinkedIn URL */}
                 <MorphingUrlInput
                   platform="linkedin"
@@ -759,7 +759,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   }}
                   verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
                   onVerify={handleSyncProfile}
-                  verifyLabel="Verify"
+                  verifyLabel="Sync"
                 />
 
                 {/* X / Twitter URL */}
@@ -776,151 +776,122 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   onVerify={() => enrichXProfile(twitterUrl)}
                   verifyLabel="Enrich"
                 />
-              </div>
 
-              {/* Right column: Identity Verification zone */}
-              {(() => {
-                const isVerified = isLinkedinValid && !!twitterUrl.trim() && hasSynced;
-                const linkedinDone = isLinkedinValid;
-                const twitterDone = !!twitterUrl.trim();
-                return (
-                  <div className={cn(
-                    "flex flex-col rounded-xl border min-h-[120px] p-4 transition-all duration-500",
-                    isVerified
-                      ? "border-success/30 bg-success/5"
-                      : "border-dashed border-border/60 bg-muted/20"
-                  )}>
-                    {/* Header */}
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-xl shrink-0 transition-colors",
-                        isVerified ? "bg-success/10" : "bg-accent/10"
-                      )}>
-                        {isVerified ? (
-                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400 }}>
-                            <CheckCircle2 className="h-5 w-5 text-success" />
-                          </motion.div>
-                        ) : (
-                          <Shield className="h-5 w-5 text-accent" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-foreground leading-tight">Identity Verification</p>
-                        <Badge className={cn(
-                          "mt-0.5 text-[8px] uppercase font-bold",
-                          isVerified
-                            ? "bg-success/10 text-success border-success/20"
-                            : "bg-warning/10 text-warning border-warning/20"
-                        )}>
-                          {isVerified ? "Verified" : "Unverified"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Checklist */}
-                    <div className="space-y-2 flex-1">
-                      {/* LinkedIn check */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", linkedinDone ? "border-success bg-success/10" : "border-muted-foreground/30")}>
-                            {linkedinDone && <CheckCircle2 className="h-3 w-3 text-success" />}
-                          </div>
-                          <span className={cn("text-[11px]", linkedinDone ? "text-foreground" : "text-muted-foreground")}>LinkedIn URL</span>
-                        </div>
-                        {!linkedinDone && (
-                          <button
-                            onClick={() => {
-                              const el = document.querySelector('input[placeholder*="linkedin"]');
-                              if (el) (el as HTMLInputElement).focus();
-                            }}
-                            className="text-[9px] font-semibold text-accent hover:text-accent/80 transition-colors"
-                          >
-                            Connect
-                          </button>
-                        )}
-                      </div>
-
-                      {/* X check */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", twitterDone ? "border-success bg-success/10" : "border-muted-foreground/30")}>
-                            {twitterDone && <CheckCircle2 className="h-3 w-3 text-success" />}
-                          </div>
-                          <span className={cn("text-[11px]", twitterDone ? "text-foreground" : "text-muted-foreground")}>X / Twitter</span>
-                        </div>
-                        {!twitterDone && (
-                          <button
-                            onClick={() => {
-                              const el = document.querySelector('input[placeholder*="x.com"]');
-                              if (el) (el as HTMLInputElement).focus();
-                            }}
-                            className="text-[9px] font-semibold text-accent hover:text-accent/80 transition-colors"
-                          >
-                            Connect
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Profile Synced check */}
-                      <div className="flex items-center gap-2">
-                        <div className={cn("h-4 w-4 rounded-full border flex items-center justify-center", hasSynced ? "border-success bg-success/10" : "border-muted-foreground/30")}>
-                          {hasSynced && <CheckCircle2 className="h-3 w-3 text-success" />}
-                        </div>
-                        <span className={cn("text-[11px]", hasSynced ? "text-foreground" : "text-muted-foreground")}>Profile Synced</span>
-                      </div>
-                    </div>
-
-                    {/* Footer badge */}
-                    {isVerified && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-3 pt-2.5 border-t border-success/20 flex items-center justify-center gap-1.5"
-                      >
-                        <Crown className="h-3.5 w-3.5 text-success" />
-                        <span className="text-[10px] font-bold text-success uppercase tracking-wider">Verified Founder</span>
-                      </motion.div>
-                    )}
+                {/* AI Insight Banner */}
+                <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5 mt-auto">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
+                    <Sparkles className="h-3 w-3 text-accent" />
                   </div>
-                );
-              })()}
-            </div>
-
-            {/* AI Insight Banner */}
-            <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5">
-              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
-                <Sparkles className="h-3 w-3 text-accent" />
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
+                      Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
-                  Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
-                </p>
+
+              {/* Right column: Resume PDF Dropzone */}
+              <div className="flex flex-col">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Resume (PDF)</label>
+                <input
+                  ref={resumeInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
+                />
+                {resumeUrl ? (
+                  <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-success/30 bg-success/5 p-4 min-h-[140px]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 mb-2">
+                      <FileText className="h-5 w-5 text-success" />
+                    </div>
+                    <p className="text-xs font-medium text-foreground truncate max-w-full">{resumeFileName || "Resume.pdf"}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <button
+                        onClick={() => resumeInputRef.current?.click()}
+                        className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        onClick={handleRemoveResume}
+                        className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => resumeInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleResumeUpload(f);
+                    }}
+                    disabled={resumeUploading}
+                    className={cn(
+                      "flex-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all min-h-[140px]",
+                      "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                      resumeUploading && "opacity-60 pointer-events-none"
+                    )}
+                  >
+                    {resumeUploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
+                          <Upload className="h-5 w-5 text-muted-foreground/60" />
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
+                        <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Primary CTA */}
-            <Button
-              onClick={handleSyncProfile}
-              disabled={syncing}
-              className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
-            >
-              {syncing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Connecting to LinkedIn…
-                </>
-              ) : (
-                <>
-                  <Linkedin className="h-4 w-4" />
-                  Verify with LinkedIn
-                </>
-              )}
-            </Button>
+            {(() => {
+              const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
+              return (
+                <Button
+                  onClick={handleSyncProfile}
+                  disabled={syncing || isIdentityVerified}
+                  variant={isIdentityVerified ? "outline" : "default"}
+                  className={cn(
+                    "w-full rounded-lg h-10 text-sm font-semibold gap-2",
+                    isIdentityVerified && "opacity-60 cursor-not-allowed"
+                  )}
+                >
+                  {syncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Connecting to LinkedIn…
+                    </>
+                  ) : isIdentityVerified ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">✓ Identity Verified</span>
+                    </>
+                  ) : (
+                    <>
+                      <Linkedin className="h-4 w-4" />
+                      Verify with LinkedIn
+                    </>
+                  )}
+                </Button>
+              );
+            })()}
 
             {/* Footer */}
             <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide">
-              Securely verify via LinkedIn OAuth — no scraping
+              Triple-source triangulation: Resume + LinkedIn + X
             </p>
           </div>
         </div>
