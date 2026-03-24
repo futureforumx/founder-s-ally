@@ -201,10 +201,7 @@ export function OnboardingWizard() {
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
           )}
           {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
-          )}
-          {state.step === 3 && (
-            <StepPowerUp key="s3" state={state} update={update} onNext={handleFinish} onBack={() => goTo(2)} />
+            <StepCompanyDNA key="s2" state={state} update={update} onNext={handleFinish} onBack={() => goTo(1)} />
           )}
         </AnimatePresence>
       </div>
