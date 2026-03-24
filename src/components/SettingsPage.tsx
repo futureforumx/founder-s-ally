@@ -402,6 +402,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       setUserType(profile.user_type || "founder");
       setLinkedinUrl(profile.linkedin_url || "");
       setTwitterUrl(profile.twitter_url || "");
+      if (profile.resume_url) {
+        setResumeUrl(profile.resume_url);
+        // Extract filename from URL
+        try {
+          const parts = profile.resume_url.split("/");
+          setResumeFileName(decodeURIComponent(parts[parts.length - 1]?.replace(/^\d+-/, "") || "Resume.pdf"));
+        } catch { setResumeFileName("Resume.pdf"); }
+      }
       if (profile.avatar_url) {
         setAvatarUrl(profile.avatar_url);
         setAvatarError(false);
