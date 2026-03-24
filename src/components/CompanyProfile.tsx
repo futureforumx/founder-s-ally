@@ -471,6 +471,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
+  // Pending analysis review state
+  const [pendingAnalysis, setPendingAnalysis] = useState<{ analysisData: any; scrapedMarkdown: string; deepSearchInvestors: any[]; verification: Record<string, any> } | null>(null);
+  const [analysisReviewOpen, setAnalysisReviewOpen] = useState(false);
+  const [analysisReviewApplying, setAnalysisReviewApplying] = useState(false);
+
   // Social link enrichment state
   const [socialEnrichState, setSocialEnrichState] = useState<Record<string, "idle" | "syncing" | "verified">>({ x: "idle", linkedin: "idle" });
 
