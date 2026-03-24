@@ -1,9 +1,19 @@
-import { useState, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
-import { Globe, Upload, FileText, X, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { FirmLogo } from "@/components/ui/firm-logo";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import type { OnboardingState } from "./types";
 
 interface StepCompanyDNAProps {
@@ -11,6 +21,16 @@ interface StepCompanyDNAProps {
   update: (p: Partial<OnboardingState>) => void;
   onNext: () => void;
   onBack: () => void;
+}
+
+interface CompanyResult {
+  id: string;
+  name: string;
+  websiteUrl: string | null;
+  sector: string | null;
+  stage: string | null;
+  inDatabase: boolean;
+  isClaimed: boolean;
 }
 
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech"];
@@ -41,41 +61,124 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState(state.companyName || "");
+  const [searchResults, setSearchResults] = useState<CompanyResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const isJoinMode = selectedCompany?.inDatabase === true;
   const websiteDomain = extractDomain(state.websiteUrl);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    if (showDropdown) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDropdown]);
+
+  // Debounced search
+  const searchCompanies = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-companies", {
+        body: { query: query.trim() },
+      });
+
+      if (error) throw error;
+      const results: CompanyResult[] = data?.results || [];
+      setSearchResults(results);
+      setShowDropdown(true);
+    } catch (e) {
+      console.error("Company search failed:", e);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    update({ companyName: val });
+
+    // Clear selected company when typing
+    if (selectedCompany) {
+      setSelectedCompany(null);
+    }
+
+    // Debounce search
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchCompanies(val), 300);
+  };
+
+  const handleSelectCompany = (company: CompanyResult) => {
+    setSelectedCompany(company);
+    setSearchQuery(company.name);
+    update({
+      companyName: company.name,
+      websiteUrl: company.websiteUrl || state.websiteUrl,
+    });
+    setShowDropdown(false);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedCompany(null);
+    setSearchQuery("");
+    update({ companyName: "", websiteUrl: "" });
+  };
+
+  const handleContinue = () => {
+    if (isJoinMode) {
+      setShowJoinModal(true);
+    } else {
+      onNext();
+    }
+  };
+
+  const handleJoinConfirm = () => {
+    setShowJoinModal(false);
+    onNext();
+  };
 
   const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
     const name = file.name.toLowerCase();
-
     if (name.endsWith(".txt") || name.endsWith(".md")) {
       return await file.text();
     }
-
     if (name.endsWith(".pdf")) {
       const pdfjsLib = await import("pdfjs-dist");
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const pages: string[] = [];
-
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const text = content.items
-          .map((item: any) => ("str" in item ? item.str : ""))
-          .join(" ");
+        const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
         pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
       }
-
       return pages.join("\n\n");
     }
-
     throw new Error("Unsupported file type.");
   }, []);
 
   const handleFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) return;
-
     setDeckFile(file);
     setIsExtracting(true);
     try {
@@ -114,16 +217,125 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       </div>
 
       <div className="space-y-4">
-        {/* Company Name */}
+        {/* Company Name — Smart Search */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             Company Name
           </label>
-          <Input
-            value={state.companyName}
-            onChange={(e) => update({ companyName: e.target.value })}
-            placeholder="Acme Corp"
-          />
+          <div ref={searchContainerRef} className="relative">
+            {selectedCompany ? (
+              <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
+                <FirmLogo
+                  firmName={selectedCompany.name}
+                  websiteUrl={selectedCompany.websiteUrl}
+                  size="sm"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedCompany.name}</p>
+                  {selectedCompany.sector && (
+                    <p className="text-[10px] text-muted-foreground">{selectedCompany.sector}</p>
+                  )}
+                </div>
+                {selectedCompany.inDatabase ? (
+                  <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-accent font-bold">
+                    <Building2 className="h-3 w-3" /> In Network
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    <Plus className="h-3 w-3" /> New
+                  </span>
+                )}
+                <button
+                  onClick={handleClearSelection}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                <Input
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  placeholder="Search or type company name..."
+                  className="pl-10 pr-8"
+                />
+                {isSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
+
+            {/* Search Results Dropdown */}
+            <AnimatePresence>
+              {showDropdown && !selectedCompany && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover/95 backdrop-blur-xl shadow-lg max-h-[220px] overflow-y-auto"
+                >
+                  {searchResults.map((company) => (
+                    <button
+                      key={company.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleSelectCompany(company); }}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent/10 transition-colors"
+                    >
+                      <FirmLogo firmName={company.name} websiteUrl={company.websiteUrl} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{company.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[company.sector, company.stage].filter(Boolean).join(" · ") || "New company"}
+                        </p>
+                      </div>
+                      {company.inDatabase && (
+                        <span className="text-[9px] font-mono uppercase tracking-wider text-accent font-bold bg-accent/10 px-1.5 py-0.5 rounded">
+                          Exists
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Always show "Add as new" option */}
+                  {searchQuery.trim().length >= 2 && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectCompany({
+                          id: `new-${Date.now()}`,
+                          name: searchQuery.trim(),
+                          websiteUrl: null,
+                          sector: null,
+                          stage: null,
+                          inDatabase: false,
+                          isClaimed: false,
+                        });
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent/10 transition-colors border-t border-border/50"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                        <Plus className="h-4 w-4 text-primary" />
+                      </div>
+                      <p className="text-sm text-foreground">
+                        Add <span className="font-semibold">"{searchQuery.trim()}"</span> as new company
+                      </p>
+                    </button>
+                  )}
+
+                  {searchResults.length === 0 && searchQuery.trim().length >= 2 && !isSearching && (
+                    <div className="px-3 py-3 text-center text-xs text-muted-foreground">
+                      No companies found — add as new above
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Website URL */}
@@ -147,84 +359,142 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
               onChange={(e) => update({ websiteUrl: e.target.value })}
               placeholder="https://acme.com"
               className="pl-10"
+              disabled={isJoinMode}
             />
           </div>
         </div>
 
-        {/* Pitch Deck */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Pitch Deck (PDF)
-          </label>
+        {/* Pitch Deck — Animated slide-down, hidden in Join mode */}
+        <AnimatePresence mode="wait">
+          {!isJoinMode ? (
+            <motion.div
+              key="pitch-deck"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Pitch Deck (PDF)
+                </label>
 
-          {deckFile || state.deckFileName ? (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                <FileText className="h-5 w-5 text-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {deckFile?.name || state.deckFileName}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {deckFile ? formatFileSize(deckFile.size) : ""}
-                  {isExtracting && (
-                    <span className="ml-2 inline-flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Extracting...
-                    </span>
-                  )}
-                  {state.deckText && !isExtracting && (
-                    <span className="text-green-500 font-mono ml-2">✓ Text extracted</span>
-                  )}
-                </p>
-              </div>
-              <button
-                onClick={removeDeck}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Remove file"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-8 transition-all cursor-pointer",
-                  isDragOver
-                    ? "border-accent/60 bg-accent/5"
-                    : "border-border bg-muted/30 hover:border-accent/40"
+                {deckFile || state.deckFileName ? (
+                  <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
+                      <FileText className="h-5 w-5 text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {deckFile?.name || state.deckFileName}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {deckFile ? formatFileSize(deckFile.size) : ""}
+                        {isExtracting && (
+                          <span className="ml-2 inline-flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Extracting...
+                          </span>
+                        )}
+                        {state.deckText && !isExtracting && (
+                          <span className="text-green-500 font-mono ml-2">✓ Text extracted</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={removeDeck}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Remove file"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                      onDragLeave={() => setIsDragOver(false)}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={cn(
+                        "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-8 transition-all cursor-pointer",
+                        isDragOver
+                          ? "border-accent/60 bg-accent/5"
+                          : "border-border bg-muted/30 hover:border-accent/40"
+                      )}
+                    >
+                      <Upload className={cn("h-8 w-8 transition-colors", isDragOver ? "text-accent" : "text-muted-foreground/50")} />
+                      <span className="text-sm text-muted-foreground text-center px-4">
+                        Drop PDF here or click to browse
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Upload your latest pitch deck. The AI will extract metrics, competitive landscape, and cap table to build your profile.
+                    </p>
+                  </>
                 )}
-              >
-                <Upload className={cn("h-8 w-8 transition-colors", isDragOver ? "text-accent" : "text-muted-foreground/50")} />
-                <span className="text-sm text-muted-foreground text-center px-4">
-                  Drop PDF here or click to browse
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Upload your latest pitch deck. The AI will extract metrics, competitive landscape, and cap table to build your profile.
-              </p>
-            </>
-          )}
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-        </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+                />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="join-notice"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-3 rounded-lg border border-accent/20 bg-accent/5 px-4 py-3">
+                <Building2 className="h-5 w-5 text-accent shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Company profile already exists</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    You'll join the existing team. No pitch deck upload needed.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="flex justify-between pt-2">
         <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
-        <Button size="sm" onClick={onNext}>Continue</Button>
+        <Button size="sm" onClick={handleContinue} disabled={!state.companyName.trim()}>
+          {isJoinMode ? (
+            <><UserPlus className="h-3.5 w-3.5 mr-1" /> Join Company</>
+          ) : (
+            <><Plus className="h-3.5 w-3.5 mr-1" /> Add Company</>
+          )}
+        </Button>
       </div>
+
+      {/* Join Request Modal */}
+      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-accent" />
+              Join {selectedCompany?.name}
+            </DialogTitle>
+            <DialogDescription>
+              You are requesting to join <strong>{selectedCompany?.name}</strong>. An admin will be notified and can approve your request.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setShowJoinModal(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleJoinConfirm}>Confirm & Continue</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
