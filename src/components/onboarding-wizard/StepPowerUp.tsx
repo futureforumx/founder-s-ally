@@ -122,7 +122,7 @@ function SparklinePulse() {
   );
 }
 
-// ── Sensor Card ──
+// ── Compact Sensor Card (tighter for two-column layout) ──
 function SensorCard({
   sensor, connected, syncing, syncMessage, onConnect, index,
 }: {
@@ -133,7 +133,6 @@ function SensorCard({
   onConnect: () => void;
   index: number;
 }) {
-  const [hovered, setHovered] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const isAngelList = sensor.id === "angellist";
@@ -146,177 +145,97 @@ function SensorCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: index * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      transition={{ duration: 0.35, delay: index * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
       onDragOver={isAngelList && !connected ? (e) => { e.preventDefault(); setDragOver(true); } : undefined}
       onDragLeave={isAngelList ? () => setDragOver(false) : undefined}
       onDrop={isAngelList && !connected ? handleFileDrop : undefined}
       style={{
-        boxShadow: connected ? `0 0 24px ${sensor.glowColor}` : undefined,
+        boxShadow: connected ? `0 0 20px ${sensor.glowColor}` : syncing ? `0 0 12px ${sensor.glowColor}` : undefined,
       }}
       className={cn(
-        "relative rounded-2xl border p-5 transition-all duration-300 overflow-hidden",
+        "relative rounded-xl border p-3.5 transition-all duration-300 overflow-hidden",
         connected
-          ? "border-white/[0.12] bg-[#0A0A0A]/95 backdrop-blur-xl"
+          ? "border-white/[0.12] bg-[#0A0A0A]/95"
           : syncing
           ? "border-white/[0.10] bg-[#0A0A0A]/90"
-          : dragOver
-          ? "border-indigo-500/40 bg-[#0A0A0A]/90"
-          : "border-white/[0.06] bg-[#0A0A0A]/80 hover:border-white/[0.12]",
+          : "border-white/[0.08] bg-[#0A0A0A]/80 hover:border-indigo-500/30",
       )}
     >
-      {/* Gradient overlay */}
       {connected && (
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent pointer-events-none" />
       )}
 
-      <div className="relative">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-xl border transition-all",
-                connected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
-              )}>
-                {connected
-                  ? <Check className="h-4 w-4 text-emerald-400" />
-                  : syncing
-                  ? <Loader2 className="h-4 w-4 text-white/40 animate-spin" />
-                  : <sensor.icon className={cn("h-4 w-4", dragOver ? "text-indigo-400" : "text-white/40")} />
-                }
-              </div>
-              {/* Heartbeat dot */}
-              {connected && (
-                <motion.div
-                  className={cn("absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full", sensor.glowHsl)}
-                  animate={{ scale: [1, 1.4, 1], opacity: [0.9, 0.3, 0.9] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                />
-              )}
-            </div>
-            <div>
-              <h3 className="text-[14px] font-semibold text-white tracking-tight">{sensor.name}</h3>
-              <p className="text-[10px] text-white/25 font-mono uppercase tracking-wider mt-0.5">{sensor.typeLabel}</p>
-            </div>
+      <div className="relative flex items-center gap-3">
+        {/* Icon */}
+        <div className="relative shrink-0">
+          <div className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg border transition-all",
+            connected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
+          )}>
+            {connected
+              ? <Check className="h-3.5 w-3.5 text-emerald-400" />
+              : syncing
+              ? <Loader2 className="h-3.5 w-3.5 text-white/40 animate-spin" />
+              : <sensor.icon className="h-3.5 w-3.5 text-white/40" />
+            }
           </div>
-
-          {/* Configure cog on hover */}
-          <AnimatePresence>
-            {hovered && connected && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]"
-              >
-                <Settings2 className="h-3 w-3 text-white/30" />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {connected && (
+            <motion.div
+              className={cn("absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full", sensor.glowHsl)}
+              animate={{ scale: [1, 1.4, 1], opacity: [0.9, 0.3, 0.9] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
         </div>
 
-        <p className="text-[11px] text-white/30 mb-4">{sensor.desc}</p>
-
-        {/* Sync progress */}
-        {syncing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-4"
-          >
-            <div className="flex items-center gap-2 text-[10px] text-indigo-400 font-mono">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {syncMessage || "Connecting..."}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Live telemetry */}
-        {connected && !syncing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-4"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <SparklinePulse />
-              <span className="text-[10px] text-emerald-400/80 font-mono">{sensor.telemetry}</span>
-            </div>
-            {sensor.stat && (
-              <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5 inline-block">
-                <p className="text-lg font-bold text-white font-mono tracking-tight">{sensor.stat.value}</p>
-                <p className="text-[9px] text-white/25 uppercase tracking-wider font-medium">{sensor.stat.label}</p>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[13px] font-semibold text-white tracking-tight truncate">{sensor.name}</h3>
+            {connected && !syncing && (
+              <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 shrink-0">
+                <motion.div className="h-1 w-1 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
               </div>
             )}
-          </motion.div>
-        )}
-
-        {/* AngelList drag-drop hint */}
-        {isAngelList && !connected && dragOver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-3 rounded-lg border border-dashed border-indigo-500/40 bg-indigo-500/5 p-3 text-center"
-          >
-            <Upload className="h-5 w-5 text-indigo-400 mx-auto mb-1" />
-            <p className="text-[11px] text-indigo-300 font-mono">Drop CSV to import</p>
-          </motion.div>
-        )}
+            {syncing && (
+              <div className="flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 shrink-0">
+                <Loader2 className="h-2.5 w-2.5 text-indigo-400 animate-spin" />
+                <span className="text-[8px] font-bold text-indigo-400 uppercase">Syncing</span>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-white/25 mt-0.5 truncate">{sensor.desc}</p>
+          {syncing && <p className="text-[9px] text-indigo-400 font-mono mt-1">{syncMessage}</p>}
+          {connected && !syncing && (
+            <p className="text-[9px] text-emerald-400/70 font-mono mt-1 truncate">{sensor.telemetry}</p>
+          )}
+        </div>
 
         {/* Action */}
-        <div className="flex items-center justify-between">
-          {!connected && !syncing && (
-            <Button
-              size="sm"
-              onClick={() => {
-                if (isAngelList) fileRef.current?.click();
-                else onConnect();
-              }}
-              className={cn(
-                "rounded-lg text-xs font-semibold h-8 px-4 transition-all",
-                sensor.type === "identity"
-                  ? "bg-white text-[#0A0A0A] hover:bg-white/90"
-                  : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06] hover:border-white/30 hover:text-white"
-              )}
-            >
-              {sensor.buttonLabel}
-            </Button>
-          )}
-
-          {syncing && (
-            <div className="flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1">
-              <Loader2 className="h-3 w-3 text-indigo-400 animate-spin" />
-              <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Connecting...</span>
-            </div>
-          )}
-
-          {connected && !syncing && (
-            <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
-              <motion.div
-                className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
-            </div>
-          )}
-        </div>
+        {!connected && !syncing && (
+          <Button
+            size="sm"
+            onClick={() => {
+              if (isAngelList) fileRef.current?.click();
+              else onConnect();
+            }}
+            className={cn(
+              "rounded-lg text-[11px] font-semibold h-7 px-3 shrink-0 transition-all",
+              sensor.type === "identity"
+                ? "bg-white text-[#0A0A0A] hover:bg-white/90"
+                : "bg-transparent border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 hover:border-indigo-500/50"
+            )}
+          >
+            Sync
+          </Button>
+        )}
       </div>
 
-      {/* Hidden file input for AngelList */}
       {isAngelList && (
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv"
-          className="hidden"
-          onChange={() => onConnect()}
-        />
+        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={() => onConnect()} />
       )}
     </motion.div>
   );
