@@ -979,7 +979,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                             disabled
                             className="rounded-lg h-9 text-sm opacity-70"
                           />
-                          <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
+                          <p className="text-[9px] text-muted-foreground/60">
+                            Want to change your email?{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set("tab", "security");
+                                window.history.replaceState({}, "", url.toString());
+                                window.dispatchEvent(new Event("popstate"));
+                              }}
+                              className="text-accent hover:text-accent/80 underline underline-offset-2 font-medium transition-colors"
+                            >
+                              Go to Account → Security
+                            </button>
+                          </p>
                         </div>
                       </div>
                       <Separator className="my-4" />
@@ -1375,6 +1389,30 @@ function ThemeTab() {
 
 // ── Security Tab ──
 function SecurityTab() {
+  const { user } = useAuth();
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  const handleChangeEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) throw error;
+      toast.success("Confirmation email sent", { description: "Check both your old and new email inboxes to confirm the change." });
+      setChangingEmail(false);
+      setNewEmail("");
+    } catch (err: any) {
+      toast.error("Failed to update email", { description: err.message });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 8 }}
@@ -1389,6 +1427,64 @@ function SecurityTab() {
       </div>
 
       <div className="space-y-3">
+        {/* Change Email */}
+        <div className="rounded-xl border border-border p-4 space-y-3">
+          <button
+            onClick={() => setChangingEmail(prev => !prev)}
+            className="w-full flex items-center gap-3 text-left"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Change Email</p>
+              <p className="text-[10px] text-muted-foreground">{user?.email || "No email set"}</p>
+            </div>
+            <ArrowRight className={cn("h-4 w-4 text-muted-foreground/40 transition-transform", changingEmail && "rotate-90")} />
+          </button>
+
+          <AnimatePresence>
+            {changingEmail && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-2 space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">New Email Address</label>
+                    <Input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="Enter new email address"
+                      className="rounded-lg h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleChangeEmail}
+                      disabled={emailLoading || !newEmail.trim()}
+                      size="sm"
+                      className="rounded-lg text-xs gap-1.5"
+                    >
+                      {emailLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                      Send Confirmation
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setChangingEmail(false); setNewEmail(""); }} className="rounded-lg text-xs">
+                      Cancel
+                    </Button>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground/60">A confirmation link will be sent to both your current and new email addresses.</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Change Password */}
         <button className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
             <Lock className="h-4 w-4 text-muted-foreground" />
