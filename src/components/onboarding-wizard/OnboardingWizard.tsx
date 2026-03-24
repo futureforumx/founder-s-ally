@@ -6,11 +6,40 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
+import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { StepPowerUp } from "./StepPowerUp";
 import { toast } from "@/hooks/use-toast";
+
+// ── AI field guessing helpers ──
+function guessBusinessModel(sector: string): string[] {
+  const s = sector.toLowerCase();
+  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["SaaS"];
+  if (s.includes("marketplace") || s.includes("e-commerce")) return ["Marketplace"];
+  if (s.includes("fintech") || s.includes("insurtech")) return ["SaaS", "Usage-Based"];
+  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["SaaS"];
+  if (s.includes("edtech")) return ["SaaS", "Freemium"];
+  if (s.includes("cleantech") || s.includes("hardware") || s.includes("robotics")) return ["Hardware"];
+  if (s.includes("ai") || s.includes("ml")) return ["SaaS", "Usage-Based"];
+  if (s.includes("gaming")) return ["Freemium"];
+  if (s.includes("media") || s.includes("adtech")) return ["SaaS"];
+  return [];
+}
+
+function guessTargetCustomer(sector: string): string[] {
+  const s = sector.toLowerCase();
+  if (s.includes("enterprise") || s.includes("cybersecurity") || s.includes("devtools")) return ["Enterprise"];
+  if (s.includes("e-commerce") || s.includes("gaming") || s.includes("edtech")) return ["B2C"];
+  if (s.includes("fintech")) return ["SMB", "Enterprise"];
+  if (s.includes("govtech") || s.includes("defense")) return ["Government"];
+  if (s.includes("proptech") || s.includes("marketplace")) return ["B2B2C"];
+  if (s.includes("saas")) return ["SMB"];
+  if (s.includes("ai") || s.includes("ml")) return ["Enterprise", "SMB"];
+  if (s.includes("healthtech") || s.includes("biotech")) return ["Enterprise"];
+  return [];
+}
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
@@ -100,6 +129,41 @@ export function OnboardingWizard() {
           useMeetingNotes: false,
         },
       });
+
+      // ── Sync onboarding data to company-profile localStorage for Settings ──
+      const sectorGuess = state.sectors?.[0] || "";
+      const aiGuessedBusinessModel = guessBusinessModel(sectorGuess);
+      const aiGuessedTargetCustomer = guessTargetCustomer(sectorGuess);
+
+      const companyProfile: CompanyData = {
+        ...EMPTY_FORM,
+        name: state.companyName || "",
+        website: state.websiteUrl || "",
+        stage: state.stage || "",
+        sector: sectorGuess,
+        description: state.bio || "",
+        hqLocation: state.location || "",
+        businessModel: aiGuessedBusinessModel,
+        targetCustomer: aiGuessedTargetCustomer,
+        socialLinkedin: state.linkedinUrl || "",
+        socialTwitter: state.twitterUrl || "",
+      };
+
+      try {
+        localStorage.setItem("company-profile", JSON.stringify(companyProfile));
+      } catch {}
+
+      // Snapshot personal profile for nav HUD completion meter
+      try {
+        localStorage.setItem("user-profile-snapshot", JSON.stringify({
+          full_name: state.fullName,
+          title: state.title,
+          bio: state.bio,
+          location: state.location,
+          linkedin_url: state.linkedinUrl,
+          twitter_url: state.twitterUrl,
+        }));
+      } catch {}
 
       toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
       reset();
