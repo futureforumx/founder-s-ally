@@ -268,11 +268,9 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       </div>
                       <div className="rounded-xl bg-secondary/30 p-4 space-y-3">
                         <h4 className="text-sm font-semibold text-foreground">Shared Investors</h4>
-                        <div className="flex gap-2">
-                          {["Sequoia Scout", "Y Combinator"].map((inv) => (
-                            <Badge key={inv} variant="secondary" className="text-[10px] px-2 py-1">{inv}</Badge>
-                          ))}
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Shared investors are computed from your cap table. Add investors in your Company Profile to see overlap.
+                        </p>
                       </div>
                       <div className="rounded-xl bg-secondary/30 p-4 space-y-3">
                         <h4 className="text-sm font-semibold text-foreground">Similar Companies</h4>
