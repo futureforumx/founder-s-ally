@@ -1715,15 +1715,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="px-6 pb-6 space-y-4">
+                  <div className="px-6 pb-6 space-y-6">
                     {/* ── Company Name ── */}
                     <div className="space-y-1" data-field="company-name">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
                       <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
                         placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
                     </div>
                     {/* ── Company Logo + Stage row ── */}
-                    <div className="flex items-start gap-5">
+                    <div className="flex items-center gap-6">
                       {/* Logo Upload Slot */}
                       <div className="relative group shrink-0">
                         <input
@@ -1783,8 +1783,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       </div>
 
                       {/* Stage field next to logo */}
-                      <div className="space-y-1 flex-1 max-w-sm">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                      <div className="space-y-1 flex-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         Stage {renderFieldBadge("stage")}
                       </label>
                       <TaxonomyCombobox
@@ -1798,8 +1798,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                     </div>{/* end logo + stage row */}
 
-                    <div className="space-y-1" data-field="sector-tags">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                    <div className="space-y-2" data-field="sector-tags">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         Sector {renderFieldBadge("sector")}
                       </label>
                       <SectorChipGrid
@@ -1827,7 +1827,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                     {/* Row 3: HQ Location (full width) */}
                     <div className="space-y-1">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         HQ Location {renderFieldBadge("hqLocation")}
                       </label>
                       <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}

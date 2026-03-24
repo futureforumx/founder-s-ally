@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Pencil } from "lucide-react";
 import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
 
 // ── Types ──
@@ -125,7 +125,8 @@ function InlineChipRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase text-muted-foreground font-semibold tracking-wide">{label}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+        <Pencil className="h-3 w-3 text-muted-foreground/50" />
         {badge}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -191,7 +192,7 @@ export function SectorChipGrid({
   const hasAiSuggestions = aiSuggestedSectors.length > 0;
 
   return (
-    <div className={`space-y-4 ${className ?? ""}`}>
+    <div className={`space-y-6 ${className ?? ""}`}>
       {/* Sector Grid */}
       <div className="space-y-2">
         {hasAiSuggestions && (
