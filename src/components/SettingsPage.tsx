@@ -24,6 +24,7 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
+import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
