@@ -201,6 +201,7 @@ export function SectorChipGrid({
   aiSuggestedSectors = [],
   aiSuggestedModels = [],
   aiSuggestedCustomers = [],
+  approved = false,
   className,
 }: SectorChipGridProps) {
   const { primary_sector, secondary_sectors } = value;
