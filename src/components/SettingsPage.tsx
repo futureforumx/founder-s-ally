@@ -255,6 +255,7 @@ export function SettingsPage() {
               return (
                 <button
                   key={sec.id}
+                  data-tour={sec.id === "personal" ? "personal" : sec.id === "company-sec" ? "company" : sec.id === "network-sec" ? "network" : undefined}
                   onClick={() => handleSectionChange(sec.id)}
                   className={cn(
                     "px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest rounded-md transition-all",
