@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import type { OnboardingState } from "./types";
+import { PrivacyHubModal } from "./PrivacyHubModal";
 
 // ── Sensor Configs ──
 type SensorType = "identity" | "pipeline" | "ingestor";
