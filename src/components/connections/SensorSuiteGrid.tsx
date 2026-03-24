@@ -47,7 +47,7 @@ import {
   Table2, PieChart, ShoppingCart, DollarSign, Wallet, Banknote,
   Zap, GitBranch, Workflow, Repeat2,
   MailOpen, Palette, Megaphone,
-  LineChart, Eye, UserCheck
+  LineChart, Eye, UserCheck, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -554,6 +554,7 @@ interface SensorSuiteGridProps {
 
 export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("recommended");
+  const [searchQuery, setSearchQuery] = useState("");
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
   const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
   const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
@@ -1013,22 +1014,36 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           </motion.div>
         )}
 
-        {/* Category Filter Toggle */}
+        {/* Search + Category Filter */}
         {showCategoryFilter && (
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
-            {FILTER_CATEGORIES.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setActiveFilter(cat.key)}
-                className={`px-3 py-1 rounded-md text-[10px] uppercase tracking-wide transition-all font-mono font-bold ${
-                  activeFilter === cat.key
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="space-y-2">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find an integration..."
+                className="w-full h-8 rounded-lg border border-input bg-background pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
+              />
+            </div>
+            {!searchQuery && (
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+                {FILTER_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    onClick={() => setActiveFilter(cat.key)}
+                    className={`px-3 py-1 rounded-md text-[10px] uppercase tracking-wide transition-all font-mono font-bold ${
+                      activeFilter === cat.key
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1036,7 +1051,12 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         {showCategoryFilter ? (
           // Filtered flat list mode
           <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-            {SOURCES.filter(s => s.filterCategories.includes(activeFilter)).map((source, i) => {
+            {SOURCES.filter(s => {
+              if (searchQuery.trim()) {
+                return s.label.toLowerCase().includes(searchQuery.trim().toLowerCase());
+              }
+              return s.filterCategories.includes(activeFilter);
+            }).map((source, i) => {
               const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
               const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
                 ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
