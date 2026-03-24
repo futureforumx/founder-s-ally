@@ -1798,8 +1798,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>
                     </div>{/* end logo + stage row */}
 
-                    <div className="space-y-1" data-field="sector-tags">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                    <div className="space-y-2" data-field="sector-tags">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         Sector {renderFieldBadge("sector")}
                       </label>
                       <SectorChipGrid
