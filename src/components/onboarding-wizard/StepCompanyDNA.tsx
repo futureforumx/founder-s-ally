@@ -1,19 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { Globe, Upload, FileText, X, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { OnboardingState } from "./types";
-import {
-  STAGES, REVENUE_BANDS, COFOUNDER_OPTIONS, SUPERPOWERS,
-  TARGET_RAISES, ROUND_TYPES, SECTOR_OPTIONS,
-} from "./types";
 
 interface StepCompanyDNAProps {
   state: OnboardingState;
@@ -22,48 +13,92 @@ interface StepCompanyDNAProps {
   onBack: () => void;
 }
 
-function PillSelector({ options, value, onChange, multi }: {
-  options: string[];
-  value: string | string[];
-  onChange: (v: any) => void;
-  multi?: boolean;
-}) {
-  const isSelected = (opt: string) =>
-    multi ? (value as string[]).includes(opt) : value === opt;
+const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech"];
 
-  const toggle = (opt: string) => {
-    if (multi) {
-      const arr = value as string[];
-      onChange(arr.includes(opt) ? arr.filter((v) => v !== opt) : [...arr, opt]);
-    } else {
-      onChange(opt === value ? "" : opt);
-    }
-  };
+function extractDomain(url: string): string | null {
+  try {
+    let u = url.trim();
+    if (!u) return null;
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    const hostname = new URL(u).hostname.replace(/^www\./, "");
+    return hostname || null;
+  } catch { return null; }
+}
 
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          onClick={() => toggle(opt)}
-          className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
-            isSelected(opt)
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-card text-muted-foreground border-border hover:border-primary/40"
-          )}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
+function faviconSrc(domain: string): string {
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
-  const [date, setDate] = useState<Date | undefined>(
-    state.targetCloseDate ? new Date(state.targetCloseDate) : undefined
-  );
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [deckFile, setDeckFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const websiteDomain = extractDomain(state.websiteUrl);
+
+  const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
+    const name = file.name.toLowerCase();
+
+    if (name.endsWith(".txt") || name.endsWith(".md")) {
+      return await file.text();
+    }
+
+    if (name.endsWith(".pdf")) {
+      const pdfjsLib = await import("pdfjs-dist");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pages: string[] = [];
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((item: any) => ("str" in item ? item.str : ""))
+          .join(" ");
+        pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
+      }
+
+      return pages.join("\n\n");
+    }
+
+    throw new Error("Unsupported file type.");
+  }, []);
+
+  const handleFile = useCallback(async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) return;
+
+    setDeckFile(file);
+    setIsExtracting(true);
+    try {
+      const text = await extractTextFromFile(file);
+      update({ deckText: text, deckFileName: file.name });
+    } catch {
+      update({ deckText: "", deckFileName: file.name });
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [extractTextFromFile, update]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  }, [handleFile]);
+
+  const removeDeck = () => {
+    setDeckFile(null);
+    update({ deckText: "", deckFileName: "" });
+  };
 
   return (
     <motion.div
@@ -71,99 +106,119 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35 }}
-      className="w-full max-w-lg mx-auto space-y-6"
+      className="w-full max-w-lg mx-auto space-y-5"
     >
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Your Company</h1>
-        <p className="text-sm text-muted-foreground">Tell us about what you're building.</p>
+        <p className="text-sm text-muted-foreground">We'll use these to build your company profile.</p>
       </div>
 
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Company Name</label>
-            <Input value={state.companyName} onChange={(e) => update({ companyName: e.target.value })} placeholder="Acme Corp" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Role / Title</label>
-            <Input value={state.role} onChange={(e) => update({ role: e.target.value })} placeholder="CEO & Co-founder" />
-          </div>
-        </div>
-
+      <div className="space-y-4">
+        {/* Company Name */}
         <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Stage</label>
-          <PillSelector options={STAGES} value={state.stage} onChange={(v: string) => update({ stage: v })} />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Sector</label>
-          <PillSelector options={SECTOR_OPTIONS} value={state.sectors} onChange={(v: string[]) => update({ sectors: v })} multi />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Revenue Band</label>
-          <PillSelector options={REVENUE_BANDS} value={state.revenueBand} onChange={(v: string) => update({ revenueBand: v })} />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Co-founders</label>
-          <PillSelector options={COFOUNDER_OPTIONS} value={state.cofounderCount} onChange={(v: string) => update({ cofounderCount: v })} />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Superpowers <span className="text-muted-foreground/50">(pick up to 3)</span></label>
-          <PillSelector
-            options={SUPERPOWERS}
-            value={state.superpowers}
-            onChange={(v: string[]) => update({ superpowers: v.slice(0, 3) })}
-            multi
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Company Name
+          </label>
+          <Input
+            value={state.companyName}
+            onChange={(e) => update({ companyName: e.target.value })}
+            placeholder="Acme Corp"
           />
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border p-3">
-          <span className="text-sm font-medium text-foreground">Currently Raising?</span>
-          <Switch
-            checked={state.currentlyRaising}
-            onCheckedChange={(v) => update({ currentlyRaising: v })}
-          />
+        {/* Website URL */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Website URL
+          </label>
+          <div className="relative">
+            {websiteDomain ? (
+              <img
+                src={faviconSrc(websiteDomain)}
+                alt=""
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            )}
+            <Input
+              value={state.websiteUrl}
+              onChange={(e) => update({ websiteUrl: e.target.value })}
+              placeholder="https://acme.com"
+              className="pl-10"
+            />
+          </div>
         </div>
 
-        {state.currentlyRaising && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="space-y-4 pl-3 border-l-2 border-primary/20"
-          >
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Target Raise</label>
-              <PillSelector options={TARGET_RAISES} value={state.targetRaise} onChange={(v: string) => update({ targetRaise: v })} />
+        {/* Pitch Deck */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Pitch Deck (PDF)
+          </label>
+
+          {deckFile || state.deckFileName ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
+                <FileText className="h-5 w-5 text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {deckFile?.name || state.deckFileName}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {deckFile ? formatFileSize(deckFile.size) : ""}
+                  {isExtracting && (
+                    <span className="ml-2 inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Extracting...
+                    </span>
+                  )}
+                  {state.deckText && !isExtracting && (
+                    <span className="text-green-500 font-mono ml-2">✓ Text extracted</span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={removeDeck}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove file"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Round Type</label>
-              <PillSelector options={ROUND_TYPES} value={state.roundType} onChange={(v: string) => update({ roundType: v })} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Target Close Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-sm", !date && "text-muted-foreground")}>
-                    <CalendarIcon className="h-3.5 w-3.5 mr-2" />
-                    {date ? format(date, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => { setDate(d); update({ targetCloseDate: d?.toISOString() || "" }); }}
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </motion.div>
-        )}
+          ) : (
+            <>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-8 transition-all cursor-pointer",
+                  isDragOver
+                    ? "border-accent/60 bg-accent/5"
+                    : "border-border bg-muted/30 hover:border-accent/40"
+                )}
+              >
+                <Upload className={cn("h-8 w-8 transition-colors", isDragOver ? "text-accent" : "text-muted-foreground/50")} />
+                <span className="text-sm text-muted-foreground text-center px-4">
+                  Drop PDF here or click to browse
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Upload your latest pitch deck. The AI will extract metrics, competitive landscape, and cap table to build your profile.
+              </p>
+            </>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          />
+        </div>
       </div>
 
       <div className="flex justify-between pt-2">
