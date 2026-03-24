@@ -8,7 +8,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
-  MessageSquare, AlertTriangle, Loader2
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
