@@ -687,8 +687,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
 
   const handleAnalyzeClick = () => {
-    if (hasManualEdits) setShowOverrideWarning(true);
-    else handleAnalyze();
+    handleAnalyze();
   };
 
   // Map fields to their confirmation sections
@@ -2420,24 +2419,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         )}
       </div>
 
-      {/* Override warning dialog */}
-      <AlertDialog open={showOverrideWarning} onOpenChange={setShowOverrideWarning}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-semibold">Overwrite manual edits?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-muted-foreground">
-              You've made manual changes to this profile. Re-running the AI will overwrite your custom data with new AI predictions.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowOverrideWarning(false); handleAnalyze(); }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Overwrite & Run
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Hidden logo input */}
       <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
