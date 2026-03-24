@@ -2,6 +2,9 @@ export interface OnboardingState {
   step: number;
   // Step 1: Identity
   userType: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   linkedinUrl: string;
   twitterUrl: string;
   fullName: string;
@@ -36,6 +39,9 @@ export interface OnboardingState {
 export const defaultOnboardingState: OnboardingState = {
   step: 1,
   userType: "founder",
+  firstName: "",
+  lastName: "",
+  email: "",
   linkedinUrl: "",
   twitterUrl: "",
   fullName: "",

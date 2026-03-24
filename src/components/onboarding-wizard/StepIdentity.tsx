@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
+import { SmartCombobox } from "@/components/ui/smart-combobox";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { formatSocialUrl } from "@/lib/socialFormat";
+import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import type { OnboardingState } from "./types";
 
 interface StepIdentityProps {
@@ -19,28 +23,24 @@ interface StepIdentityProps {
 
 const USER_TYPES = [
   { id: "founder", label: "Founder", icon: Users, desc: "building a startup." },
-  { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startip." },
+  { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startup." },
   { id: "investor", label: "Investor", icon: Briefcase, desc: "finding startups." },
 ];
 
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
   const [xSyncing, setXSyncing] = useState(false);
   const [xVerified, setXVerified] = useState(false);
 
-  const handleLinkedinBlur = () => {
-    const formatted = formatSocialUrl("linkedin_personal", url);
-    if (formatted !== url) setUrl(formatted);
-    update({ linkedinUrl: formatted });
-  };
-
-  const handleXBlur = () => {
-    const formatted = formatSocialUrl("x", xUrl);
-    if (formatted !== xUrl) setXUrl(formatted);
-    update({ twitterUrl: formatted });
-  };
+  // Pre-fill email from auth user
+  useEffect(() => {
+    if (user?.email && !state.email) {
+      update({ email: user.email });
+    }
+  }, [user]);
 
   const handleMagicFill = async () => {
     if (!url.trim()) {
@@ -53,17 +53,20 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     update({ linkedinUrl: formattedLinkedin });
 
     try {
-      // Use the LinkedIn-specific sync function for better data extraction
       const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
         body: { linkedinUrl: formattedLinkedin },
       });
-
       if (error) throw error;
 
       const profileData = data?.data || {};
       const updates: Partial<OnboardingState> = { linkedinUrl: formattedLinkedin };
 
-      if (profileData.full_name) updates.fullName = profileData.full_name;
+      if (profileData.full_name) {
+        updates.fullName = profileData.full_name;
+        const parts = profileData.full_name.trim().split(/\s+/);
+        updates.firstName = parts[0] || "";
+        updates.lastName = parts.slice(1).join(" ") || "";
+      }
       if (profileData.title) updates.title = profileData.title;
       if (profileData.bio) updates.bio = profileData.bio.slice(0, 160);
       if (profileData.location) updates.location = profileData.location;
@@ -95,23 +98,18 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       const { data, error } = await supabase.functions.invoke("sync-x-profile", {
         body: { twitterUrl },
       });
-
       if (error || !data?.success) {
         if (data?.skipped) {
           toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
         }
         return;
       }
-
       const xData = data.data;
       const updates: Partial<OnboardingState> = {};
-
       if (xData.bio && !state.bio.trim()) updates.bio = xData.bio.slice(0, 160);
       if (xData.location && !state.location.trim()) updates.location = xData.location;
       if (xData.avatar_url && !state.avatarUrl) updates.avatarUrl = xData.avatar_url;
-
       if (Object.keys(updates).length > 0) update(updates);
-
       setXVerified(true);
       toast({ title: "X profile enriched successfully" });
     } catch {
@@ -128,6 +126,11 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     await enrichXProfile(formatted);
   };
 
+  // Sync fullName from firstName + lastName
+  const handleNameChange = (first: string, last: string) => {
+    const full = [first, last].filter(Boolean).join(" ");
+    update({ firstName: first, lastName: last, fullName: full });
+  };
 
   return (
     <motion.div
@@ -135,7 +138,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="flex flex-col items-center gap-5 w-full max-w-lg mx-auto"
+      className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto"
     >
       <div className="text-center space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
@@ -178,6 +181,63 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
 
       <Separator className="w-full" />
 
+      {/* Personal Details */}
+      <div className="w-full space-y-3">
+        <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Your details</h3>
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">First Name</label>
+              <Input
+                value={state.firstName}
+                onChange={(e) => handleNameChange(e.target.value, state.lastName)}
+                placeholder="Jane"
+                className="rounded-lg h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Last Name</label>
+              <Input
+                value={state.lastName}
+                onChange={(e) => handleNameChange(state.firstName, e.target.value)}
+                placeholder="Doe"
+                className="rounded-lg h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Role</label>
+              <SmartCombobox
+                value={state.title}
+                onChange={(v) => update({ title: v })}
+                options={ROLE_OPTIONS}
+                placeholder="e.g. CEO & Co-Founder"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company</label>
+              <Input
+                value={state.companyName}
+                onChange={(e) => update({ companyName: e.target.value })}
+                placeholder="Acme Inc."
+                className="rounded-lg h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+            <Input
+              value={state.email}
+              disabled
+              className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground"
+            />
+          </div>
+        </div>
+      </div>
+
+      <Separator className="w-full" />
+
       {loading ? (
         <div className="w-full space-y-3 py-4">
           <div className="flex items-center justify-center gap-3">
@@ -209,9 +269,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
               </Tooltip>
             </div>
 
-            {/* Two-column inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* LinkedIn URL */}
               <MorphingUrlInput
                 platform="linkedin"
                 label="LinkedIn"
@@ -224,8 +282,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                 }}
                 verifyState="idle"
               />
-
-              {/* X / Twitter URL */}
               <MorphingUrlInput
                 platform="x"
                 label="X / Twitter"
@@ -248,7 +304,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             </Button>
           </div>
 
-          {/* OAuth option — condensed inline */}
+          {/* OAuth option */}
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Linkedin className="h-4 w-4 text-[#0A66C2]" />
