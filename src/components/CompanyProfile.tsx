@@ -1010,8 +1010,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (analysisData?.error) throw new Error(analysisData.error);
 
       setAnalyzeStep("mapping");
-      applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
-      applyMetricsFromResult(analysisData.metrics);
 
       const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
       const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount", "businessModel", "targetCustomer", "uniqueValueProp", "competitors"];
@@ -1025,40 +1023,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         else if (sources.length === 1 && sources[0] === "deck") verification[field] = { sources, status: "deck-only" };
         else if (sources.length >= 1) verification[field] = { sources, status: "predictive" };
       }
-      setSourceVerification(verification);
 
-      if (analysisData.stageClassification) {
-        setStageClassification(analysisData.stageClassification);
-        onStageClassification?.(analysisData.stageClassification);
-        if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
-          setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
-        }
-      }
-
-      setScanningMetrics(false);
-      setAnalysisComplete(true);
-      const analyzedInputs = { url: form.website, hasDeck: !!deckText };
-      setLastAnalyzedInputs(analyzedInputs);
-      try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
-      setMetricsUnlocked(true);
-      setOriginalFormSnapshot(null);
-      setDataSource("ai");
-      // Reset section confirmations and field edit tracking, enter review mode
-      setSectionConfirmed({});
-      setFieldsEditedSinceAnalysis(false);
-      enterReviewMode("overview");
-
-      const deckInvestors = analysisData.extractedInvestors || [];
-      const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
-      const mergedInvestors = [...deckInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
-      const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
-      onAnalysis?.(finalResult as AnalysisResult);
-      try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
-      // Queue deck audit for when the user navigates to the Deck Audit tab
-      if (deckText) {
-        try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
-      }
-      onWalkthroughComplete?.();
+      // Store pending data and open review modal instead of auto-applying
+      setPendingAnalysis({ analysisData, scrapedMarkdown, deepSearchInvestors, verification });
+      setShowAnalysisOverlay(false);
+      setIsAnalyzing(false);
+      setAnalyzeStep("");
+      setAnalysisReviewOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
