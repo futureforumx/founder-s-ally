@@ -739,7 +739,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               </motion.div>
               <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
                 {sectionSources.map((source, i) => {
-                  const sensor = { id: source.key, name: source.label, icon_url: source.customIcon };
+                  const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
                   const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
                     ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
                     : sensor.icon_url;
