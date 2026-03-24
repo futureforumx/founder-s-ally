@@ -621,8 +621,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           Connecting…
                         </span>
-                      )}
-                      )}
+                      }
                     </div>
                   </div>
                 </div>
