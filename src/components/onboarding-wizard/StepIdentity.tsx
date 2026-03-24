@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
+import { Linkedin, Twitter, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { formatSocialUrl } from "@/lib/socialFormat";
 import type { OnboardingState } from "./types";
 
 interface StepIdentityProps {
@@ -25,6 +25,21 @@ const USER_TYPES = [
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
+  const [xUrl, setXUrl] = useState(state.twitterUrl);
+  const [xSyncing, setXSyncing] = useState(false);
+  const [xVerified, setXVerified] = useState(false);
+
+  const handleLinkedinBlur = () => {
+    const formatted = formatSocialUrl("linkedin_personal", url);
+    if (formatted !== url) setUrl(formatted);
+    update({ linkedinUrl: formatted });
+  };
+
+  const handleXBlur = () => {
+    const formatted = formatSocialUrl("x", xUrl);
+    if (formatted !== xUrl) setXUrl(formatted);
+    update({ twitterUrl: formatted });
+  };
 
   const handleMagicFill = async () => {
     if (!url.trim()) {
@@ -32,29 +47,90 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       return;
     }
     setLoading(true);
-    update({ linkedinUrl: url });
+    const formattedLinkedin = formatSocialUrl("linkedin_personal", url);
+    setUrl(formattedLinkedin);
+    update({ linkedinUrl: formattedLinkedin });
+
     try {
       const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: url.trim() },
+        body: { url: formattedLinkedin },
       });
       if (error) throw error;
       const name = data?.title?.split("|")?.[0]?.trim() || "";
       update({
-        linkedinUrl: url,
+        linkedinUrl: formattedLinkedin,
         fullName: name || state.fullName,
       });
+
+      // Auto-trigger X enrichment if X URL is filled
+      if (xUrl.trim()) {
+        await enrichXProfile(formatSocialUrl("x", xUrl));
+      }
+
       onNext();
     } catch {
       toast({
         title: "Couldn't find your profile",
         description: "Fill in manually on the next step.",
       });
-      update({ linkedinUrl: url });
+      update({ linkedinUrl: formattedLinkedin });
       onNext();
     } finally {
       setLoading(false);
     }
   };
+
+  const enrichXProfile = async (twitterUrl: string) => {
+    if (!twitterUrl.trim()) return;
+    setXSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-x-profile", {
+        body: { twitterUrl },
+      });
+
+      if (error || !data?.success) {
+        if (data?.skipped) {
+          toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
+        }
+        return;
+      }
+
+      const xData = data.data;
+      const updates: Partial<OnboardingState> = {};
+
+      if (xData.bio && !state.bio.trim()) updates.bio = xData.bio.slice(0, 160);
+      if (xData.location && !state.location.trim()) updates.location = xData.location;
+      if (xData.avatar_url && !state.avatarUrl) updates.avatarUrl = xData.avatar_url;
+
+      if (Object.keys(updates).length > 0) {
+        update(updates);
+      }
+
+      setXVerified(true);
+      toast({ title: "X profile enriched successfully" });
+    } catch {
+      toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
+    } finally {
+      setXSyncing(false);
+    }
+  };
+
+  const handleEnrichX = async () => {
+    const formatted = formatSocialUrl("x", xUrl);
+    setXUrl(formatted);
+    update({ twitterUrl: formatted });
+    await enrichXProfile(formatted);
+  };
+
+  // LinkedIn domain extraction for favicon
+  const linkedinDomain = (() => {
+    try {
+      if (!url.trim()) return null;
+      let u = url.trim();
+      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+      return new URL(u).hostname.replace(/^www\./, "") || null;
+    } catch { return null; }
+  })();
 
   return (
     <motion.div
@@ -118,13 +194,13 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          {/* Option A */}
+        <div className="w-full space-y-4">
+          {/* Social profiles card */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Linkedin className="h-4 w-4 text-primary" />
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                LinkedIn URL
+                Social Profiles
               </span>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -135,19 +211,97 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                 </TooltipContent>
               </Tooltip>
             </div>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="linkedin.com/in/yourname"
-              className="text-sm"
-            />
+
+            {/* LinkedIn URL */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
+              <div className="relative">
+                {linkedinDomain && (
+                  <img
+                    src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${linkedinDomain}&size=32`}
+                    alt=""
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value.toLowerCase())}
+                  onBlur={handleLinkedinBlur}
+                  placeholder="linkedin.com/in/yourname"
+                  className={cn(
+                    "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
+                    "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    linkedinDomain ? "pl-9" : ""
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* X / Twitter URL */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
+              <div className="relative">
+                {xUrl.trim() && (
+                  <img
+                    src="https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.com&size=32"
+                    alt=""
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <input
+                  value={xUrl}
+                  onChange={(e) => setXUrl(e.target.value.toLowerCase())}
+                  onBlur={handleXBlur}
+                  placeholder="x.com/handle or @handle"
+                  className={cn(
+                    "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
+                    "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    xUrl.trim() ? "pl-9" : ""
+                  )}
+                />
+                {/* Inline verified badge / enrich button */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {xSyncing && (
+                    <span className="flex items-center gap-1 text-[10px] text-accent">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Syncing…
+                    </span>
+                  )}
+                  {!xSyncing && xVerified && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="flex items-center gap-0.5 text-[10px] font-medium text-success"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Verified
+                    </motion.span>
+                  )}
+                  {!xSyncing && !xVerified && xUrl.trim() && (
+                    <motion.button
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      onClick={(e) => { e.stopPropagation(); handleEnrichX(); }}
+                      className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
+                      title="Enrich X profile"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Enrich
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <Button onClick={handleMagicFill} className="w-full gap-2" size="sm">
               <Sparkles className="h-3.5 w-3.5" />
               Magic Fill My Profile
             </Button>
           </div>
 
-          {/* Option B */}
+          {/* OAuth option */}
           <div className="rounded-xl border border-border bg-card p-5 flex flex-col items-center justify-center gap-4">
             <Linkedin className="h-8 w-8 text-[#0A66C2]" />
             <p className="text-xs text-muted-foreground text-center">
