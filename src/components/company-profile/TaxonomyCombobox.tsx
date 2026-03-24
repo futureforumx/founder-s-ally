@@ -27,6 +27,7 @@ interface TaxonomyComboboxProps<T extends TaxonomyOption = TaxonomyOption> {
   placeholder?: string;
   allowCustom?: boolean;
   isAiDraft?: boolean;
+  isAiApproved?: boolean;
   className?: string;
   /** Optional icon component to render at left */
   icon?: React.ReactNode;
