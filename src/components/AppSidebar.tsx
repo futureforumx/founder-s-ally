@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound } from "lucide-react";
+import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -32,7 +33,7 @@ const communityItems = [
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const { profile } = useProfile();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
@@ -149,28 +150,47 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
         </nav>
 
         <div className="border-t border-sidebar-border px-3 py-4">
-          <button
-            onClick={() => onViewChange("settings")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
-              activeView === "settings"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-            )}>
-            {profile?.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={displayName}
-                className="h-5 w-5 rounded-full object-cover shrink-0"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            ) : (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary shrink-0">
-                {initials}
-              </div>
-            )}
-            <span className="truncate">{displayName}</span>
-          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+                  activeView === "settings"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                )}>
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    className="h-5 w-5 rounded-full object-cover shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary shrink-0">
+                    {initials}
+                  </div>
+                )}
+                <span className="truncate">{displayName}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="start" className="w-48 p-1.5">
+              <button
+                onClick={() => onViewChange("settings")}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <UserCog className="h-4 w-4" />
+                Profile & Settings
+              </button>
+              <button
+                onClick={() => signOut()}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
+            </PopoverContent>
+          </Popover>
         </div>
       </aside>
   );
