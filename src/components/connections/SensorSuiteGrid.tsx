@@ -96,6 +96,7 @@ interface SourceConfig {
   disconnectWarning: string;
   section: SensorSection;
   note?: string;
+  filterCategories: FilterCategory[];
 }
 
 const SOURCES: SourceConfig[] = [
