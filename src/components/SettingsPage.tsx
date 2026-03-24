@@ -211,22 +211,22 @@ export function SettingsPage() {
   const handleMissionNavigate = useCallback((tab: string, field?: string) => {
     handleTabChange(tab as SettingsTab);
     if (field) {
-      setTimeout(() => {
+      // Dispatch event so CompanyProfile can open the correct section first
+      window.dispatchEvent(new CustomEvent("mission-navigate-field", { detail: { field } }));
+      // Retry finding the element after section opens
+      const tryScroll = (attempts: number) => {
         const el = document.querySelector(`[data-field="${field}"]`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          // Pulse highlight
           el.classList.add("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-          // Shake animation
           el.classList.add("animate-shake");
-          setTimeout(() => {
-            el.classList.remove("animate-shake");
-          }, 500);
-          setTimeout(() => {
-            el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300");
-          }, 2500);
+          setTimeout(() => el.classList.remove("animate-shake"), 500);
+          setTimeout(() => el.classList.remove("ring-2", "ring-warning", "ring-offset-2", "rounded-xl", "shadow-[0_0_16px_hsl(var(--warning)/0.35)]", "transition-all", "duration-300"), 2500);
+        } else if (attempts > 0) {
+          setTimeout(() => tryScroll(attempts - 1), 200);
         }
-      }, 400);
+      };
+      setTimeout(() => tryScroll(5), 300);
     }
   }, []);
 
