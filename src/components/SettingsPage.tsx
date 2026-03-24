@@ -1164,7 +1164,7 @@ function NetworkTab() {
         </div>
 
         {networkView === "company" && (
-          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#050505" }}>
+          <div className="rounded-2xl overflow-hidden">
             <div className="p-6">
               <SensorSuiteGrid compact={false} showHeader={true} showTerminal={true} />
             </div>
