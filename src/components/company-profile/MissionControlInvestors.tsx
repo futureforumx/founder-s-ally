@@ -225,10 +225,6 @@ export function MissionControlInvestors({
   };
 
   const handleConfirm = () => {
-    if (isEmpty) {
-      toast.error("Add at least one investor before confirming.");
-      return;
-    }
     setConfirmed(true);
     setIsOpen(false);
     onConfirmedChange?.(true);
@@ -511,6 +507,13 @@ export function MissionControlInvestors({
                 </div>
               )}
             </div>
+
+            {/* No investors inline alert */}
+            {allBackers.length === 0 && (
+              <p className="text-[11px] font-bold text-destructive mt-1">
+                No investors added. We'll get you there!
+              </p>
+            )}
           </div>
 
           {/* ═══ CONFIRM HANDSHAKE ═══ */}
