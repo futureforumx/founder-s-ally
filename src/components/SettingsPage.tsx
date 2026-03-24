@@ -376,6 +376,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     if ("userType" in updates) dbUpdates.user_type = updates.userType;
     if ("linkedinUrl" in updates) dbUpdates.linkedin_url = updates.linkedinUrl || null;
     if ("twitterUrl" in updates) dbUpdates.twitter_url = updates.twitterUrl || null;
+    if ("resumeUrl" in updates) dbUpdates.resume_url = updates.resumeUrl || null;
     // Handle company_id for founders
     if (updates.userType === "founder" && userId) {
       const { data: comp } = await (supabase as any)
