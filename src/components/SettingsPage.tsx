@@ -979,7 +979,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                             disabled
                             className="rounded-lg h-9 text-sm opacity-70"
                           />
-                          <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
+                          <p className="text-[9px] text-muted-foreground/60">
+                            Want to change your email?{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set("tab", "security");
+                                window.history.replaceState({}, "", url.toString());
+                                window.dispatchEvent(new Event("popstate"));
+                              }}
+                              className="text-accent hover:text-accent/80 underline underline-offset-2 font-medium transition-colors"
+                            >
+                              Go to Account → Security
+                            </button>
+                          </p>
                         </div>
                       </div>
                       <Separator className="my-4" />
