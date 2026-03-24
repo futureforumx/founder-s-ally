@@ -1154,23 +1154,42 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setOpenSections(prev => ({ ...prev, [section]: false }));
     toast({ title: `${section} confirmed`, description: "Section verified and saved." });
 
-    // Auto-advance to next section in review mode
-    if (isInReviewMode) {
-      const currentIdx = REVIEW_ORDER.indexOf(section as typeof REVIEW_ORDER[number]);
-      const nextSection = REVIEW_ORDER[currentIdx + 1];
-      if (nextSection) {
+    // Auto-advance to next unconfirmed section (works in review mode AND first-time walkthrough)
+    const currentIdx = REVIEW_ORDER.indexOf(section as typeof REVIEW_ORDER[number]);
+    const nextSection = REVIEW_ORDER.slice(currentIdx + 1).find(s => !sectionConfirmed[s] && s !== section);
+
+    if (nextSection) {
+      setTimeout(() => {
+        if (isInReviewMode) setActiveReviewSection(nextSection);
+        setOpenSections(prev => ({ ...prev, [nextSection]: true }));
+
+        // Scroll to and highlight the next section
         setTimeout(() => {
-          setActiveReviewSection(nextSection);
-          setOpenSections(prev => ({ ...prev, [nextSection]: true }));
-        }, 200);
-      } else {
-        // All profile sections reviewed — exit review mode and scroll to investors
-        setActiveReviewSection(null);
-        // Dispatch event so Index can auto-scroll to Investors
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent("scroll-to-investors"));
-        }, 400);
-      }
+          const el = sectionRefs.current[nextSection];
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            // Add highlight ring animation
+            el.classList.add(
+              "ring-2", "ring-accent/60", "ring-offset-2", "ring-offset-background",
+              "rounded-xl", "shadow-[0_0_20px_hsl(var(--accent)/0.2)]",
+              "transition-all", "duration-500"
+            );
+            setTimeout(() => {
+              el.classList.remove(
+                "ring-2", "ring-accent/60", "ring-offset-2", "ring-offset-background",
+                "rounded-xl", "shadow-[0_0_20px_hsl(var(--accent)/0.2)]",
+                "transition-all", "duration-500"
+              );
+            }, 2500);
+          }
+        }, 300);
+      }, 200);
+    } else if (isInReviewMode) {
+      // All profile sections reviewed — exit review mode and scroll to investors
+      setActiveReviewSection(null);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("scroll-to-investors"));
+      }, 400);
     }
   };
 
