@@ -98,7 +98,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect Google? This will pause email thread analysis.",
   },
   {
-    key: "linkedin", label: "LinkedIn", icon: Linkedin, section: "recommended",
+    key: "linkedin", label: "LinkedIn", icon: Linkedin, customIcon: BRAND_ICONS.linkedin, section: "recommended",
     categoryTag: "PROFESSIONAL IDENTITY",
     glowColor: "shadow-[0_0_24px_rgba(59,130,246,0.3)]", glowHsl: "bg-blue-500",
     description: "Map your professional network graph",
