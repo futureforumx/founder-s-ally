@@ -180,7 +180,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect HubSpot? This will pause contact and deal syncing.",
   },
   {
-    key: "attio", label: "Attio", icon: Layers, section: "power",
+    key: "attio", label: "Attio", icon: Layers, customIcon: BRAND_ICONS.attio, section: "power",
     categoryTag: "VC-NATIVE CRM",
     glowColor: "shadow-[0_0_24px_rgba(168,85,247,0.3)]", glowHsl: "bg-purple-500",
     description: "Sync your VC-native relationship CRM",
