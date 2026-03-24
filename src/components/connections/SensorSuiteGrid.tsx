@@ -350,7 +350,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
                   isConnected ? "bg-primary/5 border border-primary/10" : "bg-muted border border-border"
                 }`}>
-                  <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
+                  {source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-4 w-4 object-contain" /> : <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />}
                 </div>
                 {isConnected && (
                   <motion.div
