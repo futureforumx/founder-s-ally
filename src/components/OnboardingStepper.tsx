@@ -160,15 +160,21 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       // Skip AI analysis if there's no content to analyze
       if (!websiteMarkdown && !deckText) {
         setAnalysisResult({
-          healthScore: null,
+          healthScore: 0,
           executiveSummary: "",
-          metrics: { mrr: "", burnRate: "", runway: "", ltv: "", cac: "" },
-          scrapedHeader: "",
-          scrapedValueProp: "",
-          scrapedPricing: "",
           header: "",
           valueProposition: "",
           metricTable: [],
+          metrics: {
+            mrr: { value: "", confidence: "low" },
+            burnRate: { value: "", confidence: "low" },
+            runway: { value: "", confidence: "low" },
+            ltv: { value: "", confidence: "low" },
+            cac: { value: "", confidence: "low" },
+          },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
         } as AnalysisResult);
         setStep(3);
         return;
