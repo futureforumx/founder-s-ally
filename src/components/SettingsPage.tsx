@@ -1172,11 +1172,7 @@ function NetworkTab() {
         )}
 
         {networkView === "personal" && (
-          <div className="text-center py-16 text-muted-foreground">
-            <Network className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-medium">Personal Network</p>
-            <p className="text-xs mt-1">Your personal connections and introductions will appear here.</p>
-          </div>
+          <PersonalNetworkSection />
         )}
       </div>
     </TabWrapper>
