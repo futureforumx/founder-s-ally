@@ -118,7 +118,7 @@ serve(async (req) => {
         company_name: null,
         description: pageContent?.slice(0, 500) || null,
         sector: null,
-        website_url: companyUrl,
+        website_url: normalizedUrl,
         logo_url: null,
         hq_location: null,
         employee_count: null,
