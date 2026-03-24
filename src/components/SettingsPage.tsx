@@ -7,7 +7,7 @@ import {
   User, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
-  Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
+  Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
   MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronDown
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
@@ -1140,12 +1140,44 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
 // ── Network Tab (Sensor Suite) ──
 function NetworkTab() {
+  const [networkView, setNetworkView] = useState<"company" | "personal">("company");
+
   return (
     <TabWrapper>
-      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#050505" }}>
-        <div className="p-6">
-          <SensorSuiteGrid compact={false} showHeader={true} showTerminal={true} />
+      <div className="space-y-6">
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+          {(["company", "personal"] as const).map((view) => (
+            <button
+              key={view}
+              onClick={() => setNetworkView(view)}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wide transition-all",
+                networkView === view
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {view}
+            </button>
+          ))}
         </div>
+
+        {networkView === "company" && (
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#050505" }}>
+            <div className="p-6">
+              <SensorSuiteGrid compact={false} showHeader={true} showTerminal={true} />
+            </div>
+          </div>
+        )}
+
+        {networkView === "personal" && (
+          <div className="text-center py-16 text-muted-foreground">
+            <Network className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm font-medium">Personal Network</p>
+            <p className="text-xs mt-1">Your personal connections and introductions will appear here.</p>
+          </div>
+        )}
       </div>
     </TabWrapper>
   );
