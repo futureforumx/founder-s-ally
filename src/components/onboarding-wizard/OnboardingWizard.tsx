@@ -16,15 +16,15 @@ import { toast } from "@/hooks/use-toast";
 // ── AI field guessing helpers ──
 function guessBusinessModel(sector: string): string[] {
   const s = sector.toLowerCase();
-  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["SaaS"];
+  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["B2B SaaS"];
   if (s.includes("marketplace") || s.includes("e-commerce")) return ["Marketplace"];
-  if (s.includes("fintech") || s.includes("insurtech")) return ["SaaS", "Usage-Based"];
-  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["SaaS"];
-  if (s.includes("edtech")) return ["SaaS", "Freemium"];
+  if (s.includes("fintech") || s.includes("insurtech")) return ["B2B SaaS", "Usage-Based"];
+  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["B2B SaaS"];
+  if (s.includes("edtech")) return ["B2B SaaS", "Freemium"];
   if (s.includes("cleantech") || s.includes("hardware") || s.includes("robotics")) return ["Hardware"];
-  if (s.includes("ai") || s.includes("ml")) return ["SaaS", "Usage-Based"];
+  if (s.includes("ai") || s.includes("ml")) return ["B2B SaaS", "Usage-Based"];
   if (s.includes("gaming")) return ["Freemium"];
-  if (s.includes("media") || s.includes("adtech")) return ["SaaS"];
+  if (s.includes("media") || s.includes("adtech")) return ["Advertising"];
   return [];
 }
 
