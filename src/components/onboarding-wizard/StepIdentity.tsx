@@ -97,11 +97,17 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     }
   }, [user]);
 
-  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
+  const hasSocialProfile = state.linkedinUrl.trim().length > 0 || state.twitterUrl.trim().length > 0;
+  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0 && hasSocialProfile;
 
   const handleValidatedNext = () => {
     if (!canProceed) {
-      toast({ title: "Required fields", description: "Please fill in First Name, Last Name, and Role.", variant: "destructive" });
+      const missing: string[] = [];
+      if (!state.firstName.trim()) missing.push("First Name");
+      if (!state.lastName.trim()) missing.push("Last Name");
+      if (!state.title.trim()) missing.push("Role");
+      if (!hasSocialProfile) missing.push("LinkedIn or X profile");
+      toast({ title: "Required fields", description: `Please fill in: ${missing.join(", ")}.`, variant: "destructive" });
       return;
     }
     onNext();
@@ -322,8 +328,9 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             <div className="flex items-center gap-2">
               <Linkedin className="h-3.5 w-3.5 text-primary" />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Social Profiles
+                Social Profiles <span className="text-destructive">*</span>
               </span>
+              <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
