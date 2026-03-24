@@ -565,70 +565,149 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           const key = b.name.toLowerCase().trim();
           const enriched = enrichCache?.[key];
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
+          const location = enriched?.profile?.location || null;
+          const website = b.website || (enriched?.profile?.logoUrl?.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : null);
 
           return (
-            <div
-              key={b.id}
-              className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg group ${
-                b.id === highlightedId ? "ring-2 ring-accent" : ""
-              }`}
-              style={{
-                background: "hsl(var(--background))",
-                boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
-              }}
-            >
-              {/* Header: Logo + Name + Edit */}
-              <div className="flex items-center gap-3">
-                <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
-                  {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                  <AvatarFallback
-                    className="text-sm font-bold rounded-xl"
-                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                  >
-                    {b.logoLetter}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
-                  {slogan && (
-                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{slogan}</p>
-                  )}
-                </div>
+            <Popover key={b.id}>
+              <PopoverTrigger asChild>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleRowClick(b); }}
-                  className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors shrink-0"
+                  className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg text-left w-full cursor-pointer ${
+                    b.id === highlightedId ? "ring-2 ring-accent" : ""
+                  }`}
+                  style={{
+                    background: "hsl(var(--background))",
+                    boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
+                  }}
                 >
-                  Edit
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
+                      {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                      <AvatarFallback
+                        className="text-sm font-bold rounded-xl"
+                        style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                      >
+                        {b.logoLetter}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
+                      {slogan && (
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{slogan}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {b.instrument && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">Instrument</span>
+                        <span className="text-[11px] font-medium text-foreground">{b.instrument.split("(")[0].trim()}</span>
+                      </div>
+                    )}
+                    {b.date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground">Date</span>
+                        <span className="text-[11px] font-medium text-foreground">{b.date}</span>
+                      </div>
+                    )}
+                  </div>
                 </button>
-              </div>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="center"
+                sideOffset={8}
+                className="w-80 rounded-2xl border border-border p-0 shadow-xl overflow-hidden"
+                style={{ background: "hsl(var(--card))" }}
+              >
+                {/* Popover Hero */}
+                <div
+                  className="relative h-16 w-full"
+                  style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.12))" }}
+                />
+                <div className="px-5 -mt-8">
+                  <Avatar className="h-14 w-14 rounded-xl border-2 border-card shadow-lg">
+                    {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
+                    <AvatarFallback
+                      className="text-base font-bold rounded-xl"
+                      style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
+                    >
+                      {b.logoLetter}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
 
-              {/* Detail Rows */}
-              <div className="mt-3 space-y-1.5">
-                {b.amount > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">Amount</span>
-                    <span className="text-[11px] font-bold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
-                      {formatCompactCurrency(b.amount)}
-                    </span>
+                <div className="px-5 pt-2 pb-5 space-y-4">
+                  {/* Name + Edit */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-base font-bold text-foreground truncate">{b.name}</p>
+                      {slogan && (
+                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{slogan}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRowClick(b); }}
+                      className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors shrink-0 mt-1"
+                    >
+                      Edit
+                    </button>
                   </div>
-                )}
-                {b.instrument && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">Instrument</span>
-                    <span className="text-[11px] font-medium text-foreground">{b.instrument.split("(")[0].trim()}</span>
+
+                  {/* Detail Grid */}
+                  <div className="space-y-2.5 rounded-xl border border-border bg-secondary/20 p-3.5">
+                    {b.amount > 0 && (
+                      <div className="flex items-center gap-2.5">
+                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground flex-1">Amount</span>
+                        <span className="text-[11px] font-bold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
+                          {formatCompactCurrency(b.amount)}
+                        </span>
+                      </div>
+                    )}
+                    {b.instrument && (
+                      <div className="flex items-center gap-2.5">
+                        <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground flex-1">Instrument</span>
+                        <span className="text-[11px] font-medium text-foreground">{b.instrument}</span>
+                      </div>
+                    )}
+                    {b.date && (
+                      <div className="flex items-center gap-2.5">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground flex-1">Date</span>
+                        <span className="text-[11px] font-medium text-foreground">{b.date}</span>
+                      </div>
+                    )}
+                    {location && (
+                      <div className="flex items-center gap-2.5">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground flex-1">Location</span>
+                        <span className="text-[11px] font-medium text-foreground">{location}</span>
+                      </div>
+                    )}
+                    {website && (
+                      <div className="flex items-center gap-2.5">
+                        <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-[11px] text-muted-foreground flex-1">Website</span>
+                        <a
+                          href={website.startsWith("http") ? website : `https://${website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-medium text-primary hover:underline truncate max-w-[120px]"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                        </a>
+                      </div>
+                    )}
+                    {!b.amount && !b.instrument && !b.date && !location && !website && (
+                      <p className="text-[11px] text-muted-foreground italic text-center py-1">No details yet.</p>
+                    )}
                   </div>
-                )}
-                {b.date && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">Date</span>
-                    <span className="text-[11px] font-medium text-foreground">{b.date}</span>
-                  </div>
-                )}
-                {!b.amount && !b.instrument && !b.date && (
-                  <p className="text-[11px] text-muted-foreground italic">No details yet — click Edit to add.</p>
-                )}
-              </div>
-            </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           );
         })}
       </div>
