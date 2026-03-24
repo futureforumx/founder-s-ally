@@ -97,6 +97,17 @@ function setTabInUrl(tab: SettingsTab) {
 // ── Main Page ──
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
+
+  // Re-sync tab from URL when navigated externally (e.g. dropdown)
+  useEffect(() => {
+    const syncTab = () => {
+      const urlTab = getTabFromUrl();
+      setActiveTab(prev => prev !== urlTab ? urlTab : prev);
+    };
+    // Check on every render cycle in case replaceState was called
+    const interval = setInterval(syncTab, 300);
+    return () => clearInterval(interval);
+  }, []);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, signOut } = useAuth();
