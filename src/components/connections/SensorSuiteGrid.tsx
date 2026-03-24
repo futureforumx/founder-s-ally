@@ -534,7 +534,6 @@ const TERMINAL_LOGS = [
 ];
 
 const FILTER_CATEGORIES: { key: FilterCategory; label: string }[] = [
-  { key: "recommended", label: "RECOMMENDED" },
   { key: "crm", label: "CRM" },
   { key: "social", label: "SOCIAL" },
   { key: "meetings", label: "MEETINGS" },
