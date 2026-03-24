@@ -473,43 +473,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Social link enrichment state
   const [socialEnrichState, setSocialEnrichState] = useState<Record<string, "idle" | "syncing" | "verified">>({ x: "idle", linkedin: "idle" });
 
-  const handleSocialEnrich = useCallback(async (platform: "x" | "linkedin") => {
-    const url = platform === "x" ? form.socialTwitter : form.socialLinkedin;
-    if (!url.trim()) {
-      toast({ variant: "destructive", title: `Enter a ${platform === "x" ? "X/Twitter" : "LinkedIn"} URL first` });
-      return;
-    }
-    setSocialEnrichState(prev => ({ ...prev, [platform]: "syncing" }));
-    try {
-      if (platform === "x") {
-        const { data, error } = await supabase.functions.invoke("sync-x-profile", {
-          body: { twitterUrl: url },
-        });
-        if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
-        // Populate empty fields from X profile
-        if (data?.bio && !form.description) update("description", data.bio);
-        if (data?.location && !form.hqLocation) update("hqLocation", data.location);
-        toast({ title: "X profile enriched", description: "Available fields populated." });
-      } else {
-        const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
-          body: { companyUrl: url },
-        });
-        if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
-        // Populate empty fields from LinkedIn company data
-        if (data?.description && !form.description) update("description", data.description);
-        if (data?.location && !form.hqLocation) update("hqLocation", data.location);
-        if (data?.website && !form.website) update("website", data.website);
-        if (data?.headcount && !form.totalHeadcount) update("totalHeadcount", data.headcount);
-        toast({ title: "LinkedIn enriched", description: "Available fields populated." });
-      }
-      setSocialEnrichState(prev => ({ ...prev, [platform]: "verified" }));
-    } catch (e: any) {
-      console.error(`Social enrich error (${platform}):`, e);
-      toast({ variant: "destructive", title: "Enrichment failed", description: e.message || "Could not fetch profile data." });
-      setSocialEnrichState(prev => ({ ...prev, [platform]: "idle" }));
-    }
-  }, [form.socialTwitter, form.socialLinkedin, form.description, form.hqLocation, form.website, form.totalHeadcount]);
-
   // Per-section confirmation state
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>(() => {
     try {
