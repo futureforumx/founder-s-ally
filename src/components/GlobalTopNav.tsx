@@ -200,6 +200,7 @@ export function GlobalTopNav({
   userSector,
   userStage,
   profileCompletion = 0,
+  personalCompletion = 0,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
