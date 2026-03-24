@@ -133,6 +133,25 @@ function SparklinePulse() {
   );
 }
 
+// ── Google-safe Brand Icon with hard fallback ──
+function GoogleSafeBrandIcon({ displayIcon, sensorName, isGoogleSensor, FallbackIcon }: {
+  displayIcon: string; sensorName: string; isGoogleSensor: boolean; FallbackIcon: React.ElementType;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed && isGoogleSensor) {
+    return (
+      <div className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
+        style={{ backgroundColor: "hsl(217 89% 61%)", color: "white" }}>G</div>
+    );
+  }
+  if (failed) return <FallbackIcon className="h-3.5 w-3.5 text-white/40" />;
+  return (
+    <img src={displayIcon} alt={sensorName}
+      className="h-4 w-4 object-contain transition-transform hover:scale-110"
+      onError={() => setFailed(true)} />
+  );
+}
+
 // ── Compact Sensor Card (tighter for two-column layout) ──
 function SensorCard({
   sensor, connected, syncing, syncMessage, onConnect, index,
