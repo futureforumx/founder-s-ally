@@ -1692,14 +1692,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             {(() => {
               const isUpToDate = analysisComplete && !dataSourcesChanged;
               const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
+              const hasDataPresent = !!(form.website.trim() || deckText);
               return (
                 <>
                   <button onClick={handleAnalyzeClick} disabled={isDisabled}
-                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-colors ${
-                      isAnalyzing ? "bg-accent text-accent-foreground"
-                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
-                      : "bg-accent text-accent-foreground hover:bg-accent/90"
-                    } disabled:cursor-not-allowed`}>
+                    className={cn(
+                      "flex w-full items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-[13px] font-medium transition-all duration-300 disabled:cursor-not-allowed",
+                      isAnalyzing ? "bg-accent text-accent-foreground border-accent"
+                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default border-border"
+                      : hasDataPresent
+                        ? "bg-card text-foreground border-success/40 shadow-[0_0_12px_hsl(var(--success)/0.35)] hover:border-success/60"
+                        : "bg-card text-foreground border-warning/40 shadow-[0_0_12px_hsl(45_90%_55%/0.35)] hover:border-warning/60"
+                    )}>
                     {isAnalyzing ? (
                       <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>
                     ) : isUpToDate ? (
