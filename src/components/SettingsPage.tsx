@@ -543,7 +543,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   // Accept full linkedin URLs, partial paths, or bare usernames (alphanumeric, dots, hyphens)
   const isLinkedinInvalid = linkedinUrl.trim() !== "" && /[@\s]|^\d+$/.test(linkedinUrl.trim()) && !/linkedin\.com/i.test(linkedinUrl.trim());
   const isLinkedinValid = linkedinUrl.trim() !== "" && !isLinkedinInvalid;
-  const hasSynced = !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
+  const hasSynced = syncedKeys.has("__linkedin_verified") || !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
   const isComplete = !!(name.trim() && title.trim() && bio.trim() && location.trim() && linkedinUrl.trim());
   const showTwitter = isLinkedinValid || isComplete;
   const showPersonalInfo = hasSynced || isComplete;
