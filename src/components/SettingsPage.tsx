@@ -237,13 +237,18 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Settings Tour */}
+      <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+
       {/* Copilot Mission Banner */}
-      <CopilotMissionBanner
-        profileCompletion={profileCompletion}
-        onNavigate={handleMissionNavigate}
-        completedFields={completedFields}
-        saveStatus={saveStatus}
-      />
+      <div data-tour="profile-strength">
+        <CopilotMissionBanner
+          profileCompletion={profileCompletion}
+          onNavigate={handleMissionNavigate}
+          completedFields={completedFields}
+          saveStatus={saveStatus}
+        />
+      </div>
 
       {/* Sticky Section + Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
