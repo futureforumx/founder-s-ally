@@ -37,6 +37,59 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [xSyncing, setXSyncing] = useState(false);
   const [xVerified, setXVerified] = useState(false);
 
+  // Company search state
+  const [companyQuery, setCompanyQuery] = useState(state.companyName || "");
+  const [companyResults, setCompanyResults] = useState<Array<{ id: string; name: string; websiteUrl: string | null; sector: string | null; }>>([]);
+  const [isSearchingCompany, setIsSearchingCompany] = useState(false);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [selectedCompanyResult, setSelectedCompanyResult] = useState<{ id: string; name: string; websiteUrl: string | null; sector: string | null } | null>(null);
+  const companySearchRef = useRef<HTMLDivElement>(null);
+  const companyDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Close company dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (companySearchRef.current && !companySearchRef.current.contains(e.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+    if (showCompanyDropdown) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCompanyDropdown]);
+
+  const searchCompanies = useCallback(async (query: string) => {
+    if (query.trim().length < 2) { setCompanyResults([]); setShowCompanyDropdown(false); return; }
+    setIsSearchingCompany(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-companies", { body: { query: query.trim() } });
+      if (error) throw error;
+      setCompanyResults(data?.results || []);
+      setShowCompanyDropdown(true);
+    } catch { setCompanyResults([]); } finally { setIsSearchingCompany(false); }
+  }, []);
+
+  const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setCompanyQuery(val);
+    update({ companyName: val });
+    if (selectedCompanyResult) setSelectedCompanyResult(null);
+    if (companyDebounceRef.current) clearTimeout(companyDebounceRef.current);
+    companyDebounceRef.current = setTimeout(() => searchCompanies(val), 300);
+  };
+
+  const handleSelectCompanyResult = (c: { id: string; name: string; websiteUrl: string | null; sector: string | null }) => {
+    setSelectedCompanyResult(c);
+    setCompanyQuery(c.name);
+    update({ companyName: c.name, websiteUrl: c.websiteUrl || state.websiteUrl });
+    setShowCompanyDropdown(false);
+  };
+
+  const handleClearCompanySelection = () => {
+    setSelectedCompanyResult(null);
+    setCompanyQuery("");
+    update({ companyName: "" });
+  };
+
   // Pre-fill email from auth user
   useEffect(() => {
     if (user?.email && !state.email) {
