@@ -1081,8 +1081,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const existing = key === "competitors"
         ? (form.competitors || []).join(", ") || null
         : String(form[key as keyof CompanyData] || "") || null;
-      if (aiVal) {
-        fields.push({ key, label, existing: existing || null, incoming: String(aiVal) });
+      const aiStr = aiVal ? String(aiVal) : null;
+      if (aiStr && aiStr !== "null" && aiStr !== "undefined" && aiStr.trim() !== "") {
+        const existingStr = existing && existing !== "null" && existing.trim() !== "" ? existing : null;
+        fields.push({ key, label, existing: existingStr, incoming: aiStr });
       }
     }
     return fields;

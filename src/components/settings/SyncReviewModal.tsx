@@ -83,7 +83,7 @@ export function SyncReviewModal({ open, onOpenChange, title, fields, onApply, ap
                         </span>
                         <ArrowRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                         <span className="text-foreground font-medium truncate max-w-[180px]">
-                          {field.incoming}
+                          {field.incoming && field.incoming !== "null" ? field.incoming : "No results"}
                         </span>
                       </div>
                     </div>
