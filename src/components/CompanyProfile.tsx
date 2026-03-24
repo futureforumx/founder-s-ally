@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { formatSocialUrl } from "@/lib/socialFormat";
+import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { AnalysisOverlay } from "./AnalysisOverlay";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
@@ -469,6 +470,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
 
+  // Social link enrichment state
+  const [socialEnrichState, setSocialEnrichState] = useState<Record<string, "idle" | "syncing" | "verified">>({ x: "idle", linkedin: "idle" });
+
   // Per-section confirmation state
   const [sectionConfirmed, setSectionConfirmed] = useState<Record<string, boolean>>(() => {
     try {
@@ -700,6 +704,41 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       }
     }
   };
+
+  const handleSocialEnrich = useCallback(async (platform: "x" | "linkedin") => {
+    const url = platform === "x" ? form.socialTwitter : form.socialLinkedin;
+    if (!url.trim()) {
+      toast({ variant: "destructive", title: `Enter a ${platform === "x" ? "X/Twitter" : "LinkedIn"} URL first` });
+      return;
+    }
+    setSocialEnrichState(prev => ({ ...prev, [platform]: "syncing" }));
+    try {
+      if (platform === "x") {
+        const { data, error } = await supabase.functions.invoke("sync-x-profile", {
+          body: { twitterUrl: url },
+        });
+        if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
+        if (data?.bio && !form.description) update("description", data.bio);
+        if (data?.location && !form.hqLocation) update("hqLocation", data.location);
+        toast({ title: "X profile enriched", description: "Available fields populated." });
+      } else {
+        const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+          body: { companyUrl: url },
+        });
+        if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
+        if (data?.description && !form.description) update("description", data.description);
+        if (data?.location && !form.hqLocation) update("hqLocation", data.location);
+        if (data?.website && !form.website) update("website", data.website);
+        if (data?.headcount && !form.totalHeadcount) update("totalHeadcount", data.headcount);
+        toast({ title: "LinkedIn enriched", description: "Available fields populated." });
+      }
+      setSocialEnrichState(prev => ({ ...prev, [platform]: "verified" }));
+    } catch (e: any) {
+      console.error(`Social enrich error (${platform}):`, e);
+      toast({ variant: "destructive", title: "Enrichment failed", description: e.message || "Could not fetch profile data." });
+      setSocialEnrichState(prev => ({ ...prev, [platform]: "idle" }));
+    }
+  }, [form.socialTwitter, form.socialLinkedin, form.description, form.hqLocation, form.website, form.totalHeadcount]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     const name = file.name.toLowerCase();
@@ -2221,44 +2260,55 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                           X / Twitter {renderFieldBadge("socialTwitter")}
                         </label>
-                        <div className="relative">
-                          <Twitter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <input type="url" value={form.socialTwitter} onChange={e => update("socialTwitter", e.target.value)}
-                            onBlur={e => { const f = formatSocialUrl("x", e.target.value); if (f !== e.target.value) update("socialTwitter", f); }}
-                            placeholder="x.com/handle" className={`${inputCls("socialTwitter")} pl-9`} />
-                        </div>
+                        <MorphingUrlInput
+                          platform="x"
+                          value={form.socialTwitter}
+                          onChange={v => update("socialTwitter", v)}
+                          onBlur={v => {
+                            const f = formatSocialUrl("x", v);
+                            if (f !== v) update("socialTwitter", f);
+                          }}
+                          verifyState={socialEnrichState.x}
+                          onVerify={() => handleSocialEnrich("x")}
+                          verifyLabel="Enrich"
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                           LinkedIn {renderFieldBadge("socialLinkedin")}
                         </label>
-                        <div className="relative">
-                          <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
-                            onBlur={e => {
-                              const val = e.target.value;
-                              // If already contains /in/ or /company/, just normalize protocol
-                              if (/linkedin\.com\/(in|company)\//i.test(val)) {
-                                const f = formatSocialUrl("linkedin", val);
-                                if (f !== val) update("socialLinkedin", f);
-                              } else {
-                                const f = formatSocialUrl("linkedin", val);
-                                if (f !== val) update("socialLinkedin", f);
-                              }
-                            }}
-                            placeholder="linkedin.com/company/... or /in/..." className={`${inputCls("socialLinkedin")} pl-9`} />
-                        </div>
+                        <MorphingUrlInput
+                          platform="linkedin_company"
+                          value={form.socialLinkedin}
+                          onChange={v => update("socialLinkedin", v)}
+                          onBlur={v => {
+                            // Detect if it's /in/ or /company/ and preserve
+                            if (/linkedin\.com\/(in|company)\//i.test(v)) {
+                              const f = formatSocialUrl("linkedin", v);
+                              if (f !== v) update("socialLinkedin", f);
+                            } else {
+                              const f = formatSocialUrl("linkedin", v);
+                              if (f !== v) update("socialLinkedin", f);
+                            }
+                          }}
+                          verifyState={socialEnrichState.linkedin}
+                          onVerify={() => handleSocialEnrich("linkedin")}
+                          verifyLabel="Enrich"
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                           Instagram {renderFieldBadge("socialInstagram")}
                         </label>
-                        <div className="relative">
-                          <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                          <input type="url" value={form.socialInstagram} onChange={e => update("socialInstagram", e.target.value)}
-                            onBlur={e => { const f = formatSocialUrl("instagram", e.target.value); if (f !== e.target.value) update("socialInstagram", f); }}
-                            placeholder="instagram.com/handle" className={`${inputCls("socialInstagram")} pl-9`} />
-                        </div>
+                        <MorphingUrlInput
+                          platform="instagram"
+                          value={form.socialInstagram}
+                          onChange={v => update("socialInstagram", v)}
+                          onBlur={v => {
+                            const f = formatSocialUrl("instagram", v);
+                            if (f !== v) update("socialInstagram", f);
+                          }}
+                        />
                       </div>
                     </div>
 
