@@ -114,7 +114,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect LinkedIn? This will pause network graph updates.",
   },
   {
-    key: "notion", label: "Notion", icon: BookOpen, section: "recommended",
+    key: "notion", label: "Notion", icon: BookOpen, customIcon: BRAND_ICONS.notion, section: "recommended",
     categoryTag: "KNOWLEDGE BASE",
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Import your investor tracker + research docs",
