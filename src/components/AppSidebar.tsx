@@ -33,7 +33,7 @@ const communityItems = [
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const { profile } = useProfile();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
