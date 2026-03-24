@@ -2422,6 +2422,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       {/* Hidden logo input */}
       <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
+
+      {/* Analysis Review Modal */}
+      <SyncReviewModal
+        open={analysisReviewOpen}
+        onOpenChange={(open) => {
+          setAnalysisReviewOpen(open);
+          if (!open) setPendingAnalysis(null);
+        }}
+        title="Review AI Analysis Results"
+        fields={buildAnalysisReviewFields()}
+        onApply={handleApplyAnalysisReview}
+        applying={analysisReviewApplying}
+      />
     </div>
   );
 });
