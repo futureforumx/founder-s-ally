@@ -598,7 +598,7 @@ export function GlobalTopNav({
                 { label: "Personal", icon: User, tab: "account" },
                 { label: "Company", icon: Building2, tab: "company" },
                 { label: "Subscription", icon: CreditCard, tab: "subscription" },
-                { label: "Account", icon: Settings2, tab: "security" },
+                { label: "Account", icon: Settings2, tab: "subscription" },
               ] as const).map((item) => (
                 <DropdownMenuItem
                   key={item.tab}
