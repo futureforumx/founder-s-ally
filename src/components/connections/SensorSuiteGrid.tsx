@@ -490,14 +490,8 @@ const SOURCES: SourceConfig[] = [
     unlockToast: "🔓 Clerk user analytics synced", connectLabel: "Connect Clerk", disconnectWarning: "Disconnect Clerk? This will pause user analytics.",
   },
 ];
-      { label: "Signals", value: "4" },
-    ],
-    syncStages: ["Authenticating...", "Scanning servers...", "Indexing threads...", "Extracting signals...", "Complete ✓"],
-    unlockToast: "🔓 Discord community insights active",
-    connectLabel: "Connect Discord",
-    disconnectWarning: "Disconnect Discord? This will pause community monitoring.",
-  },
-];
+
+
 
 const SECTIONS: { key: SensorSection; label: string; sub: string }[] = [
   { key: "recommended", label: "RECOMMENDED", sub: "Connect these first — highest impact on your matches" },
