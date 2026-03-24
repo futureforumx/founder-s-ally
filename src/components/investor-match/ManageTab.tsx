@@ -583,15 +583,12 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
-                      {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                      <AvatarFallback
-                        className="text-sm font-bold rounded-xl"
-                        style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                      >
-                        {b.logoLetter}
-                      </AvatarFallback>
-                    </Avatar>
+                    <FirmLogo
+                      firmName={b.name}
+                      logoUrl={b.logoUrl}
+                      websiteUrl={websiteForFavicon}
+                      size="md"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
                       {slogan && (
