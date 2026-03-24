@@ -569,8 +569,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           return (
             <div
               key={b.id}
-              onClick={() => handleRowClick(b)}
-              className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer group ${
+              className={`relative border border-border rounded-2xl p-5 transition-all duration-200 hover:shadow-lg group ${
                 b.id === highlightedId ? "ring-2 ring-accent" : ""
               }`}
               style={{
@@ -578,56 +577,56 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                 boxShadow: "0 1px 4px hsla(var(--foreground), 0.06)",
               }}
             >
-              {/* Header: Logo + Name */}
+              {/* Header: Logo + Name + Edit */}
               <div className="flex items-center gap-3">
-                <Avatar className="h-14 w-14 shrink-0 rounded-xl border border-border shadow-sm">
+                <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
                   {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
                   <AvatarFallback
-                    className="text-base font-bold rounded-xl"
+                    className="text-sm font-bold rounded-xl"
                     style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
                   >
                     {b.logoLetter}
                   </AvatarFallback>
                 </Avatar>
-                <p className="text-sm font-bold text-foreground truncate min-w-0 flex-1">{b.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
+                  {slogan && (
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{slogan}</p>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRowClick(b); }}
+                  className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors shrink-0"
+                >
+                  Edit
+                </button>
               </div>
 
-              {/* Description / Slogan */}
-              <p className="text-[13px] text-muted-foreground leading-relaxed mt-3 line-clamp-2 min-h-[2.6em]">
-                {slogan || (b.amount > 0
-                  ? `Committed ${formatCompactCurrency(b.amount)} via ${b.instrument || "SAFE"}.`
-                  : "No details available yet.")}
-              </p>
-
-              {/* Tag Pills */}
-              <div className="flex flex-wrap gap-1.5 mt-3">
+              {/* Detail Rows */}
+              <div className="mt-3 space-y-1.5">
+                {b.amount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">Amount</span>
+                    <span className="text-[11px] font-bold text-foreground" style={{ fontFamily: "'Geist Mono', monospace" }}>
+                      {formatCompactCurrency(b.amount)}
+                    </span>
+                  </div>
+                )}
                 {b.instrument && (
-                  <span
-                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
-                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                  >
-                    {b.instrument.split("(")[0].trim()}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">Instrument</span>
+                    <span className="text-[11px] font-medium text-foreground">{b.instrument.split("(")[0].trim()}</span>
+                  </div>
                 )}
                 {b.date && (
-                  <span
-                    className="text-[11px] px-2.5 py-1 rounded-md font-medium"
-                    style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                  >
-                    {b.date}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">Date</span>
+                    <span className="text-[11px] font-medium text-foreground">{b.date}</span>
+                  </div>
                 )}
-              </div>
-
-              {/* Footer: View Details + Amount */}
-              <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: "hsla(var(--border), 0.6)" }}>
-                <span className="text-xs font-medium text-primary hover:underline">View details</span>
-                <span
-                  className="text-xs font-bold text-foreground"
-                  style={{ fontFamily: "'Geist Mono', monospace" }}
-                >
-                  {b.amount > 0 ? formatCompactCurrency(b.amount) : "—"}
-                </span>
+                {!b.amount && !b.instrument && !b.date && (
+                  <p className="text-[11px] text-muted-foreground italic">No details yet — click Edit to add.</p>
+                )}
               </div>
             </div>
           );
