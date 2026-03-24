@@ -643,6 +643,26 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return () => window.removeEventListener("scroll-to-section", handler);
   }, [isInReviewMode]);
 
+  // Listen for mission-navigate-field events to open collapsed sections for a specific field
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { field } = (e as CustomEvent).detail || {};
+      if (!field) return;
+      const fieldSectionMap: Record<string, string> = {
+        "pitch-deck": "data-sources", "website-url": "data-sources", "sector-tags": "overview",
+        "ltv-cac": "metrics", "mrr": "metrics", "executive-summary": "overview",
+        ...Object.fromEntries(Object.entries(fieldToSection)),
+      };
+      const section = fieldSectionMap[field];
+      if (section && (REVIEW_ORDER as readonly string[]).includes(section)) {
+        setOpenSections(prev => ({ ...prev, [section]: true }));
+        if (isInReviewMode) setActiveReviewSection(null);
+      }
+    };
+    window.addEventListener("mission-navigate-field", handler);
+    return () => window.removeEventListener("mission-navigate-field", handler);
+  }, [isInReviewMode]);
+
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) { setError("Logo must be under 5 MB."); return; }
