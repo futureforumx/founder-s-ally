@@ -53,9 +53,13 @@ import confetti from "canvas-confetti";
 export type SourceKey =
   | "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter"
   | "instagram" | "facebook" | "tiktok" | "zoom" | "googlemeet" | "microsoftteams"
-  | "slack" | "whatsapp" | "discord";
+  | "slack" | "whatsapp" | "discord"
+  | "airtable" | "pipedrive" | "square" | "plaid" | "shopify" | "polar" | "gusto"
+  | "zapier" | "relay" | "gumloop" | "n8n" | "make"
+  | "mailchimp" | "klaviyo" | "canva"
+  | "googleanalytics" | "posthog" | "clerk";
 
-export type FilterCategory = "recommended" | "social" | "meetings" | "bizops";
+export type FilterCategory = "recommended" | "crm" | "social" | "meetings" | "messaging" | "finance" | "workflows" | "marketing" | "analytics";
 
 const STORAGE_KEY = "community-connections-status";
 const SYNC_DETAIL_KEY = "connections-sync-detail";
