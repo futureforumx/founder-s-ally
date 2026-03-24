@@ -3,7 +3,7 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2,
+  User, Settings2, SlidersHorizontal,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { cn } from "@/lib/utils";
@@ -597,6 +597,7 @@ export function GlobalTopNav({
               {([
                 { key: "personal", label: "Personal", icon: User, tab: "account" },
                 { key: "company", label: "Company", icon: Building2, tab: "company" },
+                { key: "preferences", label: "Preferences", icon: SlidersHorizontal, tab: "notifications" },
                 { key: "subscription", label: "Subscription", icon: CreditCard, tab: "subscription" },
                 { key: "acct", label: "Account", icon: Settings2, tab: "security" },
               ] as const).map((item) => (
