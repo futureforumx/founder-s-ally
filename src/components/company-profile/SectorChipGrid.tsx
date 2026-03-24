@@ -274,6 +274,7 @@ export function SectorChipGrid({
         options={BUSINESS_MODEL_OPTIONS}
         selected={businessModel}
         aiSuggested={aiSuggestedModels}
+        approved={approved}
         onChange={onBusinessModelChange}
         max={3}
       />
@@ -284,6 +285,7 @@ export function SectorChipGrid({
         options={TARGET_CUSTOMER_OPTIONS}
         selected={targetCustomer}
         aiSuggested={aiSuggestedCustomers}
+        approved={approved}
         onChange={onTargetCustomerChange}
         max={3}
       />
