@@ -103,7 +103,7 @@ const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
     key: "google", label: "Google", icon: Mail, customIcon: BRAND_ICONS.google, section: "recommended",
-    categoryTag: "INTELLIGENCE PIPELINE",
+    categoryTag: "INTELLIGENCE PIPELINE", filterCategories: ["recommended"],
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
     liveStats: "142 threads analyzed",
