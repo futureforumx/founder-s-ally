@@ -11,6 +11,9 @@ export interface OnboardingState {
   location: string;
   // Step 2: Company DNA
   companyName: string;
+  websiteUrl: string;
+  deckText: string;
+  deckFileName: string;
   role: string;
   stage: string;
   sectors: string[];
