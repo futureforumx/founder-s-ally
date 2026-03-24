@@ -184,31 +184,25 @@ function RadialProgress({
 // ── Auto-Save Indicator ──
 
 function AutoSaveIndicator({ status }: { status: SaveStatus }) {
-  if (status === "idle") return null;
+  const isSaving = status === "saving";
 
   return (
-    <AnimatePresence>
-      <motion.div
-        key={status}
-        initial={{ opacity: 0, x: 8 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex items-center gap-1.5 ml-auto shrink-0"
-      >
-        {status === "saving" ? (
-          <>
-            <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-            <span className="text-[10px] font-mono text-muted-foreground tracking-wide">Auto-saving...</span>
-          </>
-        ) : (
-          <>
-            <Check className="h-3 w-3 text-success" />
-            <span className="text-[10px] font-mono text-success/80 tracking-wide">Saved</span>
-          </>
+    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+      <span
+        className={cn(
+          "h-2 w-2 rounded-full bg-success transition-all",
+          isSaving
+            ? "animate-[pulse_0.6s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+            : "animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
         )}
-      </motion.div>
-    </AnimatePresence>
+      />
+      <span className={cn(
+        "text-[10px] font-mono tracking-wide transition-colors",
+        isSaving ? "text-muted-foreground" : "text-success/80"
+      )}>
+        {isSaving ? "SAVING" : "SYNCED"}
+      </span>
+    </div>
   );
 }
 
