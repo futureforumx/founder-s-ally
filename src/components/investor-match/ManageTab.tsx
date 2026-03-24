@@ -565,7 +565,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           const key = b.name.toLowerCase().trim();
           const enriched = enrichCache?.[key];
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
-          const location = enriched?.profile?.location || null;
+          const location = enriched?.profile?.geography || null;
           const website = b.website || (enriched?.profile?.logoUrl?.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : null);
 
           return (
