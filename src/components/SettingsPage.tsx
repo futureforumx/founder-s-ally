@@ -374,6 +374,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [profileOpen, setProfileOpen] = useState(true);
   const [profileConfirmed, setProfileConfirmed] = useState(false);
 
+  // Listen for tour-expand-section events to auto-collapse/expand sections
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const section = (e as CustomEvent).detail?.section;
+      if (section === "profile") {
+        setProfileOpen(true);
+      } else if (section === "data-sources") {
+        // Collapse profile when focusing data sources
+        setProfileOpen(false);
+      }
+    };
+    window.addEventListener("tour-expand-section", handler);
+    return () => window.removeEventListener("tour-expand-section", handler);
+  }, []);
+
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
     // Map field names to DB column names
@@ -742,7 +757,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         })()}
 
         {/* ── Data Sources ── */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour-section="data-sources">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
@@ -917,7 +932,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           );
 
           return (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
               {/* Collapsible header */}
               <button
                 onClick={() => setProfileOpen(prev => !prev)}
