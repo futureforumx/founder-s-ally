@@ -458,7 +458,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     { id: "investor", label: "Investor", icon: Briefcase, desc: "finding and backing startups." },
   ];
 
-  const { ROLE_OPTIONS } = await import("@/constants/roleOptions");
+  
 
   const LOCATION_OPTIONS: ComboboxOption[] = [
     { value: "San Francisco, CA", label: "San Francisco, CA", desc: "Bay Area" },
