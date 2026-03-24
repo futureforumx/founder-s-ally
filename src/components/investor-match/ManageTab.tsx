@@ -567,7 +567,8 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           const enriched = enrichCache?.[key];
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
           const location = enriched?.profile?.geography || null;
-          const website = b.website || (enriched?.profile?.logoUrl?.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : null);
+          const firmWebsite = b.website || enriched?.profile?.logoUrl?.replace(/\/favicon\.ico$/, "") || null;
+          const websiteForFavicon = firmWebsite || (b.name.toLowerCase().replace(/\s+/g, "") + ".com");
 
           return (
             <Popover key={b.id}>
