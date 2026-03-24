@@ -444,36 +444,35 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
 
               {/* Form */}
               <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
-                {/* Entity Type Toggle */}
+                {/* Entity Type – shows current type with switch link */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Type</label>
-                  <div className="flex rounded-xl border border-border bg-secondary/30 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setEntityType("person")}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
-                        entityType === "person"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <User className="h-3.5 w-3.5" />
-                      Person
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEntityType("firm")}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
-                        entityType === "firm"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Building2 className="h-3.5 w-3.5" />
-                      Firm
-                    </button>
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-2.5">
+                    {entityType === "firm" ? (
+                      <>
+                        <Building2 className="h-3.5 w-3.5 text-foreground" />
+                        <span className="text-sm font-medium text-foreground flex-1">Firm</span>
+                        <button
+                          type="button"
+                          onClick={() => setEntityType("person")}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors"
+                        >
+                          Switch to Person →
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3.5 w-3.5 text-foreground" />
+                        <span className="text-sm font-medium text-foreground flex-1">Person</span>
+                        <button
+                          type="button"
+                          onClick={() => setEntityType("firm")}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors"
+                        >
+                          Switch to Firm →
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
