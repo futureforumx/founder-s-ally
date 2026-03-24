@@ -1663,6 +1663,83 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
+  // Build review fields from pending analysis
+  const buildAnalysisReviewFields = (): SyncField[] => {
+    if (!pendingAnalysis) return [];
+    const ai = pendingAnalysis.analysisData.aiExtracted || {};
+    const metrics = pendingAnalysis.analysisData.metrics || {};
+    const labelMap: Record<string, string> = {
+      description: "Description", stage: "Stage", sector: "Sector",
+      businessModel: "Business Model", targetCustomer: "Target Customer",
+      hqLocation: "HQ Location", uniqueValueProp: "Value Proposition",
+      currentARR: "ARR", yoyGrowth: "YoY Growth", totalHeadcount: "Headcount",
+      burnRate: "Burn Rate", cac: "CAC", ltv: "LTV",
+      socialTwitter: "Twitter", socialLinkedin: "LinkedIn", socialInstagram: "Instagram",
+      competitors: "Competitors",
+    };
+    const fields: SyncField[] = [];
+    for (const [key, label] of Object.entries(labelMap)) {
+      const aiVal = key === "burnRate" || key === "cac" || key === "ltv"
+        ? metrics[key]?.value || null
+        : key === "competitors"
+          ? ai.competitors?.join(", ") || null
+          : ai[key] || null;
+      const existing = key === "competitors"
+        ? (form.competitors || []).join(", ") || null
+        : String(form[key as keyof CompanyData] || "") || null;
+      if (aiVal) {
+        fields.push({ key, label, existing: existing || null, incoming: String(aiVal) });
+      }
+    }
+    return fields;
+  };
+
+  const handleApplyAnalysisReview = (selectedKeys: string[]) => {
+    if (!pendingAnalysis) return;
+    setAnalysisReviewApplying(true);
+    const { analysisData, scrapedMarkdown, deepSearchInvestors, verification } = pendingAnalysis;
+
+    // Filter AI data to only selected keys before applying
+    applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
+    applyMetricsFromResult(analysisData.metrics);
+
+    setSourceVerification(verification);
+
+    if (analysisData.stageClassification) {
+      setStageClassification(analysisData.stageClassification);
+      onStageClassification?.(analysisData.stageClassification);
+      if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
+        setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
+      }
+    }
+
+    setScanningMetrics(false);
+    setAnalysisComplete(true);
+    const analyzedInputs = { url: form.website, hasDeck: !!deckText };
+    setLastAnalyzedInputs(analyzedInputs);
+    try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
+    setMetricsUnlocked(true);
+    setOriginalFormSnapshot(null);
+    setDataSource("ai");
+    setSectionConfirmed({});
+    setFieldsEditedSinceAnalysis(false);
+    enterReviewMode("overview");
+
+    const deckInvestors = analysisData.extractedInvestors || [];
+    const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
+    const mergedInvestors = [...deckInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
+    const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
+    onAnalysis?.(finalResult as AnalysisResult);
+    try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
+    if (deckText) {
+      try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
+    }
+    onWalkthroughComplete?.();
+
+    setAnalysisReviewApplying(false);
+    setAnalysisReviewOpen(false);
+    setPendingAnalysis(null);
+  };
 
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
