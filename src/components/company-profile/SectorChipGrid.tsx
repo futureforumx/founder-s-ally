@@ -125,7 +125,8 @@ function InlineChipRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase text-muted-foreground font-semibold tracking-wide">{label}</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+        <Pencil className="h-3 w-3 text-muted-foreground/50" />
         {badge}
       </div>
       <div className="flex flex-wrap gap-1.5">
