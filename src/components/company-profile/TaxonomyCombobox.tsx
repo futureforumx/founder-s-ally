@@ -136,9 +136,9 @@ export function TaxonomyCombobox<T extends TaxonomyOption>({
           onKeyDown={handleKeyDown}
           autoComplete="off"
           className={`w-full h-9 rounded-lg border pl-8 pr-16 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all ${
-            isAiDraft && isAiApproved
+            value && isAiApproved
               ? "border-ai-approved/40 bg-ai-approved/10"
-              : isAiDraft
+              : value && !isAiApproved
                 ? "border-ai-pending/50 bg-ai-pending/15 animate-[ai-pulse_2s_ease-in-out_infinite]"
                 : "border-input bg-background"
           }`}
