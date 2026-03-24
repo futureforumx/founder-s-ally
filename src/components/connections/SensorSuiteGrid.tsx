@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import googleLogo from "@/assets/google-logo.png"; // Google brand icon
+const GOOGLE_LOGO_URL = "https://cdn.simpleicons.org/google/4285F4";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
