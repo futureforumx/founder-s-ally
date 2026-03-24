@@ -68,6 +68,10 @@ export const ALL_KEYS: SourceKey[] = [
   "google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter",
   "instagram", "facebook", "tiktok", "zoom", "googlemeet", "microsoftteams",
   "slack", "whatsapp", "discord",
+  "airtable", "pipedrive", "square", "plaid", "shopify", "polar", "gusto",
+  "zapier", "relay", "gumloop", "n8n", "make",
+  "mailchimp", "klaviyo", "canva",
+  "googleanalytics", "posthog", "clerk",
 ];
 
 export function loadConnected(): Record<SourceKey, boolean> {
