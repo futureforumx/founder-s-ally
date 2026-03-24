@@ -896,6 +896,66 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           </div>
         </div>
 
+        {/* ── Profile (First Name, Last Name, Email) ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" />
+              Profile
+            </h3>
+          </div>
+          <div className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1" data-field="first_name">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  First Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  value={name.split(" ")[0] || ""}
+                  onChange={(e) => {
+                    const parts = name.split(" ");
+                    const last = parts.slice(1).join(" ");
+                    const newName = last ? `${e.target.value} ${last}` : e.target.value;
+                    setName(newName);
+                    autosave({ name: newName });
+                  }}
+                  placeholder="First name"
+                  className="rounded-lg h-9 text-sm"
+                  required
+                />
+              </div>
+              <div className="space-y-1" data-field="last_name">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Last Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  value={name.split(" ").slice(1).join(" ") || ""}
+                  onChange={(e) => {
+                    const first = name.split(" ")[0] || "";
+                    const newName = e.target.value ? `${first} ${e.target.value}` : first;
+                    setName(newName);
+                    autosave({ name: newName });
+                  }}
+                  placeholder="Last name"
+                  className="rounded-lg h-9 text-sm"
+                  required
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2" data-field="email">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Email <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  value={displayEmail}
+                  disabled
+                  className="rounded-lg h-9 text-sm opacity-70"
+                />
+                <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Personal Information (revealed after sync / or if complete) ── */}
         <AnimatePresence>
           {showPersonalInfo && (
