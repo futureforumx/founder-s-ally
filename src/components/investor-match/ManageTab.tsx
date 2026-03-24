@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight, X } from "lucide-react";
+import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight, X, MapPin, Briefcase, Calendar, DollarSign, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
