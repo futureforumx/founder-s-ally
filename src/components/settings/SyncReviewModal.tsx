@@ -79,7 +79,7 @@ export function SyncReviewModal({ open, onOpenChange, title, fields, onApply, ap
                       <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">{field.label}</p>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-muted-foreground line-through truncate max-w-[140px]">
-                          {field.existing || "Empty"}
+                          {field.existing && field.existing !== "null" ? field.existing : "No results"}
                         </span>
                         <ArrowRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                         <span className="text-foreground font-medium truncate max-w-[180px]">
