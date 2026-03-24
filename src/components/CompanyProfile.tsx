@@ -1092,9 +1092,33 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (!pendingAnalysis) return;
     setAnalysisReviewApplying(true);
     const { analysisData, scrapedMarkdown, deepSearchInvestors, verification } = pendingAnalysis;
+    const selectedSet = new Set(selectedKeys);
 
-    applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
-    applyMetricsFromResult(analysisData.metrics);
+    // Filter aiExtracted to only selected keys
+    const filteredAi = analysisData.aiExtracted ? { ...analysisData.aiExtracted } : undefined;
+    if (filteredAi) {
+      const aiKeys = Object.keys(filteredAi);
+      for (const k of aiKeys) {
+        if (!selectedSet.has(k)) {
+          delete (filteredAi as any)[k];
+        }
+      }
+      // Handle competitors separately
+      if (!selectedSet.has("competitors")) {
+        delete (filteredAi as any).competitors;
+      }
+    }
+
+    // Filter metrics to only selected keys
+    const filteredMetrics = analysisData.metrics ? { ...analysisData.metrics } : undefined;
+    if (filteredMetrics) {
+      if (!selectedSet.has("burnRate")) delete (filteredMetrics as any).burnRate;
+      if (!selectedSet.has("cac")) delete (filteredMetrics as any).cac;
+      if (!selectedSet.has("ltv")) delete (filteredMetrics as any).ltv;
+    }
+
+    applyAiData(filteredAi, selectedSet.has("sector") ? analysisData.sectorMapping : undefined);
+    applyMetricsFromResult(filteredMetrics);
     setSourceVerification(verification);
 
     if (analysisData.stageClassification) {
