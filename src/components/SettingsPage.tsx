@@ -607,15 +607,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const showTwitter = isLinkedinValid || isComplete;
   const showPersonalInfo = hasSynced || isComplete;
 
-  // LinkedIn domain extraction for favicon
-  const linkedinDomain = (() => {
-    try {
-      if (!linkedinUrl.trim()) return null;
-      let u = linkedinUrl.trim();
-      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-      return new URL(u).hostname.replace(/^www\./, "") || null;
-    } catch { return null; }
-  })();
 
   return (
     <TabWrapper>
