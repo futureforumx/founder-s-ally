@@ -35,7 +35,7 @@ type SettingsTab = "account" | "company" | "network" | "notifications" | "privac
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
-  { id: "entity", label: "Entity" },
+  { id: "entity", label: "COMPANY" },
   { id: "network-sec", label: "Network" },
   { id: "preferences", label: "Preferences" },
   { id: "account-sec", label: "Account" },
