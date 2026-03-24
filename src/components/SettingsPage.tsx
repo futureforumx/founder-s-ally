@@ -539,6 +539,62 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     setSyncApplying(false);
     setSyncReviewOpen(false);
     toast.success(`Applied ${selectedKeys.length} field${selectedKeys.length !== 1 ? "s" : ""} from LinkedIn`);
+
+    // ── Auto-trigger X enrichment in background after LinkedIn sync ──
+    if (twitterUrl.trim()) {
+      enrichXProfile(twitterUrl);
+    }
+  };
+
+  const enrichXProfile = async (url: string) => {
+    setXSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-x-profile", {
+        body: { twitterUrl: url },
+      });
+
+      if (error || !data?.success) {
+        const msg = data?.error || error?.message || "Unknown error";
+        if (data?.skipped) {
+          toast("X enrichment skipped", { description: "Please fill bio manually." });
+        } else {
+          console.warn("X sync error:", msg);
+        }
+        return;
+      }
+
+      const xData = data.data;
+      const updates: Record<string, string> = {};
+
+      // Only apply bio if user hasn't written one
+      if (xData.bio && !bio.trim()) {
+        setBio(xData.bio.slice(0, 160));
+        updates.bio = xData.bio.slice(0, 160);
+      }
+      // Only apply location if empty
+      if (xData.location && !location.trim()) {
+        setLocation(xData.location);
+        updates.location = xData.location;
+      }
+      // Only apply avatar if user hasn't uploaded one
+      if (xData.avatar_url && !avatarUrl) {
+        setAvatarUrl(xData.avatar_url);
+        setAvatarError(false);
+        updates.avatar_url = xData.avatar_url;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await saveImmediate(updates);
+      }
+
+      setXVerified(true);
+      toast.success("X profile enriched successfully");
+    } catch (err: any) {
+      console.warn("X enrichment failed:", err);
+      toast("X enrichment skipped", { description: "Please fill bio manually." });
+    } finally {
+      setXSyncing(false);
+    }
   };
 
   // ── Progressive disclosure logic ──
