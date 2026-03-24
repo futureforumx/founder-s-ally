@@ -374,6 +374,21 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [profileOpen, setProfileOpen] = useState(true);
   const [profileConfirmed, setProfileConfirmed] = useState(false);
 
+  // Listen for tour-expand-section events to auto-collapse/expand sections
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const section = (e as CustomEvent).detail?.section;
+      if (section === "profile") {
+        setProfileOpen(true);
+      } else if (section === "data-sources") {
+        // Collapse profile when focusing data sources
+        setProfileOpen(false);
+      }
+    };
+    window.addEventListener("tour-expand-section", handler);
+    return () => window.removeEventListener("tour-expand-section", handler);
+  }, []);
+
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
     // Map field names to DB column names
