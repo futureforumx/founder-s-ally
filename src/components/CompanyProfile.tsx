@@ -1697,12 +1697,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 <>
                   <button onClick={handleAnalyzeClick} disabled={isDisabled}
                     className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-[13px] font-medium transition-all duration-300 disabled:cursor-not-allowed",
-                      isAnalyzing ? "bg-accent text-accent-foreground border-accent"
-                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default border-border"
+                      "flex w-full items-center justify-center gap-2 rounded-lg border-0 px-5 py-2.5 text-[13px] font-medium transition-all duration-300 disabled:cursor-not-allowed",
+                      isAnalyzing ? "bg-primary text-primary-foreground"
+                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
                       : hasDataPresent
-                        ? "bg-card text-foreground border-success/40 shadow-[0_0_12px_hsl(var(--success)/0.35)] hover:border-success/60"
-                        : "bg-card text-foreground border-warning/40 shadow-[0_0_12px_hsl(45_90%_55%/0.35)] hover:border-warning/60"
+                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--success)/0.35)]"
+                        : "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
                     )}>
                     {isAnalyzing ? (
                       <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>

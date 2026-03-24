@@ -849,14 +849,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   <Button
                     onClick={handleSyncProfile}
                     disabled={syncing || isIdentityVerified}
-                    variant="outline"
+                    variant="default"
                     className={cn(
-                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300",
+                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300 bg-primary text-primary-foreground",
                       isIdentityVerified && "opacity-60 cursor-not-allowed",
                       !isIdentityVerified && !syncing && (
                         hasDataPresent
-                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)] border-success/40"
-                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)] border-warning/40"
+                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)]"
+                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
                       )
                     )}
                   >
