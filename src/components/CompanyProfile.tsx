@@ -1628,17 +1628,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
-          {/* AI Insight Banner */}
-          {parentCompanyData && (
-            <div className="rounded-xl border border-accent/20 bg-gradient-to-r from-accent/5 to-transparent p-3.5 mt-3 space-y-1.5">
-              <p className="text-[10px] font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> AI Insight
-              </p>
-              <p className="text-xs text-foreground leading-relaxed">
-                Founders in <span className="font-semibold">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify their financial metrics see a <span className="font-bold text-accent">3× higher</span> response rate from {parentCompanyData?.stage || "Seed"} investors.
-              </p>
-            </div>
-          )}
 
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
