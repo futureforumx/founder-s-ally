@@ -30,7 +30,12 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 const Index = () => {
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>(() => {
-    // Default to dashboard instead of company since company is now in settings
+    // Check if redirected from onboarding with ?view=settings
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view");
+      if (view === "settings") return "settings";
+    } catch {}
     return "dashboard";
   });
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
