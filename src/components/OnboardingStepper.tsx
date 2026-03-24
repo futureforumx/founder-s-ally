@@ -157,6 +157,20 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         websiteMarkdown = data?.markdown || "";
       }
 
+      // Skip AI analysis if there's no content to analyze
+      if (!websiteMarkdown && !deckText) {
+        setAnalysisResult({
+          healthScore: null,
+          executiveSummary: "",
+          metrics: { mrr: "", burnRate: "", runway: "", ltv: "", cac: "" },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
+        } as AnalysisResult);
+        setStep(3);
+        return;
+      }
+
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
         body: { websiteText: websiteMarkdown, deckText, companyName, stage, sector },
       });
