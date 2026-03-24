@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
+import { SettingsTour } from "@/components/settings/SettingsTour";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
@@ -236,13 +237,18 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Settings Tour */}
+      <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+
       {/* Copilot Mission Banner */}
-      <CopilotMissionBanner
-        profileCompletion={profileCompletion}
-        onNavigate={handleMissionNavigate}
-        completedFields={completedFields}
-        saveStatus={saveStatus}
-      />
+      <div data-tour="profile-strength">
+        <CopilotMissionBanner
+          profileCompletion={profileCompletion}
+          onNavigate={handleMissionNavigate}
+          completedFields={completedFields}
+          saveStatus={saveStatus}
+        />
+      </div>
 
       {/* Sticky Section + Tab Bar */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -254,6 +260,7 @@ export function SettingsPage() {
               return (
                 <button
                   key={sec.id}
+                  data-tour={sec.id === "personal" ? "personal" : sec.id === "company-sec" ? "company" : sec.id === "network-sec" ? "network" : undefined}
                   onClick={() => handleSectionChange(sec.id)}
                   className={cn(
                     "px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest rounded-md transition-all",

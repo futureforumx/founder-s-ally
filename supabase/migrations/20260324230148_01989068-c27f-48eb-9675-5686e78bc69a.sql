@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN has_seen_settings_tour boolean NOT NULL DEFAULT false;

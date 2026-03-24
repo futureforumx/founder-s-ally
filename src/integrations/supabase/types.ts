@@ -723,6 +723,7 @@ export type Database = {
           created_at: string
           full_name: string
           has_completed_onboarding: boolean
+          has_seen_settings_tour: boolean
           id: string
           is_public: boolean
           linkedin_url: string | null
@@ -741,6 +742,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           has_completed_onboarding?: boolean
+          has_seen_settings_tour?: boolean
           id?: string
           is_public?: boolean
           linkedin_url?: string | null
@@ -759,6 +761,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           has_completed_onboarding?: boolean
+          has_seen_settings_tour?: boolean
           id?: string
           is_public?: boolean
           linkedin_url?: string | null
