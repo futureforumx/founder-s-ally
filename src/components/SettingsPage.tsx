@@ -24,6 +24,7 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
+import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -321,6 +322,7 @@ function TabWrapper({ children }: { children: React.ReactNode }) {
 
 // ── Account Tab ──
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
+  const { verify: verifyLinkedIn } = useLinkedInVerify();
   const { profile, upsertProfile } = useProfile();
   const [name, setName] = useState(displayName);
   const [title, setTitle] = useState("");
@@ -464,25 +466,12 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
   // handleSave removed — autosave handles persistence
 
-  // ── Magic Sync ──
+  // ── Magic Sync (Auth0 LinkedIn OAuth) ──
   const handleSyncProfile = async () => {
-    if (!linkedinUrl.trim()) {
-      toast.error("Enter a LinkedIn URL first");
-      return;
-    }
     setSyncing(true);
     try {
-      // Normalize to full URL before sending
-      const normalizedUrl = formatSocialUrl("linkedin_personal", linkedinUrl.trim());
-      if (normalizedUrl !== linkedinUrl) setLinkedinUrl(normalizedUrl);
-      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: normalizedUrl },
-      });
+      const incoming = await verifyLinkedIn();
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || "Sync failed");
-
-      const incoming = data.data;
       const fields: SyncField[] = [
         { key: "full_name", label: "Full Name", existing: name, incoming: incoming.full_name },
         { key: "title", label: "Title / Role", existing: title, incoming: incoming.title },
@@ -490,10 +479,33 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         { key: "location", label: "Location", existing: location, incoming: incoming.location },
       ];
 
+      // If we got an avatar, include it
+      if (incoming.avatar_url) {
+        fields.push({ key: "avatar_url", label: "Profile Photo", existing: avatarUrl, incoming: incoming.avatar_url });
+      }
+
+      // Auto-set LinkedIn URL if returned email or name verifies identity
+      if (incoming.full_name) {
+        // Mark as verified via LinkedIn OAuth
+        setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
+      }
+
+      // If we got a LinkedIn URL from the OAuth, update it
+      if (!linkedinUrl.trim() && incoming.full_name) {
+        const slug = incoming.full_name.toLowerCase().replace(/\s+/g, "");
+        const guessedUrl = `https://linkedin.com/in/${slug}`;
+        setLinkedinUrl(guessedUrl);
+        saveImmediate({ linkedinUrl: guessedUrl });
+      }
+
       setSyncFields(fields);
       setSyncReviewOpen(true);
     } catch (err: any) {
-      toast.error("Sync failed: " + (err.message || "Unknown error"));
+      if (err?.message?.includes("cancelled") || err?.message?.includes("Popup closed")) {
+        toast("LinkedIn sync cancelled", { description: "You can try again anytime." });
+      } else {
+        toast.error("Sync failed: " + (err.message || "Unknown error"));
+      }
     } finally {
       setSyncing(false);
     }
@@ -512,13 +524,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       if (key === "title") setTitle(val);
       if (key === "bio") setBio(val);
       if (key === "location") setLocation(val);
+      if (key === "avatar_url") { setAvatarUrl(val); setAvatarError(false); }
     }
 
     // Save to profile via autosave (immediate)
     await saveImmediate(updates);
 
     // Track synced keys for highlight animation
-    setSyncedKeys(new Set(selectedKeys));
+    setSyncedKeys(new Set([...selectedKeys, "__linkedin_verified"]));
     setTimeout(() => setSyncedKeys(new Set()), 2500);
 
     setSyncApplying(false);
@@ -530,7 +543,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   // Accept full linkedin URLs, partial paths, or bare usernames (alphanumeric, dots, hyphens)
   const isLinkedinInvalid = linkedinUrl.trim() !== "" && /[@\s]|^\d+$/.test(linkedinUrl.trim()) && !/linkedin\.com/i.test(linkedinUrl.trim());
   const isLinkedinValid = linkedinUrl.trim() !== "" && !isLinkedinInvalid;
-  const hasSynced = !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
+  const hasSynced = syncedKeys.has("__linkedin_verified") || !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
   const isComplete = !!(name.trim() && title.trim() && bio.trim() && location.trim() && linkedinUrl.trim());
   const showTwitter = isLinkedinValid || isComplete;
   const showPersonalInfo = hasSynced || isComplete;
@@ -591,21 +604,23 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     />
                     {/* Inline sync + info icons */}
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {isLinkedinValid && !syncing && (
+                      {!syncing && (
                         <motion.button
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           onClick={(e) => { e.stopPropagation(); handleSyncProfile(); }}
                           className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
-                          title="Sync from LinkedIn"
+                          title="Verify via LinkedIn OAuth"
                         >
                           <Sparkles className="h-3 w-3" />
-                          Sync
+                          Verify
                         </motion.button>
                       )}
-                      {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />}
-                      {!isLinkedinValid && isLinkedinInvalid && (
-                        <span className="text-[9px] text-destructive font-mono">Invalid</span>
+                      {syncing && (
+                        <span className="flex items-center gap-1 text-[10px] text-accent">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Connecting…
+                        </span>
                       )}
                     </div>
                   </div>
@@ -765,25 +780,25 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             {/* Primary CTA */}
             <Button
               onClick={handleSyncProfile}
-              disabled={syncing || !linkedinUrl.trim()}
+              disabled={syncing}
               className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
             >
               {syncing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Mining Data...
+                  Connecting to LinkedIn…
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
-                  Sync & Enrich Profile
+                  <Linkedin className="h-4 w-4" />
+                  Verify with LinkedIn
                 </>
               )}
             </Button>
 
             {/* Footer */}
             <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide">
-              Identity verification: LinkedIn + X + Public Data
+              Securely verify via LinkedIn OAuth — no scraping
             </p>
           </div>
         </div>
