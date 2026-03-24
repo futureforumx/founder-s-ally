@@ -56,6 +56,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
+  // Prevent completed users from seeing onboarding again
+  if (!needsOnboarding && location.pathname === "/onboarding") {
+    return <Navigate to="/" replace />;
+  }
   return <>{children}</>;
 }
 
