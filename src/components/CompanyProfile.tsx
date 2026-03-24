@@ -687,8 +687,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const hasManualEdits = OUTPUT_FIELDS.some(f => userTouched.has(f) && form[f] && (Array.isArray(form[f]) ? (form[f] as string[]).length > 0 : String(form[f]).trim() !== ""));
 
   const handleAnalyzeClick = () => {
-    if (hasManualEdits) setShowOverrideWarning(true);
-    else handleAnalyze();
+    handleAnalyze();
   };
 
   // Map fields to their confirmation sections
