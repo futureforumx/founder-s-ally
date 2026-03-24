@@ -30,35 +30,32 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
-type SettingsSection = "personal" | "entity" | "network-sec" | "preferences" | "account-sec";
+type SettingsSection = "personal" | "company-sec" | "subscription-sec" | "account-sec";
 type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
-  { id: "entity", label: "COMPANY" },
-  { id: "network-sec", label: "Network" },
-  { id: "preferences", label: "Preferences" },
+  { id: "company-sec", label: "Company" },
+  { id: "subscription-sec", label: "Subscription" },
   { id: "account-sec", label: "Account" },
 ];
 
 const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]> = {
   "personal": [
     { id: "account", label: "Profile" },
-  ],
-  "entity": [
-    { id: "company", label: "Company" },
-  ],
-  "network-sec": [
-    { id: "network", label: "Connections" },
-  ],
-  "preferences": [
     { id: "notifications", label: "Notifications" },
     { id: "privacy", label: "Privacy" },
-    { id: "theme", label: "Theme" },
-    { id: "security", label: "Security" },
+  ],
+  "company-sec": [
+    { id: "company", label: "Company" },
+    { id: "network", label: "Connections" },
+  ],
+  "subscription-sec": [
+    { id: "subscription", label: "Subscription" },
   ],
   "account-sec": [
-    { id: "subscription", label: "Subscription" },
+    { id: "security", label: "Security" },
+    { id: "theme", label: "Theme" },
   ],
 };
 
