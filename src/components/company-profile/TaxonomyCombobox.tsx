@@ -40,6 +40,7 @@ export function TaxonomyCombobox<T extends TaxonomyOption>({
   placeholder = "Search...",
   allowCustom = true,
   isAiDraft = false,
+  isAiApproved = false,
   className,
   icon,
 }: TaxonomyComboboxProps<T>) {
