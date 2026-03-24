@@ -842,32 +842,38 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
             {/* Primary CTA */}
             <div className="mt-4">
-              {(() => {
+             {(() => {
                 const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
+                const hasDataPresent = !!(linkedinUrl.trim() || twitterUrl.trim() || resumeUrl || hasSynced);
                 return (
                   <Button
                     onClick={handleSyncProfile}
                     disabled={syncing || isIdentityVerified}
-                    variant={isIdentityVerified ? "outline" : "default"}
+                    variant="outline"
                     className={cn(
-                      "w-full rounded-lg h-10 text-sm font-semibold gap-2",
-                      isIdentityVerified && "opacity-60 cursor-not-allowed"
+                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300",
+                      isIdentityVerified && "opacity-60 cursor-not-allowed",
+                      !isIdentityVerified && !syncing && (
+                        hasDataPresent
+                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)] border-success/40"
+                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)] border-warning/40"
+                      )
                     )}
                   >
                     {syncing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Connecting to LinkedIn…
+                        Verifying Data…
                       </>
                     ) : isIdentityVerified ? (
                       <>
                         <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">✓ Identity Verified</span>
+                        <span className="text-muted-foreground">✓ Data Verified</span>
                       </>
                     ) : (
                       <>
-                        <Linkedin className="h-4 w-4" />
-                        Verify with LinkedIn
+                        <Sparkles className="h-4 w-4" />
+                        Verify Data
                       </>
                     )}
                   </Button>
