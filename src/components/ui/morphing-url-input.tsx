@@ -3,7 +3,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Sparkles, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type SocialPlatformType = "linkedin" | "x";
+export type SocialPlatformType = "linkedin" | "linkedin_company" | "x" | "instagram";
 
 interface PlatformConfig {
   prefix: string;
