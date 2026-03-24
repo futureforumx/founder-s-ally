@@ -19,6 +19,7 @@ interface SectorChipGridProps {
   aiSuggestedSectors?: string[];
   aiSuggestedModels?: string[];
   aiSuggestedCustomers?: string[];
+  approved?: boolean;
   className?: string;
 }
 
