@@ -263,6 +263,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
   const [syncingIds, setSyncingIds] = useState<Record<string, boolean>>({});
   const [syncMessages, setSyncMessages] = useState<Record<string, string>>({});
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [prevCount, setPrevCount] = useState(connected.length);
   const meterBarRef = useRef<HTMLDivElement>(null);
 
