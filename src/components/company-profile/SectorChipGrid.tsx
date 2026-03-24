@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Pencil } from "lucide-react";
 import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
 
 // ── Types ──
