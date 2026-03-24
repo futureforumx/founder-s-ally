@@ -13,6 +13,34 @@ import { StepCompanyDNA } from "./StepCompanyDNA";
 import { StepPowerUp } from "./StepPowerUp";
 import { toast } from "@/hooks/use-toast";
 
+// ── AI field guessing helpers ──
+function guessBusinessModel(sector: string): string[] {
+  const s = sector.toLowerCase();
+  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["SaaS"];
+  if (s.includes("marketplace") || s.includes("e-commerce")) return ["Marketplace"];
+  if (s.includes("fintech") || s.includes("insurtech")) return ["SaaS", "Usage-Based"];
+  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["SaaS"];
+  if (s.includes("edtech")) return ["SaaS", "Freemium"];
+  if (s.includes("cleantech") || s.includes("hardware") || s.includes("robotics")) return ["Hardware"];
+  if (s.includes("ai") || s.includes("ml")) return ["SaaS", "Usage-Based"];
+  if (s.includes("gaming")) return ["Freemium"];
+  if (s.includes("media") || s.includes("adtech")) return ["SaaS"];
+  return [];
+}
+
+function guessTargetCustomer(sector: string): string[] {
+  const s = sector.toLowerCase();
+  if (s.includes("enterprise") || s.includes("cybersecurity") || s.includes("devtools")) return ["Enterprise"];
+  if (s.includes("e-commerce") || s.includes("gaming") || s.includes("edtech")) return ["B2C"];
+  if (s.includes("fintech")) return ["SMB", "Enterprise"];
+  if (s.includes("govtech") || s.includes("defense")) return ["Government"];
+  if (s.includes("proptech") || s.includes("marketplace")) return ["B2B2C"];
+  if (s.includes("saas")) return ["SMB"];
+  if (s.includes("ai") || s.includes("ml")) return ["Enterprise", "SMB"];
+  if (s.includes("healthtech") || s.includes("biotech")) return ["Enterprise"];
+  return [];
+}
+
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
   const { user } = useAuth();
