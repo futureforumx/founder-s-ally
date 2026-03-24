@@ -1515,94 +1515,191 @@ function SecurityTab() {
 
 // ── Subscription Tab ──
 function SubscriptionTab() {
+  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+
   const PLANS = [
     {
-      name: "Free",
-      price: "$0",
-      features: ["5 investor matches/mo", "Basic deck audit", "Community access"],
-      current: false,
-    },
-    {
-      name: "Pro",
-      price: "$49",
-      features: ["Unlimited matches", "AI-powered deck audit", "Network intelligence", "Priority support"],
+      name: "Starter Plan",
+      tier: "FREE",
+      tierColor: "bg-amber-500",
+      price: { monthly: "$10.00", yearly: "$8.00" },
+      features: [
+        "Manage up to 1,000 contacts",
+        "Basic customer management tools",
+        "Task and workflow automation",
+        "Integration with third-party apps (limited)",
+        "Customizable dashboards",
+      ],
       current: true,
+      highlighted: false,
     },
     {
-      name: "Scale",
-      price: "$149",
-      features: ["Everything in Pro", "Team seats (5)", "API access", "Custom integrations", "Dedicated CSM"],
+      name: "Growth Plan",
+      tier: "PRO",
+      tierColor: "bg-amber-500",
+      price: { monthly: "$79.00", yearly: "$65.00" },
+      features: [
+        "Manage up to 10,000 contacts",
+        "Advanced customer management",
+        "Full workflow automation",
+        "Real-time reporting and analytics",
+        "Collaborative team features",
+      ],
       current: false,
+      highlighted: true,
+    },
+    {
+      name: "Enterprise Plan",
+      tier: "ADVANCE",
+      tierColor: "bg-emerald-500",
+      price: { monthly: "Custom", yearly: "Custom" },
+      features: [
+        "Unlimited contacts and data storage",
+        "Custom workflow and automation setups",
+        "Dedicated account manager",
+        "Advanced analytics and reporting",
+        "Full API access and custom integrations",
+      ],
+      current: false,
+      highlighted: false,
     },
   ];
 
   const INVOICES = [
-    { date: "Mar 22, 2026", amount: "$49.00", status: "Paid" },
-    { date: "Feb 22, 2026", amount: "$49.00", status: "Paid" },
-    { date: "Jan 22, 2026", amount: "$49.00", status: "Paid" },
+    { date: "Mar 22, 2026", amount: "$10.00", status: "Paid" },
+    { date: "Feb 22, 2026", amount: "$10.00", status: "Paid" },
+    { date: "Jan 22, 2026", amount: "$10.00", status: "Paid" },
   ];
 
   return (
     <TabWrapper>
       <div className="space-y-8">
-        {/* Current Plan — Dark Bento Card */}
-        <div className="rounded-2xl p-6 text-white" style={{ backgroundColor: "#0A0A0A" }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-amber-400" />
-              <span className="text-lg font-bold">Pro Plan</span>
-            </div>
-            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] uppercase font-bold">Active</Badge>
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Billing & Subscription</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Keep track of your subscription details, update your billing information, and control your account's payment
+            </p>
           </div>
-          <div className="flex items-baseline gap-1 mb-1">
-            <span className="text-4xl font-black">$49</span>
-            <span className="text-sm text-white/40">/month</span>
-          </div>
-          <p className="text-[11px] text-white/30 font-mono">Renews April 22, 2026</p>
-          <div className="mt-4 space-y-1.5">
-            {["Unlimited investor matches", "AI-powered deck audit", "Community network access", "Priority support"].map((f) => (
-              <div key={f} className="flex items-center gap-2">
-                <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
-                <span className="text-[11px] text-white/50">{f}</span>
-              </div>
-            ))}
+          {/* Billing Toggle */}
+          <div className="flex items-center rounded-full border border-border bg-muted/30 p-0.5 shrink-0">
+            <button
+              onClick={() => setBilling("monthly")}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-xs font-medium transition-all",
+                billing === "monthly"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBilling("yearly")}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-xs font-medium transition-all",
+                billing === "yearly"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Yearly
+            </button>
           </div>
         </div>
 
-        {/* Plan Comparison */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Compare Plans</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.name}
-                className={cn(
-                  "rounded-xl border-2 p-4 space-y-3",
-                  plan.current ? "border-accent bg-accent/5" : "border-border"
-                )}
-              >
-                <div>
-                  <p className="text-sm font-bold text-foreground">{plan.name}</p>
-                  <p className="text-2xl font-black text-foreground">{plan.price}<span className="text-xs font-normal text-muted-foreground">/mo</span></p>
+        {/* Plan Cards */}
+        <div className="grid grid-cols-3 gap-4">
+          {PLANS.map((plan) => (
+            <div
+              key={plan.name}
+              className={cn(
+                "relative rounded-2xl border p-6 flex flex-col justify-between transition-all",
+                plan.highlighted
+                  ? "bg-primary text-primary-foreground border-primary shadow-surface-lg"
+                  : "bg-card border-border"
+              )}
+            >
+              {/* Corner dots decoration */}
+              <div className={cn("absolute top-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+              <div className={cn("absolute top-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+              <div className={cn("absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+              <div className={cn("absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+
+              <div className="space-y-5">
+                {/* Plan name + tier badge */}
+                <div className="flex items-center justify-between">
+                  <h3 className={cn("text-sm font-bold", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
+                    {plan.name}
+                  </h3>
+                  <Badge className={cn(
+                    "text-[9px] uppercase font-bold tracking-wider border-0 gap-1.5",
+                    plan.highlighted
+                      ? "bg-primary-foreground/15 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    <span className={cn("h-1.5 w-1.5 rounded-full", plan.tierColor)} />
+                    {plan.tier}
+                  </Badge>
                 </div>
-                <div className="space-y-1.5">
+
+                {/* Price */}
+                <div className="flex items-baseline gap-1.5">
+                  <span className={cn("text-4xl font-black tracking-tight", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
+                    {plan.price[billing]}
+                  </span>
+                  {plan.price[billing] !== "Custom" && (
+                    <span className={cn("text-sm", plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground")}>
+                      /month
+                    </span>
+                  )}
+                  {plan.price[billing] === "Custom" && (
+                    <span className={cn("text-sm", plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground")}>
+                      /month
+                    </span>
+                  )}
+                </div>
+
+                {/* CTA */}
+                <Button
+                  variant={plan.highlighted ? "secondary" : "outline"}
+                  className={cn(
+                    "w-full rounded-xl font-semibold text-xs h-10",
+                    plan.highlighted
+                      ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                      : plan.current
+                        ? "bg-muted border-border text-foreground cursor-default"
+                        : plan.price[billing] === "Custom"
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90 border-0"
+                          : ""
+                  )}
+                >
+                  {plan.current ? "Current Plan" : plan.price[billing] === "Custom" ? "Contact Us" : "Upgrade Plan"}
+                </Button>
+
+                <Separator className={plan.highlighted ? "bg-primary-foreground/10" : ""} />
+
+                {/* Features */}
+                <div className="space-y-2.5">
                   {plan.features.map((f) => (
-                    <div key={f} className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3 w-3 text-accent shrink-0" />
-                      <span className="text-[10px] text-muted-foreground">{f}</span>
+                    <div key={f} className="flex items-start gap-2">
+                      <CheckCircle2 className={cn(
+                        "h-3.5 w-3.5 shrink-0 mt-0.5",
+                        plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground/50"
+                      )} />
+                      <span className={cn(
+                        "text-xs leading-relaxed",
+                        plan.highlighted ? "text-primary-foreground/70" : "text-muted-foreground"
+                      )}>
+                        {f}
+                      </span>
                     </div>
                   ))}
                 </div>
-                {plan.current ? (
-                  <Badge className="bg-accent/10 text-accent border-accent/20 text-[9px] uppercase font-bold w-full justify-center">Current</Badge>
-                ) : (
-                  <Button variant="outline" size="sm" className="w-full rounded-lg text-xs">
-                    {plan.price === "$0" ? "Downgrade" : "Upgrade"}
-                  </Button>
-                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
         <Separator />
