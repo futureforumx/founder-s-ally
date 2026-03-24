@@ -14,7 +14,7 @@ interface ProgressBarProps {
 
 export function ProgressBar({ currentStep }: ProgressBarProps) {
   return (
-    <div className="w-full px-4 pt-8 pb-2">
+    <div className="w-full px-4 pt-4 pb-1">
       <div className="flex items-center justify-between max-w-md mx-auto">
         {steps.map((s, i) => (
           <div key={s.num} className="flex items-center flex-1 last:flex-none">
