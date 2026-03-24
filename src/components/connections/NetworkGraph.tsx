@@ -373,7 +373,7 @@ export function NetworkGraph() {
               !EDGES.some((e2) => (e2.from === node.id || e2.to === node.id) && e2.strength !== "weak")
           );
           const size = isYou ? 64 : isWeak ? 40 : 48;
-          const borderColor = isYou ? "#111827" : TYPE_COLORS[node.connectionType || "founder"];
+          const borderColor = isYou ? "hsl(222, 47%, 11%)" : TYPE_COLORS[node.connectionType || "founder"];
           const borderWidth = isYou ? 2 : (
             EDGES.find((e) => (e.from === node.id || e.to === node.id))?.strength === "strong" ? 3 :
             EDGES.find((e) => (e.from === node.id || e.to === node.id))?.strength === "medium" ? 1.5 : 1
