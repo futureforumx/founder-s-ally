@@ -323,12 +323,12 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35 }}
       className="w-full max-w-5xl mx-auto flex flex-col"
-      style={{ maxHeight: "calc(100vh - 120px)" }}
+      style={{ height: "calc(100vh - 100px)" }}
     >
       {/* Header */}
-      <div className="text-center space-y-1 mb-4 shrink-0">
-        <h1 className="text-xl font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
-        <p className="text-xs text-white/40">Connect your data sources to power the engine.</p>
+      <div className="text-center mb-2 shrink-0">
+        <h1 className="text-lg font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
+        <p className="text-[11px] text-white/40">Connect your data sources to power the engine.</p>
       </div>
 
       {/* Two-Column Layout */}
