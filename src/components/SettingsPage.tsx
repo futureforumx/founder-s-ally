@@ -5,10 +5,10 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, Mail, Linkedin, Twitter, Bell, BellOff,
-  CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
+  CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
-  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronDown
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -364,6 +364,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
   const [xVerified, setXVerified] = useState(false);
   const [xSyncing, setXSyncing] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
 
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
@@ -879,82 +881,128 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         </div>
 
         {/* ── Profile (First Name, Last Name, Email) ── */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-border/60">
-            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" />
-              Profile
-            </h3>
-          </div>
-          <div className="p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1" data-field="first_name">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  First Name <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  value={name.split(" ")[0] || ""}
-                  onChange={(e) => {
-                    const parts = name.split(" ");
-                    const last = parts.slice(1).join(" ");
-                    const newName = last ? `${e.target.value} ${last}` : e.target.value;
-                    setName(newName);
-                    autosave({ name: newName });
-                  }}
-                  placeholder="First name"
-                  className="rounded-lg h-9 text-sm"
-                  required
-                />
-              </div>
-              <div className="space-y-1" data-field="last_name">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Last Name <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  value={name.split(" ").slice(1).join(" ") || ""}
-                  onChange={(e) => {
-                    const first = name.split(" ")[0] || "";
-                    const newName = e.target.value ? `${first} ${e.target.value}` : first;
-                    setName(newName);
-                    autosave({ name: newName });
-                  }}
-                  placeholder="Last name"
-                  className="rounded-lg h-9 text-sm"
-                  required
-                />
-              </div>
-              <div className="space-y-1 sm:col-span-2" data-field="email">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Email <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  value={displayEmail}
-                  disabled
-                  className="rounded-lg h-9 text-sm opacity-70"
-                />
-                <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Button
-                onClick={() => {
-                  const first = name.split(" ")[0]?.trim();
-                  const last = name.split(" ").slice(1).join(" ")?.trim();
-                  if (!first || !last) {
-                    toast.error("First Name and Last Name are required");
-                    return;
-                  }
-                  saveImmediate({ name });
-                  toast.success("Profile details confirmed");
-                }}
-                className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
+        {(() => {
+          const firstName = name.split(" ")[0]?.trim() || "";
+          const lastName = name.split(" ").slice(1).join(" ")?.trim() || "";
+          const isProfileEmpty = !firstName && !lastName;
+          const isProfileComplete = !!firstName && !!lastName;
+
+          const statusDot = profileConfirmed && isProfileComplete ? (
+            <span className="inline-flex rounded-full h-2 w-2 bg-success" />
+          ) : isProfileEmpty ? (
+            <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />
+          ) : isProfileComplete ? (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+            </span>
+          ) : (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+            </span>
+          );
+
+          return (
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              {/* Collapsible header */}
+              <button
+                onClick={() => setProfileOpen(prev => !prev)}
+                className="w-full px-5 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
               >
-                <CheckCircle2 className="h-4 w-4" />
-                Confirm Details
-              </Button>
+                <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-2">
+                  <User className="h-3.5 w-3.5" />
+                  Profile
+                  {statusDot}
+                </h3>
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", profileOpen && "rotate-180")} />
+              </button>
+
+              {/* Collapsible content */}
+              <AnimatePresence initial={false}>
+                {profileOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-5 pb-5 pt-2 border-t border-border/60">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1" data-field="first_name">
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            First Name <span className="text-destructive">*</span>
+                          </label>
+                          <Input
+                            value={firstName}
+                            onChange={(e) => {
+                              const newName = lastName ? `${e.target.value} ${lastName}` : e.target.value;
+                              setName(newName);
+                              autosave({ name: newName });
+                              if (profileConfirmed) setProfileConfirmed(false);
+                            }}
+                            placeholder="First name"
+                            className="rounded-lg h-9 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1" data-field="last_name">
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            Last Name <span className="text-destructive">*</span>
+                          </label>
+                          <Input
+                            value={lastName}
+                            onChange={(e) => {
+                              const newName = e.target.value ? `${firstName} ${e.target.value}` : firstName;
+                              setName(newName);
+                              autosave({ name: newName });
+                              if (profileConfirmed) setProfileConfirmed(false);
+                            }}
+                            placeholder="Last name"
+                            className="rounded-lg h-9 text-sm"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2" data-field="email">
+                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            Email <span className="text-destructive">*</span>
+                          </label>
+                          <Input
+                            value={displayEmail}
+                            disabled
+                            className="rounded-lg h-9 text-sm opacity-70"
+                          />
+                          <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
+                        </div>
+                      </div>
+                      <Separator className="my-4" />
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            if (!firstName || !lastName) {
+                              toast.error("First Name and Last Name are required");
+                              return;
+                            }
+                            saveImmediate({ name });
+                            setProfileConfirmed(true);
+                            setProfileOpen(false);
+                            toast.success("Profile details confirmed");
+                          }}
+                          className="rounded-full px-5 h-9 text-sm font-medium gap-2 border-border"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Confirm Details
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* ── Personal Information (revealed after sync / or if complete) ── */}
         <AnimatePresence>
