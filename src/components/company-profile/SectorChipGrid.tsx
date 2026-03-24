@@ -179,7 +179,7 @@ function InlineChipRow({
               label={opt.label}
               state={isSelected ? "selected" : "unselected"}
               aiSuggested={isAi && isSelected}
-              aiApproved={approved}
+              aiApproved={isSelected ? approved : undefined}
               onClick={() => toggle(opt.label)}
               disabled={isDisabled}
             />
