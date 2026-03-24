@@ -5,7 +5,6 @@ const steps = [
   { num: 1, label: "Identity" },
   { num: 2, label: "Company" },
   { num: 3, label: "Power Up" },
-  { num: 4, label: "Privacy" },
 ];
 
 interface ProgressBarProps {
