@@ -27,13 +27,14 @@ export default function Auth() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast.success("Account created! You're now signed in.");
+        toast.success("Account created! Let's set up your profile.");
+        navigate("/onboarding", { replace: true });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back!");
+        navigate("/", { replace: true });
       }
-      navigate("/", { replace: true });
     } catch (err: any) {
       toast.error(err.message || "Authentication failed");
     } finally {
