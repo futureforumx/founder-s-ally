@@ -106,6 +106,7 @@ export function OnboardingWizard() {
         linkedin_url: state.linkedinUrl || null,
         twitter_url: state.twitterUrl || null,
         user_type: state.userType || "founder",
+        has_completed_onboarding: true,
         ...(companyId ? { company_id: companyId } : {}),
       } as any);
 
