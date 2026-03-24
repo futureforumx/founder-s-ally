@@ -554,6 +554,7 @@ interface SensorSuiteGridProps {
 
 export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("recommended");
+  const [searchQuery, setSearchQuery] = useState("");
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
   const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
   const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
