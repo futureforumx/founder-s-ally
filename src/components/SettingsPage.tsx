@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
