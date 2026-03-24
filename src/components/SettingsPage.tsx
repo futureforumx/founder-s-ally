@@ -322,6 +322,7 @@ function TabWrapper({ children }: { children: React.ReactNode }) {
 
 // ── Account Tab ──
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
+  const { verify: verifyLinkedIn } = useLinkedInVerify();
   const { profile, upsertProfile } = useProfile();
   const [name, setName] = useState(displayName);
   const [title, setTitle] = useState("");
