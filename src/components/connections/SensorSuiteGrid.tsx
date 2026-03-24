@@ -8,6 +8,15 @@ const BRAND_ICONS: Record<string, string> = {
   hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
   attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
   twitter: "https://cdn.simpleicons.org/x/000000",
+  instagram: "https://cdn.simpleicons.org/instagram/E4405F",
+  facebook: "https://cdn.simpleicons.org/facebook/0866FF",
+  tiktok: "https://cdn.simpleicons.org/tiktok/000000",
+  zoom: "https://cdn.simpleicons.org/zoom/0B5CFF",
+  googlemeet: "https://cdn.simpleicons.org/googlemeet/00897B",
+  microsoftteams: "https://cdn.simpleicons.org/microsoftteams/6264A7",
+  slack: "https://cdn.simpleicons.org/slack/4A154B",
+  whatsapp: "https://cdn.simpleicons.org/whatsapp/25D366",
+  discord: "https://cdn.simpleicons.org/discord/5865F2",
 };
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,19 +24,29 @@ import {
   Shield, RefreshCw, Sparkles, AlertCircle,
   Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
   Settings2, Activity, Check, CreditCard, BookOpen, FileText,
-  MessageSquare, Contact, Layers
+  MessageSquare, Contact, Layers, Video, MonitorSmartphone, Hash,
+  Camera, Facebook as FacebookIcon, Music2, PhoneCall
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
 // ── Types ──
-export type SourceKey = "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter";
+export type SourceKey =
+  | "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter"
+  | "instagram" | "facebook" | "tiktok" | "zoom" | "googlemeet" | "microsoftteams"
+  | "slack" | "whatsapp" | "discord";
+
+export type FilterCategory = "recommended" | "social" | "meetings" | "bizops";
 
 const STORAGE_KEY = "community-connections-status";
 const SYNC_DETAIL_KEY = "connections-sync-detail";
 
-export const ALL_KEYS: SourceKey[] = ["google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter"];
+export const ALL_KEYS: SourceKey[] = [
+  "google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter",
+  "instagram", "facebook", "tiktok", "zoom", "googlemeet", "microsoftteams",
+  "slack", "whatsapp", "discord",
+];
 
 export function loadConnected(): Record<SourceKey, boolean> {
   try {
@@ -77,13 +96,14 @@ interface SourceConfig {
   disconnectWarning: string;
   section: SensorSection;
   note?: string;
+  filterCategories: FilterCategory[];
 }
 
 const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
     key: "google", label: "Google", icon: Mail, customIcon: BRAND_ICONS.google, section: "recommended",
-    categoryTag: "INTELLIGENCE PIPELINE",
+    categoryTag: "INTELLIGENCE PIPELINE", filterCategories: ["recommended"],
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
     liveStats: "142 threads analyzed",
@@ -99,7 +119,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin, customIcon: BRAND_ICONS.linkedin, section: "recommended",
-    categoryTag: "PROFESSIONAL IDENTITY",
+    categoryTag: "PROFESSIONAL IDENTITY", filterCategories: ["recommended", "social"],
     glowColor: "shadow-[0_0_24px_rgba(59,130,246,0.3)]", glowHsl: "bg-blue-500",
     description: "Map your professional network graph",
     liveStats: "2nd Degree: +4,218",
@@ -115,7 +135,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "notion", label: "Notion", icon: BookOpen, customIcon: BRAND_ICONS.notion, section: "recommended",
-    categoryTag: "KNOWLEDGE BASE",
+    categoryTag: "KNOWLEDGE BASE", filterCategories: ["recommended"],
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Import your investor tracker + research docs",
     liveStats: "24 pages synced · 18 investors imported",
@@ -132,7 +152,7 @@ const SOURCES: SourceConfig[] = [
   // ── POWER SENSORS ──
   {
     key: "stripe", label: "Stripe", icon: CreditCard, customIcon: BRAND_ICONS.stripe, section: "power",
-    categoryTag: "TRACTION SIGNALS",
+    categoryTag: "TRACTION SIGNALS", filterCategories: ["recommended"],
     glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
     description: "Real-time MRR, churn, and growth signals",
     liveStats: "MRR: $12.4K · +18% MoM",
@@ -149,7 +169,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "granola", label: "Granola", icon: FileText, customIcon: BRAND_ICONS.granola, section: "power",
-    categoryTag: "MEETING INTELLIGENCE",
+    categoryTag: "MEETING INTELLIGENCE", filterCategories: ["meetings"],
     glowColor: "shadow-[0_0_24px_rgba(234,179,8,0.3)]", glowHsl: "bg-yellow-500",
     description: "Turns investor meeting notes into action items",
     liveStats: "8 meetings processed · 3 follow-ups surfaced",
@@ -165,7 +185,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "hubspot", label: "HubSpot", icon: Contact, customIcon: BRAND_ICONS.hubspot, section: "power",
-    categoryTag: "CRM PIPELINE",
+    categoryTag: "CRM PIPELINE", filterCategories: ["meetings"],
     glowColor: "shadow-[0_0_24px_rgba(251,146,60,0.3)]", glowHsl: "bg-orange-500",
     description: "Import investor + customer pipeline",
     liveStats: "156 contacts synced · 23 deals imported",
@@ -181,7 +201,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "attio", label: "Attio", icon: Layers, customIcon: BRAND_ICONS.attio, section: "power",
-    categoryTag: "VC-NATIVE CRM",
+    categoryTag: "VC-NATIVE CRM", filterCategories: ["meetings"],
     glowColor: "shadow-[0_0_24px_rgba(168,85,247,0.3)]", glowHsl: "bg-purple-500",
     description: "Sync your VC-native relationship CRM",
     liveStats: "89 people synced · 4 lists imported",
@@ -198,7 +218,7 @@ const SOURCES: SourceConfig[] = [
   // ── SIGNAL SOURCES ──
   {
     key: "twitter", label: "X (Twitter)", icon: Twitter, customIcon: BRAND_ICONS.twitter, section: "signal",
-    categoryTag: "SOCIAL INTELLIGENCE",
+    categoryTag: "SOCIAL INTELLIGENCE", filterCategories: ["social"],
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Investor thesis signals + competitor moves",
     liveStats: "89 mutual follows · 7 investor signals this week",
@@ -211,6 +231,153 @@ const SOURCES: SourceConfig[] = [
     unlockToast: "🔓 Social Intelligence unlocked",
     connectLabel: "Connect with X",
     disconnectWarning: "Disconnect X (Twitter)? This will pause social signal tracking.",
+  },
+  // ── NEW SOCIAL ──
+  {
+    key: "instagram", label: "Instagram", icon: Camera, customIcon: BRAND_ICONS.instagram, section: "signal",
+    categoryTag: "SOCIAL PRESENCE", filterCategories: ["social"],
+    glowColor: "shadow-[0_0_24px_rgba(228,64,95,0.3)]", glowHsl: "bg-pink-500",
+    description: "Track brand mentions and founder reach",
+    liveStats: "1.2K followers · 8 brand mentions",
+    connectedStats: [
+      { label: "Followers", value: "1.2K" },
+      { label: "Brand Mentions", value: "8" },
+      { label: "Reach", value: "4.5K" },
+    ],
+    syncStages: ["Authenticating...", "Scanning posts...", "Analyzing reach...", "Mapping mentions...", "Complete ✓"],
+    unlockToast: "🔓 Instagram signals active",
+    connectLabel: "Connect Instagram",
+    disconnectWarning: "Disconnect Instagram? This will pause brand mention tracking.",
+  },
+  {
+    key: "facebook", label: "Facebook", icon: Users, customIcon: BRAND_ICONS.facebook, section: "signal",
+    categoryTag: "SOCIAL NETWORK", filterCategories: ["social"],
+    glowColor: "shadow-[0_0_24px_rgba(8,102,255,0.3)]", glowHsl: "bg-blue-600",
+    description: "Community groups and page engagement",
+    liveStats: "320 page likes · 5 group connections",
+    connectedStats: [
+      { label: "Page Likes", value: "320" },
+      { label: "Groups", value: "5" },
+      { label: "Engagement", value: "2.8%" },
+    ],
+    syncStages: ["Authenticating...", "Scanning pages...", "Mapping groups...", "Analyzing engagement...", "Complete ✓"],
+    unlockToast: "🔓 Facebook insights active",
+    connectLabel: "Connect Facebook",
+    disconnectWarning: "Disconnect Facebook? This will pause page and group syncing.",
+  },
+  {
+    key: "tiktok", label: "TikTok", icon: Music2, customIcon: BRAND_ICONS.tiktok, section: "signal",
+    categoryTag: "SHORT-FORM VIDEO", filterCategories: ["social"],
+    glowColor: "shadow-[0_0_24px_rgba(0,0,0,0.15)]", glowHsl: "bg-foreground",
+    description: "Track viral reach and brand awareness",
+    liveStats: "450 views · 3 trending tags",
+    connectedStats: [
+      { label: "Views", value: "450" },
+      { label: "Trending Tags", value: "3" },
+      { label: "Shares", value: "12" },
+    ],
+    syncStages: ["Authenticating...", "Fetching analytics...", "Mapping trends...", "Complete ✓", "Complete ✓"],
+    unlockToast: "🔓 TikTok analytics active",
+    connectLabel: "Connect TikTok",
+    disconnectWarning: "Disconnect TikTok? This will pause video analytics.",
+  },
+  // ── NEW MEETINGS ──
+  {
+    key: "zoom", label: "Zoom", icon: Video, customIcon: BRAND_ICONS.zoom, section: "power",
+    categoryTag: "VIDEO MEETINGS", filterCategories: ["meetings"],
+    glowColor: "shadow-[0_0_24px_rgba(11,92,255,0.3)]", glowHsl: "bg-blue-500",
+    description: "Auto-capture investor call notes and follow-ups",
+    liveStats: "12 calls recorded · 5 action items",
+    connectedStats: [
+      { label: "Calls Recorded", value: "12" },
+      { label: "Action Items", value: "5" },
+      { label: "Hours Saved", value: "3.2" },
+    ],
+    syncStages: ["Authenticating...", "Fetching recordings...", "Transcribing...", "Extracting actions...", "Complete ✓"],
+    unlockToast: "🔓 Zoom meeting intelligence active",
+    connectLabel: "Connect Zoom",
+    disconnectWarning: "Disconnect Zoom? This will pause meeting capture.",
+  },
+  {
+    key: "googlemeet", label: "Google Meet", icon: Video, customIcon: BRAND_ICONS.googlemeet, section: "power",
+    categoryTag: "VIDEO MEETINGS", filterCategories: ["meetings"],
+    glowColor: "shadow-[0_0_24px_rgba(0,137,123,0.3)]", glowHsl: "bg-teal-500",
+    description: "Capture meeting transcripts and investor signals",
+    liveStats: "9 meetings · 4 follow-ups surfaced",
+    connectedStats: [
+      { label: "Meetings", value: "9" },
+      { label: "Follow-ups", value: "4" },
+      { label: "Transcripts", value: "9" },
+    ],
+    syncStages: ["Authenticating...", "Fetching meetings...", "Transcribing...", "Analyzing...", "Complete ✓"],
+    unlockToast: "🔓 Google Meet intelligence active",
+    connectLabel: "Connect Google Meet",
+    disconnectWarning: "Disconnect Google Meet? This will pause meeting transcription.",
+  },
+  {
+    key: "microsoftteams", label: "Microsoft Teams", icon: MonitorSmartphone, customIcon: BRAND_ICONS.microsoftteams, section: "power",
+    categoryTag: "VIDEO MEETINGS", filterCategories: ["meetings"],
+    glowColor: "shadow-[0_0_24px_rgba(98,100,167,0.3)]", glowHsl: "bg-indigo-500",
+    description: "Sync Teams calls, chats, and meeting notes",
+    liveStats: "6 calls synced · 2 action items",
+    connectedStats: [
+      { label: "Calls Synced", value: "6" },
+      { label: "Action Items", value: "2" },
+      { label: "Chats", value: "14" },
+    ],
+    syncStages: ["Authenticating...", "Fetching calls...", "Syncing chats...", "Extracting notes...", "Complete ✓"],
+    unlockToast: "🔓 Teams meeting sync active",
+    connectLabel: "Connect Teams",
+    disconnectWarning: "Disconnect Microsoft Teams? This will pause meeting syncing.",
+  },
+  // ── NEW BIZOPS ──
+  {
+    key: "slack", label: "Slack", icon: Hash, customIcon: BRAND_ICONS.slack, section: "signal",
+    categoryTag: "TEAM COMMS", filterCategories: ["bizops"],
+    glowColor: "shadow-[0_0_24px_rgba(74,21,75,0.3)]", glowHsl: "bg-purple-700",
+    description: "Surface investor mentions and deal chatter",
+    liveStats: "42 channels monitored · 3 investor mentions",
+    connectedStats: [
+      { label: "Channels", value: "42" },
+      { label: "Investor Mentions", value: "3" },
+      { label: "Alerts", value: "7" },
+    ],
+    syncStages: ["Authenticating...", "Scanning channels...", "Indexing messages...", "Mapping mentions...", "Complete ✓"],
+    unlockToast: "🔓 Slack intelligence active",
+    connectLabel: "Connect Slack",
+    disconnectWarning: "Disconnect Slack? This will pause channel monitoring.",
+  },
+  {
+    key: "whatsapp", label: "WhatsApp", icon: PhoneCall, customIcon: BRAND_ICONS.whatsapp, section: "signal",
+    categoryTag: "MESSAGING", filterCategories: ["bizops"],
+    glowColor: "shadow-[0_0_24px_rgba(37,211,102,0.3)]", glowHsl: "bg-green-500",
+    description: "Track investor conversations and introductions",
+    liveStats: "18 investor threads · 2 warm intros",
+    connectedStats: [
+      { label: "Threads", value: "18" },
+      { label: "Warm Intros", value: "2" },
+      { label: "Messages", value: "234" },
+    ],
+    syncStages: ["Authenticating...", "Scanning chats...", "Mapping contacts...", "Analyzing threads...", "Complete ✓"],
+    unlockToast: "🔓 WhatsApp insights active",
+    connectLabel: "Connect WhatsApp",
+    disconnectWarning: "Disconnect WhatsApp? This will pause conversation tracking.",
+  },
+  {
+    key: "discord", label: "Discord", icon: MessageSquare, customIcon: BRAND_ICONS.discord, section: "signal",
+    categoryTag: "COMMUNITY", filterCategories: ["bizops"],
+    glowColor: "shadow-[0_0_24px_rgba(88,101,242,0.3)]", glowHsl: "bg-indigo-500",
+    description: "Monitor community channels and investor discussions",
+    liveStats: "5 servers · 12 relevant threads",
+    connectedStats: [
+      { label: "Servers", value: "5" },
+      { label: "Threads", value: "12" },
+      { label: "Signals", value: "4" },
+    ],
+    syncStages: ["Authenticating...", "Scanning servers...", "Indexing threads...", "Extracting signals...", "Complete ✓"],
+    unlockToast: "🔓 Discord community insights active",
+    connectLabel: "Connect Discord",
+    disconnectWarning: "Disconnect Discord? This will pause community monitoring.",
   },
 ];
 
@@ -254,13 +421,22 @@ const TERMINAL_LOGS = [
   { time: "19:11", source: "SYSTEM", msg: "Intelligence Engine score: 72%" },
 ];
 
+const FILTER_CATEGORIES: { key: FilterCategory; label: string }[] = [
+  { key: "recommended", label: "RECOMMENDED" },
+  { key: "social", label: "SOCIAL" },
+  { key: "meetings", label: "MEETINGS" },
+  { key: "bizops", label: "BIZOPS" },
+];
+
 interface SensorSuiteGridProps {
   compact?: boolean;
   showHeader?: boolean;
   showTerminal?: boolean;
+  showCategoryFilter?: boolean;
 }
 
-export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true }: SensorSuiteGridProps) {
+export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>("recommended");
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
   const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
   const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
@@ -720,48 +896,89 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           </motion.div>
         )}
 
-        {/* Sensor Sections */}
-        {SECTIONS.map((section, si) => {
-          const sectionSources = SOURCES.filter(s => s.section === section.key);
-          return (
-            <div key={section.key}>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 + si * 0.1 }}
-                className="mb-4"
+        {/* Category Filter Toggle */}
+        {showCategoryFilter && (
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+            {FILTER_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveFilter(cat.key)}
+                className={`px-3 py-1 rounded-md text-[10px] uppercase tracking-wide transition-all font-mono font-bold ${
+                  activeFilter === cat.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
-                  <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">{section.label}</h2>
-                </div>
-                <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
-              </motion.div>
-              <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-                {sectionSources.map((source, i) => {
-                  const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
-                  const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
-                    ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
-                    : sensor.icon_url;
-                  console.log("Rendering sensor:", sensor.name, "with icon:", displayIcon);
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-                  return (
-                    <SensorCard
-                      key={source.key}
-                      source={source}
-                      index={si * 3 + i}
-                      sensorId={sensor.id}
-                      sensorName={sensor.name}
-                      displayIcon={displayIcon}
-                    />
-                  );
-                })}
-              </div>
+        {/* Sensor Sections */}
+        {showCategoryFilter ? (
+          // Filtered flat list mode
+          <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+            {SOURCES.filter(s => s.filterCategories.includes(activeFilter)).map((source, i) => {
+              const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+              const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                : sensor.icon_url;
 
-              {section.key === "signal" && (
+              return (
+                <SensorCard
+                  key={source.key}
+                  source={source}
+                  index={i}
+                  sensorId={sensor.id}
+                  sensorName={sensor.name}
+                  displayIcon={displayIcon}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          // Original section-based layout
+          SECTIONS.map((section, si) => {
+            const sectionSources = SOURCES.filter(s => s.section === section.key);
+            return (
+              <div key={section.key}>
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 + si * 0.1 }}
+                  className="mb-4"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">{section.label}</h2>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
+                </motion.div>
+                <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+                  {sectionSources.map((source, i) => {
+                    const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+                    const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                      ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                      : sensor.icon_url;
+
+                    return (
+                      <SensorCard
+                        key={source.key}
+                        source={source}
+                        index={si * 3 + i}
+                        sensorId={sensor.id}
+                        sensorName={sensor.name}
+                        displayIcon={displayIcon}
+                      />
+                    );
+                  })}
+                </div>
+
+                {section.key === "signal" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
                   className="mt-3 rounded-2xl border border-dashed border-border bg-transparent p-5 flex items-center justify-center"
                 >
@@ -770,7 +987,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               )}
             </div>
           );
-        })}
+        })
+        )}
 
         {/* Live Traffic Terminal */}
         {showTerminal && connectedCount >= 1 && (
