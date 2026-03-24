@@ -242,26 +242,34 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">First Name</label>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                First Name <span className="text-destructive">*</span>
+              </label>
               <Input
                 value={state.firstName}
                 onChange={(e) => handleNameChange(e.target.value, state.lastName)}
                 placeholder="Jane"
                 className="rounded-lg h-9 text-sm"
+                required
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Last Name</label>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Last Name <span className="text-destructive">*</span>
+              </label>
               <Input
                 value={state.lastName}
                 onChange={(e) => handleNameChange(state.firstName, e.target.value)}
                 placeholder="Doe"
                 className="rounded-lg h-9 text-sm"
+                required
               />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Role</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Role <span className="text-destructive">*</span>
+            </label>
             <SmartCombobox
               value={state.title}
               onChange={(v) => update({ title: v })}
@@ -273,8 +281,10 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
             <Input
               value={state.email}
-              disabled
-              className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground"
+              onChange={(e) => update({ email: e.target.value })}
+              placeholder="jane@acme.com"
+              type="email"
+              className="rounded-lg h-9 text-sm"
             />
           </div>
         </div>
