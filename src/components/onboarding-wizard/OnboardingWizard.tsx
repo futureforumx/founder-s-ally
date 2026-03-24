@@ -10,7 +10,7 @@ import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
-import { StepPowerUp } from "./StepPowerUp";
+
 import { toast } from "@/hooks/use-toast";
 
 // ── AI field guessing helpers ──
