@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
+import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
@@ -127,14 +128,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     await enrichXProfile(formatted);
   };
 
-  const linkedinDomain = (() => {
-    try {
-      if (!url.trim()) return null;
-      let u = url.trim();
-      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-      return new URL(u).hostname.replace(/^www\./, "") || null;
-    } catch { return null; }
-  })();
 
   return (
     <motion.div
@@ -219,79 +212,34 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             {/* Two-column inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {/* LinkedIn URL */}
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn</label>
-                <div className="relative">
-                  {linkedinDomain && (
-                    <img
-                      src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${linkedinDomain}&size=32`}
-                      alt=""
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                  )}
-                  <input
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value.toLowerCase())}
-                    onBlur={handleLinkedinBlur}
-                    placeholder="linkedin.com/in/yourname"
-                    className={cn(
-                      "flex w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs h-8 ring-offset-background",
-                      "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                      linkedinDomain ? "pl-7" : ""
-                    )}
-                  />
-                </div>
-              </div>
+              <MorphingUrlInput
+                platform="linkedin"
+                label="LinkedIn"
+                value={url}
+                onChange={(v) => setUrl(v)}
+                onBlur={() => {
+                  const formatted = formatSocialUrl("linkedin_personal", url);
+                  if (formatted !== url) setUrl(formatted);
+                  update({ linkedinUrl: formatted });
+                }}
+                verifyState="idle"
+              />
 
               {/* X / Twitter URL */}
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter</label>
-                <div className="relative">
-                  {xUrl.trim() && (
-                    <img
-                      src="https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.com&size=32"
-                      alt=""
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                  )}
-                  <input
-                    value={xUrl}
-                    onChange={(e) => setXUrl(e.target.value.toLowerCase())}
-                    onBlur={handleXBlur}
-                    placeholder="x.com/handle"
-                    className={cn(
-                      "flex w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs h-8 ring-offset-background",
-                      "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                      xUrl.trim() ? "pl-7" : ""
-                    )}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {xSyncing && (
-                      <span className="flex items-center gap-0.5 text-[9px] text-accent">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      </span>
-                    )}
-                    {!xSyncing && xVerified && (
-                      <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-0.5 text-[9px] font-medium text-success">
-                        <CheckCircle2 className="h-3 w-3" />
-                      </motion.span>
-                    )}
-                    {!xSyncing && !xVerified && xUrl.trim() && (
-                      <motion.button
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        onClick={(e) => { e.stopPropagation(); handleEnrichX(); }}
-                        className="text-[9px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        Enrich
-                      </motion.button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <MorphingUrlInput
+                platform="x"
+                label="X / Twitter"
+                value={xUrl}
+                onChange={(v) => setXUrl(v)}
+                onBlur={() => {
+                  const formatted = formatSocialUrl("x", xUrl);
+                  if (formatted !== xUrl) setXUrl(formatted);
+                  update({ twitterUrl: formatted });
+                }}
+                verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                onVerify={handleEnrichX}
+                verifyLabel="Enrich"
+              />
             </div>
 
             <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
