@@ -722,6 +722,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           full_name: string
+          has_completed_onboarding: boolean
           id: string
           is_public: boolean
           linkedin_url: string | null
@@ -739,6 +740,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           full_name?: string
+          has_completed_onboarding?: boolean
           id?: string
           is_public?: boolean
           linkedin_url?: string | null
@@ -756,6 +758,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           full_name?: string
+          has_completed_onboarding?: boolean
           id?: string
           is_public?: boolean
           linkedin_url?: string | null

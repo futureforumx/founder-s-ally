@@ -32,14 +32,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) { setOnboardingChecked(true); return; }
-    // Check if user has a profile (created during onboarding)
     supabase
       .from("profiles")
-      .select("id")
+      .select("id, has_completed_onboarding")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setNeedsOnboarding(!data);
+        // Needs onboarding if no profile OR has_completed_onboarding is false
+        const completed = (data as any)?.has_completed_onboarding === true;
+        setNeedsOnboarding(!data || !completed);
         setOnboardingChecked(true);
       });
   }, [user]);
@@ -52,7 +53,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
-  // Redirect new users to onboarding (unless already there)
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
