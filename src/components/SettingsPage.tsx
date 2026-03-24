@@ -733,20 +733,12 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         })()}
 
         {/* ── Data Sources ── */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          {/* Header */}
-          <div className="px-5 pt-4 pb-3 border-b border-border/60">
-            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
-              <Globe className="h-3.5 w-3.5" />
-              Data Sources
-            </h3>
-          </div>
-
-          <div className="p-5 space-y-4">
-            {/* 2-column grid: Left = URL inputs + AI banner, Right = Resume dropzone */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Left column */}
-              <div className="flex flex-col gap-3">
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+              {/* Left column: URL inputs + AI Insight */}
+              <div className="flex flex-col gap-2.5">
                 {/* LinkedIn URL */}
                 <MorphingUrlInput
                   platform="linkedin"
@@ -793,7 +785,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
               {/* Right column: Resume PDF Dropzone */}
               <div className="flex flex-col">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Resume (PDF)</label>
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Resume (PDF)</label>
                 <input
                   ref={resumeInputRef}
                   type="file"
@@ -808,18 +800,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     </div>
                     <p className="text-xs font-medium text-foreground truncate max-w-full">{resumeFileName || "Resume.pdf"}</p>
                     <div className="flex items-center gap-3 mt-2">
-                      <button
-                        onClick={() => resumeInputRef.current?.click()}
-                        className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        Replace
-                      </button>
-                      <button
-                        onClick={handleRemoveResume}
-                        className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors"
-                      >
-                        Remove
-                      </button>
+                      <button onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
+                      <button onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
                     </div>
                   </div>
                 ) : (
@@ -857,42 +839,42 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             </div>
 
             {/* Primary CTA */}
-            {(() => {
-              const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
-              return (
-                <Button
-                  onClick={handleSyncProfile}
-                  disabled={syncing || isIdentityVerified}
-                  variant={isIdentityVerified ? "outline" : "default"}
-                  className={cn(
-                    "w-full rounded-lg h-10 text-sm font-semibold gap-2",
-                    isIdentityVerified && "opacity-60 cursor-not-allowed"
-                  )}
-                >
-                  {syncing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Connecting to LinkedIn…
-                    </>
-                  ) : isIdentityVerified ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">✓ Identity Verified</span>
-                    </>
-                  ) : (
-                    <>
-                      <Linkedin className="h-4 w-4" />
-                      Verify with LinkedIn
-                    </>
-                  )}
-                </Button>
-              );
-            })()}
-
-            {/* Footer */}
-            <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide">
-              Triple-source triangulation: Resume + LinkedIn + X
-            </p>
+            <div className="mt-4">
+              {(() => {
+                const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
+                return (
+                  <Button
+                    onClick={handleSyncProfile}
+                    disabled={syncing || isIdentityVerified}
+                    variant={isIdentityVerified ? "outline" : "default"}
+                    className={cn(
+                      "w-full rounded-lg h-10 text-sm font-semibold gap-2",
+                      isIdentityVerified && "opacity-60 cursor-not-allowed"
+                    )}
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Connecting to LinkedIn…
+                      </>
+                    ) : isIdentityVerified ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">✓ Identity Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <Linkedin className="h-4 w-4" />
+                        Verify with LinkedIn
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
+              <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide mt-2">
+                Triple-source triangulation: Resume + LinkedIn + X
+              </p>
+            </div>
           </div>
         </div>
 
