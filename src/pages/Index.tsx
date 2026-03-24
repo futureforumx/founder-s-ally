@@ -165,11 +165,19 @@ const Index = () => {
     });
   };
 
-  const handleOnboardingComplete = (company: CompanyData, analysis: AnalysisResult) => {
+  const handleOnboardingComplete = async (company: CompanyData, analysis: AnalysisResult) => {
     setCompanyData(company);
     setAnalysisResult(analysis);
     setShowOnboarding(false);
     setShowTerminal(true);
+
+    // Mark onboarding as completed in the database
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", user.id);
+      }
+    } catch {}
 
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);
