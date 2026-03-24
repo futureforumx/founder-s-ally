@@ -54,9 +54,20 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
   // Strip leading @ and trailing slashes
   cleaned = cleaned.replace(/^@/, "").replace(/\/+$/, "");
 
-  // If still contains slashes or dots it might be an unknown domain — prepend https://
-  if (cleaned.includes("/") || cleaned.includes(".")) {
+  // For LinkedIn platforms, usernames can contain dots (e.g. "matt.thompson")
+  // Only treat as unknown domain if it has a recognizable TLD pattern AND slashes
+  if (cleaned.includes("/")) {
     return `https://${cleaned}`.toLowerCase();
+  }
+
+  // If it contains dots, check if it looks like a real domain (has a known TLD)
+  // Otherwise treat it as a username (LinkedIn usernames allow dots, hyphens)
+  if (cleaned.includes(".")) {
+    const knownTlds = /\.(com|org|net|io|co|dev|app|me|info|biz|us|uk|de|fr|so|ai)$/i;
+    if (knownTlds.test(cleaned)) {
+      return `https://${cleaned}`.toLowerCase();
+    }
+    // No recognized TLD — treat as username
   }
 
   // Pure username → prepend base URL

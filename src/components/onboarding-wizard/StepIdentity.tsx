@@ -52,15 +52,23 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     update({ linkedinUrl: formattedLinkedin });
 
     try {
-      const { data, error } = await supabase.functions.invoke("scrape-website", {
-        body: { url: formattedLinkedin },
+      // Use the LinkedIn-specific sync function for better data extraction
+      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
+        body: { linkedinUrl: formattedLinkedin },
       });
+
       if (error) throw error;
-      const name = data?.title?.split("|")?.[0]?.trim() || "";
-      update({
-        linkedinUrl: formattedLinkedin,
-        fullName: name || state.fullName,
-      });
+
+      const profileData = data?.data || {};
+      const updates: Partial<OnboardingState> = { linkedinUrl: formattedLinkedin };
+
+      if (profileData.full_name) updates.fullName = profileData.full_name;
+      if (profileData.title) updates.title = profileData.title;
+      if (profileData.bio) updates.bio = profileData.bio.slice(0, 160);
+      if (profileData.location) updates.location = profileData.location;
+      if (profileData.avatar_url) updates.avatarUrl = profileData.avatar_url;
+
+      update(updates);
 
       if (xUrl.trim()) {
         await enrichXProfile(formatSocialUrl("x", xUrl));
