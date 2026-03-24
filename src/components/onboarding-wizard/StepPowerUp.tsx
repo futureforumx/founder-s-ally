@@ -323,16 +323,16 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35 }}
       className="w-full max-w-5xl mx-auto flex flex-col"
-      style={{ maxHeight: "calc(100vh - 120px)" }}
+      style={{ height: "calc(100vh - 100px)" }}
     >
       {/* Header */}
-      <div className="text-center space-y-1 mb-4 shrink-0">
-        <h1 className="text-xl font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
-        <p className="text-xs text-white/40">Connect your data sources to power the engine.</p>
+      <div className="text-center mb-2 shrink-0">
+        <h1 className="text-lg font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
+        <p className="text-[11px] text-white/40">Connect your data sources to power the engine.</p>
       </div>
 
       {/* Two-Column Layout */}
-      <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0 overflow-hidden">
 
         {/* ── Left Column: Value Panel ── */}
         <div className="col-span-4 flex flex-col gap-3">
@@ -442,7 +442,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
 
         {/* ── Right Column: Scrollable Integrations ── */}
         <div className="col-span-8 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-2">
             {/* Recommended */}
             <div className="space-y-2">
               <p className="text-[9px] font-mono uppercase tracking-wider text-white/25 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
@@ -487,7 +487,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex items-center justify-between pt-3 shrink-0">
+      <div className="flex items-center justify-between pt-2 shrink-0">
         <Button
           variant="ghost"
           size="sm"
