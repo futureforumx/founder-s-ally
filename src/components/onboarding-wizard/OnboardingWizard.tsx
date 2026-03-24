@@ -120,7 +120,7 @@ export function OnboardingWizard() {
     <div className="min-h-screen bg-background flex flex-col">
       <ProgressBar currentStep={state.step} />
 
-      <div className="flex-1 flex items-start justify-center px-4 py-8 overflow-y-auto">
+      <div className={`flex-1 flex items-start justify-center px-4 overflow-y-auto ${state.step === 3 ? 'py-2' : 'py-8'}`}>
         <AnimatePresence mode="wait">
           {state.step === 1 && (
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />

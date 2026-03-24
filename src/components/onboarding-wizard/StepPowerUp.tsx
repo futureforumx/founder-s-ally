@@ -487,7 +487,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex items-center justify-between pt-3 shrink-0">
+      <div className="flex items-center justify-between pt-2 shrink-0">
         <Button
           variant="ghost"
           size="sm"
