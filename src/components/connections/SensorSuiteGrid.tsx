@@ -47,7 +47,7 @@ import {
   Table2, PieChart, ShoppingCart, DollarSign, Wallet, Banknote,
   Zap, GitBranch, Workflow, Repeat2,
   MailOpen, Palette, Megaphone,
-  LineChart, Eye, UserCheck
+  LineChart, Eye, UserCheck, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
