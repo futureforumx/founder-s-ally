@@ -128,14 +128,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     await enrichXProfile(formatted);
   };
 
-  const linkedinDomain = (() => {
-    try {
-      if (!url.trim()) return null;
-      let u = url.trim();
-      if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-      return new URL(u).hostname.replace(/^www\./, "") || null;
-    } catch { return null; }
-  })();
 
   return (
     <motion.div
