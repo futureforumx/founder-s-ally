@@ -89,6 +89,16 @@ const Index = () => {
     if (!companyData) return 0;
     return getCompletionPercent({ ...EMPTY_FORM, ...companyData });
   }, [companyData]);
+  const personalCompletion = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user-profile-snapshot");
+      if (!raw) return 0;
+      const p = JSON.parse(raw);
+      const fields = [p.full_name, p.title, p.bio, p.location, p.linkedin_url, p.twitter_url];
+      const filled = fields.filter(Boolean).length;
+      return Math.round((filled / fields.length) * 100);
+    } catch { return 0; }
+  }, [companyData]);
   const [isAnalysisRunning, setIsAnalysisRunning] = useState(false);
 
   // Last synced state
