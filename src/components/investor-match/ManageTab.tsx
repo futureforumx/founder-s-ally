@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from "rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -566,7 +567,8 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           const enriched = enrichCache?.[key];
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
           const location = enriched?.profile?.geography || null;
-          const website = b.website || (enriched?.profile?.logoUrl?.startsWith("http") ? enriched.profile.logoUrl.replace(/\/favicon\.ico$/, "") : null);
+          const firmWebsite = b.website || enriched?.profile?.logoUrl?.replace(/\/favicon\.ico$/, "") || null;
+          const websiteForFavicon = firmWebsite || (b.name.toLowerCase().replace(/\s+/g, "") + ".com");
 
           return (
             <Popover key={b.id}>
@@ -581,15 +583,12 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-11 w-11 shrink-0 rounded-xl border border-border shadow-sm">
-                      {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                      <AvatarFallback
-                        className="text-sm font-bold rounded-xl"
-                        style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                      >
-                        {b.logoLetter}
-                      </AvatarFallback>
-                    </Avatar>
+                    <FirmLogo
+                      firmName={b.name}
+                      logoUrl={b.logoUrl}
+                      websiteUrl={websiteForFavicon}
+                      size="md"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-foreground truncate">{b.name}</p>
                       {slogan && (
@@ -626,15 +625,13 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                   style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.12))" }}
                 />
                 <div className="px-5 -mt-8">
-                  <Avatar className="h-14 w-14 rounded-xl border-2 border-card shadow-lg">
-                    {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                    <AvatarFallback
-                      className="text-base font-bold rounded-xl"
-                      style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                    >
-                      {b.logoLetter}
-                    </AvatarFallback>
-                  </Avatar>
+                  <FirmLogo
+                    firmName={b.name}
+                    logoUrl={b.logoUrl}
+                    websiteUrl={websiteForFavicon}
+                    size="lg"
+                    className="border-2 border-card shadow-lg"
+                  />
                 </div>
 
                 <div className="px-5 pt-2 pb-5 space-y-4">
@@ -686,22 +683,22 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                         <span className="text-[11px] font-medium text-foreground">{location}</span>
                       </div>
                     )}
-                    {website && (
+                    {firmWebsite && (
                       <div className="flex items-center gap-2.5">
                         <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="text-[11px] text-muted-foreground flex-1">Website</span>
                         <a
-                          href={website.startsWith("http") ? website : `https://${website}`}
+                          href={firmWebsite.startsWith("http") ? firmWebsite : `https://${firmWebsite}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[11px] font-medium text-primary hover:underline truncate max-w-[120px]"
                           onClick={e => e.stopPropagation()}
                         >
-                          {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                          {firmWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         </a>
                       </div>
                     )}
-                    {!b.amount && !b.instrument && !b.date && !location && !website && (
+                    {!b.amount && !b.instrument && !b.date && !location && !firmWebsite && (
                       <p className="text-[11px] text-muted-foreground italic text-center py-1">No details yet.</p>
                     )}
                   </div>
