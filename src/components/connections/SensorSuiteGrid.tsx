@@ -896,48 +896,89 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           </motion.div>
         )}
 
-        {/* Sensor Sections */}
-        {SECTIONS.map((section, si) => {
-          const sectionSources = SOURCES.filter(s => s.section === section.key);
-          return (
-            <div key={section.key}>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 + si * 0.1 }}
-                className="mb-4"
+        {/* Category Filter Toggle */}
+        {showCategoryFilter && (
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+            {FILTER_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveFilter(cat.key)}
+                className={`px-3 py-1 rounded-md text-[10px] uppercase tracking-wide transition-all font-mono font-bold ${
+                  activeFilter === cat.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
-                  <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">{section.label}</h2>
-                </div>
-                <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
-              </motion.div>
-              <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-                {sectionSources.map((source, i) => {
-                  const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
-                  const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
-                    ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
-                    : sensor.icon_url;
-                  console.log("Rendering sensor:", sensor.name, "with icon:", displayIcon);
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-                  return (
-                    <SensorCard
-                      key={source.key}
-                      source={source}
-                      index={si * 3 + i}
-                      sensorId={sensor.id}
-                      sensorName={sensor.name}
-                      displayIcon={displayIcon}
-                    />
-                  );
-                })}
-              </div>
+        {/* Sensor Sections */}
+        {showCategoryFilter ? (
+          // Filtered flat list mode
+          <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+            {SOURCES.filter(s => s.filterCategories.includes(activeFilter)).map((source, i) => {
+              const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+              const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                : sensor.icon_url;
 
-              {section.key === "signal" && (
+              return (
+                <SensorCard
+                  key={source.key}
+                  source={source}
+                  index={i}
+                  sensorId={sensor.id}
+                  sensorName={sensor.name}
+                  displayIcon={displayIcon}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          // Original section-based layout
+          SECTIONS.map((section, si) => {
+            const sectionSources = SOURCES.filter(s => s.section === section.key);
+            return (
+              <div key={section.key}>
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 + si * 0.1 }}
+                  className="mb-4"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">{section.label}</h2>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
+                </motion.div>
+                <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+                  {sectionSources.map((source, i) => {
+                    const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+                    const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                      ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                      : sensor.icon_url;
+
+                    return (
+                      <SensorCard
+                        key={source.key}
+                        source={source}
+                        index={si * 3 + i}
+                        sensorId={sensor.id}
+                        sensorName={sensor.name}
+                        displayIcon={displayIcon}
+                      />
+                    );
+                  })}
+                </div>
+
+                {section.key === "signal" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
                   className="mt-3 rounded-2xl border border-dashed border-border bg-transparent p-5 flex items-center justify-center"
                 >
