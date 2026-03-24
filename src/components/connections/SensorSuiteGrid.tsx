@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import googleLogo from "@/assets/google-logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
@@ -54,6 +55,7 @@ interface SourceConfig {
   key: SourceKey;
   label: string;
   icon: React.ElementType;
+  customIcon?: string;
   glowColor: string;
   glowHsl: string;
   description: string;
@@ -71,7 +73,7 @@ interface SourceConfig {
 const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
-    key: "google", label: "Google", icon: Mail, section: "recommended",
+    key: "google", label: "Google", icon: Mail, customIcon: googleLogo, section: "recommended",
     categoryTag: "INTELLIGENCE PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
@@ -348,7 +350,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
                   isConnected ? "bg-primary/5 border border-primary/10" : "bg-muted border border-border"
                 }`}>
-                  <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
+                  {source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-4 w-4 object-contain" /> : <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />}
                 </div>
                 {isConnected && (
                   <motion.div
@@ -416,7 +418,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
                   isConnected ? "border-success/20 bg-success/5" : "border-border bg-secondary"
                 }`}>
-                  {isConnected ? <Check className="h-4 w-4 text-success" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
+                  {isConnected ? <Check className="h-4 w-4 text-success" /> : source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-4 w-4 object-contain" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
                 </div>
                 {isConnected && (
                   <motion.div
