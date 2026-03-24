@@ -30,12 +30,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
-type SettingsSection = "personal" | "company-sec" | "preferences-sec" | "subscription-sec" | "account-sec";
+type SettingsSection = "personal" | "company-sec" | "network-sec" | "preferences-sec" | "subscription-sec" | "account-sec";
 type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
   { id: "company-sec", label: "Company" },
+  { id: "network-sec", label: "Network" },
   { id: "preferences-sec", label: "Preferences" },
   { id: "subscription-sec", label: "Subscription" },
   { id: "account-sec", label: "Account" },
@@ -47,6 +48,8 @@ const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]
   ],
   "company-sec": [
     { id: "company", label: "Company" },
+  ],
+  "network-sec": [
     { id: "network", label: "Connections" },
   ],
   "preferences-sec": [
@@ -633,6 +636,40 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   return (
     <TabWrapper>
       <div className="space-y-4">
+        {/* ── User Type Selector ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold">I am a</h3>
+          </div>
+          <div className="p-5">
+            <div className="flex gap-2">
+              {USER_TYPES.map((type) => {
+                const Icon = type.icon;
+                const isActive = userType === type.id;
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => { setUserType(type.id); saveImmediate({ userType: type.id }); }}
+                    className={cn(
+                      "flex-1 flex items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 transition-all",
+                      isActive ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border/80 hover:bg-muted/20"
+                    )}
+                  >
+                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-md shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
+                      <Icon className={cn("h-3.5 w-3.5", isActive ? "text-accent" : "text-muted-foreground")} />
+                    </div>
+                    <div className="text-left">
+                      <p className={cn("text-[11px] font-semibold leading-tight", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
+                      <p className="text-[9px] text-muted-foreground leading-tight">{type.desc}</p>
+                    </div>
+                    {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 ml-auto" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* ── Social Profiles (Data Sources style) ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {/* Header */}
