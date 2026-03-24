@@ -40,9 +40,18 @@ serve(async (req) => {
 
     console.log("Fetching LinkedIn profile via ScrapingDog:", profileId);
 
-    const apiUrl = `https://api.scrapingdog.com/linkedin/?api_key=${SCRAPINGDOG_API_KEY}&type=profile&linkId=${encodeURIComponent(profileId)}`;
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    // Try with premium=true first (standard often fails with 400)
+    let apiUrl = `https://api.scrapingdog.com/linkedin/?api_key=${SCRAPINGDOG_API_KEY}&type=profile&linkId=${encodeURIComponent(profileId)}&premium=true`;
+    let response = await fetch(apiUrl);
+    let data = await response.json();
+
+    // If premium fails, retry without it
+    if (!response.ok || data.error) {
+      console.warn("Premium request failed, retrying standard:", data);
+      apiUrl = `https://api.scrapingdog.com/linkedin/?api_key=${SCRAPINGDOG_API_KEY}&type=profile&linkId=${encodeURIComponent(profileId)}`;
+      response = await fetch(apiUrl);
+      data = await response.json();
+    }
 
     if (!response.ok || data.error) {
       console.error("ScrapingDog API error:", data);
