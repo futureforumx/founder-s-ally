@@ -28,9 +28,15 @@ serve(async (req) => {
       );
     }
 
-    const isLinkedIn = companyUrl.includes("linkedin.com");
+    // Normalize URL: ensure it has a protocol
+    let normalizedUrl = companyUrl.trim();
+    if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
 
-    console.log("Scraping company data:", companyUrl, "isLinkedIn:", isLinkedIn);
+    const isLinkedIn = normalizedUrl.includes("linkedin.com");
+
+    console.log("Scraping company data:", normalizedUrl, "isLinkedIn:", isLinkedIn);
 
     let mapped: Record<string, unknown>;
 
