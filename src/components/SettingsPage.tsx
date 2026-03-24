@@ -636,39 +636,46 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   return (
     <TabWrapper>
       <div className="space-y-4">
-        {/* ── User Type Selector ── */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-border/60">
-            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold">I am a</h3>
-          </div>
-          <div className="p-5">
-            <div className="flex gap-2">
-              {USER_TYPES.map((type) => {
-                const Icon = type.icon;
-                const isActive = userType === type.id;
-                return (
-                  <button
-                    key={type.id}
-                    onClick={() => { setUserType(type.id); saveImmediate({ userType: type.id }); }}
-                    className={cn(
-                      "flex-1 flex items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 transition-all",
-                      isActive ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border/80 hover:bg-muted/20"
-                    )}
-                  >
-                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-md shrink-0", isActive ? "bg-accent/10" : "bg-muted")}>
-                      <Icon className={cn("h-3.5 w-3.5", isActive ? "text-accent" : "text-muted-foreground")} />
-                    </div>
-                    <div className="text-left">
-                      <p className={cn("text-[11px] font-semibold leading-tight", isActive ? "text-foreground" : "text-muted-foreground")}>{type.label}</p>
-                      <p className="text-[9px] text-muted-foreground leading-tight">{type.desc}</p>
-                    </div>
-                    {isActive && <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 ml-auto" />}
-                  </button>
-                );
-              })}
+        {/* ── User Type Selector (condensed) ── */}
+        {(() => {
+          const activeType = USER_TYPES.find(t => t.id === userType) || USER_TYPES[0];
+          const ActiveIcon = activeType.icon;
+          return (
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="px-5 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold">I am a</h3>
+                  <div className="flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1">
+                    <ActiveIcon className="h-3 w-3 text-accent" />
+                    <span className="text-[11px] font-semibold text-foreground">{activeType.label}</span>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground">{activeType.desc}</span>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">Change</button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[160px]">
+                    {USER_TYPES.map((type) => {
+                      const Icon = type.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={type.id}
+                          onClick={() => { setUserType(type.id); saveImmediate({ userType: type.id }); }}
+                          className={cn("flex items-center gap-2", userType === type.id && "bg-accent/10")}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="text-[11px]">{type.label}</span>
+                          {userType === type.id && <CheckCircle2 className="h-3 w-3 text-accent ml-auto" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* ── Social Profiles (Data Sources style) ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden">
