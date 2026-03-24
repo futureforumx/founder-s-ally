@@ -726,6 +726,7 @@ export type Database = {
           is_public: boolean
           linkedin_url: string | null
           location: string | null
+          resume_url: string | null
           title: string | null
           twitter_url: string | null
           updated_at: string
@@ -742,6 +743,7 @@ export type Database = {
           is_public?: boolean
           linkedin_url?: string | null
           location?: string | null
+          resume_url?: string | null
           title?: string | null
           twitter_url?: string | null
           updated_at?: string
@@ -758,6 +760,7 @@ export type Database = {
           is_public?: boolean
           linkedin_url?: string | null
           location?: string | null
+          resume_url?: string | null
           title?: string | null
           twitter_url?: string | null
           updated_at?: string
