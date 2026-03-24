@@ -742,7 +742,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         })()}
 
         {/* ── Data Sources ── */}
-        <div className="space-y-3">
+        <div className="space-y-3" data-tour-section="data-sources">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
