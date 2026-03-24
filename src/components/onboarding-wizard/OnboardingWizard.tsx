@@ -102,6 +102,41 @@ export function OnboardingWizard() {
         },
       });
 
+      // ── Sync onboarding data to company-profile localStorage for Settings ──
+      const sectorGuess = state.sectors?.[0] || "";
+      const aiGuessedBusinessModel = guessBusinessModel(sectorGuess);
+      const aiGuessedTargetCustomer = guessTargetCustomer(sectorGuess);
+
+      const companyProfile: CompanyData = {
+        ...EMPTY_FORM,
+        name: state.companyName || "",
+        website: state.websiteUrl || "",
+        stage: state.stage || "",
+        sector: sectorGuess,
+        description: state.bio || "",
+        hqLocation: state.location || "",
+        businessModel: aiGuessedBusinessModel,
+        targetCustomer: aiGuessedTargetCustomer,
+        socialLinkedin: state.linkedinUrl || "",
+        socialTwitter: state.twitterUrl || "",
+      };
+
+      try {
+        localStorage.setItem("company-profile", JSON.stringify(companyProfile));
+      } catch {}
+
+      // Snapshot personal profile for nav HUD completion meter
+      try {
+        localStorage.setItem("user-profile-snapshot", JSON.stringify({
+          full_name: state.fullName,
+          title: state.title,
+          bio: state.bio,
+          location: state.location,
+          linkedin_url: state.linkedinUrl,
+          twitter_url: state.twitterUrl,
+        }));
+      } catch {}
+
       toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
       reset();
       // Navigate to settings page so user can confirm inputs
