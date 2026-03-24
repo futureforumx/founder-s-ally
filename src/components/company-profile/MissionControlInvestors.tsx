@@ -225,10 +225,6 @@ export function MissionControlInvestors({
   };
 
   const handleConfirm = () => {
-    if (isEmpty) {
-      toast.error("Add at least one investor before confirming.");
-      return;
-    }
     setConfirmed(true);
     setIsOpen(false);
     onConfirmedChange?.(true);
