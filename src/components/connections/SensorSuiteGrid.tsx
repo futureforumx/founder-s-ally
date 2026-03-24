@@ -336,12 +336,30 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  function SensorCard({ source, index }: { source: SourceConfig; index: number }) {
+  function SensorCard({
+    source,
+    index,
+    sensorId,
+    sensorName,
+    displayIcon,
+  }: {
+    source: SourceConfig;
+    index: number;
+    sensorId: string;
+    sensorName: string;
+    displayIcon?: string;
+  }) {
     const Icon = source.icon;
     const isConnected = connected[source.key];
     const sync = syncStates[source.key];
     const isSyncing = sync.syncing;
     const isHovered = hoveredCard === source.key;
+    const [iconLoadFailed, setIconLoadFailed] = useState(false);
+    const isGoogleSensor = sensorId === "google_workspace" || sensorName?.toLowerCase().includes("google");
+
+    useEffect(() => {
+      setIconLoadFailed(false);
+    }, [displayIcon]);
 
     if (compact) {
       return (
@@ -359,8 +377,26 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
                   isConnected ? "bg-primary/5 border border-primary/10" : "bg-muted border border-border"
                 }`}>
-                  {source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-5 w-5 object-contain transition-transform hover:scale-110" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /> : null}
-                  <Icon className={`${source.customIcon ? 'hidden' : ''} h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
+                  {displayIcon && !iconLoadFailed ? (
+                    <img
+                      key={sensorId}
+                      src={displayIcon}
+                      alt={sensorName}
+                      className="h-5 w-5 object-contain transition-transform duration-200 group-hover:scale-110"
+                      onError={() => setIconLoadFailed(true)}
+                    />
+                  ) : null}
+                  {displayIcon && iconLoadFailed && isGoogleSensor ? (
+                    <div
+                      className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
+                      style={{ backgroundColor: "hsl(217 89% 61%)", color: "hsl(0 0% 100%)" }}
+                    >
+                      G
+                    </div>
+                  ) : null}
+                  {(!displayIcon || (iconLoadFailed && !isGoogleSensor)) ? (
+                    <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
+                  ) : null}
                 </div>
                 {isConnected && (
                   <motion.div
@@ -428,12 +464,32 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
                   isConnected ? "border-success/20 bg-success/5" : "border-border bg-secondary"
                 }`}>
-                  {isConnected ? <Check className="h-4 w-4 text-success" /> : source.customIcon ? (
+                  {isConnected ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
                     <>
-                      <img src={source.customIcon} alt={source.label} className="h-5 w-5 object-contain transition-transform hover:scale-110" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-                      <Icon className="hidden h-4 w-4 text-[#4285F4]" />
+                      {displayIcon && !iconLoadFailed ? (
+                        <img
+                          key={sensorId}
+                          src={displayIcon}
+                          alt={sensorName}
+                          className="h-5 w-5 object-contain transition-transform duration-200 group-hover:scale-110"
+                          onError={() => setIconLoadFailed(true)}
+                        />
+                      ) : null}
+                      {displayIcon && iconLoadFailed && isGoogleSensor ? (
+                        <div
+                          className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
+                          style={{ backgroundColor: "hsl(217 89% 61%)", color: "hsl(0 0% 100%)" }}
+                        >
+                          G
+                        </div>
+                      ) : null}
+                      {(!displayIcon || (iconLoadFailed && !isGoogleSensor)) ? (
+                        <Icon className={isGoogleSensor ? "h-4 w-4 text-[hsl(217_89%_61%)]" : "h-4 w-4 text-muted-foreground"} />
+                      ) : null}
                     </>
-                  ) : <Icon className="h-4 w-4 text-muted-foreground" />}
+                  )}
                 </div>
                 {isConnected && (
                   <motion.div
@@ -682,9 +738,24 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
               </motion.div>
               <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-                {sectionSources.map((source, i) => (
-                  <SensorCard key={source.key} source={source} index={si * 3 + i} />
-                ))}
+                {sectionSources.map((source, i) => {
+                  const sensor = { id: source.key, name: source.label, icon_url: source.customIcon };
+                  const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                    ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                    : sensor.icon_url;
+                  console.log("Rendering sensor:", sensor.name, "with icon:", displayIcon);
+
+                  return (
+                    <SensorCard
+                      key={source.key}
+                      source={source}
+                      index={si * 3 + i}
+                      sensorId={sensor.id}
+                      sensorName={sensor.name}
+                      displayIcon={displayIcon}
+                    />
+                  );
+                })}
               </div>
 
               {section.key === "signal" && (
