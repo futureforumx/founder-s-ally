@@ -409,7 +409,7 @@ export function NetworkGraph() {
                   className="absolute rounded-full"
                   style={{
                     inset: -4,
-                    border: "2px solid #111827",
+                    border: "2px solid hsl(222, 47%, 11%)",
                   }}
                   animate={{ scale: [1, 1.4, 1.4], opacity: [0.3, 0, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }}
