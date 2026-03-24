@@ -231,8 +231,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
             mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
             burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
           },
-          },
         });
+      }
       }
     }, 1800);
   };
