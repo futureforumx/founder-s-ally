@@ -39,6 +39,9 @@ export interface OnboardingState {
 export const defaultOnboardingState: OnboardingState = {
   step: 1,
   userType: "founder",
+  firstName: "",
+  lastName: "",
+  email: "",
   linkedinUrl: "",
   twitterUrl: "",
   fullName: "",
