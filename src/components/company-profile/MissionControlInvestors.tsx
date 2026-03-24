@@ -509,7 +509,7 @@ export function MissionControlInvestors({
             </div>
 
             {/* No investors inline alert */}
-            {allBackers.length === 0 && (
+            {allBackers.length === 0 && !confirmed && (
               <p className="text-[11px] font-bold text-destructive mt-1">
                 No investors added. We'll get you there!
               </p>
