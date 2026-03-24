@@ -1138,6 +1138,151 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 }
 
 
+// ── Personal Network Integrations ──
+const PERSONAL_STORAGE_KEY = "personal-connections-status";
+
+function loadPersonalConnected(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(PERSONAL_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { linkedin: false, twitter: false, google: false };
+}
+function savePersonalConnected(s: Record<string, boolean>) {
+  localStorage.setItem(PERSONAL_STORAGE_KEY, JSON.stringify(s));
+}
+
+const PERSONAL_INTEGRATIONS = [
+  {
+    key: "linkedin",
+    label: "LinkedIn",
+    icon: "https://cdn.simpleicons.org/linkedin/0A66C2",
+    fallbackIcon: Linkedin,
+    description: "Connect your personal LinkedIn to map your own network graph, separate from company data.",
+    connectedLabel: "Personal profile linked",
+  },
+  {
+    key: "twitter",
+    label: "X (Twitter)",
+    icon: "https://cdn.simpleicons.org/x/000000",
+    fallbackIcon: Twitter,
+    description: "Connect your personal X account for individual social signals and investor tracking.",
+    connectedLabel: "Personal feed linked",
+  },
+  {
+    key: "google",
+    label: "Google",
+    icon: "https://cdn.simpleicons.org/google/4285F4",
+    fallbackIcon: Mail,
+    description: "Connect a personal Google account for your own inbox and calendar, separate from company workspace.",
+    connectedLabel: "Personal account linked",
+  },
+] as const;
+
+function PersonalNetworkSection() {
+  const [connected, setConnected] = useState(loadPersonalConnected);
+  const [syncing, setSyncing] = useState<string | null>(null);
+
+  const handleToggle = useCallback((key: string) => {
+    if (syncing) return;
+    const isConnected = connected[key];
+    if (isConnected) {
+      const next = { ...connected, [key]: false };
+      setConnected(next);
+      savePersonalConnected(next);
+      toast.success(`Personal ${PERSONAL_INTEGRATIONS.find(i => i.key === key)?.label} disconnected`);
+      return;
+    }
+    setSyncing(key);
+    setTimeout(() => {
+      const next = { ...connected, [key]: true };
+      setConnected(next);
+      savePersonalConnected(next);
+      setSyncing(null);
+      toast.success(`Personal ${PERSONAL_INTEGRATIONS.find(i => i.key === key)?.label} connected`);
+    }, 1800);
+  }, [connected, syncing]);
+
+  const connectedCount = Object.values(connected).filter(Boolean).length;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <User className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Personal Accounts</h3>
+          <Badge variant="outline" className="text-[9px] font-mono ml-1">{connectedCount}/{PERSONAL_INTEGRATIONS.length}</Badge>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Connect your <span className="font-semibold text-foreground">personal</span> accounts here. These are separate from the company integrations above and map to your individual identity.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {PERSONAL_INTEGRATIONS.map((integration) => {
+          const isConnected = connected[integration.key];
+          const isSyncing = syncing === integration.key;
+          const FallbackIcon = integration.fallbackIcon;
+
+          return (
+            <div
+              key={integration.key}
+              className={`rounded-xl border p-4 transition-all ${
+                isConnected
+                  ? "border-primary/30 bg-primary/5"
+                  : "border-border bg-card hover:border-primary/20"
+              }`}
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/60 border border-border shrink-0">
+                  <img
+                    src={integration.icon}
+                    alt={integration.label}
+                    className="h-5 w-5"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                      (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                    }}
+                  />
+                  <FallbackIcon className="h-4 w-4 text-muted-foreground hidden" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground">{integration.label}</p>
+                  {isConnected && (
+                    <p className="text-[10px] text-primary font-medium flex items-center gap-1 mt-0.5">
+                      <CheckCircle2 className="h-3 w-3" /> {integration.connectedLabel}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground leading-relaxed mb-3">
+                {integration.description}
+              </p>
+
+              <Button
+                variant={isConnected ? "outline" : "default"}
+                size="sm"
+                className="w-full text-[10px] h-7"
+                disabled={isSyncing}
+                onClick={() => handleToggle(integration.key)}
+              >
+                {isSyncing ? (
+                  <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting...</>
+                ) : isConnected ? (
+                  "Disconnect"
+                ) : (
+                  "Connect Personal Account"
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Network Tab (Sensor Suite) ──
 function NetworkTab() {
   const [networkView, setNetworkView] = useState<"company" | "personal">("company");
@@ -1172,11 +1317,7 @@ function NetworkTab() {
         )}
 
         {networkView === "personal" && (
-          <div className="text-center py-16 text-muted-foreground">
-            <Network className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-medium">Personal Network</p>
-            <p className="text-xs mt-1">Your personal connections and introductions will appear here.</p>
-          </div>
+          <PersonalNetworkSection />
         )}
       </div>
     </TabWrapper>
