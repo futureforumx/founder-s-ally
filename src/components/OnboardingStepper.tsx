@@ -181,6 +181,10 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
       const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
       if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
+      const burnVal = analysisData?.metrics?.burnRate?.value;
+      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
+      const momVal = analysisData?.aiExtracted?.momGrowth;
+      if (momVal && momVal !== "null") setMomGrowth(momVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
