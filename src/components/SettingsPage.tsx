@@ -604,21 +604,24 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     />
                     {/* Inline sync + info icons */}
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {isLinkedinValid && !syncing && (
+                      {!syncing && (
                         <motion.button
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           onClick={(e) => { e.stopPropagation(); handleSyncProfile(); }}
                           className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
-                          title="Sync from LinkedIn"
+                          title="Verify via LinkedIn OAuth"
                         >
                           <Sparkles className="h-3 w-3" />
-                          Sync
+                          Verify
                         </motion.button>
                       )}
-                      {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />}
-                      {!isLinkedinValid && isLinkedinInvalid && (
-                        <span className="text-[9px] text-destructive font-mono">Invalid</span>
+                      {syncing && (
+                        <span className="flex items-center gap-1 text-[10px] text-accent">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Connecting…
+                        </span>
+                      )}
                       )}
                     </div>
                   </div>
