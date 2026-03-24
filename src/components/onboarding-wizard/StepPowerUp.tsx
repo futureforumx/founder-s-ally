@@ -8,6 +8,16 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+const BRAND_ICONS: Record<string, string> = {
+  google: "https://cdn.simpleicons.org/google/4285F4",
+  linkedin: "https://cdn.simpleicons.org/linkedin/0A66C2",
+  notion: "https://cdn.simpleicons.org/notion/FFFFFF",
+  stripe: "https://cdn.simpleicons.org/stripe/635BFF",
+  angellist: "https://cdn.simpleicons.org/angellist/FFFFFF",
+  hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
+  attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
+};
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import type { OnboardingState } from "./types";
