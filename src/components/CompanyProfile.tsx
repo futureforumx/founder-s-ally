@@ -2294,7 +2294,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* NRR */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <RefreshCw className="h-3.5 w-3.5 text-accent" /> NRR {renderFieldBadge("nrr")}
+                      NRR {renderFieldBadge("nrr")}
                       <MetricTooltip metricKey="nrr" />
                     </label>
                     <div className="relative">
