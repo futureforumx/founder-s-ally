@@ -120,6 +120,11 @@
     50% { transform: translateY(100%); }
   }
 
+  @keyframes ai-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(270 60% 78% / 0.4); }
+    50% { box-shadow: 0 0 0 4px hsl(270 60% 78% / 0); }
+  }
+
   @keyframes gauge-fill {
     from { stroke-dashoffset: 283; }
   }
