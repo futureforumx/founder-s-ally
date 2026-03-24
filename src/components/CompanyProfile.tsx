@@ -1739,7 +1739,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
-          {/* placeholder removed - moved to component body */}
+          
 
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
