@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import type { OnboardingState } from "./types";
+import { PrivacyHubModal } from "./PrivacyHubModal";
 
 // ── Sensor Configs ──
 type SensorType = "identity" | "pipeline" | "ingestor";
@@ -262,6 +263,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
   const [syncingIds, setSyncingIds] = useState<Record<string, boolean>>({});
   const [syncMessages, setSyncMessages] = useState<Record<string, string>>({});
   const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [prevCount, setPrevCount] = useState(connected.length);
   const meterBarRef = useRef<HTMLDivElement>(null);
 
@@ -486,16 +488,23 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex items-center justify-between pt-2 shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="text-white/40 hover:text-white hover:bg-white/[0.04]"
-        >
-          Back
-        </Button>
-        <div className="flex flex-col items-center gap-1.5">
+      <div className="flex items-center justify-between pt-2.5 pb-1 shrink-0 border-t border-white/[0.06] bg-[#050505]/80 backdrop-blur-sm mt-1">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <p className="text-[10px] text-white/30 leading-relaxed">
+            Don't worry, you can pause or remove these selections anytime in Settings.
+          </p>
+          <p className="text-[10px] text-white/30 leading-relaxed">
+            Your data is encrypted.{" "}
+            <button
+              onClick={() => setPrivacyOpen(true)}
+              className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors"
+            >
+              Privacy &amp; AI Governance
+            </button>
+          </p>
+        </div>
+
+        <div className="flex flex-col items-end gap-1.5 shrink-0 ml-4">
           <Button
             size="sm"
             onClick={onNext}
@@ -517,6 +526,8 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
           </button>
         </div>
       </div>
+
+      <PrivacyHubModal open={privacyOpen} onOpenChange={setPrivacyOpen} />
     </motion.div>
   );
 }
