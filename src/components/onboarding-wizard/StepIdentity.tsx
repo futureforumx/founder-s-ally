@@ -385,10 +385,14 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
 
       {!loading && (
         <button
-          onClick={onNext}
-          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center gap-1"
+          onClick={handleValidatedNext}
+          disabled={!canProceed}
+          className={cn(
+            "text-[10px] transition-colors flex items-center gap-1",
+            canProceed ? "text-muted-foreground/60 hover:text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+          )}
         >
-          Skip and fill manually <ArrowRight className="h-3 w-3" />
+          Continue <ArrowRight className="h-3 w-3" />
         </button>
       )}
     </motion.div>
