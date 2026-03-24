@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, ArrowRight, Zap, Mail, FileText, Linkedin, CreditCard,
-  BarChart3, Database, Upload, Settings2, Loader2, Sparkles
+  BarChart3, Database, Upload, Settings2, Loader2, Sparkles,
+  Lock, Network, TrendingUp, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
