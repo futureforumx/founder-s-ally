@@ -164,7 +164,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect Granola? This will pause meeting note processing.",
   },
   {
-    key: "hubspot", label: "HubSpot", icon: Contact, section: "power",
+    key: "hubspot", label: "HubSpot", icon: Contact, customIcon: BRAND_ICONS.hubspot, section: "power",
     categoryTag: "CRM PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(251,146,60,0.3)]", glowHsl: "bg-orange-500",
     description: "Import investor + customer pipeline",
