@@ -148,7 +148,7 @@ const SOURCES: SourceConfig[] = [
     note: "Read-only restricted key",
   },
   {
-    key: "granola", label: "Granola", icon: FileText, section: "power",
+    key: "granola", label: "Granola", icon: FileText, customIcon: BRAND_ICONS.granola, section: "power",
     categoryTag: "MEETING INTELLIGENCE",
     glowColor: "shadow-[0_0_24px_rgba(234,179,8,0.3)]", glowHsl: "bg-yellow-500",
     description: "Turns investor meeting notes into action items",
