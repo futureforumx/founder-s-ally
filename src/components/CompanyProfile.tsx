@@ -1983,6 +1983,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         }
                         aiSuggestedModels={aiUpdatedFields.has("businessModel") ? form.businessModel : []}
                         aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
+                        approved={!!sectionConfirmed.overview}
+                      />
                       />
                     </div>
 
