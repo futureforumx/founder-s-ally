@@ -1121,7 +1121,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     applyMetricsFromResult(filteredMetrics);
     setSourceVerification(verification);
 
-    if (analysisData.stageClassification) {
+    if (selectedSet.has("stage") && analysisData.stageClassification) {
       setStageClassification(analysisData.stageClassification);
       onStageClassification?.(analysisData.stageClassification);
       if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
