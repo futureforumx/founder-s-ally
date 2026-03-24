@@ -60,6 +60,11 @@
     --heat-2: 217 70% 60%;
     --heat-3: 220 75% 45%;
     --heat-4: 222 80% 25%;
+
+    --ai-pending: 270 60% 78%;
+    --ai-pending-foreground: 270 50% 30%;
+    --ai-approved: 270 55% 50%;
+    --ai-approved-foreground: 0 0% 100%;
   }
 }
 
