@@ -241,50 +241,13 @@ function SensorCard({
   );
 }
 
-// ── Live Traffic Terminal ──
-const TERMINAL_LOGS = [
-  { time: "19:02", source: "GMAIL", msg: "4 new investor threads identified" },
-  { time: "19:05", source: "STRIPE", msg: "MRR metrics recalculated → $12.4K" },
-  { time: "19:07", source: "LINKEDIN", msg: "2nd-degree graph updated (+14 nodes)" },
-  { time: "19:09", source: "NOTION", msg: "Deal pipeline synced — 3 active rounds" },
-  { time: "19:11", source: "SYSTEM", msg: "Intelligence Engine score: 72%" },
+// ── Value Panel Unlock Items ──
+const UNLOCK_ITEMS: { id: string; icon: React.ElementType; locked: string; unlocked: string; detail: string }[] = [
+  { id: "linkedin", icon: Network, locked: "Network Graph", unlocked: "Network Connectivity", detail: "2nd Degree: +4,218 paths" },
+  { id: "google", icon: Mail, locked: "Warm Intro Paths", unlocked: "Inbox Intelligence", detail: "142 threads · 47 VC contacts" },
+  { id: "notion", icon: FileText, locked: "Knowledge Base", unlocked: "Pipeline Synced", detail: "8 deal pages · 18 investors" },
+  { id: "stripe", icon: TrendingUp, locked: "Traction Metrics", unlocked: "Revenue Verified", detail: "MRR: $12.4K · +18% MoM" },
 ];
-
-function LiveTrafficTerminal({ visible }: { visible: boolean }) {
-  if (!visible) return null;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="rounded-xl border border-white/[0.06] bg-[#050505] p-4 overflow-hidden"
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <motion.div
-          className="h-2 w-2 rounded-full bg-emerald-400"
-          animate={{ opacity: [1, 0.3, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
-        <span className="text-[10px] font-mono uppercase tracking-wider text-white/30">Live Traffic</span>
-      </div>
-      <div className="space-y-1 max-h-32 overflow-y-auto">
-        {TERMINAL_LOGS.map((log, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 + i * 0.12 }}
-            className="flex items-center gap-2 text-[11px] font-mono"
-          >
-            <span className="text-white/20">[{log.time}]</span>
-            <span className="text-indigo-400 font-semibold">{log.source}:</span>
-            <span className="text-white/40">{log.msg}</span>
-          </motion.div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
 
 // ── Main Component ──
 interface StepPowerUpProps {
@@ -308,15 +271,12 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
   // Fire confetti on the meter bar when a new sensor is connected
   useEffect(() => {
     if (connected.length > prevCount && connected.length > 0) {
-      // Confetti burst centered on the progress bar
       if (meterBarRef.current) {
         const rect = meterBarRef.current.getBoundingClientRect();
         const x = (rect.left + rect.width * (meter / 100)) / window.innerWidth;
         const y = rect.top / window.innerHeight;
         confetti({
-          particleCount: 60,
-          spread: 50,
-          origin: { x, y },
+          particleCount: 60, spread: 50, origin: { x, y },
           colors: ["#6366f1", "#34d399", "#818cf8", "#fbbf24"],
         });
       }
@@ -328,9 +288,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
   useEffect(() => {
     if (meter === 100 && !analysisComplete) {
       setAnalysisComplete(true);
-      const timer = setTimeout(() => {
-        onNext();
-      }, 2000);
+      const timer = setTimeout(() => { onNext(); }, 2000);
       return () => clearTimeout(timer);
     }
   }, [meter, analysisComplete, onNext]);
@@ -364,105 +322,181 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35 }}
-      className="w-full max-w-2xl mx-auto space-y-6"
+      className="w-full max-w-5xl mx-auto flex flex-col"
+      style={{ maxHeight: "calc(100vh - 120px)" }}
     >
       {/* Header */}
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
-        <p className="text-sm text-white/40">Connect your data sources to power the engine.</p>
+      <div className="text-center space-y-1 mb-4 shrink-0">
+        <h1 className="text-xl font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
+        <p className="text-xs text-white/40">Connect your data sources to power the engine.</p>
       </div>
 
-      {/* Intelligence Engine meter */}
-      <div className="rounded-xl border border-white/[0.06] bg-[#050505] p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-indigo-400" />
-            <span className="text-xs font-semibold text-white">Intelligence Engine</span>
+      {/* Two-Column Layout */}
+      <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
+
+        {/* ── Left Column: Value Panel ── */}
+        <div className="col-span-4 flex flex-col gap-3">
+          {/* Intelligence Engine meter */}
+          <div className="rounded-xl border border-white/[0.06] bg-[#050505] p-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="text-[11px] font-semibold text-white">Intelligence Engine</span>
+              </div>
+              <span className="text-[11px] font-bold font-mono text-indigo-400">{meter}%</span>
+            </div>
+            <div ref={meterBarRef} className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+              <motion.div
+                className={cn(
+                  "h-full rounded-full",
+                  meter === 100
+                    ? "bg-gradient-to-r from-emerald-400 to-emerald-300"
+                    : "bg-gradient-to-r from-indigo-500 to-emerald-400"
+                )}
+                animate={{ width: `${meter}%` }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              />
+            </div>
+            <AnimatePresence>
+              {analysisComplete && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="flex items-center justify-center gap-1.5 mt-2 text-emerald-400"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold font-mono">Analysis Complete</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <span className="text-xs font-bold font-mono text-indigo-400">{meter}%</span>
-        </div>
-        <div ref={meterBarRef} className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
-          <motion.div
-            className={cn(
-              "h-full rounded-full transition-all",
-              meter === 100
-                ? "bg-gradient-to-r from-emerald-400 to-emerald-300"
-                : "bg-gradient-to-r from-indigo-500 to-emerald-400"
+
+          {/* Dynamic value/benefits panel */}
+          <div className="rounded-xl border border-white/[0.06] bg-[#050505] p-4 flex-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="h-3.5 w-3.5 text-indigo-400" />
+              <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">
+                {hasAnySynced ? "Network Multiplier" : "Unlock Your Network Multiplier"}
+              </h3>
+            </div>
+
+            <div className="space-y-2">
+              {UNLOCK_ITEMS.map((item) => {
+                const isActive = connected.includes(item.id);
+                const Icon = item.icon;
+                return (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    className={cn(
+                      "rounded-lg border p-2.5 transition-all duration-300",
+                      isActive
+                        ? "border-emerald-500/20 bg-emerald-500/[0.06]"
+                        : "border-white/[0.04] bg-white/[0.02]"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded-md shrink-0",
+                        isActive ? "bg-emerald-500/10" : "bg-white/[0.03]"
+                      )}>
+                        {isActive
+                          ? <Check className="h-3 w-3 text-emerald-400" />
+                          : <Lock className="h-3 w-3 text-white/20" />
+                        }
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={cn(
+                          "text-[11px] font-semibold",
+                          isActive ? "text-emerald-300" : "text-white/40"
+                        )}>
+                          {isActive ? item.unlocked : item.locked}
+                        </p>
+                        <AnimatePresence>
+                          {isActive && (
+                            <motion.p
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="text-[9px] text-emerald-400/60 font-mono mt-0.5"
+                            >
+                              {item.detail}
+                            </motion.p>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Placeholder text when nothing connected */}
+            {!hasAnySynced && (
+              <p className="text-[10px] text-white/20 mt-3 leading-relaxed">
+                Connect at least one source to begin building your intelligence graph. Founders who sync 3+ sources get 3× more relevant investor matches.
+              </p>
             )}
-            animate={{ width: `${meter}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
+          </div>
         </div>
 
-        {/* Analysis complete state */}
-        <AnimatePresence>
-          {analysisComplete && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="flex items-center justify-center gap-2 mt-3 text-emerald-400"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="text-xs font-semibold font-mono">Analysis Complete — Advancing...</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        {/* ── Right Column: Scrollable Integrations ── */}
+        <div className="col-span-8 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3" style={{ maxHeight: "calc(100vh - 260px)" }}>
+            {/* Recommended */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-mono uppercase tracking-wider text-white/25 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
+                Recommended · <span className="text-white/15">highest impact</span>
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {recommended.map((s, i) => (
+                  <SensorCard
+                    key={s.id}
+                    sensor={s}
+                    connected={connected.includes(s.id)}
+                    syncing={!!syncingIds[s.id]}
+                    syncMessage={syncMessages[s.id] || ""}
+                    onConnect={() => handleConnect(s.id)}
+                    index={i}
+                  />
+                ))}
+              </div>
+            </div>
 
-      {/* Recommended Sensors */}
-      <div className="space-y-3">
-        <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">
-          Recommended · <span className="text-white/15">Most founders connect these first</span>
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {recommended.map((s, i) => (
-            <SensorCard
-              key={s.id}
-              sensor={s}
-              connected={connected.includes(s.id)}
-              syncing={!!syncingIds[s.id]}
-              syncMessage={syncMessages[s.id] || ""}
-              onConnect={() => handleConnect(s.id)}
-              index={i}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Power Sensors */}
-      <div className="space-y-3">
-        <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">
-          Power · <span className="text-white/15">For founders actively fundraising</span>
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {power.map((s, i) => (
-            <SensorCard
-              key={s.id}
-              sensor={s}
-              connected={connected.includes(s.id)}
-              syncing={!!syncingIds[s.id]}
-              syncMessage={syncMessages[s.id] || ""}
-              onConnect={() => handleConnect(s.id)}
-              index={i + recommended.length}
-            />
-          ))}
+            {/* Power */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-mono uppercase tracking-wider text-white/25 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
+                Power · <span className="text-white/15">for active fundraising</span>
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {power.map((s, i) => (
+                  <SensorCard
+                    key={s.id}
+                    sensor={s}
+                    connected={connected.includes(s.id)}
+                    syncing={!!syncingIds[s.id]}
+                    syncMessage={syncMessages[s.id] || ""}
+                    onConnect={() => handleConnect(s.id)}
+                    index={i + recommended.length}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Live Traffic Terminal */}
-      <LiveTrafficTerminal visible={connected.length >= 2} />
-
-      {/* Fixed Bottom Navigation */}
-      <div className="flex flex-col items-center gap-3 pt-4 pb-2">
-        <div className="flex items-center gap-3 w-full justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="text-white/40 hover:text-white hover:bg-white/[0.04]"
-          >
-            Back
-          </Button>
+      {/* Bottom Navigation */}
+      <div className="flex items-center justify-between pt-3 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          className="text-white/40 hover:text-white hover:bg-white/[0.04]"
+        >
+          Back
+        </Button>
+        <div className="flex flex-col items-center gap-1.5">
           <Button
             size="sm"
             onClick={onNext}
@@ -476,13 +510,13 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
           >
             Continue to Privacy <ArrowRight className="h-3 w-3 ml-1.5" />
           </Button>
+          <button
+            onClick={onNext}
+            className="text-[10px] text-white/20 hover:text-white/40 transition-colors"
+          >
+            I'll sync the rest later
+          </button>
         </div>
-        <button
-          onClick={onNext}
-          className="text-[11px] text-white/25 hover:text-white/50 transition-colors"
-        >
-          I'll sync the rest later
-        </button>
       </div>
     </motion.div>
   );
