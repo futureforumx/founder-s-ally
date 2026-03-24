@@ -14,6 +14,7 @@ export interface Profile {
   company_id: string | null;
   linkedin_url: string | null;
   twitter_url: string | null;
+  resume_url: string | null;
   is_public: boolean;
 }
 
