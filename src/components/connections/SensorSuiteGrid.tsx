@@ -449,9 +449,14 @@ const TERMINAL_LOGS = [
 
 const FILTER_CATEGORIES: { key: FilterCategory; label: string }[] = [
   { key: "recommended", label: "RECOMMENDED" },
+  { key: "crm", label: "CRM" },
   { key: "social", label: "SOCIAL" },
   { key: "meetings", label: "MEETINGS" },
-  { key: "bizops", label: "BIZOPS" },
+  { key: "messaging", label: "MESSAGING" },
+  { key: "finance", label: "FINANCE" },
+  { key: "workflows", label: "WORKFLOWS" },
+  { key: "marketing", label: "MARKETING" },
+  { key: "analytics", label: "ANALYTICS" },
 ];
 
 interface SensorSuiteGridProps {
