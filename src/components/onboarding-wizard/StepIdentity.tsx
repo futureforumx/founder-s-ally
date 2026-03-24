@@ -328,8 +328,9 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             <div className="flex items-center gap-2">
               <Linkedin className="h-3.5 w-3.5 text-primary" />
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Social Profiles
+                Social Profiles <span className="text-destructive">*</span>
               </span>
+              <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
