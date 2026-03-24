@@ -34,6 +34,7 @@ export const defaultOnboardingState: OnboardingState = {
   step: 1,
   userType: "founder",
   linkedinUrl: "",
+  twitterUrl: "",
   fullName: "",
   title: "",
   bio: "",
