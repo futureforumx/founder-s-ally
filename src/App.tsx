@@ -32,18 +32,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) { setOnboardingChecked(true); return; }
+    setOnboardingChecked(false);
     supabase
       .from("profiles")
       .select("id, has_completed_onboarding")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        // Needs onboarding if no profile OR has_completed_onboarding is false
         const completed = (data as any)?.has_completed_onboarding === true;
         setNeedsOnboarding(!data || !completed);
         setOnboardingChecked(true);
       });
-  }, [user]);
+  }, [user, location.pathname]);
 
   if (loading || !onboardingChecked) {
     return (
