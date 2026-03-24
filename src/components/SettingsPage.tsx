@@ -635,115 +635,35 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Left column */}
               <div className="space-y-3">
-                {/* LinkedIn URL (always visible) */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">LinkedIn URL</label>
-                  <div className="relative">
-                    {linkedinDomain && (
-                      <img
-                        src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${linkedinDomain}&size=32`}
-                        alt=""
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    )}
-                    <input
-                      value={linkedinUrl}
-                      onChange={(e) => { setLinkedinUrl(e.target.value); autosave({ linkedinUrl: e.target.value }); }}
-                      onBlur={(e) => {
-                        const formatted = formatSocialUrl("linkedin_personal", e.target.value);
-                        if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
-                      }}
-                      placeholder="https://linkedin.com/in/..."
-                      className={cn(
-                        "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
-                        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        linkedinDomain ? "pl-9" : ""
-                      )}
-                    />
-                    {/* Inline sync + info icons */}
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {!syncing && (
-                        <motion.button
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          onClick={(e) => { e.stopPropagation(); handleSyncProfile(); }}
-                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
-                          title="Verify via LinkedIn OAuth"
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          Verify
-                        </motion.button>
-                      )}
-                      {syncing && (
-                        <span className="flex items-center gap-1 text-[10px] text-accent">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Connecting…
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                {/* LinkedIn URL */}
+                <MorphingUrlInput
+                  platform="linkedin"
+                  label="LinkedIn URL"
+                  value={linkedinUrl}
+                  onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
+                  onBlur={(v) => {
+                    const formatted = formatSocialUrl("linkedin_personal", v);
+                    if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
+                  }}
+                  verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
+                  onVerify={handleSyncProfile}
+                  verifyLabel="Verify"
+                />
 
-                {/* X / Twitter URL (always visible) */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">X / Twitter URL</label>
-                  <div className="relative">
-                    {twitterUrl.trim() && (
-                      <img
-                        src="https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.com&size=32"
-                        alt=""
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 rounded-sm"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    )}
-                    <input
-                      value={twitterUrl}
-                      onChange={(e) => { setTwitterUrl(e.target.value); autosave({ twitterUrl: e.target.value }); }}
-                      onBlur={(e) => {
-                        const formatted = formatSocialUrl("x", e.target.value);
-                        if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
-                      }}
-                      placeholder="https://x.com/..."
-                      className={cn(
-                        "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm h-9 ring-offset-background",
-                        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        twitterUrl.trim() ? "pl-9" : ""
-                      )}
-                    />
-                    {/* Inline verified badge / sync button */}
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {xSyncing && (
-                        <span className="flex items-center gap-1 text-[10px] text-accent">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Syncing…
-                        </span>
-                      )}
-                      {!xSyncing && xVerified && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="flex items-center gap-0.5 text-[10px] font-medium text-success"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Verified
-                        </motion.span>
-                      )}
-                      {!xSyncing && !xVerified && twitterUrl.trim() && (
-                        <motion.button
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          onClick={(e) => { e.stopPropagation(); enrichXProfile(twitterUrl); }}
-                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors flex items-center gap-0.5"
-                          title="Enrich X profile via Scrapingdog"
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          Enrich
-                        </motion.button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                {/* X / Twitter URL */}
+                <MorphingUrlInput
+                  platform="x"
+                  label="X / Twitter URL"
+                  value={twitterUrl}
+                  onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
+                  onBlur={(v) => {
+                    const formatted = formatSocialUrl("x", v);
+                    if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
+                  }}
+                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                  onVerify={() => enrichXProfile(twitterUrl)}
+                  verifyLabel="Enrich"
+                />
               </div>
 
               {/* Right column: Identity Verification zone */}
