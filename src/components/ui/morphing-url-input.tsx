@@ -82,7 +82,7 @@ export function MorphingUrlInput({
 
   const { isFullUrl, handle } = extractHandle(value, platform);
   const hasValue = handle.length > 0;
-  const showPrefix = hasValue && !isFullUrl;
+  const showPrefix = hasValue && !isFullUrl && !focused;
 
   // Measure prefix width for padding
   useEffect(() => {
