@@ -1051,7 +1051,12 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         {showCategoryFilter ? (
           // Filtered flat list mode
           <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-            {SOURCES.filter(s => s.filterCategories.includes(activeFilter)).map((source, i) => {
+            {SOURCES.filter(s => {
+              if (searchQuery.trim()) {
+                return s.label.toLowerCase().includes(searchQuery.trim().toLowerCase());
+              }
+              return s.filterCategories.includes(activeFilter);
+            }).map((source, i) => {
               const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
               const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
                 ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
