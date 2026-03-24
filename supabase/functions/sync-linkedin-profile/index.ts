@@ -20,69 +20,50 @@ serve(async (req) => {
       );
     }
 
-    // Ensure it looks like a URL
-    let formattedUrl = linkedinUrl.trim();
-    if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-      formattedUrl = `https://${formattedUrl}`;
-    }
-
-    console.log("Scraping LinkedIn profile via Firecrawl:", formattedUrl);
-
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) {
+    // Extract the profile ID from the LinkedIn URL
+    const profileMatch = linkedinUrl.match(/linkedin\.com\/in\/([^/?#]+)/i);
+    if (!profileMatch) {
       return new Response(
-        JSON.stringify({ error: "FIRECRAWL_API_KEY not configured" }),
+        JSON.stringify({ error: "Invalid LinkedIn profile URL" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const profileId = profileMatch[1];
+
+    const SCRAPINGDOG_API_KEY = Deno.env.get("SCRAPINGDOG_API_KEY");
+    if (!SCRAPINGDOG_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "SCRAPINGDOG_API_KEY not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: ["markdown"],
-        onlyMainContent: true,
-      }),
-    });
+    console.log("Fetching LinkedIn profile via ScrapingDog:", profileId);
 
+    const apiUrl = `https://api.scrapingdog.com/linkedin/?api_key=${SCRAPINGDOG_API_KEY}&type=profile&linkId=${encodeURIComponent(profileId)}`;
+    const response = await fetch(apiUrl);
     const data = await response.json();
 
-    if (!response.ok) {
-      console.error("Firecrawl API error:", data);
+    if (!response.ok || data.error) {
+      console.error("ScrapingDog API error:", data);
       return new Response(
-        JSON.stringify({ error: data.error || `Scrape failed (${response.status})` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: data.error || `LinkedIn fetch failed (${response.status})` }),
+        { status: response.status >= 400 ? response.status : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const markdown = data.data?.markdown || data.markdown || "";
-    const metadata = data.data?.metadata || data.metadata || {};
-
-    // Extract name from page title (LinkedIn titles are typically "Name - Title | LinkedIn")
-    const title = metadata.title || "";
-    const ogTitle = metadata.ogTitle || metadata["og:title"] || "";
-    const nameSource = ogTitle || title;
-    const namePart = nameSource.split(/[|\-–—]/)[0]?.trim() || "";
-
-    // Try to extract headline/title from the markdown
-    const headlineMatch = markdown.match(/^#+\s*(.+)/m);
-    const bioMatch = markdown.match(/(?:About|Summary)\s*\n+([\s\S]{10,500}?)(?:\n\n|\n#+)/i);
-
+    // Map ScrapingDog LinkedIn profile response to our format
     const mapped = {
-      full_name: namePart || null,
-      title: headlineMatch?.[1]?.trim() || metadata.description?.split(/[|\-–—]/)?.[0]?.trim() || null,
-      bio: bioMatch?.[1]?.trim() || metadata.description || null,
-      location: null,
-      avatar_url: metadata.ogImage || metadata["og:image"] || null,
+      full_name: data.name || data.full_name || null,
+      title: data.headline || data.title || null,
+      bio: data.about || data.summary || null,
+      location: data.location || null,
+      avatar_url: data.profile_photo || data.profile_picture || data.avatar || null,
       linkedin_url: linkedinUrl,
     };
 
     return new Response(
-      JSON.stringify({ success: true, data: mapped, markdown: markdown.slice(0, 2000) }),
+      JSON.stringify({ success: true, data: mapped }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
