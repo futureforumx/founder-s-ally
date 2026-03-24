@@ -1719,6 +1719,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-4">
+                    {/* ── Company Name ── */}
+                    <div className="space-y-1" data-field="company-name">
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
+                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                        placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+                    </div>
                     {/* ── Company Logo + Stage row ── */}
                     <div className="flex items-start gap-5">
                       {/* Logo Upload Slot */}
