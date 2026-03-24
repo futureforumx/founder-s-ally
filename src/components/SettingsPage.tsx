@@ -30,12 +30,13 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
-type SettingsSection = "personal" | "company-sec" | "subscription-sec" | "account-sec";
+type SettingsSection = "personal" | "company-sec" | "preferences-sec" | "subscription-sec" | "account-sec";
 type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
   { id: "company-sec", label: "Company" },
+  { id: "preferences-sec", label: "Preferences" },
   { id: "subscription-sec", label: "Subscription" },
   { id: "account-sec", label: "Account" },
 ];
@@ -43,12 +44,14 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
 const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]> = {
   "personal": [
     { id: "account", label: "Profile" },
-    { id: "notifications", label: "Notifications" },
-    { id: "privacy", label: "Privacy" },
   ],
   "company-sec": [
     { id: "company", label: "Company" },
     { id: "network", label: "Connections" },
+  ],
+  "preferences-sec": [
+    { id: "notifications", label: "Notifications" },
+    { id: "privacy", label: "Privacy" },
   ],
   "subscription-sec": [
     { id: "subscription", label: "Subscription" },
