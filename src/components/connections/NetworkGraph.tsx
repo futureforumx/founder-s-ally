@@ -437,7 +437,7 @@ export function NetworkGraph() {
                   width: size,
                   height: size,
                   border: `${borderWidth}px solid ${borderColor}`,
-                  backgroundColor: isYou ? "#111827" : undefined,
+                  backgroundColor: isYou ? "hsl(222, 47%, 11%)" : undefined,
                 }}
               >
                 <AvatarImage src={node.avatarUrl} alt={node.label} />
