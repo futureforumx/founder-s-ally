@@ -987,7 +987,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               )}
             </div>
           );
-        })}
+        })
+        )}
 
         {/* Live Traffic Terminal */}
         {showTerminal && connectedCount >= 1 && (
