@@ -183,8 +183,7 @@ export function OnboardingWizard() {
 
       toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
       reset();
-      // Navigate to settings page so user can confirm inputs
-      navigate("/?view=settings");
+      navigate("/?view=settings&tour=true");
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
