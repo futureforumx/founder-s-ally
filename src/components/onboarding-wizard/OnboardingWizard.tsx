@@ -151,6 +151,21 @@ export function OnboardingWizard() {
 
       try {
         localStorage.setItem("company-profile", JSON.stringify(companyProfile));
+        // Also set a minimal company-analysis so Index.tsx considers onboarding complete
+        localStorage.setItem("company-analysis", JSON.stringify({
+          healthScore: null,
+          executiveSummary: "",
+          metrics: {
+            mrr: state.revenueBand || "",
+            burnRate: "",
+            runway: "",
+            ltv: "",
+            cac: "",
+          },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
+        }));
       } catch {}
 
       // Snapshot personal profile for nav HUD completion meter
