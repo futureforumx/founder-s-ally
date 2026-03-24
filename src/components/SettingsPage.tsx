@@ -780,25 +780,25 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             {/* Primary CTA */}
             <Button
               onClick={handleSyncProfile}
-              disabled={syncing || !linkedinUrl.trim()}
+              disabled={syncing}
               className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
             >
               {syncing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Mining Data...
+                  Connecting to LinkedIn…
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
-                  Sync & Enrich Profile
+                  <Linkedin className="h-4 w-4" />
+                  Verify with LinkedIn
                 </>
               )}
             </Button>
 
             {/* Footer */}
             <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide">
-              Identity verification: LinkedIn + X + Public Data
+              Securely verify via LinkedIn OAuth — no scraping
             </p>
           </div>
         </div>
