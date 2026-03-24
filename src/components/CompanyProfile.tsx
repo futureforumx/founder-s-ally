@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { formatSocialUrl } from "@/lib/socialFormat";
+import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { AnalysisOverlay } from "./AnalysisOverlay";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
