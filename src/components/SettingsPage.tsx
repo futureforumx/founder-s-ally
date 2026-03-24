@@ -364,6 +364,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
   const [xVerified, setXVerified] = useState(false);
   const [xSyncing, setXSyncing] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(true);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
 
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
