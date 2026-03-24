@@ -47,6 +47,8 @@ export function OnboardingWizard() {
             .from("company_analyses")
             .update({
               company_name: state.companyName,
+              website_url: state.websiteUrl || null,
+              deck_text: state.deckText || null,
               stage: state.stage || null,
               sector: state.sectors?.[0] || null,
               updated_at: new Date().toISOString(),
@@ -58,6 +60,8 @@ export function OnboardingWizard() {
             .insert({
               user_id: user.id,
               company_name: state.companyName,
+              website_url: state.websiteUrl || null,
+              deck_text: state.deckText || null,
               stage: state.stage || null,
               sector: state.sectors?.[0] || null,
             })
