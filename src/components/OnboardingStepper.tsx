@@ -93,12 +93,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
         body: { url: website.trim() },
       });
-      if (scrapeError) throw scrapeError;
-      setWebsiteScraped(true);
+      if (scrapeError) {
+        // Non-blocking: scrape failed but let the user continue
+        console.warn("Website scrape failed, continuing:", scrapeError);
+      } else {
+        setWebsiteScraped(true);
+      }
       runPredictiveFetch();
       setStep(2);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to scrape website");
+      // Still allow the user to proceed even if scraping fails
+      console.warn("Website scrape error, continuing:", e);
+      runPredictiveFetch();
+      setStep(2);
     } finally {
       setIsProcessing(false);
       setProcessStep("");
