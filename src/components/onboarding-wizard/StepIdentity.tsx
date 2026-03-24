@@ -17,9 +17,9 @@ interface StepIdentityProps {
 }
 
 const USER_TYPES = [
-  { id: "founder", label: "Founder", icon: Users, desc: "Building a startup" },
-  { id: "operator", label: "Operator", icon: UserCog, desc: "Fractional or advisory" },
-  { id: "investor", label: "Investor", icon: Briefcase, desc: "Investing in startups" },
+  { id: "founder", label: "Founder", icon: Users, desc: "building a startup." },
+  { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startip." },
+  { id: "investor", label: "Investor", icon: Briefcase, desc: "finding startups." },
 ];
 
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
