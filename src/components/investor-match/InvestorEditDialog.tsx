@@ -444,36 +444,35 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
 
               {/* Form */}
               <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
-                {/* Entity Type Toggle */}
+                {/* Entity Type – shows current type with switch link */}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Investor Type</label>
-                  <div className="flex rounded-xl border border-border bg-secondary/30 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setEntityType("person")}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
-                        entityType === "person"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <User className="h-3.5 w-3.5" />
-                      Person
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEntityType("firm")}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all",
-                        entityType === "firm"
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Building2 className="h-3.5 w-3.5" />
-                      Firm
-                    </button>
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-2.5">
+                    {entityType === "firm" ? (
+                      <>
+                        <Building2 className="h-3.5 w-3.5 text-foreground" />
+                        <span className="text-sm font-medium text-foreground flex-1">Firm</span>
+                        <button
+                          type="button"
+                          onClick={() => setEntityType("person")}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors"
+                        >
+                          Switch to Person →
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3.5 w-3.5 text-foreground" />
+                        <span className="text-sm font-medium text-foreground flex-1">Person</span>
+                        <button
+                          type="button"
+                          onClick={() => setEntityType("firm")}
+                          className="text-[10px] font-medium text-accent hover:text-accent/80 transition-colors"
+                        >
+                          Switch to Firm →
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -505,7 +504,12 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       label="Firm"
                       searchType="firm"
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1">Optional — link this person to an investing entity.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Optional — link this person to an investing entity, or{" "}
+                      <button type="button" onClick={() => setEntityType("firm")} className="text-accent hover:text-accent/80 font-medium transition-colors">
+                        add a firm directly
+                      </button>.
+                    </p>
                   </div>
                 )}
 
@@ -614,9 +618,14 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                           className="overflow-hidden"
                         >
-                          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-start gap-2">
-                            <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
-                            <span className="text-sm text-indigo-900"><strong>Who championed this deal?</strong> Add the lead partner to unlock smarter network matches.</span>
+                          <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 flex items-start gap-2">
+                            <Sparkles className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                            <span className="text-sm text-foreground">
+                              <strong>Who championed this deal?</strong> Add the lead partner to unlock smarter network matches, or{" "}
+                              <button type="button" onClick={() => setEntityType("person")} className="text-accent hover:text-accent/80 font-medium transition-colors">
+                                add them as a person instead
+                              </button>.
+                            </span>
                           </div>
                         </motion.div>
                       )}
