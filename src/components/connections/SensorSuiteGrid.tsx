@@ -84,7 +84,7 @@ const SOURCES: SourceConfig[] = [
     syncStages: ["Authenticating...", "Scanning inbox...", "Mapping calendar...", "Building signal graph...", "Complete ✓"],
     unlockToast: "🔓 Warm Intro Paths unlocked",
     connectLabel: "Connect with Google",
-    disconnectWarning: "Disconnect Google Workspace? This will pause email thread analysis.",
+    disconnectWarning: "Disconnect Google? This will pause email thread analysis.",
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin, section: "recommended",
