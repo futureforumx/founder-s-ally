@@ -595,10 +595,10 @@ export function GlobalTopNav({
             {/* Navigation Menu Items */}
             <div className="p-1">
               {([
-                { label: "Personal", icon: User, tab: "account" },
-                { label: "Company", icon: Building2, tab: "company" },
-                { label: "Subscription", icon: CreditCard, tab: "subscription" },
-                { label: "Account", icon: Settings2, tab: "subscription" },
+                { key: "personal", label: "Personal", icon: User, tab: "account" },
+                { key: "company", label: "Company", icon: Building2, tab: "company" },
+                { key: "subscription", label: "Subscription", icon: CreditCard, tab: "subscription" },
+                { key: "acct", label: "Account", icon: Settings2, tab: "security" },
               ] as const).map((item) => (
                 <DropdownMenuItem
                   key={item.tab}
