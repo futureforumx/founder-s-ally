@@ -350,7 +350,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
                   isConnected ? "bg-primary/5 border border-primary/10" : "bg-muted border border-border"
                 }`}>
-                  {source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-4 w-4 object-contain" /> : <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />}
+                  {source.customIcon ? <img src={source.customIcon} alt={source.label} className="h-5 w-5 object-contain transition-transform hover:scale-110" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} /> : null}
+                  <Icon className={`${source.customIcon ? 'hidden' : ''} h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
                 {isConnected && (
                   <motion.div
