@@ -518,13 +518,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
           <Button
             size="sm"
             onClick={onNext}
-            disabled={!hasAnySynced}
-            className={cn(
-              "rounded-lg font-semibold text-xs px-6 transition-all",
-              hasAnySynced
-                ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                : "bg-white/[0.06] text-white/30 cursor-not-allowed"
-            )}
+            className="rounded-lg font-semibold text-xs px-6 transition-all bg-indigo-500 text-white hover:bg-indigo-400"
           >
             Launch <Sparkles className="h-3 w-3 ml-1.5" />
           </Button>
