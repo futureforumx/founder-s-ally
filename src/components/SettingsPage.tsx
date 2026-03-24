@@ -350,6 +350,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Magic Sync state
