@@ -601,7 +601,7 @@ export function GlobalTopNav({
                 { key: "acct", label: "Account", icon: Settings2, tab: "security" },
               ] as const).map((item) => (
                 <DropdownMenuItem
-                  key={item.tab}
+                  key={item.key}
                   onClick={() => {
                     const url = new URL(window.location.href);
                     url.searchParams.set("view", "settings");
