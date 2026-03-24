@@ -507,7 +507,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
                 : "bg-white/[0.06] text-white/30 cursor-not-allowed"
             )}
           >
-            Continue to Privacy <ArrowRight className="h-3 w-3 ml-1.5" />
+            Launch <Sparkles className="h-3 w-3 ml-1.5" />
           </Button>
           <button
             onClick={onNext}

@@ -10,7 +10,6 @@ import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { StepPowerUp } from "./StepPowerUp";
-import { StepPrivacy } from "./StepPrivacy";
 import { toast } from "@/hooks/use-toast";
 
 export function OnboardingWizard() {
@@ -28,10 +27,8 @@ export function OnboardingWizard() {
     setSaving(true);
 
     try {
-      // 1. Save profile data
       let companyId: string | null = null;
 
-      // 2. Upsert company_analyses if company name exists
       if (state.companyName) {
         const { data: existing } = await (supabase as any)
           .from("company_analyses")
@@ -71,7 +68,6 @@ export function OnboardingWizard() {
         }
       }
 
-      // 3. Save profile
       await upsertProfile({
         full_name: state.fullName || undefined,
         title: state.title || null,
@@ -84,7 +80,6 @@ export function OnboardingWizard() {
         ...(companyId ? { company_id: companyId } : {}),
       } as any);
 
-      // 4. Save preferences (onboarding data + privacy)
       await upsertPrefs({
         onboarding_data: {
           stage: state.stage,
@@ -99,16 +94,17 @@ export function OnboardingWizard() {
           connectedIntegrations: state.connectedIntegrations,
         },
         privacy_settings: {
-          aiInboxPaths: state.aiInboxPaths,
-          shareAnonMetrics: state.shareAnonMetrics,
-          discoverableToInvestors: state.discoverableToInvestors,
-          useMeetingNotes: state.useMeetingNotes,
+          aiInboxPaths: false,
+          shareAnonMetrics: false,
+          discoverableToInvestors: false,
+          useMeetingNotes: false,
         },
       });
 
-      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Here's your Intelligence Engine." });
+      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
       reset();
-      navigate("/");
+      // Navigate to settings page so user can confirm inputs
+      navigate("/?view=settings");
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
@@ -129,10 +125,7 @@ export function OnboardingWizard() {
             <StepCompanyDNA key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
           )}
           {state.step === 3 && (
-            <StepPowerUp key="s3" state={state} update={update} onNext={() => goTo(4)} onBack={() => goTo(2)} />
-          )}
-          {state.step === 4 && (
-            <StepPrivacy key="s4" state={state} update={update} onBack={() => goTo(3)} onFinish={handleFinish} />
+            <StepPowerUp key="s3" state={state} update={update} onNext={handleFinish} onBack={() => goTo(2)} />
           )}
         </AnimatePresence>
       </div>
