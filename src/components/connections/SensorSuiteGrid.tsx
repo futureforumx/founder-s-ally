@@ -131,7 +131,7 @@ const SOURCES: SourceConfig[] = [
   },
   // ── POWER SENSORS ──
   {
-    key: "stripe", label: "Stripe", icon: CreditCard, section: "power",
+    key: "stripe", label: "Stripe", icon: CreditCard, customIcon: BRAND_ICONS.stripe, section: "power",
     categoryTag: "TRACTION SIGNALS",
     glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
     description: "Real-time MRR, churn, and growth signals",
