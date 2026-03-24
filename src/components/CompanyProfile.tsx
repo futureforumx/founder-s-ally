@@ -1827,7 +1827,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                     {/* Row 3: HQ Location (full width) */}
                     <div className="space-y-1">
-                      <label className="text-xs uppercase text-muted-foreground font-semibold flex items-center gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         HQ Location {renderFieldBadge("hqLocation")}
                       </label>
                       <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}

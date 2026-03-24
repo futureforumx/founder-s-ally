@@ -192,7 +192,7 @@ export function SectorChipGrid({
   const hasAiSuggestions = aiSuggestedSectors.length > 0;
 
   return (
-    <div className={`space-y-4 ${className ?? ""}`}>
+    <div className={`space-y-6 ${className ?? ""}`}>
       {/* Sector Grid */}
       <div className="space-y-2">
         {hasAiSuggestions && (
