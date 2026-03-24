@@ -220,7 +220,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
         totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
         socialTwitter: "", socialLinkedin: "", socialInstagram: "",
-        burnRate: "", nrr: "", cac: "", ltv: "", momGrowth: "",
+        burnRate: sanitize(burnRate), nrr: "", cac: "", ltv: "",
+        momGrowth: sanitize(momGrowth),
       };
       if (analysisResult) {
         onComplete(company, {
@@ -228,7 +229,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
           metrics: {
             ...analysisResult.metrics,
             mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
-            burnRate: { value: sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
+            burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
+          },
           },
         });
       }
