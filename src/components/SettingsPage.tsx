@@ -1547,66 +1547,136 @@ function SecurityTab() {
 
 // ── Subscription Tab ──
 function SubscriptionTab() {
-  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
 
-  const PLANS = [
+  const POLAR_PLANS = [
     {
-      name: "Starter Plan",
+      name: "Basic",
+      productId: "4c9f357d-b420-486f-827d-2901b96afd4b",
       tier: "FREE",
       tierColor: "bg-amber-500",
-      price: { monthly: "$10.00", yearly: "$8.00" },
+      price: "$0",
       features: [
-        "Manage up to 1,000 contacts",
-        "Basic customer management tools",
-        "Task and workflow automation",
-        "Integration with third-party apps (limited)",
-        "Customizable dashboards",
+        "Basic company profile",
+        "Limited investor directory access",
+        "Community dashboard view",
+        "Single pitch deck upload",
+        "Basic sector tagging",
       ],
-      current: true,
       highlighted: false,
     },
     {
-      name: "Growth Plan",
+      name: "Pro",
+      productId: "2e689769-7782-456a-88b3-687e0e825df7",
       tier: "PRO",
       tierColor: "bg-amber-500",
-      price: { monthly: "$79.00", yearly: "$65.00" },
+      price: "$29",
       features: [
-        "Manage up to 10,000 contacts",
-        "Advanced customer management",
-        "Full workflow automation",
-        "Real-time reporting and analytics",
-        "Collaborative team features",
+        "Full investor matching engine",
+        "Unlimited pitch deck audits",
+        "Competitive benchmarking",
+        "Contact reveals (unlimited)",
+        "Priority community features",
       ],
-      current: false,
       highlighted: true,
     },
     {
-      name: "Enterprise Plan",
-      tier: "ADVANCE",
+      name: "Premiere",
+      productId: "ca6f76eb-8c2d-4593-847f-2f66c59838a5",
+      tier: "PREMIERE",
       tierColor: "bg-emerald-500",
-      price: { monthly: "Custom", yearly: "Custom" },
+      price: "$99",
       features: [
-        "Unlimited contacts and data storage",
-        "Custom workflow and automation setups",
-        "Dedicated account manager",
-        "Advanced analytics and reporting",
-        "Full API access and custom integrations",
+        "Everything in Pro",
+        "AI-powered investor intelligence",
+        "Warm intro pathfinder",
+        "Dedicated account support",
+        "Full API access and exports",
       ],
-      current: false,
       highlighted: false,
     },
   ];
 
-  const INVOICES = [
-    { date: "Mar 22, 2026", amount: "$10.00", status: "Paid" },
-    { date: "Feb 22, 2026", amount: "$10.00", status: "Paid" },
-    { date: "Jan 22, 2026", amount: "$10.00", status: "Paid" },
-  ];
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutId = params.get("checkout_id");
+    if (checkoutId && user) {
+      (async () => {
+        try {
+          const { data } = await supabase.functions.invoke("polar-checkout", {
+            body: { action: "verify_checkout", checkout_id: checkoutId },
+          });
+          if (data?.status === "succeeded") {
+            setCheckoutSuccess(true);
+            const url = new URL(window.location.href);
+            url.searchParams.delete("checkout_id");
+            window.history.replaceState({}, "", url.toString());
+          }
+        } catch {}
+      })();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("polar-checkout", {
+          body: { action: "get_subscription", user_id: user.id },
+        });
+        if (data?.subscription?.product_id) {
+          setCurrentProductId(data.subscription.product_id);
+        }
+        if (data?.customer_id) {
+          setCustomerId(data.customer_id);
+        }
+      } catch {}
+    })();
+  }, [user, checkoutSuccess]);
+
+  const handleCheckout = async (productId: string) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polar-checkout", {
+        body: { action: "create_checkout", product_id: productId, user_id: user.id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManage = async () => {
+    if (!customerId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polar-checkout", {
+        body: { action: "customer_portal", customer_id: customerId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err) {
+      console.error("Portal error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <TabWrapper>
       <div className="space-y-8">
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-foreground text-xs font-mono font-semibold">PLAN</h2>
@@ -1614,175 +1684,129 @@ function SubscriptionTab() {
               Keep track of your subscription details, update your billing information, and control your account's payment
             </p>
           </div>
-          {/* Billing Toggle */}
-          <div className="flex items-center rounded-full border border-border bg-muted/30 p-0.5 shrink-0">
-            <button
-              onClick={() => setBilling("monthly")}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-medium transition-all",
-                billing === "monthly"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBilling("yearly")}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-medium transition-all",
-                billing === "yearly"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Yearly
-            </button>
-          </div>
+          {customerId && (
+            <Button variant="outline" size="sm" onClick={handleManage} disabled={loading} className="text-xs">
+              <ExternalLink className="h-3 w-3 mr-1.5" />
+              Manage Billing
+            </Button>
+          )}
         </div>
 
-        {/* Plan Cards */}
+        {checkoutSuccess && (
+          <div className="rounded-xl border border-success/30 bg-success/5 p-4 flex items-center gap-3">
+            <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+            <p className="text-sm text-foreground">Your subscription has been activated successfully!</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={cn(
-                "relative rounded-2xl border p-6 flex flex-col justify-between transition-all",
-                plan.highlighted
-                  ? "bg-primary text-primary-foreground border-primary shadow-surface-lg"
-                  : "bg-card border-border"
-              )}
-            >
-              {/* Corner dots decoration */}
-              <div className={cn("absolute top-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-              <div className={cn("absolute top-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-              <div className={cn("absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-              <div className={cn("absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+          {POLAR_PLANS.map((plan) => {
+            const isCurrent = currentProductId === plan.productId;
+            return (
+              <div
+                key={plan.name}
+                className={cn(
+                  "relative rounded-2xl border p-6 flex flex-col justify-between transition-all",
+                  plan.highlighted
+                    ? "bg-primary text-primary-foreground border-primary shadow-surface-lg"
+                    : "bg-card border-border"
+                )}
+              >
+                <div className={cn("absolute top-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+                <div className={cn("absolute top-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+                <div className={cn("absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+                <div className={cn("absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
 
-              <div className="space-y-5">
-                {/* Plan name + tier badge */}
-                <div className="flex items-center justify-between">
-                  <h3 className={cn("text-sm font-bold", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
-                    {plan.name}
-                  </h3>
-                  <Badge className={cn(
-                    "text-[9px] uppercase font-bold tracking-wider border-0 gap-1.5",
-                    plan.highlighted
-                      ? "bg-primary-foreground/15 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    <span className={cn("h-1.5 w-1.5 rounded-full", plan.tierColor)} />
-                    {plan.tier}
-                  </Badge>
-                </div>
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h3 className={cn("text-sm font-bold", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
+                      {plan.name}
+                    </h3>
+                    <Badge className={cn(
+                      "text-[9px] uppercase font-bold tracking-wider border-0 gap-1.5",
+                      plan.highlighted
+                        ? "bg-primary-foreground/15 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", plan.tierColor)} />
+                      {plan.tier}
+                    </Badge>
+                  </div>
 
-                {/* Price */}
-                <div className="flex items-baseline gap-1.5">
-                  <span className={cn("text-4xl font-black tracking-tight", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
-                    {plan.price[billing]}
-                  </span>
-                  {plan.price[billing] !== "Custom" && (
+                  <div className="flex items-baseline gap-1.5">
+                    <span className={cn("text-4xl font-black tracking-tight", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
+                      {plan.price}
+                    </span>
                     <span className={cn("text-sm", plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground")}>
                       /month
                     </span>
-                  )}
-                  {plan.price[billing] === "Custom" && (
-                    <span className={cn("text-sm", plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground")}>
-                      /month
-                    </span>
-                  )}
-                </div>
+                  </div>
 
-                {/* CTA */}
-                <Button
-                  variant={plan.highlighted ? "secondary" : "outline"}
-                  className={cn(
-                    "w-full rounded-xl font-semibold text-xs h-10",
-                    plan.highlighted
-                      ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-                      : plan.current
-                        ? "bg-muted border-border text-foreground cursor-default"
-                        : plan.price[billing] === "Custom"
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90 border-0"
-                          : ""
-                  )}
-                >
-                  {plan.current ? "Current Plan" : plan.price[billing] === "Custom" ? "Contact Us" : "Upgrade Plan"}
+                  <Button
+                    variant={plan.highlighted ? "secondary" : "outline"}
+                    className={cn(
+                      "w-full rounded-xl font-semibold text-xs h-10",
+                      plan.highlighted
+                        ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                        : isCurrent
+                          ? "bg-muted border-border text-foreground cursor-default"
+                          : plan.price === "$0"
+                            ? "bg-muted border-border text-foreground cursor-default"
+                            : ""
+                    )}
+                    disabled={loading || isCurrent || plan.price === "$0"}
+                    onClick={() => handleCheckout(plan.productId)}
+                  >
+                    {isCurrent ? "Current Plan" : plan.price === "$0" ? "Free Forever" : "Upgrade Plan"}
+                  </Button>
+
+                  <Separator className={plan.highlighted ? "bg-primary-foreground/10" : ""} />
+
+                  <div className="space-y-2.5">
+                    {plan.features.map((f) => (
+                      <div key={f} className="flex items-start gap-2">
+                        <CheckCircle2 className={cn(
+                          "h-3.5 w-3.5 shrink-0 mt-0.5",
+                          plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground/50"
+                        )} />
+                        <span className={cn(
+                          "text-xs leading-relaxed",
+                          plan.highlighted ? "text-primary-foreground/70" : "text-muted-foreground"
+                        )}>
+                          {f}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {customerId && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Billing & Invoices</h3>
+              <div className="flex items-center justify-between rounded-xl border border-border p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-12 items-center justify-center rounded-md bg-muted border border-border">
+                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Manage via Polar</p>
+                    <p className="text-[10px] text-muted-foreground">View invoices, update payment methods, and cancel</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={handleManage} disabled={loading} className="text-xs">
+                  <ExternalLink className="h-3 w-3 mr-1.5" />
+                  Open Portal
                 </Button>
-
-                <Separator className={plan.highlighted ? "bg-primary-foreground/10" : ""} />
-
-                {/* Features */}
-                <div className="space-y-2.5">
-                  {plan.features.map((f) => (
-                    <div key={f} className="flex items-start gap-2">
-                      <CheckCircle2 className={cn(
-                        "h-3.5 w-3.5 shrink-0 mt-0.5",
-                        plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground/50"
-                      )} />
-                      <span className={cn(
-                        "text-xs leading-relaxed",
-                        plan.highlighted ? "text-primary-foreground/70" : "text-muted-foreground"
-                      )}>
-                        {f}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
-          ))}
-        </div>
-
-        <Separator />
-
-        {/* Billing History */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Billing History</h3>
-          <div className="rounded-xl border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Date</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Amount</th>
-                  <th className="text-left px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Status</th>
-                  <th className="text-right px-4 py-2.5"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {INVOICES.map((inv) => (
-                  <tr key={inv.date} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 text-xs text-foreground">{inv.date}</td>
-                    <td className="px-4 py-3 text-xs font-medium text-foreground">{inv.amount}</td>
-                    <td className="px-4 py-3">
-                      <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">{inv.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button className="text-[10px] text-accent hover:text-accent/80 font-medium transition-colors">Download PDF</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Payment Method */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">Payment Method</h3>
-          <div className="flex items-center justify-between rounded-xl border border-border p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-12 items-center justify-center rounded-md bg-muted border border-border">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">•••• 4242</p>
-                <p className="text-[10px] text-muted-foreground">Expires 12/27</p>
-              </div>
-            </div>
-            <button className="text-xs font-medium text-accent hover:text-accent/80 transition-colors">Update</button>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </TabWrapper>
   );
