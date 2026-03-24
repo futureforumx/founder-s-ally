@@ -330,6 +330,16 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       <div className="text-center mb-2 shrink-0">
         <h1 className="text-lg font-semibold tracking-tight text-white">Intelligence Sensor Suite</h1>
         <p className="text-[11px] text-white/40">Connect your data sources to power the engine.</p>
+        <p className="text-[10px] text-white/30 mt-1.5 max-w-lg mx-auto leading-relaxed">
+          To improve the recommendation engine and help your company land investor meetings, your data is key. See our{" "}
+          <button
+            onClick={() => setPrivacyOpen(true)}
+            className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors"
+          >
+            privacy policy
+          </button>{" "}
+          if you have any questions.
+        </p>
       </div>
 
       {/* Two-Column Layout */}
