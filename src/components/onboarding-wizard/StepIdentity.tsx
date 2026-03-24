@@ -260,85 +260,14 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Role</label>
-              <SmartCombobox
-                value={state.title}
-                onChange={(v) => update({ title: v })}
-                options={ROLE_OPTIONS}
-                placeholder="e.g. CEO & Co-Founder"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company</label>
-              <div ref={companySearchRef} className="relative">
-                {selectedCompanyResult ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 h-9">
-                    <FirmLogo firmName={selectedCompanyResult.name} websiteUrl={selectedCompanyResult.websiteUrl} size="sm" className="h-5 w-5 text-[8px]" />
-                    <span className="text-sm font-medium text-foreground truncate flex-1">{selectedCompanyResult.name}</span>
-                    <button onClick={handleClearCompanySelection} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
-                    <Input
-                      value={companyQuery}
-                      onChange={handleCompanyInputChange}
-                      onFocus={() => { if (companyResults.length > 0) setShowCompanyDropdown(true); }}
-                      placeholder="Search or type company name..."
-                      className="rounded-lg h-9 text-sm pl-9 pr-7"
-                    />
-                    {isSearchingCompany && (
-                      <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                )}
-                <AnimatePresence>
-                  {showCompanyDropdown && !selectedCompanyResult && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover/95 backdrop-blur-xl shadow-lg max-h-[180px] overflow-y-auto"
-                    >
-                      {companyResults.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onMouseDown={(e) => { e.preventDefault(); handleSelectCompanyResult(c); }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/10 transition-colors"
-                        >
-                          <FirmLogo firmName={c.name} websiteUrl={c.websiteUrl} size="sm" className="h-6 w-6 text-[8px]" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-foreground truncate">{c.name}</p>
-                            {c.sector && <p className="text-[9px] text-muted-foreground">{c.sector}</p>}
-                          </div>
-                        </button>
-                      ))}
-                      {companyQuery.trim().length >= 2 && (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectCompanyResult({ id: `new-${Date.now()}`, name: companyQuery.trim(), websiteUrl: null, sector: null });
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/10 transition-colors border-t border-border/50"
-                        >
-                          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10">
-                            <Plus className="h-3 w-3 text-primary" />
-                          </div>
-                          <p className="text-sm text-foreground">Add "<span className="font-semibold">{companyQuery.trim()}</span>"</p>
-                        </button>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Role</label>
+            <SmartCombobox
+              value={state.title}
+              onChange={(v) => update({ title: v })}
+              options={ROLE_OPTIONS}
+              placeholder="e.g. CEO & Co-Founder"
+            />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
