@@ -197,7 +197,7 @@ const SOURCES: SourceConfig[] = [
   },
   // ── SIGNAL SOURCES ──
   {
-    key: "twitter", label: "X (Twitter)", icon: Twitter, section: "signal",
+    key: "twitter", label: "X (Twitter)", icon: Twitter, customIcon: BRAND_ICONS.twitter, section: "signal",
     categoryTag: "SOCIAL INTELLIGENCE",
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Investor thesis signals + competitor moves",
