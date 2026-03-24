@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
@@ -469,6 +470,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   });
   const [originalFormSnapshot, setOriginalFormSnapshot] = useState<CompanyData | null>(null);
   const [aiUpdatedFields, setAiUpdatedFields] = useState<Set<string>>(new Set());
+
+  // Pending analysis review state
+  const [pendingAnalysis, setPendingAnalysis] = useState<{ analysisData: any; scrapedMarkdown: string; deepSearchInvestors: any[]; verification: Record<string, any> } | null>(null);
+  const [analysisReviewOpen, setAnalysisReviewOpen] = useState(false);
+  const [analysisReviewApplying, setAnalysisReviewApplying] = useState(false);
 
   // Social link enrichment state
   const [socialEnrichState, setSocialEnrichState] = useState<Record<string, "idle" | "syncing" | "verified">>({ x: "idle", linkedin: "idle" });
@@ -1004,8 +1010,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       if (analysisData?.error) throw new Error(analysisData.error);
 
       setAnalyzeStep("mapping");
-      applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
-      applyMetricsFromResult(analysisData.metrics);
 
       const verification: Record<string, { sources: string[]; status: string; conflictDetail?: string }> = {};
       const fieldKeys = ["hqLocation", "stage", "sector", "currentARR", "yoyGrowth", "totalHeadcount", "businessModel", "targetCustomer", "uniqueValueProp", "competitors"];
@@ -1019,46 +1023,95 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         else if (sources.length === 1 && sources[0] === "deck") verification[field] = { sources, status: "deck-only" };
         else if (sources.length >= 1) verification[field] = { sources, status: "predictive" };
       }
-      setSourceVerification(verification);
 
-      if (analysisData.stageClassification) {
-        setStageClassification(analysisData.stageClassification);
-        onStageClassification?.(analysisData.stageClassification);
-        if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
-          setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
-        }
-      }
-
-      setScanningMetrics(false);
-      setAnalysisComplete(true);
-      const analyzedInputs = { url: form.website, hasDeck: !!deckText };
-      setLastAnalyzedInputs(analyzedInputs);
-      try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
-      setMetricsUnlocked(true);
-      setOriginalFormSnapshot(null);
-      setDataSource("ai");
-      // Reset section confirmations and field edit tracking, enter review mode
-      setSectionConfirmed({});
-      setFieldsEditedSinceAnalysis(false);
-      enterReviewMode("overview");
-
-      const deckInvestors = analysisData.extractedInvestors || [];
-      const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
-      const mergedInvestors = [...deckInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
-      const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
-      onAnalysis?.(finalResult as AnalysisResult);
-      try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
-      // Queue deck audit for when the user navigates to the Deck Audit tab
-      if (deckText) {
-        try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
-      }
-      onWalkthroughComplete?.();
+      // Store pending data and open review modal instead of auto-applying
+      setPendingAnalysis({ analysisData, scrapedMarkdown, deepSearchInvestors, verification });
+      setShowAnalysisOverlay(false);
+      setIsAnalyzing(false);
+      setAnalyzeStep("");
+      setAnalysisReviewOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStep("");
     }
+  };
+
+  // Build review fields from pending analysis
+  const buildAnalysisReviewFields = (): SyncField[] => {
+    if (!pendingAnalysis) return [];
+    const ai = pendingAnalysis.analysisData.aiExtracted || {};
+    const metrics = pendingAnalysis.analysisData.metrics || {};
+    const labelMap: Record<string, string> = {
+      description: "Description", stage: "Stage", sector: "Sector",
+      businessModel: "Business Model", targetCustomer: "Target Customer",
+      hqLocation: "HQ Location", uniqueValueProp: "Value Proposition",
+      currentARR: "ARR", yoyGrowth: "YoY Growth", totalHeadcount: "Headcount",
+      burnRate: "Burn Rate", cac: "CAC", ltv: "LTV",
+      socialTwitter: "Twitter", socialLinkedin: "LinkedIn", socialInstagram: "Instagram",
+      competitors: "Competitors",
+    };
+    const fields: SyncField[] = [];
+    for (const [key, label] of Object.entries(labelMap)) {
+      const aiVal = key === "burnRate" || key === "cac" || key === "ltv"
+        ? metrics[key]?.value || null
+        : key === "competitors"
+          ? ai.competitors?.join(", ") || null
+          : ai[key] || null;
+      const existing = key === "competitors"
+        ? (form.competitors || []).join(", ") || null
+        : String(form[key as keyof CompanyData] || "") || null;
+      if (aiVal) {
+        fields.push({ key, label, existing: existing || null, incoming: String(aiVal) });
+      }
+    }
+    return fields;
+  };
+
+  const handleApplyAnalysisReview = (selectedKeys: string[]) => {
+    if (!pendingAnalysis) return;
+    setAnalysisReviewApplying(true);
+    const { analysisData, scrapedMarkdown, deepSearchInvestors, verification } = pendingAnalysis;
+
+    applyAiData(analysisData.aiExtracted, analysisData.sectorMapping);
+    applyMetricsFromResult(analysisData.metrics);
+    setSourceVerification(verification);
+
+    if (analysisData.stageClassification) {
+      setStageClassification(analysisData.stageClassification);
+      onStageClassification?.(analysisData.stageClassification);
+      if (!userTouched.has("stage") && analysisData.stageClassification.detected_stage) {
+        setForm(prev => ({ ...prev, stage: analysisData.stageClassification.detected_stage }));
+      }
+    }
+
+    setScanningMetrics(false);
+    setAnalysisComplete(true);
+    const analyzedInputs = { url: form.website, hasDeck: !!deckText };
+    setLastAnalyzedInputs(analyzedInputs);
+    try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
+    setMetricsUnlocked(true);
+    setOriginalFormSnapshot(null);
+    setDataSource("ai");
+    setSectionConfirmed({});
+    setFieldsEditedSinceAnalysis(false);
+    enterReviewMode("overview");
+
+    const deckInvestors = analysisData.extractedInvestors || [];
+    const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
+    const mergedInvestors = [...deckInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
+    const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
+    onAnalysis?.(finalResult as AnalysisResult);
+    try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
+    if (deckText) {
+      try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
+    }
+    onWalkthroughComplete?.();
+
+    setAnalysisReviewApplying(false);
+    setAnalysisReviewOpen(false);
+    setPendingAnalysis(null);
   };
 
   const isFieldAiDraft = (field: keyof CompanyData) => !confirmed && !userTouched.has(field) && !!form[field];
@@ -1686,6 +1739,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </div>
           )}
 
+          
 
           {/* Smart Analysis Button */}
           <div className="mt-3 space-y-1.5">
@@ -2368,6 +2422,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       {/* Hidden logo input */}
       <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
+
+      {/* Analysis Review Modal */}
+      <SyncReviewModal
+        open={analysisReviewOpen}
+        onOpenChange={(open) => {
+          setAnalysisReviewOpen(open);
+          if (!open) setPendingAnalysis(null);
+        }}
+        title="Review AI Analysis Results"
+        fields={buildAnalysisReviewFields()}
+        onApply={handleApplyAnalysisReview}
+        applying={analysisReviewApplying}
+      />
     </div>
   );
 });
