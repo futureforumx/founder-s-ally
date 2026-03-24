@@ -21,12 +21,26 @@ const PLATFORM_CONFIG: Record<SocialPlatformType, PlatformConfig> = {
     brandColor: "#0A66C2",
     domain: /linkedin\.com/i,
   },
+  linkedin_company: {
+    prefix: "linkedin.com/company/",
+    placeholder: "company-name",
+    faviconUrl: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://linkedin.com&size=32",
+    brandColor: "#0A66C2",
+    domain: /linkedin\.com/i,
+  },
   x: {
     prefix: "x.com/",
     placeholder: "@handle",
     faviconUrl: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.com&size=32",
     brandColor: "#000000",
     domain: /(?:x\.com|twitter\.com)/i,
+  },
+  instagram: {
+    prefix: "instagram.com/",
+    placeholder: "@handle",
+    faviconUrl: "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://instagram.com&size=32",
+    brandColor: "#E4405F",
+    domain: /instagram\.com/i,
   },
 };
 
