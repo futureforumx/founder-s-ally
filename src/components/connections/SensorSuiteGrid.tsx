@@ -71,7 +71,7 @@ interface SourceConfig {
 const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
-    key: "google", label: "Google Workspace", icon: Mail, section: "recommended",
+    key: "google", label: "Google", icon: Mail, section: "recommended",
     categoryTag: "INTELLIGENCE PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
@@ -84,7 +84,7 @@ const SOURCES: SourceConfig[] = [
     syncStages: ["Authenticating...", "Scanning inbox...", "Mapping calendar...", "Building signal graph...", "Complete ✓"],
     unlockToast: "🔓 Warm Intro Paths unlocked",
     connectLabel: "Connect with Google",
-    disconnectWarning: "Disconnect Google Workspace? This will pause email thread analysis.",
+    disconnectWarning: "Disconnect Google? This will pause email thread analysis.",
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin, section: "recommended",
