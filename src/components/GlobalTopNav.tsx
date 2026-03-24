@@ -36,6 +36,7 @@ interface GlobalTopNavProps {
   userSector?: string | null;
   userStage?: string | null;
   profileCompletion?: number;
+  personalCompletion?: number;
 }
 
 // ── View metadata for breadcrumbs ──
