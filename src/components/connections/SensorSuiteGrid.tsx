@@ -1,5 +1,14 @@
 import { useState, useCallback, useEffect } from "react";
-const GOOGLE_LOGO_URL = "https://cdn.simpleicons.org/google/4285F4";
+const BRAND_ICONS: Record<string, string> = {
+  google: "https://cdn.simpleicons.org/google/4285F4",
+  linkedin: "https://cdn.simpleicons.org/linkedin/0A66C2",
+  notion: "https://cdn.simpleicons.org/notion/000000",
+  stripe: "https://cdn.simpleicons.org/stripe/635BFF",
+  granola: "https://www.google.com/s2/favicons?domain=granola.ai&sz=128",
+  hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
+  attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
+  twitter: "https://cdn.simpleicons.org/x/000000",
+};
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
@@ -73,7 +82,7 @@ interface SourceConfig {
 const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
-    key: "google", label: "Google", icon: Mail, customIcon: GOOGLE_LOGO_URL, section: "recommended",
+    key: "google", label: "Google", icon: Mail, customIcon: BRAND_ICONS.google, section: "recommended",
     categoryTag: "INTELLIGENCE PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
@@ -89,7 +98,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect Google? This will pause email thread analysis.",
   },
   {
-    key: "linkedin", label: "LinkedIn", icon: Linkedin, section: "recommended",
+    key: "linkedin", label: "LinkedIn", icon: Linkedin, customIcon: BRAND_ICONS.linkedin, section: "recommended",
     categoryTag: "PROFESSIONAL IDENTITY",
     glowColor: "shadow-[0_0_24px_rgba(59,130,246,0.3)]", glowHsl: "bg-blue-500",
     description: "Map your professional network graph",
@@ -105,7 +114,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect LinkedIn? This will pause network graph updates.",
   },
   {
-    key: "notion", label: "Notion", icon: BookOpen, section: "recommended",
+    key: "notion", label: "Notion", icon: BookOpen, customIcon: BRAND_ICONS.notion, section: "recommended",
     categoryTag: "KNOWLEDGE BASE",
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Import your investor tracker + research docs",
@@ -122,7 +131,7 @@ const SOURCES: SourceConfig[] = [
   },
   // ── POWER SENSORS ──
   {
-    key: "stripe", label: "Stripe", icon: CreditCard, section: "power",
+    key: "stripe", label: "Stripe", icon: CreditCard, customIcon: BRAND_ICONS.stripe, section: "power",
     categoryTag: "TRACTION SIGNALS",
     glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
     description: "Real-time MRR, churn, and growth signals",
@@ -139,7 +148,7 @@ const SOURCES: SourceConfig[] = [
     note: "Read-only restricted key",
   },
   {
-    key: "granola", label: "Granola", icon: FileText, section: "power",
+    key: "granola", label: "Granola", icon: FileText, customIcon: BRAND_ICONS.granola, section: "power",
     categoryTag: "MEETING INTELLIGENCE",
     glowColor: "shadow-[0_0_24px_rgba(234,179,8,0.3)]", glowHsl: "bg-yellow-500",
     description: "Turns investor meeting notes into action items",
@@ -155,7 +164,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect Granola? This will pause meeting note processing.",
   },
   {
-    key: "hubspot", label: "HubSpot", icon: Contact, section: "power",
+    key: "hubspot", label: "HubSpot", icon: Contact, customIcon: BRAND_ICONS.hubspot, section: "power",
     categoryTag: "CRM PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(251,146,60,0.3)]", glowHsl: "bg-orange-500",
     description: "Import investor + customer pipeline",
@@ -171,7 +180,7 @@ const SOURCES: SourceConfig[] = [
     disconnectWarning: "Disconnect HubSpot? This will pause contact and deal syncing.",
   },
   {
-    key: "attio", label: "Attio", icon: Layers, section: "power",
+    key: "attio", label: "Attio", icon: Layers, customIcon: BRAND_ICONS.attio, section: "power",
     categoryTag: "VC-NATIVE CRM",
     glowColor: "shadow-[0_0_24px_rgba(168,85,247,0.3)]", glowHsl: "bg-purple-500",
     description: "Sync your VC-native relationship CRM",
@@ -188,7 +197,7 @@ const SOURCES: SourceConfig[] = [
   },
   // ── SIGNAL SOURCES ──
   {
-    key: "twitter", label: "X (Twitter)", icon: Twitter, section: "signal",
+    key: "twitter", label: "X (Twitter)", icon: Twitter, customIcon: BRAND_ICONS.twitter, section: "signal",
     categoryTag: "SOCIAL INTELLIGENCE",
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Investor thesis signals + competitor moves",
