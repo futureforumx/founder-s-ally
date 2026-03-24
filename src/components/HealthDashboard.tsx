@@ -76,7 +76,7 @@ interface MetricCardProps {
 function MetricCard({ label, metricData, change, trend, onEdit }: MetricCardProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(metricData.value || "—");
-  const conf = confidenceConfig[metricData.confidence];
+  const conf = confidenceConfig[metricData.confidence] || confidenceConfig.low;
   const ConfIcon = conf.icon;
 
   const save = () => {
