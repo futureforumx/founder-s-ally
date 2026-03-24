@@ -1302,7 +1302,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (nextSection) {
       setTimeout(() => {
         if (isInReviewMode) setActiveReviewSection(nextSection);
-        setOpenSections(prev => ({ ...prev, [nextSection]: true }));
+        // Collapse all sections, then open only the next one
+        setOpenSections(() => {
+          const allClosed: Record<string, boolean> = {};
+          REVIEW_ORDER.forEach(s => { allClosed[s] = s === nextSection; });
+          return allClosed;
+        });
 
         // Scroll to and highlight the next section
         setTimeout(() => {
