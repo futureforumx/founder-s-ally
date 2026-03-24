@@ -97,6 +97,17 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     }
   }, [user]);
 
+  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
+
+  const handleValidatedNext = () => {
+    if (!canProceed) {
+      toast({ title: "Required fields", description: "Please fill in First Name, Last Name, and Role.", variant: "destructive" });
+      return;
+    }
+    onNext();
+  };
+
+
   const handleMagicFill = async () => {
     if (!url.trim()) {
       toast({ variant: "destructive", title: "Enter a LinkedIn URL first" });
@@ -242,26 +253,34 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">First Name</label>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                First Name <span className="text-destructive">*</span>
+              </label>
               <Input
                 value={state.firstName}
                 onChange={(e) => handleNameChange(e.target.value, state.lastName)}
                 placeholder="Jane"
                 className="rounded-lg h-9 text-sm"
+                required
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Last Name</label>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Last Name <span className="text-destructive">*</span>
+              </label>
               <Input
                 value={state.lastName}
                 onChange={(e) => handleNameChange(state.firstName, e.target.value)}
                 placeholder="Doe"
                 className="rounded-lg h-9 text-sm"
+                required
               />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Role</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Role <span className="text-destructive">*</span>
+            </label>
             <SmartCombobox
               value={state.title}
               onChange={(v) => update({ title: v })}
@@ -273,8 +292,10 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
             <Input
               value={state.email}
-              disabled
-              className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground"
+              onChange={(e) => update({ email: e.target.value })}
+              placeholder="jane@acme.com"
+              type="email"
+              className="rounded-lg h-9 text-sm"
             />
           </div>
         </div>
@@ -364,10 +385,14 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
 
       {!loading && (
         <button
-          onClick={onNext}
-          className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center gap-1"
+          onClick={handleValidatedNext}
+          disabled={!canProceed}
+          className={cn(
+            "text-[10px] transition-colors flex items-center gap-1",
+            canProceed ? "text-muted-foreground/60 hover:text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+          )}
         >
-          Skip and fill manually <ArrowRight className="h-3 w-3" />
+          Continue <ArrowRight className="h-3 w-3" />
         </button>
       )}
     </motion.div>
