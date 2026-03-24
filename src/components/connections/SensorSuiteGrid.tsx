@@ -43,7 +43,11 @@ import {
   Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
   Settings2, Activity, Check, CreditCard, BookOpen, FileText,
   MessageSquare, Contact, Layers, Video, MonitorSmartphone, Hash,
-  Camera, Facebook as FacebookIcon, Music2, PhoneCall
+  Camera, Facebook as FacebookIcon, Music2, PhoneCall,
+  Table2, PieChart, ShoppingCart, DollarSign, Wallet, Banknote,
+  Zap, GitBranch, Workflow, Repeat2,
+  MailOpen, Palette, Megaphone,
+  LineChart, Eye, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
