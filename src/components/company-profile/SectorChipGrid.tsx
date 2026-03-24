@@ -239,6 +239,7 @@ export function SectorChipGrid({
         selected={businessModel}
         aiSuggested={aiSuggestedModels}
         onChange={onBusinessModelChange}
+        max={3}
       />
 
       {/* Target Customer */}
@@ -248,6 +249,7 @@ export function SectorChipGrid({
         selected={targetCustomer}
         aiSuggested={aiSuggestedCustomers}
         onChange={onTargetCustomerChange}
+        max={3}
       />
     </div>
   );
