@@ -1,13 +1,14 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, ArrowRight, Zap, Mail, FileText, Linkedin, CreditCard,
-  BarChart3, Database, Upload, Settings2
+  BarChart3, Database, Upload, Settings2, Loader2, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
+import confetti from "canvas-confetti";
 import type { OnboardingState } from "./types";
 
 // ── Sensor Configs ──
@@ -26,6 +27,7 @@ interface SensorConfig {
   stat?: { label: string; value: string };
   buttonLabel: string;
   tier: "recommended" | "power";
+  syncStages: string[];
 }
 
 const SENSORS: SensorConfig[] = [
@@ -36,6 +38,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Scan Status: Active · Signals: 142 found",
     stat: { label: "Threads Analyzed", value: "142" },
     buttonLabel: "Sync Google Workspace", tier: "recommended",
+    syncStages: ["Authenticating...", "Scanning inbox...", "Mapping calendar...", "Complete ✓"],
   },
   {
     id: "linkedin", name: "LinkedIn", icon: Linkedin, type: "identity",
@@ -44,6 +47,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Identity Mapped · Network Connectivity: 2nd Degree (+4,218)",
     stat: { label: "2nd Degree", value: "4,218" },
     buttonLabel: "Verify Identity", tier: "recommended",
+    syncStages: ["Authenticating...", "Mapping network...", "Building graph...", "Complete ✓"],
   },
   {
     id: "notion", name: "Notion", icon: FileText, type: "pipeline",
@@ -52,6 +56,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Pipeline synced · 8 active deal pages",
     stat: { label: "Pages Synced", value: "8" },
     buttonLabel: "Sync Pipeline", tier: "recommended",
+    syncStages: ["Authenticating...", "Scanning workspace...", "Indexing pages...", "Complete ✓"],
   },
   {
     id: "stripe", name: "Stripe", icon: CreditCard, type: "pipeline",
@@ -60,6 +65,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Revenue Verified · Last update: 2 mins ago",
     stat: { label: "MRR Verified", value: "$12.4K" },
     buttonLabel: "Sync Pipeline", tier: "power",
+    syncStages: ["Authenticating...", "Fetching metrics...", "Calculating MRR...", "Complete ✓"],
   },
   {
     id: "angellist", name: "AngelList", icon: Zap, type: "ingestor",
@@ -68,6 +74,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Importing 47 investors... Enriching with AI.",
     stat: { label: "Investors Imported", value: "47" },
     buttonLabel: "Import CSV", tier: "power",
+    syncStages: ["Reading CSV...", "Enriching investors...", "Complete ✓"],
   },
   {
     id: "hubspot", name: "HubSpot", icon: BarChart3, type: "pipeline",
@@ -76,6 +83,7 @@ const SENSORS: SensorConfig[] = [
     telemetry: "12 deals tracked · Pipeline value: $2.1M",
     stat: { label: "Deals Tracked", value: "12" },
     buttonLabel: "Sync Pipeline", tier: "power",
+    syncStages: ["Authenticating...", "Fetching contacts...", "Syncing deals...", "Complete ✓"],
   },
   {
     id: "attio", name: "Attio", icon: Database, type: "pipeline",
@@ -84,8 +92,18 @@ const SENSORS: SensorConfig[] = [
     telemetry: "Relationship graph: 89 nodes active",
     stat: { label: "Relationships", value: "89" },
     buttonLabel: "Sync Pipeline", tier: "power",
+    syncStages: ["Authenticating...", "Fetching people...", "Mapping relationships...", "Complete ✓"],
   },
 ];
+
+const RECOMMENDED_IDS = ["google", "linkedin", "notion"];
+
+function getEngineMeter(connectedCount: number): number {
+  if (connectedCount === 0) return 0;
+  if (connectedCount === 1) return 40;
+  if (connectedCount === 2) return 70;
+  return 100;
+}
 
 // ── Sparkline ──
 function SparklinePulse() {
@@ -105,9 +123,14 @@ function SparklinePulse() {
 
 // ── Sensor Card ──
 function SensorCard({
-  sensor, connected, onConnect, index,
+  sensor, connected, syncing, syncMessage, onConnect, index,
 }: {
-  sensor: SensorConfig; connected: boolean; onConnect: () => void; index: number;
+  sensor: SensorConfig;
+  connected: boolean;
+  syncing: boolean;
+  syncMessage: string;
+  onConnect: () => void;
+  index: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -131,18 +154,18 @@ function SensorCard({
       onDragLeave={isAngelList ? () => setDragOver(false) : undefined}
       onDrop={isAngelList && !connected ? handleFileDrop : undefined}
       style={{
-        transform: hovered ? "perspective(800px) rotateX(-1deg) rotateY(1deg)" : "perspective(800px) rotateX(0) rotateY(0)",
-        transition: "transform 0.3s ease",
+        boxShadow: connected ? `0 0 24px ${sensor.glowColor}` : undefined,
       }}
       className={cn(
         "relative rounded-2xl border p-5 transition-all duration-300 overflow-hidden",
         connected
           ? "border-white/[0.12] bg-[#0A0A0A]/95 backdrop-blur-xl"
+          : syncing
+          ? "border-white/[0.10] bg-[#0A0A0A]/90"
           : dragOver
           ? "border-indigo-500/40 bg-[#0A0A0A]/90"
           : "border-white/[0.06] bg-[#0A0A0A]/80 hover:border-white/[0.12]",
       )}
-      {...(connected ? { style: { ...({ transform: hovered ? "perspective(800px) rotateX(-1deg) rotateY(1deg)" : "perspective(800px) rotateX(0) rotateY(0)", transition: "transform 0.3s ease" }), boxShadow: `0 0 24px ${sensor.glowColor}` } } : { style: { transform: hovered ? "perspective(800px) rotateX(-1deg) rotateY(1deg)" : "perspective(800px) rotateX(0) rotateY(0)", transition: "transform 0.3s ease" } })}
     >
       {/* Gradient overlay */}
       {connected && (
@@ -160,6 +183,8 @@ function SensorCard({
               )}>
                 {connected
                   ? <Check className="h-4 w-4 text-emerald-400" />
+                  : syncing
+                  ? <Loader2 className="h-4 w-4 text-white/40 animate-spin" />
                   : <sensor.icon className={cn("h-4 w-4", dragOver ? "text-indigo-400" : "text-white/40")} />
                 }
               </div>
@@ -195,8 +220,22 @@ function SensorCard({
 
         <p className="text-[11px] text-white/30 mb-4">{sensor.desc}</p>
 
+        {/* Sync progress */}
+        {syncing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mb-4"
+          >
+            <div className="flex items-center gap-2 text-[10px] text-indigo-400 font-mono">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {syncMessage || "Connecting..."}
+            </div>
+          </motion.div>
+        )}
+
         {/* Live telemetry */}
-        {connected && (
+        {connected && !syncing && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -230,7 +269,7 @@ function SensorCard({
 
         {/* Action */}
         <div className="flex items-center justify-between">
-          {!connected && (
+          {!connected && !syncing && (
             <Button
               size="sm"
               onClick={() => {
@@ -248,7 +287,14 @@ function SensorCard({
             </Button>
           )}
 
-          {connected && (
+          {syncing && (
+            <div className="flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1">
+              <Loader2 className="h-3 w-3 text-indigo-400 animate-spin" />
+              <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Connecting...</span>
+            </div>
+          )}
+
+          {connected && !syncing && (
             <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
               <motion.div
                 className="h-1.5 w-1.5 rounded-full bg-emerald-400"
@@ -330,13 +376,64 @@ interface StepPowerUpProps {
 
 export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps) {
   const connected = state.connectedIntegrations;
-  const meter = Math.round((connected.length / SENSORS.length) * 100);
+  const [syncingIds, setSyncingIds] = useState<Record<string, boolean>>({});
+  const [syncMessages, setSyncMessages] = useState<Record<string, string>>({});
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [prevCount, setPrevCount] = useState(connected.length);
+  const meterBarRef = useRef<HTMLDivElement>(null);
 
-  const handleConnect = (id: string) => {
-    if (connected.includes(id)) return;
+  const meter = getEngineMeter(connected.length);
+  const hasAnySynced = connected.length > 0;
+
+  // Fire confetti on the meter bar when a new sensor is connected
+  useEffect(() => {
+    if (connected.length > prevCount && connected.length > 0) {
+      // Confetti burst centered on the progress bar
+      if (meterBarRef.current) {
+        const rect = meterBarRef.current.getBoundingClientRect();
+        const x = (rect.left + rect.width * (meter / 100)) / window.innerWidth;
+        const y = rect.top / window.innerHeight;
+        confetti({
+          particleCount: 60,
+          spread: 50,
+          origin: { x, y },
+          colors: ["#6366f1", "#34d399", "#818cf8", "#fbbf24"],
+        });
+      }
+      setPrevCount(connected.length);
+    }
+  }, [connected.length, prevCount, meter]);
+
+  // Auto-advance when engine hits 100%
+  useEffect(() => {
+    if (meter === 100 && !analysisComplete) {
+      setAnalysisComplete(true);
+      const timer = setTimeout(() => {
+        onNext();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [meter, analysisComplete, onNext]);
+
+  const handleConnect = useCallback(async (id: string) => {
+    if (connected.includes(id) || syncingIds[id]) return;
+
+    setSyncingIds(prev => ({ ...prev, [id]: true }));
+    setSyncMessages(prev => ({ ...prev, [id]: "Connecting..." }));
+
+    const sensor = SENSORS.find(s => s.id === id)!;
+    const stages = sensor.syncStages;
+
+    for (let i = 0; i < stages.length; i++) {
+      setSyncMessages(prev => ({ ...prev, [id]: stages[i] }));
+      await new Promise(r => setTimeout(r, i === stages.length - 1 ? 400 : 800));
+    }
+
+    setSyncingIds(prev => ({ ...prev, [id]: false }));
+    setSyncMessages(prev => ({ ...prev, [id]: "" }));
     update({ connectedIntegrations: [...connected, id] });
-    toast({ title: "Intelligence Pipeline Established", description: `${id.charAt(0).toUpperCase() + id.slice(1)} is now active.` });
-  };
+    toast({ title: "Intelligence Pipeline Established", description: `${sensor.name} is now active.` });
+  }, [connected, syncingIds, update]);
 
   const recommended = SENSORS.filter((s) => s.tier === "recommended");
   const power = SENSORS.filter((s) => s.tier === "power");
@@ -364,20 +461,32 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
           </div>
           <span className="text-xs font-bold font-mono text-indigo-400">{meter}%</span>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400"
-                animate={{ width: `${meter}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs max-w-[260px] bg-[#0A0A0A] border-white/10 text-white/70">
-            Founders who connect Gmail + Notion get 3× more relevant investor matches in their first week
-          </TooltipContent>
-        </Tooltip>
+        <div ref={meterBarRef} className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <motion.div
+            className={cn(
+              "h-full rounded-full transition-all",
+              meter === 100
+                ? "bg-gradient-to-r from-emerald-400 to-emerald-300"
+                : "bg-gradient-to-r from-indigo-500 to-emerald-400"
+            )}
+            animate={{ width: `${meter}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        </div>
+
+        {/* Analysis complete state */}
+        <AnimatePresence>
+          {analysisComplete && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="flex items-center justify-center gap-2 mt-3 text-emerald-400"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="text-xs font-semibold font-mono">Analysis Complete — Advancing...</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Recommended Sensors */}
@@ -391,6 +500,8 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
               key={s.id}
               sensor={s}
               connected={connected.includes(s.id)}
+              syncing={!!syncingIds[s.id]}
+              syncMessage={syncMessages[s.id] || ""}
               onConnect={() => handleConnect(s.id)}
               index={i}
             />
@@ -409,6 +520,8 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
               key={s.id}
               sensor={s}
               connected={connected.includes(s.id)}
+              syncing={!!syncingIds[s.id]}
+              syncMessage={syncMessages[s.id] || ""}
               onConnect={() => handleConnect(s.id)}
               index={i + recommended.length}
             />
@@ -419,33 +532,37 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       {/* Live Traffic Terminal */}
       <LiveTrafficTerminal visible={connected.length >= 2} />
 
-      {/* Footer */}
-      <div className="flex justify-between items-center pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="text-white/40 hover:text-white hover:bg-white/[0.04]"
-        >
-          Back
-        </Button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onNext}
-            className="text-xs text-white/25 hover:text-white/50 transition-colors flex items-center gap-1"
+      {/* Fixed Bottom Navigation */}
+      <div className="flex flex-col items-center gap-3 pt-4 pb-2">
+        <div className="flex items-center gap-3 w-full justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="text-white/40 hover:text-white hover:bg-white/[0.04]"
           >
-            Skip for Now <ArrowRight className="h-3 w-3" />
-          </button>
-          {connected.length > 0 && (
-            <Button
-              size="sm"
-              onClick={onNext}
-              className="rounded-lg bg-white text-[#0A0A0A] hover:bg-white/90 font-semibold text-xs"
-            >
-              Continue
-            </Button>
-          )}
+            Back
+          </Button>
+          <Button
+            size="sm"
+            onClick={onNext}
+            disabled={!hasAnySynced}
+            className={cn(
+              "rounded-lg font-semibold text-xs px-6 transition-all",
+              hasAnySynced
+                ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                : "bg-white/[0.06] text-white/30 cursor-not-allowed"
+            )}
+          >
+            Continue to Privacy <ArrowRight className="h-3 w-3 ml-1.5" />
+          </Button>
         </div>
+        <button
+          onClick={onNext}
+          className="text-[11px] text-white/25 hover:text-white/50 transition-colors"
+        >
+          I'll sync the rest later
+        </button>
       </div>
     </motion.div>
   );
