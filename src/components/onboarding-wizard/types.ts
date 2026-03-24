@@ -3,6 +3,7 @@ export interface OnboardingState {
   // Step 1: Identity
   userType: string;
   linkedinUrl: string;
+  twitterUrl: string;
   fullName: string;
   title: string;
   bio: string;
