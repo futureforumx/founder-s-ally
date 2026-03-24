@@ -105,7 +105,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "notion", label: "Notion", icon: BookOpen, section: "recommended",
     categoryTag: "KNOWLEDGE BASE",
-    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-white",
+    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Import your investor tracker + research docs",
     liveStats: "24 pages synced · 18 investors imported",
     connectedStats: [
@@ -188,7 +188,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "twitter", label: "X (Twitter)", icon: Twitter, section: "signal",
     categoryTag: "SOCIAL INTELLIGENCE",
-    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-white",
+    glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Investor thesis signals + competitor moves",
     liveStats: "89 mutual follows · 7 investor signals this week",
     connectedStats: [
@@ -225,7 +225,7 @@ function SparklinePulse() {
       {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3, 0.7, 0.5, 0.8, 0.6].map((h, i) => (
         <motion.div
           key={i}
-          className="w-[2px] rounded-full bg-emerald-400/70"
+          className="w-[2px] rounded-full bg-success/70"
           animate={{ height: [`${h * 12}px`, `${h * 5}px`, `${h * 12}px`] }}
           transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
         />
@@ -244,11 +244,8 @@ const TERMINAL_LOGS = [
 ];
 
 interface SensorSuiteGridProps {
-  /** Compact mode for settings dialog */
   compact?: boolean;
-  /** Whether to show header KPI card */
   showHeader?: boolean;
-  /** Whether to show live traffic terminal */
   showTerminal?: boolean;
 }
 
@@ -342,16 +339,16 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.05 }}
           className={`group rounded-xl border p-4 transition-all duration-200 ${
-            isConnected ? "border-white/[0.08] bg-[#0A0A0A]" : "border-border bg-card hover:border-white/[0.1]"
+            isConnected ? "border-border bg-card shadow-sm" : "border-border bg-card hover:border-accent/30"
           }`}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative">
                 <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
-                  isConnected ? "bg-white/[0.06] border border-white/10" : "bg-muted border border-border"
+                  isConnected ? "bg-primary/5 border border-primary/10" : "bg-muted border border-border"
                 }`}>
-                  <Icon className={`h-4 w-4 ${isConnected ? "text-white" : "text-muted-foreground"}`} />
+                  <Icon className={`h-4 w-4 ${isConnected ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
                 {isConnected && (
                   <motion.div
@@ -363,31 +360,31 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold ${isConnected ? "text-white" : "text-foreground"}`}>{source.label}</span>
+                  <span className="text-sm font-semibold text-foreground">{source.label}</span>
                   {isConnected && (
-                    <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5">
-                      <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+                    <div className="flex items-center gap-1 rounded-full bg-success/10 border border-success/20 px-2 py-0.5">
+                      <motion.div className="h-1.5 w-1.5 rounded-full bg-success" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                      <span className="text-[9px] font-bold text-success uppercase tracking-wider">Live</span>
                     </div>
                   )}
                 </div>
-                <p className={`text-[9px] font-mono uppercase tracking-wider mt-0.5 ${isConnected ? "text-white/20" : "text-muted-foreground/50"}`}>{source.categoryTag}</p>
-                <p className={`text-[10px] mt-0.5 ${isConnected ? "text-white/30" : "text-muted-foreground"}`}>{source.description}</p>
-                {isConnected && <p className="text-[10px] text-emerald-400/60 font-mono mt-1">{source.liveStats}</p>}
+                <p className="text-[9px] font-mono uppercase tracking-wider mt-0.5 text-muted-foreground/50">{source.categoryTag}</p>
+                <p className="text-[10px] mt-0.5 text-muted-foreground">{source.description}</p>
+                {isConnected && <p className="text-[10px] text-success/80 font-mono mt-1">{source.liveStats}</p>}
               </div>
             </div>
             <Button
               size="sm"
               className={`shrink-0 rounded-lg text-xs font-semibold h-8 px-3 ${
-                isSyncing ? "bg-transparent border border-white/10"
-                  : isConnected ? "bg-transparent border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 hover:bg-red-500/[0.06]"
-                  : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06] hover:border-white/30"
+                isSyncing ? "bg-transparent border border-border"
+                  : isConnected ? "bg-transparent border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/5"
+                  : "bg-transparent border border-border text-muted-foreground hover:bg-secondary hover:border-accent/30"
               }`}
               onClick={() => isConnected ? setDisconnectTarget(source.key) : handleConnect(source.key)}
               disabled={isSyncing || (activeConnect !== null && activeConnect !== source.key)}
             >
               {isSyncing ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-white/10 border-t-white/60 rounded-full" />
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-border border-t-foreground/60 rounded-full" />
               ) : isConnected ? "Disconnect" : source.connectLabel}
             </Button>
           </div>
@@ -402,19 +399,14 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         transition={{ duration: 0.45, delay: index * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
         onMouseEnter={() => setHoveredCard(source.key)}
         onMouseLeave={() => setHoveredCard(null)}
-        style={{
-          transform: isHovered ? "perspective(800px) rotateX(-1.5deg) rotateY(1.5deg)" : "perspective(800px) rotateX(0) rotateY(0)",
-          transition: "transform 0.3s ease",
-          boxShadow: isConnected ? `0 0 28px ${source.glowColor.match(/rgba\([^)]+\)/)?.[0] || "transparent"}` : "none",
-        }}
         className={`group relative rounded-2xl border transition-all duration-300 overflow-hidden ${
           isConnected
-            ? "border-white/[0.12] bg-[#0A0A0A]/95 backdrop-blur-xl"
-            : "border-white/[0.06] bg-[#0A0A0A]/80 hover:border-white/[0.12]"
+            ? "border-border bg-card shadow-md"
+            : "border-border bg-card hover:border-accent/30 hover:shadow-md"
         }`}
       >
         {isConnected && (
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.03] via-transparent to-transparent pointer-events-none" />
         )}
 
         <div className="relative p-5">
@@ -422,9 +414,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
-                  isConnected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
+                  isConnected ? "border-success/20 bg-success/5" : "border-border bg-secondary"
                 }`}>
-                  {isConnected ? <Check className="h-4 w-4 text-emerald-400" /> : <Icon className="h-4 w-4 text-white/40" />}
+                  {isConnected ? <Check className="h-4 w-4 text-success" /> : <Icon className="h-4 w-4 text-muted-foreground" />}
                 </div>
                 {isConnected && (
                   <motion.div
@@ -435,22 +427,22 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 )}
               </div>
               <div>
-                <h3 className="text-[15px] font-semibold text-white tracking-tight">{source.label}</h3>
-                <p className="text-[10px] text-white/25 font-mono uppercase tracking-wider mt-0.5">{source.categoryTag}</p>
+                <h3 className="text-[15px] font-semibold text-foreground tracking-tight">{source.label}</h3>
+                <p className="text-[10px] text-muted-foreground/50 font-mono uppercase tracking-wider mt-0.5">{source.categoryTag}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               {isConnected && !isSyncing && (
-                <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
-                  <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                  <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Live</span>
+                <div className="flex items-center gap-1.5 rounded-full bg-success/10 border border-success/20 px-2.5 py-1">
+                  <motion.div className="h-1.5 w-1.5 rounded-full bg-success" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                  <span className="text-[10px] font-semibold text-success uppercase tracking-wider">Live</span>
                 </div>
               )}
               {!isConnected && !isSyncing && (
-                <div className="flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] px-2.5 py-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
-                  <span className="text-[10px] font-medium text-white/25 uppercase tracking-wider">Not Connected</span>
+                <div className="flex items-center gap-1.5 rounded-full bg-secondary border border-border px-2.5 py-1">
+                  <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                  <span className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">Not Connected</span>
                 </div>
               )}
               <AnimatePresence>
@@ -459,33 +451,33 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary hover:bg-muted transition-colors"
                   >
-                    <Settings2 className="h-3.5 w-3.5 text-white/40" />
+                    <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
                   </motion.button>
                 )}
               </AnimatePresence>
             </div>
           </div>
 
-          <p className="text-[11px] text-white/30 mb-4">{source.description}</p>
+          <p className="text-[11px] text-muted-foreground mb-4">{source.description}</p>
 
           {isConnected && !isSyncing && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <SparklinePulse />
-                <span className="text-[10px] text-emerald-400/80 font-mono">{source.liveStats}</span>
+                <span className="text-[10px] text-success/80 font-mono">{source.liveStats}</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {source.connectedStats.map(stat => (
-                  <div key={stat.label} className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
-                    <p className="text-lg font-bold text-white font-mono tracking-tight">{stat.value}</p>
-                    <p className="text-[9px] text-white/25 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
+                  <div key={stat.label} className="rounded-lg bg-secondary/60 border border-border p-2.5">
+                    <p className="text-lg font-bold text-foreground font-mono tracking-tight">{stat.value}</p>
+                    <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
                   </div>
                 ))}
               </div>
               {syncDetails[source.key]?.lastSynced && (
-                <p className="text-[10px] text-white/20 font-mono mt-2">Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}</p>
+                <p className="text-[10px] text-muted-foreground/50 font-mono mt-2">Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}</p>
               )}
             </motion.div>
           )}
@@ -493,19 +485,19 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           <AnimatePresence>
             {isSyncing && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-4">
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-3 space-y-2">
+                <div className="rounded-lg bg-secondary/60 border border-border p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-white/50 font-mono">{sync.message}</span>
-                    <span className="text-[11px] text-white/30 font-mono">{sync.progress}%</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{sync.message}</span>
+                    <span className="text-[11px] text-muted-foreground/60 font-mono">{sync.progress}%</span>
                   </div>
-                  <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                  <div className="h-1 w-full rounded-full bg-secondary overflow-hidden">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full"
+                      className="h-full bg-gradient-to-r from-accent to-success rounded-full"
                       animate={{ width: `${sync.progress}%` }}
                       transition={{ duration: 0.4, ease: "easeOut" }}
                     />
                   </div>
-                  <p className="text-[10px] text-white/20 font-mono">Historical backfill in progress...</p>
+                  <p className="text-[10px] text-muted-foreground/50 font-mono">Historical backfill in progress...</p>
                 </div>
               </motion.div>
             )}
@@ -518,20 +510,20 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   size="sm"
                   onClick={() => handleConnect(source.key)}
                   disabled={activeConnect !== null}
-                  className="rounded-lg text-xs font-semibold h-9 px-5 bg-transparent border border-white/20 text-white/70 hover:bg-white/[0.06] hover:border-white/30 hover:text-white transition-all"
+                  className="rounded-lg text-xs font-semibold h-9 px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
                 >
                   {source.connectLabel}
                 </Button>
-                {source.note && <p className="text-[10px] text-white/20 font-mono">{source.note}</p>}
+                {source.note && <p className="text-[10px] text-muted-foreground/50 font-mono">{source.note}</p>}
               </div>
             )}
             {isConnected && !isSyncing && (
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-white/30 hover:text-white/60 hover:bg-white/[0.04]" onClick={() => handleResync(source.key)} disabled={activeConnect !== null}>
+                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => handleResync(source.key)} disabled={activeConnect !== null}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Re-sync
                   </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-red-400/50 hover:text-red-400 hover:bg-red-500/[0.06]" onClick={() => setDisconnectTarget(source.key)}>
+                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-destructive/50 hover:text-destructive hover:bg-destructive/5" onClick={() => setDisconnectTarget(source.key)}>
                     Disconnect
                   </Button>
                 </div>
@@ -539,16 +531,16 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             )}
             {isSyncing && (
               <div className="flex items-center gap-2">
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-4 w-4 border-2 border-white/10 border-t-white/60 rounded-full" />
-                <span className="text-[11px] text-white/40 font-mono">Syncing...</span>
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-4 w-4 border-2 border-border border-t-foreground/60 rounded-full" />
+                <span className="text-[11px] text-muted-foreground font-mono">Syncing...</span>
               </div>
             )}
           </div>
         </div>
 
         {isSyncing && (
-          <div className="h-[2px] bg-white/[0.04]">
-            <motion.div className="h-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-indigo-500" animate={{ width: `${sync.progress}%` }} transition={{ duration: 0.4 }} />
+          <div className="h-[2px] bg-secondary">
+            <motion.div className="h-full bg-gradient-to-r from-accent via-success to-accent" animate={{ width: `${sync.progress}%` }} transition={{ duration: 0.4 }} />
           </div>
         )}
       </motion.div>
@@ -561,7 +553,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
       <AnimatePresence>
         {disconnectTarget && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setDisconnectTarget(null)} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-foreground/20 backdrop-blur-sm" onClick={() => setDisconnectTarget(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -569,21 +561,21 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               transition={{ type: "spring", damping: 25, stiffness: 350 }}
               className="fixed inset-0 z-[70] flex items-center justify-center p-4"
             >
-              <div className="w-full max-w-sm rounded-2xl bg-[#0A0A0A] border border-white/[0.08] shadow-2xl shadow-black/50 p-6">
+              <div className="w-full max-w-sm rounded-2xl bg-card border border-border shadow-lg p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20">
-                    <AlertCircle className="h-5 w-5 text-red-400" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
                   </div>
-                  <h3 className="text-base font-bold text-white">Confirm Disconnect</h3>
+                  <h3 className="text-base font-bold text-foreground">Confirm Disconnect</h3>
                 </div>
-                <p className="text-sm text-white/40 mb-6">
+                <p className="text-sm text-muted-foreground mb-6">
                   {SOURCES.find(s => s.key === disconnectTarget)?.disconnectWarning}
                 </p>
                 <div className="flex items-center justify-end gap-3">
-                  <Button size="sm" variant="ghost" className="rounded-lg text-xs h-9 px-4 text-white/50 hover:text-white hover:bg-white/[0.06]" onClick={() => setDisconnectTarget(null)}>
+                  <Button size="sm" variant="ghost" className="rounded-lg text-xs h-9 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => setDisconnectTarget(null)}>
                     Cancel
                   </Button>
-                  <Button size="sm" className="rounded-lg text-xs h-9 px-4 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20" onClick={confirmDisconnect}>
+                  <Button size="sm" className="rounded-lg text-xs h-9 px-4 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20" onClick={confirmDisconnect}>
                     Disconnect
                   </Button>
                 </div>
@@ -600,30 +592,30 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05 }}
-            className="rounded-2xl border border-white/[0.08] bg-[#0A0A0A] p-5"
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                  <Database className="h-4 w-4 text-emerald-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 border border-success/20">
+                  <Database className="h-4 w-4 text-success" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">{connectedCount}/9 sensors active</h2>
-                  <p className="text-xs text-white/30">More connections = richer intelligence</p>
+                  <h2 className="text-lg font-bold text-foreground">{connectedCount}/9 sensors active</h2>
+                  <p className="text-xs text-muted-foreground">More connections = richer intelligence</p>
                 </div>
               </div>
               {connectedCount >= 3 && (
-                <div className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-emerald-400" /><span className="text-xs font-semibold text-emerald-400">Full Intelligence</span></div>
+                <div className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-success" /><span className="text-xs font-semibold text-success">Full Intelligence</span></div>
               )}
             </div>
-            <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden mb-2">
+            <div className="h-2 w-full rounded-full bg-secondary overflow-hidden mb-2">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+                className="h-full bg-gradient-to-r from-success to-success/80 rounded-full"
                 animate={{ width: `${(connectedCount / 9) * 100}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               />
             </div>
-            <p className="text-[11px] text-white/25 font-mono">
+            <p className="text-[11px] text-muted-foreground/60 font-mono">
               {connectedCount} connected · Investor matches improve with each sensor
             </p>
           </motion.div>
@@ -635,20 +627,20 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="rounded-2xl border border-dashed border-white/[0.1] bg-[#0A0A0A]/60 p-12 flex flex-col items-center justify-center text-center"
+            className="rounded-2xl border border-dashed border-border bg-secondary/30 p-12 flex flex-col items-center justify-center text-center"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-4">
-              <Sparkles className="h-7 w-7 text-indigo-400" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20 mb-4">
+              <Sparkles className="h-7 w-7 text-accent" />
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Your Intelligence Engine is waiting</h3>
-            <p className="text-sm text-white/30 max-w-xs mb-6">
+            <h3 className="text-lg font-bold text-foreground mb-1">Your Intelligence Engine is waiting</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mb-6">
               Connect Gmail or Notion to get your first investor recommendations
             </p>
             <Button
               size="sm"
               onClick={() => handleConnect("google")}
               disabled={activeConnect !== null}
-              className="rounded-lg text-sm font-semibold h-10 px-6 bg-indigo-500 text-white hover:bg-indigo-600 transition-all"
+              className="rounded-lg text-sm font-semibold h-10 px-6 bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
             >
               Connect Gmail →
             </Button>
@@ -667,10 +659,10 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 className="mb-4"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Activity className="h-3.5 w-3.5 text-white/20" />
-                  <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-white/30 font-semibold">{section.label}</h2>
+                  <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
+                  <h2 className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">{section.label}</h2>
                 </div>
-                <p className="text-[11px] text-white/20 ml-5.5">{section.sub}</p>
+                <p className="text-[11px] text-muted-foreground/60 ml-5.5">{section.sub}</p>
               </motion.div>
               <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
                 {sectionSources.map((source, i) => (
@@ -683,9 +675,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="mt-3 rounded-2xl border border-dashed border-white/[0.06] bg-transparent p-5 flex items-center justify-center"
+                  className="mt-3 rounded-2xl border border-dashed border-border bg-transparent p-5 flex items-center justify-center"
                 >
-                  <p className="text-[12px] text-white/20 font-mono">More integrations coming: Mercury · Ashby · Salesforce</p>
+                  <p className="text-[12px] text-muted-foreground/50 font-mono">More integrations coming: Mercury · Ashby · Salesforce</p>
                 </motion.div>
               )}
             </div>
@@ -694,17 +686,17 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
 
         {/* Live Traffic Terminal */}
         {showTerminal && connectedCount >= 1 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-white/[0.06] bg-[#050505] p-5 overflow-hidden">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-border bg-card p-5 overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
-              <motion.div className="h-2 w-2 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/30">Live Traffic</span>
+              <motion.div className="h-2 w-2 rounded-full bg-success" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Live Traffic</span>
             </div>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {TERMINAL_LOGS.map((log, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.1 }} className="flex items-center gap-2 text-[11px] font-mono">
-                  <span className="text-white/20">[{log.time}]</span>
-                  <span className="text-indigo-400 font-semibold">{log.source}:</span>
-                  <span className="text-white/40">{log.msg}</span>
+                  <span className="text-muted-foreground/40">[{log.time}]</span>
+                  <span className="text-accent font-semibold">{log.source}:</span>
+                  <span className="text-muted-foreground">{log.msg}</span>
                 </motion.div>
               ))}
             </div>
@@ -712,9 +704,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         )}
 
         {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.02] border border-white/[0.06] p-4">
-          <Lock className="h-3.5 w-3.5 text-white/20" />
-          <p className="text-[11px] text-white/25">🔒 Read-only access · AES-256 encrypted · Never shared</p>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-2 rounded-xl bg-secondary/50 border border-border p-4">
+          <Lock className="h-3.5 w-3.5 text-muted-foreground/40" />
+          <p className="text-[11px] text-muted-foreground/60">🔒 Read-only access · AES-256 encrypted · Never shared</p>
         </motion.div>
       </div>
     </div>

@@ -373,7 +373,7 @@ export function NetworkGraph() {
               !EDGES.some((e2) => (e2.from === node.id || e2.to === node.id) && e2.strength !== "weak")
           );
           const size = isYou ? 64 : isWeak ? 40 : 48;
-          const borderColor = isYou ? "#111827" : TYPE_COLORS[node.connectionType || "founder"];
+          const borderColor = isYou ? "hsl(222, 47%, 11%)" : TYPE_COLORS[node.connectionType || "founder"];
           const borderWidth = isYou ? 2 : (
             EDGES.find((e) => (e.from === node.id || e.to === node.id))?.strength === "strong" ? 3 :
             EDGES.find((e) => (e.from === node.id || e.to === node.id))?.strength === "medium" ? 1.5 : 1
@@ -409,7 +409,7 @@ export function NetworkGraph() {
                   className="absolute rounded-full"
                   style={{
                     inset: -4,
-                    border: "2px solid #111827",
+                    border: "2px solid hsl(222, 47%, 11%)",
                   }}
                   animate={{ scale: [1, 1.4, 1.4], opacity: [0.3, 0, 0] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }}
@@ -437,7 +437,7 @@ export function NetworkGraph() {
                   width: size,
                   height: size,
                   border: `${borderWidth}px solid ${borderColor}`,
-                  backgroundColor: isYou ? "#111827" : undefined,
+                  backgroundColor: isYou ? "hsl(222, 47%, 11%)" : undefined,
                 }}
               >
                 <AvatarImage src={node.avatarUrl} alt={node.label} />
@@ -445,8 +445,8 @@ export function NetworkGraph() {
                   className="font-bold"
                   style={{
                     fontSize: size < 44 ? 10 : size > 56 ? 14 : 12,
-                    backgroundColor: isYou ? "#111827" : undefined,
-                    color: isYou ? "#FFFFFF" : undefined,
+                    backgroundColor: isYou ? "hsl(222, 47%, 11%)" : undefined,
+                    color: isYou ? "hsl(210, 40%, 98%)" : undefined,
                   }}
                 >
                   {node.initials || node.label.charAt(0)}
