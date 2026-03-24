@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 const steps = [
   { num: 1, label: "Identity" },
   { num: 2, label: "Company" },
-  { num: 3, label: "Power Up" },
 ];
 
 interface ProgressBarProps {
