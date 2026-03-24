@@ -445,8 +445,8 @@ export function NetworkGraph() {
                   className="font-bold"
                   style={{
                     fontSize: size < 44 ? 10 : size > 56 ? 14 : 12,
-                    backgroundColor: isYou ? "#111827" : undefined,
-                    color: isYou ? "#FFFFFF" : undefined,
+                    backgroundColor: isYou ? "hsl(222, 47%, 11%)" : undefined,
+                    color: isYou ? "hsl(210, 40%, 98%)" : undefined,
                   }}
                 >
                   {node.initials || node.label.charAt(0)}
