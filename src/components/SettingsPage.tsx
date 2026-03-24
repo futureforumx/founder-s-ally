@@ -5,7 +5,7 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, Mail, Linkedin, Twitter, Bell, BellOff,
-  CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight,
+  CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
   MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronDown
