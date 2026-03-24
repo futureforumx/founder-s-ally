@@ -504,7 +504,12 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                       label="Firm"
                       searchType="firm"
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1">Optional — link this person to an investing entity.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Optional — link this person to an investing entity, or{" "}
+                      <button type="button" onClick={() => setEntityType("firm")} className="text-accent hover:text-accent/80 font-medium transition-colors">
+                        add a firm directly
+                      </button>.
+                    </p>
                   </div>
                 )}
 
