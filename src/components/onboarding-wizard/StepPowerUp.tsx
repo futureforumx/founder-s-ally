@@ -442,7 +442,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
 
         {/* ── Right Column: Scrollable Integrations ── */}
         <div className="col-span-8 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-2">
             {/* Recommended */}
             <div className="space-y-2">
               <p className="text-[9px] font-mono uppercase tracking-wider text-white/25 sticky top-0 bg-background/80 backdrop-blur-sm py-1 z-10">
