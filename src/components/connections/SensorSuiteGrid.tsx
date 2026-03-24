@@ -119,7 +119,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "linkedin", label: "LinkedIn", icon: Linkedin, customIcon: BRAND_ICONS.linkedin, section: "recommended",
-    categoryTag: "PROFESSIONAL IDENTITY",
+    categoryTag: "PROFESSIONAL IDENTITY", filterCategories: ["recommended", "social"],
     glowColor: "shadow-[0_0_24px_rgba(59,130,246,0.3)]", glowHsl: "bg-blue-500",
     description: "Map your professional network graph",
     liveStats: "2nd Degree: +4,218",
