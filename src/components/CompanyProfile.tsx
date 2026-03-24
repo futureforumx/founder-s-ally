@@ -1985,7 +1985,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
                         approved={!!sectionConfirmed.overview}
                       />
-                      />
                     </div>
 
                     {/* Row 3: HQ Location (full width) */}
