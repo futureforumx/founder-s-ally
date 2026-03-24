@@ -1412,9 +1412,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       <div className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
         <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ── Left: Company Name + Website URL ── */}
-            <div className="space-y-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            {/* ── Left: Website URL + AI Insight ── */}
+            <div className="flex flex-col gap-2.5">
               {/* WEBSITE URL */}
               <div className="space-y-1" data-field="website-url">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
@@ -1430,7 +1430,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     onChange={e => {
                       const url = e.target.value.toLowerCase();
                       update("website", url);
-                      // Clear source verification on manual edit
                       setSourceVerified(false);
                       try { localStorage.removeItem("company-source-verified"); } catch {}
                       if (analysisComplete) setHasNewInputs(true);
@@ -1467,7 +1466,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   />
                   {/* End adornment: Sync button + Verification indicator */}
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
-                    {/* Source Verified / Unverified indicator */}
                     {sourceVerified ? (
                       <Tooltip delayDuration={100}>
                         <TooltipTrigger asChild>
@@ -1497,13 +1495,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
                       </Tooltip>
                     ) : null}
-                    {/* ✨ Sync button */}
                     {onSyncCompany && form.website.trim() && (
                       <button
                         type="button"
                         onClick={() => {
                           onSyncCompany(form.website.trim());
-                          // Mark as verified after sync completes (watched via companySyncing going false)
                         }}
                         disabled={companySyncing}
                         className={cn(
@@ -1550,10 +1546,22 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                 )}
               </div>
+
+              {/* AI Insight — condensed tip style, pushed to bottom */}
+              {parentCompanyData && (
+                <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5 mt-auto">
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wider flex items-center gap-1 mb-0.5">
+                    <Sparkles className="h-2.5 w-2.5" /> Insight
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Founders in <span className="font-semibold text-foreground">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify metrics see <span className="font-bold text-accent">3× higher</span> response rates from {parentCompanyData?.stage || "Seed"} investors.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ── Right: Pitch Deck dropzone / Active Deck Card ── */}
-            <div className="space-y-1 flex flex-col" data-field="pitch-deck">
+            <div className="flex flex-col gap-1" data-field="pitch-deck">
               <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <FileText className="h-3 w-3" /> Pitch Deck (PDF)
               </label>
