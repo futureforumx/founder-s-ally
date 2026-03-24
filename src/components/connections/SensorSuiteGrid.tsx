@@ -135,7 +135,7 @@ const SOURCES: SourceConfig[] = [
   },
   {
     key: "notion", label: "Notion", icon: BookOpen, customIcon: BRAND_ICONS.notion, section: "recommended",
-    categoryTag: "KNOWLEDGE BASE",
+    categoryTag: "KNOWLEDGE BASE", filterCategories: ["recommended"],
     glowColor: "shadow-[0_0_24px_rgba(255,255,255,0.12)]", glowHsl: "bg-foreground",
     description: "Import your investor tracker + research docs",
     liveStats: "24 pages synced · 18 investors imported",
