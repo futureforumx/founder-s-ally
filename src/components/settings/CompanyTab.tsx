@@ -564,6 +564,13 @@ export function CompanyTab() {
                     { key: "totalHeadcount", label: "Employee Count", existing: companyData?.totalHeadcount || null, incoming: incoming.employee_count },
                   ];
 
+                  // Auto-apply logo if available from sync
+                  if (incoming.logo_url) {
+                    try {
+                      localStorage.setItem("company-logo-url", incoming.logo_url);
+                    } catch {}
+                  }
+
                   setCompanySyncFields(fields);
                   setCompanySyncReviewOpen(true);
                 } catch (err: any) {
