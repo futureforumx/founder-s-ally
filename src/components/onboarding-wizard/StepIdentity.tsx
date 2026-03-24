@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { SmartCombobox } from "@/components/ui/smart-combobox";
