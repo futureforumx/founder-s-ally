@@ -175,13 +175,15 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               </button>
             </PopoverTrigger>
             <PopoverContent side="top" align="start" className="w-48 p-1.5">
-              <button
-                onClick={() => onViewChange("settings")}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-              >
-                <UserCog className="h-4 w-4" />
-                Profile & Settings
-              </button>
+              {activeView !== "settings" && (
+                <button
+                  onClick={() => onViewChange("settings")}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                >
+                  <UserCog className="h-4 w-4" />
+                  Settings
+                </button>
+              )}
               <button
                 onClick={() => signOut()}
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
