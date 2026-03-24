@@ -106,6 +106,7 @@ function InlineChipRow({
   aiSuggested,
   onChange,
   badge,
+  max,
 }: {
   label: string;
   options: { label: string }[];
@@ -113,14 +114,18 @@ function InlineChipRow({
   aiSuggested?: string[];
   onChange: (val: string[]) => void;
   badge?: React.ReactNode;
+  max?: number;
 }) {
   const toggle = (item: string) => {
     if (selected.includes(item)) {
       onChange(selected.filter((s) => s !== item));
     } else {
+      if (max && selected.length >= max) return;
       onChange([...selected, item]);
     }
   };
+
+  const maxReached = max ? selected.length >= max : false;
 
   return (
     <div className="space-y-1.5">
@@ -133,6 +138,7 @@ function InlineChipRow({
         {options.map((opt) => {
           const isSelected = selected.includes(opt.label);
           const isAi = aiSuggested?.includes(opt.label) ?? false;
+          const isDisabled = maxReached && !isSelected;
           return (
             <Chip
               key={opt.label}
@@ -140,6 +146,7 @@ function InlineChipRow({
               state={isSelected ? "selected" : "unselected"}
               aiSuggested={isAi && isSelected}
               onClick={() => toggle(opt.label)}
+              disabled={isDisabled}
             />
           );
         })}
@@ -232,6 +239,7 @@ export function SectorChipGrid({
         selected={businessModel}
         aiSuggested={aiSuggestedModels}
         onChange={onBusinessModelChange}
+        max={3}
       />
 
       {/* Target Customer */}
@@ -241,6 +249,7 @@ export function SectorChipGrid({
         selected={targetCustomer}
         aiSuggested={aiSuggestedCustomers}
         onChange={onTargetCustomerChange}
+        max={3}
       />
     </div>
   );
