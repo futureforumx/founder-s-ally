@@ -506,6 +506,47 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
   };
 
+  const handleResumeUpload = async (file: File) => {
+    if (!userId) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are accepted");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    setResumeUploading(true);
+    try {
+      const path = `${userId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(path);
+
+      await saveImmediate({ resumeUrl: publicUrl });
+      setResumeUrl(publicUrl);
+      setResumeFileName(file.name);
+      toast.success("Resume uploaded");
+    } catch (err: any) {
+      toast.error("Upload failed: " + (err.message || "Unknown error"));
+    } finally {
+      setResumeUploading(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveResume = async () => {
+    await saveImmediate({ resumeUrl: "" });
+    setResumeUrl(null);
+    setResumeFileName(null);
+    toast.success("Resume removed");
+  };
+
   // handleSave removed — autosave handles persistence
 
   // ── Magic Sync (Auth0 LinkedIn OAuth) ──
