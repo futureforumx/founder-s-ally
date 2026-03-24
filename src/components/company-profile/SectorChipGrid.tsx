@@ -126,6 +126,7 @@ function InlineChipRow({
   options,
   selected,
   aiSuggested,
+  approved,
   onChange,
   badge,
   max,
@@ -134,6 +135,7 @@ function InlineChipRow({
   options: { label: string }[];
   selected: string[];
   aiSuggested?: string[];
+  approved?: boolean;
   onChange: (val: string[]) => void;
   badge?: React.ReactNode;
   max?: number;
@@ -176,6 +178,7 @@ function InlineChipRow({
               label={opt.label}
               state={isSelected ? "selected" : "unselected"}
               aiSuggested={isAi && isSelected}
+              aiApproved={approved}
               onClick={() => toggle(opt.label)}
               disabled={isDisabled}
             />
