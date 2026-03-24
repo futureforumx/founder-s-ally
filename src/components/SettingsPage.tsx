@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
+import { SettingsTour } from "@/components/settings/SettingsTour";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
