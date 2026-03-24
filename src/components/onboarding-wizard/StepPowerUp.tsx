@@ -322,8 +322,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.35 }}
-      className="w-full max-w-5xl mx-auto flex flex-col"
-      style={{ height: "calc(100vh - 100px)" }}
+      className="w-full max-w-5xl mx-auto flex flex-col h-full overflow-hidden"
     >
       {/* Header */}
       <div className="text-center mb-2 shrink-0">

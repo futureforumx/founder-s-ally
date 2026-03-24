@@ -53,7 +53,7 @@ export function ProgressBar({ currentStep }: ProgressBarProps) {
           </div>
         ))}
       </div>
-      <p className="text-center text-[11px] text-muted-foreground mt-4">About 3 minutes</p>
+      <p className="text-center text-[11px] text-muted-foreground mt-2">About 3 minutes</p>
     </div>
   );
 }
