@@ -935,6 +935,24 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 <p className="text-[9px] text-muted-foreground/60">Email is managed by your authentication provider</p>
               </div>
             </div>
+            <div className="mt-4">
+              <Button
+                onClick={() => {
+                  const first = name.split(" ")[0]?.trim();
+                  const last = name.split(" ").slice(1).join(" ")?.trim();
+                  if (!first || !last) {
+                    toast.error("First Name and Last Name are required");
+                    return;
+                  }
+                  saveImmediate({ name });
+                  toast.success("Profile details confirmed");
+                }}
+                className="w-full rounded-lg h-10 text-sm font-semibold gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Confirm Details
+              </Button>
+            </div>
           </div>
         </div>
 
