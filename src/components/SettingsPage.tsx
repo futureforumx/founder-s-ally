@@ -1577,7 +1577,7 @@ function SubscriptionTab() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Billing & Subscription</h2>
+            <h2 className="text-lg font-bold text-muted-foreground">Billing & Subscription</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               Keep track of your subscription details, update your billing information, and control your account's payment
             </p>
