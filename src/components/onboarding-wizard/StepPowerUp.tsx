@@ -189,19 +189,23 @@ function SensorCard({
               ? <Check className="h-3.5 w-3.5 text-emerald-400" />
               : syncing
               ? <Loader2 className="h-3.5 w-3.5 text-white/40 animate-spin" />
-              : BRAND_ICONS[sensor.id]
-              ? (
-                <>
-                  <img
-                    src={BRAND_ICONS[sensor.id]}
-                    alt={sensor.name}
-                    className="h-4 w-4 object-contain transition-transform hover:scale-110"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }}
+              : (() => {
+                const isGoogleSensor = sensor.id === "google" || sensor.name?.toLowerCase().includes("google");
+                const displayIcon = isGoogleSensor
+                  ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                  : BRAND_ICONS[sensor.id];
+                console.log("[PowerUp] Rendering sensor:", sensor.name, "with icon:", displayIcon);
+                return displayIcon ? (
+                  <GoogleSafeBrandIcon
+                    displayIcon={displayIcon}
+                    sensorName={sensor.name}
+                    isGoogleSensor={!!isGoogleSensor}
+                    FallbackIcon={sensor.icon}
                   />
-                  <sensor.icon className="hidden h-3.5 w-3.5 text-white/40" />
-                </>
-              )
-              : <sensor.icon className="h-3.5 w-3.5 text-white/40" />
+                ) : (
+                  <sensor.icon className="h-3.5 w-3.5 text-white/40" />
+                );
+              })()
             }
           </div>
           {connected && (
