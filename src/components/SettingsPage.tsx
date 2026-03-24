@@ -1152,10 +1152,10 @@ function NetworkTab() {
               key={view}
               onClick={() => setNetworkView(view)}
               className={cn(
-                "px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wide transition-all",
+                "px-4 py-1.5 rounded-md text-xs uppercase tracking-wide transition-all font-mono font-medium text-muted-foreground",
                 networkView === view
                   ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "hover:text-foreground"
               )}
             >
               {view}
