@@ -625,15 +625,13 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                   style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--accent) / 0.12))" }}
                 />
                 <div className="px-5 -mt-8">
-                  <Avatar className="h-14 w-14 rounded-xl border-2 border-card shadow-lg">
-                    {b.logoUrl ? <AvatarImage src={b.logoUrl} alt={b.name} className="object-cover" /> : null}
-                    <AvatarFallback
-                      className="text-base font-bold rounded-xl"
-                      style={{ background: "hsl(var(--secondary))", color: "hsl(var(--foreground))" }}
-                    >
-                      {b.logoLetter}
-                    </AvatarFallback>
-                  </Avatar>
+                  <FirmLogo
+                    firmName={b.name}
+                    logoUrl={b.logoUrl}
+                    websiteUrl={websiteForFavicon}
+                    size="lg"
+                    className="border-2 border-card shadow-lg"
+                  />
                 </div>
 
                 <div className="px-5 pt-2 pb-5 space-y-4">
