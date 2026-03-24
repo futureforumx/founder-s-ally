@@ -524,13 +524,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       if (key === "title") setTitle(val);
       if (key === "bio") setBio(val);
       if (key === "location") setLocation(val);
+      if (key === "avatar_url") { setAvatarUrl(val); setAvatarError(false); }
     }
 
     // Save to profile via autosave (immediate)
     await saveImmediate(updates);
 
     // Track synced keys for highlight animation
-    setSyncedKeys(new Set(selectedKeys));
+    setSyncedKeys(new Set([...selectedKeys, "__linkedin_verified"]));
     setTimeout(() => setSyncedKeys(new Set()), 2500);
 
     setSyncApplying(false);
