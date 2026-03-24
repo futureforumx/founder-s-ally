@@ -683,22 +683,22 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
                         <span className="text-[11px] font-medium text-foreground">{location}</span>
                       </div>
                     )}
-                    {website && (
+                    {firmWebsite && (
                       <div className="flex items-center gap-2.5">
                         <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="text-[11px] text-muted-foreground flex-1">Website</span>
                         <a
-                          href={website.startsWith("http") ? website : `https://${website}`}
+                          href={firmWebsite.startsWith("http") ? firmWebsite : `https://${firmWebsite}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[11px] font-medium text-primary hover:underline truncate max-w-[120px]"
                           onClick={e => e.stopPropagation()}
                         >
-                          {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                          {firmWebsite.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         </a>
                       </div>
                     )}
-                    {!b.amount && !b.instrument && !b.date && !location && !website && (
+                    {!b.amount && !b.instrument && !b.date && !location && !firmWebsite && (
                       <p className="text-[11px] text-muted-foreground italic text-center py-1">No details yet.</p>
                     )}
                   </div>
