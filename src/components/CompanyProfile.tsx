@@ -2235,8 +2235,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         <div className="relative">
                           <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <input type="url" value={form.socialLinkedin} onChange={e => update("socialLinkedin", e.target.value)}
-                            onBlur={e => { const f = formatSocialUrl("linkedin", e.target.value); if (f !== e.target.value) update("socialLinkedin", f); }}
-                            placeholder="linkedin.com/company/..." className={`${inputCls("socialLinkedin")} pl-9`} />
+                            onBlur={e => {
+                              const val = e.target.value;
+                              // If already contains /in/ or /company/, just normalize protocol
+                              if (/linkedin\.com\/(in|company)\//i.test(val)) {
+                                const f = formatSocialUrl("linkedin", val);
+                                if (f !== val) update("socialLinkedin", f);
+                              } else {
+                                const f = formatSocialUrl("linkedin", val);
+                                if (f !== val) update("socialLinkedin", f);
+                              }
+                            }}
+                            placeholder="linkedin.com/company/... or /in/..." className={`${inputCls("socialLinkedin")} pl-9`} />
                         </div>
                       </div>
                       <div className="space-y-1.5">

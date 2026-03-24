@@ -57,6 +57,12 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
   // For LinkedIn platforms, usernames can contain dots (e.g. "matt.thompson")
   // Only treat as unknown domain if it has a recognizable TLD pattern AND slashes
   if (cleaned.includes("/")) {
+    // For LinkedIn, detect /in/ vs /company/ paths in partial URLs
+    if (platform === "linkedin" || platform === "linkedin_personal") {
+      if (/^linkedin\.com/i.test(cleaned)) {
+        return `https://${cleaned}`.toLowerCase();
+      }
+    }
     return `https://${cleaned}`.toLowerCase();
   }
 
@@ -68,6 +74,14 @@ export function formatSocialUrl(platform: SocialPlatform, value: string): string
       return `https://${cleaned}`.toLowerCase();
     }
     // No recognized TLD — treat as username
+  }
+
+  // For "linkedin" platform, auto-detect if it looks like a personal profile or company
+  // If the value was synced from onboarding (personal LinkedIn), preserve the /in/ path
+  if (platform === "linkedin" && !cleaned.includes("/")) {
+    // Default to company, but the input could be a personal username too
+    // Use /company/ as default for company profile context
+    return `${BASE_URLS[platform]}${cleaned}`.toLowerCase();
   }
 
   // Pure username → prepend base URL
