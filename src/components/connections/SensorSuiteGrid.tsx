@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import googleLogo from "@/assets/google-logo.png";
+import googleLogo from "@/assets/google-logo.png"; // Google brand icon
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
