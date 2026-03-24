@@ -19,6 +19,7 @@ interface SectorChipGridProps {
   aiSuggestedSectors?: string[];
   aiSuggestedModels?: string[];
   aiSuggestedCustomers?: string[];
+  approved?: boolean;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ function Chip({
   state,
   badge,
   aiSuggested,
+  aiApproved,
   onClick,
   disabled,
 }: {
@@ -36,10 +38,15 @@ function Chip({
   state: "primary" | "secondary" | "selected" | "unselected";
   badge?: string;
   aiSuggested?: boolean;
+  aiApproved?: boolean;
   onClick: () => void;
   disabled?: boolean;
 }) {
-  const base = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer select-none border whitespace-nowrap";
+  const base = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 cursor-pointer select-none border whitespace-nowrap";
+
+  // AI states override normal styling
+  const isAiPending = aiSuggested && !aiApproved;
+  const isAiConfirmed = aiSuggested && aiApproved;
 
   const stateClasses = {
     primary: "bg-primary text-primary-foreground border-primary shadow-sm font-bold",
@@ -50,24 +57,39 @@ function Chip({
       : "bg-muted/40 text-muted-foreground border-border hover:border-foreground/30 hover:bg-muted/70",
   };
 
+  const aiPendingCls = "bg-ai-pending/25 text-ai-pending-foreground border-ai-pending/50 font-semibold animate-[ai-pulse_2s_ease-in-out_infinite]";
+  const aiApprovedCls = "bg-ai-approved text-ai-approved-foreground border-ai-approved shadow-sm font-semibold";
+
+  const resolvedCls = state === "unselected"
+    ? stateClasses.unselected
+    : isAiPending
+      ? aiPendingCls
+      : isAiConfirmed
+        ? aiApprovedCls
+        : stateClasses[state];
+
   return (
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
-      className={`${base} ${stateClasses[state]}`}
+      className={`${base} ${resolvedCls}`}
     >
       {label}
       {badge && (
         <span className={`text-[9px] font-bold uppercase tracking-wider px-1 py-px rounded ${
-          state === "primary"
-            ? "bg-primary-foreground/20 text-primary-foreground"
-            : "bg-muted text-muted-foreground"
+          isAiConfirmed
+            ? "bg-white/20 text-ai-approved-foreground"
+            : state === "primary"
+              ? "bg-primary-foreground/20 text-primary-foreground"
+              : "bg-muted text-muted-foreground"
         }`}>
           {badge}
         </span>
       )}
       {aiSuggested && state !== "unselected" && (
-        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-accent opacity-80">
+        <span className={`flex items-center gap-0.5 text-[9px] font-semibold opacity-80 ${
+          isAiConfirmed ? "text-ai-approved-foreground" : "text-ai-pending-foreground"
+        }`}>
           <Sparkles className="h-2.5 w-2.5" /> AI
         </span>
       )}
@@ -104,6 +126,7 @@ function InlineChipRow({
   options,
   selected,
   aiSuggested,
+  approved,
   onChange,
   badge,
   max,
@@ -112,6 +135,7 @@ function InlineChipRow({
   options: { label: string }[];
   selected: string[];
   aiSuggested?: string[];
+  approved?: boolean;
   onChange: (val: string[]) => void;
   badge?: React.ReactNode;
   max?: number;
@@ -154,6 +178,7 @@ function InlineChipRow({
               label={opt.label}
               state={isSelected ? "selected" : "unselected"}
               aiSuggested={isAi && isSelected}
+              aiApproved={approved}
               onClick={() => toggle(opt.label)}
               disabled={isDisabled}
             />
@@ -176,6 +201,7 @@ export function SectorChipGrid({
   aiSuggestedSectors = [],
   aiSuggestedModels = [],
   aiSuggestedCustomers = [],
+  approved = false,
   className,
 }: SectorChipGridProps) {
   const { primary_sector, secondary_sectors } = value;
@@ -232,6 +258,7 @@ export function SectorChipGrid({
                 state={isPrimary ? "primary" : isSecondary ? "secondary" : "unselected"}
                 badge={isPrimary ? "P" : isSecondary ? "S" : undefined}
                 aiSuggested={isAi && isSelected}
+                aiApproved={approved}
                 onClick={() => handleSectorClick(opt.label)}
                 disabled={isDisabled}
               />
@@ -247,6 +274,7 @@ export function SectorChipGrid({
         options={BUSINESS_MODEL_OPTIONS}
         selected={businessModel}
         aiSuggested={aiSuggestedModels}
+        approved={approved}
         onChange={onBusinessModelChange}
         max={3}
       />
@@ -257,6 +285,7 @@ export function SectorChipGrid({
         options={TARGET_CUSTOMER_OPTIONS}
         selected={targetCustomer}
         aiSuggested={aiSuggestedCustomers}
+        approved={approved}
         onChange={onTargetCustomerChange}
         max={3}
       />

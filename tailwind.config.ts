@@ -76,6 +76,14 @@ export default {
           3: "hsl(var(--heat-3))",
           4: "hsl(var(--heat-4))",
         },
+        "ai-pending": {
+          DEFAULT: "hsl(var(--ai-pending))",
+          foreground: "hsl(var(--ai-pending-foreground))",
+        },
+        "ai-approved": {
+          DEFAULT: "hsl(var(--ai-approved))",
+          foreground: "hsl(var(--ai-approved-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

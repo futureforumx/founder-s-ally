@@ -1955,6 +1955,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         placeholder="Search stage..."
                         allowCustom={false}
                         isAiDraft={isFieldAiDraft("stage")}
+                        isAiApproved={!!sectionConfirmed.overview}
                       />
                     </div>
                     </div>{/* end logo + stage row */}
@@ -1983,6 +1984,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         }
                         aiSuggestedModels={aiUpdatedFields.has("businessModel") ? form.businessModel : []}
                         aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
+                        approved={!!sectionConfirmed.overview}
                       />
                     </div>
 
