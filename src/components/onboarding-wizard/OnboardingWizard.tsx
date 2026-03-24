@@ -117,7 +117,7 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       <ProgressBar currentStep={state.step} />
 
       <div className={`flex-1 flex items-start justify-center px-4 overflow-y-auto ${state.step === 3 ? 'py-2' : 'py-8'}`}>
