@@ -8,6 +8,15 @@ const BRAND_ICONS: Record<string, string> = {
   hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
   attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
   twitter: "https://cdn.simpleicons.org/x/000000",
+  instagram: "https://cdn.simpleicons.org/instagram/E4405F",
+  facebook: "https://cdn.simpleicons.org/facebook/0866FF",
+  tiktok: "https://cdn.simpleicons.org/tiktok/000000",
+  zoom: "https://cdn.simpleicons.org/zoom/0B5CFF",
+  googlemeet: "https://cdn.simpleicons.org/googlemeet/00897B",
+  microsoftteams: "https://cdn.simpleicons.org/microsoftteams/6264A7",
+  slack: "https://cdn.simpleicons.org/slack/4A154B",
+  whatsapp: "https://cdn.simpleicons.org/whatsapp/25D366",
+  discord: "https://cdn.simpleicons.org/discord/5865F2",
 };
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,19 +24,29 @@ import {
   Shield, RefreshCw, Sparkles, AlertCircle,
   Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
   Settings2, Activity, Check, CreditCard, BookOpen, FileText,
-  MessageSquare, Contact, Layers
+  MessageSquare, Contact, Layers, Video, MonitorSmartphone, Hash,
+  Camera, Facebook as FacebookIcon, Music2, PhoneCall
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
 // ── Types ──
-export type SourceKey = "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter";
+export type SourceKey =
+  | "google" | "linkedin" | "notion" | "stripe" | "granola" | "hubspot" | "attio" | "twitter"
+  | "instagram" | "facebook" | "tiktok" | "zoom" | "googlemeet" | "microsoftteams"
+  | "slack" | "whatsapp" | "discord";
+
+export type FilterCategory = "recommended" | "social" | "meetings" | "bizops";
 
 const STORAGE_KEY = "community-connections-status";
 const SYNC_DETAIL_KEY = "connections-sync-detail";
 
-export const ALL_KEYS: SourceKey[] = ["google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter"];
+export const ALL_KEYS: SourceKey[] = [
+  "google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter",
+  "instagram", "facebook", "tiktok", "zoom", "googlemeet", "microsoftteams",
+  "slack", "whatsapp", "discord",
+];
 
 export function loadConnected(): Record<SourceKey, boolean> {
   try {
