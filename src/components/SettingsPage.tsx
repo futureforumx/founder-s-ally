@@ -386,6 +386,17 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         setAvatarUrl(profile.avatar_url);
         setAvatarError(false);
       }
+      // Snapshot for global profile completion meter
+      try {
+        localStorage.setItem("user-profile-snapshot", JSON.stringify({
+          full_name: profile.full_name,
+          title: profile.title,
+          bio: profile.bio,
+          location: profile.location,
+          linkedin_url: profile.linkedin_url,
+          twitter_url: profile.twitter_url,
+        }));
+      } catch {}
     }
   }, [profile, displayName]);
 

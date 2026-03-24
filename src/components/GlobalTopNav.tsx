@@ -3,6 +3,7 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
+  User, Settings2,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ interface GlobalTopNavProps {
   userSector?: string | null;
   userStage?: string | null;
   profileCompletion?: number;
+  personalCompletion?: number;
 }
 
 // ── View metadata for breadcrumbs ──
@@ -198,6 +200,7 @@ export function GlobalTopNav({
   userSector,
   userStage,
   profileCompletion = 0,
+  personalCompletion = 0,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -553,20 +556,34 @@ export function GlobalTopNav({
               </div>
             </div>
 
-            {/* Mini Profile Strength */}
+            {/* Combined Profile Strength */}
             <button
-              onClick={() => { onNavigateProfile(); }}
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set("view", "settings");
+                url.searchParams.set("tab", "account");
+                window.history.replaceState({}, "", url.toString());
+                onViewChange?.("settings" as ViewType);
+              }}
               className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-muted/50 transition-colors cursor-pointer group"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-medium text-muted-foreground mb-1">
-                  Profile {profileCompletion}% Complete
+                  Profile {Math.round((profileCompletion + personalCompletion) / 2)}% Complete
                 </p>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex">
                   <div
-                    className="h-full rounded-full bg-accent transition-all"
-                    style={{ width: `${profileCompletion}%` }}
+                    className="h-full rounded-l-full bg-accent/60 transition-all"
+                    style={{ width: `${personalCompletion / 2}%` }}
                   />
+                  <div
+                    className="h-full rounded-r-full bg-accent transition-all"
+                    style={{ width: `${profileCompletion / 2}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[9px] text-muted-foreground/50">Personal</span>
+                  <span className="text-[9px] text-muted-foreground/50">Company</span>
                 </div>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
@@ -575,20 +592,29 @@ export function GlobalTopNav({
             {/* Divider */}
             <div className="border-b border-border/50" />
 
-            {/* Actionable Menu Items */}
-            <div className="p-1.5">
-              <DropdownMenuItem onClick={onNavigateProfile} className="flex items-center gap-2.5 rounded-md px-3 py-2 text-xs cursor-pointer">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                Company Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex items-center gap-2.5 rounded-md px-3 py-2 text-xs cursor-pointer">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                Manage Team
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex items-center gap-2.5 rounded-md px-3 py-2 text-xs cursor-pointer">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                Billing &amp; Plan
-              </DropdownMenuItem>
+            {/* Navigation Menu Items */}
+            <div className="p-1">
+              {([
+                { label: "Personal", icon: User, tab: "account" },
+                { label: "Company", icon: Building2, tab: "company" },
+                { label: "Subscription", icon: CreditCard, tab: "subscription" },
+                { label: "Account", icon: Settings2, tab: "security" },
+              ] as const).map((item) => (
+                <DropdownMenuItem
+                  key={item.tab}
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("view", "settings");
+                    url.searchParams.set("tab", item.tab);
+                    window.history.replaceState({}, "", url.toString());
+                    onViewChange?.("settings" as ViewType);
+                  }}
+                  className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer"
+                >
+                  <item.icon className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
