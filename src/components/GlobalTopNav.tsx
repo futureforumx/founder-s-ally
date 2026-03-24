@@ -597,6 +597,7 @@ export function GlobalTopNav({
               {([
                 { key: "personal", label: "Personal", icon: User, tab: "account" },
                 { key: "company", label: "Company", icon: Building2, tab: "company" },
+                { key: "preferences", label: "Preferences", icon: SlidersHorizontal, tab: "notifications" },
                 { key: "subscription", label: "Subscription", icon: CreditCard, tab: "subscription" },
                 { key: "acct", label: "Account", icon: Settings2, tab: "security" },
               ] as const).map((item) => (
