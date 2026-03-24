@@ -233,7 +233,6 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
           },
         });
       }
-      }
     }, 1800);
   };
 
