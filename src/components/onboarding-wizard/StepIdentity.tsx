@@ -97,6 +97,17 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     }
   }, [user]);
 
+  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
+
+  const handleValidatedNext = () => {
+    if (!canProceed) {
+      toast({ title: "Required fields", description: "Please fill in First Name, Last Name, and Role.", variant: "destructive" });
+      return;
+    }
+    onNext();
+  };
+
+
   const handleMagicFill = async () => {
     if (!url.trim()) {
       toast({ variant: "destructive", title: "Enter a LinkedIn URL first" });
