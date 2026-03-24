@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2 } from "lucide-react";
+import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { SmartCombobox } from "@/components/ui/smart-combobox";
 import { Button } from "@/components/ui/button";
