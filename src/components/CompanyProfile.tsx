@@ -1955,6 +1955,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         placeholder="Search stage..."
                         allowCustom={false}
                         isAiDraft={isFieldAiDraft("stage")}
+                        isAiApproved={!!sectionConfirmed.overview}
                       />
                     </div>
                     </div>{/* end logo + stage row */}
