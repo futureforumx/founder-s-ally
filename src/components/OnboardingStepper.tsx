@@ -166,6 +166,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
           scrapedHeader: "",
           scrapedValueProp: "",
           scrapedPricing: "",
+          header: "",
+          valueProposition: "",
+          metricTable: [],
         } as AnalysisResult);
         setStep(3);
         return;
