@@ -7,7 +7,7 @@ import {
   User, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
-  Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2,
+  Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
   MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronDown
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
