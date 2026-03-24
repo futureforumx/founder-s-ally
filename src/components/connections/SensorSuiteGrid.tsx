@@ -1018,8 +1018,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         {showCategoryFilter && (
           <div className="space-y-4">
             {/* Search bar + filter dropdown row */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 max-w-xs">
+            <div className="flex items-center gap-2 w-full">
+              <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
@@ -1030,30 +1030,39 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 />
               </div>
               {!searchQuery && (
-                <div className="relative">
+                <div className="relative shrink-0">
                   <button
                     onClick={() => setFilterOpen(!filterOpen)}
-                    className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-input bg-background text-[10px] font-mono font-bold uppercase tracking-wide text-foreground hover:bg-muted transition-colors"
+                    className="flex items-center gap-1.5 h-8 px-4 min-w-[130px] rounded-lg border border-input bg-background text-[10px] font-mono font-bold uppercase tracking-wide text-foreground hover:bg-muted transition-colors"
                   >
                     <Layers className="h-3 w-3 text-muted-foreground" />
                     {FILTER_CATEGORIES.find(c => c.key === activeFilter)?.label || "FILTER"}
-                    <svg className={`h-3 w-3 text-muted-foreground transition-transform ${filterOpen ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg className={`ml-auto h-3 w-3 text-muted-foreground transition-transform ${filterOpen ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                   {filterOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-popover shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                      {FILTER_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat.key}
-                          onClick={() => { setActiveFilter(cat.key); setFilterOpen(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wide transition-colors ${
-                            activeFilter === cat.key
-                              ? "bg-accent/10 text-foreground"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {cat.label}
-                        </button>
-                      ))}
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[170px] rounded-lg border border-border bg-popover shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                      {FILTER_CATEGORIES.map((cat) => {
+                        const catCount = SOURCES.filter(s => s.filterCategories.includes(cat.key) && connected[s.key]).length;
+                        const catTotal = SOURCES.filter(s => s.filterCategories.includes(cat.key)).length;
+                        return (
+                          <button
+                            key={cat.key}
+                            onClick={() => { setActiveFilter(cat.key); setFilterOpen(false); }}
+                            className={`w-full text-left px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wide transition-colors flex items-center justify-between ${
+                              activeFilter === cat.key
+                                ? "bg-accent/10 text-foreground"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {cat.label}
+                            <span className={`text-[9px] font-mono tabular-nums rounded-full px-1.5 py-0.5 ${
+                              catCount > 0 ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground/60"
+                            }`}>
+                              {catCount}/{catTotal}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
