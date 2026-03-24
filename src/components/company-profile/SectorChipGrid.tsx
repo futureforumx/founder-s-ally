@@ -44,9 +44,10 @@ function Chip({
 }) {
   const base = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 cursor-pointer select-none border whitespace-nowrap";
 
-  // AI states override normal styling
-  const isAiPending = aiSuggested && !aiApproved;
-  const isAiConfirmed = aiSuggested && aiApproved;
+  // Purple states apply to ALL selected chips (user or AI), not just AI-suggested
+  const isSelected = state !== "unselected";
+  const isAiPending = isSelected && aiApproved === false;
+  const isAiConfirmed = isSelected && aiApproved === true;
 
   const stateClasses = {
     primary: "bg-primary text-primary-foreground border-primary shadow-sm font-bold",
