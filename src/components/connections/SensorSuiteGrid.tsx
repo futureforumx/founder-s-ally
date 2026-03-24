@@ -1,5 +1,14 @@
 import { useState, useCallback, useEffect } from "react";
-const GOOGLE_LOGO_URL = "https://cdn.simpleicons.org/google/4285F4";
+const BRAND_ICONS: Record<string, string> = {
+  google: "https://cdn.simpleicons.org/google/4285F4",
+  linkedin: "https://cdn.simpleicons.org/linkedin/0A66C2",
+  notion: "https://cdn.simpleicons.org/notion/000000",
+  stripe: "https://cdn.simpleicons.org/stripe/635BFF",
+  granola: "https://www.google.com/s2/favicons?domain=granola.ai&sz=128",
+  hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
+  attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
+  twitter: "https://cdn.simpleicons.org/x/000000",
+};
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
