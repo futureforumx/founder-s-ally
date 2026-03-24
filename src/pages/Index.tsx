@@ -266,6 +266,7 @@ const Index = () => {
           userSector={companyData?.sector}
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
+          personalCompletion={personalCompletion}
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
