@@ -258,6 +258,7 @@ export function SectorChipGrid({
                 state={isPrimary ? "primary" : isSecondary ? "secondary" : "unselected"}
                 badge={isPrimary ? "P" : isSecondary ? "S" : undefined}
                 aiSuggested={isAi && isSelected}
+                aiApproved={approved}
                 onClick={() => handleSectorClick(opt.label)}
                 disabled={isDisabled}
               />
