@@ -594,7 +594,7 @@ export function CompanyTab() {
                 onNavigateInvestors={() => window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }))}
                 analysisResult={analysisResult}
                 companyData={companyData}
-                previousSectionApproved={!!sectionConfirmed.social}
+                previousSectionApproved={!!sectionConfirmed.social || !!localStorage.getItem("onboarding-complete")}
                 onConfirmedChange={setInvestorsConfirmed}
               />
             </div>
