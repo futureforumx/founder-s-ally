@@ -932,7 +932,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
           );
 
           return (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
               {/* Collapsible header */}
               <button
                 onClick={() => setProfileOpen(prev => !prev)}
