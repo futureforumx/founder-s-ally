@@ -421,13 +421,22 @@ const TERMINAL_LOGS = [
   { time: "19:11", source: "SYSTEM", msg: "Intelligence Engine score: 72%" },
 ];
 
+const FILTER_CATEGORIES: { key: FilterCategory; label: string }[] = [
+  { key: "recommended", label: "RECOMMENDED" },
+  { key: "social", label: "SOCIAL" },
+  { key: "meetings", label: "MEETINGS" },
+  { key: "bizops", label: "BIZOPS" },
+];
+
 interface SensorSuiteGridProps {
   compact?: boolean;
   showHeader?: boolean;
   showTerminal?: boolean;
+  showCategoryFilter?: boolean;
 }
 
-export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true }: SensorSuiteGridProps) {
+export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>("recommended");
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
   const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
   const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
