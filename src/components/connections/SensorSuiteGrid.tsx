@@ -73,7 +73,7 @@ interface SourceConfig {
 const SOURCES: SourceConfig[] = [
   // ── RECOMMENDED ──
   {
-    key: "google", label: "Google", icon: Mail, section: "recommended",
+    key: "google", label: "Google", icon: Mail, customIcon: googleLogo, section: "recommended",
     categoryTag: "INTELLIGENCE PIPELINE",
     glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
