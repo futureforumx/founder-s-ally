@@ -618,9 +618,14 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
                           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                           className="overflow-hidden"
                         >
-                          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-start gap-2">
-                            <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
-                            <span className="text-sm text-indigo-900"><strong>Who championed this deal?</strong> Add the lead partner to unlock smarter network matches.</span>
+                          <div className="bg-accent/5 border border-accent/10 rounded-lg p-3 flex items-start gap-2">
+                            <Sparkles className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                            <span className="text-sm text-foreground">
+                              <strong>Who championed this deal?</strong> Add the lead partner to unlock smarter network matches, or{" "}
+                              <button type="button" onClick={() => setEntityType("person")} className="text-accent hover:text-accent/80 font-medium transition-colors">
+                                add them as a person instead
+                              </button>.
+                            </span>
                           </div>
                         </motion.div>
                       )}
