@@ -1016,65 +1016,98 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
 
         {/* Search + Category Filter */}
         {showCategoryFilter && (
-          <div className="space-y-2">
-            <div className="relative w-full max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find an integration..."
-                className="w-full h-8 rounded-lg border border-input bg-background pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
-              />
-            </div>
-            {!searchQuery && (
-              <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
-                {FILTER_CATEGORIES.map((cat) => (
+          <div className="space-y-4">
+            {/* Search bar + filter dropdown row */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Find an integration..."
+                  className="w-full h-8 rounded-lg border border-input bg-background pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
+                />
+              </div>
+              {!searchQuery && (
+                <div className="relative">
                   <button
-                    key={cat.key}
-                    onClick={() => setActiveFilter(cat.key)}
-                    className={`px-3 py-1 rounded-md text-[10px] uppercase tracking-wide transition-all font-mono font-bold ${
-                      activeFilter === cat.key
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    onClick={() => setFilterOpen(!filterOpen)}
+                    className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-input bg-background text-[10px] font-mono font-bold uppercase tracking-wide text-foreground hover:bg-muted transition-colors"
                   >
-                    {cat.label}
+                    <Layers className="h-3 w-3 text-muted-foreground" />
+                    {FILTER_CATEGORIES.find(c => c.key === activeFilter)?.label || "FILTER"}
+                    <svg className={`h-3 w-3 text-muted-foreground transition-transform ${filterOpen ? "rotate-180" : ""}`} viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
-                ))}
+                  {filterOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-popover shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                      {FILTER_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.key}
+                          onClick={() => { setActiveFilter(cat.key); setFilterOpen(false); }}
+                          className={`w-full text-left px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wide transition-colors ${
+                            activeFilter === cat.key
+                              ? "bg-accent/10 text-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* RECOMMENDED section — always visible when not searching */}
+            {!searchQuery && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-3.5 w-3.5 text-accent" />
+                  <h2 className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">Recommended</h2>
+                </div>
+                <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+                  {SOURCES.filter(s => s.filterCategories.includes("recommended")).map((source, i) => {
+                    const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+                    const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                      ? "https://cdn.simpleicons.org/googleworkspace/4285F4" : sensor.icon_url;
+                    return (
+                      <SensorCard key={source.key} source={source} index={i} sensorId={sensor.id} sensorName={sensor.name} displayIcon={displayIcon} />
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Active category section OR search results */}
+            <div>
+              {!searchQuery && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-3.5 w-3.5 text-muted-foreground/40" />
+                  <h2 className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">
+                    {FILTER_CATEGORIES.find(c => c.key === activeFilter)?.label}
+                  </h2>
+                </div>
+              )}
+              <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
+                {SOURCES.filter(s => {
+                  if (searchQuery.trim()) {
+                    return s.label.toLowerCase().includes(searchQuery.trim().toLowerCase());
+                  }
+                  return s.filterCategories.includes(activeFilter) && !s.filterCategories.includes("recommended");
+                }).map((source, i) => {
+                  const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+                  const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                    ? "https://cdn.simpleicons.org/googleworkspace/4285F4" : sensor.icon_url;
+                  return (
+                    <SensorCard key={source.key} source={source} index={i} sensorId={sensor.id} sensorName={sensor.name} displayIcon={displayIcon} />
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
-
-        {/* Sensor Sections */}
-        {showCategoryFilter ? (
-          // Filtered flat list mode
-          <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
-            {SOURCES.filter(s => {
-              if (searchQuery.trim()) {
-                return s.label.toLowerCase().includes(searchQuery.trim().toLowerCase());
-              }
-              return s.filterCategories.includes(activeFilter);
-            }).map((source, i) => {
-              const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
-              const displayIcon = sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
-                ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
-                : sensor.icon_url;
-
-              return (
-                <SensorCard
-                  key={source.key}
-                  source={source}
-                  index={i}
-                  sensorId={sensor.id}
-                  sensorName={sensor.name}
-                  displayIcon={displayIcon}
-                />
-              );
-            })}
-          </div>
-        ) : (
           // Original section-based layout
           SECTIONS.map((section, si) => {
             const sectionSources = SOURCES.filter(s => s.section === section.key);
