@@ -132,6 +132,15 @@ function InlineChipRow({
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
         <Pencil className="h-3 w-3 text-muted-foreground/50" />
+        {max && (
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md ${
+            selected.length >= max
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground"
+          }`}>
+            {selected.length}/{max}
+          </span>
+        )}
         {badge}
       </div>
       <div className="flex flex-wrap gap-1.5">
