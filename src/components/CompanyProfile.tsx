@@ -2320,7 +2320,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* Headcount */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Headcount {renderFieldBadge("totalHeadcount")}
+                      Headcount <span className="text-destructive">*</span> {renderFieldBadge("totalHeadcount")}
                       <MetricTooltip metricKey="headcount" />
                     </label>
                     <div className="relative">
