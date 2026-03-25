@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Terminal, Zap, Shield, TrendingUp, Lock } from "lucide-react";
+import { Loader2, Terminal, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -13,10 +13,8 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [aiGuessedCompany, setAiGuessedCompany] = useState(false);
-  const [aiGuessedWebsite, setAiGuessedWebsite] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,36 +23,7 @@ export default function Auth() {
   }, [user, authLoading, navigate]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setEmail(val);
-    
-    if (!aiGuessedCompany && companyName.length > 0) return;
-    if (!aiGuessedWebsite && websiteUrl.length > 0) return;
-    
-    const parts = val.split('@');
-    if (parts.length === 2 && parts[1].includes('.')) {
-      const domain = parts[1];
-      const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'me.com', 'mac.com'];
-      if (!genericDomains.includes(domain.toLowerCase()) && domain.length > 3) {
-        const namePart = domain.split('.')[0];
-        const guessedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        
-        if (!companyName || aiGuessedCompany) {
-           setCompanyName(guessedName);
-           setAiGuessedCompany(true);
-        }
-        if (!websiteUrl || aiGuessedWebsite) {
-           setWebsiteUrl(`https://${domain}`);
-           setAiGuessedWebsite(true);
-        }
-      } else {
-        if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
-        if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
-      }
-    } else {
-      if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
-      if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
-    }
+    setEmail(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,19 +31,14 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { first_name: firstName, last_name: lastName }
+          }
+        });
         if (error) throw error;
-        
-        if (companyName || websiteUrl) {
-          const aiGuessed: string[] = [];
-          if (aiGuessedCompany) aiGuessed.push('companyName');
-          if (aiGuessedWebsite) aiGuessed.push('websiteUrl');
-          localStorage.setItem("pending-company-seed", JSON.stringify({
-            companyName: companyName,
-            websiteUrl: websiteUrl,
-            aiGuessed: aiGuessed
-          }));
-        }
         
         toast.success("Account created! Let's set up your profile.");
         navigate("/onboarding", { replace: true });
@@ -158,15 +122,26 @@ export default function Auth() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-3">
               {mode === "signup" && (
-                <Input
-                  type="text"
-                  placeholder="Company Name"
-                  value={companyName}
-                  onChange={(e) => { setCompanyName(e.target.value); setAiGuessedCompany(false); }}
-                  required
-                  className={`h-11 text-base bg-slate-800 border-slate-700 placeholder-slate-500 transition-colors ${aiGuessedCompany ? 'text-purple-400' : 'text-slate-50'}`}
-                  autoComplete="organization"
-                />
+                <div className="flex gap-3">
+                  <Input
+                    type="text"
+                    placeholder="First Name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                    autoComplete="given-name"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                    autoComplete="family-name"
+                  />
+                </div>
               )}
               <Input
                 type="email"
