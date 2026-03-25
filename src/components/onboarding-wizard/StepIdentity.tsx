@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import type { OnboardingState } from "./types";
