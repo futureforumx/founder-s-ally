@@ -182,7 +182,7 @@ export default function Auth() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
             <Terminal className="h-5 w-5" aria-hidden />
           </div>
-          <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Founder Copilot</span>
+          <span className="text-[15px] font-semibold tracking-tight text-zinc-900"><span className="text-[15px] font-semibold tracking-tight text-zinc-900">VEKTA</span></span>
         </div>
 
         {mode === "signup" ? (
