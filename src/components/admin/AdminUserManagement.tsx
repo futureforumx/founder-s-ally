@@ -1,149 +1,269 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Crown, Search, Shield, UserCog, Loader2 } from "lucide-react";
+import { Crown, Search, Shield, UserCog, Loader2, Clock, Zap, Mail, MapPin, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
-interface ProfileRow {
+interface EnrichedUser {
   id: string;
-  user_id: string;
+  email: string;
+  last_sign_in_at: string | null;
+  created_at: string;
   full_name: string;
-  title: string | null;
   avatar_url: string | null;
   user_type: string;
+  title: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  location: string | null;
+  permission: string;
+  total_time_seconds: number;
+  api_calls_count: number;
+  last_active_at: string | null;
+}
+
+const PERMISSION_COLORS: Record<string, { bg: string; text: string }> = {
+  user: { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.5)" },
+  manager: { bg: "rgba(59,130,246,0.12)", text: "#3b82f6" },
+  admin: { bg: "rgba(57,255,20,0.1)", text: "#39FF14" },
+  god: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b" },
+};
+
+const PERMISSION_ICONS: Record<string, typeof UserCog> = {
+  user: UserCog,
+  manager: Shield,
+  admin: Crown,
+  god: Zap,
+};
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function AdminUserManagement() {
-  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+  const [users, setUsers] = useState<EnrichedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  // We track admin user_ids locally since we can't read other users' metadata from the client
-  const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterPermission, setFilterPermission] = useState<string>("all");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProfiles();
+    fetchUsers();
   }, []);
 
-  const fetchProfiles = async () => {
+  const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, user_id, full_name, title, avatar_url, user_type")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("Failed to load users");
-    } else {
-      setProfiles(data || []);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-list-users");
+      if (error) throw error;
+      setUsers(data.users || []);
+    } catch (e: any) {
+      toast.error("Failed to load users", { description: e.message });
     }
     setLoading(false);
   };
 
-  const filtered = profiles.filter((p) =>
-    p.full_name?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleToggleAdmin = async (profile: ProfileRow) => {
-    setTogglingId(profile.user_id);
+  const handlePermissionChange = async (userId: string, permission: string) => {
+    setUpdatingId(userId);
     try {
-      const isCurrentlyAdmin = adminIds.has(profile.user_id);
-      // Use edge function to update user metadata (admin action)
-      const { data, error } = await supabase.functions.invoke("manage-admin-role", {
-        body: { target_user_id: profile.user_id, action: isCurrentlyAdmin ? "revoke" : "grant" },
+      const { error } = await supabase.functions.invoke("admin-update-permission", {
+        body: { target_user_id: userId, permission },
       });
       if (error) throw error;
-      
-      setAdminIds((prev) => {
-        const next = new Set(prev);
-        if (isCurrentlyAdmin) next.delete(profile.user_id);
-        else next.add(profile.user_id);
-        return next;
-      });
-      toast.success(isCurrentlyAdmin ? "Admin access revoked" : "Admin access granted", {
-        description: profile.full_name,
-      });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, permission } : u));
+      toast.success("Permission updated", { description: `Set to ${permission.toUpperCase()}` });
     } catch (e: any) {
-      toast.error("Failed to update role", { description: e.message });
-    } finally {
-      setTogglingId(null);
+      toast.error("Failed to update permission", { description: e.message });
     }
+    setUpdatingId(null);
   };
+
+  const filtered = users.filter((u) => {
+    const matchSearch = (u.full_name || u.email || "").toLowerCase().includes(search.toLowerCase());
+    const matchType = filterType === "all" || u.user_type === filterType;
+    const matchPerm = filterPermission === "all" || u.permission === filterPermission;
+    return matchSearch && matchType && matchPerm;
+  });
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-mono text-lg font-semibold text-white/90">User Management</h1>
         <p className="mt-1 font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Assign or revoke admin access for platform users.
+          {users.length} registered users · Manage permissions and monitor activity
         </p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
-        <Input
-          placeholder="Search users..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9 rounded-lg border-white/10 bg-white/5 text-sm text-white/80 placeholder:text-white/25 focus-visible:ring-emerald-500/40"
-        />
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 rounded-lg border-white/10 bg-white/5 text-sm text-white/80 placeholder:text-white/25 focus-visible:ring-emerald-500/40"
+          />
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-32 h-9 border-white/10 bg-white/5 text-xs text-white/70">
+            <SelectValue placeholder="User Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="founder">Founder</SelectItem>
+            <SelectItem value="operator">Operator</SelectItem>
+            <SelectItem value="investor">Investor</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterPermission} onValueChange={setFilterPermission}>
+          <SelectTrigger className="w-32 h-9 border-white/10 bg-white/5 text-xs text-white/70">
+            <SelectValue placeholder="Permission" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Levels</SelectItem>
+            <SelectItem value="user">User</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="god">GOD</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-16">
           <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#39FF14" }} />
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {filtered.map((profile) => {
-            const isAdmin = adminIds.has(profile.user_id);
-            const isToggling = togglingId === profile.user_id;
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+          {/* Table Header */}
+          <div
+            className="grid items-center gap-2 px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest"
+            style={{ background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.3)", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr" }}
+          >
+            <span>User</span>
+            <span>Contact</span>
+            <span>Last Sign In</span>
+            <span>Type</span>
+            <span>Time on App</span>
+            <span>API Usage</span>
+            <span>Permission</span>
+          </div>
+
+          {/* Rows */}
+          {filtered.map((user) => {
+            const permColor = PERMISSION_COLORS[user.permission] || PERMISSION_COLORS.user;
+            const PermIcon = PERMISSION_ICONS[user.permission] || UserCog;
+            const isUpdating = updatingId === user.id;
+
             return (
               <div
-                key={profile.id}
-                className="flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
-                style={{
-                  borderColor: isAdmin ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.06)",
-                  background: isAdmin ? "rgba(57,255,20,0.04)" : "rgba(255,255,255,0.02)",
-                }}
+                key={user.id}
+                className="grid items-center gap-2 px-4 py-3 border-t transition-colors hover:bg-white/[0.02]"
+                style={{ borderColor: "rgba(255,255,255,0.04)", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr" }}
               >
-                <div className="flex items-center gap-3">
+                {/* User */}
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
-                    style={{
-                      background: isAdmin ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.06)",
-                      color: isAdmin ? "#f59e0b" : "rgba(255,255,255,0.4)",
-                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+                    style={{ background: permColor.bg, color: permColor.text }}
                   >
-                    {isAdmin ? <Crown className="h-3.5 w-3.5" /> : <UserCog className="h-3.5 w-3.5" />}
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} className="h-8 w-8 rounded-lg object-cover" alt="" />
+                    ) : (
+                      <PermIcon className="h-3.5 w-3.5" />
+                    )}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white/85">{profile.full_name || "Unnamed User"}</p>
-                    <p className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      {profile.title || profile.user_type || "User"}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white/85 truncate">{user.full_name || "Unnamed"}</p>
+                    <p className="font-mono text-[10px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {user.title || "—"}
                     </p>
                   </div>
-                  {isAdmin && (
-                    <Badge
-                      className="ml-1 border-none text-[9px] font-bold uppercase"
-                      style={{ background: "rgba(57,255,20,0.1)", color: "#39FF14" }}
-                    >
-                      Admin
-                    </Badge>
+                </div>
+
+                {/* Contact */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
+                    <span className="text-[11px] text-white/60 truncate">{user.email}</span>
+                  </div>
+                  {user.location && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <MapPin className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.2)" }} />
+                      <span className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{user.location}</span>
+                    </div>
                   )}
                 </div>
-                <Switch
-                  checked={isAdmin}
-                  onCheckedChange={() => handleToggleAdmin(profile)}
-                  disabled={isToggling}
-                />
+
+                {/* Last Sign In */}
+                <div>
+                  {user.last_sign_in_at ? (
+                    <span className="text-[11px] text-white/50">
+                      {formatDistanceToNow(new Date(user.last_sign_in_at), { addSuffix: true })}
+                    </span>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>Never</span>
+                  )}
+                </div>
+
+                {/* User Type */}
+                <Badge
+                  variant="outline"
+                  className="w-fit border-none text-[9px] font-semibold uppercase"
+                  style={{
+                    background: user.user_type === "founder" ? "rgba(139,92,246,0.1)" : user.user_type === "investor" ? "rgba(34,197,94,0.1)" : "rgba(59,130,246,0.1)",
+                    color: user.user_type === "founder" ? "#a78bfa" : user.user_type === "investor" ? "#22c55e" : "#60a5fa",
+                  }}
+                >
+                  {user.user_type}
+                </Badge>
+
+                {/* Time on App */}
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3" style={{ color: "rgba(255,255,255,0.2)" }} />
+                  <span className="font-mono text-[11px] text-white/50">{formatTime(user.total_time_seconds)}</span>
+                </div>
+
+                {/* API Usage */}
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3 w-3" style={{ color: user.api_calls_count > 100 ? "#f59e0b" : "rgba(255,255,255,0.2)" }} />
+                  <span className="font-mono text-[11px] text-white/50">{user.api_calls_count.toLocaleString()}</span>
+                </div>
+
+                {/* Permission */}
+                <Select
+                  value={user.permission}
+                  onValueChange={(val) => handlePermissionChange(user.id, val)}
+                  disabled={isUpdating}
+                >
+                  <SelectTrigger
+                    className="h-7 w-full border-none text-[11px] font-semibold uppercase"
+                    style={{ background: permColor.bg, color: permColor.text }}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="god">GOD</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             );
           })}
+
           {filtered.length === 0 && (
-            <p className="py-8 text-center font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <p className="py-12 text-center font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
               No users found.
             </p>
           )}
