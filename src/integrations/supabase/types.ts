@@ -840,6 +840,36 @@ export type Database = {
           },
         ]
       }
+      user_activity: {
+        Row: {
+          api_calls_count: number
+          created_at: string
+          id: string
+          last_active_at: string | null
+          total_time_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_calls_count?: number
+          created_at?: string
+          id?: string
+          last_active_at?: string | null
+          total_time_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_calls_count?: number
+          created_at?: string
+          id?: string
+          last_active_at?: string | null
+          total_time_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string
@@ -892,6 +922,30 @@ export type Database = {
           notification_settings?: Json | null
           onboarding_data?: Json | null
           privacy_settings?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
           updated_at?: string
           user_id?: string
         }
@@ -1002,6 +1056,14 @@ export type Database = {
           total_recommendations: number
         }[]
       }
+      has_permission: {
+        Args: {
+          _permission: Database["public"]["Enums"]["app_permission"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin_or_above: { Args: { _user_id: string }; Returns: boolean }
       match_investors: {
         Args: {
           founder_ask?: number
@@ -1043,7 +1105,7 @@ export type Database = {
       reveal_contact_info: { Args: { _investor_id: string }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      app_permission: "user" | "manager" | "admin" | "god"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1170,6 +1232,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_permission: ["user", "manager", "admin", "god"],
+    },
   },
 } as const
