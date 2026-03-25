@@ -70,7 +70,7 @@ export default function Auth() {
   const handleSignupEmailBlur = async () => {
     if (mode !== "signup" || !email.trim()) return;
     const result = await validateSignupEmail(email);
-    setSignupEmailError(result.ok ? null : result.message);
+    setSignupEmailError(result.ok ? null : (result as { ok: false; message: string }).message);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
