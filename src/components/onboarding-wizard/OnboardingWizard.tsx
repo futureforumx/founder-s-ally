@@ -109,6 +109,7 @@ export function OnboardingWizard() {
         twitter_url: state.twitterUrl || null,
         user_type: state.userType || "founder",
         has_completed_onboarding: true,
+        has_seen_settings_tour: false,
         ...(companyId ? { company_id: companyId } : {}),
       } as any);
 
