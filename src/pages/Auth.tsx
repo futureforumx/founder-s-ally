@@ -13,10 +13,8 @@ export default function Auth() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-  const [aiGuessedCompany, setAiGuessedCompany] = useState(false);
-  const [aiGuessedWebsite, setAiGuessedWebsite] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
