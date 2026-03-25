@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Terminal, Zap, Shield, TrendingUp } from "lucide-react";
+import { Loader2, Terminal, Zap, Shield, TrendingUp, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -12,6 +12,7 @@ export default function Auth() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [accountType, setAccountType] = useState<"company" | "personal">("company");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,130 +64,209 @@ export default function Auth() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen" style={{ backgroundColor: "#1F2029" }}>
       {/* Left: Auth Form */}
-      <div className="flex flex-1 flex-col items-center justify-center px-8 bg-background">
-        <div className="w-full max-w-sm space-y-8">
-          {/* Branding */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <Terminal className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold tracking-tight text-foreground">
-                Founder Copilot
-              </span>
+      <div className="flex flex-1 flex-col items-center justify-center px-6 sm:px-8">
+        <div className="w-full max-w-md space-y-6">
+          {/* Header - Only for signup */}
+          {mode === "signup" ? (
+            <div className="space-y-3 mb-8">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-50">
+                Start your 14-day free trial
+              </h1>
+              <p className="text-sm text-slate-400">
+                No credit card needed.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {mode === "login" ? "Sign in to your command center" : "Create your account to get started"}
-            </p>
+          ) : (
+            <div className="space-y-2 mb-8">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-600">
+                  <Terminal className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-lg font-semibold tracking-tight text-slate-50">
+                  Founder Copilot
+                </span>
+              </div>
+              <p className="text-sm text-slate-400">
+                Sign in to your command center
+              </p>
+            </div>
+          )}
+
+          {/* Account Type - Only for signup */}
+          {mode === "signup" && (
+            <div className="space-y-3 pb-4">
+              <p className="text-sm font-medium text-slate-200">Account type</p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant={accountType === "company" ? "default" : "outline"}
+                  className={`flex-1 h-11 ${
+                    accountType === "company"
+                      ? "bg-slate-700 hover:bg-slate-600 text-slate-50 border-slate-600"
+                      : "border-slate-700 text-slate-400 hover:bg-slate-800/50"
+                  }`}
+                  onClick={() => setAccountType("company")}
+                >
+                  Company
+                </Button>
+                <Button
+                  type="button"
+                  variant={accountType === "personal" ? "default" : "outline"}
+                  className={`flex-1 h-11 ${
+                    accountType === "personal"
+                      ? "bg-slate-700 hover:bg-slate-600 text-slate-50 border-slate-600"
+                      : "border-slate-700 text-slate-400 hover:bg-slate-800/50"
+                  }`}
+                  onClick={() => setAccountType("personal")}
+                >
+                  Personal
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Email Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-3">
+              <Input
+                type="email"
+                placeholder={mode === "signup" ? "your@company.com" : "you@company.com"}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                autoComplete="email"
+              />
+              <Input
+                type="password"
+                placeholder={mode === "signup" ? "Create a strong password" : "Password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+            </div>
+            <Button type="submit" className="w-full h-11 text-base bg-cyan-600 hover:bg-cyan-700 text-white" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {mode === "login" ? "Sign In" : "Continue"}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-3 text-slate-500" style={{ backgroundColor: "#1F2029" }}>or</span>
+            </div>
           </div>
 
           {/* Google OAuth */}
           <Button
+            type="button"
             variant="outline"
-            className="w-full gap-2 h-11"
+            className="w-full gap-2 h-11 text-base border-slate-700 text-slate-300 hover:bg-slate-800/50"
             onClick={handleGoogleSignIn}
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
-            Continue with Google
+            Sign up with Google
           </Button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-background px-3 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          {/* Email Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11"
-                autoComplete="email"
-              />
-              <Input
-                type="password"
-                placeholder="Password (min 6 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="h-11"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              />
-            </div>
-            <Button type="submit" className="w-full h-11" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {mode === "login" ? "Sign In" : "Create Account"}
-            </Button>
-          </form>
-
           {/* Toggle */}
-          <p className="text-center text-sm text-muted-foreground">
+          <div className="pt-2 text-center text-sm text-slate-400">
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
+              type="button"
               onClick={() => setMode(mode === "login" ? "signup" : "login")}
-              className="font-medium text-accent hover:text-accent/80 transition-colors"
+              className="font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
             >
               {mode === "login" ? "Sign up" : "Sign in"}
             </button>
-          </p>
+          </div>
+
+          {/* Terms - Only for signup */}
+          {mode === "signup" && (
+            <p className="text-xs text-center text-slate-500">
+              By signing up, you agree to our{" "}
+              <a href="#" className="text-cyan-400 hover:underline">Services Agreement</a> and{" "}
+              <a href="#" className="text-cyan-400 hover:underline">Data Agreement</a>.
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Right: Dark Terminal Aesthetic */}
-      <div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-primary relative overflow-hidden">
-        {/* Glow effects */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-accent/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/5 rounded-full blur-[100px]" />
+      {/* Right: App Preview */}
+      <div className="hidden lg:flex flex-1 flex-col relative overflow-hidden p-8" style={{ backgroundColor: "#1F2029" }}>
+        {/* Gradient glow effects */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-gradient-to-tr from-cyan-500/10 to-blue-500/10 rounded-full blur-[100px]" />
 
-        <div className="relative z-10 space-y-8 max-w-md text-center px-8">
-          {/* Terminal window mock */}
-          <div className="rounded-xl border border-primary-foreground/10 bg-primary-foreground/5 backdrop-blur-sm p-6 text-left font-mono text-sm">
-            <div className="flex items-center gap-1.5 mb-4">
-              <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-              <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-              <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
-              <span className="ml-2 text-[10px] text-primary-foreground/40">founder-copilot</span>
-            </div>
-            <div className="space-y-1.5 text-primary-foreground/70">
-              <p><span className="text-success/80">$</span> analyzing company profile...</p>
-              <p><span className="text-success/80">$</span> scraping competitive landscape...</p>
-              <p><span className="text-success/80">$</span> matching investors from 2,400+ VCs...</p>
-              <p className="text-accent">✓ 12 high-match investors found</p>
-            </div>
+        <div className="relative z-10 flex flex-col h-full">
+          {/* Top branding */}
+          <div className="mb-12">
+            <p className="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              Secure access for everyone. But not just anyone.
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Untitled is a powerful, flexible authentication and authorization platform<br />
+              that's easy to integrate and built to scale with your application.
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-primary-foreground tracking-tight">
-              Your AI-Powered<br />Fundraising Command Center
-            </h2>
-            <div className="flex flex-col gap-3 text-sm text-primary-foreground/60">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-accent shrink-0" />
-                <span>Real-time investor discovery via Exa AI</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-accent shrink-0" />
-                <span>Automated due diligence scoring</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-accent shrink-0" />
-                <span>Competitive benchmarking & health metrics</span>
+          {/* App preview mockup */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-700/50 bg-slate-800/40 backdrop-blur-xl p-6 shadow-2xl">
+              <div className="space-y-6">
+                {/* Mock header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-semibold text-slate-200">Untitled UI</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <span className="text-xs text-slate-400">Home</span>
+                    <span className="text-xs text-slate-400">Dashboard</span>
+                    <span className="text-xs text-slate-400">Projects</span>
+                  </div>
+                </div>
+
+                {/* Mock content */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-100">Leapyear</h3>
+                    <p className="text-xs text-slate-400">View an overview of your site's traffic and recently active users.</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-400 mb-2">Site traffic <span className="text-emerald-400">+304%</span></p>
+                    <div className="h-16 bg-slate-700/30 rounded-lg border border-slate-700/50" />
+                  </div>
+
+                  <div className="pt-2">
+                    <p className="text-xs font-medium text-slate-300 mb-2">Access (0)</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-slate-600" />
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-300">Sofia Mayers</p>
+                          <p className="text-xs text-slate-500">sofia@company.com</p>
+                        </div>
+                        <span className="text-xs text-slate-400">Admin</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
