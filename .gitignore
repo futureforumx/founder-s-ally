@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local scaffolds / tooling artifacts (do not commit)
+my-clerk-app/
+supabase/.temp/

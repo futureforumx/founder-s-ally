@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { normalizeSector } from "@/components/company-profile/sectorNormalization";
-import { SmartSelect } from "@/components/onboarding/SmartSelect";
+import { SmartSelect, AI_SUGGESTED_TEXT_CLASS } from "@/components/onboarding/SmartSelect";
 import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import { useEffect } from "react";
@@ -14,6 +14,39 @@ import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
+
+/** Inline validation for company website (step 1). Returns null if OK. */
+function getWebsiteUrlError(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return "Enter your company website URL.";
+
+  let toParse = trimmed;
+  if (!/^https?:\/\//i.test(toParse)) {
+    toParse = `https://${toParse}`;
+  }
+
+  try {
+    const u = new URL(toParse);
+    const host = u.hostname.toLowerCase();
+    if (!host || host.length < 3) {
+      return `"${trimmed}" is not a valid URL. Check the address and try again.`;
+    }
+    if (!host.includes(".")) {
+      return "Use a full domain (for example yourcompany.com).";
+    }
+    const parts = host.split(".").filter(Boolean);
+    const tld = parts[parts.length - 1];
+    if (!tld || tld.length < 2 || !/^[a-z0-9-]+$/i.test(tld)) {
+      return `"${trimmed}" is not a valid URL. Check the address and try again.`;
+    }
+    if (host.includes(" ") || host.startsWith(".")) {
+      return `"${trimmed}" is not a valid URL. Check the address and try again.`;
+    }
+    return null;
+  } catch {
+    return `"${trimmed}" is not a valid URL. Use a format like https://yourcompany.com.`;
+  }
+}
 
 interface OnboardingStepperProps {
   onComplete: (company: CompanyData, analysis: AnalysisResult) => void;
@@ -121,6 +154,20 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [shakeStep2, setShakeStep2] = useState(false);
 
   const [shakeStep3, setShakeStep3] = useState(false);
+  const [websiteUrlError, setWebsiteUrlError] = useState<string | null>(null);
+
+  const [aiMetricHighlight, setAiMetricHighlight] = useState({
+    stage: false,
+    sector: false,
+    mrr: false,
+    momGrowth: false,
+    burnRate: false,
+    headcount: false,
+  });
+
+  const clearAiMetric = useCallback((key: keyof typeof aiMetricHighlight) => {
+    setAiMetricHighlight((h) => ({ ...h, [key]: false }));
+  }, []);
 
   const validateStep3 = (): boolean => {
     const missing: string[] = [];
@@ -163,15 +210,15 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     setPredictedSector("Construction & Real Estate");
   }, []);
 
-  const isValidUrl = (url: string) => {
-    try {
-      const u = new URL(url.startsWith("http") ? url : `https://${url}`);
-      return /\.[a-z]{2,}$/i.test(u.hostname);
-    } catch { return false; }
-  };
+  const isValidUrl = (url: string) => getWebsiteUrlError(url) === null;
 
   const scrapeWebsite = async () => {
-    if (!website.trim()) return;
+    const urlErr = getWebsiteUrlError(website);
+    if (urlErr) {
+      setWebsiteUrlError(urlErr);
+      return;
+    }
+    setWebsiteUrlError(null);
     setIsProcessing(true);
     setError(null);
     setProcessStep("Scanning digital footprint...");
@@ -285,7 +332,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
       }
 
-      // Pre-fill confirmed values (sanitize nulls)
+      // Pre-fill confirmed values (sanitize nulls); purple until user edits
       const mrrVal = analysisData?.metrics?.mrr?.value;
       if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
       const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
@@ -294,6 +341,15 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       if (burnVal && burnVal !== "null") setBurnRate(burnVal);
       const momVal = analysisData?.aiExtracted?.momGrowth;
       if (momVal && momVal !== "null") setMomGrowth(momVal);
+
+      setAiMetricHighlight((h) => ({
+        ...h,
+        ...(normalized.sector ? { sector: true } : {}),
+        ...(mrrVal && mrrVal !== "null" ? { mrr: true } : {}),
+        ...(headcountVal && headcountVal !== "null" ? { headcount: true } : {}),
+        ...(burnVal && burnVal !== "null" ? { burnRate: true } : {}),
+        ...(momVal && momVal !== "null" ? { momGrowth: true } : {}),
+      }));
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -424,16 +480,45 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
                     <input type="text" value={companyName} onChange={(e) => { setCompanyName(e.target.value); setAiGuessedFields(prev => prev.filter(f => f !== 'companyName')); }}
                       placeholder="Acme Corp" maxLength={100}
-                      className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${aiGuessedFields.includes('companyName') ? 'text-purple-400' : 'text-foreground'}`} />
+                      className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${aiGuessedFields.includes("companyName") ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"}`} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                       <Globe className="inline h-3 w-3 mr-1" />Website URL *
                     </label>
-                    <input type="url" value={website} onChange={(e) => { setWebsite(e.target.value); setAiGuessedFields(prev => prev.filter(f => f !== 'websiteUrl')); }}
+                    <input
+                      type="url"
+                      value={website}
+                      onChange={(e) => {
+                        setWebsite(e.target.value);
+                        setWebsiteUrlError(null);
+                        setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
+                      }}
+                      onBlur={() => {
+                        if (!website.trim()) {
+                          setWebsiteUrlError(null);
+                          return;
+                        }
+                        const err = getWebsiteUrlError(website);
+                        setWebsiteUrlError(err);
+                      }}
                       placeholder="https://yourcompany.com"
-                      className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${aiGuessedFields.includes('websiteUrl') ? 'text-purple-400' : 'text-foreground'}`} />
-                    <p className="text-[10px] text-muted-foreground">We'll scan your site for value prop, pricing, and positioning</p>
+                      aria-invalid={!!websiteUrlError}
+                      className={`w-full rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 transition-colors ${
+                        websiteUrlError
+                          ? "border-destructive focus:ring-destructive/25"
+                          : "border-input focus:ring-ring/30"
+                      } ${aiGuessedFields.includes("websiteUrl") ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"}`}
+                    />
+                    {websiteUrlError ? (
+                      <p className="text-xs text-destructive" role="alert">
+                        {websiteUrlError}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground">
+                        We'll scan your site for value prop, pricing, and positioning
+                      </p>
+                    )}
                   </div>
                 </>
               )}
@@ -462,13 +547,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                        label="Stage *"
                        value={stage}
                        onChange={setStage}
+                       onUserEdited={() => clearAiMetric("stage")}
                        options={stages}
                        predictedValue={predictedStage}
+                       highlightAi={aiMetricHighlight.stage}
+                       onAiAutofill={() => setAiMetricHighlight((h) => ({ ...h, stage: true }))}
                      />
                      <SectorCombobox
                        value={sector}
                        onChange={setSector}
                        predictedValue={predictedSector}
+                       highlightAi={aiMetricHighlight.sector}
+                       onAiAutofill={() => setAiMetricHighlight((h) => ({ ...h, sector: true }))}
+                       onUserEdited={() => clearAiMetric("sector")}
                      />
                    </div>
 
@@ -496,9 +587,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                          </label>
                          <div className="relative">
                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                           <input type="text" value={mrr} onChange={(e) => setMrr(e.target.value)}
+                           <input
+                             type="text"
+                             value={mrr}
+                             onChange={(e) => {
+                               setMrr(e.target.value);
+                               clearAiMetric("mrr");
+                             }}
                              placeholder={metricMode === "monthly" ? "e.g. 50K" : "e.g. 600K"}
-                             className="w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                             className={`w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+                               aiMetricHighlight.mrr ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
+                             }`}
+                           />
                          </div>
                        </div>
                        <div className="space-y-1.5">
@@ -506,9 +606,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                            {metricMode === "monthly" ? "MoM Growth" : "YoY Growth"}
                          </label>
                          <div className="relative">
-                           <input type="text" value={momGrowth} onChange={(e) => setMomGrowth(e.target.value)}
+                           <input
+                             type="text"
+                             value={momGrowth}
+                             onChange={(e) => {
+                               setMomGrowth(e.target.value);
+                               clearAiMetric("momGrowth");
+                             }}
                              placeholder="e.g. 8"
-                             className="w-full rounded-lg border border-input bg-background px-3 py-2 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                             className={`w-full rounded-lg border border-input bg-background px-3 py-2 pr-7 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+                               aiMetricHighlight.momGrowth ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
+                             }`}
+                           />
                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                          </div>
                        </div>
@@ -518,9 +627,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                          </label>
                          <div className="relative">
                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                           <input type="text" value={burnRate} onChange={(e) => setBurnRate(e.target.value)}
+                           <input
+                             type="text"
+                             value={burnRate}
+                             onChange={(e) => {
+                               setBurnRate(e.target.value);
+                               clearAiMetric("burnRate");
+                             }}
                              placeholder={metricMode === "monthly" ? "e.g. 50K" : "e.g. 600K"}
-                             className="w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                             className={`w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+                               aiMetricHighlight.burnRate ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
+                             }`}
+                           />
                          </div>
                        </div>
                      </div>
@@ -529,9 +647,18 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                    {/* Headcount */}
                    <div className="space-y-1.5">
                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Headcount</label>
-                     <input type="text" value={headcount} onChange={(e) => setHeadcount(e.target.value)}
+                     <input
+                       type="text"
+                       value={headcount}
+                       onChange={(e) => {
+                         setHeadcount(e.target.value);
+                         clearAiMetric("headcount");
+                       }}
                        placeholder="e.g. 25"
-                       className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                       className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+                         aiMetricHighlight.headcount ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
+                       }`}
+                     />
                    </div>
                   {analysisResult?.healthScore && (
                     <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
@@ -560,6 +687,12 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 )}
                 {step === 1 && (
                   <Button size="sm" disabled={!companyName.trim() || !website.trim() || isProcessing} onClick={() => {
+                    const err = getWebsiteUrlError(website);
+                    if (err) {
+                      setWebsiteUrlError(err);
+                      return;
+                    }
+                    setWebsiteUrlError(null);
                     scrapeWebsite();
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
