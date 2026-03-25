@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search } from "lucide-react";
+import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search, KeyRound, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,7 @@ function formatFileSize(bytes: number): string {
 export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +69,8 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [approvalCode, setApprovalCode] = useState("");
+  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -146,14 +149,52 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     if (isJoinMode) {
       setShowJoinModal(true);
     } else {
+      // Skip modal — go directly to finish, which seeds data and redirects
+      // to the main app where the OnboardingStepper popup handles company setup
       onNext();
     }
   };
 
-  const handleJoinConfirm = () => {
+  const handleNewCompanyConfirm = () => {
+    setShowNewCompanyModal(false);
+    onNext();
+  };
+
+  const handleJoinConfirm = async () => {
+    // If valid approval code was entered, auto-approve by adding as member
+    if (codeStatus === "valid" && selectedCompany) {
+      // The code was already validated — proceed directly
+      setShowJoinModal(false);
+      onNext();
+      return;
+    }
+    // Otherwise proceed as a pending request
     setShowJoinModal(false);
     onNext();
   };
+
+  const validateApprovalCode = useCallback(async (code: string) => {
+    if (!code.trim() || !selectedCompany) return;
+    setCodeStatus("checking");
+    try {
+      const { data, error } = await (supabase as any)
+        .from("company_approval_codes")
+        .select("id, company_id")
+        .eq("code", code.trim().toUpperCase())
+        .eq("company_id", selectedCompany.id)
+        .eq("is_active", true)
+        .gte("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (error || !data) {
+        setCodeStatus("invalid");
+      } else {
+        setCodeStatus("valid");
+      }
+    } catch {
+      setCodeStatus("invalid");
+    }
+  }, [selectedCompany]);
 
   const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
     const name = file.name.toLowerCase();
@@ -352,7 +393,7 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       </div>
 
       {/* Join Request Modal */}
-      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
+      <Dialog open={showJoinModal} onOpenChange={(open) => { setShowJoinModal(open); if (!open) { setApprovalCode(""); setCodeStatus("idle"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -363,9 +404,151 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
               You are requesting to join <strong>{selectedCompany?.name}</strong>. An admin will be notified and can approve your request.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Approval Code Section */}
+          <div className="space-y-2 py-2">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              Have the approval code? Input here.
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                <Input
+                  value={approvalCode}
+                  onChange={(e) => { setApprovalCode(e.target.value.toUpperCase()); setCodeStatus("idle"); }}
+                  placeholder="e.g. A1B2C3D4"
+                  className={cn(
+                    "pl-9 font-mono text-sm tracking-wider uppercase",
+                    codeStatus === "valid" && "border-green-500/50 bg-green-500/5",
+                    codeStatus === "invalid" && "border-destructive/50 bg-destructive/5",
+                  )}
+                  maxLength={12}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => validateApprovalCode(approvalCode)}
+                disabled={!approvalCode.trim() || codeStatus === "checking"}
+                className="shrink-0"
+              >
+                {codeStatus === "checking" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : codeStatus === "valid" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  "Verify"
+                )}
+              </Button>
+            </div>
+            {codeStatus === "valid" && (
+              <p className="text-[10px] text-green-500 font-medium">✓ Code verified — you'll be auto-approved.</p>
+            )}
+            {codeStatus === "invalid" && (
+              <p className="text-[10px] text-destructive font-medium">Invalid or expired code. You can still request to join below.</p>
+            )}
+          </div>
+
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" size="sm" onClick={() => setShowJoinModal(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleJoinConfirm}>Confirm & Continue</Button>
+            <Button size="sm" onClick={handleJoinConfirm}>
+              {codeStatus === "valid" ? "Join & Continue" : "Confirm & Continue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Company Setup Modal */}
+      <Dialog open={showNewCompanyModal} onOpenChange={setShowNewCompanyModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              Set up {selectedCompany?.name || state.companyName}
+            </DialogTitle>
+            <DialogDescription>
+              Add a few details to build your company profile. You can always update these later in Settings.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Website URL */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Website URL
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                <Input
+                  value={state.websiteUrl}
+                  onChange={(e) => update({ websiteUrl: e.target.value })}
+                  placeholder="https://yourcompany.com"
+                  className="pl-10"
+                />
+              </div>
+              {websiteDomain && (
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <img src={faviconSrc(websiteDomain)} alt="" className="h-3 w-3 rounded-sm" />
+                  {websiteDomain}
+                </div>
+              )}
+            </div>
+
+            {/* Pitch Deck Upload */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Pitch Deck <span className="text-muted-foreground/50 normal-case">(optional)</span>
+              </label>
+              {deckFile || state.deckFileName ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                  <FileText className="h-4 w-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{deckFile?.name || state.deckFileName}</p>
+                    {deckFile && (
+                      <p className="text-[10px] text-muted-foreground">{formatFileSize(deckFile.size)}</p>
+                    )}
+                  </div>
+                  {isExtracting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <button onClick={removeDeck} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors",
+                    isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-muted/20"
+                  )}
+                >
+                  <Upload className="h-5 w-5 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    Drop your deck here or <span className="text-primary font-medium">browse</span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/50">PDF up to 50 MB</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.txt,.md"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setShowNewCompanyModal(false)}>Back</Button>
+            <Button size="sm" onClick={handleNewCompanyConfirm}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> Create & Continue
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

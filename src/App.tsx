@@ -38,14 +38,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       .select("id, has_completed_onboarding")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          setNeedsOnboarding(false);
+          setOnboardingChecked(true);
+          return;
+        }
         const completed = (data as any)?.has_completed_onboarding === true;
         setNeedsOnboarding(!data || !completed);
-        setOnboardingChecked(true);
-      })
-      .catch(() => {
-        // Without this, a failed request (network, RLS, misconfigured env) spins forever.
-        setNeedsOnboarding(false);
         setOnboardingChecked(true);
       });
   }, [user, location.pathname]);
