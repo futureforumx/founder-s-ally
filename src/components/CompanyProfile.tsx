@@ -2320,7 +2320,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   {/* Headcount */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Headcount {renderFieldBadge("totalHeadcount")}
+                      Headcount <span className="text-destructive">*</span> {renderFieldBadge("totalHeadcount")}
                       <MetricTooltip metricKey="headcount" />
                     </label>
                     <div className="relative">
@@ -2335,6 +2335,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                 </div>
               </div>
+              {/* Inline KPI warning */}
+              {!form.currentARR && !form.yoyGrowth && !form.momGrowth && !form.burnRate && !form.totalHeadcount && (
+                <p className="text-[11px] text-warning flex items-center gap-1.5 mt-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Access to some features might be limited without KPIs.
+                </p>
+              )}
               {/* Approve button */}
               {analysisComplete && !confirmed && (
                 <div className="pt-2 border-t border-border/50 flex justify-end">
