@@ -78,7 +78,7 @@ export default function Auth() {
     if (mode === "signup") {
       const result = await validateSignupEmail(email);
       if (!result.ok) {
-        setSignupEmailError(result.message);
+        setSignupEmailError((result as { ok: false; message: string }).message);
         return;
       }
       setSignupEmailError(null);
