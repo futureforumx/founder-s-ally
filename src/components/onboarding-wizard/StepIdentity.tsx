@@ -264,202 +264,209 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
 
       <Separator className="w-full" />
 
-      {/* Personal Details */}
-      <div className="w-full space-y-3">
-        <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Your details</h3>
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                First Name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                value={state.firstName}
-                onChange={(e) => handleNameChange(e.target.value, state.lastName)}
-                placeholder="Jane"
-                className="rounded-lg h-9 text-sm"
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Last Name <span className="text-destructive">*</span>
-              </label>
-              <Input
-                value={state.lastName}
-                onChange={(e) => handleNameChange(state.firstName, e.target.value)}
-                placeholder="Doe"
-                className="rounded-lg h-9 text-sm"
-                required
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Role <span className="text-destructive">*</span>
-            </label>
-            <SmartCombobox
-              value={state.title}
-              onChange={(v) => update({ title: v })}
-              options={ROLE_OPTIONS}
-              placeholder="e.g. CEO & Co-Founder"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
-            <Input
-              value={state.email}
-              onChange={(e) => update({ email: e.target.value })}
-              placeholder="jane@acme.com"
-              type="email"
-              className="rounded-lg h-9 text-sm"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator className="w-full" />
-
-      {loading ? (
-        <div className="w-full space-y-3 py-4">
-          <div className="flex items-center justify-center gap-3">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <span className="text-xs text-muted-foreground">Researching your background...</span>
-          </div>
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 rounded-lg bg-muted animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
-            ))}
-          </div>
-        </div>
+      {/* Investor waitlist gate */}
+      {state.userType === "investor" ? (
+        <InvestorWaitlistForm />
       ) : (
-        <div className="w-full space-y-3">
-          {/* Social profiles card */}
-          <motion.div
-            animate={socialShake ? { x: [0, -6, 6, -4, 4, 0] } : {}}
-            transition={{ duration: 0.4 }}
-          >
-            <div className={cn(
-              "rounded-xl border bg-card p-4 space-y-3 transition-colors",
-              showSocialHint && !hasSocialProfile ? "border-destructive/50" : "border-border"
-            )}>
-              <div className="flex items-center gap-2">
-                <Linkedin className="h-3.5 w-3.5 text-primary" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Social Profiles <span className="text-destructive">*</span>
-                </span>
-                <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px] text-xs">
-                    We extract your name, title, and experience to save you time. Nothing is shared.
-                  </TooltipContent>
-                </Tooltip>
+        <>
+          {/* Personal Details */}
+          <div className="w-full space-y-3">
+            <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Your details</h3>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    First Name <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    value={state.firstName}
+                    onChange={(e) => handleNameChange(e.target.value, state.lastName)}
+                    placeholder="Jane"
+                    className="rounded-lg h-9 text-sm"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    Last Name <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    value={state.lastName}
+                    onChange={(e) => handleNameChange(state.firstName, e.target.value)}
+                    placeholder="Doe"
+                    className="rounded-lg h-9 text-sm"
+                    required
+                  />
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <MorphingUrlInput
-                  platform="linkedin"
-                  label="LinkedIn"
-                  value={url}
-                  onChange={(v) => { setUrl(v); if (showSocialHint) setShowSocialHint(false); }}
-                  onBlur={() => {
-                    const formatted = formatSocialUrl("linkedin_personal", url);
-                    if (formatted !== url) setUrl(formatted);
-                    update({ linkedinUrl: formatted });
-                  }}
-                  verifyState="idle"
-                />
-                <MorphingUrlInput
-                  platform="x"
-                  label="X / Twitter"
-                  value={xUrl}
-                  onChange={(v) => { setXUrl(v); if (showSocialHint) setShowSocialHint(false); }}
-                  onBlur={() => {
-                    const formatted = formatSocialUrl("x", xUrl);
-                    if (formatted !== xUrl) setXUrl(formatted);
-                    update({ twitterUrl: formatted });
-                  }}
-                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                  onVerify={handleEnrichX}
-                  verifyLabel="Enrich"
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Role <span className="text-destructive">*</span>
+                </label>
+                <SmartCombobox
+                  value={state.title}
+                  onChange={(v) => update({ title: v })}
+                  options={ROLE_OPTIONS}
+                  placeholder="e.g. CEO & Co-Founder"
                 />
               </div>
-
-              <AnimatePresence>
-                {showSocialHint && !hasSocialProfile && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="text-[11px] text-destructive font-medium"
-                  >
-                    Add a LinkedIn or X profile for best results, or click "Proceed without syncing" below.
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              {url.trim() && (
-                <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
-                  <Sparkles className="h-3 w-3" />
-                  Magic Fill from LinkedIn
-                </Button>
-              )}
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+                <Input
+                  value={state.email}
+                  onChange={(e) => update({ email: e.target.value })}
+                  placeholder="jane@acme.com"
+                  type="email"
+                  className="rounded-lg h-9 text-sm"
+                />
+              </div>
             </div>
-          </motion.div>
-
-          {/* OAuth option */}
-          <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Linkedin className="h-4 w-4 text-[#0A66C2]" />
-              <span className="text-[10px] text-muted-foreground">One-click OAuth import</span>
-            </div>
-            <Button variant="outline" className="h-7 gap-1.5 text-[10px] px-3" size="sm" disabled>
-              Connect
-              <span className="text-[8px] bg-muted px-1 py-0.5 rounded text-muted-foreground">Soon</span>
-            </Button>
           </div>
-        </div>
-      )}
 
-      {!loading && (
-        <div className="flex flex-col items-center gap-3">
-          <Button
-            onClick={handleValidatedNext}
-            disabled={!canProceedBasic}
-            className="w-full max-w-lg gap-1.5 h-9 text-xs"
-            size="sm"
-          >
-            Continue <ArrowRight className="h-3 w-3" />
-          </Button>
+          <Separator className="w-full" />
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors underline underline-offset-2">
-                Proceed without syncing
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="top" className="w-72 p-4 space-y-2.5">
-              <p className="text-xs font-semibold text-foreground">Are you sure?</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Syncing your profile powers the <span className="font-medium text-foreground">recommendation &amp; network engine</span> and unlocks the true value of the app.
-              </p>
-              <p className="text-[10px] text-muted-foreground/70">
-                If you change your mind, you can do this later in Settings.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full h-7 text-[10px]"
-                onClick={onNext}
+          {loading ? (
+            <div className="w-full space-y-3 py-4">
+              <div className="flex items-center justify-center gap-3">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">Researching your background...</span>
+              </div>
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-8 rounded-lg bg-muted animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="w-full space-y-3">
+              {/* Social profiles card */}
+              <motion.div
+                animate={socialShake ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+                transition={{ duration: 0.4 }}
               >
-                Skip anyway
+                <div className={cn(
+                  "rounded-xl border bg-card p-4 space-y-3 transition-colors",
+                  showSocialHint && !hasSocialProfile ? "border-destructive/50" : "border-border"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Social Profiles <span className="text-destructive">*</span>
+                    </span>
+                    <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-xs">
+                        We extract your name, title, and experience to save you time. Nothing is shared.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <MorphingUrlInput
+                      platform="linkedin"
+                      label="LinkedIn"
+                      value={url}
+                      onChange={(v) => { setUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                      onBlur={() => {
+                        const formatted = formatSocialUrl("linkedin_personal", url);
+                        if (formatted !== url) setUrl(formatted);
+                        update({ linkedinUrl: formatted });
+                      }}
+                      verifyState="idle"
+                    />
+                    <MorphingUrlInput
+                      platform="x"
+                      label="X / Twitter"
+                      value={xUrl}
+                      onChange={(v) => { setXUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                      onBlur={() => {
+                        const formatted = formatSocialUrl("x", xUrl);
+                        if (formatted !== xUrl) setXUrl(formatted);
+                        update({ twitterUrl: formatted });
+                      }}
+                      verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                      onVerify={handleEnrichX}
+                      verifyLabel="Enrich"
+                    />
+                  </div>
+
+                  <AnimatePresence>
+                    {showSocialHint && !hasSocialProfile && (
+                      <motion.p
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="text-[11px] text-destructive font-medium"
+                      >
+                        Add a LinkedIn or X profile for best results, or click "Proceed without syncing" below.
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+
+                  {url.trim() && (
+                    <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
+                      <Sparkles className="h-3 w-3" />
+                      Magic Fill from LinkedIn
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* OAuth option */}
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Linkedin className="h-4 w-4 text-[#0A66C2]" />
+                  <span className="text-[10px] text-muted-foreground">One-click OAuth import</span>
+                </div>
+                <Button variant="outline" className="h-7 gap-1.5 text-[10px] px-3" size="sm" disabled>
+                  Connect
+                  <span className="text-[8px] bg-muted px-1 py-0.5 rounded text-muted-foreground">Soon</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!loading && (
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                onClick={handleValidatedNext}
+                disabled={!canProceedBasic}
+                className="w-full max-w-lg gap-1.5 h-9 text-xs"
+                size="sm"
+              >
+                Continue <ArrowRight className="h-3 w-3" />
               </Button>
-            </PopoverContent>
-          </Popover>
-        </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors underline underline-offset-2">
+                    Proceed without syncing
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-72 p-4 space-y-2.5">
+                  <p className="text-xs font-semibold text-foreground">Are you sure?</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Syncing your profile powers the <span className="font-medium text-foreground">recommendation &amp; network engine</span> and unlocks the true value of the app.
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70">
+                    If you change your mind, you can do this later in Settings.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-7 text-[10px]"
+                    onClick={onNext}
+                  >
+                    Skip anyway
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </>
       )}
     </motion.div>
   );
