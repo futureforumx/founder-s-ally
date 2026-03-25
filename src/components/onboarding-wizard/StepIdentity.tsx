@@ -37,6 +37,8 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [xUrl, setXUrl] = useState(state.twitterUrl);
   const [xSyncing, setXSyncing] = useState(false);
   const [xVerified, setXVerified] = useState(false);
+  const [socialShake, setSocialShake] = useState(false);
+  const [showSocialHint, setShowSocialHint] = useState(false);
 
   // Company search state
   const [companyQuery, setCompanyQuery] = useState(state.companyName || "");
@@ -99,18 +101,25 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   }, [user]);
 
   const hasSocialProfile = state.linkedinUrl.trim().length > 0 || state.twitterUrl.trim().length > 0;
-  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0 && hasSocialProfile;
+  const canProceedBasic = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
+  const canProceed = canProceedBasic && hasSocialProfile;
 
   const handleValidatedNext = () => {
-    if (!canProceed) {
+    if (!canProceedBasic) {
       const missing: string[] = [];
       if (!state.firstName.trim()) missing.push("First Name");
       if (!state.lastName.trim()) missing.push("Last Name");
       if (!state.title.trim()) missing.push("Role");
-      if (!hasSocialProfile) missing.push("LinkedIn or X profile");
       toast({ title: "Required fields", description: `Please fill in: ${missing.join(", ")}.`, variant: "destructive" });
       return;
     }
+    if (!hasSocialProfile) {
+      setSocialShake(true);
+      setShowSocialHint(true);
+      setTimeout(() => setSocialShake(false), 600);
+      return;
+    }
+    setShowSocialHint(false);
     onNext();
   };
 
@@ -325,59 +334,80 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       ) : (
         <div className="w-full space-y-3">
           {/* Social profiles card */}
-          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Linkedin className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Social Profiles <span className="text-destructive">*</span>
-              </span>
-              <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[220px] text-xs">
-                  We extract your name, title, and experience to save you time. Nothing is shared.
-                </TooltipContent>
-              </Tooltip>
-            </div>
+          <motion.div
+            animate={socialShake ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+            transition={{ duration: 0.4 }}
+          >
+            <div className={cn(
+              "rounded-xl border bg-card p-4 space-y-3 transition-colors",
+              showSocialHint && !hasSocialProfile ? "border-destructive/50" : "border-border"
+            )}>
+              <div className="flex items-center gap-2">
+                <Linkedin className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Social Profiles <span className="text-destructive">*</span>
+                </span>
+                <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-xs">
+                    We extract your name, title, and experience to save you time. Nothing is shared.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <MorphingUrlInput
-                platform="linkedin"
-                label="LinkedIn"
-                value={url}
-                onChange={(v) => setUrl(v)}
-                onBlur={() => {
-                  const formatted = formatSocialUrl("linkedin_personal", url);
-                  if (formatted !== url) setUrl(formatted);
-                  update({ linkedinUrl: formatted });
-                }}
-                verifyState="idle"
-              />
-              <MorphingUrlInput
-                platform="x"
-                label="X / Twitter"
-                value={xUrl}
-                onChange={(v) => setXUrl(v)}
-                onBlur={() => {
-                  const formatted = formatSocialUrl("x", xUrl);
-                  if (formatted !== xUrl) setXUrl(formatted);
-                  update({ twitterUrl: formatted });
-                }}
-                verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                onVerify={handleEnrichX}
-                verifyLabel="Enrich"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <MorphingUrlInput
+                  platform="linkedin"
+                  label="LinkedIn"
+                  value={url}
+                  onChange={(v) => { setUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                  onBlur={() => {
+                    const formatted = formatSocialUrl("linkedin_personal", url);
+                    if (formatted !== url) setUrl(formatted);
+                    update({ linkedinUrl: formatted });
+                  }}
+                  verifyState="idle"
+                />
+                <MorphingUrlInput
+                  platform="x"
+                  label="X / Twitter"
+                  value={xUrl}
+                  onChange={(v) => { setXUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                  onBlur={() => {
+                    const formatted = formatSocialUrl("x", xUrl);
+                    if (formatted !== xUrl) setXUrl(formatted);
+                    update({ twitterUrl: formatted });
+                  }}
+                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                  onVerify={handleEnrichX}
+                  verifyLabel="Enrich"
+                />
+              </div>
 
-            {url.trim() && (
-              <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
-                <Sparkles className="h-3 w-3" />
-                Magic Fill from LinkedIn
-              </Button>
-            )}
-          </div>
+              <AnimatePresence>
+                {showSocialHint && !hasSocialProfile && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-[11px] text-destructive font-medium"
+                  >
+                    Add a LinkedIn or X profile for best results, or click "Proceed without syncing" below.
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              {url.trim() && (
+                <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
+                  <Sparkles className="h-3 w-3" />
+                  Magic Fill from LinkedIn
+                </Button>
+              )}
+            </div>
+          </motion.div>
 
           {/* OAuth option */}
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-2.5 flex items-center justify-between">
@@ -397,7 +427,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
         <div className="flex flex-col items-center gap-3">
           <Button
             onClick={handleValidatedNext}
-            disabled={!canProceed}
+            disabled={!canProceedBasic}
             className="w-full max-w-lg gap-1.5 h-9 text-xs"
             size="sm"
           >
