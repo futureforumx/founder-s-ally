@@ -32,16 +32,18 @@ const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>(() => {
     try {
       const postView = localStorage.getItem("post-onboarding-view");
-      if (postView === "settings") {
-        localStorage.removeItem("post-onboarding-view");
-        return "settings";
-      }
+      if (postView === "settings") return "settings";
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
     } catch {}
     return "dashboard";
   });
+
+  // Clean up the one-shot localStorage flag after mount
+  useEffect(() => {
+    try { localStorage.removeItem("post-onboarding-view"); } catch {}
+  }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
