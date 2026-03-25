@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Activity, Wifi, ScrollText, Brain } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger } from "@/components/admin/AdminAiDebugger";
 import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
-import { Users } from "lucide-react";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
@@ -22,8 +22,26 @@ type AdminView = (typeof NAV_ITEMS)[number]["key"];
 export default function AdminIntelligence() {
   const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState<AdminView>("overview");
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { setAuthorized(false); return; }
+    const legacyAdmin = user.user_metadata?.role === "admin";
+    if (legacyAdmin) { setAuthorized(true); return; }
+    
+    supabase
+      .from("user_roles")
+      .select("permission")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const perm = (data as any)?.permission;
+        setAuthorized(perm === "admin" || perm === "god");
+      });
+  }, [user, loading]);
+
+  if (loading || authorized === null) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
         <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
@@ -31,15 +49,12 @@ export default function AdminIntelligence() {
     );
   }
 
-  // RBAC: Only admins allowed (checks user_metadata.role set via Settings)
-  const role = user?.user_metadata?.role;
-  if (!user || role !== "admin") {
+  if (!user || !authorized) {
     return <Navigate to="/" replace />;
   }
 
   return (
     <div className="flex h-screen font-sans" style={{ background: "#050505", color: "#e0e0e0" }}>
-      {/* Admin Sidebar */}
       <aside
         className="flex w-52 shrink-0 flex-col border-r py-6 px-3"
         style={{ borderColor: "rgba(255,255,255,0.06)", background: "#080808" }}
@@ -84,7 +99,6 @@ export default function AdminIntelligence() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8">
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
