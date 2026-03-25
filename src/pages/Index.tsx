@@ -29,13 +29,15 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 
 const Index = () => {
   const capTable = useCapTable();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const viewParamProcessed = useRef(false);
   const [activeView, setActiveView] = useState<ViewType>(() => {
     try {
+      const postView = localStorage.getItem("post-onboarding-view");
+      if (postView === "settings") {
+        localStorage.removeItem("post-onboarding-view");
+        return "settings";
+      }
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
-      console.log("[Index] init activeView, window.location.search:", window.location.search, "view:", view);
       if (view === "settings") return "settings";
     } catch {}
     return "dashboard";
@@ -67,20 +69,6 @@ const Index = () => {
   });
   const [showTerminal, setShowTerminal] = useState(false);
   const [profileKey, setProfileKey] = useState(0);
-
-  // Handle ?view=settings from onboarding redirect
-  useEffect(() => {
-    if (viewParamProcessed.current) return;
-    const view = searchParams.get("view");
-    if (view === "settings") {
-      viewParamProcessed.current = true;
-      setActiveView("settings");
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete("view");
-      newParams.delete("tour");
-      setSearchParams(newParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
