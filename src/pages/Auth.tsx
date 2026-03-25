@@ -194,6 +194,13 @@ export default function Auth() {
             </button>
           </div>
 
+          <div className="pt-2 text-center text-xs text-slate-500">
+            Our privacy standards are worldclass. Find them{" "}
+            <a href="https://TRYVEKTA.COM/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-cyan-400 hover:text-cyan-300 transition-colors underline">
+              here
+            </a>.
+          </div>
+
           {/* Terms - Only for signup */}
           {mode === "signup" && (
             <p className="text-xs text-center text-slate-500">
