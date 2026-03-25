@@ -94,11 +94,21 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     update({ companyName: "" });
   };
 
-  // Pre-fill email from auth user
+  // Pre-fill from auth metadata
   useEffect(() => {
-    if (user?.email && !state.email) {
-      update({ email: user.email });
+    if (!user) return;
+    const meta = user.user_metadata || {};
+    const updates: Partial<OnboardingState> = {};
+    if (user.email && !state.email) updates.email = user.email;
+    if (meta.first_name && !state.firstName) {
+      updates.firstName = meta.first_name;
+      updates.fullName = [meta.first_name, meta.last_name].filter(Boolean).join(" ");
     }
+    if (meta.last_name && !state.lastName) {
+      updates.lastName = meta.last_name;
+      updates.fullName = [meta.first_name || state.firstName, meta.last_name].filter(Boolean).join(" ");
+    }
+    if (Object.keys(updates).length > 0) update(updates);
   }, [user]);
 
   const hasSocialProfile = state.linkedinUrl.trim().length > 0 || state.twitterUrl.trim().length > 0;
