@@ -36,6 +36,7 @@ const Index = () => {
     try {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
+      console.log("[Index] init activeView, window.location.search:", window.location.search, "view:", view);
       if (view === "settings") return "settings";
     } catch {}
     return "dashboard";
