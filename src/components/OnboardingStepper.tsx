@@ -20,9 +20,21 @@ interface OnboardingStepperProps {
 }
 
 export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
+  // Read any pre-seeded company data from the onboarding wizard
+  const seed = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("pending-company-seed");
+      if (raw) {
+        localStorage.removeItem("pending-company-seed");
+        return JSON.parse(raw);
+      }
+    } catch {}
+    return null;
+  }, []);
+
   const [step, setStep] = useState(1);
-  const [website, setWebsite] = useState("");
-  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState(seed?.websiteUrl || "");
+  const [companyName, setCompanyName] = useState(seed?.companyName || "");
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState("");
   const [stage, setStage] = useState("");
