@@ -7,6 +7,7 @@ import { normalizeSector } from "@/components/company-profile/sectorNormalizatio
 import { SmartSelect } from "@/components/onboarding/SmartSelect";
 import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
+import { useEffect } from "react";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
@@ -48,6 +49,56 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     return "";
   });
   const [companyName, setCompanyName] = useState(seed?.companyName || "");
+  const [aiGuessedFields, setAiGuessedFields] = useState<string[]>(seed?.aiGuessed || []);
+  
+  useEffect(() => {
+    // Attempt to AI-guess the URL if company name is known but website is empty
+    if (companyName && !website && step === 1 && !isProcessing) {
+      const guessUrl = async () => {
+        setIsProcessing(true);
+        setProcessStep("AI is finding your company website...");
+        try {
+          // First attempt to use Gemini if the API key is present
+          const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          if (geminiKey) {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: `What is the primary commercial website URL for the software/tech company named "${companyName}"? Return ONLY the raw URL starting with https:// and nothing else.` }] }]
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+              if (text && text.startsWith("http")) {
+                setWebsite(text);
+                setAiGuessedFields(prev => Array.from(new Set([...prev, 'websiteUrl'])));
+                return;
+              }
+            }
+          }
+          
+          // Fallback to Clearbit's reliable autocomplete
+          const bgRes = await fetch(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(companyName)}`);
+          if (bgRes.ok) {
+            const bgData = await bgRes.json();
+            if (bgData && bgData.length > 0) {
+              setWebsite(`https://${bgData[0].domain}`);
+              setAiGuessedFields(prev => Array.from(new Set([...prev, 'websiteUrl'])));
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to guess website URL", e);
+        } finally {
+          setIsProcessing(false);
+          setProcessStep("");
+        }
+      };
+      
+      guessUrl();
+    }
+  }, [companyName, website, step]); // Intentionally omitting isProcessing to avoid loop 
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState(seed?.deckText || "");
   const [stage, setStage] = useState(seed?.stage || "");
@@ -342,7 +393,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
             {/* Header */}
             <div className="border-b border-border px-6 py-4">
-              <h2 className="text-base font-semibold text-foreground">Welcome to Founder Copilot</h2>
+              <h2 className="text-base font-semibold text-foreground">Welcome to Vekta. Let's sync your company.</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Let's set up your company profile in 3 quick steps</p>
             </div>
 
@@ -371,17 +422,17 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                 <>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Company Name *</label>
-                    <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)}
+                    <input type="text" value={companyName} onChange={(e) => { setCompanyName(e.target.value); setAiGuessedFields(prev => prev.filter(f => f !== 'companyName')); }}
                       placeholder="Acme Corp" maxLength={100}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                      className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${aiGuessedFields.includes('companyName') ? 'text-purple-400' : 'text-foreground'}`} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                      <Globe className="inline h-3 w-3 mr-1" />Website URL
+                      <Globe className="inline h-3 w-3 mr-1" />Website URL *
                     </label>
-                    <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)}
+                    <input type="url" value={website} onChange={(e) => { setWebsite(e.target.value); setAiGuessedFields(prev => prev.filter(f => f !== 'websiteUrl')); }}
                       placeholder="https://yourcompany.com"
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                      className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors ${aiGuessedFields.includes('websiteUrl') ? 'text-purple-400' : 'text-foreground'}`} />
                     <p className="text-[10px] text-muted-foreground">We'll scan your site for value prop, pricing, and positioning</p>
                   </div>
                 </>
@@ -508,8 +559,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                   <Button variant="outline" size="sm" onClick={() => setStep(step - 1)}>Back</Button>
                 )}
                 {step === 1 && (
-                  <Button size="sm" disabled={!companyName.trim() || isProcessing} onClick={() => {
-                    if (website.trim()) { scrapeWebsite(); } else { runPredictiveFetch(); setStep(2); }
+                  <Button size="sm" disabled={!companyName.trim() || !website.trim() || isProcessing} onClick={() => {
+                    scrapeWebsite();
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                     {isProcessing ? processStep : "Continue"}

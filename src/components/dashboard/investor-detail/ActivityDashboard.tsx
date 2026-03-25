@@ -20,6 +20,7 @@ interface DealMonth {
 interface RecentDeal {
   company: string;
   initial: string;
+  domain?: string;
   description: string;
   amount: string;
   stage: string;
@@ -49,10 +50,10 @@ const DEAL_MONTHS: DealMonth[] = [
 ];
 
 const RECENT_DEALS: RecentDeal[] = [
-  { company: "NovaBuild", initial: "N", description: "B2B SaaS for Construction", amount: "$4M", stage: "Seed", role: "Led Round", date: "Mar 2026", sector: "PropTech" },
-  { company: "Synthara Bio", initial: "S", description: "AI drug discovery platform", amount: "$12M", stage: "Series A", role: "Co-led", date: "Feb 2026", sector: "Biotech" },
-  { company: "GridShift", initial: "G", description: "Smart grid optimization", amount: "$8M", stage: "Series A", role: "Led Round", date: "Jan 2026", sector: "Climate" },
-  { company: "CodeVault", initial: "C", description: "Developer security tooling", amount: "$1.5M", stage: "Pre-Seed", role: "Participated", date: "Dec 2025", sector: "DevTools" },
+  { company: "NovaBuild", initial: "N", domain: "procore.com", description: "B2B SaaS for Construction", amount: "$4M", stage: "Seed", role: "Led Round", date: "Mar 2026", sector: "PropTech" },
+  { company: "Synthara Bio", initial: "S", domain: "modernatx.com", description: "AI drug discovery platform", amount: "$12M", stage: "Series A", role: "Co-led", date: "Feb 2026", sector: "Biotech" },
+  { company: "GridShift", initial: "G", domain: "tesla.com", description: "Smart grid optimization", amount: "$8M", stage: "Series A", role: "Led Round", date: "Jan 2026", sector: "Climate" },
+  { company: "CodeVault", initial: "C", domain: "github.com", description: "Developer security tooling", amount: "$1.5M", stage: "Pre-Seed", role: "Participated", date: "Dec 2025", sector: "DevTools" },
 ];
 
 type SortField = "date" | "stage" | "sector";
@@ -440,9 +441,22 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
           {sortedDeals.map((deal) => {
             const sectorMatch = companySector && deal.sector.toLowerCase().includes(companySector.toLowerCase());
             return (
-              <div key={deal.company} className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0">
-                  {deal.initial}
+              <div key={deal.company} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0 overflow-hidden">
+                  <img 
+                    src={`https://logo.clearbit.com/${deal.domain || 'example.com'}`} 
+                    alt={deal.company}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const parent = (e.target as HTMLImageElement).parentElement;
+                      if (parent) {
+                        const span = document.createElement('span');
+                        span.textContent = deal.initial;
+                        parent.appendChild(span);
+                      }
+                    }}
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">

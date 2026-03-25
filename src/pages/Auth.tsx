@@ -12,14 +12,50 @@ export default function Auth() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [accountType, setAccountType] = useState<"company" | "personal">("company");
   const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [aiGuessedCompany, setAiGuessedCompany] = useState(false);
+  const [aiGuessedWebsite, setAiGuessedWebsite] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) navigate("/", { replace: true });
   }, [user, authLoading, navigate]);
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setEmail(val);
+    
+    if (!aiGuessedCompany && companyName.length > 0) return;
+    if (!aiGuessedWebsite && websiteUrl.length > 0) return;
+    
+    const parts = val.split('@');
+    if (parts.length === 2 && parts[1].includes('.')) {
+      const domain = parts[1];
+      const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'me.com', 'mac.com'];
+      if (!genericDomains.includes(domain.toLowerCase()) && domain.length > 3) {
+        const namePart = domain.split('.')[0];
+        const guessedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        
+        if (!companyName || aiGuessedCompany) {
+           setCompanyName(guessedName);
+           setAiGuessedCompany(true);
+        }
+        if (!websiteUrl || aiGuessedWebsite) {
+           setWebsiteUrl(`https://${domain}`);
+           setAiGuessedWebsite(true);
+        }
+      } else {
+        if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
+        if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
+      }
+    } else {
+      if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
+      if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +64,18 @@ export default function Auth() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        
+        if (companyName || websiteUrl) {
+          const aiGuessed: string[] = [];
+          if (aiGuessedCompany) aiGuessed.push('companyName');
+          if (aiGuessedWebsite) aiGuessed.push('websiteUrl');
+          localStorage.setItem("pending-company-seed", JSON.stringify({
+            companyName: companyName,
+            websiteUrl: websiteUrl,
+            aiGuessed: aiGuessed
+          }));
+        }
+        
         toast.success("Account created! Let's set up your profile.");
         navigate("/onboarding", { replace: true });
       } else {
@@ -94,47 +142,25 @@ export default function Auth() {
             </div>
           )}
 
-          {/* Account Type - Only for signup */}
-          {mode === "signup" && (
-            <div className="space-y-3 pb-4">
-              <p className="text-sm font-medium text-slate-200">Account type</p>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant={accountType === "company" ? "default" : "outline"}
-                  className={`flex-1 h-11 ${
-                    accountType === "company"
-                      ? "bg-slate-700 hover:bg-slate-600 text-slate-50 border-slate-600"
-                      : "border-slate-700 text-slate-400 hover:bg-slate-800/50"
-                  }`}
-                  onClick={() => setAccountType("company")}
-                >
-                  Company
-                </Button>
-                <Button
-                  type="button"
-                  variant={accountType === "personal" ? "default" : "outline"}
-                  className={`flex-1 h-11 ${
-                    accountType === "personal"
-                      ? "bg-slate-700 hover:bg-slate-600 text-slate-50 border-slate-600"
-                      : "border-slate-700 text-slate-400 hover:bg-slate-800/50"
-                  }`}
-                  onClick={() => setAccountType("personal")}
-                >
-                  Personal
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-3">
+              {mode === "signup" && (
+                <Input
+                  type="text"
+                  placeholder="Company Name"
+                  value={companyName}
+                  onChange={(e) => { setCompanyName(e.target.value); setAiGuessedCompany(false); }}
+                  required
+                  className={`h-11 text-base bg-slate-800 border-slate-700 placeholder-slate-500 transition-colors ${aiGuessedCompany ? 'text-purple-400' : 'text-slate-50'}`}
+                  autoComplete="organization"
+                />
+              )}
               <Input
                 type="email"
                 placeholder={mode === "signup" ? "your@company.com" : "you@company.com"}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 required
                 className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
                 autoComplete="email"

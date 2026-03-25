@@ -425,8 +425,26 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       setBio(profile.bio || "");
       setLocation(profile.location || "");
       setUserType(profile.user_type || "founder");
-      setLinkedinUrl(profile.linkedin_url || "");
-      setTwitterUrl(profile.twitter_url || "");
+      
+      let initialLiUrl = profile.linkedin_url || "";
+      let initialTwUrl = profile.twitter_url || "";
+      try {
+        const stored = localStorage.getItem("onboarding-wizard-state");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (!initialLiUrl && parsed.linkedinUrl) initialLiUrl = parsed.linkedinUrl;
+          if (!initialTwUrl && parsed.twitterUrl) initialTwUrl = parsed.twitterUrl;
+        }
+      } catch {}
+
+      setLinkedinUrl(initialLiUrl);
+      setTwitterUrl(initialTwUrl);
+
+      if ((!profile.linkedin_url && initialLiUrl) || (!profile.twitter_url && initialTwUrl)) {
+        setTimeout(() => {
+          try { saveImmediate({ linkedinUrl: initialLiUrl, twitterUrl: initialTwUrl }); } catch {}
+        }, 1500);
+      }
       if (profile.resume_url) {
         setResumeUrl(profile.resume_url);
         // Extract filename from URL
