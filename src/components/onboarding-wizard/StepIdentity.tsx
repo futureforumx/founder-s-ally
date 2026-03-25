@@ -101,18 +101,25 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   }, [user]);
 
   const hasSocialProfile = state.linkedinUrl.trim().length > 0 || state.twitterUrl.trim().length > 0;
-  const canProceed = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0 && hasSocialProfile;
+  const canProceedBasic = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
+  const canProceed = canProceedBasic && hasSocialProfile;
 
   const handleValidatedNext = () => {
-    if (!canProceed) {
+    if (!canProceedBasic) {
       const missing: string[] = [];
       if (!state.firstName.trim()) missing.push("First Name");
       if (!state.lastName.trim()) missing.push("Last Name");
       if (!state.title.trim()) missing.push("Role");
-      if (!hasSocialProfile) missing.push("LinkedIn or X profile");
       toast({ title: "Required fields", description: `Please fill in: ${missing.join(", ")}.`, variant: "destructive" });
       return;
     }
+    if (!hasSocialProfile) {
+      setSocialShake(true);
+      setShowSocialHint(true);
+      setTimeout(() => setSocialShake(false), 600);
+      return;
+    }
+    setShowSocialHint(false);
     onNext();
   };
 
