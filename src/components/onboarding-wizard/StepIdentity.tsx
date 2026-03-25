@@ -334,59 +334,80 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       ) : (
         <div className="w-full space-y-3">
           {/* Social profiles card */}
-          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Linkedin className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Social Profiles <span className="text-destructive">*</span>
-              </span>
-              <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[220px] text-xs">
-                  We extract your name, title, and experience to save you time. Nothing is shared.
-                </TooltipContent>
-              </Tooltip>
-            </div>
+          <motion.div
+            animate={socialShake ? { x: [0, -6, 6, -4, 4, 0] } : {}}
+            transition={{ duration: 0.4 }}
+          >
+            <div className={cn(
+              "rounded-xl border bg-card p-4 space-y-3 transition-colors",
+              showSocialHint && !hasSocialProfile ? "border-destructive/50" : "border-border"
+            )}>
+              <div className="flex items-center gap-2">
+                <Linkedin className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Social Profiles <span className="text-destructive">*</span>
+                </span>
+                <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-xs">
+                    We extract your name, title, and experience to save you time. Nothing is shared.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <MorphingUrlInput
-                platform="linkedin"
-                label="LinkedIn"
-                value={url}
-                onChange={(v) => setUrl(v)}
-                onBlur={() => {
-                  const formatted = formatSocialUrl("linkedin_personal", url);
-                  if (formatted !== url) setUrl(formatted);
-                  update({ linkedinUrl: formatted });
-                }}
-                verifyState="idle"
-              />
-              <MorphingUrlInput
-                platform="x"
-                label="X / Twitter"
-                value={xUrl}
-                onChange={(v) => setXUrl(v)}
-                onBlur={() => {
-                  const formatted = formatSocialUrl("x", xUrl);
-                  if (formatted !== xUrl) setXUrl(formatted);
-                  update({ twitterUrl: formatted });
-                }}
-                verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                onVerify={handleEnrichX}
-                verifyLabel="Enrich"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <MorphingUrlInput
+                  platform="linkedin"
+                  label="LinkedIn"
+                  value={url}
+                  onChange={(v) => { setUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                  onBlur={() => {
+                    const formatted = formatSocialUrl("linkedin_personal", url);
+                    if (formatted !== url) setUrl(formatted);
+                    update({ linkedinUrl: formatted });
+                  }}
+                  verifyState="idle"
+                />
+                <MorphingUrlInput
+                  platform="x"
+                  label="X / Twitter"
+                  value={xUrl}
+                  onChange={(v) => { setXUrl(v); if (showSocialHint) setShowSocialHint(false); }}
+                  onBlur={() => {
+                    const formatted = formatSocialUrl("x", xUrl);
+                    if (formatted !== xUrl) setXUrl(formatted);
+                    update({ twitterUrl: formatted });
+                  }}
+                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                  onVerify={handleEnrichX}
+                  verifyLabel="Enrich"
+                />
+              </div>
 
-            {url.trim() && (
-              <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
-                <Sparkles className="h-3 w-3" />
-                Magic Fill from LinkedIn
-              </Button>
-            )}
-          </div>
+              <AnimatePresence>
+                {showSocialHint && !hasSocialProfile && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-[11px] text-destructive font-medium"
+                  >
+                    Add a LinkedIn or X profile for best results, or click "Proceed without syncing" below.
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              {url.trim() && (
+                <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
+                  <Sparkles className="h-3 w-3" />
+                  Magic Fill from LinkedIn
+                </Button>
+              )}
+            </div>
+          </motion.div>
 
           {/* OAuth option */}
           <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-2.5 flex items-center justify-between">
