@@ -58,6 +58,7 @@ function formatFileSize(bytes: number): string {
 export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
