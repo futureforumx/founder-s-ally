@@ -24,13 +24,16 @@ const queryClient = new QueryClient({
   },
 });
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(DEMO_MODE);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     if (!user) { setOnboardingChecked(true); return; }
     setOnboardingChecked(false);
     supabase
