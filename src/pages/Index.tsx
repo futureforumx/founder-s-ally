@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -30,14 +30,20 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 const Index = () => {
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>(() => {
-    // Check if redirected from onboarding with ?view=settings
     try {
+      const postView = localStorage.getItem("post-onboarding-view");
+      if (postView === "settings") return "settings";
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
     } catch {}
     return "dashboard";
   });
+
+  // Clean up the one-shot localStorage flag after mount
+  useEffect(() => {
+    try { localStorage.removeItem("post-onboarding-view"); } catch {}
+  }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
