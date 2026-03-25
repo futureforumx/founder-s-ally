@@ -41,6 +41,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       .then(({ data }) => {
         setNeedsOnboarding(!data);
         setOnboardingChecked(true);
+      })
+      .catch(() => {
+        // Without this, a failed request (network, RLS, misconfigured env) spins forever.
+        setNeedsOnboarding(false);
+        setOnboardingChecked(true);
       });
   }, [user]);
 
