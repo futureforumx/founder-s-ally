@@ -28,7 +28,10 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [stage, setStage] = useState("");
   const [sector, setSector] = useState("");
   const [mrr, setMrr] = useState("");
+  const [momGrowth, setMomGrowth] = useState("");
+  const [burnRate, setBurnRate] = useState("");
   const [headcount, setHeadcount] = useState("");
+  const [metricMode, setMetricMode] = useState<"monthly" | "annual">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStep, setProcessStep] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -93,12 +96,19 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
         body: { url: website.trim() },
       });
-      if (scrapeError) throw scrapeError;
-      setWebsiteScraped(true);
+      if (scrapeError) {
+        // Non-blocking: scrape failed but let the user continue
+        console.warn("Website scrape failed, continuing:", scrapeError);
+      } else {
+        setWebsiteScraped(true);
+      }
       runPredictiveFetch();
       setStep(2);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to scrape website");
+      // Still allow the user to proceed even if scraping fails
+      console.warn("Website scrape error, continuing:", e);
+      runPredictiveFetch();
+      setStep(2);
     } finally {
       setIsProcessing(false);
       setProcessStep("");
@@ -147,6 +157,29 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         websiteMarkdown = data?.markdown || "";
       }
 
+      // Skip AI analysis if there's no content to analyze
+      if (!websiteMarkdown && !deckText) {
+        setAnalysisResult({
+          healthScore: 0,
+          executiveSummary: "",
+          header: "",
+          valueProposition: "",
+          metricTable: [],
+          metrics: {
+            mrr: { value: "", confidence: "low" },
+            burnRate: { value: "", confidence: "low" },
+            runway: { value: "", confidence: "low" },
+            ltv: { value: "", confidence: "low" },
+            cac: { value: "", confidence: "low" },
+          },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
+        } as AnalysisResult);
+        setStep(3);
+        return;
+      }
+
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
         body: { websiteText: websiteMarkdown, deckText, companyName, stage, sector },
       });
@@ -171,6 +204,10 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
       if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
       const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
       if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
+      const burnVal = analysisData?.metrics?.burnRate?.value;
+      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
+      const momVal = analysisData?.aiExtracted?.momGrowth;
+      if (momVal && momVal !== "null") setMomGrowth(momVal);
       setStep(3);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -210,7 +247,8 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
         totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
         socialTwitter: "", socialLinkedin: "", socialInstagram: "",
-        burnRate: "", nrr: "", cac: "", ltv: "", momGrowth: "",
+        burnRate: sanitize(burnRate), nrr: "", cac: "", ltv: "",
+        momGrowth: sanitize(momGrowth),
       };
       if (analysisResult) {
         onComplete(company, {
@@ -218,7 +256,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
           metrics: {
             ...analysisResult.metrics,
             mrr: { value: sanitize(mrr) || sanitize(analysisResult.metrics.mrr.value), confidence: "high" },
-            burnRate: { value: sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
+            burnRate: { value: sanitize(burnRate) || sanitize(analysisResult.metrics.burnRate.value), confidence: "high" },
           },
         });
       }
@@ -332,33 +370,83 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
               {step === 3 && (
                 <>
-                  <p className="text-xs text-muted-foreground">Confirm the metrics AI extracted. You can edit any value below.</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <SmartSelect
-                      label="Stage *"
-                      value={stage}
-                      onChange={setStage}
-                      options={stages}
-                      predictedValue={predictedStage}
-                    />
-                    <SectorCombobox
-                      value={sector}
-                      onChange={setSector}
-                      predictedValue={predictedSector}
-                    />
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">MRR</label>
-                      <input type="text" value={mrr} onChange={(e) => setMrr(e.target.value)}
-                        placeholder="e.g. $50K"
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Headcount</label>
-                      <input type="text" value={headcount} onChange={(e) => setHeadcount(e.target.value)}
-                        placeholder="e.g. 25"
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
-                    </div>
-                  </div>
+                   <p className="text-xs text-muted-foreground">Confirm the metrics AI extracted. You can edit any value below.</p>
+                   <div className="grid grid-cols-2 gap-3">
+                     <SmartSelect
+                       label="Stage *"
+                       value={stage}
+                       onChange={setStage}
+                       options={stages}
+                       predictedValue={predictedStage}
+                     />
+                     <SectorCombobox
+                       value={sector}
+                       onChange={setSector}
+                       predictedValue={predictedSector}
+                     />
+                   </div>
+
+                   {/* Financials section */}
+                   <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+                     <div className="flex items-center justify-between">
+                       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-bold">Financials</span>
+                       <div className="flex rounded-lg border border-border overflow-hidden text-[10px] font-medium">
+                         <button
+                           type="button"
+                           onClick={() => setMetricMode("monthly")}
+                           className={`px-3 py-1 transition-colors ${metricMode === "monthly" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                         >Monthly</button>
+                         <button
+                           type="button"
+                           onClick={() => setMetricMode("annual")}
+                           className={`px-3 py-1 transition-colors ${metricMode === "annual" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                         >Annual</button>
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-3 gap-3">
+                       <div className="space-y-1.5">
+                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                           {metricMode === "monthly" ? "MRR" : "ARR"}
+                         </label>
+                         <div className="relative">
+                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                           <input type="text" value={mrr} onChange={(e) => setMrr(e.target.value)}
+                             placeholder={metricMode === "monthly" ? "e.g. 50K" : "e.g. 600K"}
+                             className="w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                         </div>
+                       </div>
+                       <div className="space-y-1.5">
+                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                           {metricMode === "monthly" ? "MoM Growth" : "YoY Growth"}
+                         </label>
+                         <div className="relative">
+                           <input type="text" value={momGrowth} onChange={(e) => setMomGrowth(e.target.value)}
+                             placeholder="e.g. 8"
+                             className="w-full rounded-lg border border-input bg-background px-3 py-2 pr-7 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                         </div>
+                       </div>
+                       <div className="space-y-1.5">
+                         <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                           {metricMode === "monthly" ? "Monthly Burn" : "Annual Burn"}
+                         </label>
+                         <div className="relative">
+                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                           <input type="text" value={burnRate} onChange={(e) => setBurnRate(e.target.value)}
+                             placeholder={metricMode === "monthly" ? "e.g. 50K" : "e.g. 600K"}
+                             className="w-full rounded-lg border border-input bg-background pl-7 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* Headcount */}
+                   <div className="space-y-1.5">
+                     <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Headcount</label>
+                     <input type="text" value={headcount} onChange={(e) => setHeadcount(e.target.value)}
+                       placeholder="e.g. 25"
+                       className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30" />
+                   </div>
                   {analysisResult?.healthScore && (
                     <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
                       <Check className="h-4 w-4 text-success" />

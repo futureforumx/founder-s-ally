@@ -8,6 +8,16 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+const BRAND_ICONS: Record<string, string> = {
+  google: "https://cdn.simpleicons.org/google/4285F4",
+  linkedin: "https://cdn.simpleicons.org/linkedin/0A66C2",
+  notion: "https://cdn.simpleicons.org/notion/FFFFFF",
+  stripe: "https://cdn.simpleicons.org/stripe/635BFF",
+  angellist: "https://cdn.simpleicons.org/angellist/FFFFFF",
+  hubspot: "https://cdn.simpleicons.org/hubspot/FF7A59",
+  attio: "https://www.google.com/s2/favicons?domain=attio.com&sz=128",
+};
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import type { OnboardingState } from "./types";
@@ -123,6 +133,25 @@ function SparklinePulse() {
   );
 }
 
+// ── Google-safe Brand Icon with hard fallback ──
+function GoogleSafeBrandIcon({ displayIcon, sensorName, isGoogleSensor, FallbackIcon }: {
+  displayIcon: string; sensorName: string; isGoogleSensor: boolean; FallbackIcon: React.ElementType;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed && isGoogleSensor) {
+    return (
+      <div className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
+        style={{ backgroundColor: "hsl(217 89% 61%)", color: "white" }}>G</div>
+    );
+  }
+  if (failed) return <FallbackIcon className="h-3.5 w-3.5 text-white/40" />;
+  return (
+    <img src={displayIcon} alt={sensorName}
+      className="h-4 w-4 object-contain transition-transform hover:scale-110"
+      onError={() => setFailed(true)} />
+  );
+}
+
 // ── Compact Sensor Card (tighter for two-column layout) ──
 function SensorCard({
   sensor, connected, syncing, syncMessage, onConnect, index,
@@ -179,7 +208,23 @@ function SensorCard({
               ? <Check className="h-3.5 w-3.5 text-emerald-400" />
               : syncing
               ? <Loader2 className="h-3.5 w-3.5 text-white/40 animate-spin" />
-              : <sensor.icon className="h-3.5 w-3.5 text-white/40" />
+              : (() => {
+                const isGoogleSensor = sensor.id === "google" || sensor.name?.toLowerCase().includes("google");
+                const displayIcon = isGoogleSensor
+                  ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                  : BRAND_ICONS[sensor.id];
+                console.log("[PowerUp] Rendering sensor:", sensor.name, "with icon:", displayIcon);
+                return displayIcon ? (
+                  <GoogleSafeBrandIcon
+                    displayIcon={displayIcon}
+                    sensorName={sensor.name}
+                    isGoogleSensor={!!isGoogleSensor}
+                    FallbackIcon={sensor.icon}
+                  />
+                ) : (
+                  <sensor.icon className="h-3.5 w-3.5 text-white/40" />
+                );
+              })()
             }
           </div>
           {connected && (

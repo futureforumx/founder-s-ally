@@ -32,14 +32,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) { setOnboardingChecked(true); return; }
-    // Check if user has a profile (created during onboarding)
+    setOnboardingChecked(false);
     supabase
       .from("profiles")
-      .select("id")
+      .select("id, has_completed_onboarding")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setNeedsOnboarding(!data);
+        const completed = (data as any)?.has_completed_onboarding === true;
+        setNeedsOnboarding(!data || !completed);
         setOnboardingChecked(true);
       })
       .catch(() => {
@@ -47,7 +48,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         setNeedsOnboarding(false);
         setOnboardingChecked(true);
       });
-  }, [user]);
+  }, [user, location.pathname]);
 
   if (loading || !onboardingChecked) {
     return (
@@ -57,9 +58,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
-  // Redirect new users to onboarding (unless already there)
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
+  }
+  // Prevent completed users from seeing onboarding again
+  if (!needsOnboarding && location.pathname === "/onboarding") {
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }

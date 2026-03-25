@@ -10,21 +10,21 @@ import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
-import { StepPowerUp } from "./StepPowerUp";
+
 import { toast } from "@/hooks/use-toast";
 
 // ── AI field guessing helpers ──
 function guessBusinessModel(sector: string): string[] {
   const s = sector.toLowerCase();
-  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["SaaS"];
+  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["B2B SaaS"];
   if (s.includes("marketplace") || s.includes("e-commerce")) return ["Marketplace"];
-  if (s.includes("fintech") || s.includes("insurtech")) return ["SaaS", "Usage-Based"];
-  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["SaaS"];
-  if (s.includes("edtech")) return ["SaaS", "Freemium"];
+  if (s.includes("fintech") || s.includes("insurtech")) return ["B2B SaaS", "Usage-Based"];
+  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["B2B SaaS"];
+  if (s.includes("edtech")) return ["B2B SaaS", "Freemium"];
   if (s.includes("cleantech") || s.includes("hardware") || s.includes("robotics")) return ["Hardware"];
-  if (s.includes("ai") || s.includes("ml")) return ["SaaS", "Usage-Based"];
+  if (s.includes("ai") || s.includes("ml")) return ["B2B SaaS", "Usage-Based"];
   if (s.includes("gaming")) return ["Freemium"];
-  if (s.includes("media") || s.includes("adtech")) return ["SaaS"];
+  if (s.includes("media") || s.includes("adtech")) return ["Advertising"];
   return [];
 }
 
@@ -106,6 +106,7 @@ export function OnboardingWizard() {
         linkedin_url: state.linkedinUrl || null,
         twitter_url: state.twitterUrl || null,
         user_type: state.userType || "founder",
+        has_completed_onboarding: true,
         ...(companyId ? { company_id: companyId } : {}),
       } as any);
 
@@ -151,6 +152,21 @@ export function OnboardingWizard() {
 
       try {
         localStorage.setItem("company-profile", JSON.stringify(companyProfile));
+        // Also set a minimal company-analysis so Index.tsx considers onboarding complete
+        localStorage.setItem("company-analysis", JSON.stringify({
+          healthScore: null,
+          executiveSummary: "",
+          metrics: {
+            mrr: state.revenueBand || "",
+            burnRate: "",
+            runway: "",
+            ltv: "",
+            cac: "",
+          },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
+        }));
       } catch {}
 
       // Snapshot personal profile for nav HUD completion meter
@@ -167,8 +183,7 @@ export function OnboardingWizard() {
 
       toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
       reset();
-      // Navigate to settings page so user can confirm inputs
-      navigate("/?view=settings");
+      navigate("/?view=settings&tour=true");
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
@@ -186,10 +201,7 @@ export function OnboardingWizard() {
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
           )}
           {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
-          )}
-          {state.step === 3 && (
-            <StepPowerUp key="s3" state={state} update={update} onNext={handleFinish} onBack={() => goTo(2)} />
+            <StepCompanyDNA key="s2" state={state} update={update} onNext={handleFinish} onBack={() => goTo(1)} />
           )}
         </AnimatePresence>
       </div>

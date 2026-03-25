@@ -333,9 +333,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           }
         }
         const tc = sanitized.targetCustomer;
-        const targetCustomerArr = Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []);
+        const targetCustomerArr = (Array.isArray(tc) ? tc.filter(Boolean) : (typeof tc === "string" && tc ? [tc] : []))
+          .map((v: string) => normalizeTargetCustomer(v) || v)
+          .filter((v: string) => TARGET_CUSTOMER_OPTIONS.some(o => o.label === v));
         const bm = sanitized.businessModel;
-        const businessModelArr = Array.isArray(bm) ? bm.filter(Boolean) : (typeof bm === "string" && bm ? [bm] : []);
+        const businessModelArr = (Array.isArray(bm) ? bm.filter(Boolean) : (typeof bm === "string" && bm ? [bm] : []))
+          .map((v: string) => normalizeBusinessModel(v) || v)
+          .filter((v: string) => BUSINESS_MODEL_OPTIONS.some(o => o.label === v));
         // Bridge old sector names to new taxonomy
         const sectorVal = bridgeOldSector(sanitized.sector || "");
         return { ...EMPTY_FORM, ...sanitized, sector: sectorVal, competitors: Array.isArray(sanitized.competitors) ? sanitized.competitors.filter(Boolean) : [], subsectors: Array.isArray(sanitized.subsectors) ? sanitized.subsectors.filter(Boolean) : [], targetCustomer: targetCustomerArr, businessModel: businessModelArr };
@@ -1298,7 +1302,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (nextSection) {
       setTimeout(() => {
         if (isInReviewMode) setActiveReviewSection(nextSection);
-        setOpenSections(prev => ({ ...prev, [nextSection]: true }));
+        // Collapse all sections, then open only the next one
+        setOpenSections(() => {
+          const allClosed: Record<string, boolean> = {};
+          REVIEW_ORDER.forEach(s => { allClosed[s] = s === nextSection; });
+          return allClosed;
+        });
 
         // Scroll to and highlight the next section
         setTimeout(() => {

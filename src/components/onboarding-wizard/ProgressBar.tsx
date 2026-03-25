@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 const steps = [
   { num: 1, label: "Identity" },
   { num: 2, label: "Company" },
-  { num: 3, label: "Power Up" },
 ];
 
 interface ProgressBarProps {
@@ -52,7 +51,7 @@ export function ProgressBar({ currentStep }: ProgressBarProps) {
           </div>
         ))}
       </div>
-      <p className="text-center text-[11px] text-muted-foreground mt-2">About 3 minutes</p>
+      <p className="text-center text-[11px] text-muted-foreground mt-2">About 2 minutes</p>
     </div>
   );
 }
