@@ -24,6 +24,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [signupEmailError, setSignupEmailError] = useState<string | null>(null);
+  const [userAlreadyExists, setUserAlreadyExists] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) navigate("/", { replace: true });
@@ -31,6 +32,7 @@ export default function Auth() {
 
   useEffect(() => {
     setSignupEmailError(null);
+    setUserAlreadyExists(false);
   }, [mode]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,7 +99,14 @@ export default function Auth() {
             }
           }
         });
-        if (error) throw error;
+        if (error) {
+          // Handle user already exists case specially
+          if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("user_already_exists")) {
+            setUserAlreadyExists(true);
+            return;
+          }
+          throw error;
+        }
         
         if (companyName || websiteUrl) {
           const aiGuessed: string[] = [];
@@ -280,6 +289,28 @@ export default function Auth() {
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
             />
           </div>
+
+          {userAlreadyExists && (
+            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-zinc-900">
+                  Looks like you've signed up.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="font-semibold text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Click here to sign in.
+                  </button>
+                </p>
+              </div>
+            </div>
+          )}
 
           <Button
             type="submit"
