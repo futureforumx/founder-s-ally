@@ -31,19 +31,14 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { first_name: firstName, last_name: lastName }
+          }
+        });
         if (error) throw error;
-        
-        if (companyName || websiteUrl) {
-          const aiGuessed: string[] = [];
-          if (aiGuessedCompany) aiGuessed.push('companyName');
-          if (aiGuessedWebsite) aiGuessed.push('websiteUrl');
-          localStorage.setItem("pending-company-seed", JSON.stringify({
-            companyName: companyName,
-            websiteUrl: websiteUrl,
-            aiGuessed: aiGuessed
-          }));
-        }
         
         toast.success("Account created! Let's set up your profile.");
         navigate("/onboarding", { replace: true });
