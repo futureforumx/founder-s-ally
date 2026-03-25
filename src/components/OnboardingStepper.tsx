@@ -36,9 +36,9 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [website, setWebsite] = useState(seed?.websiteUrl || "");
   const [companyName, setCompanyName] = useState(seed?.companyName || "");
   const [deckFile, setDeckFile] = useState<File | null>(null);
-  const [deckText, setDeckText] = useState("");
-  const [stage, setStage] = useState("");
-  const [sector, setSector] = useState("");
+  const [deckText, setDeckText] = useState(seed?.deckText || "");
+  const [stage, setStage] = useState(seed?.stage || "");
+  const [sector, setSector] = useState(seed?.sectors?.[0] || "");
   const [mrr, setMrr] = useState("");
   const [momGrowth, setMomGrowth] = useState("");
   const [burnRate, setBurnRate] = useState("");
