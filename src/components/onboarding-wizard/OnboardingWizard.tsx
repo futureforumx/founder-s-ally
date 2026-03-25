@@ -54,6 +54,7 @@ export function OnboardingWizard() {
 
   const handleFinish = async () => {
     if (!user || saving) return;
+    playSound("/sounds/success.wav", 0.6);
     setSaving(true);
 
     try {
