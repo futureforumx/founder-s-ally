@@ -68,6 +68,8 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [approvalCode, setApprovalCode] = useState("");
+  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
