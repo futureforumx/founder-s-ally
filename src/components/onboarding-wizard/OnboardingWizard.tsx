@@ -12,6 +12,7 @@ import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 
 import { toast } from "@/hooks/use-toast";
+import { playSound } from "@/lib/playSound";
 
 // ── AI field guessing helpers ──
 function guessBusinessModel(sector: string): string[] {
