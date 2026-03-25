@@ -394,17 +394,15 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       )}
 
       {!loading && (
-        <div className="flex flex-col items-center gap-2">
-          <button
+        <div className="flex flex-col items-center gap-3">
+          <Button
             onClick={handleValidatedNext}
             disabled={!canProceed}
-            className={cn(
-              "text-[10px] transition-colors flex items-center gap-1",
-              canProceed ? "text-muted-foreground/60 hover:text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
-            )}
+            className="w-full max-w-lg gap-1.5 h-9 text-xs"
+            size="sm"
           >
             Continue <ArrowRight className="h-3 w-3" />
-          </button>
+          </Button>
 
           <Popover>
             <PopoverTrigger asChild>
