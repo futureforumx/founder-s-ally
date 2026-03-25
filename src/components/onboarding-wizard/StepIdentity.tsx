@@ -427,7 +427,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
         <div className="flex flex-col items-center gap-3">
           <Button
             onClick={handleValidatedNext}
-            disabled={!canProceed}
+            disabled={!canProceedBasic}
             className="w-full max-w-lg gap-1.5 h-9 text-xs"
             size="sm"
           >
