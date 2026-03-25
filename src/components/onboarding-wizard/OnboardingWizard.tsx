@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
+import { toast } from "@/hooks/use-toast";
+import { playSound } from "@/lib/playSound";
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
