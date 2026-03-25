@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
