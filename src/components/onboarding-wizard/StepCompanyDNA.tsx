@@ -152,10 +152,41 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     }
   };
 
-  const handleJoinConfirm = () => {
+  const handleJoinConfirm = async () => {
+    // If valid approval code was entered, auto-approve by adding as member
+    if (codeStatus === "valid" && selectedCompany) {
+      // The code was already validated — proceed directly
+      setShowJoinModal(false);
+      onNext();
+      return;
+    }
+    // Otherwise proceed as a pending request
     setShowJoinModal(false);
     onNext();
   };
+
+  const validateApprovalCode = useCallback(async (code: string) => {
+    if (!code.trim() || !selectedCompany) return;
+    setCodeStatus("checking");
+    try {
+      const { data, error } = await (supabase as any)
+        .from("company_approval_codes")
+        .select("id, company_id")
+        .eq("code", code.trim().toUpperCase())
+        .eq("company_id", selectedCompany.id)
+        .eq("is_active", true)
+        .gte("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (error || !data) {
+        setCodeStatus("invalid");
+      } else {
+        setCodeStatus("valid");
+      }
+    } catch {
+      setCodeStatus("invalid");
+    }
+  }, [selectedCompany]);
 
   const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
     const name = file.name.toLowerCase();
