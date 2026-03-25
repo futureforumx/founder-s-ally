@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
