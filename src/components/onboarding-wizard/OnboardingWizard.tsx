@@ -134,42 +134,17 @@ export function OnboardingWizard() {
         },
       });
 
-      // ── Sync onboarding data to company-profile localStorage for Settings ──
-      const sectorGuess = state.sectors?.[0] || "";
-      const aiGuessedBusinessModel = guessBusinessModel(sectorGuess);
-      const aiGuessedTargetCustomer = guessTargetCustomer(sectorGuess);
-
-      const companyProfile: CompanyData = {
-        ...EMPTY_FORM,
-        name: state.companyName || "",
-        website: state.websiteUrl || "",
-        stage: state.stage || "",
-        sector: sectorGuess,
-        description: state.bio || "",
-        hqLocation: state.location || "",
-        businessModel: aiGuessedBusinessModel,
-        targetCustomer: aiGuessedTargetCustomer,
-        socialLinkedin: state.linkedinUrl || "",
-        socialTwitter: state.twitterUrl || "",
-      };
-
+      // ── Seed data for the OnboardingStepper popup on the main app ──
       try {
-        localStorage.setItem("company-profile", JSON.stringify(companyProfile));
-        // Also set a minimal company-analysis so Index.tsx considers onboarding complete
-        localStorage.setItem("company-analysis", JSON.stringify({
-          healthScore: null,
-          executiveSummary: "",
-          metrics: {
-            mrr: state.revenueBand || "",
-            burnRate: "",
-            runway: "",
-            ltv: "",
-            cac: "",
-          },
-          scrapedHeader: "",
-          scrapedValueProp: "",
-          scrapedPricing: "",
+        localStorage.setItem("pending-company-seed", JSON.stringify({
+          companyName: state.companyName || "",
+          websiteUrl: state.websiteUrl || "",
+          deckText: state.deckText || "",
+          stage: state.stage || "",
+          sectors: state.sectors || [],
         }));
+        // Don't set company-profile or company-analysis here —
+        // the OnboardingStepper popup on Index will handle the full company setup
       } catch {}
 
       // Snapshot personal profile for nav HUD completion meter
