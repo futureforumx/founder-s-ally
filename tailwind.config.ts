@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Geist Sans", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        sans: ["Clash Grotesk", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
       },
       colors: {
