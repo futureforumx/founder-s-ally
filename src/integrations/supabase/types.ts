@@ -179,6 +179,44 @@ export type Database = {
         }
         Relationships: []
       }
+      company_approval_codes: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          code?: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_approval_codes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_competitors: {
         Row: {
           competitor_id: string
