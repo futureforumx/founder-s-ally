@@ -392,16 +392,43 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       )}
 
       {!loading && (
-        <button
-          onClick={handleValidatedNext}
-          disabled={!canProceed}
-          className={cn(
-            "text-[10px] transition-colors flex items-center gap-1",
-            canProceed ? "text-muted-foreground/60 hover:text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
-          )}
-        >
-          Continue <ArrowRight className="h-3 w-3" />
-        </button>
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={handleValidatedNext}
+            disabled={!canProceed}
+            className={cn(
+              "text-[10px] transition-colors flex items-center gap-1",
+              canProceed ? "text-muted-foreground/60 hover:text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+            )}
+          >
+            Continue <ArrowRight className="h-3 w-3" />
+          </button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors underline underline-offset-2">
+                Proceed without syncing
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="top" className="w-72 p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-foreground">Are you sure?</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Syncing your profile powers the <span className="font-medium text-foreground">recommendation &amp; network engine</span> and unlocks the true value of the app.
+              </p>
+              <p className="text-[10px] text-muted-foreground/70">
+                If you change your mind, you can do this later in Settings.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-7 text-[10px]"
+                onClick={onNext}
+              >
+                Skip anyway
+              </Button>
+            </PopoverContent>
+          </Popover>
+        </div>
       )}
     </motion.div>
   );
