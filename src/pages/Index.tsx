@@ -31,9 +31,11 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 const Index = () => {
   const capTable = useCapTable();
   const [searchParams, setSearchParams] = useSearchParams();
+  const viewParamProcessed = useRef(false);
   const [activeView, setActiveView] = useState<ViewType>(() => {
     try {
-      const view = searchParams.get("view");
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view");
       if (view === "settings") return "settings";
     } catch {}
     return "dashboard";
@@ -66,15 +68,17 @@ const Index = () => {
   const [showTerminal, setShowTerminal] = useState(false);
   const [profileKey, setProfileKey] = useState(0);
 
-  // Handle ?view=settings from onboarding redirect (also works on re-renders)
+  // Handle ?view=settings from onboarding redirect
   useEffect(() => {
+    if (viewParamProcessed.current) return;
     const view = searchParams.get("view");
     if (view === "settings") {
+      viewParamProcessed.current = true;
       setActiveView("settings");
-      // Clean up URL params without triggering re-render loop
-      searchParams.delete("view");
-      searchParams.delete("tour");
-      setSearchParams(searchParams, { replace: true });
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("view");
+      newParams.delete("tour");
+      setSearchParams(newParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
