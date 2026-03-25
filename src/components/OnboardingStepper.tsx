@@ -37,7 +37,15 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   }, []);
 
   const [step, setStep] = useState(1);
-  const [website, setWebsite] = useState(seed?.websiteUrl || "");
+  const [website, setWebsite] = useState(() => {
+    if (seed?.websiteUrl) return seed.websiteUrl;
+    // AI-guess URL from company name
+    if (seed?.companyName) {
+      const slug = seed.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return slug ? `https://${slug}.com` : "";
+    }
+    return "";
+  });
   const [companyName, setCompanyName] = useState(seed?.companyName || "");
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState(seed?.deckText || "");
