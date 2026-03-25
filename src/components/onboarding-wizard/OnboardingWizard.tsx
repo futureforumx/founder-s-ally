@@ -6,41 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
-import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
-
-import { toast } from "@/hooks/use-toast";
-import { playSound } from "@/lib/playSound";
-
-// ── AI field guessing helpers ──
-function guessBusinessModel(sector: string): string[] {
-  const s = sector.toLowerCase();
-  if (s.includes("saas") || s.includes("devtools") || s.includes("cybersecurity")) return ["B2B SaaS"];
-  if (s.includes("marketplace") || s.includes("e-commerce")) return ["Marketplace"];
-  if (s.includes("fintech") || s.includes("insurtech")) return ["B2B SaaS", "Usage-Based"];
-  if (s.includes("healthtech") || s.includes("biotech") || s.includes("medtech")) return ["B2B SaaS"];
-  if (s.includes("edtech")) return ["B2B SaaS", "Freemium"];
-  if (s.includes("cleantech") || s.includes("hardware") || s.includes("robotics")) return ["Hardware"];
-  if (s.includes("ai") || s.includes("ml")) return ["B2B SaaS", "Usage-Based"];
-  if (s.includes("gaming")) return ["Freemium"];
-  if (s.includes("media") || s.includes("adtech")) return ["Advertising"];
-  return [];
-}
-
-function guessTargetCustomer(sector: string): string[] {
-  const s = sector.toLowerCase();
-  if (s.includes("enterprise") || s.includes("cybersecurity") || s.includes("devtools")) return ["Enterprise"];
-  if (s.includes("e-commerce") || s.includes("gaming") || s.includes("edtech")) return ["B2C"];
-  if (s.includes("fintech")) return ["SMB", "Enterprise"];
-  if (s.includes("govtech") || s.includes("defense")) return ["Government"];
-  if (s.includes("proptech") || s.includes("marketplace")) return ["B2B2C"];
-  if (s.includes("saas")) return ["SMB"];
-  if (s.includes("ai") || s.includes("ml")) return ["Enterprise", "SMB"];
-  if (s.includes("healthtech") || s.includes("biotech")) return ["Enterprise"];
-  return [];
-}
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
