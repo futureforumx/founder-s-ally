@@ -149,7 +149,9 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     if (isJoinMode) {
       setShowJoinModal(true);
     } else {
-      setShowNewCompanyModal(true);
+      // Skip modal — go directly to finish, which seeds data and redirects
+      // to the main app where the OnboardingStepper popup handles company setup
+      onNext();
     }
   };
 
