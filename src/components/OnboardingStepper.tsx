@@ -14,26 +14,38 @@ import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
 
+// Module-level: read once, survives StrictMode double-mount
+let _companySeed: any = null;
+try {
+  const raw = localStorage.getItem("pending-company-seed");
+  if (raw) {
+    localStorage.removeItem("pending-company-seed");
+    _companySeed = JSON.parse(raw);
+  }
+} catch {}
+
 interface OnboardingStepperProps {
   onComplete: (company: CompanyData, analysis: AnalysisResult) => void;
   onSkip: () => void;
 }
 
 export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  // Read any pre-seeded company data from the onboarding wizard
   const seed = useMemo(() => {
-    try {
-      const raw = localStorage.getItem("pending-company-seed");
-      if (raw) {
-        localStorage.removeItem("pending-company-seed");
-        return JSON.parse(raw);
-      }
-    } catch {}
-    return null;
+    const s = _companySeed;
+    _companySeed = null; // consume for HMR
+    return s;
   }, []);
 
   const [step, setStep] = useState(1);
-  const [website, setWebsite] = useState(seed?.websiteUrl || "");
+  const [website, setWebsite] = useState(() => {
+    if (seed?.websiteUrl) return seed.websiteUrl;
+    // AI-guess URL from company name
+    if (seed?.companyName) {
+      const slug = seed.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return slug ? `https://${slug}.com` : "";
+    }
+    return "";
+  });
   const [companyName, setCompanyName] = useState(seed?.companyName || "");
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState(seed?.deckText || "");
