@@ -65,6 +65,13 @@ const Index = () => {
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
+      // If there's a pending company seed, always show the stepper (validation happens in OnboardingStepper's readSeed)
+      const seed = localStorage.getItem("pending-company-seed");
+      if (seed) {
+        JSON.parse(seed); // validates JSON; throws if corrupt
+        return true;
+      }
+      // Otherwise only show for users who haven't set up a company profile yet
       const saved = localStorage.getItem("company-profile");
       if (saved) {
         const p = JSON.parse(saved);
@@ -152,6 +159,23 @@ const Index = () => {
     };
     window.addEventListener("navigate-view", handler);
     return () => window.removeEventListener("navigate-view", handler);
+  }, []);
+
+  // Listen for show-onboarding events (e.g. triggered after company creation in settings)
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const seed = localStorage.getItem("pending-company-seed");
+        if (seed) {
+          JSON.parse(seed); // validate JSON before showing modal
+          setShowOnboarding(true);
+        }
+      } catch {
+        // localStorage unavailable or seed is corrupt — skip showing the modal
+      }
+    };
+    window.addEventListener("show-onboarding", handler);
+    return () => window.removeEventListener("show-onboarding", handler);
   }, []);
 
   // Redirect "company" sidebar to Settings > Entity
@@ -255,7 +279,7 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {showOnboarding && !profileComplete && (
+      {showOnboarding && (
         <OnboardingStepper
           onComplete={handleOnboardingComplete}
           onSkip={() => setShowOnboarding(false)}
