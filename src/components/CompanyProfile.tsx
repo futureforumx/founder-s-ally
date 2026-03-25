@@ -2335,6 +2335,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                   </div>
                 </div>
               </div>
+              {/* Inline KPI warning */}
+              {!form.currentARR && !form.yoyGrowth && !form.momGrowth && !form.burnRate && !form.totalHeadcount && (
+                <p className="text-[11px] text-amber-500 flex items-center gap-1.5 mt-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Access to some features might be limited without KPIs.
+                </p>
+              )}
               {/* Approve button */}
               {analysisComplete && !confirmed && (
                 <div className="pt-2 border-t border-border/50 flex justify-end">
