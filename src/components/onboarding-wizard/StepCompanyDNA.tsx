@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search } from "lucide-react";
+import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search, KeyRound, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
