@@ -371,10 +371,12 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
               />
             </div>
 
-            <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
-              <Sparkles className="h-3 w-3" />
-              Magic Fill My Profile
-            </Button>
+            {url.trim() && (
+              <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
+                <Sparkles className="h-3 w-3" />
+                Magic Fill from LinkedIn
+              </Button>
+            )}
           </div>
 
           {/* OAuth option */}
