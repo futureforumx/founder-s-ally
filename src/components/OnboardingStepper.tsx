@@ -14,32 +14,33 @@ import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
 
-// Module-level: read once, survives StrictMode double-mount
-let _companySeed: any = null;
-try {
-  const raw = localStorage.getItem("pending-company-seed");
-  if (raw) {
-    localStorage.removeItem("pending-company-seed");
-    _companySeed = JSON.parse(raw);
-  }
-} catch {}
-
 interface OnboardingStepperProps {
   onComplete: (company: CompanyData, analysis: AnalysisResult) => void;
   onSkip: () => void;
 }
 
+function readSeed() {
+  try {
+    const raw = localStorage.getItem("pending-company-seed");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  const seed = useMemo(() => {
-    const s = _companySeed;
-    _companySeed = null; // consume for HMR
-    return s;
+  // Read seed on every mount (StrictMode-safe: don't remove in initializer)
+  const [seed] = useState(readSeed);
+
+  // Remove after a tick so StrictMode's second mount still reads it
+  useMemo(() => {
+    setTimeout(() => {
+      try { localStorage.removeItem("pending-company-seed"); } catch {}
+    }, 100);
   }, []);
 
   const [step, setStep] = useState(1);
   const [website, setWebsite] = useState(() => {
     if (seed?.websiteUrl) return seed.websiteUrl;
-    // AI-guess URL from company name
     if (seed?.companyName) {
       const slug = seed.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
       return slug ? `https://${slug}.com` : "";
