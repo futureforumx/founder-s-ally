@@ -2337,7 +2337,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
               {/* Inline KPI warning */}
               {!form.currentARR && !form.yoyGrowth && !form.momGrowth && !form.burnRate && !form.totalHeadcount && (
-                <p className="text-[11px] text-amber-500 flex items-center gap-1.5 mt-1">
+                <p className="text-[11px] text-warning flex items-center gap-1.5 mt-1">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   Access to some features might be limited without KPIs.
                 </p>
