@@ -34,6 +34,22 @@ serve(async (req) => {
       formattedUrl = `https://${formattedUrl}`;
     }
 
+    // Validate URL has a proper TLD before sending to Firecrawl
+    try {
+      const parsed = new URL(formattedUrl);
+      if (!/\.[a-z]{2,}$/i.test(parsed.hostname)) {
+        return new Response(
+          JSON.stringify({ error: "URL must have a valid domain (e.g. example.com)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid URL format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("Scraping URL:", formattedUrl);
 
     const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
