@@ -37,7 +37,10 @@ try {
 const Index = () => {
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>(() => {
-    if (_postOnboardingView === "settings") return "settings";
+    if (_postOnboardingView === "settings") {
+      _postOnboardingView = null; // consume so HMR doesn't re-trigger
+      return "settings";
+    }
     try {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
