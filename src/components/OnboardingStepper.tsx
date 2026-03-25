@@ -112,20 +112,30 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     setPredictedSector("Construction & Real Estate");
   }, []);
 
+  const isValidUrl = (url: string) => {
+    try {
+      const u = new URL(url.startsWith("http") ? url : `https://${url}`);
+      return /\.[a-z]{2,}$/i.test(u.hostname);
+    } catch { return false; }
+  };
+
   const scrapeWebsite = async () => {
     if (!website.trim()) return;
     setIsProcessing(true);
     setError(null);
     setProcessStep("Scanning digital footprint...");
     try {
-      const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
-        body: { url: website.trim() },
-      });
-      if (scrapeError) {
-        // Non-blocking: scrape failed but let the user continue
-        console.warn("Website scrape failed, continuing:", scrapeError);
+      if (isValidUrl(website.trim())) {
+        const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
+          body: { url: website.trim() },
+        });
+        if (scrapeError) {
+          console.warn("Website scrape failed, continuing:", scrapeError);
+        } else {
+          setWebsiteScraped(true);
+        }
       } else {
-        setWebsiteScraped(true);
+        console.warn("Skipping scrape: URL has no valid TLD:", website);
       }
       runPredictiveFetch();
       setStep(2);
