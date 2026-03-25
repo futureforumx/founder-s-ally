@@ -385,7 +385,7 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       </div>
 
       {/* Join Request Modal */}
-      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
+      <Dialog open={showJoinModal} onOpenChange={(open) => { setShowJoinModal(open); if (!open) { setApprovalCode(""); setCodeStatus("idle"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -396,9 +396,56 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
               You are requesting to join <strong>{selectedCompany?.name}</strong>. An admin will be notified and can approve your request.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Approval Code Section */}
+          <div className="space-y-2 py-2">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              Have the approval code? Input here.
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                <Input
+                  value={approvalCode}
+                  onChange={(e) => { setApprovalCode(e.target.value.toUpperCase()); setCodeStatus("idle"); }}
+                  placeholder="e.g. A1B2C3D4"
+                  className={cn(
+                    "pl-9 font-mono text-sm tracking-wider uppercase",
+                    codeStatus === "valid" && "border-green-500/50 bg-green-500/5",
+                    codeStatus === "invalid" && "border-destructive/50 bg-destructive/5",
+                  )}
+                  maxLength={12}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => validateApprovalCode(approvalCode)}
+                disabled={!approvalCode.trim() || codeStatus === "checking"}
+                className="shrink-0"
+              >
+                {codeStatus === "checking" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : codeStatus === "valid" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  "Verify"
+                )}
+              </Button>
+            </div>
+            {codeStatus === "valid" && (
+              <p className="text-[10px] text-green-500 font-medium">✓ Code verified — you'll be auto-approved.</p>
+            )}
+            {codeStatus === "invalid" && (
+              <p className="text-[10px] text-destructive font-medium">Invalid or expired code. You can still request to join below.</p>
+            )}
+          </div>
+
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" size="sm" onClick={() => setShowJoinModal(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleJoinConfirm}>Confirm & Continue</Button>
+            <Button size="sm" onClick={handleJoinConfirm}>
+              {codeStatus === "valid" ? "Join & Continue" : "Confirm & Continue"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
