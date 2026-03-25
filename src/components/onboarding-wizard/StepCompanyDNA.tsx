@@ -149,8 +149,13 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     if (isJoinMode) {
       setShowJoinModal(true);
     } else {
-      onNext();
+      setShowNewCompanyModal(true);
     }
+  };
+
+  const handleNewCompanyConfirm = () => {
+    setShowNewCompanyModal(false);
+    onNext();
   };
 
   const handleJoinConfirm = async () => {
