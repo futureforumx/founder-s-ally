@@ -37,6 +37,8 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [xUrl, setXUrl] = useState(state.twitterUrl);
   const [xSyncing, setXSyncing] = useState(false);
   const [xVerified, setXVerified] = useState(false);
+  const [socialShake, setSocialShake] = useState(false);
+  const [showSocialHint, setShowSocialHint] = useState(false);
 
   // Company search state
   const [companyQuery, setCompanyQuery] = useState(state.companyName || "");
