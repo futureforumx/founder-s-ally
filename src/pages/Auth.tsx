@@ -122,15 +122,26 @@ export default function Auth() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-3">
               {mode === "signup" && (
-                <Input
-                  type="text"
-                  placeholder="Company Name"
-                  value={companyName}
-                  onChange={(e) => { setCompanyName(e.target.value); setAiGuessedCompany(false); }}
-                  required
-                  className={`h-11 text-base bg-slate-800 border-slate-700 placeholder-slate-500 transition-colors ${aiGuessedCompany ? 'text-purple-400' : 'text-slate-50'}`}
-                  autoComplete="organization"
-                />
+                <div className="flex gap-3">
+                  <Input
+                    type="text"
+                    placeholder="First Name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                    autoComplete="given-name"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="h-11 text-base bg-slate-800 border-slate-700 text-slate-50 placeholder-slate-500"
+                    autoComplete="family-name"
+                  />
+                </div>
               )}
               <Input
                 type="email"
