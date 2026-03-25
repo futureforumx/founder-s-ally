@@ -70,7 +70,7 @@ export default function Auth() {
   const handleSignupEmailBlur = async () => {
     if (mode !== "signup" || !email.trim()) return;
     const result = await validateSignupEmail(email);
-    setSignupEmailError(result.ok ? null : result.message);
+    setSignupEmailError(result.ok ? null : (result as { ok: false; message: string }).message);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,7 +78,7 @@ export default function Auth() {
     if (mode === "signup") {
       const result = await validateSignupEmail(email);
       if (!result.ok) {
-        setSignupEmailError(result.message);
+        setSignupEmailError((result as { ok: false; message: string }).message);
         return;
       }
       setSignupEmailError(null);
@@ -182,7 +182,7 @@ export default function Auth() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
             <Terminal className="h-5 w-5" aria-hidden />
           </div>
-          <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Founder Copilot</span>
+          <span className="text-[15px] font-semibold tracking-tight text-zinc-900"><span className="text-[15px] font-semibold tracking-tight text-zinc-900">VEKTA</span></span>
         </div>
 
         {mode === "signup" ? (
