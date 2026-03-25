@@ -23,36 +23,7 @@ export default function Auth() {
   }, [user, authLoading, navigate]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setEmail(val);
-    
-    if (!aiGuessedCompany && companyName.length > 0) return;
-    if (!aiGuessedWebsite && websiteUrl.length > 0) return;
-    
-    const parts = val.split('@');
-    if (parts.length === 2 && parts[1].includes('.')) {
-      const domain = parts[1];
-      const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'me.com', 'mac.com'];
-      if (!genericDomains.includes(domain.toLowerCase()) && domain.length > 3) {
-        const namePart = domain.split('.')[0];
-        const guessedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        
-        if (!companyName || aiGuessedCompany) {
-           setCompanyName(guessedName);
-           setAiGuessedCompany(true);
-        }
-        if (!websiteUrl || aiGuessedWebsite) {
-           setWebsiteUrl(`https://${domain}`);
-           setAiGuessedWebsite(true);
-        }
-      } else {
-        if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
-        if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
-      }
-    } else {
-      if (aiGuessedCompany) { setCompanyName(""); setAiGuessedCompany(false); }
-      if (aiGuessedWebsite) { setWebsiteUrl(""); setAiGuessedWebsite(false); }
-    }
+    setEmail(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
