@@ -12,6 +12,7 @@ import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 
 import { toast } from "@/hooks/use-toast";
+import { playSound } from "@/lib/playSound";
 
 // ── AI field guessing helpers ──
 function guessBusinessModel(sector: string): string[] {
@@ -53,6 +54,7 @@ export function OnboardingWizard() {
 
   const handleFinish = async () => {
     if (!user || saving) return;
+    playSound("/sounds/success.wav", 0.6);
     setSaving(true);
 
     try {
