@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
+import { InvestorWaitlistForm } from "./InvestorWaitlistForm";
 import type { OnboardingState } from "./types";
 
 interface StepIdentityProps {
