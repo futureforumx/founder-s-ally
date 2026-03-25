@@ -159,9 +159,9 @@ export function OnboardingWizard() {
         }));
       } catch {}
 
-      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Review your settings to confirm everything looks right." });
+      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Let's set up your company profile." });
       reset();
-      navigate("/?view=settings&tour=true");
+      navigate("/");
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
