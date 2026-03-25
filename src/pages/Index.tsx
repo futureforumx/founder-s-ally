@@ -66,6 +66,19 @@ const Index = () => {
   const [showTerminal, setShowTerminal] = useState(false);
   const [profileKey, setProfileKey] = useState(0);
 
+  // Handle ?view=settings&tour=true from onboarding redirect
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view");
+      if (view === "settings") {
+        setActiveView("settings");
+        // Clean up URL params
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch {}
+  }, []);
+
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
   });
