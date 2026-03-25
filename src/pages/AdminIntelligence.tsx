@@ -31,9 +31,33 @@ export default function AdminIntelligence() {
     );
   }
 
-  // RBAC: Only admins allowed (checks user_metadata.role set via Settings)
-  const role = user?.user_metadata?.role;
-  if (!user || role !== "admin") {
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) { setAuthorized(false); return; }
+    // Check user_roles table for admin/god, fallback to legacy user_metadata
+    const legacyAdmin = user.user_metadata?.role === "admin";
+    if (legacyAdmin) { setAuthorized(true); return; }
+    
+    supabase
+      .from("user_roles")
+      .select("permission")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const perm = (data as any)?.permission;
+        setAuthorized(perm === "admin" || perm === "god");
+      });
+  }, [user]);
+
+  if (authorized === null) {
+    return (
+      <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+  if (!user || !authorized) {
     return <Navigate to="/" replace />;
   }
 
