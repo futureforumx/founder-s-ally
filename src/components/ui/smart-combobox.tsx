@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronsUpDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fuzzyMatch, calculateMatchScore } from "@/lib/fuzzyMatch";
 
 export interface ComboboxOption {
   value: string;
@@ -47,11 +48,18 @@ export function SmartCombobox({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const filtered = options.filter(
-    (opt) =>
-      opt.label.toLowerCase().includes((search || value).toLowerCase()) ||
-      opt.desc?.toLowerCase().includes((search || value).toLowerCase())
-  );
+  const query = search || value;
+  const filtered = options
+    .filter(
+      (opt) =>
+        fuzzyMatch(query, opt.label) ||
+        fuzzyMatch(query, opt.desc || "")
+    )
+    .sort((a, b) => {
+      const scoreA = calculateMatchScore(query, a.label, a.desc);
+      const scoreB = calculateMatchScore(query, b.label, b.desc);
+      return scoreB - scoreA;
+    });
 
   const handleSelect = useCallback(
     (val: string) => {
