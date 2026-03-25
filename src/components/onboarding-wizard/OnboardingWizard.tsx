@@ -131,7 +131,7 @@ export function OnboardingWizard() {
 
       toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Let's set up your company profile." });
       reset();
-      navigate("/");
+      navigate("/?view=settings&tour=true");
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
