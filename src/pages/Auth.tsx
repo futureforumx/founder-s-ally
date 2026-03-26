@@ -296,7 +296,6 @@ export default function Auth() {
     "h-10 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/10";
 
   return (
-<<<<<<< HEAD
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
         <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
@@ -306,18 +305,6 @@ export default function Auth() {
             variant="black"
             className="w-[132px] sm:w-[148px]"
           />
-=======
-    <div className="flex min-h-screen bg-white">
-      {/* Left Side: Auth Form */}
-      <div className="flex w-full flex-col justify-center px-4 py-10 sm:px-12 lg:w-1/2 xl:px-24 z-10">
-        <div className="mx-auto w-full max-w-[420px]">
-        {/* Brand — Botpress-style centered mark */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
-            <Terminal className="h-5 w-5" aria-hidden />
-          </div>
-          <span className="text-[15px] font-semibold tracking-tight text-zinc-900"><span className="text-[15px] font-semibold tracking-tight text-zinc-900">VEKTA</span></span>
->>>>>>> 161cd2090b521933223851841b228d151482ad85
         </div>
 
         {mode === "signup" ? (
