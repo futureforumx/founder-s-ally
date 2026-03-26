@@ -353,26 +353,37 @@ const Index = () => {
                 }
               }
             }} />
-          ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
-          ) : activeView === "sector" ? (
-            <div className="space-y-4">
+          ) : activeView === "investors" || activeView === "investor-search" || activeView === "connections" ? (
+            <Tabs
+              value={activeView === "investor-search" ? "search" : activeView === "connections" ? "connections" : "matches"}
+              onValueChange={(v) => {
+                if (v === "matches") setActiveView("investors");
+                else if (v === "search") setActiveView("investor-search");
+                else if (v === "connections") setActiveView("connections");
+              }}
+              className="space-y-4"
+            >
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">Sector</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Sector intelligence and market positioning</p>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Investors</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Match, search, and manage investor relationships</p>
               </div>
-              <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
-            </div>
-          ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
-          ) : activeView === "connections" ? (
-            <div className="space-y-4">
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">Connections</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Network intelligence, warm intros, and founder experiences</p>
-              </div>
-              <ConnectionsPage />
-            </div>
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="matches">Matches</TabsTrigger>
+                <TabsTrigger value="search">Search</TabsTrigger>
+                <TabsTrigger value="connections">Connections</TabsTrigger>
+              </TabsList>
+              <TabsContent value="matches">
+                <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
+              </TabsContent>
+              <TabsContent value="search">
+                <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant="investor-search" />
+              </TabsContent>
+              <TabsContent value="connections">
+                <div className="space-y-4">
+                  <ConnectionsPage />
+                </div>
+              </TabsContent>
+            </Tabs>
           ) : activeView === "groups" ? (
             <GroupsView />
           ) : activeView === "events" ? (
