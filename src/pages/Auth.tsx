@@ -318,8 +318,8 @@ export default function Auth() {
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Sign in</h1>
-            <p className="mt-2 text-sm text-zinc-500">Sign in to your command center</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
+            <p className="mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
           </>
         )}
 
