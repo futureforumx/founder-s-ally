@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Globe, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -67,13 +67,12 @@ function readSeed() {
   return null;
 }
 
-<<<<<<< HEAD
 function clearSeed() {
   try {
     localStorage.removeItem(PENDING_COMPANY_SEED_KEY);
   } catch {}
 }
-=======
+
 /** Skip auto-URL for gibberish / keyboard mash; still allows short real names (e.g. IBM). */
 function looksLikePlausibleCompanyName(raw: string): boolean {
   const trimmed = raw.trim();
@@ -192,11 +191,6 @@ function defaultWebsiteGuessFromCompanyName(companyName: string): string {
   if (slug.length < 2) return "";
   return `https://${slug}.com`;
 }
-
-export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  // Read seed on every mount (StrictMode-safe: don't remove in initializer)
-  const [seed] = useState(readSeed);
->>>>>>> 161cd2090b521933223851841b228d151482ad85
 
 export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
   const [seed] = useState(readSeed);
