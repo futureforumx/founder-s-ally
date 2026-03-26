@@ -321,21 +321,27 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Search ── */}
-        <div ref={searchRef} className="relative min-w-[220px] flex-1 max-w-4xl">
+        <div ref={searchRef} className={cn("relative transition-all duration-300", searchOpen ? "min-w-[220px] flex-1 max-w-4xl" : "")}>
           <button
             onClick={handleSearchClick}
             className={cn(
-              "group flex h-9 w-full cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
-              searchOpen ? "border-accent/40 bg-muted/50 shadow-sm" : "border-border/50 hover:border-border"
+              "group flex h-9 cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
+              searchOpen
+                ? "w-full border-accent/40 bg-muted/50 shadow-sm"
+                : "w-9 border-border/50 hover:border-border justify-center"
             )}
           >
             <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
-            <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
-              Search...
-            </span>
-            <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
-              ⌘K
-            </kbd>
+            {searchOpen && (
+              <>
+                <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
+                  Search...
+                </span>
+                <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
+                  ⌘K
+                </kbd>
+              </>
+            )}
           </button>
 
           {searchOpen && (
