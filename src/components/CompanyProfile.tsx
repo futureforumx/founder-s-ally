@@ -375,6 +375,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-load favicon when form website is set and favicon hasn't been loaded yet
+  useEffect(() => {
+    // Only auto-load if we don't have a favicon URL yet
+    if (form.website && !faviconUrl) {
+      const domain = extractDomain(form.website);
+      if (domain) {
+        const fav = faviconSrc(domain);
+        setFaviconUrl(fav);
+        setFaviconLoaded(false);
+        // Try to preload it
+        const img = new Image();
+        img.onload = () => setFaviconLoaded(true);
+        img.onerror = () => {
+          // Try fallback favicon service if primary fails
+          setFaviconUrl(`https://www.google.com/s2/favicons?domain=${domain}&sz=32`);
+          setFaviconLoaded(false);
+        };
+        img.src = fav;
+      }
+    }
+  }, [form.website, faviconUrl]); // Watch form.website changes
+
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
       const saved = localStorage.getItem("company-profile-touched");
