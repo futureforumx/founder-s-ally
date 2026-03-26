@@ -159,6 +159,25 @@ export function CompanyTab() {
 
   const bootstrapState = async () => {
     setLoading(true);
+
+    // First, check if user created a company during onboarding (localStorage)
+    try {
+      const savedProfile = localStorage.getItem("company-profile");
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        if (profile.name) {
+          // User has a local company profile from onboarding
+          // Skip the workspace linking entirely - show their company details
+          setState("linked");
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to check local company profile:", e);
+    }
+
+    // Then check database for company membership
     const { data: mem } = await supabase
       .from("company_members" as any)
       .select("id, company_id, role")
