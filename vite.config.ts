@@ -6,12 +6,15 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   const plugins = [react(), mode === "development" && componentTagger()].filter(Boolean);
+  const enableHttps = process.env.DEV_HTTPS === "true";
 
-  try {
-    const { default: basicSsl } = await import("@vitejs/plugin-basic-ssl");
-    plugins.splice(1, 0, basicSsl());
-  } catch {
-    // Allow local dev to run even when the optional SSL plugin is not installed.
+  if (enableHttps) {
+    try {
+      const { default: basicSsl } = await import("@vitejs/plugin-basic-ssl");
+      plugins.splice(1, 0, basicSsl());
+    } catch {
+      // Allow local dev to run even when the optional SSL plugin is not installed.
+    }
   }
 
   return {
