@@ -612,8 +612,10 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
           </p>
           <button
             onClick={() => {
-              // Dispatch event to scroll to and highlight competitors field
-              window.dispatchEvent(new CustomEvent("scroll-to-competitors-field"));
+              // Store flag in localStorage to trigger highlight when CompanyProfile mounts
+              try {
+                localStorage.setItem("scroll-to-competitors-on-mount", "true");
+              } catch {}
               // Navigate to company profile settings
               onNavigateProfile();
             }}

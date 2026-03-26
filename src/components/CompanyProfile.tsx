@@ -692,31 +692,36 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     return () => window.removeEventListener("mission-navigate-field", handler);
   }, [isInReviewMode]);
 
-  // Listen for scroll-to-competitors-field event from CompetitorsView
+  // Check localStorage on mount and scroll to competitors field if needed
   useEffect(() => {
-    const handler = () => {
-      // Open the positioning section
-      setOpenSections(prev => ({ ...prev, positioning: true }));
+    try {
+      const shouldScroll = localStorage.getItem("scroll-to-competitors-on-mount");
+      if (shouldScroll === "true") {
+        // Clear the flag
+        localStorage.removeItem("scroll-to-competitors-on-mount");
 
-      // Highlight the competitors field
-      setHighlightCompetitors(true);
+        // Open the positioning section
+        setOpenSections(prev => ({ ...prev, positioning: true }));
 
-      // Scroll to the competitors field
-      setTimeout(() => {
-        const element = document.getElementById("competitors-field");
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }, 100);
+        // Highlight the competitors field
+        setHighlightCompetitors(true);
 
-      // Remove highlight after 2 seconds
-      setTimeout(() => {
-        setHighlightCompetitors(false);
-      }, 2000);
-    };
+        // Scroll to the competitors field with a slight delay to allow DOM to render
+        setTimeout(() => {
+          const element = document.getElementById("competitors-field");
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 300);
 
-    window.addEventListener("scroll-to-competitors-field", handler);
-    return () => window.removeEventListener("scroll-to-competitors-field", handler);
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          setHighlightCompetitors(false);
+        }, 2300);
+      }
+    } catch (e) {
+      console.warn("Failed to check scroll-to-competitors flag:", e);
+    }
   }, []);
 
   const handleLogoUpload = async (file: File) => {
