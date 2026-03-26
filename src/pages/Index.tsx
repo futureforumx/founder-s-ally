@@ -16,7 +16,7 @@ import { InvestorMatch } from "@/components/InvestorMatch";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
+import { DashboardSegmentedControl, type DashboardView, type CompanySubView, COMPANY_SUBTABS } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
@@ -66,6 +66,7 @@ const Index = () => {
     return null;
   });
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
+  const [companySubView, setCompanySubView] = useState<CompanySubView>("health");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
       if (localStorage.getItem("pending-company-seed")) {
@@ -307,13 +308,44 @@ const Index = () => {
 
               <div className="mt-6 animate-fade-in" key={dashboardView}>
                 {dashboardView === "company" && (
-                  <CompanyView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onMetricEdit={handleMetricEdit}
-                    onNavigateProfile={() => setActiveView("company")}
-                    stageClassification={stageClassification}
-                  />
+                  <div className="space-y-4">
+                    {/* Company Sub-tabs */}
+                    <div className="flex items-center gap-1 border-b border-border">
+                      {COMPANY_SUBTABS.map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setCompanySubView(tab.key)}
+                          className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            companySubView === tab.key
+                              ? "border-foreground text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Company Sub-view Content */}
+                    {companySubView === "health" && (
+                      <CompanyView
+                        companyData={companyData}
+                        analysisResult={analysisResult}
+                        onMetricEdit={handleMetricEdit}
+                        onNavigateProfile={() => setActiveView("company")}
+                        stageClassification={stageClassification}
+                      />
+                    )}
+                    {companySubView === "benchmarks" && (
+                      <CompetitiveBenchmarking
+                        metricTable={analysisResult?.metricTable}
+                        companyData={companyData}
+                        analysisResult={analysisResult}
+                        onScrollToProfile={() => setActiveView("company")}
+                        isLocked={!isProfileVerified}
+                      />
+                    )}
+                  </div>
                 )}
                 {dashboardView === "competitive" && (
                   <CompetitiveView
