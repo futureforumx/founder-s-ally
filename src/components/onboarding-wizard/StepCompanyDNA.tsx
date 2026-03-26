@@ -19,7 +19,7 @@ import type { OnboardingState } from "./types";
 interface StepCompanyDNAProps {
   state: OnboardingState;
   update: (p: Partial<OnboardingState>) => void;
-  onNext: () => void;
+  onNext: (companyName?: string) => void;
   onBack: () => void;
 }
 
@@ -146,31 +146,38 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   };
 
   const handleContinue = () => {
+    // Always commit whatever is typed in the search box to state before proceeding,
+    // so the company name reliably reaches the pending-company-seed written by handleFinish.
+    const nameToCommit = selectedCompany?.name || searchQuery.trim();
+    if (nameToCommit && nameToCommit !== state.companyName) {
+      update({ companyName: nameToCommit });
+    }
+
     if (isJoinMode) {
       setShowJoinModal(true);
     } else {
-      // Skip modal — go directly to finish, which seeds data and redirects
-      // to the main app where the OnboardingStepper popup handles company setup
-      onNext();
+      // Pass name directly so handleFinish gets it even before React state settles
+      onNext(nameToCommit || state.companyName);
     }
   };
 
   const handleNewCompanyConfirm = () => {
     setShowNewCompanyModal(false);
-    onNext();
+    onNext(selectedCompany?.name || searchQuery.trim() || state.companyName);
   };
 
   const handleJoinConfirm = async () => {
+    const companyName = selectedCompany?.name || searchQuery.trim() || state.companyName;
     // If valid approval code was entered, auto-approve by adding as member
     if (codeStatus === "valid" && selectedCompany) {
       // The code was already validated — proceed directly
       setShowJoinModal(false);
-      onNext();
+      onNext(companyName);
       return;
     }
     // Otherwise proceed as a pending request
     setShowJoinModal(false);
-    onNext();
+    onNext(companyName);
   };
 
   const validateApprovalCode = useCallback(async (code: string) => {

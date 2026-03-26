@@ -4,6 +4,7 @@ import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
@@ -64,6 +65,11 @@ const Index = () => {
   });
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      if (localStorage.getItem("pending-company-seed")) {
+        return true;
+      }
+    } catch {}
     try {
       const saved = localStorage.getItem("company-profile");
       if (saved) {
@@ -255,7 +261,7 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {showOnboarding && !profileComplete && (
+      {showOnboarding && (
         <OnboardingStepper
           onComplete={handleOnboardingComplete}
           onSkip={() => setShowOnboarding(false)}
@@ -292,7 +298,7 @@ const Index = () => {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, network pulse, and company health</p>
                 </div>
               </div>
 
@@ -347,8 +353,37 @@ const Index = () => {
                 }
               }
             }} />
-          ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
+          ) : activeView === "investors" || activeView === "investor-search" || activeView === "connections" ? (
+            <Tabs
+              value={activeView === "investor-search" ? "search" : activeView === "connections" ? "connections" : "matches"}
+              onValueChange={(v) => {
+                if (v === "matches") setActiveView("investors");
+                else if (v === "search") setActiveView("investor-search");
+                else if (v === "connections") setActiveView("connections");
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Investors</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Match, search, and manage investor relationships</p>
+              </div>
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="matches">Matches</TabsTrigger>
+                <TabsTrigger value="search">Search</TabsTrigger>
+                <TabsTrigger value="connections">Connections</TabsTrigger>
+              </TabsList>
+              <TabsContent value="matches">
+                <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
+              </TabsContent>
+              <TabsContent value="search">
+                <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant="investor-search" />
+              </TabsContent>
+              <TabsContent value="connections">
+                <div className="space-y-4">
+                  <ConnectionsPage />
+                </div>
+              </TabsContent>
+            </Tabs>
           ) : activeView === "sector" ? (
             <div className="space-y-4">
               <div>
@@ -357,16 +392,8 @@ const Index = () => {
               </div>
               <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
             </div>
-          ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
-          ) : activeView === "connections" ? (
-            <div className="space-y-4">
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">Connections</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Network intelligence, warm intros, and founder experiences</p>
-              </div>
-              <ConnectionsPage />
-            </div>
+          ) : activeView === "directory" ? (
+            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant="directory" />
           ) : activeView === "groups" ? (
             <GroupsView />
           ) : activeView === "events" ? (

@@ -22,10 +22,6 @@ const companyItems = [
 { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
 { id: "audit" as const, label: "Deck Audit", icon: FileText }];
 
-const investorItems = [
-{ id: "investors" as const, label: "Matches", icon: Handshake },
-{ id: "investor-search" as const, label: "Search", icon: Search },
-{ id: "connections" as const, label: "Connections", icon: Link2 }];
 
 const communityItems = [
   { id: "directory" as const, label: "Directory", icon: BookOpen },
@@ -38,9 +34,6 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
-  const [investorsOpen, setInvestorsOpen] = useState(
-    activeView === "investors" || activeView === "investor-search" || activeView === "connections"
-  );
   const [communityOpen, setCommunityOpen] = useState(
     activeView === "directory" || activeView === "groups" || activeView === "events"
   );
@@ -86,7 +79,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             </button>
           )}
           <button
-            onClick={() => setInvestorsOpen(!investorsOpen)}
+            onClick={() => onViewChange("investors")}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
               (activeView === "investors" || activeView === "investor-search" || activeView === "connections")
@@ -95,26 +88,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             )}>
             <Users className="h-4 w-4" />
             Investors
-            <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", investorsOpen && "rotate-180")} />
           </button>
-          {investorsOpen && (
-            <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
-              {investorItems.map((item) =>
-                <button
-                  key={item.id}
-                  onClick={() => onViewChange(item.id)}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-light transition-colors",
-                    activeView === item.id
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                  )}>
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              )}
-            </div>
-          )}
           <button
             onClick={() => setCommunityOpen(!communityOpen)}
             className={cn(
@@ -124,7 +98,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
             <Users className="h-4 w-4" />
-            Community
+            Network
             <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", communityOpen && "rotate-180")} />
           </button>
           {communityOpen && (
