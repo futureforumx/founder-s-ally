@@ -276,6 +276,7 @@ export function GlobalTopNav({
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
+  const isCommunityArea = ["directory", "groups", "events"].includes(activeView);
   const PulseIcon = pulse.icon;
   const suggestions = getContextSuggestions(activeView, userSector, userStage);
 
@@ -301,7 +302,7 @@ export function GlobalTopNav({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* ── Left: Pulse ── */}
         <div className="flex min-w-0 shrink-0 items-center gap-2.5">
-          {isInvestorArea ? (
+          {(isInvestorArea || isCommunityArea) ? (
             <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
@@ -416,7 +417,7 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Investor Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["investors", "investor-search"].includes(activeView) && (
+        {!searchOpen && ["investors", "investor-search", "connections"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3">
@@ -478,6 +479,70 @@ export function GlobalTopNav({
                     className={cn(activeView === "connections" && "bg-accent/10 text-accent")}
                   >
                     Connections
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Network Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["directory", "groups", "events"].includes(activeView) && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3">
+              {[
+                { id: "directory", label: "Directory" },
+                { id: "groups", label: "Groups" },
+                { id: "events", label: "Events" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onViewChange?.(tab.id as ViewType)}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                    activeView === tab.id
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {activeView === "directory" ? "Directory" : activeView === "groups" ? "Groups" : "Events"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("directory")}
+                    className={cn(activeView === "directory" && "bg-accent/10 text-accent")}
+                  >
+                    Directory
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("groups")}
+                    className={cn(activeView === "groups" && "bg-accent/10 text-accent")}
+                  >
+                    Groups
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("events")}
+                    className={cn(activeView === "events" && "bg-accent/10 text-accent")}
+                  >
+                    Events
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
