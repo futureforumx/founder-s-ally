@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
-import { ChakraProvider, extendTheme } from "@chakra-ui/react";
+import { ChakraProvider } from "@chakra-ui/react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,14 +13,6 @@ import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import { Loader2 } from "lucide-react";
-
-// Minimal Chakra theme - we'll keep Tailwind as primary
-const theme = extendTheme({
-  config: {
-    initialColorMode: "light",
-    useSystemColorMode: false,
-  },
-});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,7 +71,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ChakraProvider theme={theme}>
+    <ChakraProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
