@@ -502,6 +502,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [enriching, setEnriching] = useState(false);
+  const [syncedCompetitors, setSyncedCompetitors] = useState<Set<string>>(new Set());
 
   const {
     competitors: dbCompetitors,
@@ -513,38 +514,33 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     removeCompetitor,
   } = useCompetitors();
 
-  // Track syncing state to prevent duplicate syncs
-  const [syncing, setSyncing] = useState(false);
-
-  // Sync companyData.competitors to DB whenever they change
+  // Sync companyData.competitors to DB whenever they change (one-time per unique competitor)
   useEffect(() => {
-    if (dbLoading || dbAdding || syncing) return;
+    if (dbLoading) return;
 
     const profileComps = companyData?.competitors || [];
     if (profileComps.length === 0) return;
 
-    const dbCompNames = dbCompetitors.map(tc => tc.competitor.name.toLowerCase());
+    const dbCompNames = new Set(dbCompetitors.map(tc => tc.competitor.name.toLowerCase()));
 
-    // Find competitors in profile that aren't in DB (case-insensitive check)
+    // Find competitors in profile that aren't in DB and haven't been synced yet
     const newComps = profileComps.filter(
-      name => !dbCompNames.includes(name.toLowerCase())
+      name => !dbCompNames.has(name.toLowerCase()) && !syncedCompetitors.has(name.toLowerCase())
     );
 
     // Add missing competitors to DB
     if (newComps.length > 0) {
-      setSyncing(true);
       const syncAsync = async () => {
-        try {
-          for (const name of newComps) {
-            await dbAddCompetitor(name);
+        for (const name of newComps) {
+          const result = await dbAddCompetitor(name);
+          if (result) {
+            setSyncedCompetitors(prev => new Set(prev).add(name.toLowerCase()));
           }
-        } finally {
-          setSyncing(false);
         }
       };
       syncAsync();
     }
-  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAdding, dbAddCompetitor, syncing]);
+  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAddCompetitor, syncedCompetitors]);
 
   // Sync DB competitors back to companyData whenever they change
   useEffect(() => {
