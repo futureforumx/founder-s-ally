@@ -126,7 +126,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
             <Users className="h-4 w-4" />
-            Community
+            Network
             <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", communityOpen && "rotate-180")} />
           </button>
           {communityOpen && (
