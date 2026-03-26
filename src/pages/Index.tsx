@@ -23,11 +23,12 @@ import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { HelpCenter } from "@/components/HelpCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings" | "help";
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -470,6 +471,8 @@ const Index = () => {
             <DeckAuditView />
           ) : activeView === "settings" ? (
             <SettingsPage tourEnabled={!showOnboarding && !showTerminal} />
+          ) : activeView === "help" ? (
+            <HelpCenter />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
