@@ -14,6 +14,11 @@ import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
 
+/** Wait for the user to pause typing before calling Gemini/Clearbit (avoids guesses on partial names). */
+const WEBSITE_GUESS_DEBOUNCE_MS = 700;
+/** Minimum trimmed length before we auto-guess a URL (reduces junk matches on 2–3 character inputs). */
+const MIN_COMPANY_NAME_LEN_FOR_URL_GUESS = 4;
+
 /** Inline validation for company website (step 1). Returns null if OK. */
 function getWebsiteUrlError(raw: string): string | null {
   const trimmed = raw.trim();
@@ -116,6 +121,7 @@ function levenshtein(a: string, b: string): number {
 /**
  * True if the URL's registrable-looking label matches the company name closely enough
  * to accept a third-party guess (blocks unrelated megasites).
+ * Short substring rules are strict so e.g. "dis" cannot match discord.com.
  */
 function guessedUrlMatchesCompanyName(urlString: string, companyName: string): boolean {
   const trimmed = urlString.trim();
@@ -141,16 +147,17 @@ function guessedUrlMatchesCompanyName(urlString: string, companyName: string): b
 
   if (companySlug.length >= 2 && brand.length >= 2) {
     if (companySlug === brand) return true;
-    if (companySlug.length >= 3 && brand.includes(companySlug)) return true;
-    if (brand.length >= 3 && companySlug.includes(brand)) return true;
+    if (companySlug.length >= 4 && brand.includes(companySlug)) return true;
+    if (brand.length >= 4 && companySlug.includes(brand)) return true;
   }
   for (const w of words) {
-    if (w.length >= 3 && (brand.includes(w) || w.includes(brand))) return true;
+    if (w.length >= 4 && brand.includes(w)) return true;
+    if (brand.length >= 4 && w.includes(brand)) return true;
   }
   const minLen = Math.min(companySlug.length, brand.length);
-  if (minLen >= 4) {
+  if (minLen >= 5) {
     const d = levenshtein(companySlug, brand);
-    const maxDist = Math.max(1, Math.floor(minLen * 0.28));
+    const maxDist = Math.max(1, Math.floor(minLen * 0.22));
     if (d <= maxDist) return true;
   }
   return false;
@@ -160,11 +167,13 @@ function clearbitCompanyNameMatchesQuery(query: string, resultName: string): boo
   const q = normalizeLoose(query);
   const n = normalizeLoose(resultName);
   if (q.length < 2 || n.length < 2) return false;
+  // Short queries: only exact normalized matches (e.g. "IBM"), not substring hits on "Discord".
+  if (q.length < 4) return q === n;
   if (n.includes(q) || q.includes(n)) return true;
   const minLen = Math.min(q.length, n.length);
-  if (minLen >= 4) {
+  if (minLen >= 5) {
     const d = levenshtein(q, n);
-    if (d <= Math.max(1, Math.floor(minLen * 0.35))) return true;
+    if (d <= Math.max(1, Math.floor(minLen * 0.28))) return true;
   }
   return false;
 }
@@ -235,88 +244,123 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     headcount: false,
   });
 
+  const companyNameRef = useRef(companyName);
+  const websiteRef = useRef(website);
+  const stepRef = useRef(step);
+  companyNameRef.current = companyName;
+  websiteRef.current = website;
+  stepRef.current = step;
+
+  // Drop an AI-filled URL if the user keeps typing and it no longer matches the company name.
+  useEffect(() => {
+    const nameTrim = companyName.trim();
+    if (!website.trim() || !aiGuessedFields.includes("websiteUrl")) return;
+    if (guessedUrlMatchesCompanyName(website, nameTrim)) return;
+    setWebsite("");
+    setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
+    websiteGuessAttemptedForRef.current = null;
+  }, [companyName, website, aiGuessedFields]);
+
   useEffect(() => {
     const nameTrim = companyName.trim();
     if (!nameTrim || website || step !== 1) return;
     if (!looksLikePlausibleCompanyName(nameTrim)) return;
+    if (nameTrim.length < MIN_COMPANY_NAME_LEN_FOR_URL_GUESS) return;
 
-    const key = nameTrim.toLowerCase();
-    if (websiteGuessAttemptedForRef.current === key) return;
-    websiteGuessAttemptedForRef.current = key;
+    const timer = window.setTimeout(() => {
+      const n = companyNameRef.current.trim();
+      if (
+        !n ||
+        websiteRef.current.trim() ||
+        stepRef.current !== 1 ||
+        !looksLikePlausibleCompanyName(n) ||
+        n.length < MIN_COMPANY_NAME_LEN_FOR_URL_GUESS
+      ) {
+        return;
+      }
 
-    const applyGuess = (rawUrl: string) => {
-      const u = rawUrl.trim();
-      if (!u || getWebsiteUrlError(u) !== null) return false;
-      if (!guessedUrlMatchesCompanyName(u, nameTrim)) return false;
-      setWebsite(u);
-      setAiGuessedFields((prev) => Array.from(new Set([...prev, "websiteUrl"])));
-      return true;
-    };
+      const key = n.toLowerCase();
+      if (websiteGuessAttemptedForRef.current === key) return;
+      websiteGuessAttemptedForRef.current = key;
 
-    const guessUrl = async () => {
-      setIsProcessing(true);
-      setProcessStep("Finding your company website...");
-      try {
-        const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (geminiKey) {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        text: `You map a company name to its official primary website.
+      const applyGuess = (rawUrl: string) => {
+        const u = rawUrl.trim();
+        if (!u || getWebsiteUrlError(u) !== null) return false;
+        if (!guessedUrlMatchesCompanyName(u, n)) return false;
+        setWebsite(u);
+        setAiGuessedFields((prev) => Array.from(new Set([...prev, "websiteUrl"])));
+        return true;
+      };
 
-Company name: "${nameTrim}"
+      const guessUrl = async () => {
+        setIsProcessing(true);
+        setProcessStep("Finding your company website...");
+        try {
+          const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          if (geminiKey) {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        {
+                          text: `You map a company name to its official primary website domain.
+
+Company name: "${n}"
 
 Rules:
-- If this is not a specific real company you can name with confidence, or you are unsure, reply exactly: UNKNOWN
-- Do not guess, invent, or pick a well-known unrelated brand.
+- Reply UNKNOWN unless this is a specific real company you recognize and can tie to one official site.
+- The site's first hostname label must clearly match the company name (not a substring coincidence on a different brand).
+- Never return social networks, app stores, Wikipedia, Crunchbase, or unrelated megabrands.
+- If unsure, reply exactly: UNKNOWN
 - If you know the company, reply with one https URL only — no markdown, quotes, or explanation.`,
-                      },
-                    ],
-                  },
-                ],
-              }),
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+              const extracted = extractUrlFromGeminiResponse(text);
+              if (extracted && applyGuess(extracted)) return;
             }
+          }
+
+          const bgRes = await fetch(
+            `https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(n)}`
           );
-          if (res.ok) {
-            const data = await res.json();
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-            const extracted = extractUrlFromGeminiResponse(text);
-            if (extracted && applyGuess(extracted)) return;
-          }
-        }
-
-        const bgRes = await fetch(
-          `https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(nameTrim)}`
-        );
-        if (bgRes.ok) {
-          const bgData: { name?: string; domain?: string }[] = await bgRes.json();
-          if (Array.isArray(bgData)) {
-            for (const row of bgData) {
-              const domain = row.domain?.trim();
-              const legalName = row.name?.trim() ?? "";
-              if (!domain || !legalName) continue;
-              if (!clearbitCompanyNameMatchesQuery(nameTrim, legalName)) continue;
-              const candidate = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
-              if (applyGuess(candidate)) return;
+          if (bgRes.ok) {
+            const bgData: { name?: string; domain?: string }[] = await bgRes.json();
+            if (Array.isArray(bgData)) {
+              for (const row of bgData) {
+                const domain = row.domain?.trim();
+                const legalName = row.name?.trim() ?? "";
+                if (!domain || !legalName) continue;
+                if (!clearbitCompanyNameMatchesQuery(n, legalName)) continue;
+                const candidate = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
+                if (applyGuess(candidate)) return;
+              }
             }
           }
+        } catch (e) {
+          console.warn("Failed to guess website URL", e);
+        } finally {
+          setIsProcessing(false);
+          setProcessStep("");
         }
-      } catch (e) {
-        console.warn("Failed to guess website URL", e);
-      } finally {
-        setIsProcessing(false);
-        setProcessStep("");
-      }
-    };
+      };
 
-    void guessUrl();
+      void guessUrl();
+    }, WEBSITE_GUESS_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
   }, [companyName, website, step]);
 
   const clearAiMetric = useCallback((key: keyof typeof aiMetricHighlight) => {
@@ -652,6 +696,7 @@ Rules:
                       onChange={(e) => {
                         setWebsite(e.target.value);
                         setWebsiteUrlError(null);
+                        websiteGuessAttemptedForRef.current = null;
                         setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
                       }}
                       onBlur={() => {
