@@ -228,6 +228,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
   const [shakeStep3, setShakeStep3] = useState(false);
   const [websiteUrlError, setWebsiteUrlError] = useState<string | null>(null);
+  const [websiteGuessConfirmNeeded, setWebsiteGuessConfirmNeeded] = useState(false);
 
   const [aiMetricHighlight, setAiMetricHighlight] = useState({
     stage: false,
@@ -690,6 +691,7 @@ Rules:
                       onChange={(e) => {
                         setWebsite(e.target.value);
                         setWebsiteUrlError(null);
+                        setWebsiteGuessConfirmNeeded(false);
                         websiteGuessAttemptedForRef.current = null;
                         setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
                       }}
@@ -713,6 +715,15 @@ Rules:
                       <p className="text-xs text-destructive" role="alert">
                         {websiteUrlError}
                       </p>
+                    ) : websiteGuessConfirmNeeded ? (
+                      <div className="rounded-lg bg-accent/10 border border-accent/20 p-3 space-y-2">
+                        <p className="text-xs font-medium text-foreground">
+                          Did we guess your website correctly?
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          We auto-detected <span className="font-mono text-accent">{website}</span> based on your company name. Edit it above if needed, then continue.
+                        </p>
+                      </div>
                     ) : (
                       <p className="text-[10px] text-muted-foreground">
                         We'll scan your site for value prop, pricing, and positioning
@@ -901,6 +912,12 @@ Rules:
                       return;
                     }
                     setWebsiteUrlError(null);
+                    // If website was AI-guessed and not manually edited, ask for confirmation
+                    if (aiGuessedFields.includes("websiteUrl") && !websiteGuessConfirmNeeded) {
+                      setWebsiteGuessConfirmNeeded(true);
+                      return;
+                    }
+                    setWebsiteGuessConfirmNeeded(false);
                     scrapeWebsite();
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
