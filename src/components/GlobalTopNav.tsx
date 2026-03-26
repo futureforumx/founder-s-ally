@@ -414,6 +414,36 @@ export function GlobalTopNav({
             </div>
           )}
         </div>
+
+        {/* ── Investor Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["investors", "investor-search"].includes(activeView) && (
+          <div className="flex items-center gap-1 ml-3">
+            {[
+              { id: "matches", label: "Matches" },
+              { id: "search", label: "Search" },
+              { id: "connections", label: "Connections" }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id === "matches") onViewChange?.("investors");
+                  else if (tab.id === "search") onViewChange?.("investor-search");
+                  else if (tab.id === "connections") onViewChange?.("connections");
+                }}
+                className={cn(
+                  "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                  activeView === "investors" && tab.id === "matches" ||
+                  activeView === "investor-search" && tab.id === "search" ||
+                  activeView === "connections" && tab.id === "connections"
+                    ? "text-accent bg-accent/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
