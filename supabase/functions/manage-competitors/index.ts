@@ -65,22 +65,30 @@ serve(async (req) => {
     // ── ADD: Add a competitor (create global entry if needed, then link) ──
     if (action === "add") {
       const { name, status = "Tracked", user_defined_advantage, notes, website: providedWebsite } = payload;
+
       if (!name?.trim()) {
-        return new Response(JSON.stringify({ error: "Name is required" }), {
+        return new Response(JSON.stringify({ error: "Competitor name is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const trimmedName = name.trim();
+      const validStatus = ["Tracked", "Threat", "Watch"].includes(status) ? status : "Tracked";
 
       // Check if competitor exists globally
-      const { data: existing } = await supabase
+      const { data: existing, error: existError } = await supabase
         .from("competitors")
         .select("*")
         .ilike("name", trimmedName)
         .limit(1)
         .single();
+
+      if (existError && existError.code !== "PGRST116") {
+        // PGRST116 means no rows found, which is expected
+        console.error("Error checking existing competitor:", existError);
+        throw existError;
+      }
 
       let competitorId: string;
       let competitorRecord: any;
@@ -147,48 +155,62 @@ serve(async (req) => {
           console.error("AI enrichment failed (non-blocking):", e);
         }
 
-        const { data: newComp, error: insertErr } = await supabase
-          .from("competitors")
-          .insert({
-            name: trimmedName,
-            website,
-            description,
-            industry_tags: industryTags,
-          })
-          .select()
-          .single();
+        try {
+          const { data: newComp, error: insertErr } = await supabase
+            .from("competitors")
+            .insert({
+              name: trimmedName,
+              website,
+              description,
+              industry_tags: industryTags,
+            })
+            .select()
+            .single();
 
-        if (insertErr) throw insertErr;
-        competitorId = newComp.id;
-        competitorRecord = newComp;
+          if (insertErr) {
+            console.error("Error inserting competitor:", insertErr);
+            throw insertErr;
+          }
+          competitorId = newComp.id;
+          competitorRecord = newComp;
+        } catch (e) {
+          console.error("Failed to create competitor:", e);
+          throw e;
+        }
       }
 
       // Link to user
-      const { data: link, error: linkErr } = await supabase
-        .from("company_competitors")
-        .insert({
-          user_id: user.id,
-          competitor_id: competitorId,
-          status,
-          user_defined_advantage: user_defined_advantage || null,
-          notes: notes || null,
-        })
-        .select("*, competitor:competitors(*)")
-        .single();
+      try {
+        const { data: link, error: linkErr } = await supabase
+          .from("company_competitors")
+          .insert({
+            user_id: user.id,
+            competitor_id: competitorId,
+            status: validStatus,
+            user_defined_advantage: user_defined_advantage || null,
+            notes: notes || null,
+          })
+          .select("*, competitor:competitors(*)")
+          .single();
 
-      if (linkErr) {
-        if (linkErr.code === "23505") {
-          return new Response(JSON.stringify({ error: "Competitor already tracked" }), {
-            status: 409,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        if (linkErr) {
+          console.error("Link error:", linkErr.code, linkErr.message);
+          if (linkErr.code === "23505") {
+            return new Response(JSON.stringify({ error: "Competitor already tracked" }), {
+              status: 409,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw linkErr;
         }
-        throw linkErr;
-      }
 
-      return new Response(JSON.stringify({ competitor: link }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        return new Response(JSON.stringify({ competitor: link }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (linkError) {
+        console.error("Failed to link competitor:", linkError);
+        throw linkError;
+      }
     }
 
     // ── UPDATE STATUS ──
