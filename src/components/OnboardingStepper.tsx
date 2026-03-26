@@ -193,11 +193,6 @@ function defaultWebsiteGuessFromCompanyName(companyName: string): string {
 }
 
 export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  // Read seed on every mount (StrictMode-safe: don't remove in initializer)
-  const [seed] = useState(readSeed);
->>>>>>> 161cd2090b521933223851841b228d151482ad85
-
-export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
   const [seed] = useState(readSeed);
 
   const [step, setStep] = useState(1);
