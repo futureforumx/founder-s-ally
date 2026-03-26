@@ -329,9 +329,6 @@ const Index = () => {
                     onNavigateProfile={() => setActiveView("company")}
                   />
                 )}
-                {dashboardView === "community" && (
-                  <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
-                )}
               </div>
             </div>
           ) : activeView === "benchmarks" ? (
