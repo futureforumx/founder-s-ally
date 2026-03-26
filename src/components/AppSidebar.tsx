@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
+import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,9 +17,6 @@ const topItems = [
 { id: "dashboard" as const, label: "Mission Control", icon: Gauge }];
 
 const companyItems = [
-{ id: "competitors" as const, label: "Competitors", icon: Swords },
-{ id: "sector" as const, label: "Sector", icon: Layers },
-{ id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
 { id: "audit" as const, label: "Deck Audit", icon: FileText }];
 
 
