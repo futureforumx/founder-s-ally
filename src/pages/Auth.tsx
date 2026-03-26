@@ -595,7 +595,6 @@ export default function Auth() {
             .
           </p>
         )}
-<<<<<<< HEAD
           </div>
         </div>
 
@@ -630,22 +629,6 @@ export default function Auth() {
             </div>
           </div>
         </div>
-=======
-      </div></div>
-
-      {/* Right Side: Abstract Animation Background */}
-      <div className="hidden lg:block lg:relative lg:w-1/2 overflow-hidden bg-zinc-50 border-l border-zinc-200">
-        <video
-          src="/animation.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover opacity-90"
-        />
-        {/* Subtle gradient overlay to blend into the left side slightly */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent opacity-30" />
->>>>>>> 161cd2090b521933223851841b228d151482ad85
       </div>
     </div>
   );
