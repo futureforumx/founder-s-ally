@@ -424,7 +424,7 @@ export function GlobalTopNav({
         {!searchOpen && ["investors", "investor-search", "connections"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3">
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {[
                 { id: "matches", label: "Matches" },
                 { id: "search", label: "Search" },
@@ -438,7 +438,7 @@ export function GlobalTopNav({
                     else if (tab.id === "connections") onViewChange?.("connections");
                   }}
                   className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
                     activeView === "investors" && tab.id === "matches" ||
                     activeView === "investor-search" && tab.id === "search" ||
                     activeView === "connections" && tab.id === "connections"
@@ -452,7 +452,7 @@ export function GlobalTopNav({
             </div>
 
             {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2">
+            <div className="md:hidden ml-2 mr-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={cn(
@@ -494,7 +494,7 @@ export function GlobalTopNav({
         {!searchOpen && ["directory", "groups", "events"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3">
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {[
                 { id: "directory", label: "Directory" },
                 { id: "groups", label: "Groups" },
@@ -504,7 +504,7 @@ export function GlobalTopNav({
                   key={tab.id}
                   onClick={() => onViewChange?.(tab.id as ViewType)}
                   className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
                     activeView === tab.id
                       ? "text-accent bg-accent/10"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
@@ -516,7 +516,7 @@ export function GlobalTopNav({
             </div>
 
             {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2">
+            <div className="md:hidden ml-2 mr-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={cn(
@@ -558,7 +558,7 @@ export function GlobalTopNav({
         {!searchOpen && activeView === "dashboard" && (
           <>
             {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3">
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {[
                 { id: "company", label: "Company" },
                 { id: "industry", label: "Industry" },
@@ -570,7 +570,7 @@ export function GlobalTopNav({
                   key={tab.id}
                   onClick={() => onDashboardViewChange?.(tab.id as any)}
                   className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
                     dashboardView === tab.id
                       ? "text-accent bg-accent/10"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
@@ -582,7 +582,7 @@ export function GlobalTopNav({
             </div>
 
             {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2">
+            <div className="md:hidden ml-2 mr-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className={cn(
