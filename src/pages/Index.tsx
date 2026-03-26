@@ -16,7 +16,7 @@ import { InvestorMatch } from "@/components/InvestorMatch";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { DashboardSegmentedControl, type DashboardView, type CompanySubView, COMPANY_SUBTABS } from "@/components/dashboard/DashboardSegmentedControl";
+import { type DashboardView, type CompanySubView, COMPANY_SUBTABS } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
@@ -293,18 +293,18 @@ const Index = () => {
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
           personalCompletion={personalCompletion}
+          dashboardView={dashboardView}
+          onDashboardViewChange={setDashboardView}
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
             <div className="space-y-0">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, network pulse, and company health</p>
                 </div>
               </div>
-
-              <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
 
               <div className="mt-6 animate-fade-in" key={dashboardView}>
                 {dashboardView === "company" && (
