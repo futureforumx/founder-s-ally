@@ -175,8 +175,10 @@ export default function Auth() {
     "h-10 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/10";
 
   return (
-    <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
-      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
+    <div className="flex min-h-screen bg-white">
+      {/* Left Side: Auth Form */}
+      <div className="flex w-full flex-col justify-center px-4 py-10 sm:px-12 lg:w-1/2 xl:px-24 z-10">
+        <div className="mx-auto w-full max-w-[420px]">
         {/* Brand — Botpress-style centered mark */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
@@ -196,7 +198,7 @@ export default function Auth() {
           </>
         ) : (
           <>
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-zinc-900">Sign in</h1>
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-zinc-900">Welcome back!</h1>
             <p className="mt-2 text-center text-sm text-zinc-500">Sign in to your command center</p>
           </>
         )}
@@ -379,6 +381,20 @@ export default function Auth() {
             .
           </p>
         )}
+      </div></div>
+
+      {/* Right Side: Abstract Animation Background */}
+      <div className="hidden lg:block lg:relative lg:w-1/2 overflow-hidden bg-zinc-50 border-l border-zinc-200">
+        <video
+          src="/animation.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover opacity-90"
+        />
+        {/* Subtle gradient overlay to blend into the left side slightly */}
+        <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent opacity-30" />
       </div>
     </div>
   );

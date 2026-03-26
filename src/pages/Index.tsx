@@ -65,6 +65,11 @@ const Index = () => {
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
+      if (localStorage.getItem("pending-company-seed")) {
+        return true;
+      }
+    } catch {}
+    try {
       const saved = localStorage.getItem("company-profile");
       if (saved) {
         const p = JSON.parse(saved);
@@ -255,7 +260,7 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {showOnboarding && !profileComplete && (
+      {showOnboarding && (
         <OnboardingStepper
           onComplete={handleOnboardingComplete}
           onSkip={() => setShowOnboarding(false)}

@@ -22,7 +22,7 @@ export function OnboardingWizard() {
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
 
-  const handleFinish = async () => {
+  const handleFinish = async (overrideCompanyName?: string) => {
     if (!user || saving) return;
     playSound("/sounds/success.wav", 0.6);
     setSaving(true);
@@ -30,7 +30,8 @@ export function OnboardingWizard() {
     try {
       let companyId: string | null = null;
 
-      if (state.companyName) {
+      const resolvedCompanyName = overrideCompanyName || state.companyName;
+      if (resolvedCompanyName) {
         const { data: existing } = await (supabase as any)
           .from("company_analyses")
           .select("id")
@@ -44,7 +45,7 @@ export function OnboardingWizard() {
           await (supabase as any)
             .from("company_analyses")
             .update({
-              company_name: state.companyName,
+              company_name: resolvedCompanyName,
               website_url: state.websiteUrl || null,
               deck_text: state.deckText || null,
               stage: state.stage || null,
@@ -57,7 +58,7 @@ export function OnboardingWizard() {
             .from("company_analyses")
             .insert({
               user_id: user.id,
-              company_name: state.companyName,
+              company_name: resolvedCompanyName,
               website_url: state.websiteUrl || null,
               deck_text: state.deckText || null,
               stage: state.stage || null,
@@ -107,7 +108,7 @@ export function OnboardingWizard() {
       // ── Seed data for the OnboardingStepper popup on the main app ──
       try {
         localStorage.setItem("pending-company-seed", JSON.stringify({
-          companyName: state.companyName || "",
+          companyName: resolvedCompanyName || "",
           websiteUrl: state.websiteUrl || "",
           deckText: state.deckText || "",
           stage: state.stage || "",
@@ -129,7 +130,7 @@ export function OnboardingWizard() {
         }));
       } catch {}
 
-      toast({ title: `Welcome, ${state.fullName || state.companyName || "Founder"}!`, description: "Let's set up your company profile." });
+      toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
       navigate("/");
@@ -150,7 +151,7 @@ export function OnboardingWizard() {
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
           )}
           {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={handleFinish} onBack={() => goTo(1)} />
+            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name) => { void handleFinish(name); }} onBack={() => goTo(1)} />
           )}
         </AnimatePresence>
       </div>
