@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Shield, FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
+import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BrandLogo } from "@/components/BrandLogo";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -46,14 +47,11 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
   return (
       <aside className="flex h-screen w-44 flex-col bg-sidebar text-sidebar-foreground">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-accent">
-            <Shield className="h-4 w-4 text-accent" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-sidebar-accent-foreground">Founder</div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60">Copilot</div>
-          </div>
+        <div className="px-5 py-5">
+          <BrandLogo
+            variant="white"
+            className="w-[112px]"
+          />
         </div>
 
         <nav className="mt-4 flex flex-1 flex-col gap-1 px-3">

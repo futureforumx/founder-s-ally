@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
-import { Loader2, Terminal } from "lucide-react";
+import { KeyRound, Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { validateSignupEmail } from "@/lib/signupEmailValidation";
@@ -24,6 +26,12 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [signupEmailError, setSignupEmailError] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpExpanded, setOtpExpanded] = useState(false);
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpLoading, setOtpLoading] = useState<"idle" | "sending" | "verifying">("idle");
+  const [otpMethod, setOtpMethod] = useState<"resend" | "supabase">("resend");
 
   useEffect(() => {
     if (!authLoading && user) navigate("/", { replace: true });
@@ -31,7 +39,24 @@ export default function Auth() {
 
   useEffect(() => {
     setSignupEmailError(null);
+    setOtpCode("");
+    setOtpExpanded(false);
+    setOtpRequested(false);
+    setOtpEmail("");
+    setOtpLoading("idle");
+    setOtpMethod("resend");
   }, [mode]);
+
+  useEffect(() => {
+    if (!otpRequested) return;
+    if (email.trim() !== otpEmail) {
+      setOtpRequested(false);
+      setOtpCode("");
+      setOtpEmail("");
+      setOtpLoading("idle");
+      setOtpMethod("resend");
+    }
+  }, [email, otpEmail, otpRequested]);
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -71,6 +96,102 @@ export default function Auth() {
     if (mode !== "signup" || !email.trim()) return;
     const result = await validateSignupEmail(email);
     setSignupEmailError(result.ok ? null : (result as { ok: false; message: string }).message);
+  };
+
+  const getOtpErrorMessage = (err: any) => {
+    const message = err?.message || "";
+
+    if (
+      message.includes("Signups not allowed for otp") ||
+      message.includes("User not found") ||
+      message.includes("Invalid login credentials")
+    ) {
+      return "We couldn't find an account for that email.";
+    }
+
+    return message || "Failed to send one-time code.";
+  };
+
+  const handleSendOtp = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+
+    if (!validEmail) {
+      toast.error("Enter a valid email address to receive a one-time code.");
+      return;
+    }
+
+    setOtpLoading("sending");
+    try {
+      const { data, error } = await supabase.functions.invoke("send-login-otp", {
+        body: {
+          email: trimmedEmail,
+          redirectTo: `${window.location.origin}/auth`,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setOtpRequested(true);
+      setOtpEmail(trimmedEmail);
+      setOtpMethod("resend");
+      setOtpCode("");
+      toast.success("A one-time code has been sent to your email.");
+    } catch (err: any) {
+      const message = err?.message || "";
+      const shouldFallback =
+        message.includes("Failed to send a request to the Edge Function") ||
+        message.includes("Failed to fetch") ||
+        message.includes("FunctionsFetchError");
+
+      if (!shouldFallback) {
+        toast.error(getOtpErrorMessage(err));
+        return;
+      }
+
+      try {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: trimmedEmail,
+          options: {
+            shouldCreateUser: false,
+          },
+        });
+        if (error) throw error;
+
+        setOtpRequested(true);
+        setOtpEmail(trimmedEmail);
+        setOtpMethod("supabase");
+        setOtpCode("");
+        toast.success("A one-time code has been sent to your email.");
+      } catch (fallbackErr: any) {
+        toast.error(getOtpErrorMessage(fallbackErr));
+      }
+    } finally {
+      setOtpLoading("idle");
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.trim().length !== 6) {
+      toast.error("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setOtpLoading("verifying");
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode.trim(),
+        type: otpMethod === "resend" ? "magiclink" : "email",
+      });
+      if (error) throw error;
+
+      toast.success("Signed in with one-time code.");
+    } catch (err: any) {
+      toast.error(err.message || "Invalid one-time code.");
+    } finally {
+      setOtpLoading("idle");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,29 +296,30 @@ export default function Auth() {
     "h-10 w-full rounded-md border bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/10";
 
   return (
-    <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
-      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
-        {/* Brand — Botpress-style centered mark */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-900 text-white">
-            <Terminal className="h-5 w-5" aria-hidden />
-          </div>
-          <span className="text-[15px] font-semibold tracking-tight text-zinc-900"><span className="text-[15px] font-semibold tracking-tight text-zinc-900">VEKTA</span></span>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
+        <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
+          <div className="font-clash flex h-full flex-col justify-center px-8 py-8 sm:px-10 lg:px-12">
+        <div className="mb-8 flex flex-col items-start gap-4">
+          <BrandLogo
+            variant="black"
+            className="w-[132px] sm:w-[148px]"
+          />
         </div>
 
         {mode === "signup" ? (
           <>
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
               Create your account
             </h1>
-            <p className="mt-2 text-center text-sm text-zinc-500">
+            <p className="mt-2 text-sm text-zinc-500">
               Get started in a few steps. You can also continue with Google, LinkedIn, or X.
             </p>
           </>
         ) : (
           <>
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-zinc-900">Sign in</h1>
-            <p className="mt-2 text-center text-sm text-zinc-500">Sign in to your command center</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Sign in</h1>
+            <p className="mt-2 text-sm text-zinc-500">Sign in to your command center</p>
           </>
         )}
 
@@ -289,9 +411,103 @@ export default function Auth() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === "login" ? "Sign in" : "Continue"}
           </Button>
+
+          {mode === "login" && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOtpExpanded((prev) => !prev)}
+                disabled={loading}
+                className="h-11 w-full justify-between rounded-md border-zinc-300 bg-white px-4 text-zinc-900 hover:bg-zinc-100"
+              >
+                <span className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" />
+                  {otpExpanded ? "One-time passcode" : "Use a one-time passcode"}
+                </span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500">
+                  OTP
+                </span>
+              </Button>
+
+              {otpExpanded && (
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+                  {!otpRequested ? (
+                    <p className="text-sm leading-6 text-zinc-600">
+                      We’ll send a 6-digit sign-in code to the email address above.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm leading-6 text-zinc-600">
+                        Enter the 6-digit code sent to <span className="font-medium text-zinc-900">{otpEmail}</span>.
+                      </p>
+                      <InputOTP
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={setOtpCode}
+                        containerClassName="mt-3 justify-start"
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className="border-zinc-300 bg-white text-zinc-900" />
+                          <InputOTPSlot index={1} className="border-zinc-300 bg-white text-zinc-900" />
+                          <InputOTPSlot index={2} className="border-zinc-300 bg-white text-zinc-900" />
+                          <InputOTPSlot index={3} className="border-zinc-300 bg-white text-zinc-900" />
+                          <InputOTPSlot index={4} className="border-zinc-300 bg-white text-zinc-900" />
+                          <InputOTPSlot index={5} className="border-zinc-300 bg-white text-zinc-900" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </>
+                  )}
+                  <div className="mt-3 flex items-stretch gap-2">
+                    {otpRequested ? (
+                      <Button
+                        type="button"
+                        onClick={handleVerifyOtp}
+                        disabled={otpCode.length !== 6 || otpLoading !== "idle" || loading}
+                        className="h-10 flex-1 rounded-md bg-zinc-900 text-white hover:bg-zinc-800"
+                      >
+                        {otpLoading === "verifying" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Verify code
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSendOtp}
+                        disabled={otpLoading !== "idle" || loading}
+                        className="h-10 min-w-0 flex-1 border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100"
+                      >
+                        {otpLoading === "sending" ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="mr-2 h-4 w-4" />
+                        )}
+                        Email me a code
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setOtpExpanded(false);
+                        setOtpRequested(false);
+                        setOtpCode("");
+                        setOtpEmail("");
+                        setOtpMethod("resend");
+                      }}
+                      disabled={otpLoading !== "idle" || loading}
+                      className="h-10 shrink-0 border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
-        <p className="mt-6 text-center text-sm text-zinc-600">
+        <p className="mt-6 text-sm text-zinc-600">
           {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
             type="button"
@@ -353,7 +569,7 @@ export default function Auth() {
           </Button>
         </div>
 
-        <p className="mt-8 text-center text-xs leading-relaxed text-zinc-500">
+        <p className="mt-8 text-xs leading-relaxed text-zinc-500">
           Our privacy standards are worldclass. Find them{" "}
           <a
             href="https://tryvekta.com/privacy"
@@ -367,7 +583,7 @@ export default function Auth() {
         </p>
 
         {mode === "signup" && (
-          <p className="mt-4 text-center text-xs leading-relaxed text-zinc-500">
+          <p className="mt-4 text-xs leading-relaxed text-zinc-500">
             By signing up, you agree to our{" "}
             <a href="#" className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2">
               Services Agreement
@@ -379,6 +595,40 @@ export default function Auth() {
             .
           </p>
         )}
+          </div>
+        </div>
+
+        <div className="relative hidden flex-1 overflow-hidden bg-zinc-950 lg:block">
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+          >
+            <source src="/auth-wave.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
+
+          <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/82 backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+              Live Founder Signal
+            </div>
+
+            <div className="max-w-xl space-y-5">
+              <p className="text-sm uppercase tracking-[0.34em] text-white/55">Founder Intelligence</p>
+              <h2 className="text-4xl font-semibold leading-tight tracking-tight text-white xl:text-5xl">
+                A calm front door for a fast-moving fundraising system.
+              </h2>
+              <p className="max-w-lg text-base leading-7 text-white/72">
+                Search, sync, and operate from a workspace that feels composed even while the market moves underneath it.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
