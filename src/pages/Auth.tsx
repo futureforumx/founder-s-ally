@@ -1,43 +1,44 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { SignIn, SignUp } from "@clerk/clerk-react";
+import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
+/** Path-based routing matches `/auth/*` — more reliable than `routing="virtual"` with React Router. */
 export default function Auth() {
-  const { user, loading: authLoading } = useAuth();
+  const { isLoaded, userId } = useClerkAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const isSignUp = location.pathname === "/auth/sign-up";
+  const clerkKey = readClerkPublishableKey();
+  const showLocalPreviewFallback =
+    import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
 
   useEffect(() => {
-    if (!authLoading && user) navigate("/", { replace: true });
-  }, [user, authLoading, navigate]);
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-100">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
-      </div>
-    );
-  }
+    if (isLoaded && userId) navigate("/", { replace: true });
+  }, [isLoaded, userId, navigate]);
 
   const clerkAppearance = {
     elements: {
       rootBox: "w-full flex justify-center",
-      card: "shadow-none border-0 bg-transparent w-full",
+      // Do not strip card background/border — transparent card made the form invisible on white.
       socialButtonsBlockButton:
         "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 h-10",
       formButtonPrimary: "bg-zinc-900 hover:bg-zinc-800 text-[15px] font-medium h-11",
-      identityPreviewText: "text-zinc-600",
       formFieldInput: "border-zinc-300 bg-white",
       dividerLine: "bg-zinc-200",
       dividerText: "text-zinc-400",
     },
   };
 
-  return (
+  const fallback = (
+    <div className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-4 py-10">
+      <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      <p className="text-center text-xs text-zinc-500">Loading sign-in…</p>
+    </div>
+  );
+
+  const shell = (children: ReactNode) => (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] px-4 py-6 sm:px-6 sm:py-8">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
         <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
@@ -45,38 +46,7 @@ export default function Auth() {
             <div className="mb-8 flex flex-col items-start gap-4">
               <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
             </div>
-
-            {isSignUp ? (
-              <>
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Get started in a few steps. You can also continue with Google or other providers if enabled in
-                  Clerk.
-                </p>
-                <div className="mt-8 w-full">
-                  <SignUp
-                    routing="virtual"
-                    signInUrl="/auth"
-                    fallbackRedirectUrl="/"
-                    appearance={clerkAppearance}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
-                <p className="mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
-                <div className="mt-8 w-full">
-                  <SignIn
-                    routing="virtual"
-                    signUpUrl="/auth/sign-up"
-                    fallbackRedirectUrl="/"
-                    appearance={clerkAppearance}
-                  />
-                </div>
-              </>
-            )}
-
+            {children}
             <p className="mt-8 text-xs leading-relaxed text-zinc-500">
               Our privacy standards are worldclass. Find them{" "}
               <a
@@ -131,5 +101,119 @@ export default function Auth() {
         </div>
       </div>
     </div>
+  );
+
+  if (showLocalPreviewFallback) {
+    return shell(
+      <>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Preview Mode</h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          This localhost build is using a production Clerk key, so sign-in cannot load here. The page is still
+          rendering so we can iterate on the UI while you edit.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-950">
+            Add a <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_...</code>{" "}
+            value in <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">.env.local</code> when you want live
+            auth on localhost.
+          </div>
+
+          <div className="space-y-3 rounded-[28px] border border-zinc-200 bg-zinc-50/70 p-5">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-zinc-800">Email</label>
+              <input
+                disabled
+                value="you@company.com"
+                readOnly
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-zinc-800">Password</label>
+              <input
+                disabled
+                value="Your password"
+                readOnly
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-500"
+              />
+            </div>
+
+            <button
+              disabled
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-zinc-900 text-sm font-medium text-white opacity-70"
+            >
+              Sign in
+            </button>
+
+            <div className="relative py-2 text-center text-xs uppercase tracking-[0.28em] text-zinc-400">
+              <span className="bg-zinc-50 px-2">or</span>
+            </div>
+
+            <div className="grid gap-3">
+              <button
+                disabled
+                className="flex h-11 w-full items-center justify-center rounded-xl border border-zinc-300 bg-white text-sm text-zinc-500"
+              >
+                Continue with Google
+              </button>
+              <button
+                disabled
+                className="flex h-11 w-full items-center justify-center rounded-xl border border-zinc-300 bg-white text-sm text-zinc-500"
+              >
+                Continue with LinkedIn
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!isLoaded) {
+    return shell(
+      <div className="flex min-h-[320px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      </div>
+    );
+  }
+
+  const isSignUp = location.pathname.startsWith("/auth/sign-up");
+
+  return shell(
+    isSignUp ? (
+      <>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
+        <p className="mt-2 text-sm text-zinc-500">
+          Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
+        </p>
+        <div className="mt-8 w-full min-w-0">
+          <SignUp
+            routing="path"
+            path="/auth/sign-up"
+            signInUrl="/auth"
+            fallbackRedirectUrl="/"
+            appearance={clerkAppearance}
+            fallback={fallback}
+          />
+        </div>
+      </>
+    ) : (
+      <>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
+        <p className="mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
+        <div className="mt-8 w-full min-w-0">
+          <SignIn
+            routing="path"
+            path="/auth"
+            signUpUrl="/auth/sign-up"
+            fallbackRedirectUrl="/"
+            appearance={clerkAppearance}
+            fallback={fallback}
+          />
+        </div>
+      </>
+    )
   );
 }
