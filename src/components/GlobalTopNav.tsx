@@ -728,7 +728,10 @@ export function GlobalTopNav({
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              <button
+                onClick={() => onViewChange?.("help")}
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer"
+              >
                 <CircleHelp className="h-4 w-4" />
               </button>
             </TooltipTrigger>
