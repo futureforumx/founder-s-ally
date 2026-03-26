@@ -610,7 +610,15 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
           <p className="text-xs text-muted-foreground max-w-sm mb-4">
             Add competitors in your company profile to generate AI battlecards.
           </p>
-          <button onClick={onNavigateProfile} className="text-xs font-medium text-accent hover:text-accent/80 transition-colors">
+          <button
+            onClick={() => {
+              // Dispatch event to scroll to and highlight competitors field
+              window.dispatchEvent(new CustomEvent("scroll-to-competitors-field"));
+              // Navigate to company profile settings
+              onNavigateProfile();
+            }}
+            className="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+          >
             Add to your company profile →
           </button>
         </div>
