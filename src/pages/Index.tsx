@@ -368,11 +368,6 @@ const Index = () => {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Investors</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Match, search, and manage investor relationships</p>
               </div>
-              <TabsList className="bg-muted/50">
-                <TabsTrigger value="matches">Matches</TabsTrigger>
-                <TabsTrigger value="search">Search</TabsTrigger>
-                <TabsTrigger value="connections">Connections</TabsTrigger>
-              </TabsList>
               <TabsContent value="matches">
                 <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
               </TabsContent>
