@@ -417,32 +417,70 @@ export function GlobalTopNav({
 
         {/* ── Investor Section Tabs (visible when search collapsed) ── */}
         {!searchOpen && ["investors", "investor-search"].includes(activeView) && (
-          <div className="flex items-center gap-1 ml-3">
-            {[
-              { id: "matches", label: "Matches" },
-              { id: "search", label: "Search" },
-              { id: "connections", label: "Connections" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  if (tab.id === "matches") onViewChange?.("investors");
-                  else if (tab.id === "search") onViewChange?.("investor-search");
-                  else if (tab.id === "connections") onViewChange?.("connections");
-                }}
-                className={cn(
-                  "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
-                  activeView === "investors" && tab.id === "matches" ||
-                  activeView === "investor-search" && tab.id === "search" ||
-                  activeView === "connections" && tab.id === "connections"
-                    ? "text-accent bg-accent/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3">
+              {[
+                { id: "matches", label: "Matches" },
+                { id: "search", label: "Search" },
+                { id: "connections", label: "Connections" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === "matches") onViewChange?.("investors");
+                    else if (tab.id === "search") onViewChange?.("investor-search");
+                    else if (tab.id === "connections") onViewChange?.("connections");
+                  }}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                    activeView === "investors" && tab.id === "matches" ||
+                    activeView === "investor-search" && tab.id === "search" ||
+                    activeView === "connections" && tab.id === "connections"
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}>
+                    {activeView === "investors" ? "Matches" : activeView === "investor-search" ? "Search" : "Connections"}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("investors")}
+                    className={cn(activeView === "investors" && "bg-accent/10 text-accent")}
+                  >
+                    Matches
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("investor-search")}
+                    className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
+                  >
+                    Search
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("connections")}
+                    className={cn(activeView === "connections" && "bg-accent/10 text-accent")}
+                  >
+                    Connections
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
         )}
       </div>
 
