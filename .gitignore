@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment / secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Clone pipeline artifacts (generated at runtime)
+migrated_users.json
+migrated_storage.json
+db.dump
+db.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
