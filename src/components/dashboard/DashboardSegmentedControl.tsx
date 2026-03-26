@@ -1,12 +1,15 @@
 import { useRef, useEffect, useState } from "react";
-import { Users, Building2, Globe, Target } from "lucide-react";
+import { Users, Building2, Globe, Target, Swords, Layers, BarChart3 } from "lucide-react";
 
-export type DashboardView = "company" | "competitive" | "industry";
+export type DashboardView = "company" | "competitive" | "industry" | "competitors" | "sector" | "benchmarks";
 
 const TABS: { key: DashboardView; label: string; icon: typeof Users }[] = [
   { key: "company", label: "Company", icon: Building2 },
   { key: "industry", label: "Industry", icon: Globe },
   { key: "competitive", label: "Competitive", icon: Target },
+  { key: "competitors", label: "Competitors", icon: Swords },
+  { key: "sector", label: "Sector", icon: Layers },
+  { key: "benchmarks", label: "Benchmarks", icon: BarChart3 },
 ];
 
 interface Props {
