@@ -359,65 +359,111 @@ export function CompanyTab() {
     setRequesting(true);
 
     try {
-      const { data: newComp, error: compError } = await supabase
-        .from("company_analyses")
-        .insert({
-          user_id: user.id,
-          company_name: name.trim(),
-          is_claimed: true,
-          claimed_by: user.id,
-        } as any)
-        .select("id")
-        .single();
+      // Step 1: Try to create company workspace
+      let newComp: any = null;
+      let compError: any = null;
+
+      try {
+        const result = await supabase
+          .from("company_analyses")
+          .insert({
+            user_id: user.id,
+            company_name: name.trim(),
+            is_claimed: true,
+            claimed_by: user.id,
+          } as any)
+          .select("id")
+          .single();
+
+        newComp = result.data;
+        compError = result.error;
+      } catch (insertErr: any) {
+        compError = insertErr;
+      }
 
       if (compError || !newComp) {
         console.error("Company creation error:", compError);
-        toast.error(compError?.message || "Failed to create workspace");
+
+        // User-friendly error messages
+        let errorMsg = "Failed to create workspace. ";
+        if (compError?.message?.includes("No suitable key")) {
+          errorMsg += "There's a database configuration issue. Please contact support.";
+        } else if (compError?.message?.includes("Unauthorized") || compError?.code === "PGRST301") {
+          errorMsg += "You don't have permission to create workspaces. Please contact support.";
+        } else if (compError?.message?.includes("duplicate")) {
+          errorMsg += "A workspace with this name already exists. Try a different name.";
+        } else {
+          errorMsg += compError?.message || "Please try again.";
+        }
+
+        toast.error(errorMsg);
         setRequesting(false);
         return;
       }
 
+      // Step 2: Try to add user to company as manager
       const { error: memberError } = await supabase
         .from("company_members" as any)
-        .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
+        .insert({ user_id: user.id, company_id: newComp.id, role: "manager" })
+        .catch((err) => ({ error: err }));
 
       if (memberError) {
         console.error("Member creation error:", memberError);
-        toast.error("Failed to add you to workspace");
+        // Try to clean up the company we just created
+        try {
+          await supabase.from("company_analyses").delete().eq("id", newComp.id);
+        } catch (cleanupErr) {
+          console.warn("Cleanup failed:", cleanupErr);
+        }
+        toast.error("Failed to set up workspace membership. Please try again.");
         setRequesting(false);
         return;
       }
 
-      const { error: profileError } = await (supabase as any)
-        .from("profiles")
-        .update({ company_id: newComp.id })
-        .eq("user_id", user.id);
+      // Step 3: Update user profile with company_id (non-fatal if fails)
+      try {
+        const { error: profileError } = await (supabase as any)
+          .from("profiles")
+          .update({ company_id: newComp.id })
+          .eq("user_id", user.id);
 
-      if (profileError) {
-        console.error("Profile update error:", profileError);
-        // Non-fatal error, continue
+        if (profileError) {
+          console.warn("Profile update non-fatal error:", profileError);
+          // Continue anyway - this is not critical
+        }
+      } catch (err) {
+        console.warn("Profile update failed (non-critical):", err);
       }
 
-      // Get user profile name for welcome email
-      const { data: userProfile } = await (supabase as any)
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Step 4: Get user profile for welcome email (optional)
+      let userProfile = null;
+      try {
+        const { data } = await (supabase as any)
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        userProfile = data;
+      } catch (err) {
+        console.warn("Failed to fetch user profile:", err);
+      }
 
-      toast.loading("Sending welcome email...", { id: "welcome-email" });
+      // Step 5: Send welcome email (graceful failure)
+      try {
+        toast.loading("Sending welcome email...", { id: "welcome-email" });
 
-      // Send email notification (graceful failure)
-      await sendEmailNotification({
-        type: "workspace_welcome",
-        recipientEmail: user.email,
-        recipientName: userProfile?.full_name || user.email?.split("@")[0],
-        companyName: name.trim(),
-      }).catch((err) => {
-        console.warn("Email notification failed:", err);
-        // Non-fatal, workspace still created
-      });
+        await sendEmailNotification({
+          type: "workspace_welcome",
+          recipientEmail: user.email,
+          recipientName: userProfile?.full_name || user.email?.split("@")[0],
+          companyName: name.trim(),
+        });
+      } catch (emailErr) {
+        console.warn("Email notification failed (non-critical):", emailErr);
+        // Non-fatal - workspace was created successfully
+      }
 
+      // Success!
       toast.success("Workspace created successfully!", { id: "welcome-email" });
 
       setMembership({ id: "", company_id: newComp.id, role: "manager" });
@@ -425,9 +471,10 @@ export function CompanyTab() {
       setDropdownOpen(false);
       setQuery("");
       setRequesting(false);
-    } catch (err) {
-      console.error("Workspace creation error:", err);
-      toast.error("An unexpected error occurred. Please try again.");
+    } catch (err: any) {
+      console.error("Unexpected workspace creation error:", err);
+      const errorMsg = err?.message || "An unexpected error occurred. Please try again.";
+      toast.error(errorMsg);
       setRequesting(false);
     }
   };
@@ -800,14 +847,27 @@ function WorkspaceLinkingModal({
                   className="w-full text-left px-4 py-3 bg-accent/5 hover:bg-accent/10 flex items-center gap-3 font-semibold transition-colors text-sm border-t border-border disabled:opacity-50"
                 >
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 shrink-0">
-                    <PlusCircle className="h-4 w-4 text-accent" />
+                    {requesting ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                        className="h-4 w-4 border-2 border-accent/30 border-t-accent rounded-full"
+                      />
+                    ) : (
+                      <PlusCircle className="h-4 w-4 text-accent" />
+                    )}
                   </div>
-                  <span className="text-accent">
-                    {results.length === 0
-                      ? `Create "${query.trim()}" workspace`
-                      : `Create "${query.trim()}" as new`}
-                  </span>
-                  <ArrowRight className="h-3.5 w-3.5 text-accent ml-auto shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-accent">
+                      {results.length === 0
+                        ? `Create "${query.trim()}" workspace`
+                        : `Create "${query.trim()}" as new`}
+                    </span>
+                    {requesting && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Setting up workspace...</p>
+                    )}
+                  </div>
+                  {!requesting && <ArrowRight className="h-3.5 w-3.5 text-accent ml-auto shrink-0" />}
                 </button>
               </>
             )}
