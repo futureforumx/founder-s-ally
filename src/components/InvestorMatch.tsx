@@ -310,6 +310,15 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   return (
     <div className="relative">
+      {isLocked && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-6 py-4 shadow-sm">
+          <Lock className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Confirm your Company Profile to unlock full matching</p>
+            <p className="text-xs text-muted-foreground">Some features are limited until your profile is verified</p>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
