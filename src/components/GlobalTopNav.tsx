@@ -490,7 +490,7 @@ export function GlobalTopNav({
         <div className="h-4 w-px shrink-0 bg-border/40" />
 
         <TooltipProvider delayDuration={200}>
-          <div className="flex shrink-0 items-center gap-4">
+          <div className="hidden md:flex shrink-0 items-center gap-4">
             {(() => {
               const locked = profileCompletion < 100;
               const views = 12;
@@ -534,7 +534,7 @@ export function GlobalTopNav({
           </div>
         </TooltipProvider>
 
-        <div className="h-4 w-px shrink-0 bg-border/40" />
+        <div className="hidden md:block h-4 w-px shrink-0 bg-border/40" />
 
         <button className="flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-300/30 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-violet-500 shadow-[0_0_8px_-2px_rgba(139,92,246,0.15)] transition-all hover:bg-violet-500/5">
           <Sparkles className="h-4 w-4" />
