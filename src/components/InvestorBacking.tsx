@@ -457,15 +457,27 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   }, []);
 
   const fetchPending = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("pending_investors")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-    setPending((data as PendingInvestor[]) || []);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.warn("Failed to get user:", userError);
+        return;
+      }
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("pending_investors")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("Failed to fetch pending investors:", error);
+        return;
+      }
+      setPending((data as PendingInvestor[]) || []);
+    } catch (err) {
+      console.warn("Error fetching pending investors:", err);
+    }
   }, []);
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);

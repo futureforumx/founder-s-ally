@@ -58,7 +58,13 @@ function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; def
     }
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.warn("Failed to get user:", userError);
+        toast.error("Please sign in to create events");
+        setLoading(false);
+        return;
+      }
       if (!user) { toast.error("Please sign in to create events"); setLoading(false); return; }
 
       const dateTime = new Date(`${form.event_date}T${form.event_time}`).toISOString();

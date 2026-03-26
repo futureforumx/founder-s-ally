@@ -194,9 +194,17 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   // Get current user ID
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id);
-    });
+    supabase.auth.getUser()
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("Failed to get user:", error);
+          return;
+        }
+        if (data.user) setUserId(data.user.id);
+      })
+      .catch((err) => {
+        console.warn("Error getting user:", err);
+      });
   }, []);
 
   const {
@@ -224,9 +232,18 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("investor_database").select("*");
-      if (!error && data) setInvestors(data as unknown as Investor[]);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.from("investor_database").select("*");
+        if (error) {
+          console.warn("Failed to fetch investors:", error);
+        } else if (data) {
+          setInvestors(data as unknown as Investor[]);
+        }
+      } catch (err) {
+        console.warn("Error fetching investors:", err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -234,22 +251,32 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   useEffect(() => {
     if (externalBackers) return;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
-      if (data) {
-        setInternalBackers(
-          data.map(row => ({
-            id: row.id,
-            name: row.investor_name,
-            amount: row.amount,
-            amountLabel: fmt(row.amount),
-            instrument: row.instrument,
-            logoLetter: row.investor_name.charAt(0).toUpperCase(),
-            date: row.date || row.created_at,
-            ownershipPct: (row as any).ownership_pct ?? 0,
-          }))
-        );
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.warn("Failed to get user:", userError);
+          return;
+        }
+        if (!user) return;
+        const { data, error } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
+        if (error) {
+          console.warn("Failed to fetch cap table:", error);
+        } else if (data) {
+          setInternalBackers(
+            data.map(row => ({
+              id: row.id,
+              name: row.investor_name,
+              amount: row.amount,
+              amountLabel: fmt(row.amount),
+              instrument: row.instrument,
+              logoLetter: row.investor_name.charAt(0).toUpperCase(),
+              date: row.date || row.created_at,
+              ownershipPct: (row as any).ownership_pct ?? 0,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("Error fetching cap table:", err);
       }
     })();
   }, [externalBackers]);
