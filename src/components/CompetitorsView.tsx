@@ -502,7 +502,6 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [enriching, setEnriching] = useState(false);
-  const [seeded, setSeeded] = useState(false);
 
   const {
     competitors: dbCompetitors,
@@ -514,23 +513,26 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     removeCompetitor,
   } = useCompetitors();
 
-  // Seed DB from companyData.competitors on first load (one-time sync)
+  // Sync companyData.competitors to DB whenever they change
   useEffect(() => {
-    if (seeded || dbLoading) return;
+    if (dbLoading) return;
+
     const profileComps = companyData?.competitors || [];
-    if (profileComps.length === 0 || dbCompetitors.length > 0) {
-      setSeeded(true);
-      return;
+    const dbCompNames = dbCompetitors.map(tc => tc.competitor.name);
+
+    // Find competitors in profile that aren't in DB
+    const newComps = profileComps.filter(name => !dbCompNames.includes(name));
+
+    // Add missing competitors to DB
+    if (newComps.length > 0) {
+      const syncAsync = async () => {
+        for (const name of newComps) {
+          await dbAddCompetitor(name);
+        }
+      };
+      syncAsync();
     }
-    // Profile has competitors but DB is empty — seed them
-    const seedAsync = async () => {
-      for (const name of profileComps) {
-        await dbAddCompetitor(name);
-      }
-      setSeeded(true);
-    };
-    seedAsync();
-  }, [seeded, dbLoading, companyData?.competitors, dbCompetitors.length, dbAddCompetitor]);
+  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAddCompetitor]);
 
   // Sync DB competitors back to companyData whenever they change
   useEffect(() => {
