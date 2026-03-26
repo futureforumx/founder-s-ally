@@ -613,7 +613,7 @@ export default function Auth() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
 
           <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/82 backdrop-blur-sm">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
               Live Founder Signal
             </div>
