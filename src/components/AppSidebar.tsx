@@ -90,7 +90,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             Investors
           </button>
           <button
-            onClick={() => setCommunityOpen(!communityOpen)}
+            onClick={() => onViewChange("directory")}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
               (activeView === "directory" || activeView === "groups" || activeView === "events")
@@ -99,26 +99,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             )}>
             <Users className="h-4 w-4" />
             Network
-            <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", communityOpen && "rotate-180")} />
           </button>
-          {communityOpen && (
-            <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
-              {communityItems.map((item) =>
-                <button
-                  key={item.id}
-                  onClick={() => onViewChange(item.id)}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-light transition-colors",
-                    activeView === item.id
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                  )}>
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              )}
-            </div>
-          )}
         </nav>
 
         <div className="border-t border-sidebar-border px-3 py-4">
