@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "./useAuth";
 
 export interface TrackedCompetitor {
   id: string; // company_competitors.id
@@ -31,6 +32,7 @@ export interface CompetitorRecommendation {
 }
 
 export function useCompetitors() {
+  const { user } = useAuth();
   const [competitors, setCompetitors] = useState<TrackedCompetitor[]>([]);
   const [recommendations, setRecommendations] = useState<CompetitorRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +53,12 @@ export function useCompetitors() {
   }, []);
 
   const addCompetitor = useCallback(async (name: string, status: string = "Tracked", notes?: string, website?: string) => {
+    // Check if user is logged in
+    if (!user) {
+      toast.error("You must be logged in to add competitors");
+      return null;
+    }
+
     // Optimistic: add a placeholder
     const tempId = `temp-${Date.now()}`;
     const optimistic: TrackedCompetitor = {
@@ -114,6 +122,7 @@ export function useCompetitors() {
       const { data: link, error: linkErr } = await supabase
         .from("company_competitors")
         .insert({
+          user_id: user.id,
           competitor_id: competitorId,
           status: validStatus,
           user_defined_advantage: null,
@@ -145,7 +154,7 @@ export function useCompetitors() {
     } finally {
       setAdding(false);
     }
-  }, []);
+  }, [user]);
 
   const updateStatus = useCallback(async (compCompId: string, status: string) => {
     // Optimistic update
