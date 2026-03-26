@@ -1,10 +1,9 @@
 import { useRef, useEffect, useState } from "react";
 import { Users, Building2, Globe, Target } from "lucide-react";
 
-export type DashboardView = "company" | "competitive" | "industry" | "community";
+export type DashboardView = "company" | "competitive" | "industry";
 
 const TABS: { key: DashboardView; label: string; icon: typeof Users }[] = [
-  { key: "community", label: "Network", icon: Users },
   { key: "company", label: "Company", icon: Building2 },
   { key: "industry", label: "Industry", icon: Globe },
   { key: "competitive", label: "Competitive", icon: Target },
