@@ -21,10 +21,6 @@ const companyItems = [
 { id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
 { id: "audit" as const, label: "Deck Audit", icon: FileText }];
 
-const investorItems = [
-{ id: "investors" as const, label: "Matches", icon: Handshake },
-{ id: "investor-search" as const, label: "Search", icon: Search },
-{ id: "connections" as const, label: "Connections", icon: Link2 }];
 
 const communityItems = [
   { id: "directory" as const, label: "Directory", icon: BookOpen },
