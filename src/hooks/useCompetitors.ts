@@ -77,10 +77,14 @@ export function useCompetitors() {
       const { data, error } = await supabase.functions.invoke("manage-competitors", {
         body: { action: "add", name, status, notes, website },
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
       if (data.error) {
         // Remove optimistic entry
         setCompetitors(prev => prev.filter(c => c.id !== tempId));
+        console.error("Add competitor error:", data.error);
         toast.error(data.error);
         return null;
       }
@@ -90,8 +94,9 @@ export function useCompetitors() {
       return data.competitor;
     } catch (e) {
       setCompetitors(prev => prev.filter(c => c.id !== tempId));
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error("Failed to add competitor:", errorMsg, e);
       toast.error("Failed to add competitor");
-      console.error(e);
       return null;
     } finally {
       setAdding(false);
