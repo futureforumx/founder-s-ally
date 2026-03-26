@@ -325,8 +325,52 @@ const Index = () => {
                 {dashboardView === "industry" && (
                   <IndustryView
                     sector={companyData?.sector}
-                    onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                    onNavigateBenchmarks={() => setDashboardView("benchmarks")}
                     onNavigateProfile={() => setActiveView("company")}
+                  />
+                )}
+                {dashboardView === "competitors" && (
+                  <CompetitorsView
+                    companyData={companyData}
+                    onNavigateProfile={() => setActiveView("company")}
+                    onAddCompetitor={(name) => {
+                      if (companyData && !companyData.competitors.includes(name)) {
+                        const updated = { ...companyData, competitors: [...companyData.competitors, name] };
+                        setCompanyData(updated);
+                        try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                      }
+                    }}
+                    onCompetitorsChanged={(names) => {
+                      if (companyData) {
+                        const sorted = [...names].sort();
+                        const current = [...companyData.competitors].sort();
+                        if (JSON.stringify(sorted) !== JSON.stringify(current)) {
+                          const updated = { ...companyData, competitors: names };
+                          setCompanyData(updated);
+                          try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                        }
+                      }
+                    }}
+                  />
+                )}
+                {dashboardView === "sector" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Sector Intelligence</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Sector intelligence and market positioning</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+                  </div>
+                )}
+                {dashboardView === "benchmarks" && (
+                  <CompetitiveBenchmarking
+                    metricTable={analysisResult?.metricTable}
+                    companyData={companyData}
+                    analysisResult={analysisResult}
+                    onScrollToProfile={() => setActiveView("company")}
+                    isLocked={!isProfileVerified}
                   />
                 )}
               </div>
