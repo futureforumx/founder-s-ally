@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Globe, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -7,7 +7,6 @@ import { normalizeSector } from "@/components/company-profile/sectorNormalizatio
 import { SmartSelect, AI_SUGGESTED_TEXT_CLASS } from "@/components/onboarding/SmartSelect";
 import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
-import { useEffect } from "react";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
@@ -53,24 +52,24 @@ interface OnboardingStepperProps {
   onSkip: () => void;
 }
 
+const PENDING_COMPANY_SEED_KEY = "pending-company-seed";
+
 function readSeed() {
   try {
-    const raw = localStorage.getItem("pending-company-seed");
+    const raw = localStorage.getItem(PENDING_COMPANY_SEED_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
 }
 
-export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  // Read seed on every mount (StrictMode-safe: don't remove in initializer)
-  const [seed] = useState(readSeed);
+function clearSeed() {
+  try {
+    localStorage.removeItem(PENDING_COMPANY_SEED_KEY);
+  } catch {}
+}
 
-  // Remove after a tick so StrictMode's second mount still reads it
-  useMemo(() => {
-    setTimeout(() => {
-      try { localStorage.removeItem("pending-company-seed"); } catch {}
-    }, 100);
-  }, []);
+export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
+  const [seed] = useState(readSeed);
 
   const [step, setStep] = useState(1);
   const [website, setWebsite] = useState(() => {
@@ -168,6 +167,11 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const clearAiMetric = useCallback((key: keyof typeof aiMetricHighlight) => {
     setAiMetricHighlight((h) => ({ ...h, [key]: false }));
   }, []);
+
+  const handleSkip = useCallback(() => {
+    clearSeed();
+    onSkip();
+  }, [onSkip]);
 
   const validateStep3 = (): boolean => {
     const missing: string[] = [];
@@ -393,6 +397,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         momGrowth: sanitize(momGrowth),
       };
       if (analysisResult) {
+        clearSeed();
         onComplete(company, {
           ...analysisResult,
           metrics: {
@@ -678,7 +683,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <button onClick={onSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+              <button onClick={handleSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 Skip for now
               </button>
               <div className="flex gap-2">

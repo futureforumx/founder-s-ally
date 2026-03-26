@@ -374,7 +374,7 @@ const Index = () => {
           ) : activeView === "audit" ? (
             <DeckAuditView />
           ) : activeView === "settings" ? (
-            <SettingsPage />
+            <SettingsPage tourEnabled={!showOnboarding && !showTerminal} />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

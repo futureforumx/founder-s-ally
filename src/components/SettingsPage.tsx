@@ -101,7 +101,11 @@ function setTabInUrl(tab: SettingsTab) {
 }
 
 // ── Main Page ──
-export function SettingsPage() {
+interface SettingsPageProps {
+  tourEnabled?: boolean;
+}
+
+export function SettingsPage({ tourEnabled = true }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
 
   // Re-sync tab from URL when navigated externally (e.g. dropdown)
@@ -239,7 +243,9 @@ export function SettingsPage() {
   return (
     <div className="min-h-screen">
       {/* Settings Tour */}
-      <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+      {tourEnabled && (
+        <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+      )}
 
       {/* Copilot Mission Banner */}
       <div data-tour="profile-strength">
