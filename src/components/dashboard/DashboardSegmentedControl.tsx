@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { Users, Building2, Globe, Target, Swords, Layers, BarChart3 } from "lucide-react";
 
-export type DashboardView = "company" | "competitive" | "industry" | "competitors" | "sector" | "benchmarks";
+export type DashboardView = "company" | "competitive" | "industry" | "competitors" | "sector";
+export type CompanySubView = "health" | "benchmarks";
 
 const TABS: { key: DashboardView; label: string; icon: typeof Users }[] = [
   { key: "company", label: "Company", icon: Building2 },
@@ -9,7 +10,11 @@ const TABS: { key: DashboardView; label: string; icon: typeof Users }[] = [
   { key: "competitive", label: "Competitive", icon: Target },
   { key: "competitors", label: "Competitors", icon: Swords },
   { key: "sector", label: "Sector", icon: Layers },
-  { key: "benchmarks", label: "Benchmarks", icon: BarChart3 },
+];
+
+export const COMPANY_SUBTABS: { key: CompanySubView; label: string }[] = [
+  { key: "health", label: "Health" },
+  { key: "benchmarks", label: "Benchmarks" },
 ];
 
 interface Props {
