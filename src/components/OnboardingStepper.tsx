@@ -67,13 +67,12 @@ function readSeed() {
   return null;
 }
 
-<<<<<<< HEAD
 function clearSeed() {
   try {
     localStorage.removeItem(PENDING_COMPANY_SEED_KEY);
   } catch {}
 }
-=======
+
 /** Skip auto-URL for gibberish / keyboard mash; still allows short real names (e.g. IBM). */
 function looksLikePlausibleCompanyName(raw: string): boolean {
   const trimmed = raw.trim();
