@@ -358,55 +358,78 @@ export function CompanyTab() {
     if (!user) return;
     setRequesting(true);
 
-    const { data: newComp, error: compError } = await supabase
-      .from("company_analyses")
-      .insert({
-        user_id: user.id,
-        company_name: name.trim(),
-        is_claimed: true,
-        claimed_by: user.id,
-      } as any)
-      .select("id")
-      .single();
+    try {
+      const { data: newComp, error: compError } = await supabase
+        .from("company_analyses")
+        .insert({
+          user_id: user.id,
+          company_name: name.trim(),
+          is_claimed: true,
+          claimed_by: user.id,
+        } as any)
+        .select("id")
+        .single();
 
-    if (compError || !newComp) {
-      toast.error("Failed to create workspace");
+      if (compError || !newComp) {
+        console.error("Company creation error:", compError);
+        toast.error(compError?.message || "Failed to create workspace");
+        setRequesting(false);
+        return;
+      }
+
+      const { error: memberError } = await supabase
+        .from("company_members" as any)
+        .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
+
+      if (memberError) {
+        console.error("Member creation error:", memberError);
+        toast.error("Failed to add you to workspace");
+        setRequesting(false);
+        return;
+      }
+
+      const { error: profileError } = await (supabase as any)
+        .from("profiles")
+        .update({ company_id: newComp.id })
+        .eq("user_id", user.id);
+
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        // Non-fatal error, continue
+      }
+
+      // Get user profile name for welcome email
+      const { data: userProfile } = await (supabase as any)
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      toast.loading("Sending welcome email...", { id: "welcome-email" });
+
+      // Send email notification (graceful failure)
+      await sendEmailNotification({
+        type: "workspace_welcome",
+        recipientEmail: user.email,
+        recipientName: userProfile?.full_name || user.email?.split("@")[0],
+        companyName: name.trim(),
+      }).catch((err) => {
+        console.warn("Email notification failed:", err);
+        // Non-fatal, workspace still created
+      });
+
+      toast.success("Workspace created successfully!", { id: "welcome-email" });
+
+      setMembership({ id: "", company_id: newComp.id, role: "manager" });
+      setState("linked");
+      setDropdownOpen(false);
+      setQuery("");
       setRequesting(false);
-      return;
+    } catch (err) {
+      console.error("Workspace creation error:", err);
+      toast.error("An unexpected error occurred. Please try again.");
+      setRequesting(false);
     }
-
-    await supabase
-      .from("company_members" as any)
-      .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
-
-    await (supabase as any)
-      .from("profiles")
-      .update({ company_id: newComp.id })
-      .eq("user_id", user.id);
-
-    // Get user profile name for welcome email
-    const { data: userProfile } = await (supabase as any)
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    toast.loading("Sending welcome email...", { id: "welcome-email" });
-
-    await sendEmailNotification({
-      type: "workspace_welcome",
-      recipientEmail: user.email,
-      recipientName: userProfile?.full_name || user.email?.split("@")[0],
-      companyName: name.trim(),
-    });
-
-    toast.success("Workspace created! Welcome email sent.", { id: "welcome-email" });
-
-    setMembership({ id: "", company_id: newComp.id, role: "manager" });
-    setState("linked");
-    setDropdownOpen(false);
-    setQuery("");
-    setRequesting(false);
   };
 
   const handleCancelRequest = async () => {
