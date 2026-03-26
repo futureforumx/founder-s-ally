@@ -384,6 +384,16 @@ const Index = () => {
                 </div>
               </TabsContent>
             </Tabs>
+          ) : activeView === "sector" ? (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Sector</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Sector intelligence and market positioning</p>
+              </div>
+              <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+            </div>
+          ) : activeView === "directory" ? (
+            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant="directory" />
           ) : activeView === "groups" ? (
             <GroupsView />
           ) : activeView === "events" ? (
