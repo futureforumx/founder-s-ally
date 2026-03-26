@@ -868,7 +868,7 @@ Rules:
                        </span>
                      </div>
                    )}
-                   {analysisResult?.healthScore && (
+                   {analysisResult?.healthScore && analysisResult.healthScore > 0 && (
                      <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
                        <Check className="h-4 w-4 text-success" />
                        <span className="text-xs text-foreground">Health Score: <strong>{analysisResult.healthScore}/100</strong></span>
