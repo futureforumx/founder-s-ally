@@ -513,26 +513,38 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     removeCompetitor,
   } = useCompetitors();
 
+  // Track syncing state to prevent duplicate syncs
+  const [syncing, setSyncing] = useState(false);
+
   // Sync companyData.competitors to DB whenever they change
   useEffect(() => {
-    if (dbLoading) return;
+    if (dbLoading || dbAdding || syncing) return;
 
     const profileComps = companyData?.competitors || [];
-    const dbCompNames = dbCompetitors.map(tc => tc.competitor.name);
+    if (profileComps.length === 0) return;
 
-    // Find competitors in profile that aren't in DB
-    const newComps = profileComps.filter(name => !dbCompNames.includes(name));
+    const dbCompNames = dbCompetitors.map(tc => tc.competitor.name.toLowerCase());
+
+    // Find competitors in profile that aren't in DB (case-insensitive check)
+    const newComps = profileComps.filter(
+      name => !dbCompNames.includes(name.toLowerCase())
+    );
 
     // Add missing competitors to DB
     if (newComps.length > 0) {
+      setSyncing(true);
       const syncAsync = async () => {
-        for (const name of newComps) {
-          await dbAddCompetitor(name);
+        try {
+          for (const name of newComps) {
+            await dbAddCompetitor(name);
+          }
+        } finally {
+          setSyncing(false);
         }
       };
       syncAsync();
     }
-  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAddCompetitor]);
+  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAdding, dbAddCompetitor, syncing]);
 
   // Sync DB competitors back to companyData whenever they change
   useEffect(() => {
