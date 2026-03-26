@@ -4,6 +4,7 @@ import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
