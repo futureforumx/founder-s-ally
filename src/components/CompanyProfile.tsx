@@ -463,6 +463,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [highlightCompetitors, setHighlightCompetitors] = useState(false);
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("company-verified-fields");
@@ -690,6 +691,33 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     window.addEventListener("mission-navigate-field", handler);
     return () => window.removeEventListener("mission-navigate-field", handler);
   }, [isInReviewMode]);
+
+  // Listen for scroll-to-competitors-field event from CompetitorsView
+  useEffect(() => {
+    const handler = () => {
+      // Open the positioning section
+      setOpenSections(prev => ({ ...prev, positioning: true }));
+
+      // Highlight the competitors field
+      setHighlightCompetitors(true);
+
+      // Scroll to the competitors field
+      setTimeout(() => {
+        const element = document.getElementById("competitors-field");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        setHighlightCompetitors(false);
+      }, 2000);
+    };
+
+    window.addEventListener("scroll-to-competitors-field", handler);
+    return () => window.removeEventListener("scroll-to-competitors-field", handler);
+  }, []);
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -2083,7 +2111,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
 
               {/* Competitors */}
-              <div className="space-y-1.5">
+              <div
+                id="competitors-field"
+                className={`space-y-1.5 scroll-mt-32 transition-all duration-300 rounded-lg p-4 -mx-4 ${
+                  highlightCompetitors
+                    ? "bg-accent/10 border-2 border-accent/50 shadow-lg shadow-accent/20"
+                    : "hover:bg-muted/40"
+                }`}
+              >
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   Direct Competitors {renderFieldBadge("competitors")}
                 </label>

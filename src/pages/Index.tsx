@@ -365,7 +365,12 @@ const Index = () => {
                 {dashboardView === "competitors" && (
                   <CompetitorsView
                     companyData={companyData}
-                    onNavigateProfile={() => setActiveView("company")}
+                    onNavigateProfile={() => {
+                      setActiveView("settings");
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("tab", "company");
+                      window.history.replaceState({}, "", url.toString());
+                    }}
                     onAddCompetitor={(name) => {
                       if (companyData && !companyData.competitors.includes(name)) {
                         const updated = { ...companyData, competitors: [...companyData.competitors, name] };
@@ -411,7 +416,15 @@ const Index = () => {
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "competitors" ? (
-            <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
+            <CompetitorsView
+              companyData={companyData}
+              onNavigateProfile={() => {
+                setActiveView("settings");
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", "company");
+                window.history.replaceState({}, "", url.toString());
+              }}
+              onAddCompetitor={(name) => {
               if (companyData && !companyData.competitors.includes(name)) {
                 const updated = { ...companyData, competitors: [...companyData.competitors, name] };
                 setCompanyData(updated);
