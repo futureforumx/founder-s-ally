@@ -1,5 +1,7 @@
-import { TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, XCircle, Shield, ShieldAlert, ShieldQuestion, ArrowUpRight, Minus, Lock } from "lucide-react";
+import { TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, XCircle, Shield, ShieldAlert, ShieldQuestion, ArrowUpRight, Minus, Lock, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip as ChartTooltip } from "recharts";
+import { motion } from "framer-motion";
 import type { CompanyData, AnalysisResult, ConfidenceLevel } from "./company-profile/types";
 
 // ── helpers ──
@@ -297,30 +299,61 @@ export function CompetitiveBenchmarking({ metricTable, companyData, analysisResu
         </table>
       </div>
 
-      {/* Summary Cards */}
-      <div className="surface-card p-5">
-        <h3 className="text-sm font-semibold tracking-tight text-foreground mb-3">Key Scorecard</h3>
-        <div className="grid grid-cols-4 gap-3">
-          {summaryCards.map((card) => {
-            const st = statusCfg[card.status];
-            const StIcon = st.icon;
-            return (
-              <div key={card.metric} className="rounded-lg bg-muted/40 px-3 py-3">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground line-clamp-1">{card.metric}</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-semibold tracking-tight text-foreground">
-                    {card.yourValue ?? "—"}
-                  </span>
+      {/* Summary Scorecard & Radar Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 surface-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold tracking-tight text-foreground line-clamp-1">Key Performance Scorecard</h3>
+            <Badge variant="secondary" className="text-[9px] font-normal gap-1 bg-accent/5 text-accent border-accent/10">
+              <Sparkles className="h-2.5 w-2.5" /> AI Benchmarks
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {summaryCards.map((card) => {
+              const st = statusCfg[card.status];
+              const StIcon = st.icon;
+              return (
+                <div key={card.metric} className="rounded-xl bg-muted/30 border border-border/50 px-4 py-3 hover:bg-muted/50 transition-colors group">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground line-clamp-1 group-hover:text-foreground/70 transition-colors">{card.metric}</span>
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-xl font-bold tracking-tight text-foreground">
+                      {card.yourValue ?? "—"}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-muted-foreground/60">Target: {card.target}</span>
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono ${st.bg} ${st.color}`}>
+                      <StIcon className="h-2.5 w-2.5" /> {st.label}
+                    </span>
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-muted-foreground">Target: {card.target}</span>
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-mono ${st.color}`}>
-                    <StIcon className="h-2.5 w-2.5" />
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="lg:col-span-5 surface-card p-5 flex flex-col items-center justify-center min-h-[300px]">
+          <h3 className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4 w-full text-center">Market Positioning Radar</h3>
+          <div className="w-full h-full min-h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={rows.filter(r => r.numericValue != null || r.metric === "Gross Margin" || r.metric === "NRR").map(r => ({
+                subject: r.metric.split("(")[0].trim(),
+                A: r.numericValue != null ? Math.min(100, (r.numericValue / (r.numericTarget || 1)) * 50) : 0,
+                fullMark: 100,
+              }))}>
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9, fontWeight: 500 }} />
+                <Radar
+                  name="Performance"
+                  dataKey="A"
+                  stroke="hsl(var(--accent))"
+                  fill="hsl(var(--accent))"
+                  fillOpacity={0.15}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-[9px] text-muted-foreground/60 mt-2 text-center italic">Radar reflects available performance signals vs. market targets</p>
         </div>
       </div>
     </div>
