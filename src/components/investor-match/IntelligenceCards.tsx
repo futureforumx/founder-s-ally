@@ -286,8 +286,6 @@ export function IntelligenceCards({
         icon={<Sparkles className="h-3 w-3 text-success" />}
       />
 
-      <SectorHeatmapCard sector={sector} timeRange={timeRange} />
-
       <MetricCard
         label="Capital Track"
         value={formattedAmount}
@@ -297,6 +295,8 @@ export function IntelligenceCards({
         accentColor="hsl(var(--success))"
         icon={<ArrowRight className="h-3 w-3 text-success" />}
       />
+
+      <SectorHeatmapCard sector={sector} timeRange={timeRange} />
     </div>
   );
 }
