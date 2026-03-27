@@ -127,13 +127,13 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                   <div className="flex flex-col items-end gap-2.5 shrink-0 pt-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Stage</span>
-                      <Badge variant="outline" className="text-[10px] px-2 py-1 bg-secondary/5 font-medium border-border/60 hover:border-border transition-colors uppercase tracking-wider">
+                      <Badge variant="outline" className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-700 border-amber-200/50 font-medium uppercase tracking-wider">
                         {founder.stage}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Sector</span>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-secondary/50 font-medium border-transparent uppercase tracking-wider">
+                      <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-violet-500/10 text-violet-700 border-violet-200/50 font-medium uppercase tracking-wider">
                         {founder.sector}
                       </Badge>
                     </div>
