@@ -123,7 +123,7 @@ export function SectorTags({ websiteText, executiveSummary, companyName, onChang
 
       {/* Primary Sector Badge */}
       <div>
-        <Badge className="bg-accent text-accent-foreground text-xs px-3 py-1 font-semibold">
+        <Badge variant="accent">
           {classification.primary_sector}
         </Badge>
       </div>
@@ -133,8 +133,8 @@ export function SectorTags({ websiteText, executiveSummary, companyName, onChang
         {classification.modern_tags.map(tag => (
           <Badge
             key={tag}
-            variant="secondary"
-            className="text-[11px] font-normal gap-1 pr-1 group cursor-default"
+            variant="secondary-sm"
+            className="gap-1 pr-1 group cursor-default"
           >
             {tag}
             <button
