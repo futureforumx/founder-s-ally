@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Globe, AlertCircle, Loader2, Check, ChevronRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -7,13 +7,17 @@ import { normalizeSector } from "@/components/company-profile/sectorNormalizatio
 import { SmartSelect, AI_SUGGESTED_TEXT_CLASS } from "@/components/onboarding/SmartSelect";
 import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
-import { useEffect } from "react";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 
 import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
+
+/** Wait for the user to pause typing before calling Gemini/Clearbit (avoids guesses on partial names). */
+const WEBSITE_GUESS_DEBOUNCE_MS = 700;
+/** Minimum trimmed length before we auto-guess a URL (reduces junk matches on 2–3 character inputs). */
+const MIN_COMPANY_NAME_LEN_FOR_URL_GUESS = 4;
 
 /** Inline validation for company website (step 1). Returns null if OK. */
 function getWebsiteUrlError(raw: string): string | null {
@@ -53,85 +57,156 @@ interface OnboardingStepperProps {
   onSkip: () => void;
 }
 
+const PENDING_COMPANY_SEED_KEY = "pending-company-seed";
+
 function readSeed() {
   try {
-    const raw = localStorage.getItem("pending-company-seed");
+    const raw = localStorage.getItem(PENDING_COMPANY_SEED_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
 }
 
-export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
-  // Read seed on every mount (StrictMode-safe: don't remove in initializer)
-  const [seed] = useState(readSeed);
+function clearSeed() {
+  try {
+    localStorage.removeItem(PENDING_COMPANY_SEED_KEY);
+  } catch {}
+}
 
-  // Remove after a tick so StrictMode's second mount still reads it
-  useMemo(() => {
-    setTimeout(() => {
-      try { localStorage.removeItem("pending-company-seed"); } catch {}
-    }, 100);
-  }, []);
+/** Skip auto-URL for gibberish / keyboard mash; still allows short real names (e.g. IBM). */
+function looksLikePlausibleCompanyName(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed.length < 2 || trimmed.length > 120) return false;
+  if (!/[a-zA-Z]/.test(trimmed)) return false;
+  const compact = trimmed.replace(/\s/g, "");
+  if (compact.length >= 5 && /^(.)\1+$/.test(compact)) return false;
+  const letters = trimmed.replace(/[^a-zA-Z]/g, "");
+  if (letters.length >= 5 && !/[aeiouy]/i.test(letters)) return false;
+  return true;
+}
+
+function slugFromCompanyName(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function primaryBrandFromHostname(host: string): string {
+  return host.toLowerCase().replace(/^www\./, "").split(".")[0] || "";
+}
+
+function normalizeLoose(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const row = new Uint16Array(n + 1);
+  for (let j = 0; j <= n; j++) row[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = i - 1;
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = row[j];
+      row[j] =
+        a[i - 1] === b[j - 1] ? prev : 1 + Math.min(Math.min(prev, row[j]), row[j - 1]);
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+/**
+ * True if the URL's registrable-looking label matches the company name closely enough
+ * to accept a third-party guess (blocks unrelated megasites).
+ * Short substring rules are strict so e.g. "dis" cannot match discord.com.
+ */
+function guessedUrlMatchesCompanyName(urlString: string, companyName: string): boolean {
+  const trimmed = urlString.trim();
+  if (!trimmed) return false;
+  let url: URL;
+  try {
+    let s = trimmed;
+    if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
+    url = new URL(s);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.toLowerCase();
+  if (!host.includes(".")) return false;
+  const brand = primaryBrandFromHostname(host);
+  if (brand.length < 2) return false;
+
+  const companySlug = normalizeLoose(companyName);
+  const words = companyName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 2);
+
+  if (companySlug.length >= 2 && brand.length >= 2) {
+    if (companySlug === brand) return true;
+    if (companySlug.length >= 4 && brand.includes(companySlug)) return true;
+    if (brand.length >= 4 && companySlug.includes(brand)) return true;
+  }
+  for (const w of words) {
+    if (w.length >= 4 && brand.includes(w)) return true;
+    if (brand.length >= 4 && w.includes(brand)) return true;
+  }
+  const minLen = Math.min(companySlug.length, brand.length);
+  if (minLen >= 5) {
+    const d = levenshtein(companySlug, brand);
+    const maxDist = Math.max(1, Math.floor(minLen * 0.22));
+    if (d <= maxDist) return true;
+  }
+  return false;
+}
+
+function clearbitCompanyNameMatchesQuery(query: string, resultName: string): boolean {
+  const q = normalizeLoose(query);
+  const n = normalizeLoose(resultName);
+  if (q.length < 2 || n.length < 2) return false;
+  // Short queries: only exact normalized matches (e.g. "IBM"), not substring hits on "Discord".
+  if (q.length < 4) return q === n;
+  if (n.includes(q) || q.includes(n)) return true;
+  const minLen = Math.min(q.length, n.length);
+  if (minLen >= 5) {
+    const d = levenshtein(q, n);
+    if (d <= Math.max(1, Math.floor(minLen * 0.28))) return true;
+  }
+  return false;
+}
+
+function extractUrlFromGeminiResponse(text: string): string | null {
+  const t = text.trim();
+  if (/^UNKNOWN$/i.test(t)) return null;
+  const unfenced = t.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/i, "").trim();
+  const m = unfenced.match(/https?:\/\/[^\s"'<>[\]()]+/i);
+  return m ? m[0].replace(/[,;.]+$/, "") : null;
+}
+
+function defaultWebsiteGuessFromCompanyName(companyName: string): string {
+  if (!looksLikePlausibleCompanyName(companyName)) return "";
+  const slug = slugFromCompanyName(companyName);
+  if (slug.length < 2) return "";
+  return `https://${slug}.com`;
+}
+
+export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps) {
+  const [seed] = useState(readSeed);
 
   const [step, setStep] = useState(1);
   const [website, setWebsite] = useState(() => {
-    if (seed?.websiteUrl) return seed.websiteUrl;
-    if (seed?.companyName) {
-      const slug = seed.companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
-      return slug ? `https://${slug}.com` : "";
-    }
+    if (seed?.websiteUrl?.trim()) return seed.websiteUrl;
+    if (seed?.companyName) return defaultWebsiteGuessFromCompanyName(seed.companyName);
     return "";
   });
   const [companyName, setCompanyName] = useState(seed?.companyName || "");
   const [aiGuessedFields, setAiGuessedFields] = useState<string[]>(seed?.aiGuessed || []);
-  
-  useEffect(() => {
-    // Attempt to AI-guess the URL if company name is known but website is empty
-    if (companyName && !website && step === 1 && !isProcessing) {
-      const guessUrl = async () => {
-        setIsProcessing(true);
-        setProcessStep("AI is finding your company website...");
-        try {
-          // First attempt to use Gemini if the API key is present
-          const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-          if (geminiKey) {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: `What is the primary commercial website URL for the software/tech company named "${companyName}"? Return ONLY the raw URL starting with https:// and nothing else.` }] }]
-              })
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-              if (text && text.startsWith("http")) {
-                setWebsite(text);
-                setAiGuessedFields(prev => Array.from(new Set([...prev, 'websiteUrl'])));
-                return;
-              }
-            }
-          }
-          
-          // Fallback to Clearbit's reliable autocomplete
-          const bgRes = await fetch(`https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(companyName)}`);
-          if (bgRes.ok) {
-            const bgData = await bgRes.json();
-            if (bgData && bgData.length > 0) {
-              setWebsite(`https://${bgData[0].domain}`);
-              setAiGuessedFields(prev => Array.from(new Set([...prev, 'websiteUrl'])));
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to guess website URL", e);
-        } finally {
-          setIsProcessing(false);
-          setProcessStep("");
-        }
-      };
-      
-      guessUrl();
-    }
-  }, [companyName, website, step]); // Intentionally omitting isProcessing to avoid loop 
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processStep, setProcessStep] = useState("");
+  const websiteGuessAttemptedForRef = useRef<string | null>(null);
+
   const [deckFile, setDeckFile] = useState<File | null>(null);
   const [deckText, setDeckText] = useState(seed?.deckText || "");
   const [stage, setStage] = useState(seed?.stage || "");
@@ -141,8 +216,6 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
   const [burnRate, setBurnRate] = useState("");
   const [headcount, setHeadcount] = useState("");
   const [metricMode, setMetricMode] = useState<"monthly" | "annual">("monthly");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processStep, setProcessStep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [websiteScraped, setWebsiteScraped] = useState(false);
   const [synced, setSynced] = useState(false);
@@ -165,9 +238,133 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
     headcount: false,
   });
 
+  const companyNameRef = useRef(companyName);
+  const websiteRef = useRef(website);
+  const stepRef = useRef(step);
+  companyNameRef.current = companyName;
+  websiteRef.current = website;
+  stepRef.current = step;
+
+  // Drop an AI-filled URL if the user keeps typing and it no longer matches the company name.
+  useEffect(() => {
+    const nameTrim = companyName.trim();
+    if (!website.trim() || !aiGuessedFields.includes("websiteUrl")) return;
+    if (guessedUrlMatchesCompanyName(website, nameTrim)) return;
+    setWebsite("");
+    setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
+    websiteGuessAttemptedForRef.current = null;
+  }, [companyName, website, aiGuessedFields]);
+
+  useEffect(() => {
+    const nameTrim = companyName.trim();
+    if (!nameTrim || website || step !== 1) return;
+    if (!looksLikePlausibleCompanyName(nameTrim)) return;
+    if (nameTrim.length < MIN_COMPANY_NAME_LEN_FOR_URL_GUESS) return;
+
+    const timer = window.setTimeout(() => {
+      const n = companyNameRef.current.trim();
+      if (
+        !n ||
+        websiteRef.current.trim() ||
+        stepRef.current !== 1 ||
+        !looksLikePlausibleCompanyName(n) ||
+        n.length < MIN_COMPANY_NAME_LEN_FOR_URL_GUESS
+      ) {
+        return;
+      }
+
+      const key = n.toLowerCase();
+      if (websiteGuessAttemptedForRef.current === key) return;
+      websiteGuessAttemptedForRef.current = key;
+
+      const applyGuess = (rawUrl: string) => {
+        const u = rawUrl.trim();
+        if (!u || getWebsiteUrlError(u) !== null) return false;
+        if (!guessedUrlMatchesCompanyName(u, n)) return false;
+        setWebsite(u);
+        setAiGuessedFields((prev) => Array.from(new Set([...prev, "websiteUrl"])));
+        return true;
+      };
+
+      const guessUrl = async () => {
+        setIsProcessing(true);
+        setProcessStep("Finding your company website...");
+        try {
+          const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          if (geminiKey) {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        {
+                          text: `You map a company name to its official primary website domain.
+
+Company name: "${n}"
+
+Rules:
+- Reply UNKNOWN unless this is a specific real company you recognize and can tie to one official site.
+- The site's first hostname label must clearly match the company name (not a substring coincidence on a different brand).
+- Never return social networks, app stores, Wikipedia, Crunchbase, or unrelated megabrands.
+- If unsure, reply exactly: UNKNOWN
+- If you know the company, reply with one https URL only — no markdown, quotes, or explanation.`,
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+              const extracted = extractUrlFromGeminiResponse(text);
+              if (extracted && applyGuess(extracted)) return;
+            }
+          }
+
+          const bgRes = await fetch(
+            `https://autocomplete.clearbit.com/v1/companies/suggest?query=${encodeURIComponent(n)}`
+          );
+          if (bgRes.ok) {
+            const bgData: { name?: string; domain?: string }[] = await bgRes.json();
+            if (Array.isArray(bgData)) {
+              for (const row of bgData) {
+                const domain = row.domain?.trim();
+                const legalName = row.name?.trim() ?? "";
+                if (!domain || !legalName) continue;
+                if (!clearbitCompanyNameMatchesQuery(n, legalName)) continue;
+                const candidate = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
+                if (applyGuess(candidate)) return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to guess website URL", e);
+        } finally {
+          setIsProcessing(false);
+          setProcessStep("");
+        }
+      };
+
+      void guessUrl();
+    }, WEBSITE_GUESS_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [companyName, website, step]);
+
   const clearAiMetric = useCallback((key: keyof typeof aiMetricHighlight) => {
     setAiMetricHighlight((h) => ({ ...h, [key]: false }));
   }, []);
+
+  const handleSkip = useCallback(() => {
+    clearSeed();
+    onSkip();
+  }, [onSkip]);
 
   const validateStep3 = (): boolean => {
     const missing: string[] = [];
@@ -393,6 +590,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
         momGrowth: sanitize(momGrowth),
       };
       if (analysisResult) {
+        clearSeed();
         onComplete(company, {
           ...analysisResult,
           metrics: {
@@ -492,6 +690,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                       onChange={(e) => {
                         setWebsite(e.target.value);
                         setWebsiteUrlError(null);
+                        websiteGuessAttemptedForRef.current = null;
                         setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
                       }}
                       onBlur={() => {
@@ -659,13 +858,22 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
                          aiMetricHighlight.headcount ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
                        }`}
                      />
-                   </div>
-                  {analysisResult?.healthScore && (
-                    <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
-                      <Check className="h-4 w-4 text-success" />
-                      <span className="text-xs text-foreground">Health Score: <strong>{analysisResult.healthScore}/100</strong></span>
                     </div>
-                  )}
+                   {/* Intelligence engine nudge — shown when any metric field is blank */}
+                   {(!mrr.trim() || !momGrowth.trim() || !burnRate.trim() || !headcount.trim()) && (
+                     <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5">
+                       <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                       <span className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                         The more metrics you provide, the better the intelligence engine performs.
+                       </span>
+                     </div>
+                   )}
+                   {analysisResult?.healthScore && (
+                     <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
+                       <Check className="h-4 w-4 text-success" />
+                       <span className="text-xs text-foreground">Health Score: <strong>{analysisResult.healthScore}/100</strong></span>
+                     </div>
+                   )}
                 </>
               )}
 
@@ -678,7 +886,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-border px-6 py-4">
-              <button onClick={onSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+              <button onClick={handleSkip} className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 Skip for now
               </button>
               <div className="flex gap-2">
