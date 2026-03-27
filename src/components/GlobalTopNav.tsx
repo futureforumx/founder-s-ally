@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -111,6 +111,10 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   ]},
   messages: { section: "Community", label: "Messages" },
   "market-intelligence": { section: "Market Intelligence", label: "Market Intelligence" },
+  "market-investors": { section: "Market Intelligence", label: "Investors" },
+  "market-market": { section: "Market Intelligence", label: "Market" },
+  "market-tech": { section: "Market Intelligence", label: "Tech" },
+  "market-network": { section: "Market Intelligence", label: "Network" },
   "data-room": { section: "Data Room", label: "Deck Audit" },
   settings: { section: "Settings", label: "Settings" },
 };
@@ -599,6 +603,77 @@ export function GlobalTopNav({
                     className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
                   >
                     Deck Audit
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "market-investors", label: "Investors" },
+                { id: "market-market", label: "Market" },
+                { id: "market-tech", label: "Tech" },
+                { id: "market-network", label: "Network" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onViewChange?.(tab.id as ViewType)}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === tab.id
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {activeView === "market-investors" ? "Investors" : activeView === "market-market" ? "Market" : activeView === "market-tech" ? "Tech" : activeView === "market-network" ? "Network" : "Market Intelligence"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-investors")}
+                    className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
+                  >
+                    Investors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-market")}
+                    className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
+                  >
+                    Market
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-tech")}
+                    className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
+                  >
+                    Tech
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-network")}
+                    className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
+                  >
+                    Network
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
