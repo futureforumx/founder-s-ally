@@ -297,9 +297,9 @@ export function IntelligenceCards({
       />
 
       <MetricCard
-        label={`Total Investing in ${companyData?.stage || "Your Stage"}`}
+        label={`Total Investing in ${sector || "Your Sector"}`}
         value="$12.4B"
-        subtitle="Capital deployed in your stage"
+        subtitle="Capital deployed in your sector"
         trendValue={capitalTrend}
         trendLabel={timeLabel}
         accentColor="hsl(var(--success))"
