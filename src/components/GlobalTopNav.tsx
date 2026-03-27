@@ -429,7 +429,7 @@ export function GlobalTopNav({
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {[
                 { id: "matches", label: "Matches" },
-                { id: "search", label: "Search" },
+                { id: "search", label: "All" },
                 { id: "connections", label: "Connections" }
               ].map((tab) => (
                 <button
@@ -462,7 +462,7 @@ export function GlobalTopNav({
                     "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}>
                     <span className="truncate max-w-[80px]">
-                      {activeView === "investors" ? "Matches" : activeView === "investor-search" ? "Search" : "Connections"}
+                      {activeView === "investors" ? "Matches" : activeView === "investor-search" ? "All" : "Connections"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
