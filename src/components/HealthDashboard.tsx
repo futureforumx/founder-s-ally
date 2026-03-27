@@ -201,9 +201,9 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
           </div>
 
           {/* Progress bar with segments */}
-          <div className="flex gap-1">
-            {Array.from({ length: 25 }).map((_, i) => {
-              const segmentFilled = (i / 25) * 100 < overallScore;
+          <div className="flex gap-0.5">
+            {Array.from({ length: 50 }).map((_, i) => {
+              const segmentFilled = (i / 50) * 100 < overallScore;
               return (
                 <div
                   key={i}
