@@ -65,13 +65,16 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                 </div>
 
                 {/* Right Action Cluster */}
-                <div className="absolute top-4 right-14 flex items-center gap-2">
-                  <button className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-background hover:bg-foreground/90 transition-colors shadow-lg">
-                    <Zap className="h-3 w-3" /> Add to Network
-                  </button>
-                  <button className="inline-flex items-center gap-1.5 rounded-md border border-foreground/20 bg-background/40 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-foreground hover:bg-background/60 backdrop-blur-sm transition-colors shadow-lg">
-                    <MessageSquare className="h-3 w-3" /> Request Intro
-                  </button>
+                <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <button className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-background hover:bg-foreground/90 transition-colors shadow-lg">
+                      <Zap className="h-3 w-3" /> Add to Network
+                    </button>
+                    <button className="inline-flex items-center gap-1.5 rounded-md border border-foreground/20 bg-background/40 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-foreground hover:bg-background/60 backdrop-blur-sm transition-colors shadow-lg">
+                      <MessageSquare className="h-3 w-3" /> Request Intro
+                    </button>
+                  </div>
+                  <StatusIndicator isOwner={isOwner} />
                 </div>
 
                 {/* Close Button */}
@@ -99,7 +102,6 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant="outline" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.stage}</Badge>
                       <Badge variant="secondary" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.sector}</Badge>
-                      <StatusIndicator isOwner={isOwner} />
                     </div>
                   </div>
                 </div>
