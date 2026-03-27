@@ -337,8 +337,12 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
                       }}
                       className="inline-flex items-center"
                     >
-                      <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider hover:bg-success/15 transition-colors">
-                        <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+                      <Badge className="text-[8px] font-light px-2 py-1 bg-success/5 text-success border border-success/30 rounded-sm uppercase tracking-wider hover:bg-success/8 transition-colors">
+                        <span className="relative flex h-1.5 w-1.5 mr-1.5 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                        </span>
+                        Deploying
                       </Badge>
                     </button>
                   </TooltipTrigger>
