@@ -223,13 +223,13 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         </div>
       )}
 
-      <div className="flex items-center justify-start gap-2">
+      <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
         <button onClick={() => setMode("market")}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           Market
         </button>
         <button onClick={() => setMode("community")}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           Network
         </button>
       </div>
