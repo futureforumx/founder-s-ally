@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useReverification } from "@clerk/clerk-react";
+import { isClerkRuntimeError, isReverificationCancelledError } from "@clerk/clerk-react/errors";
 import { Linkedin, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -42,6 +43,15 @@ const USER_TYPES = [
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const { user } = useAuth();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const createExternalAccountWithReverification = useReverification(
+    (params: { strategy: string; redirectUrl: string }) => {
+      if (!clerkUser) return Promise.reject(new Error("Not signed in"));
+      return clerkUser.createExternalAccount({
+        strategy: params.strategy as "oauth_linkedin" | "oauth_linkedin_oidc" | "oauth_x" | "oauth_twitter",
+        redirectUrl: params.redirectUrl,
+      });
+    },
+  );
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
@@ -224,9 +234,13 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     let lastErr: unknown;
     for (const strategy of strategies) {
       try {
-        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        await createExternalAccountWithReverification({ strategy, redirectUrl });
         return;
       } catch (e) {
+        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
+          setOauthBusy(null);
+          return;
+        }
         lastErr = e;
       }
     }
@@ -247,9 +261,13 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     let lastErr: unknown;
     for (const strategy of strategies) {
       try {
-        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        await createExternalAccountWithReverification({ strategy, redirectUrl });
         return;
       } catch (e) {
+        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
+          setOauthBusy(null);
+          return;
+        }
         lastErr = e;
       }
     }
