@@ -154,7 +154,7 @@ function deploymentAmount(v: number, seed: number): string {
   return `$${base}M`;
 }
 
-function SectorHeatmapCard({ sector, timeRange }: { sector: string | undefined; timeRange: TimeRange }) {
+export function SectorHeatmapCard({ sector, timeRange }: { sector: string | undefined; timeRange: TimeRange }) {
   const cells = useMemo(() => {
     const seed = (sector || "default").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     const mult = timeMultiplier(timeRange);
@@ -275,7 +275,7 @@ export function IntelligenceCards({
   const capitalTrend = timeRange === "week" ? 4.7 : timeRange === "month" ? 12.4 : timeRange === "quarter" ? 28.9 : 45.3;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <MetricCard
         label="Investors Matched"
         value={adjustedMatchCount.toLocaleString()}
@@ -295,8 +295,6 @@ export function IntelligenceCards({
         accentColor="hsl(var(--success))"
         icon={<ArrowRight className="h-3 w-3 text-success" />}
       />
-
-      <SectorHeatmapCard sector={sector} timeRange={timeRange} />
     </div>
   );
 }
