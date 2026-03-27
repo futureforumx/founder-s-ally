@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useUser } from "@clerk/clerk-react";
-import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
+import { useUser, useReverification } from "@clerk/clerk-react";
+import { isClerkRuntimeError, isReverificationCancelledError } from "@clerk/clerk-react/errors";
+import { Linkedin, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
@@ -16,7 +17,13 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatSocialUrl } from "@/lib/socialFormat";
-import { clerkUserHasLinkedIn, clerkUserHasXOrTwitter, rememberSsoReturnPath } from "@/lib/clerkSocialLink";
+import {
+  clerkUserHasLinkedIn,
+  clerkUserHasXOrTwitter,
+  clerkSuggestedLinkedInUrl,
+  clerkSuggestedXUrl,
+  rememberSsoReturnPath,
+} from "@/lib/clerkSocialLink";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { InvestorWaitlistForm } from "./InvestorWaitlistForm";
 import type { OnboardingState } from "./types";
@@ -36,6 +43,15 @@ const USER_TYPES = [
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const { user } = useAuth();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const createExternalAccountWithReverification = useReverification(
+    (params: { strategy: string; redirectUrl: string }) => {
+      if (!clerkUser) return Promise.reject(new Error("Not signed in"));
+      return clerkUser.createExternalAccount({
+        strategy: params.strategy as "oauth_linkedin" | "oauth_linkedin_oidc" | "oauth_x" | "oauth_twitter",
+        redirectUrl: params.redirectUrl,
+      });
+    },
+  );
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
@@ -127,9 +143,8 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     linkedInOAuthVerified ||
     xOAuthVerified;
   const canProceedBasic = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
-  const canProceed = canProceedBasic && hasSocialProfile;
 
-  const handleValidatedNext = () => {
+  const handleValidatedNext = async () => {
     if (!canProceedBasic) {
       const missing: string[] = [];
       if (!state.firstName.trim()) missing.push("First Name");
@@ -145,57 +160,66 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       return;
     }
     setShowSocialHint(false);
-    onNext();
-  };
 
+    const liFromInput = url.trim() ? formatSocialUrl("linkedin_personal", url) : "";
+    const liFromClerk =
+      !liFromInput && linkedInOAuthVerified && clerkUser ? clerkSuggestedLinkedInUrl(clerkUser) : null;
+    const linkedinUrlToSync = liFromInput || liFromClerk || "";
 
-  const handleMagicFill = async () => {
-    if (!url.trim()) {
-      toast({ variant: "destructive", title: "Enter a LinkedIn URL first" });
+    const xFromInput = xUrl.trim() ? formatSocialUrl("x", xUrl) : "";
+    const xFromClerk = !xFromInput && xOAuthVerified && clerkUser ? clerkSuggestedXUrl(clerkUser) : null;
+    const xUrlToSync = xFromInput || xFromClerk || "";
+
+    if (linkedinUrlToSync) {
+      if (linkedinUrlToSync !== url) setUrl(linkedinUrlToSync);
+      update({ linkedinUrl: linkedinUrlToSync });
+    }
+    if (xUrlToSync) {
+      if (xUrlToSync !== xUrl) setXUrl(xUrlToSync);
+      update({ twitterUrl: xUrlToSync });
+    }
+
+    const shouldSync = Boolean(linkedinUrlToSync || xUrlToSync);
+    if (!shouldSync) {
+      onNext();
       return;
     }
+
     setLoading(true);
-    const formattedLinkedin = formatSocialUrl("linkedin_personal", url);
-    setUrl(formattedLinkedin);
-    update({ linkedinUrl: formattedLinkedin });
-
     try {
-      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: formattedLinkedin },
-      });
-      if (error) throw error;
-
-      const profileData = data?.data || {};
-      const updates: Partial<OnboardingState> = { linkedinUrl: formattedLinkedin };
-
-      if (profileData.full_name) {
-        updates.fullName = profileData.full_name;
-        const parts = profileData.full_name.trim().split(/\s+/);
-        updates.firstName = parts[0] || "";
-        updates.lastName = parts.slice(1).join(" ") || "";
+      if (linkedinUrlToSync) {
+        try {
+          const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
+            body: { linkedinUrl: linkedinUrlToSync },
+          });
+          if (error) throw error;
+          const profileData = data?.data || {};
+          const updates: Partial<OnboardingState> = { linkedinUrl: linkedinUrlToSync };
+          if (profileData.full_name) {
+            updates.fullName = profileData.full_name;
+            const parts = profileData.full_name.trim().split(/\s+/);
+            updates.firstName = parts[0] || "";
+            updates.lastName = parts.slice(1).join(" ") || "";
+          }
+          if (profileData.title) updates.title = profileData.title;
+          if (profileData.bio) updates.bio = profileData.bio.slice(0, 160);
+          if (profileData.location) updates.location = profileData.location;
+          if (profileData.avatar_url) updates.avatarUrl = profileData.avatar_url;
+          update(updates);
+        } catch {
+          toast({
+            title: "Couldn't find your LinkedIn profile",
+            description: "We saved your link—you can edit details on the next step.",
+          });
+        }
       }
-      if (profileData.title) updates.title = profileData.title;
-      if (profileData.bio) updates.bio = profileData.bio.slice(0, 160);
-      if (profileData.location) updates.location = profileData.location;
-      if (profileData.avatar_url) updates.avatarUrl = profileData.avatar_url;
-
-      update(updates);
-
-      if (xUrl.trim()) {
-        await enrichXProfile(formatSocialUrl("x", xUrl));
+      if (xUrlToSync) {
+        await enrichXProfile(xUrlToSync, { silent: true });
       }
-
-      onNext();
-    } catch {
-      toast({
-        title: "Couldn't find your profile",
-        description: "Fill in manually on the next step.",
-      });
-      update({ linkedinUrl: formattedLinkedin });
-      onNext();
     } finally {
       setLoading(false);
     }
+    onNext();
   };
 
   const linkLinkedInForConfirm = async () => {
@@ -210,9 +234,13 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     let lastErr: unknown;
     for (const strategy of strategies) {
       try {
-        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        await createExternalAccountWithReverification({ strategy, redirectUrl });
         return;
       } catch (e) {
+        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
+          setOauthBusy(null);
+          return;
+        }
         lastErr = e;
       }
     }
@@ -233,9 +261,13 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     let lastErr: unknown;
     for (const strategy of strategies) {
       try {
-        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        await createExternalAccountWithReverification({ strategy, redirectUrl });
         return;
       } catch (e) {
+        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
+          setOauthBusy(null);
+          return;
+        }
         lastErr = e;
       }
     }
@@ -244,14 +276,15 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     toast({ variant: "destructive", title: "Could not start X", description: msg });
   };
 
-  const enrichXProfile = async (twitterUrl: string) => {
+  const enrichXProfile = async (twitterUrl: string, opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     if (!twitterUrl.trim()) return;
     try {
       const { data, error } = await supabase.functions.invoke("sync-x-profile", {
         body: { twitterUrl },
       });
       if (error || !data?.success) {
-        if (data?.skipped) {
+        if (data?.skipped && !silent) {
           toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
         }
         return;
@@ -262,9 +295,9 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       if (xData.location && !state.location.trim()) updates.location = xData.location;
       if (xData.avatar_url && !state.avatarUrl) updates.avatarUrl = xData.avatar_url;
       if (Object.keys(updates).length > 0) update(updates);
-      toast({ title: "X profile enriched successfully" });
+      if (!silent) toast({ title: "X profile enriched successfully" });
     } catch {
-      toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
+      if (!silent) toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
     }
   };
 
@@ -388,7 +421,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             <div className="w-full space-y-3 py-4">
               <div className="flex items-center justify-center gap-3">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-xs text-muted-foreground">Researching your background...</span>
+                <span className="text-xs text-muted-foreground">Pulling your LinkedIn &amp; X profile…</span>
               </div>
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -502,17 +535,11 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                         exit={{ opacity: 0, height: 0 }}
                         className="text-[11px] text-destructive font-medium"
                       >
-                        Add a LinkedIn or X profile for best results, or click "Proceed without syncing" below.
+                        Add a LinkedIn or X profile (or confirm with OAuth), or use &quot;Proceed without syncing&quot; below.
                       </motion.p>
                     )}
                   </AnimatePresence>
 
-                  {url.trim() && (
-                    <Button onClick={handleMagicFill} className="w-full gap-1.5 h-8 text-xs" size="sm">
-                      <Sparkles className="h-3 w-3" />
-                      Magic Fill from LinkedIn
-                    </Button>
-                  )}
                 </div>
               </motion.div>
 
@@ -530,17 +557,26 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
             </div>
           )}
 
-          {!loading && (
-            <div className="flex flex-col items-center gap-3">
-              <Button
-                onClick={handleValidatedNext}
-                disabled={!canProceedBasic}
-                className="w-full max-w-lg gap-1.5 h-9 text-xs"
-                size="sm"
-              >
-                Continue <ArrowRight className="h-3 w-3" />
-              </Button>
+          <div className="flex flex-col items-center gap-3">
+            <Button
+              onClick={() => void handleValidatedNext()}
+              disabled={!canProceedBasic || loading}
+              className="w-full max-w-lg gap-1.5 h-9 text-xs"
+              size="sm"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Syncing…
+                </>
+              ) : (
+                <>
+                  Continue <ArrowRight className="h-3 w-3" />
+                </>
+              )}
+            </Button>
 
+            {!loading && (
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors underline underline-offset-2">
@@ -565,8 +601,8 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                   </Button>
                 </PopoverContent>
               </Popover>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </motion.div>
