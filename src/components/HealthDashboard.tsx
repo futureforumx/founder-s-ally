@@ -154,7 +154,7 @@ const defaultMetrics: { label: string; key: keyof AnalysisResult["metrics"]; cha
   { label: "LTV", key: "ltv", change: "+8%", trend: "up" },
 ];
 
-type BenchmarkMode = "market" | "community";
+type BenchmarkMode = "market" | "community" | "trend" | "network";
 
 interface HealthDashboardProps {
   stage?: string;
@@ -231,6 +231,14 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         <button onClick={() => setMode("community")}
           className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           Peers
+        </button>
+        <button onClick={() => setMode("trend")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "trend" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Trend
+        </button>
+        <button onClick={() => setMode("network")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "network" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Network
         </button>
       </div>
 
