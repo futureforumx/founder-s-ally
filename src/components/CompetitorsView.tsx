@@ -135,10 +135,10 @@ function faviconSrc(domain: string): string {
   return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
 }
 
-function statusColor(status: string): string {
-  if (status === "Direct Competitor") return "bg-destructive/10 text-destructive";
-  if (status === "Indirect") return "bg-warning/10 text-warning";
-  return "bg-muted text-muted-foreground";
+function statusColorVariant(status: string): "destructive" | "warning" | "muted" {
+  if (status === "Direct Competitor") return "destructive";
+  if (status === "Indirect") return "warning";
+  return "muted";
 }
 
 // ── Battlecard Panel ──
@@ -172,7 +172,7 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
           <div className="relative h-28 w-full shrink-0" style={{ background: "linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--destructive) / 0.06))" }}>
             {/* Status Badge */}
             <div className="absolute top-4 left-6">
-              <Badge className={`text-[10px] font-semibold border-0 rounded-full px-3 py-1 backdrop-blur-md ${statusColor(intel.status)}`}>
+              <Badge variant={statusColorVariant(intel.status)}>
                 {intel.status}
               </Badge>
             </div>
@@ -374,7 +374,7 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-lg font-bold text-foreground">Updates Feed</h2>
-          <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
+          <Badge variant="secondary-sm">
             {filtered.length} signals
           </Badge>
         </div>
@@ -649,7 +649,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               {competitors.length} competitor{competitors.length !== 1 ? "s" : ""} tracked · Click a card for the full battlecard
             </p>
           </div>
-          <Badge variant="secondary" className="text-[10px] font-normal gap-1">
+          <Badge variant="secondary" className="gap-1">
             <Sparkles className="h-2.5 w-2.5" />
             AI-Enriched
           </Badge>
