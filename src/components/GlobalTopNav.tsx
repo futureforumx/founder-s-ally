@@ -3,9 +3,10 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2, SlidersHorizontal,
+  User, Settings2, SlidersHorizontal, LogOut
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -210,6 +211,7 @@ export function GlobalTopNav({
   const pulse = useRotatingPulse();
 
   const autosaveStatus = useAutosaveStatus();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -608,6 +610,14 @@ export function GlobalTopNav({
                   {item.label}
                 </DropdownMenuItem>
               ))}
+              <div className="border-t border-border/50 my-1" />
+              <DropdownMenuItem
+                onClick={() => signOut()}
+                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/5 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign Out
+              </DropdownMenuItem>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>

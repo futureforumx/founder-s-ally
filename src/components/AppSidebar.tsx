@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
+import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" |
 interface AppSidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
+  onAgentClick?: () => void;
 }
 
 const topItems = [
@@ -28,7 +29,7 @@ const communityItems = [
   { id: "groups" as const, label: "Groups", icon: UsersRound },
   { id: "events" as const, label: "Events", icon: MapPin }];
 
-export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSidebarProps) {
   const { profile } = useProfile();
   const { user, signOut } = useAuth();
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -123,7 +124,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
         <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-agent'))}
+            onClick={onAgentClick}
             className="group flex w-full items-center gap-2.5 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40"
           >
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform">

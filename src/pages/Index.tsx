@@ -270,7 +270,11 @@ const Index = () => {
         />
       )}
 
-      <AppSidebar activeView={activeView} onViewChange={setActiveView} />
+      <AppSidebar 
+        activeView={activeView} 
+        onViewChange={setActiveView} 
+        onAgentClick={() => setShowTerminal(true)}
+      />
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
           companyName={companyData?.name}
