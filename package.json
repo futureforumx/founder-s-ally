@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "perview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "clone:auth": "tsx scripts/clone_auth_users.ts",

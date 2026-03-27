@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { Linkedin, Sparkles, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatSocialUrl } from "@/lib/socialFormat";
+import { clerkUserHasLinkedIn, clerkUserHasXOrTwitter, rememberSsoReturnPath } from "@/lib/clerkSocialLink";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { InvestorWaitlistForm } from "./InvestorWaitlistForm";
 import type { OnboardingState } from "./types";
@@ -25,8 +27,6 @@ interface StepIdentityProps {
   onNext: () => void;
 }
 
-type SocialReachabilityState = "idle" | "syncing" | "verified" | "invalid" | "uncertain";
-
 const USER_TYPES = [
   { id: "founder", label: "Founder", icon: Users, desc: "building a startup." },
   { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startup." },
@@ -35,13 +35,11 @@ const USER_TYPES = [
 
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const { user } = useAuth();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
-  const [linkedinReachability, setLinkedinReachability] = useState<SocialReachabilityState>("idle");
-  const [xReachability, setXReachability] = useState<SocialReachabilityState>("idle");
-  const [linkedinValidationMessage, setLinkedinValidationMessage] = useState<string>("");
-  const [xValidationMessage, setXValidationMessage] = useState<string>("");
+  const [oauthBusy, setOauthBusy] = useState<"linkedin" | "x" | null>(null);
   const [socialShake, setSocialShake] = useState(false);
   const [showSocialHint, setShowSocialHint] = useState(false);
 
@@ -115,7 +113,19 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     if (Object.keys(updates).length > 0) update(updates);
   }, [user]);
 
-  const hasSocialProfile = state.linkedinUrl.trim().length > 0 || state.twitterUrl.trim().length > 0;
+  const linkedInOAuthVerified = useMemo(
+    () => (clerkLoaded && clerkUser ? clerkUserHasLinkedIn(clerkUser) : false),
+    [clerkLoaded, clerkUser],
+  );
+  const xOAuthVerified = useMemo(
+    () => (clerkLoaded && clerkUser ? clerkUserHasXOrTwitter(clerkUser) : false),
+    [clerkLoaded, clerkUser],
+  );
+  const hasSocialProfile =
+    state.linkedinUrl.trim().length > 0 ||
+    state.twitterUrl.trim().length > 0 ||
+    linkedInOAuthVerified ||
+    xOAuthVerified;
   const canProceedBasic = state.firstName.trim().length > 0 && state.lastName.trim().length > 0 && state.title.trim().length > 0;
   const canProceed = canProceedBasic && hasSocialProfile;
 
@@ -188,45 +198,51 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     }
   };
 
-  const validateSocialReachability = useCallback(async (
-    platform: "linkedin" | "x",
-    rawValue: string,
-    setState: (state: SocialReachabilityState) => void,
-    setMessage: (message: string) => void,
-  ) => {
-    const trimmed = rawValue.trim();
-    if (!trimmed) {
-      setState("idle");
-      setMessage("");
+  const linkLinkedInForConfirm = async () => {
+    if (!clerkUser) {
+      toast({ variant: "destructive", title: "Sign in required", description: "Complete sign-in before linking LinkedIn." });
       return;
     }
+    setOauthBusy("linkedin");
+    rememberSsoReturnPath();
+    const redirectUrl = `${window.location.origin}/sso-callback`;
+    const strategies = ["oauth_linkedin_oidc", "oauth_linkedin"] as const;
+    let lastErr: unknown;
+    for (const strategy of strategies) {
+      try {
+        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        return;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    setOauthBusy(null);
+    const msg = lastErr instanceof Error ? lastErr.message : "Enable LinkedIn under Clerk → User & authentication → Social connections.";
+    toast({ variant: "destructive", title: "Could not start LinkedIn", description: msg });
+  };
 
-    setState("syncing");
-    setMessage("");
-
-    const { data, error } = await supabase.functions.invoke("validate-social-profile", {
-      body: { url: trimmed, platform },
-    });
-
-    if (error || !data?.status) {
-      setState("uncertain");
-      setMessage("We couldn't confirm this profile. Enter the real username or profile URL and try again.");
+  const linkXForConfirm = async () => {
+    if (!clerkUser) {
+      toast({ variant: "destructive", title: "Sign in required", description: "Complete sign-in before linking X." });
       return;
     }
-
-    if (data.status === "reachable") {
-      setState("verified");
-      setMessage("");
-      return;
+    setOauthBusy("x");
+    rememberSsoReturnPath();
+    const redirectUrl = `${window.location.origin}/sso-callback`;
+    const strategies = ["oauth_x", "oauth_twitter"] as const;
+    let lastErr: unknown;
+    for (const strategy of strategies) {
+      try {
+        await clerkUser.createExternalAccount({ strategy, redirectUrl });
+        return;
+      } catch (e) {
+        lastErr = e;
+      }
     }
-    if (data.status === "unreachable") {
-      setState("invalid");
-      setMessage(data.reason || "This profile URL appears invalid or does not exist. Input the real username and try again.");
-      return;
-    }
-    setState("uncertain");
-    setMessage(data.reason || "This platform blocked validation. Input the real username and try again, or override if you know the link is correct.");
-  }, []);
+    setOauthBusy(null);
+    const msg = lastErr instanceof Error ? lastErr.message : "Enable X (Twitter) under Clerk → User & authentication → Social connections.";
+    toast({ variant: "destructive", title: "Could not start X", description: msg });
+  };
 
   const enrichXProfile = async (twitterUrl: string) => {
     if (!twitterUrl.trim()) return;
@@ -408,70 +424,74 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <MorphingUrlInput
-                      platform="linkedin"
-                      label="LinkedIn"
-                      value={url}
-                      onChange={(v) => {
-                        setUrl(v);
-                        if (!v.trim()) {
-                          setLinkedinReachability("idle");
-                          setLinkedinValidationMessage("");
-                        }
-                        if (showSocialHint) setShowSocialHint(false);
-                      }}
-                      onBlur={async () => {
-                        const formatted = formatSocialUrl("linkedin_personal", url);
-                        if (formatted !== url) setUrl(formatted);
-                        update({ linkedinUrl: formatted });
-                        await validateSocialReachability("linkedin", formatted, setLinkedinReachability, setLinkedinValidationMessage);
-                      }}
-                      verifyState={linkedinReachability}
-                      verifyMessage={linkedinValidationMessage}
-                      onVerify={async () => {
-                        const formatted = formatSocialUrl("linkedin_personal", url);
-                        if (formatted !== url) setUrl(formatted);
-                        update({ linkedinUrl: formatted });
-                        await validateSocialReachability("linkedin", formatted, setLinkedinReachability, setLinkedinValidationMessage);
-                      }}
-                      onOverride={() => {
-                        setLinkedinReachability("idle");
-                        setLinkedinValidationMessage("");
-                      }}
-                      verifyLabel="Check"
-                    />
-                    <MorphingUrlInput
-                      platform="x"
-                      label="X / Twitter"
-                      value={xUrl}
-                      onChange={(v) => {
-                        setXUrl(v);
-                        if (!v.trim()) {
-                          setXReachability("idle");
-                          setXValidationMessage("");
-                        }
-                        if (showSocialHint) setShowSocialHint(false);
-                      }}
-                      onBlur={async () => {
-                        const formatted = formatSocialUrl("x", xUrl);
-                        if (formatted !== xUrl) setXUrl(formatted);
-                        update({ twitterUrl: formatted });
-                        await validateSocialReachability("x", formatted, setXReachability, setXValidationMessage);
-                      }}
-                      verifyState={xReachability}
-                      verifyMessage={xValidationMessage}
-                      onVerify={async () => {
-                        const formatted = formatSocialUrl("x", xUrl);
-                        if (formatted !== xUrl) setXUrl(formatted);
-                        update({ twitterUrl: formatted });
-                        await validateSocialReachability("x", formatted, setXReachability, setXValidationMessage);
-                      }}
-                      onOverride={() => {
-                        setXReachability("idle");
-                        setXValidationMessage("");
-                      }}
-                      verifyLabel="Check"
-                    />
+                    <div className="space-y-1.5">
+                      <MorphingUrlInput
+                        platform="linkedin"
+                        label="LinkedIn"
+                        value={url}
+                        onChange={(v) => {
+                          setUrl(v);
+                          if (showSocialHint) setShowSocialHint(false);
+                        }}
+                        onBlur={() => {
+                          const formatted = formatSocialUrl("linkedin_personal", url);
+                          if (formatted !== url) setUrl(formatted);
+                          update({ linkedinUrl: formatted });
+                        }}
+                        verifyState={linkedInOAuthVerified ? "verified" : "idle"}
+                      />
+                      {!linkedInOAuthVerified && (
+                        <button
+                          type="button"
+                          onClick={linkLinkedInForConfirm}
+                          disabled={oauthBusy !== null || !clerkLoaded}
+                          className="text-left text-[10px] font-medium text-accent hover:text-accent/80 disabled:pointer-events-none disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {oauthBusy === "linkedin" ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                              Opening LinkedIn…
+                            </>
+                          ) : (
+                            "Confirm profile — sign in with LinkedIn"
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <MorphingUrlInput
+                        platform="x"
+                        label="X / Twitter"
+                        value={xUrl}
+                        onChange={(v) => {
+                          setXUrl(v);
+                          if (showSocialHint) setShowSocialHint(false);
+                        }}
+                        onBlur={() => {
+                          const formatted = formatSocialUrl("x", xUrl);
+                          if (formatted !== xUrl) setXUrl(formatted);
+                          update({ twitterUrl: formatted });
+                        }}
+                        verifyState={xOAuthVerified ? "verified" : "idle"}
+                      />
+                      {!xOAuthVerified && (
+                        <button
+                          type="button"
+                          onClick={linkXForConfirm}
+                          disabled={oauthBusy !== null || !clerkLoaded}
+                          className="text-left text-[10px] font-medium text-accent hover:text-accent/80 disabled:pointer-events-none disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {oauthBusy === "x" ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                              Opening X…
+                            </>
+                          ) : (
+                            "Confirm profile — sign in with X"
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <AnimatePresence>
