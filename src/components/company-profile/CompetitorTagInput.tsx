@@ -35,18 +35,47 @@ const KNOWN_COMPANIES: { name: string; domain: string; series?: string; valuatio
   { name: "Rippling", domain: "rippling.com", series: "Series E", valuation: "$13.5B", overlap: "12%" },
 ];
 
-function getDomain(name: string): string {
-  const known = KNOWN_COMPANIES.find(c => c.name.toLowerCase() === name.toLowerCase());
+/**
+ * Normalize any input (company name, domain, or full URL) into a clean bare domain.
+ * e.g. "Outbuild", "outbuild.com", "https://www.outbuild.com/pricing" → "outbuild.com"
+ */
+function normalizeDomain(input: string): string {
+  const raw = input.trim().toLowerCase().replace(/\s+/g, "");
+  // Strip protocol + www. + path/query
+  const stripped = raw
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split("/")[0]
+    .split("?")[0]
+    .split("#")[0];
+  if (stripped.includes(".")) return stripped;
+  // No dot → treat as company name — look up known list first
+  const known = KNOWN_COMPANIES.find(c => c.name.toLowerCase() === stripped);
   if (known) return known.domain;
-  return name.trim().toLowerCase().replace(/\s+/g, "") + ".com";
+  return stripped + ".com";
 }
 
-function getCompanyInfo(name: string) {
-  return KNOWN_COMPANIES.find(c => c.name.toLowerCase() === name.toLowerCase());
+/** Get a company info entry by name OR domain/URL — so both work for market-pulse tooltips */
+function getCompanyInfo(input: string) {
+  const lower = input.trim().toLowerCase();
+  const domain = normalizeDomain(input);
+  return KNOWN_COMPANIES.find(
+    c =>
+      c.name.toLowerCase() === lower ||
+      c.domain.toLowerCase() === lower ||
+      c.domain.toLowerCase() === domain
+  );
 }
 
-function faviconUrl(domain: string) {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+function faviconUrl(input: string) {
+  const domain = normalizeDomain(input);
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=64`;
+}
+
+/** Best display label for a tag: canonical company name if known, otherwise the raw input */
+function displayLabel(tag: string): string {
+  const info = getCompanyInfo(tag);
+  return info ? info.name : tag;
 }
 
 export function CompetitorTagInput({ tags, onChange, isAiDraft, aiTags = [], onAiTagConfirm }: CompetitorTagInputProps) {
