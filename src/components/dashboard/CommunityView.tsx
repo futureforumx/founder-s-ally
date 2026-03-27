@@ -938,7 +938,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             {/* Status Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-50 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group shrink-0">
+                <button className="flex h-10 items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-50 px-3 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group shrink-0">
                   <div className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
@@ -982,10 +982,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button
-              onClick={onNavigateProfile}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-amber-400 bg-amber-400/5 px-4 py-2.5 hover:border-amber-500 hover:bg-amber-400/10 transition-all cursor-pointer group shrink-0"
-            >
+              <button
+                onClick={onNavigateProfile}
+                className="flex h-10 items-center gap-2 rounded-xl border border-dashed border-amber-400 bg-amber-400/5 px-4 hover:border-amber-500 hover:bg-amber-400/10 transition-all cursor-pointer group shrink-0"
+              >
               <Building2 className="h-4 w-4 text-amber-600/60" />
               <span className="text-xs text-amber-900/80 font-bold group-hover:text-amber-900 transition-colors">Set up your company</span>
               <ArrowRight className="h-3 w-3 text-amber-600 group-hover:text-amber-700 transition-colors" />
