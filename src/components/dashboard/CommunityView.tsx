@@ -683,11 +683,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     const;
   }, [companyData]);
 
-  // Cohort click handler — inject filter into search
+  // Cohort click handler — filter results
   const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
     if (filterKey) {
-      setSearchQuery(filterKey);
-      setShowMagicPrompts(false);
+      setActiveFilter(filterKey);
     }
     if (scopeOverride) setActiveScope(scopeOverride);
   }, []);
