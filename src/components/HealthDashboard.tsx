@@ -224,30 +224,58 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
       </div>
 
-      <div className="surface-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">Key Metrics</h3>
-          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
-            <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60 mr-1">CONFIDENCE</span>
-            <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
-            <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
-            <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
+      <div className="surface-card p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight text-foreground">Unit Economics</h3>
+            <p className="text-xs text-muted-foreground mt-1">CAC, LTV, and payback metrics</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-muted p-1">
+            <button className="rounded-md px-3 py-1.5 text-xs font-medium bg-card text-foreground shadow-sm">Monthly</button>
+            <button className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Annual</button>
           </div>
         </div>
+
+        {/* Top row: CAC, LTV, LTV/CAC ratio */}
         <div className="grid grid-cols-3 gap-4">
-          {defaultMetrics.map((m) => {
-            const metricData: MetricWithConfidence = analysisResult?.metrics?.[m.key] ?? { value: null, confidence: "medium" };
-            return (
-              <MetricCard
-                key={m.label}
-                label={m.label}
-                metricData={metricData}
-                change={m.change}
-                trend={m.trend}
-                onEdit={(val) => onMetricEdit?.(m.key, val)}
-              />
-            );
-          })}
+          {['CAC', 'LTV', 'LTV/CAC'].map((metric) => (
+            <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-foreground">—</span>
+                <span className="text-xs text-success flex items-center gap-0.5">
+                  <TrendingUp className="h-3 w-3" /> +12%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom row: CAC, LTV, Headcount */}
+        <div className="grid grid-cols-3 gap-4 pt-2 border-t border-border/40">
+          {[
+            { label: 'CAC', value: '—', trend: '+5%' },
+            { label: 'LTV', value: '—', trend: '+8%' },
+            { label: 'Headcount', value: '—', trend: '0' }
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg bg-muted/40 p-4 space-y-2">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-foreground">{item.value}</span>
+                <span className={`text-xs flex items-center gap-0.5 ${item.trend === '0' ? 'text-muted-foreground' : 'text-success'}`}>
+                  {item.trend !== '0' && <TrendingUp className="h-3 w-3" />} {item.trend}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Confidence legend */}
+        <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/40">
+          <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60">CONFIDENCE</span>
+          <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
+          <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
+          <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
         </div>
       </div>
 
