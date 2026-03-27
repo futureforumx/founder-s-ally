@@ -48,13 +48,13 @@
     --shadow-md: 0 0 0 1px rgba(0,0,0,.03), 0 4px 6px -1px rgba(0,0,0,.04), 0 2px 4px -1px rgba(0,0,0,.02);
     --shadow-lg: 0 0 0 1px rgba(0,0,0,.03), 0 10px 15px -3px rgba(0,0,0,.05), 0 4px 6px -2px rgba(0,0,0,.02);
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 20% 85%;
+    --sidebar-background: 200 12% 20%;
+    --sidebar-foreground: 200 15% 82%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 16%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 222 30% 18%;
+    --sidebar-accent: 200 12% 25%;
+    --sidebar-accent-foreground: 200 15% 92%;
+    --sidebar-border: 200 10% 26%;
     --sidebar-ring: 217 91% 60%;
 
     --heat-0: 210 20% 95%;
