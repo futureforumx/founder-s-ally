@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Users } from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Users, DollarSign } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
 import { CompanyData } from "@/components/CompanyProfile";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -275,7 +275,7 @@ export function IntelligenceCards({
   const capitalTrend = timeRange === "week" ? 4.7 : timeRange === "month" ? 12.4 : timeRange === "quarter" ? 28.9 : 45.3;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <MetricCard
         label="Investors Matched"
         value={adjustedMatchCount.toLocaleString()}
@@ -294,6 +294,16 @@ export function IntelligenceCards({
         trendLabel={timeLabel}
         accentColor="hsl(var(--success))"
         icon={<Users className="h-3 w-3 text-success" />}
+      />
+
+      <MetricCard
+        label={`Total Investing in ${companyData?.stage || "Your Stage"}`}
+        value="$12.4B"
+        subtitle="Capital deployed in your stage"
+        trendValue={capitalTrend}
+        trendLabel={timeLabel}
+        accentColor="hsl(var(--success))"
+        icon={<DollarSign className="h-3 w-3 text-success" />}
       />
     </div>
   );
