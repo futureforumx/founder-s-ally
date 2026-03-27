@@ -26,6 +26,7 @@ import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
+import { getFaviconUrl } from "@/utils/company-utils";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -222,15 +223,8 @@ const Index = () => {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
       if (company.website) {
-        const domain = (() => {
-          try {
-            let u = company.website.trim();
-            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-            return new URL(u).hostname.replace(/^www\./, "");
-          } catch { return null; }
-        })();
-        if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        const logoUrl = getFaviconUrl(company.website, 128);
+        if (logoUrl) {
           localStorage.setItem("company-logo-url", logoUrl);
         }
       }

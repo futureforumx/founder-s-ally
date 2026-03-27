@@ -4,6 +4,7 @@ import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRigh
 import { Badge } from "@/components/ui/badge";
 import { CompanyData } from "@/components/CompanyProfile";
 import { useCompetitors, TrackedCompetitor } from "@/hooks/useCompetitors";
+import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 
 interface CompetitorsViewProps {
   companyData: CompanyData | null;
@@ -128,11 +129,11 @@ function getIntel(name: string): CompetitorIntel {
 }
 
 function domainFromName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "") + ".com";
+  return normalizeDomain(name);
 }
 
-function faviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+function faviconSrc(input: string): string {
+  return getFaviconUrl(input, 128);
 }
 
 function statusColor(status: string): string {
@@ -567,10 +568,21 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     return "Direct Competitor";
   }, [dbCompetitors]);
 
-  const handleAddCompetitor = useCallback(async (name: string) => {
-    // Format website for the edge function
+  const handleAddCompetitor = useCallback(async (nameInput: string) => {
+    // If input looks like a domain, clean the name
+    let name = nameInput.trim();
     let website = newCompWebsite.trim();
+    
+    // Auto-resolve: if name looks like a domain, use it as website if website is empty
+    if (!website && name.includes(".") && !name.includes(" ")) {
+      website = name;
+      // Derive name from domain (e.g. "outbuild.com" -> "Outbuild")
+      name = name.split(".")[0];
+      name = name.charAt(0).toUpperCase() + name.slice(1);
+    }
+    
     if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    
     await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`, website || undefined);
     onAddCompetitor?.(name);
     setNewCompName("");
@@ -990,24 +1002,18 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     >
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-card border border-border/50 overflow-hidden shrink-0">
                         <img
-                          src={faviconSrc((() => {
-                            try {
-                              let u = newCompWebsite.trim();
-                              if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-                              return new URL(u).hostname.replace(/^www\./, "");
-                            } catch { return domainFromName(newCompName.trim()); }
-                          })())}
+                          src={faviconSrc(newCompWebsite || newCompName)}
                           alt=""
                           className="h-5 w-5"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
-                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-sm font-bold text-muted-foreground">${newCompName.trim().charAt(0).toUpperCase()}</span>`;
+                            (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-sm font-bold text-muted-foreground">${(newCompName || "?").trim().charAt(0).toUpperCase()}</span>`;
                           }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground">{newCompName.trim()}</p>
-                        <p className="text-[10px] text-muted-foreground">{newCompWebsite.trim()} · will be AI-enriched</p>
+                        <p className="text-sm font-semibold text-foreground truncate">{newCompName.trim() || "New Competitor"}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{normalizeDomain(newCompWebsite || newCompName)} · AI-enriched</p>
                       </div>
                     </motion.div>
                   )}

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -49,17 +50,11 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
 
 function extractDomain(url: string): string | null {
-  try {
-    let u = url.trim();
-    if (!u) return null;
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    const hostname = new URL(u).hostname.replace(/^www\./, "");
-    return hostname || null;
-  } catch { return null; }
+  return normalizeDomain(url) || null;
 }
 
 function faviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+  return getFaviconUrl(domain, 64);
 }
 
 function cleanDomainToName(domain: string): string {
