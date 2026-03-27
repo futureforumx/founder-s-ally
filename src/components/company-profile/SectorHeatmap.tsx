@@ -90,7 +90,7 @@ export function SectorHeatmap({ sector, onNavigateBenchmarks }: SectorHeatmapPro
           </span>
         </div>
         <span
-          className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          className="text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap"
           style={{
             color: momentumColor(data.momentum),
             backgroundColor: `${momentumColor(data.momentum)}15`,

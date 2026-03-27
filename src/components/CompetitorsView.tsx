@@ -173,7 +173,7 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
           <div className="relative h-28 w-full shrink-0" style={{ background: "linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--destructive) / 0.06))" }}>
             {/* Status Badge */}
             <div className="absolute top-4 left-6">
-              <Badge className={`text-[10px] font-semibold border-0 rounded-full px-3 py-1 backdrop-blur-md ${statusColor(intel.status)}`}>
+              <Badge className={`text-[10px] font-semibold border-0 rounded-md px-3 py-1 backdrop-blur-md whitespace-nowrap ${statusColor(intel.status)}`}>
                 {intel.status}
               </Badge>
             </div>
@@ -375,7 +375,7 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
         <div className="flex items-center gap-2">
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-lg font-bold text-foreground">Updates Feed</h2>
-          <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-full px-2 py-0.5">
+          <Badge variant="secondary" className="text-[9px] font-normal border-0 rounded-md px-2 py-0.5 whitespace-nowrap">
             {filtered.length} signals
           </Badge>
         </div>
@@ -444,7 +444,7 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
                       />
                       <span className="text-sm font-bold text-foreground">{update.competitor}</span>
                     </div>
-                    <Badge className={`text-[8px] font-medium border-0 rounded-full px-1.5 py-0 ${iconStyle}`}>
+                    <Badge className={`text-[8px] font-medium border-0 rounded-md px-1.5 py-0 whitespace-nowrap ${iconStyle}`}>
                       {meta.label}
                     </Badge>
                   </div>
@@ -682,7 +682,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
           >
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.15em]">Avg. Market Overlap</p>
-              <Badge variant="secondary" className={`text-[10px] font-medium border-0 rounded-full px-2.5 py-0.5 ${avgOverlap >= 60 ? "bg-destructive/10 text-destructive" : avgOverlap >= 40 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
+              <Badge variant="secondary" className={`text-[10px] font-medium border-0 rounded-md px-2.5 py-0.5 whitespace-nowrap ${avgOverlap >= 60 ? "bg-destructive/10 text-destructive" : avgOverlap >= 40 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
                 {avgOverlap >= 60 ? "High Risk" : avgOverlap >= 40 ? "Moderate" : "Low Risk"}
               </Badge>
             </div>
@@ -718,7 +718,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
             </div>
             <p className="font-mono text-2xl font-extrabold text-foreground tracking-tight truncate">{topThreat.name}</p>
             <div className="flex items-center gap-2 mt-2">
-              <Badge className="text-[10px] font-semibold border-0 rounded-full px-2.5 py-0.5 bg-destructive/10 text-destructive">{topThreat.overlap}% overlap</Badge>
+              <Badge className="text-[10px] font-semibold border-0 rounded-md px-2.5 py-0.5 bg-destructive/10 text-destructive whitespace-nowrap">{topThreat.overlap}% overlap</Badge>
             </div>
             <button
               onClick={() => setActiveCompetitor(topThreat.name)}

@@ -86,9 +86,9 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       <h2 className="text-2xl font-bold text-foreground truncate">{founder.name}</h2>
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="outline" className="text-[10px] px-2 py-0.5">{founder.stage}</Badge>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{founder.sector}</Badge>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="outline" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.stage}</Badge>
+                      <Badge variant="secondary" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.sector}</Badge>
                       <StatusIndicator isOwner={isOwner} />
                     </div>
                   </div>
@@ -172,7 +172,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       {/* Business model */}
                       <div>
                         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Business Model</h4>
-                        <Badge variant="outline" className="text-xs px-3 py-1">{founder.model}</Badge>
+                        <Badge variant="outline" className="text-xs px-3 py-1 whitespace-nowrap">{founder.model}</Badge>
                       </div>
 
                       {/* Social Icons */}
@@ -218,7 +218,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                               <TrendingUp className="h-4 w-4 text-success" />
                               <span className="text-sm font-semibold text-foreground">Trending Up</span>
                             </div>
-                            <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                            <Badge className="text-[9px] px-2 py-1 bg-success/10 text-success border-success/20 whitespace-nowrap">
                               +18% activity
                             </Badge>
                           </div>
@@ -242,7 +242,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                         <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-foreground font-medium">Current Stage</span>
-                            <Badge variant="outline" className="text-[10px]">{founder.stage}</Badge>
+                            <Badge variant="outline" className="text-[10px] py-1 whitespace-nowrap px-2">{founder.stage}</Badge>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-foreground font-medium">Location</span>
