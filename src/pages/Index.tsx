@@ -28,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings" | "help";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -479,7 +479,7 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
-          ) : activeView === "audit" ? (
+          ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "settings" ? (
             <SettingsPage tourEnabled={!showOnboarding && !showTerminal} />

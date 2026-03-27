@@ -16,8 +16,7 @@ interface AppSidebarProps {
 const topItems = [
 { id: "dashboard" as const, label: "Mission Control", icon: Gauge }];
 
-const companyItems = [
-{ id: "audit" as const, label: "Deck Audit", icon: FileText }];
+const companyItems = [];
 
 
 const communityItems = [
@@ -54,21 +53,6 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               activeView === item.id ?
               "bg-sidebar-accent text-sidebar-accent-foreground" :
               "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
-            
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </button>
-          )}
-          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
-          {companyItems.map((item) =>
-          <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={cn("gap-2.5 rounded-lg py-2 transition-colors text-xs text-left items-center justify-start flex flex-row font-light font-sans px-[8px]",
-            activeView === item.id ?
-            "bg-sidebar-accent text-sidebar-accent-foreground" :
-            "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
             
               <item.icon className="h-4 w-4" />
