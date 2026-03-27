@@ -13,7 +13,6 @@ import { SectorClassification } from "@/components/SectorTags";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorMatch } from "@/components/InvestorMatch";
-import { InvestorMatchSection } from "@/components/investor-match/InvestorMatchSection";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
@@ -455,22 +454,7 @@ const Index = () => {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Investors</h1>
               </div>
               <TabsContent value="matches">
-                <InvestorMatchSection
-                  isVerified={isProfileVerified}
-                  onNavigateToProfile={() => {
-                    setActiveView("settings");
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("tab", "company");
-                    window.history.replaceState({}, "", url.toString());
-                  }}
-                  investorsMatched={147}
-                  investorsChange="+52.1%"
-                  sectorHeat="PropTech & Construction Tech"
-                  sectorStatus="accelerating"
-                  capitalActivity="Median Seed Check"
-                  capitalChange="+$125K"
-                  onTuneClick={() => {}}
-                />
+                <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
               </TabsContent>
               <TabsContent value="search">
                 <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant="investor-search" />
