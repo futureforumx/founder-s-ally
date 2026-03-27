@@ -14,22 +14,31 @@ export function useCapTable() {
 
   const fetchBackers = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
-    if (data) {
-      setBackers(
-        data.map(row => ({
-          id: row.id,
-          name: row.investor_name,
-          amount: row.amount,
-          amountLabel: fmt(row.amount),
-          instrument: row.instrument,
-          logoLetter: row.investor_name.charAt(0).toUpperCase(),
-          date: row.date || row.created_at,
-          ownershipPct: (row as any).ownership_pct ?? 0,
-        }))
-      );
+    try {
+      const { data, error } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
+      if (error) {
+        console.warn("Failed to fetch cap table:", error);
+        setBackers([]);
+      } else if (data) {
+        setBackers(
+          data.map(row => ({
+            id: row.id,
+            name: row.investor_name,
+            amount: row.amount,
+            amountLabel: fmt(row.amount),
+            instrument: row.instrument,
+            logoLetter: row.investor_name.charAt(0).toUpperCase(),
+            date: row.date || row.created_at,
+            ownershipPct: (row as any).ownership_pct ?? 0,
+          }))
+        );
+      }
+    } catch (err) {
+      console.warn("Error fetching cap table:", err);
+      setBackers([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
   // Initial fetch
@@ -38,35 +47,56 @@ export function useCapTable() {
   // Realtime subscription for two-way sync
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("cap-table-sync")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cap_table", filter: `user_id=eq.${user.id}` },
-        () => { fetchBackers(); }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    try {
+      const channel = supabase
+        .channel("cap-table-sync")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "cap_table", filter: `user_id=eq.${user.id}` },
+          () => { fetchBackers(); }
+        )
+        .subscribe();
+      return () => {
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.warn("Error removing channel:", err);
+        }
+      };
+    } catch (err) {
+      console.warn("Error setting up realtime subscription:", err);
+      return;
+    }
   }, [user, fetchBackers]);
 
   const addInvestor = useCallback(async (name: string, opts?: { entityType?: string; instrument?: string; amount?: number; date?: string }) => {
     if (!user) { toast.error("Please sign in."); return null; }
-    const now = new Date();
-    const dateLabel = opts?.date || now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    const { data, error } = await supabase
-      .from("cap_table")
-      .insert({
-        user_id: user.id,
-        investor_name: name,
-        amount: opts?.amount ?? 0,
-        instrument: opts?.instrument ?? "SAFE (Post-money)",
-        entity_type: opts?.entityType ?? "Angel",
-        date: dateLabel,
-      })
-      .select()
-      .single();
-    if (error) { toast.error("Failed to add investor."); return null; }
-    return data;
+    try {
+      const now = new Date();
+      const dateLabel = opts?.date || now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const { data, error } = await supabase
+        .from("cap_table")
+        .insert({
+          user_id: user.id,
+          investor_name: name,
+          amount: opts?.amount ?? 0,
+          instrument: opts?.instrument ?? "SAFE (Post-money)",
+          entity_type: opts?.entityType ?? "Angel",
+          date: dateLabel,
+        })
+        .select()
+        .single();
+      if (error) {
+        console.warn("Failed to add investor:", error);
+        toast.error("Failed to add investor.");
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.warn("Error adding investor:", err);
+      toast.error("Failed to add investor.");
+      return null;
+    }
   }, [user]);
 
   const totalRaised = useMemo(() => backers.reduce((sum, b) => sum + b.amount, 0), [backers]);

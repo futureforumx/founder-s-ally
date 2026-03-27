@@ -134,6 +134,19 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       companyName: company.name,
       websiteUrl: pulledWebsite,
     });
+
+    // Immediately save to localStorage so it's available for OnboardingStepper
+    // (avoids race condition with async setState)
+    try {
+      localStorage.setItem("pending-company-seed", JSON.stringify({
+        companyName: company.name,
+        websiteUrl: company.websiteUrl || state.websiteUrl,
+        deckText: state.deckText || "",
+        stage: state.stage || "",
+        sectors: state.sectors || [],
+      }));
+    } catch {}
+
     setShowDropdown(false);
   };
 
@@ -142,6 +155,10 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     setSearchQuery("");
     setIsWebsiteSuggested(false);
     update({ companyName: "", websiteUrl: "" });
+    // Clear the seed when company is cleared
+    try {
+      localStorage.removeItem("pending-company-seed");
+    } catch {}
   };
 
   const handleContinue = () => {

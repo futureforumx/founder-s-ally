@@ -33,32 +33,55 @@ export function useProfile() {
   const fetchProfile = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await (supabase as any)
-      .from("profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    setProfile(data as Profile | null);
-    setLoading(false);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) {
+        console.warn("Failed to fetch profile:", error);
+        setProfile(null);
+      } else {
+        setProfile(data as Profile | null);
+      }
+    } catch (err) {
+      console.warn("Error fetching profile:", err);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   const upsertProfile = useCallback(async (updates: Partial<Profile>) => {
     if (!user) return;
-    const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
-    
-    if (profile) {
-      await (supabase as any)
-        .from("profiles")
-        .update(payload)
-        .eq("user_id", user.id);
-    } else {
-      await (supabase as any)
-        .from("profiles")
-        .insert(payload);
+    try {
+      const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
+
+      if (profile) {
+        const { error } = await (supabase as any)
+          .from("profiles")
+          .update(payload)
+          .eq("user_id", user.id);
+        if (error) {
+          console.warn("Failed to update profile:", error);
+          return;
+        }
+      } else {
+        const { error } = await (supabase as any)
+          .from("profiles")
+          .insert(payload);
+        if (error) {
+          console.warn("Failed to insert profile:", error);
+          return;
+        }
+      }
+      await fetchProfile();
+    } catch (err) {
+      console.warn("Error upserting profile:", err);
     }
-    await fetchProfile();
   }, [user, profile, fetchProfile]);
 
   return { profile, loading, upsertProfile, refetch: fetchProfile };
@@ -72,18 +95,24 @@ export function useFounderProfiles() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      // Fetch public founder profiles
-      const { data: profiles } = await (supabase as any)
-        .from("profiles")
-        .select("*")
-        .eq("user_type", "founder")
-        .eq("is_public", true);
+      try {
+        // Fetch public founder profiles
+        const { data: profiles, error: profileError } = await (supabase as any)
+          .from("profiles")
+          .select("*")
+          .eq("user_type", "founder")
+          .eq("is_public", true);
 
-      if (!profiles || profiles.length === 0) {
-        setFounders([]);
-        setLoading(false);
-        return;
-      }
+        if (profileError || !profiles || profiles.length === 0) {
+          console.warn("Failed to fetch founder profiles:", profileError);
+          setFounders([]);
+          return;
+        }
+
+        // Fetch linked companies
+        const companyIds = (profiles as any[])
+          .map(p => p.company_id)
+          .filter(Boolean);
 
       // Fetch linked companies
       const companyIds = (profiles as any[])
@@ -99,7 +128,6 @@ export function useFounderProfiles() {
         if (companies) {
           for (const c of companies) companyMap.set(c.id, c);
         }
-      }
 
       const result: FounderProfile[] = (profiles as any[]).map(p => ({
         ...p,
@@ -109,8 +137,13 @@ export function useFounderProfiles() {
         company_competitors: p.company_id ? companyMap.get(p.company_id)?.competitors || null : null,
       }));
 
-      setFounders(result);
-      setLoading(false);
+        setFounders(result);
+      } catch (err) {
+        console.warn("Error loading founder profiles:", err);
+        setFounders([]);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);

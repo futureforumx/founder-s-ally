@@ -225,9 +225,18 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("investor_database").select("*");
-      if (!error && data) setInvestors(data as unknown as Investor[]);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.from("investor_database").select("*");
+        if (error) {
+          console.warn("Failed to fetch investors:", error);
+        } else if (data) {
+          setInvestors(data as unknown as Investor[]);
+        }
+      } catch (err) {
+        console.warn("Error fetching investors:", err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
