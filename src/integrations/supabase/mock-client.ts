@@ -115,6 +115,18 @@ class MockSupabaseClient {
 
   // RPC mock
   rpc = async (name: string, args: any) => ({ data: null, error: null });
+
+  // Realtime mock
+  channel = (name: string) => ({
+    on: () => ({
+      subscribe: () => ({
+        unsubscribe: () => {}
+      })
+    }),
+    subscribe: () => ({
+      unsubscribe: () => {}
+    })
+  });
 }
 
 export const mockSupabase = new MockSupabaseClient() as any;
