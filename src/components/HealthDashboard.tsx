@@ -242,6 +242,13 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         </button>
       </div>
 
+      <div className="text-xs text-muted-foreground mt-2">
+        {mode === "market" && "Compare against industry and category benchmarks."}
+        {mode === "community" && "Compare against similar startups by stage, sector, and scale."}
+        {mode === "trend" && "Compare against your own historical performance."}
+        {mode === "network" && "Compare against anonymized companies in this app's founder network."}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
       </div>
