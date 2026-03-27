@@ -1,0 +1,303 @@
+name: Clone Supabase Project
+
+# Manually triggered full-clone pipeline:
+#   Database  → pg_dump / pg_restore
+#   Functions → Supabase CLI deploy
+#   Storage   → scripts/clone_storage.ts
+#   Auth      → scripts/clone_auth_users.ts
+#
+# Required GitHub Actions secrets:
+#   SUPABASE_ACCESS_TOKEN
+#   SRC_SUPABASE_URL, SRC_SUPABASE_SERVICE_ROLE_KEY
+#   SRC_DB_HOST, SRC_DB_PORT, SRC_DB_NAME, SRC_DB_USER, SRC_DB_PASSWORD
+#   DST_SUPABASE_URL, DST_SUPABASE_SERVICE_ROLE_KEY
+#   DST_DB_HOST, DST_DB_PORT, DST_DB_NAME, DST_DB_USER, DST_DB_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      src_project_ref:
+        description: "Source Supabase project ref"
+        required: true
+        default: "fuxzlmporikuhotzcqyc"
+        type: string
+      dst_project_ref:
+        description: "Destination Supabase project ref"
+        required: true
+        default: "awdtlonduhrpvxerrmst"
+        type: string
+      migrate_auth_users:
+        description: "Migrate Auth users"
+        required: false
+        default: "true"
+        type: boolean
+      migrate_storage:
+        description: "Migrate Storage buckets and objects"
+        required: false
+        default: "true"
+        type: boolean
+      dump_format:
+        description: "DB dump format"
+        required: false
+        default: "custom"
+        type: choice
+        options:
+          - custom
+          - plain
+      confirm:
+        description: "Type CLONE to confirm — this will overwrite the destination"
+        required: true
+        type: string
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 0: Validate inputs (all other jobs depend on this)
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  validate:
+    name: Validate inputs
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require CLONE confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "CLONE" ]; then
+            echo "::error::Confirmation input must be exactly 'CLONE'. Got: '${{ github.event.inputs.confirm }}'"
+            exit 1
+          fi
+
+      - name: Require distinct project refs
+        run: |
+          SRC="${{ github.event.inputs.src_project_ref }}"
+          DST="${{ github.event.inputs.dst_project_ref }}"
+          if [ "$SRC" = "$DST" ]; then
+            echo "::error::Source and destination project refs must be different (both are '$SRC')."
+            exit 1
+          fi
+
+      - name: Print clone summary
+        run: |
+          echo "========================================"
+          echo "  Supabase Clone Pipeline Summary"
+          echo "========================================"
+          echo "  Source project ref:   ${{ github.event.inputs.src_project_ref }}"
+          echo "  Destination ref:      ${{ github.event.inputs.dst_project_ref }}"
+          echo "  Migrate auth users:   ${{ github.event.inputs.migrate_auth_users }}"
+          echo "  Migrate storage:      ${{ github.event.inputs.migrate_storage }}"
+          echo "  DB dump format:       ${{ github.event.inputs.dump_format }}"
+          echo "  Triggered by:         ${{ github.actor }}"
+          echo "========================================"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 1: Dump the source database
+# ─────────────────────────────────────────────────────────────────────────────
+  dump_db:
+    name: Dump source database
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Dump database (custom format)
+        if: ${{ github.event.inputs.dump_format == 'custom' }}
+        env:
+          PGPASSWORD: ${{ secrets.SRC_DB_PASSWORD }}
+        run: |
+          pg_dump \
+            --host="${{ secrets.SRC_DB_HOST }}" \
+            --port="${{ secrets.SRC_DB_PORT }}" \
+            --username="${{ secrets.SRC_DB_USER }}" \
+            --dbname="${{ secrets.SRC_DB_NAME }}" \
+            --format=custom \
+            --no-owner \
+            --no-acl \
+            --no-privileges \
+            --schema=public \
+            --file=db.dump
+          echo "Dump size: $(du -sh db.dump | cut -f1)"
+
+      - name: Dump database (plain SQL)
+        if: ${{ github.event.inputs.dump_format == 'plain' }}
+        env:
+          PGPASSWORD: ${{ secrets.SRC_DB_PASSWORD }}
+        run: |
+          pg_dump \
+            --host="${{ secrets.SRC_DB_HOST }}" \
+            --port="${{ secrets.SRC_DB_PORT }}" \
+            --username="${{ secrets.SRC_DB_USER }}" \
+            --dbname="${{ secrets.SRC_DB_NAME }}" \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            --no-privileges \
+            --schema=public \
+            --file=db.sql
+          echo "Dump size: $(du -sh db.sql | cut -f1)"
+
+      - name: Upload dump artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-db-dump
+          path: |
+            db.dump
+            db.sql
+          retention-days: 1
+          if-no-files-found: error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 2: Restore to the destination database
+# ─────────────────────────────────────────────────────────────────────────────
+  restore_db:
+    name: Restore destination database
+    needs: dump_db
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Download dump artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: supabase-db-dump
+
+      - name: Restore (custom format)
+        if: ${{ github.event.inputs.dump_format == 'custom' }}
+        env:
+          PGPASSWORD: ${{ secrets.DST_DB_PASSWORD }}
+        run: |
+          pg_restore \
+            --host="${{ secrets.DST_DB_HOST }}" \
+            --port="${{ secrets.DST_DB_PORT }}" \
+            --username="${{ secrets.DST_DB_USER }}" \
+            --dbname="${{ secrets.DST_DB_NAME }}" \
+            --no-owner \
+            --no-acl \
+            --no-privileges \
+            --clean \
+            --if-exists \
+            db.dump || echo "pg_restore returned non-zero (some errors may be non-fatal)"
+
+      - name: Restore (plain SQL)
+        if: ${{ github.event.inputs.dump_format == 'plain' }}
+        env:
+          PGPASSWORD: ${{ secrets.DST_DB_PASSWORD }}
+        run: |
+          psql \
+            --host="${{ secrets.DST_DB_HOST }}" \
+            --port="${{ secrets.DST_DB_PORT }}" \
+            --username="${{ secrets.DST_DB_USER }}" \
+            --dbname="${{ secrets.DST_DB_NAME }}" \
+            --file=db.sql
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 3: Deploy Edge Functions to destination
+# ─────────────────────────────────────────────────────────────────────────────
+  deploy_functions:
+    name: Deploy Edge Functions
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy all functions to destination
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy \
+            --project-ref "${{ github.event.inputs.dst_project_ref }}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 4: Migrate Storage
+# ─────────────────────────────────────────────────────────────────────────────
+  migrate_storage:
+    name: Migrate Storage buckets & objects
+    needs: validate
+    if: ${{ github.event.inputs.migrate_storage == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run storage migration
+        env:
+          SRC_SUPABASE_URL: ${{ secrets.SRC_SUPABASE_URL }}
+          SRC_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SRC_SUPABASE_SERVICE_ROLE_KEY }}
+          DST_SUPABASE_URL: ${{ secrets.DST_SUPABASE_URL }}
+          DST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DST_SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run clone:storage
+
+      - name: Upload storage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migrated-storage-report
+          path: migrated_storage.json
+          retention-days: 7
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 5: Migrate Auth users
+# ─────────────────────────────────────────────────────────────────────────────
+  migrate_auth:
+    name: Migrate Auth users
+    needs: validate
+    if: ${{ github.event.inputs.migrate_auth_users == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run auth user migration
+        env:
+          SRC_SUPABASE_URL: ${{ secrets.SRC_SUPABASE_URL }}
+          SRC_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SRC_SUPABASE_SERVICE_ROLE_KEY }}
+          DST_SUPABASE_URL: ${{ secrets.DST_SUPABASE_URL }}
+          DST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DST_SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run clone:auth
+
+      - name: Upload auth migration report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migrated-auth-users-report
+          path: migrated_users.json
+          retention-days: 7

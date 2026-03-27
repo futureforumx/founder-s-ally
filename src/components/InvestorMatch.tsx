@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SectorClassification } from "@/components/SectorTags";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { Lock, SlidersHorizontal } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
@@ -178,6 +179,7 @@ interface InvestorMatchProps {
 }
 
 export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked, externalBackers, externalTotalRaised }: InvestorMatchProps) {
+  const { user } = useAuth();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalBackers, setInternalBackers] = useState<CapBacker[]>([]);
@@ -194,18 +196,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   // Get current user ID
   useEffect(() => {
-    supabase.auth.getUser()
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn("Failed to get user:", error);
-          return;
-        }
-        if (data.user) setUserId(data.user.id);
-      })
-      .catch((err) => {
-        console.warn("Error getting user:", err);
-      });
-  }, []);
+    if (user) setUserId(user.id);
+    else setUserId(undefined);
+  }, [user]);
 
   const {
     savedFirmIds,
@@ -251,35 +244,24 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   useEffect(() => {
     if (externalBackers) return;
     (async () => {
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.warn("Failed to get user:", userError);
-          return;
-        }
-        if (!user) return;
-        const { data, error } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
-        if (error) {
-          console.warn("Failed to fetch cap table:", error);
-        } else if (data) {
-          setInternalBackers(
-            data.map(row => ({
-              id: row.id,
-              name: row.investor_name,
-              amount: row.amount,
-              amountLabel: fmt(row.amount),
-              instrument: row.instrument,
-              logoLetter: row.investor_name.charAt(0).toUpperCase(),
-              date: row.date || row.created_at,
-              ownershipPct: (row as any).ownership_pct ?? 0,
-            }))
-          );
-        }
-      } catch (err) {
-        console.warn("Error fetching cap table:", err);
+      if (!user) return;
+      const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
+      if (data) {
+        setInternalBackers(
+          data.map(row => ({
+            id: row.id,
+            name: row.investor_name,
+            amount: row.amount,
+            amountLabel: fmt(row.amount),
+            instrument: row.instrument,
+            logoLetter: row.investor_name.charAt(0).toUpperCase(),
+            date: row.date || row.created_at,
+            ownershipPct: (row as any).ownership_pct ?? 0,
+          }))
+        );
       }
     })();
-  }, [externalBackers]);
+  }, [externalBackers, user]);
 
   const scoredInvestors = useMemo(() => {
     return investors

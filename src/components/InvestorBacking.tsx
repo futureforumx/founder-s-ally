@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -402,6 +403,7 @@ function VerifiedRow({ row, onUpdate, onDelete }: { row: CapRow; onUpdate: (id: 
 
 
 export function InvestorBacking({ extractedInvestors, isScanning = false, companyName }: InvestorBackingProps) {
+  const { user } = useAuth();
   const [rows, setRows] = useState<CapRow[]>([]);
   const [original, setOriginal] = useState<CapRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -434,7 +436,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   }, [isScanning, syncing]);
 
   const fetchRows = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
     const { data } = await supabase
       .from("cap_table")
@@ -454,31 +455,18 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     setRows(mapped);
     setOriginal(mapped);
     setLoading(false);
-  }, []);
+  }, [user]);
 
   const fetchPending = useCallback(async () => {
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.warn("Failed to get user:", userError);
-        return;
-      }
-      if (!user) return;
-      const { data, error } = await supabase
-        .from("pending_investors")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.warn("Failed to fetch pending investors:", error);
-        return;
-      }
-      setPending((data as PendingInvestor[]) || []);
-    } catch (err) {
-      console.warn("Error fetching pending investors:", err);
-    }
-  }, []);
+    if (!user) return;
+    const { data } = await supabase
+      .from("pending_investors")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setPending((data as PendingInvestor[]) || []);
+  }, [user]);
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);
 
@@ -537,7 +525,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
 
   const approveCard = async (row: CapRow) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase.from("cap_table").insert({
         id: row.id,
@@ -566,7 +553,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const saveChanges = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       for (const row of rows) {
         const payload = {
@@ -594,7 +580,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   };
 
   const acceptPending = async (p: PendingInvestor) => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { error: insertErr } = await supabase.from("cap_table").insert({
       user_id: user.id, investor_name: p.investor_name, entity_type: p.entity_type,
@@ -616,7 +601,6 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const triggerSync = async () => {
     setSyncing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       const { data: analyses } = await supabase
         .from("company_analyses")

@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -48,19 +46,71 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Log the notification attempt
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const resendKey = Deno.env.get("RESEND_API_KEY");
+    // Verified domain in Resend, e.g. "Founder Copilot <notifications@yourdomain.com>"
+    const fromEmail =
+      Deno.env.get("RESEND_FROM_EMAIL")?.trim() || "Founder Copilot <onboarding@resend.dev>";
 
-    // For now, log the email. When the email domain is configured,
-    // this can be upgraded to use the transactional email system.
-    console.log(`[send-email-notification] type=${type} to=${recipientEmail} subject="${subject}"`);
+    if (!resendKey) {
+      console.error(
+        "[send-email-notification] RESEND_API_KEY missing — set it in Supabase Edge Function secrets"
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "RESEND_API_KEY is not configured",
+          details: { type, recipientEmail, subject },
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [recipientEmail.trim()],
+        subject,
+        html: htmlBody,
+      }),
+    });
+
+    const resendBody = await resendRes.text();
+    if (!resendRes.ok) {
+      console.error(
+        `[send-email-notification] Resend failed ${resendRes.status}:`,
+        resendBody
+      );
+      return new Response(
+        JSON.stringify({
+          error: "Resend rejected the send",
+          status: resendRes.status,
+          details: resendBody,
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let resendId: string | undefined;
+    try {
+      resendId = JSON.parse(resendBody).id;
+    } catch {
+      /* ignore */
+    }
+
+    console.log(
+      `[send-email-notification] sent via Resend type=${type} to=${recipientEmail} id=${resendId ?? "?"}`
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Notification processed",
+        message: "Email sent",
+        resendId: resendId ?? null,
         details: { type, recipientEmail, subject },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
