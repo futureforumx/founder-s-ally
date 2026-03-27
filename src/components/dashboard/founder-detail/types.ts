@@ -7,6 +7,8 @@ export interface FounderEntry {
   model: string;
   initial: string;
   matchReason: string | null;
+  companyName?: string;
+  companyWebsite?: string;
 }
 
 export const TABS = ["Overview", "Market Insights", "Connections", "Investors"] as const;
