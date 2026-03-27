@@ -10,7 +10,7 @@ import { StatusIndicator } from "./founder-detail/StatusIndicator";
 import { LatestActivity } from "./founder-detail/LatestActivity";
 import { SocialIcons } from "./founder-detail/SocialIcons";
 import { InvestorsTab } from "./founder-detail/InvestorsTab";
-import { AIInsightBanner } from "./founder-detail/AIInsightBanner";
+import { FounderInsightCard } from "./founder-detail/FounderInsightCard";
 import { TABS, type Tab, type FounderEntry } from "./founder-detail/types";
 
 interface FounderDetailPanelProps {
@@ -104,10 +104,8 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
               </div>
 
               {/* ─── AI Insight ─── */}
-              <div className="mx-6 mb-4 shrink-0" style={{ background: "linear-gradient(135deg, hsl(var(--accent) / 0.06), hsl(var(--accent) / 0.03))" }}>
-                <div className="rounded-xl p-4">
-                  <AIInsightBanner founder={founder} displayCompany={displayCompany} />
-                </div>
+              <div className="mx-6 mb-4 shrink-0">
+                <FounderInsightCard founder={founder} displayCompany={displayCompany} />
               </div>
 
               {/* ─── Pill Tabs ─── */}
