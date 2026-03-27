@@ -943,7 +943,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             {/* Status Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex h-10 items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-50 px-3 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group shrink-0">
+                <button className="flex h-10 items-center gap-2 rounded-xl border border-amber-200/40 bg-amber-50 px-3 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer group shrink-0" style={{ borderColor: "rgb(252, 211, 77)", backgroundColor: "rgba(255, 251, 235, 0.58)" }}>
                   <div className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
