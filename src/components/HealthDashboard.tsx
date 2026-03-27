@@ -230,7 +230,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         </button>
         <button onClick={() => setMode("community")}
           className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-          Network
+          Peers
         </button>
       </div>
 
