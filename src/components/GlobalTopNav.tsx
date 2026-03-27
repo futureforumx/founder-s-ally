@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -110,6 +110,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "events", label: "Events" },
   ]},
   messages: { section: "Community", label: "Messages" },
+  "market-intelligence": { section: "Market Intelligence", label: "Market Intelligence" },
   "data-room": { section: "Data Room", label: "Deck Audit" },
   settings: { section: "Settings", label: "Settings" },
 };

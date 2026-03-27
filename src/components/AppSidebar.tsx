@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -59,7 +59,17 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               {item.label}
             </button>
           )}
-          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Market Intelligence</div>
+          <button
+            onClick={() => onViewChange("market-intelligence")}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
+              activeView === "market-intelligence"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}>
+            <Users className="h-4 w-4" />
+            Market Intelligence
+          </button>
           <button
             onClick={() => onViewChange("investors")}
             className={cn(
