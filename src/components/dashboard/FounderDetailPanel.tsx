@@ -10,7 +10,7 @@ import { StatusIndicator } from "./founder-detail/StatusIndicator";
 import { LatestActivity } from "./founder-detail/LatestActivity";
 import { SocialIcons } from "./founder-detail/SocialIcons";
 import { InvestorsTab } from "./founder-detail/InvestorsTab";
-import { AIInsightBanner } from "./founder-detail/AIInsightBanner";
+import { FounderInsightCard } from "./founder-detail/FounderInsightCard";
 import { TABS, type Tab, type FounderEntry } from "./founder-detail/types";
 
 interface FounderDetailPanelProps {
@@ -64,12 +64,25 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                   </div>
                 </div>
 
+                {/* Right Action Cluster */}
+                <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <button className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-background hover:bg-foreground/90 transition-colors shadow-lg">
+                      <Zap className="h-3 w-3" /> Add to Network
+                    </button>
+                    <button className="inline-flex items-center gap-1.5 rounded-md border border-foreground/20 bg-background/40 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-foreground hover:bg-background/60 backdrop-blur-sm transition-colors shadow-lg">
+                      <MessageSquare className="h-3 w-3" /> Request Intro
+                    </button>
+                  </div>
+                  <StatusIndicator isOwner={isOwner} />
+                </div>
+
                 {/* Close Button */}
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-card/50 hover:bg-card/80 transition-colors backdrop-blur-sm"
+                  className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-md bg-muted/80 hover:bg-secondary/90 transition-colors backdrop-blur-sm border border-border/20 shadow-sm"
                 >
-                  <X className="h-4 w-4 text-muted-foreground" />
+                  <X className="h-4 w-4 text-foreground/70" />
                 </button>
 
                 {/* Logo overlapping banner */}
@@ -80,34 +93,57 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
 
               {/* ─── Header Content ─── */}
               <div className="px-6 pt-10 pb-4 shrink-0">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h2 className="text-2xl font-bold text-foreground truncate">{founder.name}</h2>
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="outline" className="text-[10px] px-2 py-0.5">{founder.stage}</Badge>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{founder.sector}</Badge>
-                      <StatusIndicator isOwner={isOwner} />
+                    
+                    {/* Role at Company with Favicon */}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <span className="text-sm font-medium text-muted-foreground">{founder.model}</span>
+                      {((founder as any)._companyName || founder.companyName) && (
+                        <>
+                          <span className="text-sm text-muted-foreground/50 italic">at</span>
+                          <div className="flex items-center gap-1.5 text-accent/90">
+                            {((founder as any)._websiteUrl || founder.companyWebsite) ? (
+                              <img 
+                                src={`https://www.google.com/s2/favicons?domain=${(founder as any)._websiteUrl || founder.companyWebsite}&sz=32`} 
+                                alt="" 
+                                className="h-4 w-4 rounded-sm" 
+                              />
+                            ) : (
+                              <Building2 className="h-4 w-4" />
+                            )}
+                            <span className="text-sm font-bold tracking-tight">{(founder as any)._companyName || founder.companyName}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0 ml-4">
-                    <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
-                      <Zap className="h-4 w-4" /> Connect
-                    </button>
-                    <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
-                      <MessageSquare className="h-4 w-4" /> Request Intro
-                    </button>
+
+                  {/* Stage and Sector moved to the right */}
+                  <div className="flex flex-col items-end gap-2.5 shrink-0 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Stage</span>
+                      <Badge variant="outline" className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-700 border-amber-200/50 font-medium uppercase tracking-wider">
+                        {founder.stage}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Sector</span>
+                      <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-violet-500/10 text-violet-700 border-violet-200/50 font-medium uppercase tracking-wider">
+                        {founder.sector}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* ─── AI Insight ─── */}
-              <div className="mx-6 mb-4 shrink-0" style={{ background: "linear-gradient(135deg, hsl(var(--accent) / 0.06), hsl(var(--accent) / 0.03))" }}>
-                <div className="rounded-xl p-4">
-                  <AIInsightBanner founder={founder} displayCompany={displayCompany} />
-                </div>
+              <div className="mx-6 mb-4 shrink-0">
+                <FounderInsightCard founder={founder} displayCompany={displayCompany} />
               </div>
 
               {/* ─── Pill Tabs ─── */}
@@ -172,7 +208,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       {/* Business model */}
                       <div>
                         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Business Model</h4>
-                        <Badge variant="outline" className="text-xs px-3 py-1">{founder.model}</Badge>
+                        <Badge variant="outline" className="text-xs px-3 py-1 whitespace-nowrap">{founder.model}</Badge>
                       </div>
 
                       {/* Social Icons */}
@@ -218,7 +254,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                               <TrendingUp className="h-4 w-4 text-success" />
                               <span className="text-sm font-semibold text-foreground">Trending Up</span>
                             </div>
-                            <Badge className="text-[9px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                            <Badge className="text-[9px] px-2 py-1 bg-success/10 text-success border-success/20 whitespace-nowrap">
                               +18% activity
                             </Badge>
                           </div>
@@ -240,14 +276,38 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       <div>
                         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Funding Context</h4>
                         <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                          <div className="flex items-center justify-between">
+                          <div className="items-center justify-between flex">
                             <span className="text-sm text-foreground font-medium">Current Stage</span>
-                            <Badge variant="outline" className="text-[10px]">{founder.stage}</Badge>
+                            <Badge variant="outline" className="text-[10px] py-1 whitespace-nowrap px-2">{founder.stage}</Badge>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-foreground font-medium">Location</span>
                             <span className="text-sm text-muted-foreground">{founder.location}</span>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Competition Sync: display real competitors from database */}
+                      <div>
+                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
+                          Competitive Landscape
+                        </h4>
+                        <div className="rounded-xl bg-secondary/30 p-4">
+                          {founder.competitors && founder.competitors.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {founder.competitors.map((comp) => (
+                                <div key={comp} className="flex items-center gap-2 p-2 rounded-lg bg-card/40 border border-border/20">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted">
+                                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-xs font-medium text-foreground truncate">{comp}</span>
+                                  <Badge className="ml-auto text-[8px] px-1 py-0 bg-accent/5 text-accent border-accent/10">MATCH</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">No competitors documented in their profile yet.</p>
+                          )}
                         </div>
                       </div>
                     </motion.div>

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -49,17 +50,11 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
 
 function extractDomain(url: string): string | null {
-  try {
-    let u = url.trim();
-    if (!u) return null;
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    const hostname = new URL(u).hostname.replace(/^www\./, "");
-    return hostname || null;
-  } catch { return null; }
+  return normalizeDomain(url) || null;
 }
 
 function faviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+  return getFaviconUrl(domain, 64);
 }
 
 function cleanDomainToName(domain: string): string {
@@ -233,6 +228,7 @@ interface CompanyProfileProps {
   companySyncing?: boolean;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
+  companyId?: string;
 }
 
 export interface CompanyProfileHandle {
@@ -319,7 +315,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData, companyId }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -550,7 +546,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Auto-save
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
@@ -562,11 +558,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-period", metricPeriod);
         localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
+
+        // Sync to Supabase if linked
+        if (companyId) {
+          await supabase.from("company_analyses").update({
+            company_name: form.name,
+            website_url: form.website,
+            stage: form.stage,
+            sector: form.sector,
+            executive_summary: form.description,
+            hq_location: form.hqLocation,
+            competitors: form.competitors,
+            unique_value_prop: form.uniqueValueProp,
+            current_arr: form.currentARR,
+            total_headcount: form.totalHeadcount,
+            social_twitter: form.socialTwitter,
+            social_linkedin: form.socialLinkedin,
+            updated_at: new Date().toISOString()
+          } as any).eq("id", companyId);
+        }
+
         if (form.name) { setSaveIndicator("Live"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod, sectionConfirmed]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed, companyId]);
 
   // Notify parent of section confirmation changes
   useEffect(() => {

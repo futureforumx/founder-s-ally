@@ -29,7 +29,7 @@ import { HelpCenter } from "@/components/HelpCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
-import { MarketIntelligenceInvestors } from "@/components/market-intelligence/InvestorIntelligence";
+import { getFaviconUrl } from "@/utils/company-utils";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
 
@@ -73,6 +73,13 @@ const Index = () => {
   const [companySubView, setCompanySubView] = useState<CompanySubView>("health");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
+      // If there's a pending company seed, always show the stepper (validation happens in OnboardingStepper's readSeed)
+      const seed = localStorage.getItem("pending-company-seed");
+      if (seed) {
+        JSON.parse(seed); // validates JSON; throws if corrupt
+        return true;
+      }
+      // Otherwise only show for users who haven't set up a company profile yet
       if (localStorage.getItem("pending-company-seed")) {
         return true;
       }
@@ -167,6 +174,23 @@ const Index = () => {
     return () => window.removeEventListener("navigate-view", handler);
   }, []);
 
+  // Listen for show-onboarding events (e.g. triggered after company creation in settings)
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const seed = localStorage.getItem("pending-company-seed");
+        if (seed) {
+          JSON.parse(seed); // validate JSON before showing modal
+          setShowOnboarding(true);
+        }
+      } catch {
+        // localStorage unavailable or seed is corrupt — skip showing the modal
+      }
+    };
+    window.addEventListener("show-onboarding", handler);
+    return () => window.removeEventListener("show-onboarding", handler);
+  }, []);
+
   // Redirect "company" sidebar to Settings > Entity
   useEffect(() => {
     if (activeView === "company") {
@@ -227,15 +251,8 @@ const Index = () => {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
       if (company.website) {
-        const domain = (() => {
-          try {
-            let u = company.website.trim();
-            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-            return new URL(u).hostname.replace(/^www\./, "");
-          } catch { return null; }
-        })();
-        if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        const logoUrl = getFaviconUrl(company.website, 128);
+        if (logoUrl) {
           localStorage.setItem("company-logo-url", logoUrl);
         }
       }
@@ -281,7 +298,11 @@ const Index = () => {
         />
       )}
 
-      <AppSidebar activeView={activeView} onViewChange={setActiveView} />
+      <AppSidebar 
+        activeView={activeView} 
+        onViewChange={setActiveView} 
+        onAgentClick={() => setShowTerminal(true)}
+      />
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
           companyName={companyData?.name}

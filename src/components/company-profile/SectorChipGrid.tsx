@@ -42,7 +42,7 @@ function Chip({
   onClick: () => void;
   disabled?: boolean;
 }) {
-  const base = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 cursor-pointer select-none border whitespace-nowrap";
+  const base = "inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all duration-300 cursor-pointer select-none border whitespace-nowrap";
 
   // Purple states apply to ALL selected chips (user or AI), not just AI-suggested
   const isSelected = state !== "unselected";
