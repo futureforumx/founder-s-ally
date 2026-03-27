@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp } from "@clerk/clerk-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -10,10 +10,53 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSignUp = location.pathname === "/auth/sign-up";
+  const vantaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && user) navigate("/", { replace: true });
   }, [user, authLoading, navigate]);
+
+  // Initialize Vanta.NET animation
+  useEffect(() => {
+    if (!vantaRef.current) return;
+
+    // Load Three.js
+    const threeScript = document.createElement("script");
+    threeScript.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+
+    // Load Vanta.NET
+    const vantaScript = document.createElement("script");
+    vantaScript.src = "https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js";
+
+    const initVanta = () => {
+      if (typeof (window as any).VANTA !== "undefined") {
+        (window as any).VANTA.NET({
+          el: vantaRef.current,
+          mouseControls: true,
+          touchControls: true,
+          gyroControls: false,
+          minHeight: 200,
+          minWidth: 200,
+          scale: 1,
+          scaleMobile: 1,
+          color: 0x1360f2,
+          backgroundColor: 0x001d,
+          points: 17,
+          maxDistance: 33,
+          spacing: 18,
+        });
+      }
+    };
+
+    vantaScript.onload = initVanta;
+    document.body.appendChild(threeScript);
+    document.body.appendChild(vantaScript);
+
+    return () => {
+      if (threeScript.parentNode) document.body.removeChild(threeScript);
+      if (vantaScript.parentNode) document.body.removeChild(vantaScript);
+    };
+  }, []);
 
   if (authLoading) {
     return (
@@ -93,20 +136,14 @@ export default function Auth() {
         </div>
 
         <div className="relative hidden flex-1 overflow-hidden bg-zinc-950 lg:block">
-          <video
-            className="absolute inset-0 h-full w-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-          >
-            <source src="/auth-wave.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
+          <div
+            ref={vantaRef}
+            className="absolute inset-0 h-full w-full"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.5)_0%,rgba(24,24,27,0.3)_42%,rgba(255,255,255,0.05)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.12),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.08),_transparent_38%)]" />
 
-          <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
+          <div className="relative z-10 flex h-full flex-col justify-between p-10 xl:p-14">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white backdrop-blur-sm">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
