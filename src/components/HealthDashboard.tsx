@@ -209,7 +209,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2 rounded-lg bg-muted p-1">
+      <div className="flex items-center justify-start gap-2">
         <button onClick={() => setMode("market")}
           className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
           Market
