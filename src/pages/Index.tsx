@@ -29,8 +29,9 @@ import { HelpCenter } from "@/components/HelpCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
+import { MarketIntelligenceInvestors } from "@/components/market-intelligence/InvestorIntelligence";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -416,14 +417,16 @@ const Index = () => {
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
-          ) : activeView === "market-intelligence" || activeView === "market-investors" || activeView === "market-market" || activeView === "market-tech" || activeView === "market-network" ? (
+          ) : activeView === "market-investors" ? (
+            <MarketIntelligenceInvestors sector={companyData?.sector} stage={companyData?.stage} />
+          ) : activeView === "market-intelligence" || activeView === "market-market" || activeView === "market-tech" || activeView === "market-network" ? (
             <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                  {activeView === "market-investors" ? "Investors" : activeView === "market-market" ? "Market" : activeView === "market-tech" ? "Tech" : activeView === "market-network" ? "Network" : "Market Intelligence"}
+                  {activeView === "market-market" ? "Market" : activeView === "market-tech" ? "Tech" : activeView === "market-network" ? "Network" : "Market Intelligence"}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {activeView === "market-investors" ? "Investor data and trends" : activeView === "market-market" ? "Market trends and insights" : activeView === "market-tech" ? "Technology landscape" : activeView === "market-network" ? "Network analysis" : "Market trends, competitive landscape, and industry insights"}
+                  {activeView === "market-market" ? "Market trends and insights" : activeView === "market-tech" ? "Technology landscape" : activeView === "market-network" ? "Network analysis" : "Market trends, competitive landscape, and industry insights"}
                 </p>
               </div>
               {(activeView === "market-intelligence" || activeView === "market-market") && (
