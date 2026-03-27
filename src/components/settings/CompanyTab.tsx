@@ -580,6 +580,7 @@ export function CompanyTab() {
               onProfileVerified={setIsProfileVerified}
               onSectionConfirmedChange={setSectionConfirmed}
               onCompletionChange={setProfileCompletion}
+              companyId={membership?.company_id}
               onSyncCompany={async (url: string) => {
                 setCompanySyncing(true);
                 try {

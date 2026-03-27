@@ -276,7 +276,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       <div>
                         <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Funding Context</h4>
                         <div className="rounded-xl bg-secondary/30 p-4 space-y-2">
-                          <div className="flex items-center justify-between">
+                          <div className="items-center justify-between flex">
                             <span className="text-sm text-foreground font-medium">Current Stage</span>
                             <Badge variant="outline" className="text-[10px] py-1 whitespace-nowrap px-2">{founder.stage}</Badge>
                           </div>
@@ -284,6 +284,30 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                             <span className="text-sm text-foreground font-medium">Location</span>
                             <span className="text-sm text-muted-foreground">{founder.location}</span>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Competition Sync: display real competitors from database */}
+                      <div>
+                        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2.5">
+                          Competitive Landscape
+                        </h4>
+                        <div className="rounded-xl bg-secondary/30 p-4">
+                          {founder.competitors && founder.competitors.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {founder.competitors.map((comp) => (
+                                <div key={comp} className="flex items-center gap-2 p-2 rounded-lg bg-card/40 border border-border/20">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted">
+                                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                  <span className="text-xs font-medium text-foreground truncate">{comp}</span>
+                                  <Badge className="ml-auto text-[8px] px-1 py-0 bg-accent/5 text-accent border-accent/10">MATCH</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">No competitors documented in their profile yet.</p>
+                          )}
                         </div>
                       </div>
                     </motion.div>

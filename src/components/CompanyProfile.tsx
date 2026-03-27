@@ -228,6 +228,7 @@ interface CompanyProfileProps {
   companySyncing?: boolean;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
+  companyId?: string;
 }
 
 export interface CompanyProfileHandle {
@@ -314,7 +315,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData, companyId }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -521,7 +522,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Auto-save
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
@@ -533,11 +534,31 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-period", metricPeriod);
         localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
+
+        // Sync to Supabase if linked
+        if (companyId) {
+          await supabase.from("company_analyses").update({
+            company_name: form.name,
+            website_url: form.website,
+            stage: form.stage,
+            sector: form.sector,
+            executive_summary: form.description,
+            hq_location: form.hqLocation,
+            competitors: form.competitors,
+            unique_value_prop: form.uniqueValueProp,
+            current_arr: form.currentARR,
+            total_headcount: form.totalHeadcount,
+            social_twitter: form.socialTwitter,
+            social_linkedin: form.socialLinkedin,
+            updated_at: new Date().toISOString()
+          } as any).eq("id", companyId);
+        }
+
         if (form.name) { setSaveIndicator("Live"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod, sectionConfirmed]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed, companyId]);
 
   // Notify parent of section confirmation changes
   useEffect(() => {

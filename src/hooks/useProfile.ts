@@ -22,6 +22,7 @@ export interface FounderProfile extends Profile {
   company_name: string | null;
   company_sector: string | null;
   company_stage: string | null;
+  company_competitors: string[] | null;
 }
 
 export function useProfile() {
@@ -93,7 +94,7 @@ export function useFounderProfiles() {
       if (companyIds.length > 0) {
         const { data: companies } = await supabase
           .from("company_analyses")
-          .select("id, company_name, sector, stage")
+          .select("id, company_name, sector, stage, competitors")
           .in("id", companyIds);
         if (companies) {
           for (const c of companies) companyMap.set(c.id, c);
@@ -105,6 +106,7 @@ export function useFounderProfiles() {
         company_name: p.company_id ? companyMap.get(p.company_id)?.company_name || null : null,
         company_sector: p.company_id ? companyMap.get(p.company_id)?.sector || null : null,
         company_stage: p.company_id ? companyMap.get(p.company_id)?.stage || null : null,
+        company_competitors: p.company_id ? companyMap.get(p.company_id)?.competitors || null : null,
       }));
 
       setFounders(result);

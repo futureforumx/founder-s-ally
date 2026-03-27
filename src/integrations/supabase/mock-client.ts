@@ -62,7 +62,8 @@ class MockSupabaseClient {
   from(table: string) {
     const self = this;
     const queryData = this.getData(table);
-    let lastQuery: any[] = [...queryData];
+    let patchData: any = null;
+    let filters: { key: string; value: any }[] = [];
 
     const chain = {
       select: (str?: string) => chain,
@@ -75,12 +76,10 @@ class MockSupabaseClient {
         }));
         const updated = [...self.getData(table), ...newRows];
         self.setData(table, updated);
-        lastQuery = newRows;
         return { data: Array.isArray(row) ? newRows : newRows[0], error: null };
       },
       update: (patch: any) => {
-        // In real Supabase, update returns a FilterBuilder. 
-        // We'll return the chain so .eq() can be called.
+        patchData = patch;
         return chain;
       },
       upsert: async (row: any) => {
@@ -90,23 +89,58 @@ class MockSupabaseClient {
         self.setData(table, updated);
         return { data: row, error: null };
       },
-      delete: () => chain,
+      delete: () => {
+        patchData = "DELETE"; 
+        return chain;
+      },
       eq: (key: string, value: any) => {
-        lastQuery = lastQuery.filter(item => item[key] === value);
+        filters.push({ key, value });
         return chain;
       },
       neq: (key: string, value: any) => {
-        lastQuery = lastQuery.filter(item => item[key] !== value);
+        // Simple mock: just ignore for now or implement if needed
         return chain;
       },
-      single: async () => ({ data: lastQuery[0] || null, error: null }),
-      maybeSingle: async () => ({ data: lastQuery[0] || null, error: null }),
+      single: async () => {
+        const res = await (chain as any);
+        return { data: res.data[0] || null, error: null };
+      },
+      maybeSingle: async () => {
+        const res = await (chain as any);
+        return { data: res.data[0] || null, error: null };
+      },
+      in: (key: string, values: any[]) => {
+        // Mocking .in()
+        return chain;
+      },
       order: () => chain,
       limit: () => chain,
       range: () => chain,
-      // Support the .then() pattern which many finders use
       then: (onfulfilled: any) => {
-        return Promise.resolve({ data: lastQuery, error: null }).then(onfulfilled);
+        let currentData = self.getData(table);
+        
+        // Apply filters
+        let filtered = [...currentData];
+        filters.forEach(f => {
+          filtered = filtered.filter(item => item[f.key] === f.value);
+        });
+
+        // Apply update/delete if requested
+        if (patchData) {
+          if (patchData === "DELETE") {
+            const filteredIds = new Set(filtered.map(i => i.id));
+            currentData = currentData.filter(item => !filteredIds.has(item.id));
+          } else {
+            currentData = currentData.map(item => {
+              const isMatch = filters.every(f => item[f.key] === f.value);
+              return isMatch ? { ...item, ...patchData, updated_at: new Date().toISOString() } : item;
+            });
+            filtered = filtered.map(item => ({ ...item, ...patchData }));
+          }
+          self.setData(table, currentData);
+        }
+
+        return Promise.resolve({ data: filtered, error: null }).then(onfulfilled);
       }
     };
     
