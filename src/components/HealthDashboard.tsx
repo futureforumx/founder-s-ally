@@ -242,7 +242,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
       <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-3">
         <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Financials</h2>
 
-        <div className="flex items-center gap-2 rounded-lg bg-muted p-0.5 w-fit">
+        <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
           <button onClick={() => setPeriod("monthly")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
           <button onClick={() => setPeriod("annual")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Annual</button>
         </div>
