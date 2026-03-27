@@ -75,6 +75,8 @@ interface MorphingUrlInputProps {
   verifyMessage?: string;
   onVerify?: () => void;
   onOverride?: () => void;
+  /** Shown in invalid/uncertain tooltip; clears the handle field in the parent. */
+  onClear?: () => void;
   verifyLabel?: string;
   className?: string;
   label?: string;
@@ -89,6 +91,7 @@ export function MorphingUrlInput({
   verifyMessage,
   onVerify,
   onOverride,
+  onClear,
   verifyLabel = "Verify",
   className,
   label,
@@ -247,17 +250,33 @@ export function MorphingUrlInput({
                     <p className="text-muted-foreground">
                       Use the actual account username, not a display name or incomplete link.
                     </p>
-                    {onOverride && (
-                      <button
-                        type="button"
-                        className="text-[11px] font-medium text-accent hover:text-accent/80"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOverride();
-                        }}
-                      >
-                        Use anyway
-                      </button>
+                    {(onOverride || onClear) && (
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-border/50">
+                        {onOverride && (
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-accent hover:text-accent/80 text-left"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOverride();
+                            }}
+                          >
+                            Use anyway
+                          </button>
+                        )}
+                        {onClear && (
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-destructive hover:text-destructive/80 text-left"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onClear();
+                            }}
+                          >
+                            Clear username.
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </TooltipContent>

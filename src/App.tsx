@@ -11,6 +11,7 @@ import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
+import SsoCallback from "./pages/SsoCallback.tsx";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -100,6 +101,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth/*" element={<Auth />} />
+            <Route path="/sso-callback" element={<SsoCallback />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
