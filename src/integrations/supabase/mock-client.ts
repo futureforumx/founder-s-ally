@@ -110,7 +110,7 @@ class MockSupabaseClient {
         return { data: res.data[0] || null, error: null };
       },
       in: (key: string, values: any[]) => {
-        // Mocking .in()
+        filters.push({ key, value: values, operator: "in" });
         return chain;
       },
       order: () => chain,
@@ -122,20 +122,32 @@ class MockSupabaseClient {
         // Apply filters
         let filtered = [...currentData];
         filters.forEach(f => {
-          filtered = filtered.filter(item => item[f.key] === f.value);
+          if ((f as any).operator === "in") {
+            const valSet = new Set(Array.isArray(f.value) ? f.value : [f.value]);
+            filtered = filtered.filter(item => item && valSet.has(item[f.key]));
+          } else {
+            filtered = filtered.filter(item => item && item[f.key] === f.value);
+          }
         });
 
         // Apply update/delete if requested
         if (patchData) {
           if (patchData === "DELETE") {
-            const filteredIds = new Set(filtered.map(i => i.id));
-            currentData = currentData.filter(item => !filteredIds.has(item.id));
+            const filteredIds = new Set(filtered.map(i => i?.id));
+            currentData = currentData.filter(item => item && !filteredIds.has(item.id));
           } else {
             currentData = currentData.map(item => {
-              const isMatch = filters.every(f => item[f.key] === f.value);
+              if (!item) return item;
+              const isMatch = filters.every(f => {
+                if ((f as any).operator === "in") {
+                  const s = new Set(Array.isArray(f.value) ? f.value : [f.value]);
+                  return s.has(item[f.key]);
+                }
+                return item[f.key] === f.value;
+              });
               return isMatch ? { ...item, ...patchData, updated_at: new Date().toISOString() } : item;
             });
-            filtered = filtered.map(item => ({ ...item, ...patchData }));
+            filtered = filtered.map(item => item ? { ...item, ...patchData } : item);
           }
           self.setData(table, currentData);
         }

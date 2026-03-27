@@ -87,8 +87,8 @@ export function useFounderProfiles() {
 
       // Fetch linked companies
       const companyIds = (profiles as any[])
-        .map(p => p.company_id)
-        .filter(Boolean);
+        .filter(p => p && p.company_id)
+        .map(p => p.company_id);
 
       let companyMap = new Map<string, any>();
       if (companyIds.length > 0) {
