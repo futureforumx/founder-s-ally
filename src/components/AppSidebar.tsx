@@ -48,58 +48,58 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              activeView === item.id ?
-              "bg-sidebar-accent text-sidebar-accent-foreground" :
-              "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
-            
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors border text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            style={activeView === item.id ? {
+              backgroundColor: "#ede9fe",
+              borderColor: "#6f48b1",
+              color: "#6f48b1"
+            } : {}}>
+
               <item.icon className="h-4 w-4" />
               {item.label}
             </button>
           )}
           <button
             onClick={() => onViewChange("market-intelligence")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 whitespace-nowrap",
-              activeView === "market-intelligence"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 whitespace-nowrap border text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            style={activeView === "market-intelligence" ? {
+              backgroundColor: "#ede9fe",
+              borderColor: "#6f48b1",
+              color: "#6f48b1"
+            } : {}}>
             <TrendingUp className="h-4 w-4 flex-shrink-0" />
             Market Intelligence
           </button>
           <button
             onClick={() => onViewChange("investors")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "investors" || activeView === "investor-search" || activeView === "connections")
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 border text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            style={(activeView === "investors" || activeView === "investor-search" || activeView === "connections") ? {
+              backgroundColor: "#ede9fe",
+              borderColor: "#6f48b1",
+              color: "#6f48b1"
+            } : {}}>
             <Users className="h-4 w-4" />
             Investors
           </button>
           <button
             onClick={() => onViewChange("directory")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "directory" || activeView === "groups" || activeView === "events")
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 border text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            style={(activeView === "directory" || activeView === "groups" || activeView === "events") ? {
+              backgroundColor: "#ede9fe",
+              borderColor: "#6f48b1",
+              color: "#6f48b1"
+            } : {}}>
             <Network className="h-4 w-4" />
             Network
           </button>
           <button
             onClick={() => onViewChange("data-room")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              activeView === "data-room"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors border text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            style={activeView === "data-room" ? {
+              backgroundColor: "#ede9fe",
+              borderColor: "#6f48b1",
+              color: "#6f48b1"
+            } : {}}>
             <FileText className="h-4 w-4" />
             Data Room
           </button>
@@ -109,12 +109,12 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
-                  activeView === "settings"
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )}>
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors border text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                style={activeView === "settings" ? {
+                  backgroundColor: "#ede9fe",
+                  borderColor: "#6f48b1",
+                  color: "#6f48b1"
+                } : {}}>
                 {profile?.avatar_url ? (
                   <img
                     src={profile.avatar_url}
