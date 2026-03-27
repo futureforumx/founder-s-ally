@@ -225,12 +225,10 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
       </div>
 
-      <div className="surface-card p-6 space-y-6">
+      {/* Financials Section with Outline */}
+      <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold tracking-tight text-foreground">Unit Economics</h3>
-            <p className="text-xs text-muted-foreground mt-1">Revenue, growth, and unit metrics</p>
-          </div>
+          <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Financials</h2>
           <div className="flex items-center gap-2 rounded-lg bg-muted p-1">
             <button onClick={() => setPeriod("monthly")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
             <button onClick={() => setPeriod("annual")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Annual</button>
@@ -269,9 +267,14 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
             </>
           )}
         </div>
+      </div>
+
+      {/* Unit Economics Section */}
+      <div className="surface-card p-6 space-y-4">
+        <h3 className="text-sm font-semibold tracking-tight text-foreground">Unit Economics</h3>
 
         {/* Bottom row: CAC, LTV, Headcount */}
-        <div className="grid grid-cols-3 gap-4 pt-2 border-t border-border/40">
+        <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'CAC', value: '—', trend: '+5%' },
             { label: 'LTV', value: '—', trend: '+8%' },
