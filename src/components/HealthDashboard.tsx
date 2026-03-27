@@ -163,7 +163,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
       {overallScore !== null && (
         <div className="surface-card p-6 space-y-5">
           <div className="flex items-start justify-between">
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Health Score</h2>
+            <h2 className="text-sm font-normal tracking-tight text-foreground">Health Score</h2>
             <button className="text-muted-foreground hover:text-foreground transition-colors">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
