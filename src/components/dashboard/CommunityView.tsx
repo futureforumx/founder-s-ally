@@ -3,8 +3,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart, Info } from
+  DollarSign, Activity, Heart, Info, ChevronDown } from
 "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
@@ -537,6 +543,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [userStatus, setUserStatus] = useState<string>("PARTNERSHIPS");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
@@ -910,44 +917,83 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         {variant !== "investor-search" && (
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Network
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
-        </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Network
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
+          </div>
         )}
 
         {variant !== "investor-search" && (
-          hasProfile ?
-          <button
-            onClick={onNavigateProfile}
-            className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0">
-            
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
-                {logoUrl ?
-              <img src={logoUrl} alt="" className="w-full h-full object-contain" /> :
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Status Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0">
+                  <div className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                  </div>
+                  <div className="text-left leading-none">
+                    <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block mb-0.5">Open to</span>
+                    <span className="text-[10px] font-black text-foreground uppercase tracking-tight flex items-center gap-1">
+                      {userStatus.replace("_", " ")}
+                      <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
+                    </span>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px] bg-popover/95 backdrop-blur-md border-border shadow-2xl p-1.5">
+                {[
+                  { id: "PARTNERSHIPS", label: "Partnerships", icon: Handshake },
+                  { id: "HIRING", label: "Hiring", icon: Users },
+                  { id: "TRADING_NOTES", label: "Trading Notes", icon: Info },
+                  { id: "EXPLORING_IDEAS", label: "Exploring Ideas", icon: Sparkles }
+                ].map((option) => (
+                  <DropdownMenuItem
+                    key={option.id}
+                    onClick={() => setUserStatus(option.id)}
+                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold cursor-pointer focus:bg-accent focus:text-accent-foreground transition-colors"
+                  >
+                    <option.icon className="h-3.5 w-3.5" />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              <span className="text-xs font-bold text-muted-foreground">
-                    {companyData!.name.charAt(0).toUpperCase()}
-                  </span>
-              }
-              </div>
-              <div className="text-left">
-                <span className="text-[10px] text-muted-foreground font-medium block leading-none mb-0.5">Your Company</span>
-                <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">{companyData!.name}</span>
-              </div>
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
-            </button> :
-
-          <button
-            onClick={onNavigateProfile}
-            className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0">
-            
-              <Building2 className="h-4 w-4 text-muted-foreground/40" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Set up your company</span>
-              <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
-            </button>
+            {hasProfile ? (
+              <button
+                onClick={onNavigateProfile}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-pointer group shrink-0"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted border border-border overflow-hidden shrink-0">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {companyData!.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-muted-foreground font-medium block leading-none mb-0.5">Your Company</span>
+                  <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors leading-none">{companyData!.name}</span>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-accent transition-colors ml-1" />
+              </button>
+            ) : (
+              <button
+                onClick={onNavigateProfile}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-2.5 hover:border-accent/30 transition-all cursor-pointer group shrink-0"
+              >
+                <Building2 className="h-4 w-4 text-muted-foreground/40" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Set up your company</span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
