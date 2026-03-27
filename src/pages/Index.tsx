@@ -302,7 +302,7 @@ const Index = () => {
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+                  <h1 className="text-xl font-medium tracking-tight text-foreground uppercase">Dashboard</h1>
                 </div>
               </div>
 
