@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { HealthGauge } from "./HealthGauge";
-import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
 
 const stageMultipliers: Record<string, number> = {
@@ -21,6 +22,18 @@ const sectorOffsets: Record<string, { financial: number; gtm: number; market: nu
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+
+const metricDescriptions: Record<string, string> = {
+  MRR: "Monthly Recurring Revenue - predictable revenue from subscriptions each month",
+  ARR: "Annual Recurring Revenue - your MRR multiplied by 12",
+  "MoM Growth": "Month-over-month percentage growth in revenue",
+  "YoY Growth": "Year-over-year percentage growth in revenue",
+  "Monthly Burn": "Average monthly cash spent on operations",
+  "Annual Burn": "Projected annual cash spent on operations",
+  CAC: "Customer Acquisition Cost - average amount spent to acquire one customer",
+  LTV: "Lifetime Value - total revenue expected from a customer over their lifetime",
+  Headcount: "Total number of employees on your team"
+};
 
 function buildHealthData(mode: "market" | "community", stage?: string, sector?: string) {
   const mult = stageMultipliers[stage || ""] ?? 1.0;
@@ -240,7 +253,19 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
             <>
               {['MRR', 'MoM Growth', 'Monthly Burn'].map((metric, idx) => (
                 <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-foreground">—</span>
                     <span className="text-xs text-success flex items-center gap-0.5">
@@ -254,7 +279,19 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
             <>
               {['ARR', 'YoY Growth', 'Annual Burn'].map((metric, idx) => (
                 <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-foreground">—</span>
                     <span className="text-xs text-success flex items-center gap-0.5">
@@ -280,7 +317,19 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
             { label: 'Headcount', value: '—', trend: '0' }
           ].map((item) => (
             <div key={item.label} className="rounded-lg bg-muted/40 p-4 space-y-2">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">{metricDescriptions[item.label]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-foreground">{item.value}</span>
                 <span className={`text-xs flex items-center gap-0.5 ${item.trend === '0' ? 'text-muted-foreground' : 'text-success'}`}>
