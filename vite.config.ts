@@ -19,8 +19,11 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     server: {
-      host: "::",
-      port: 8080,
+      // true = listen on 0.0.0.0 — works with http://localhost and http://127.0.0.1 (host "::" often breaks on macOS).
+      host: true,
+      port: 5173,
+      strictPort: false,
+      open: true,
       hmr: {
         overlay: false,
       },

@@ -25,6 +25,8 @@ import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
+import { useAuth } from "@/hooks/useAuth";
+import { getFaviconUrl } from "@/utils/company-utils";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -36,6 +38,7 @@ try {
 } catch {}
 
 const Index = () => {
+  const { user: authUser } = useAuth();
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>(() => {
     if (_postOnboardingView === "settings") {
@@ -189,9 +192,8 @@ const Index = () => {
 
     // Mark onboarding as completed in the database
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", user.id);
+      if (authUser) {
+        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", authUser.id);
       }
     } catch {}
 
@@ -221,15 +223,8 @@ const Index = () => {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
       if (company.website) {
-        const domain = (() => {
-          try {
-            let u = company.website.trim();
-            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-            return new URL(u).hostname.replace(/^www\./, "");
-          } catch { return null; }
-        })();
-        if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        const logoUrl = getFaviconUrl(company.website, 128);
+        if (logoUrl) {
           localStorage.setItem("company-logo-url", logoUrl);
         }
       }
@@ -275,7 +270,11 @@ const Index = () => {
         />
       )}
 
-      <AppSidebar activeView={activeView} onViewChange={setActiveView} />
+      <AppSidebar 
+        activeView={activeView} 
+        onViewChange={setActiveView} 
+        onAgentClick={() => setShowTerminal(true)}
+      />
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
           companyName={companyData?.name}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { SectorClassification } from "@/components/SectorTags";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { Lock, SlidersHorizontal } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
@@ -178,6 +179,7 @@ interface InvestorMatchProps {
 }
 
 export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked, externalBackers, externalTotalRaised }: InvestorMatchProps) {
+  const { user } = useAuth();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalBackers, setInternalBackers] = useState<CapBacker[]>([]);
@@ -194,10 +196,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   // Get current user ID
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUserId(data.user.id);
-    });
-  }, []);
+    if (user) setUserId(user.id);
+    else setUserId(undefined);
+  }, [user]);
 
   const {
     savedFirmIds,
@@ -234,7 +235,6 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   useEffect(() => {
     if (externalBackers) return;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
       if (data) {
@@ -252,7 +252,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         );
       }
     })();
-  }, [externalBackers]);
+  }, [externalBackers, user]);
 
   const scoredInvestors = useMemo(() => {
     return investors
