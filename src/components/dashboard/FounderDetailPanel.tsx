@@ -64,6 +64,16 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                   </div>
                 </div>
 
+                {/* Right Action Cluster */}
+                <div className="absolute top-4 right-14 flex items-center gap-2">
+                  <button className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-background hover:bg-foreground/90 transition-colors shadow-lg">
+                    <Zap className="h-3 w-3" /> Add to Network
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 rounded-md border border-foreground/20 bg-background/40 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-foreground hover:bg-background/60 backdrop-blur-sm transition-colors shadow-lg">
+                    <MessageSquare className="h-3 w-3" /> Request Intro
+                  </button>
+                </div>
+
                 {/* Close Button */}
                 <button
                   onClick={onClose}
@@ -91,14 +101,6 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       <Badge variant="secondary" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.sector}</Badge>
                       <StatusIndicator isOwner={isOwner} />
                     </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0 ml-4">
-                    <button className="inline-flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 transition-colors shadow-sm">
-                      <Zap className="h-4 w-4" /> Connect
-                    </button>
-                    <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
-                      <MessageSquare className="h-4 w-4" /> Request Intro
-                    </button>
                   </div>
                 </div>
               </div>
