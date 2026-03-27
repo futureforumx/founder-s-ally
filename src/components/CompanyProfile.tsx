@@ -537,6 +537,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [overviewValidationErrors, setOverviewValidationErrors] = useState<Set<string>>(new Set());
   const validationPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [overviewApproveLabel, setOverviewApproveLabel] = useState<string | null>(null);
+  const [socialLinksMessage, setSocialLinksMessage] = useState<string>("");
 
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
@@ -1343,6 +1344,19 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           setOverviewValidationErrors(new Set());
           setOverviewApproveLabel(null);
         }, 2000);
+        return; // Do NOT approve
+      }
+    }
+
+    // Validation for social links
+    if (section === "social") {
+      const hasSocialLinks = form.socialTwitter || form.socialLinkedin || form.socialInstagram;
+      if (!hasSocialLinks) {
+        setSocialLinksMessage("Social profiles help us scan for competitors, customers, and keep you updated.");
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          setSocialLinksMessage("");
+        }, 5000);
         return; // Do NOT approve
       }
     }
@@ -2495,6 +2509,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         />
                       </div>
                     </div>
+
+                    {/* Social Links Message */}
+                    {socialLinksMessage && (
+                      <div className="mt-4 rounded-lg border border-accent/20 bg-accent/5 p-3">
+                        <p className="text-[11px] text-foreground">{socialLinksMessage}</p>
+                      </div>
+                    )}
 
                     {/* Approve button */}
                     {analysisComplete && !confirmed && (
