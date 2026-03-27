@@ -77,9 +77,9 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                 {/* Close Button */}
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-card/50 hover:bg-card/80 transition-colors backdrop-blur-sm"
+                  className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-md bg-muted/80 hover:bg-secondary/90 transition-colors backdrop-blur-sm border border-border/20 shadow-sm"
                 >
-                  <X className="h-4 w-4 text-muted-foreground" />
+                  <X className="h-4 w-4 text-foreground/70" />
                 </button>
 
                 {/* Logo overlapping banner */}
