@@ -307,7 +307,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
 
       {/* Unit Economics Section */}
       <div className="surface-card p-6 space-y-4">
-        <h3 className="text-[10px] font-semibold tracking-tight text-muted-foreground">Unit Economics</h3>
+        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Unit Economics</h2>
 
         {/* Bottom row: CAC, LTV, Headcount */}
         <div className="grid grid-cols-3 gap-4">
