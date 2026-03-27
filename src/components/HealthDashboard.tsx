@@ -240,7 +240,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
 
       {/* Financials Section with Outline */}
       <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Financials</h2>
+        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Financials</h2>
 
         <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
           <button onClick={() => setPeriod("monthly")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
@@ -307,7 +307,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
 
       {/* Unit Economics Section */}
       <div className="surface-card p-6 space-y-4">
-        <h3 className="text-sm font-semibold tracking-tight text-foreground">Unit Economics</h3>
+        <h3 className="text-[10px] font-semibold tracking-tight text-muted-foreground">Unit Economics</h3>
 
         {/* Bottom row: CAC, LTV, Headcount */}
         <div className="grid grid-cols-3 gap-4">
