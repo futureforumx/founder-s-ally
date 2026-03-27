@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, TrendingUp } from "lucide-react";
+import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, TrendingUp, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -89,7 +89,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
-            <Users className="h-4 w-4" />
+            <Network className="h-4 w-4" />
             Network
           </button>
           <button
