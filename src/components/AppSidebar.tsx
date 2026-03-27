@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -17,11 +17,7 @@ interface AppSidebarProps {
 const topItems = [
 { id: "dashboard" as const, label: "Mission Control", icon: Gauge }];
 
-const companyItems = [
-{ id: "competitors" as const, label: "Competitors", icon: Swords },
-{ id: "sector" as const, label: "Sector", icon: Layers },
-{ id: "benchmarks" as const, label: "Benchmarks", icon: BarChart3 },
-{ id: "audit" as const, label: "Deck Audit", icon: FileText }];
+const companyItems = [];
 
 
 const communityItems = [
@@ -53,73 +49,66 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-              activeView === item.id ?
-              "bg-sidebar-accent text-sidebar-accent-foreground" :
-              "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
-            
+            className={cn("flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === item.id && "border")}
+            style={activeView === item.id ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+
               <item.icon className="h-4 w-4" />
               {item.label}
             </button>
           )}
-          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">My Company</div>
-          {companyItems.map((item) =>
           <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={cn("gap-2.5 rounded-lg py-2 transition-colors text-xs text-left items-center justify-start flex flex-row font-light font-sans px-[8px]",
-            activeView === item.id ?
-            "bg-sidebar-accent text-sidebar-accent-foreground" :
-            "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
-            
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </button>
-          )}
+            onClick={() => onViewChange("market-intelligence")}
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "market-intelligence" && "border")}
+            style={activeView === "market-intelligence" ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+            <TrendingUp className="h-4 w-4 flex-shrink-0" />
+            Market Intelligence
+          </button>
           <button
             onClick={() => onViewChange("investors")}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "investors" || activeView === "investor-search" || activeView === "connections")
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "investors" || activeView === "investor-search" || activeView === "connections") && "border")}
+            style={(activeView === "investors" || activeView === "investor-search" || activeView === "connections") ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
             <Users className="h-4 w-4" />
             Investors
           </button>
           <button
-            onClick={() => setCommunityOpen(!communityOpen)}
-            className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "directory" || activeView === "groups" || activeView === "events")
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            )}>
-            <Users className="h-4 w-4" />
+            onClick={() => onViewChange("directory")}
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "directory" || activeView === "groups" || activeView === "events") && "border")}
+            style={(activeView === "directory" || activeView === "groups" || activeView === "events") ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+            <Network className="h-4 w-4" />
             Network
-            <ChevronDown className={cn("ml-auto h-3.5 w-3.5 transition-transform", communityOpen && "rotate-180")} />
           </button>
-          {communityOpen && (
-            <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
-              {communityItems.map((item) =>
-                <button
-                  key={item.id}
-                  onClick={() => onViewChange(item.id)}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-light transition-colors",
-                    activeView === item.id
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                  )}>
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              )}
-            </div>
-          )}
+          <button
+            onClick={() => onViewChange("data-room")}
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
+            style={activeView === "data-room" ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+            <FileText className="h-4 w-4" />
+            Data Room
+          </button>
         </nav>
 
         <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">

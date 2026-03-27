@@ -14,9 +14,6 @@ import {
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
-import { SearchOmnibar, type EntityScope } from "./SearchOmnibar";
-import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
-import { InvestorCommandPalette, InvestorSearchTrigger } from "./InvestorCommandPalette";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -347,8 +344,12 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
                       }}
                       className="inline-flex items-center"
                     >
-                      <Badge className="text-[8px] font-bold px-2 py-0.5 bg-success/10 text-success border-success/20 uppercase tracking-wider hover:bg-success/15 transition-colors">
-                        <Activity className="h-2.5 w-2.5 mr-0.5" /> Deploying
+                      <Badge className="text-[7px] font-light px-1.5 py-0.5 bg-success/3 text-success border border-success/25 rounded-sm uppercase tracking-wider hover:bg-success/5 transition-colors">
+                        <span className="relative flex h-1.5 w-1.5 mr-1.5 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                        </span>
+                        Deploying
                       </Badge>
                     </button>
                   </TooltipTrigger>
@@ -533,11 +534,8 @@ function CarouselCard({ founder, trending, onClick, onDeployingClick }: {founder
 
 export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
   const isInvestorSearch = variant === "investor-search";
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [activeInvestorTab, setActiveInvestorTab] = useState<string>("all");
-  const [showMagicPrompts, setShowMagicPrompts] = useState(true);
   const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -693,8 +691,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
   const hasProfile = !!companyData?.name;
 
-  const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
-
   // ── Smart Cohort data ──
   const cohorts = useMemo(() => {
     const userLocation = companyData?.hqLocation || "San Francisco, CA";
@@ -714,42 +710,28 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     const;
   }, [companyData]);
 
-  // Cohort click handler — inject filter into search
+  // Cohort click handler — filter results
   const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
     if (filterKey) {
-      setSearchQuery(filterKey);
-      setShowMagicPrompts(false);
+      setActiveFilter(filterKey);
     }
     if (scopeOverride) setActiveScope(scopeOverride);
   }, []);
 
-  useEffect(() => {
-    if (searchQuery.length > 0) {
-      setIsSearching(true);
-      const t = setTimeout(() => setIsSearching(false), 800);
-      return () => clearTimeout(t);
-    }
-    setIsSearching(false);
-    if (!searchQuery) setShowMagicPrompts(true);
-  }, [searchQuery]);
-
-  // Reset pagination on filter/search/scope change
+  // Reset pagination on filter/scope change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, activeFilter, activeScope, activeInvestorTab]);
+  }, [activeFilter, activeScope, activeInvestorTab]);
 
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
   const filteredAll = scopedAll.filter((f) => {
-    const q = searchQuery.toLowerCase();
     const filterQ = activeFilter?.toLowerCase() || "";
-    const matchesSearch = !q || [f.name, f.sector, f.stage, f.description, f.location, f.model].
-    some((v) => v?.toLowerCase().includes(q));
     const matchesFilter = !filterQ ||
     f.stage.toLowerCase().includes(filterQ) ||
     f.sector.toLowerCase().includes(filterQ) ||
     f.model.toLowerCase().includes(filterQ);
-    return matchesSearch && matchesFilter;
+    return matchesFilter;
   });
 
   // ── Investor tab filtering & sorting ──
@@ -1035,7 +1017,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               key={tab.id}
               onClick={() => {
                 setActiveScope(tab.id);
-                setShowMagicPrompts(true);
               }}
               className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
               isActive ?
@@ -1049,142 +1030,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Search bar with inline filter chips — investor-search variant */}
-      {isInvestorSearch ? (
-        <>
-          <InvestorSearchTrigger
-            placeholder={placeholder}
-            onClick={() => setCommandPaletteOpen(true)}
-            activeChip={activeInvestorTab}
-            onChipChange={(chip) => setActiveInvestorTab(chip)}
-          />
-          <InvestorCommandPalette
-            open={commandPaletteOpen}
-            onOpenChange={setCommandPaletteOpen}
-            firms={vcFirms}
-            people={vcPeople}
-            firmMap={firmMap}
-            dbInvestors={dbInvestors}
-            userSector={companyData?.sector}
-            userStage={companyData?.stage}
-            onSelectFirm={(firmId) => {
-              const firm = getFirmById(firmId);
-              if (firm) {
-                setSelectedVCFirm(firm);
-                // Also open investor detail
-                const entry = mergedEntries.find(e => e.name.toLowerCase() === firm.name.toLowerCase());
-                if (entry) setSelectedInvestor(entry);
-              }
-            }}
-            onSelectPerson={(personId) => {
-              const person = vcPeople.find(p => p.id === personId);
-              if (person) setSelectedVCPerson(person);
-            }}
-            onNavigateMatches={() => setActiveInvestorTab("matches")}
-          />
-        </>
-      ) : (
-        <SearchOmnibar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          scope={activeScope}
-          placeholder={placeholder}
-        />
-      )}
       
-
-      {/* Magic Prompts */}
-      {showMagicPrompts && !searchQuery &&
-      <div className="flex items-center gap-3 w-full relative">
-          <span className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider whitespace-nowrap shrink-0">Try:</span>
-          <div
-          className="flex flex-row overflow-x-auto snap-x snap-mandatory scroll-smooth w-full py-2 gap-3 pr-8 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-          style={{
-            maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
-          }}>
-          
-            {MAGIC_PROMPTS[activeScope].map((prompt) =>
-          <button
-            key={prompt}
-            onClick={() => {
-              setSearchQuery(prompt);
-              setShowMagicPrompts(false);
-            }}
-            className="snap-start whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-accent/10 to-primary/10 text-accent border border-accent/20 hover:border-accent/40 hover:shadow-sm cursor-pointer transition-all shrink-0">
-            
-                <Sparkles className="w-3.5 h-3.5 text-accent/70" />
-                {prompt}
-              </button>
-          )}
-          </div>
-        </div>
-      }
-
-      {/* ═══════ Search Results First (when searching) ═══════ */}
-      {searchQuery &&
-      <div className="space-y-3 pt-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Search Results</h2>
-            <span className="text-[10px] text-muted-foreground font-mono">
-              {isSearching ? "Matching..." : `${visibleFounders.length} of ${displayEntries.length} ${labels.plural}`}
-            </span>
-          </div>
-
-          {isSearching ?
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) =>
-          <FounderCardSkeleton key={i} />
-          )}
-            </div> :
-        visibleFounders.length > 0 ?
-        <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {visibleFounders.map((founder, i) =>
-            <FounderCard key={`search-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} onDeployingClick={() => handleDeployingClick(founder)} />
-            )}
-                {isLoadingMore &&
-            Array.from({ length: 3 }).map((_, i) =>
-            <FounderCardSkeleton key={`loading-${i}`} />
-            )}
-              </div>
-              <div ref={sentinelRef} className="h-1" />
-              {hasMore && !isLoadingMore &&
-          <div className="flex justify-center pt-2">
-                  <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
-                    Load more founders
-                  </button>
-                </div>
-          }
-              {isLoadingMore &&
-          <div className="flex justify-center pt-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-          }
-            </> :
-
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 mb-4">
-                <Search className="h-7 w-7 text-muted-foreground/30" />
-              </div>
-              <p className="text-sm font-medium text-foreground mb-1">Entity Not Found</p>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                We couldn't find active data for "<span className="font-medium text-foreground">{searchQuery}</span>" in our directory or live sources.
-              </p>
-              {isInvestorSearch && (
-                <button
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent("navigate-view", { detail: "investors" }));
-                  }}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-semibold text-accent-foreground hover:bg-accent/90 transition-colors shadow-sm"
-                >
-                  <Zap className="h-3.5 w-3.5" /> Add them manually to your cap table
-                </button>
-              )}
-            </div>
-        }
-        </div>
-      }
 
       {/* ═══════ Carousel: Suggested ═══════ */}
       {scopedSuggested.length > 0 &&
@@ -1208,8 +1054,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         </div>
       }
 
-      {/* ═══════ All Grid (only when NOT searching) ═══════ */}
-      {!searchQuery &&
+      {/* ═══════ All Grid ═══════ */}
       <div className="space-y-3 pt-4">
           {/* Dynamic header for investor tabs */}
           <div className="flex items-center justify-between">
@@ -1222,7 +1067,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               )}
             </div>
             <span className="text-[10px] text-muted-foreground font-mono">
-              {isSearching ? "Matching..." : `${visibleFounders.length} of ${displayEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
+              {`${visibleFounders.length} of ${displayEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
             </span>
           </div>
 
@@ -1250,12 +1095,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               >
                 <Layers className="h-4 w-4" /> Update Profile Sector
               </button>
-            </div>
-          ) : isSearching ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) =>
-                <FounderCardSkeleton key={i} />
-              )}
             </div>
           ) : visibleFounders.length > 0 ? (
             <AnimatePresence mode="wait">
@@ -1318,7 +1157,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
             </div>
           )}
         </div>
-      }
 
       {/* Detail Panels */}
       <FounderDetailPanel

@@ -337,8 +337,8 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
                       {complete ? "✓ Analysis Complete" : `${progressLabel} — ${Math.round(progress)}%`}
                     </span>
                   </div>
-                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: "rgba(148,163,184,0.06)" }}>
-                    <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: complete ? "rgba(34,197,94,0.7)" : "linear-gradient(90deg, rgba(56,130,246,0.5), rgba(34,211,238,0.7))", boxShadow: complete ? "0 0 10px rgba(34,197,94,0.4)" : "0 0 10px rgba(56,130,246,0.3)" }} />
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%`, backgroundColor: complete ? "hsl(var(--success))" : "hsl(var(--primary))" }} />
                   </div>
                 </div>
               </div>

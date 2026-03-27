@@ -14,8 +14,18 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Satoshi", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "system-ui", "sans-serif"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
+      },
+      fontSize: {
+        "2xs": ["0.75rem", { lineHeight: "1rem", fontWeight: "500" }],      /* 12px */
+        "xs": ["0.8125rem", { lineHeight: "1.125rem", fontWeight: "400" }],  /* 13px */
+        "sm": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "400" }],    /* 14px */
+        "md": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }],         /* 16px */
+        "lg": ["1.125rem", { lineHeight: "1.625rem", fontWeight: "500" }],   /* 18px */
+        "xl": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],     /* 20px */
+        "2xl": ["1.5rem", { lineHeight: "2rem", fontWeight: "700" }],        /* 24px */
+        "3xl": ["2rem", { lineHeight: "2.5rem", fontWeight: "700" }],        /* 32px */
       },
       colors: {
         border: "hsl(var(--border))",
@@ -83,6 +93,105 @@ export default {
         "ai-approved": {
           DEFAULT: "hsl(var(--ai-approved))",
           foreground: "hsl(var(--ai-approved-foreground))",
+        },
+        // Extended color palette
+        blue: {
+          50: "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
+        },
+        purple: {
+          50: "#F5F3FF",
+          100: "#EDE9FE",
+          200: "#DDD6FE",
+          300: "#C4B5FD",
+          400: "#A78BFA",
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
+        },
+        green: {
+          50: "#ECFDF5",
+          100: "#D1FAE5",
+          200: "#A7F3D0",
+          300: "#6EE7B7",
+          400: "#34D399",
+          500: "#10B981",
+          600: "#059669",
+          700: "#047857",
+          800: "#065F46",
+          900: "#064E3B",
+        },
+        orange: {
+          50: "#FFF7ED",
+          100: "#FFEDD5",
+          200: "#FED7AA",
+          300: "#FDBA74",
+          400: "#FB923C",
+          500: "#F97316",
+          600: "#EA580C",
+          700: "#C2410C",
+          800: "#9A3412",
+          900: "#7C2D12",
+        },
+        yellow: {
+          50: "#FEFCE8",
+          100: "#FEF9C3",
+          200: "#FEF08A",
+          300: "#FDE047",
+          400: "#FACC15",
+          500: "#EAB308",
+          600: "#CA8A04",
+          700: "#A16207",
+          800: "#854D0E",
+          900: "#713F12",
+        },
+        rose: {
+          50: "#FEF2F2",
+          100: "#FEE2E2",
+          200: "#FECACA",
+          300: "#FCA5A5",
+          400: "#F87171",
+          500: "#EF4444",
+          600: "#DC2626",
+          700: "#B91C1C",
+          800: "#991B1B",
+          900: "#7F1D1D",
+        },
+        teal: {
+          50: "#F0FDFA",
+          100: "#CCFBF1",
+          200: "#99F6E4",
+          300: "#5EEAD4",
+          400: "#2DD4BF",
+          500: "#14B8A6",
+          600: "#0D9488",
+          700: "#0F766E",
+          800: "#115E59",
+          900: "#134E4A",
+        },
+        slate: {
+          0: "#FFFFFF",
+          25: "#FCFCFD",
+          50: "#F8FAFC",
+          100: "#F1F5F9",
+          200: "#E2E8F0",
+          300: "#CBD5E1",
+          400: "#94A3B8",
+          500: "#64748B",
+          600: "#475569",
+          700: "#334155",
+          800: "#1E293B",
+          900: "#0F172A",
         },
       },
       borderRadius: {

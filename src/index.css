@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap");
 @import url("https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap");
@@ -48,6 +49,8 @@
     --shadow-md: 0 0 0 1px rgba(0,0,0,.03), 0 4px 6px -1px rgba(0,0,0,.04), 0 2px 4px -1px rgba(0,0,0,.02);
     --shadow-lg: 0 0 0 1px rgba(0,0,0,.03), 0 10px 15px -3px rgba(0,0,0,.05), 0 4px 6px -2px rgba(0,0,0,.02);
 
+    --sidebar-background: 200 11% 20%;
+    --sidebar-foreground: 210 20% 85%;
     --sidebar-background: 200 12% 20%;
     --sidebar-foreground: 200 15% 82%;
     --sidebar-primary: 217 91% 60%;
@@ -67,6 +70,41 @@
     --ai-pending-foreground: 270 50% 30%;
     --ai-approved: 270 55% 50%;
     --ai-approved-foreground: 0 0% 100%;
+
+    /* Typography - Font Stack */
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    /* Typography - Font Sizes (rem and px reference) */
+    --text-2xs: 0.75rem;    /* 12px */
+    --text-xs: 0.8125rem;   /* 13px */
+    --text-sm: 0.875rem;    /* 14px */
+    --text-md: 1rem;        /* 16px */
+    --text-lg: 1.125rem;    /* 18px */
+    --text-xl: 1.25rem;     /* 20px */
+    --text-2xl: 1.5rem;     /* 24px */
+    --text-3xl: 2rem;       /* 32px */
+
+    /* Typography - Line Heights (rem) */
+    --lh-2xs: 1rem;         /* 16px / 12px text = 1.33 */
+    --lh-xs: 1.125rem;      /* 18px / 13px text = 1.38 */
+    --lh-sm: 1.25rem;       /* 20px / 14px text = 1.43 */
+    --lh-md: 1.5rem;        /* 24px / 16px text = 1.5 */
+    --lh-lg: 1.625rem;      /* 26px / 18px text = 1.44 */
+    --lh-xl: 1.75rem;       /* 28px / 20px text = 1.4 */
+    --lh-2xl: 2rem;         /* 32px / 24px text = 1.33 */
+    --lh-3xl: 2.5rem;       /* 40px / 32px text = 1.25 */
+
+    /* Typography - Font Weights */
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+
+    /* Typography - Letter Spacing */
+    --ls-tight: -0.02em;
+    --ls-normal: 0em;
+    --ls-wide: 0.01em;
+    --ls-uppercase: 0.05em;
   }
 }
 
@@ -77,18 +115,20 @@
 
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
-    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--lh-sm);
+    font-weight: var(--fw-regular);
   }
 
   h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
-    letter-spacing: -0.02em;
-    font-weight: 600;
+    font-weight: var(--fw-semibold);
   }
 
   p {
     text-wrap: pretty;
-    line-height: 1.6;
+    line-height: var(--lh-md);
   }
 
   .font-mono {
@@ -117,6 +157,122 @@
 }
 
 @layer utilities {
+  /* Semantic Typography Styles */
+
+  /* Display & Page Titles */
+  .text-display-md {
+    font-size: var(--text-3xl);
+    line-height: var(--lh-3xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--ls-tight);
+  }
+
+  /* Headings */
+  .text-heading-xl {
+    font-size: var(--text-2xl);
+    line-height: var(--lh-2xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--ls-tight);
+  }
+
+  .text-heading-lg {
+    font-size: var(--text-xl);
+    line-height: var(--lh-xl);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--ls-tight);
+  }
+
+  .text-heading-md {
+    font-size: var(--text-lg);
+    line-height: var(--lh-lg);
+    font-weight: var(--fw-semibold);
+  }
+
+  .text-heading-sm {
+    font-size: var(--text-md);
+    line-height: var(--lh-md);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* Body Text */
+  .text-body-lg {
+    font-size: var(--text-md);
+    line-height: var(--lh-md);
+    font-weight: var(--fw-regular);
+  }
+
+  .text-body-md {
+    font-size: var(--text-sm);
+    line-height: var(--lh-sm);
+    font-weight: var(--fw-regular);
+  }
+
+  .text-body-sm {
+    font-size: var(--text-xs);
+    line-height: var(--lh-xs);
+    font-weight: var(--fw-regular);
+  }
+
+  .text-body-xs {
+    font-size: var(--text-2xs);
+    line-height: var(--lh-2xs);
+    font-weight: var(--fw-regular);
+  }
+
+  /* Labels & Utility Text */
+  .text-label-md {
+    font-size: var(--text-sm);
+    line-height: var(--lh-sm);
+    font-weight: var(--fw-medium);
+  }
+
+  .text-label-sm {
+    font-size: var(--text-2xs);
+    line-height: var(--lh-2xs);
+    font-weight: var(--fw-medium);
+  }
+
+  .text-caption {
+    font-size: var(--text-2xs);
+    line-height: var(--lh-2xs);
+    font-weight: var(--fw-medium);
+  }
+
+  /* Buttons */
+  .text-button-md {
+    font-size: var(--text-sm);
+    line-height: var(--lh-sm);
+    font-weight: var(--fw-semibold);
+  }
+
+  .text-button-sm {
+    font-size: var(--text-xs);
+    line-height: var(--lh-xs);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* Metrics & Numbers */
+  .text-metric-lg {
+    font-size: var(--text-3xl);
+    line-height: var(--lh-3xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--ls-tight);
+  }
+
+  .text-metric-md {
+    font-size: var(--text-2xl);
+    line-height: var(--lh-2xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--ls-tight);
+  }
+
+  .text-metric-sm {
+    font-size: var(--text-xl);
+    line-height: var(--lh-xl);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* Surface Cards */
   .surface-card {
     @apply bg-card rounded-xl;
     box-shadow: var(--shadow-sm);

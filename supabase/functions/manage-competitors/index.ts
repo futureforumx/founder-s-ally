@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { jwtDecode } from "https://esm.sh/jwt-decode@4.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,9 +18,27 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader || "" } },
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    // Extract user ID from JWT token (Clerk or Supabase)
+    let userId: string | null = null;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.slice(7); // Remove "Bearer " prefix
+        const decoded = jwtDecode<{ sub?: string; user_id?: string }>(token);
+        // Clerk uses 'sub', Supabase uses 'sub' as well
+        userId = decoded.sub || (decoded.user_id as string);
+        console.log("Decoded token - userId:", userId);
+      } catch (e) {
+        console.error("Failed to decode token:", e);
+        return new Response(JSON.stringify({ error: "Unauthorized - invalid token" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    if (!userId) {
+      console.error("No userId found in token");
+      return new Response(JSON.stringify({ error: "Unauthorized - no user id in token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -32,7 +51,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from("company_competitors")
         .select("*, competitor:competitors(*)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -65,22 +84,30 @@ serve(async (req) => {
     // ── ADD: Add a competitor (create global entry if needed, then link) ──
     if (action === "add") {
       const { name, status = "Tracked", user_defined_advantage, notes, website: providedWebsite } = payload;
+
       if (!name?.trim()) {
-        return new Response(JSON.stringify({ error: "Name is required" }), {
+        return new Response(JSON.stringify({ error: "Competitor name is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const trimmedName = name.trim();
+      const validStatus = ["Tracked", "Threat", "Watch"].includes(status) ? status : "Tracked";
 
       // Check if competitor exists globally
-      const { data: existing } = await supabase
+      const { data: existing, error: existError } = await supabase
         .from("competitors")
         .select("*")
         .ilike("name", trimmedName)
         .limit(1)
         .single();
+
+      if (existError && existError.code !== "PGRST116") {
+        // PGRST116 means no rows found, which is expected
+        console.error("Error checking existing competitor:", existError);
+        throw existError;
+      }
 
       let competitorId: string;
       let competitorRecord: any;
@@ -147,48 +174,62 @@ serve(async (req) => {
           console.error("AI enrichment failed (non-blocking):", e);
         }
 
-        const { data: newComp, error: insertErr } = await supabase
-          .from("competitors")
-          .insert({
-            name: trimmedName,
-            website,
-            description,
-            industry_tags: industryTags,
-          })
-          .select()
-          .single();
+        try {
+          const { data: newComp, error: insertErr } = await supabase
+            .from("competitors")
+            .insert({
+              name: trimmedName,
+              website,
+              description,
+              industry_tags: industryTags,
+            })
+            .select()
+            .single();
 
-        if (insertErr) throw insertErr;
-        competitorId = newComp.id;
-        competitorRecord = newComp;
+          if (insertErr) {
+            console.error("Error inserting competitor:", insertErr);
+            throw insertErr;
+          }
+          competitorId = newComp.id;
+          competitorRecord = newComp;
+        } catch (e) {
+          console.error("Failed to create competitor:", e);
+          throw e;
+        }
       }
 
       // Link to user
-      const { data: link, error: linkErr } = await supabase
-        .from("company_competitors")
-        .insert({
-          user_id: user.id,
-          competitor_id: competitorId,
-          status,
-          user_defined_advantage: user_defined_advantage || null,
-          notes: notes || null,
-        })
-        .select("*, competitor:competitors(*)")
-        .single();
+      try {
+        const { data: link, error: linkErr } = await supabase
+          .from("company_competitors")
+          .insert({
+            user_id: userId,
+            competitor_id: competitorId,
+            status: validStatus,
+            user_defined_advantage: user_defined_advantage || null,
+            notes: notes || null,
+          })
+          .select("*, competitor:competitors(*)")
+          .single();
 
-      if (linkErr) {
-        if (linkErr.code === "23505") {
-          return new Response(JSON.stringify({ error: "Competitor already tracked" }), {
-            status: 409,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+        if (linkErr) {
+          console.error("Link error:", linkErr.code, linkErr.message);
+          if (linkErr.code === "23505") {
+            return new Response(JSON.stringify({ error: "Competitor already tracked" }), {
+              status: 409,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw linkErr;
         }
-        throw linkErr;
-      }
 
-      return new Response(JSON.stringify({ competitor: link }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        return new Response(JSON.stringify({ competitor: link }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (linkError) {
+        console.error("Failed to link competitor:", linkError);
+        throw linkError;
+      }
     }
 
     // ── UPDATE STATUS ──
@@ -198,7 +239,7 @@ serve(async (req) => {
         .from("company_competitors")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", company_competitor_id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .select("*, competitor:competitors(*)")
         .single();
 
@@ -215,7 +256,7 @@ serve(async (req) => {
         .from("company_competitors")
         .delete()
         .eq("id", company_competitor_id)
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
@@ -227,7 +268,7 @@ serve(async (req) => {
     if (action === "recommend") {
       const { industry_tags = [] } = payload;
       const { data, error } = await supabase.rpc("recommend_competitors", {
-        _user_id: user.id,
+        _user_id: userId,
         _industry_tags: industry_tags,
         _limit: 5,
       });

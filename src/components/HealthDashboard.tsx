@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { HealthGauge } from "./HealthGauge";
-import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
 
 const stageMultipliers: Record<string, number> = {
@@ -21,6 +23,18 @@ const sectorOffsets: Record<string, { financial: number; gtm: number; market: nu
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+
+const metricDescriptions: Record<string, string> = {
+  MRR: "Monthly Recurring Revenue - predictable revenue from subscriptions each month",
+  ARR: "Annual Recurring Revenue - your MRR multiplied by 12",
+  "MoM Growth": "Month-over-month percentage growth in revenue",
+  "YoY Growth": "Year-over-year percentage growth in revenue",
+  "Monthly Burn": "Average monthly cash spent on operations",
+  "Annual Burn": "Projected annual cash spent on operations",
+  CAC: "Customer Acquisition Cost - average amount spent to acquire one customer",
+  LTV: "Lifetime Value - total revenue expected from a customer over their lifetime",
+  Headcount: "Total number of employees on your team"
+};
 
 function buildHealthData(mode: "market" | "community", stage?: string, sector?: string) {
   const mult = stageMultipliers[stage || ""] ?? 1.0;
@@ -141,7 +155,7 @@ const defaultMetrics: { label: string; key: keyof AnalysisResult["metrics"]; cha
   { label: "LTV", key: "ltv", change: "+8%", trend: "up" },
 ];
 
-type BenchmarkMode = "market" | "community";
+type BenchmarkMode = "market" | "community" | "trend" | "network";
 
 interface HealthDashboardProps {
   stage?: string;
@@ -152,6 +166,7 @@ interface HealthDashboardProps {
 
 export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
+  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
 
   const healthData = useMemo(() => buildHealthData(mode, stage, sector), [mode, stage, sector]);
 
@@ -161,85 +176,207 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
   return (
     <div className="space-y-6">
       {overallScore !== null && (
-        <div className="surface-card p-6 flex items-center gap-6">
-          <div className="relative h-28 w-28 flex-shrink-0">
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-              <circle cx="50" cy="50" r="42" fill="none"
-                stroke={overallScore >= 70 ? "hsl(var(--success))" : overallScore >= 40 ? "hsl(38, 92%, 50%)" : "hsl(var(--destructive))"}
-                strokeWidth="8" strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 42}
-                strokeDashoffset={2 * Math.PI * 42 * (1 - overallScore / 100)}
-                className="transition-all duration-1000"
-                style={{ animation: "gauge-fill 1.2s cubic-bezier(0.2, 0, 0, 1) forwards" }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold tracking-tight text-foreground">{overallScore}</span>
-              <span className="text-[9px] font-mono text-muted-foreground uppercase">/ 100</span>
+        <div className="surface-card p-6 space-y-5">
+          <div className="flex items-start justify-between">
+            <h2 className="text-sm font-normal tracking-tight text-foreground">Health Score</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Info className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="left" className="w-64 p-3">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Health Score Calculation</h3>
+                  <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
+                    <p>Your health score is calculated based on key metrics across four dimensions:</p>
+                    <ul className="space-y-1.5 pl-3 list-disc">
+                      <li><span className="font-medium text-foreground">Financial Health</span> - Revenue, burn rate, and runway</li>
+                      <li><span className="font-medium text-foreground">GTM Strength</span> - Product-market fit and customer acquisition</li>
+                      <li><span className="font-medium text-foreground">Market Position</span> - Competitive advantage and market trends</li>
+                      <li><span className="font-medium text-foreground">Team & Moat</span> - Team strength and defensibility</li>
+                    </ul>
+                    <p className="pt-1">Scores are benchmarked against similar companies in your stage and sector.</p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}%</span>
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-3.5 w-3.5 text-success" />
+                <span className="text-sm font-medium text-success">+8%</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-muted-foreground">{Math.round((overallScore / 100) * 100)}% to target</span>
             </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Health Score</h2>
-            <p className="text-xs text-muted-foreground mt-1">AI-generated score based on your website and pitch deck analysis</p>
-            {analysisResult?.executiveSummary && (
-              <p className="text-xs text-muted-foreground mt-3 leading-relaxed line-clamp-3">
-                {analysisResult.executiveSummary}
-              </p>
-            )}
+
+          {/* Progress bar with segments */}
+          <div className="flex gap-0.5">
+            {Array.from({ length: 50 }).map((_, i) => {
+              const segmentFilled = (i / 50) * 100 < overallScore;
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 h-2 rounded-xs transition-colors ${
+                    segmentFilled ? "bg-blue-500/80" : "bg-muted/40"
+                  }`}
+                />
+              );
+            })}
           </div>
+
+          {analysisResult?.executiveSummary && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {analysisResult.executiveSummary}
+            </p>
+          )}
         </div>
       )}
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company Health</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {mode === "market"
-              ? `Real-time positioning against up-to-date market data${contextLabel ? ` for ${contextLabel}` : ""}`
-              : `Positioning against similar founders on the platform${contextLabel ? ` (${contextLabel})` : ""}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg bg-muted p-1">
-          <button onClick={() => setMode("market")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            Market
-          </button>
-          <button onClick={() => setMode("community")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            Network
-          </button>
-        </div>
+      <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
+        <button onClick={() => setMode("market")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Market
+        </button>
+        <button onClick={() => setMode("community")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Peers
+        </button>
+        <button onClick={() => setMode("trend")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "trend" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Trend
+        </button>
+        <button onClick={() => setMode("network")}
+          className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${mode === "network" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+          Network
+        </button>
+      </div>
+
+      <div className="text-xs text-muted-foreground mt-2">
+        {mode === "market" && "Compare against industry and category benchmarks."}
+        {mode === "community" && "Compare against similar startups by stage, sector, and scale."}
+        {mode === "trend" && "Compare against your own historical performance."}
+        {mode === "network" && "Compare against anonymized companies in this app's founder network."}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
       </div>
 
-      <div className="surface-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">Key Metrics</h3>
-          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
-            <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60 mr-1">CONFIDENCE</span>
-            <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
-            <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
-            <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
-          </div>
+      {/* Financials Section with Outline */}
+      <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-3">
+        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Financials</h2>
+
+        <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
+          <button onClick={() => setPeriod("monthly")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
+          <button onClick={() => setPeriod("annual")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Annual</button>
         </div>
+
+        {/* Top row: MRR/ARR, Growth, Burn */}
         <div className="grid grid-cols-3 gap-4">
-          {defaultMetrics.map((m) => {
-            const metricData: MetricWithConfidence = analysisResult?.metrics?.[m.key] ?? { value: null, confidence: "medium" };
-            return (
-              <MetricCard
-                key={m.label}
-                label={m.label}
-                metricData={metricData}
-                change={m.change}
-                trend={m.trend}
-                onEdit={(val) => onMetricEdit?.(m.key, val)}
-              />
-            );
-          })}
+          {period === "monthly" ? (
+            <>
+              {['MRR', 'MoM Growth', 'Monthly Burn'].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+5%' : idx === 1 ? '+3%' : '+2%'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {['ARR', 'YoY Growth', 'Annual Burn'].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+12%' : idx === 1 ? '+8%' : '+6%'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Unit Economics Section */}
+      <div className="surface-card p-6 space-y-4">
+        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Unit Economics</h2>
+
+        {/* Bottom row: CAC, LTV, Headcount */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'CAC', value: '—', trend: '+5%' },
+            { label: 'LTV', value: '—', trend: '+8%' },
+            { label: 'Headcount', value: '—', trend: '0' }
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg bg-muted/40 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">{metricDescriptions[item.label]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-foreground">{item.value}</span>
+                <span className={`text-xs flex items-center gap-0.5 ${item.trend === '0' ? 'text-muted-foreground' : 'text-success'}`}>
+                  {item.trend !== '0' && <TrendingUp className="h-3 w-3" />} {item.trend}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Confidence legend */}
+        <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/40">
+          <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60">CONFIDENCE</span>
+          <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
+          <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
+          <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
         </div>
       </div>
 

@@ -13,22 +13,25 @@ import { SectorClassification } from "@/components/SectorTags";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorMatch } from "@/components/InvestorMatch";
+import { SectorHeatmapCard } from "@/components/investor-match/IntelligenceCards";
+import { type TimeRange } from "@/components/investor-match/TimeRangeControl";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
+import { type DashboardView, type CompanySubView, COMPANY_SUBTABS } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { HelpCenter } from "@/components/HelpCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { getFaviconUrl } from "@/utils/company-utils";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -67,6 +70,7 @@ const Index = () => {
     return null;
   });
   const [dashboardView, setDashboardView] = useState<DashboardView>("company");
+  const [companySubView, setCompanySubView] = useState<CompanySubView>("health");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
       // If there's a pending company seed, always show the stepper (validation happens in OnboardingStepper's readSeed)
@@ -314,28 +318,58 @@ const Index = () => {
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
           personalCompletion={personalCompletion}
+          dashboardView={dashboardView}
+          onDashboardViewChange={setDashboardView}
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
             <div className="space-y-0">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, network pulse, and company health</p>
+                  <h1 className="text-lg font-medium tracking-tight text-foreground uppercase">Dashboard</h1>
                 </div>
               </div>
 
-              <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
-
               <div className="mt-6 animate-fade-in" key={dashboardView}>
                 {dashboardView === "company" && (
-                  <CompanyView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onMetricEdit={handleMetricEdit}
-                    onNavigateProfile={() => setActiveView("company")}
-                    stageClassification={stageClassification}
-                  />
+                  <div className="space-y-4">
+                    {/* Company Sub-tabs */}
+                    <div className="flex items-center gap-1 border-b border-border">
+                      {COMPANY_SUBTABS.map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setCompanySubView(tab.key)}
+                          className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            companySubView === tab.key
+                              ? "border-foreground text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Company Sub-view Content */}
+                    {companySubView === "health" && (
+                      <CompanyView
+                        companyData={companyData}
+                        analysisResult={analysisResult}
+                        onMetricEdit={handleMetricEdit}
+                        onNavigateProfile={() => setActiveView("company")}
+                        stageClassification={stageClassification}
+                      />
+                    )}
+                    {companySubView === "benchmarks" && (
+                      <CompetitiveBenchmarking
+                        metricTable={analysisResult?.metricTable}
+                        companyData={companyData}
+                        analysisResult={analysisResult}
+                        onScrollToProfile={() => setActiveView("company")}
+                        isLocked={!isProfileVerified}
+                      />
+                    )}
+                  </div>
                 )}
                 {dashboardView === "competitive" && (
                   <CompetitiveView
@@ -347,19 +381,89 @@ const Index = () => {
                 {dashboardView === "industry" && (
                   <IndustryView
                     sector={companyData?.sector}
-                    onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                    onNavigateBenchmarks={() => setDashboardView("benchmarks")}
                     onNavigateProfile={() => setActiveView("company")}
                   />
                 )}
-                {dashboardView === "community" && (
-                  <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
+                {dashboardView === "competitors" && (
+                  <CompetitorsView
+                    companyData={companyData}
+                    onNavigateProfile={() => {
+                      setActiveView("settings");
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("tab", "company");
+                      window.history.replaceState({}, "", url.toString());
+                    }}
+                    onAddCompetitor={(name) => {
+                      if (companyData && !companyData.competitors.includes(name)) {
+                        const updated = { ...companyData, competitors: [...companyData.competitors, name] };
+                        setCompanyData(updated);
+                        try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                      }
+                    }}
+                    onCompetitorsChanged={(names) => {
+                      if (companyData) {
+                        const sorted = [...names].sort();
+                        const current = [...companyData.competitors].sort();
+                        if (JSON.stringify(sorted) !== JSON.stringify(current)) {
+                          const updated = { ...companyData, competitors: names };
+                          setCompanyData(updated);
+                          try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                        }
+                      }
+                    }}
+                  />
+                )}
+                {dashboardView === "sector" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">Sector Intelligence</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Sector intelligence and market positioning</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+                  </div>
+                )}
+                {dashboardView === "benchmarks" && (
+                  <CompetitiveBenchmarking
+                    metricTable={analysisResult?.metricTable}
+                    companyData={companyData}
+                    analysisResult={analysisResult}
+                    onScrollToProfile={() => setActiveView("company")}
+                    isLocked={!isProfileVerified}
+                  />
                 )}
               </div>
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
+          ) : activeView === "market-investors" ? (
+            <MarketIntelligenceInvestors sector={companyData?.sector} stage={companyData?.stage} />
+          ) : activeView === "market-intelligence" || activeView === "market-market" || activeView === "market-tech" || activeView === "market-network" ? (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                  {activeView === "market-market" ? "Market" : activeView === "market-tech" ? "Tech" : activeView === "market-network" ? "Network" : "Market Intelligence"}
+                </h1>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {activeView === "market-market" ? "Market trends and insights" : activeView === "market-tech" ? "Technology landscape" : activeView === "market-network" ? "Network analysis" : "Market trends, competitive landscape, and industry insights"}
+                </p>
+              </div>
+              {(activeView === "market-intelligence" || activeView === "market-market") && (
+                <SectorHeatmapCard sector={companyData?.sector} timeRange={"ytd" as TimeRange} />
+              )}
+            </div>
           ) : activeView === "competitors" ? (
-            <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
+            <CompetitorsView
+              companyData={companyData}
+              onNavigateProfile={() => {
+                setActiveView("settings");
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", "company");
+                window.history.replaceState({}, "", url.toString());
+              }}
+              onAddCompetitor={(name) => {
               if (companyData && !companyData.competitors.includes(name)) {
                 const updated = { ...companyData, competitors: [...companyData.competitors, name] };
                 setCompanyData(updated);
@@ -388,13 +492,7 @@ const Index = () => {
             >
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Investors</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Match, search, and manage investor relationships</p>
               </div>
-              <TabsList className="bg-muted/50">
-                <TabsTrigger value="matches">Matches</TabsTrigger>
-                <TabsTrigger value="search">Search</TabsTrigger>
-                <TabsTrigger value="connections">Connections</TabsTrigger>
-              </TabsList>
               <TabsContent value="matches">
                 <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
               </TabsContent>
@@ -421,10 +519,12 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
-          ) : activeView === "audit" ? (
+          ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "settings" ? (
             <SettingsPage tourEnabled={!showOnboarding && !showTerminal} />
+          ) : activeView === "help" ? (
+            <HelpCenter />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
