@@ -8,15 +8,15 @@ interface TimeRangeControlProps {
 }
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
-  { key: "week", label: "This Week" },
-  { key: "month", label: "This Month" },
-  { key: "quarter", label: "This Quarter" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "quarter", label: "Quarter" },
   { key: "ytd", label: "YTD" },
 ];
 
 export function TimeRangeControl({ value, onChange }: TimeRangeControlProps) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg bg-secondary/60 p-0.5">
+    <div className="flex items-center gap-0.5 rounded-lg bg-secondary/60 p-0.5 whitespace-nowrap">
       {OPTIONS.map((opt) => (
         <button
           key={opt.key}
