@@ -152,6 +152,7 @@ interface HealthDashboardProps {
 
 export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
+  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
 
   const healthData = useMemo(() => buildHealthData(mode, stage, sector), [mode, stage, sector]);
 
@@ -228,27 +229,45 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold tracking-tight text-foreground">Unit Economics</h3>
-            <p className="text-xs text-muted-foreground mt-1">CAC, LTV, and payback metrics</p>
+            <p className="text-xs text-muted-foreground mt-1">Revenue, growth, and unit metrics</p>
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-muted p-1">
-            <button className="rounded-md px-3 py-1.5 text-xs font-medium bg-card text-foreground shadow-sm">Monthly</button>
-            <button className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">Annual</button>
+            <button onClick={() => setPeriod("monthly")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
+            <button onClick={() => setPeriod("annual")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Annual</button>
           </div>
         </div>
 
-        {/* Top row: CAC, LTV, LTV/CAC ratio */}
+        {/* Top row: MRR/ARR, Growth, Burn */}
         <div className="grid grid-cols-3 gap-4">
-          {['CAC', 'LTV', 'LTV/CAC'].map((metric) => (
-            <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-foreground">—</span>
-                <span className="text-xs text-success flex items-center gap-0.5">
-                  <TrendingUp className="h-3 w-3" /> +12%
-                </span>
-              </div>
-            </div>
-          ))}
+          {period === "monthly" ? (
+            <>
+              {['MRR', 'MoM Growth', 'Monthly Burn'].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+5%' : idx === 1 ? '+3%' : '+2%'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {['ARR', 'YoY Growth', 'Annual Burn'].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+12%' : idx === 1 ? '+8%' : '+6%'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Bottom row: CAC, LTV, Headcount */}
