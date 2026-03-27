@@ -228,6 +228,7 @@ export function OnboardingStepper({ onComplete, onSkip }: OnboardingStepperProps
 
   const [shakeStep3, setShakeStep3] = useState(false);
   const [websiteUrlError, setWebsiteUrlError] = useState<string | null>(null);
+  const [websiteGuessConfirmNeeded, setWebsiteGuessConfirmNeeded] = useState(false);
 
   const [aiMetricHighlight, setAiMetricHighlight] = useState({
     stage: false,
@@ -480,14 +481,27 @@ Rules:
     setProcessStep("AI is extracting your vital signs...");
     try {
       let websiteMarkdown = "";
+
+      // Try to scrape website with graceful fallback
       if (website.trim()) {
-        const { data } = await supabase.functions.invoke("scrape-website", {
-          body: { url: website.trim() },
-        });
-        websiteMarkdown = data?.markdown || "";
+        try {
+          const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
+            body: { url: website.trim() },
+          });
+
+          if (scrapeError) {
+            console.warn("Website scrape failed, continuing without web data:", scrapeError);
+            // Continue without website data - this is not fatal
+          } else {
+            websiteMarkdown = data?.markdown || "";
+          }
+        } catch (scrapeErr) {
+          console.warn("Website scrape error, continuing without web data:", scrapeErr);
+          // Continue without website data - this is not fatal
+        }
       }
 
-      // Skip AI analysis if there's no content to analyze
+      // Fallback: if no content to analyze, create empty result and proceed
       if (!websiteMarkdown && !deckText) {
         setAnalysisResult({
           healthScore: 0,
@@ -510,46 +524,136 @@ Rules:
         return;
       }
 
-      const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
-        body: { websiteText: websiteMarkdown, deckText, companyName, stage, sector },
-      });
-      if (analysisError) throw analysisError;
-      if (analysisData?.error) throw new Error(analysisData.error);
+      // Try analysis with available content
+      try {
+        const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
+          body: { websiteText: websiteMarkdown, deckText, companyName, stage, sector },
+        });
 
-      setAnalysisResult(analysisData as AnalysisResult);
+        if (analysisError) {
+          console.warn("Analysis error, using fallback result:", analysisError);
+          // Fallback to empty result on analysis failure
+          setAnalysisResult({
+            healthScore: 0,
+            executiveSummary: "",
+            header: "",
+            valueProposition: "",
+            metricTable: [],
+            metrics: {
+              mrr: { value: "", confidence: "low" },
+              burnRate: { value: "", confidence: "low" },
+              runway: { value: "", confidence: "low" },
+              ltv: { value: "", confidence: "low" },
+              cac: { value: "", confidence: "low" },
+            },
+            scrapedHeader: "",
+            scrapedValueProp: "",
+            scrapedPricing: "",
+          } as AnalysisResult);
+          setStep(3);
+          return;
+        }
 
-      // Normalize and apply sector from AI
-      const normalized = normalizeSector(
-        analysisData?.aiExtracted?.sector || analysisData?.sectorMapping?.sector,
-        analysisData?.sectorMapping?.subTag,
-        analysisData?.sectorMapping?.keywords
-      );
-      if (normalized.sector) {
-        setSector(normalized.sector);
-        console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
+        if (analysisData?.error) {
+          console.warn("Analysis returned error, using fallback result:", analysisData.error);
+          // Fallback to empty result on analysis failure
+          setAnalysisResult({
+            healthScore: 0,
+            executiveSummary: "",
+            header: "",
+            valueProposition: "",
+            metricTable: [],
+            metrics: {
+              mrr: { value: "", confidence: "low" },
+              burnRate: { value: "", confidence: "low" },
+              runway: { value: "", confidence: "low" },
+              ltv: { value: "", confidence: "low" },
+              cac: { value: "", confidence: "low" },
+            },
+            scrapedHeader: "",
+            scrapedValueProp: "",
+            scrapedPricing: "",
+          } as AnalysisResult);
+          setStep(3);
+          return;
+        }
+
+        setAnalysisResult(analysisData as AnalysisResult);
+
+        // Normalize and apply sector from AI
+        const normalized = normalizeSector(
+          analysisData?.aiExtracted?.sector || analysisData?.sectorMapping?.sector,
+          analysisData?.sectorMapping?.subTag,
+          analysisData?.sectorMapping?.keywords
+        );
+        if (normalized.sector) {
+          setSector(normalized.sector);
+          console.log(`[Onboarding] Sector normalized: "${normalized.sector}" from AI raw: "${analysisData?.aiExtracted?.sector}"`);
+        }
+
+        // Pre-fill confirmed values (sanitize nulls); purple until user edits
+        const mrrVal = analysisData?.metrics?.mrr?.value;
+        if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
+        const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
+        if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
+        const burnVal = analysisData?.metrics?.burnRate?.value;
+        if (burnVal && burnVal !== "null") setBurnRate(burnVal);
+        const momVal = analysisData?.aiExtracted?.momGrowth;
+        if (momVal && momVal !== "null") setMomGrowth(momVal);
+
+        setAiMetricHighlight((h) => ({
+          ...h,
+          ...(normalized.sector ? { sector: true } : {}),
+          ...(mrrVal && mrrVal !== "null" ? { mrr: true } : {}),
+          ...(headcountVal && headcountVal !== "null" ? { headcount: true } : {}),
+          ...(burnVal && burnVal !== "null" ? { burnRate: true } : {}),
+          ...(momVal && momVal !== "null" ? { momGrowth: true } : {}),
+        }));
+        setStep(3);
+      } catch (analysisErr) {
+        console.warn("Analysis failed with exception, using fallback result:", analysisErr);
+        // Fallback to empty result on analysis failure
+        setAnalysisResult({
+          healthScore: 0,
+          executiveSummary: "",
+          header: "",
+          valueProposition: "",
+          metricTable: [],
+          metrics: {
+            mrr: { value: "", confidence: "low" },
+            burnRate: { value: "", confidence: "low" },
+            runway: { value: "", confidence: "low" },
+            ltv: { value: "", confidence: "low" },
+            cac: { value: "", confidence: "low" },
+          },
+          scrapedHeader: "",
+          scrapedValueProp: "",
+          scrapedPricing: "",
+        } as AnalysisResult);
+        setStep(3);
       }
-
-      // Pre-fill confirmed values (sanitize nulls); purple until user edits
-      const mrrVal = analysisData?.metrics?.mrr?.value;
-      if (mrrVal && mrrVal !== "null") setMrr(mrrVal);
-      const headcountVal = analysisData?.aiExtracted?.totalHeadcount;
-      if (headcountVal && headcountVal !== "null") setHeadcount(headcountVal);
-      const burnVal = analysisData?.metrics?.burnRate?.value;
-      if (burnVal && burnVal !== "null") setBurnRate(burnVal);
-      const momVal = analysisData?.aiExtracted?.momGrowth;
-      if (momVal && momVal !== "null") setMomGrowth(momVal);
-
-      setAiMetricHighlight((h) => ({
-        ...h,
-        ...(normalized.sector ? { sector: true } : {}),
-        ...(mrrVal && mrrVal !== "null" ? { mrr: true } : {}),
-        ...(headcountVal && headcountVal !== "null" ? { headcount: true } : {}),
-        ...(burnVal && burnVal !== "null" ? { burnRate: true } : {}),
-        ...(momVal && momVal !== "null" ? { momGrowth: true } : {}),
-      }));
-      setStep(3);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Analysis failed");
+      console.error("Unexpected error in analysis:", e);
+      setError("We encountered an issue processing your data. You can still continue and complete your profile manually.");
+      // Allow proceeding to step 3 anyway
+      setAnalysisResult({
+        healthScore: 0,
+        executiveSummary: "",
+        header: "",
+        valueProposition: "",
+        metricTable: [],
+        metrics: {
+          mrr: { value: "", confidence: "low" },
+          burnRate: { value: "", confidence: "low" },
+          runway: { value: "", confidence: "low" },
+          ltv: { value: "", confidence: "low" },
+          cac: { value: "", confidence: "low" },
+        },
+        scrapedHeader: "",
+        scrapedValueProp: "",
+        scrapedPricing: "",
+      } as AnalysisResult);
+      setStep(3);
     } finally {
       setIsProcessing(false);
       setProcessStep("");
@@ -690,6 +794,7 @@ Rules:
                       onChange={(e) => {
                         setWebsite(e.target.value);
                         setWebsiteUrlError(null);
+                        setWebsiteGuessConfirmNeeded(false);
                         websiteGuessAttemptedForRef.current = null;
                         setAiGuessedFields((prev) => prev.filter((f) => f !== "websiteUrl"));
                       }}
@@ -713,6 +818,15 @@ Rules:
                       <p className="text-xs text-destructive" role="alert">
                         {websiteUrlError}
                       </p>
+                    ) : websiteGuessConfirmNeeded ? (
+                      <div className="rounded-lg bg-accent/10 border border-accent/20 p-3 space-y-2">
+                        <p className="text-xs font-medium text-foreground">
+                          Did we guess your website correctly?
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          We auto-detected <span className="font-mono text-accent">{website}</span> based on your company name. Edit it above if needed, then continue.
+                        </p>
+                      </div>
                     ) : (
                       <p className="text-[10px] text-muted-foreground">
                         We'll scan your site for value prop, pricing, and positioning
@@ -868,7 +982,7 @@ Rules:
                        </span>
                      </div>
                    )}
-                   {analysisResult?.healthScore && (
+                   {analysisResult?.healthScore && analysisResult.healthScore > 0 && (
                      <div className="flex items-center gap-3 rounded-lg bg-success/5 border border-success/20 px-4 py-3">
                        <Check className="h-4 w-4 text-success" />
                        <span className="text-xs text-foreground">Health Score: <strong>{analysisResult.healthScore}/100</strong></span>
@@ -878,8 +992,19 @@ Rules:
               )}
 
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-xs text-destructive">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {(step === 2 || step === 3) && (
+                    <button
+                      onClick={() => { setError(null); setStep(3); }}
+                      className="ml-2 font-semibold hover:underline whitespace-nowrap"
+                    >
+                      Continue
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -901,6 +1026,12 @@ Rules:
                       return;
                     }
                     setWebsiteUrlError(null);
+                    // If website was AI-guessed and not manually edited, ask for confirmation
+                    if (aiGuessedFields.includes("websiteUrl") && !websiteGuessConfirmNeeded) {
+                      setWebsiteGuessConfirmNeeded(true);
+                      return;
+                    }
+                    setWebsiteGuessConfirmNeeded(false);
                     scrapeWebsite();
                   }}>
                     {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}

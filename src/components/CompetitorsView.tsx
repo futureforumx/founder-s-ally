@@ -136,10 +136,10 @@ function faviconSrc(input: string): string {
   return getFaviconUrl(input, 128);
 }
 
-function statusColor(status: string): string {
-  if (status === "Direct Competitor") return "bg-destructive/10 text-destructive";
-  if (status === "Indirect") return "bg-warning/10 text-warning";
-  return "bg-muted text-muted-foreground";
+function statusColorVariant(status: string): "destructive" | "warning" | "muted" {
+  if (status === "Direct Competitor") return "destructive";
+  if (status === "Indirect") return "warning";
+  return "muted";
 }
 
 // ── Battlecard Panel ──
@@ -503,7 +503,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
   const [newCompIntent, setNewCompIntent] = useState<"Threat" | "Watch">("Threat");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [enriching, setEnriching] = useState(false);
-  const [seeded, setSeeded] = useState(false);
+  const [syncedCompetitors, setSyncedCompetitors] = useState<Set<string>>(new Set());
 
   const {
     competitors: dbCompetitors,
@@ -515,23 +515,33 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     removeCompetitor,
   } = useCompetitors();
 
-  // Seed DB from companyData.competitors on first load (one-time sync)
+  // Sync companyData.competitors to DB whenever they change (one-time per unique competitor)
   useEffect(() => {
-    if (seeded || dbLoading) return;
+    if (dbLoading) return;
+
     const profileComps = companyData?.competitors || [];
-    if (profileComps.length === 0 || dbCompetitors.length > 0) {
-      setSeeded(true);
-      return;
+    if (profileComps.length === 0) return;
+
+    const dbCompNames = new Set(dbCompetitors.map(tc => tc.competitor.name.toLowerCase()));
+
+    // Find competitors in profile that aren't in DB and haven't been synced yet
+    const newComps = profileComps.filter(
+      name => !dbCompNames.has(name.toLowerCase()) && !syncedCompetitors.has(name.toLowerCase())
+    );
+
+    // Add missing competitors to DB
+    if (newComps.length > 0) {
+      const syncAsync = async () => {
+        for (const name of newComps) {
+          const result = await dbAddCompetitor(name);
+          if (result) {
+            setSyncedCompetitors(prev => new Set(prev).add(name.toLowerCase()));
+          }
+        }
+      };
+      syncAsync();
     }
-    // Profile has competitors but DB is empty — seed them
-    const seedAsync = async () => {
-      for (const name of profileComps) {
-        await dbAddCompetitor(name);
-      }
-      setSeeded(true);
-    };
-    seedAsync();
-  }, [seeded, dbLoading, companyData?.competitors, dbCompetitors.length, dbAddCompetitor]);
+  }, [companyData?.competitors, dbCompetitors, dbLoading, dbAddCompetitor, syncedCompetitors]);
 
   // Sync DB competitors back to companyData whenever they change
   useEffect(() => {
@@ -622,8 +632,18 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
           <p className="text-xs text-muted-foreground max-w-sm mb-4">
             Add competitors in your company profile to generate AI battlecards.
           </p>
-          <button onClick={onNavigateProfile} className="text-xs font-medium text-accent hover:text-accent/80 transition-colors">
-            Go to Mission Control →
+          <button
+            onClick={() => {
+              // Store flag in localStorage to trigger highlight when CompanyProfile mounts
+              try {
+                localStorage.setItem("scroll-to-competitors-on-mount", "true");
+              } catch {}
+              // Navigate to company profile settings
+              onNavigateProfile();
+            }}
+            className="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+          >
+            Add to your company profile →
           </button>
         </div>
       </div>
@@ -641,7 +661,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               {competitors.length} competitor{competitors.length !== 1 ? "s" : ""} tracked · Click a card for the full battlecard
             </p>
           </div>
-          <Badge variant="secondary" className="text-[10px] font-normal gap-1">
+          <Badge variant="secondary" className="gap-1">
             <Sparkles className="h-2.5 w-2.5" />
             AI-Enriched
           </Badge>

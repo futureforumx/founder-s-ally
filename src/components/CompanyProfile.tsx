@@ -371,6 +371,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-load favicon when form website is set and favicon hasn't been loaded yet
+  useEffect(() => {
+    // Only auto-load if we don't have a favicon URL yet
+    if (form.website && !faviconUrl) {
+      const domain = extractDomain(form.website);
+      if (domain) {
+        const fav = faviconSrc(domain);
+        setFaviconUrl(fav);
+        setFaviconLoaded(false);
+        // Try to preload it
+        const img = new Image();
+        img.onload = () => setFaviconLoaded(true);
+        img.onerror = () => {
+          // Try fallback favicon service if primary fails
+          setFaviconUrl(`https://www.google.com/s2/favicons?domain=${domain}&sz=32`);
+          setFaviconLoaded(false);
+        };
+        img.src = fav;
+      }
+    }
+  }, [form.website, faviconUrl]); // Watch form.website changes
+
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
       const saved = localStorage.getItem("company-profile-touched");
@@ -437,6 +459,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [highlightCompetitors, setHighlightCompetitors] = useState(false);
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("company-verified-fields");
@@ -510,6 +533,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [overviewValidationErrors, setOverviewValidationErrors] = useState<Set<string>>(new Set());
   const validationPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [overviewApproveLabel, setOverviewApproveLabel] = useState<string | null>(null);
+  const [socialLinksMessage, setSocialLinksMessage] = useState<string>("");
 
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
@@ -684,6 +708,38 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     window.addEventListener("mission-navigate-field", handler);
     return () => window.removeEventListener("mission-navigate-field", handler);
   }, [isInReviewMode]);
+
+  // Check localStorage on mount and scroll to competitors field if needed
+  useEffect(() => {
+    try {
+      const shouldScroll = localStorage.getItem("scroll-to-competitors-on-mount");
+      if (shouldScroll === "true") {
+        // Clear the flag
+        localStorage.removeItem("scroll-to-competitors-on-mount");
+
+        // Open the positioning section
+        setOpenSections(prev => ({ ...prev, positioning: true }));
+
+        // Highlight the competitors field
+        setHighlightCompetitors(true);
+
+        // Scroll to the competitors field with a slight delay to allow DOM to render
+        setTimeout(() => {
+          const element = document.getElementById("competitors-field");
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 300);
+
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          setHighlightCompetitors(false);
+        }, 2300);
+      }
+    } catch (e) {
+      console.warn("Failed to check scroll-to-competitors flag:", e);
+    }
+  }, []);
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -1305,6 +1361,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           setOverviewApproveLabel(null);
         }, 2000);
         return; // Do NOT approve
+      }
+    }
+
+    // Validation for social links
+    if (section === "social") {
+      const hasSocialLinks = form.socialTwitter || form.socialLinkedin || form.socialInstagram;
+      if (!hasSocialLinks) {
+        setSocialLinksMessage("Social profiles help us scan for competitors, customers, and keep you updated.");
+        return; // Do NOT approve
+      } else {
+        // Clear message when confirming with valid social links
+        setSocialLinksMessage("");
       }
     }
 
@@ -2077,7 +2145,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
 
               {/* Competitors */}
-              <div className="space-y-1.5">
+              <div
+                id="competitors-field"
+                className={`space-y-1.5 scroll-mt-32 transition-all duration-300 rounded-lg p-4 -mx-4 ${
+                  highlightCompetitors
+                    ? "bg-accent/10 border-2 border-accent/50 shadow-lg shadow-accent/20"
+                    : "hover:bg-muted/40"
+                }`}
+              >
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   Direct Competitors {renderFieldBadge("competitors")}
                 </label>
@@ -2449,6 +2524,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         />
                       </div>
                     </div>
+
+                    {/* Social Links Message */}
+                    {socialLinksMessage && (
+                      <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <p className="text-[11px] text-orange-900">{socialLinksMessage}</p>
+                      </div>
+                    )}
 
                     {/* Approve button */}
                     {analysisComplete && !confirmed && (

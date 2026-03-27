@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -38,6 +38,8 @@ interface GlobalTopNavProps {
   userStage?: string | null;
   profileCompletion?: number;
   personalCompletion?: number;
+  dashboardView?: "company" | "competitive" | "industry" | "competitors" | "sector";
+  onDashboardViewChange?: (view: "company" | "competitive" | "industry" | "competitors" | "sector") => void;
 }
 
 // ── View metadata for breadcrumbs ──
@@ -109,6 +111,12 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "events", label: "Events" },
   ]},
   messages: { section: "Community", label: "Messages" },
+  "market-intelligence": { section: "Market Intelligence", label: "Market Intelligence" },
+  "market-investors": { section: "Market Intelligence", label: "Investors" },
+  "market-market": { section: "Market Intelligence", label: "Market" },
+  "market-tech": { section: "Market Intelligence", label: "Tech" },
+  "market-network": { section: "Market Intelligence", label: "Network" },
+  "data-room": { section: "Data Room", label: "Deck Audit" },
   settings: { section: "Settings", label: "Settings" },
 };
 
@@ -202,6 +210,8 @@ export function GlobalTopNav({
   userStage,
   profileCompletion = 0,
   personalCompletion = 0,
+  dashboardView = "company",
+  onDashboardViewChange,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -278,6 +288,7 @@ export function GlobalTopNav({
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
+  const isCommunityArea = ["directory", "groups", "events"].includes(activeView);
   const PulseIcon = pulse.icon;
   const suggestions = getContextSuggestions(activeView, userSector, userStage);
 
@@ -303,7 +314,7 @@ export function GlobalTopNav({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* ── Left: Pulse ── */}
         <div className="flex min-w-0 shrink-0 items-center gap-2.5">
-          {isInvestorArea ? (
+          {(isInvestorArea || isCommunityArea) ? (
             <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
@@ -323,21 +334,27 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Search ── */}
-        <div ref={searchRef} className="relative min-w-[220px] flex-1 max-w-4xl">
+        <div ref={searchRef} className={cn("relative transition-all duration-300", searchOpen ? "min-w-[220px] flex-1 max-w-4xl" : "")}>
           <button
             onClick={handleSearchClick}
             className={cn(
-              "group flex h-9 w-full cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
-              searchOpen ? "border-accent/40 bg-muted/50 shadow-sm" : "border-border/50 hover:border-border"
+              "group flex h-9 cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
+              searchOpen
+                ? "w-full border-accent/40 bg-muted/50 shadow-sm"
+                : "w-9 border-border/50 hover:border-border justify-center"
             )}
           >
             <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
-            <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
-              Search...
-            </span>
-            <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
-              ⌘K
-            </kbd>
+            {searchOpen && (
+              <>
+                <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
+                  Search...
+                </span>
+                <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
+                  ⌘K
+                </kbd>
+              </>
+            )}
           </button>
 
           {searchOpen && (
@@ -410,13 +427,346 @@ export function GlobalTopNav({
             </div>
           )}
         </div>
+
+        {/* ── Investor Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["investors", "investor-search", "connections"].includes(activeView) && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "matches", label: "Matches" },
+                { id: "search", label: "All" },
+                { id: "connections", label: "Connections" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === "matches") onViewChange?.("investors");
+                    else if (tab.id === "search") onViewChange?.("investor-search");
+                    else if (tab.id === "connections") onViewChange?.("connections");
+                  }}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === "investors" && tab.id === "matches" ||
+                    activeView === "investor-search" && tab.id === "search" ||
+                    activeView === "connections" && tab.id === "connections"
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {activeView === "investors" ? "Matches" : activeView === "investor-search" ? "All" : "Connections"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("investors")}
+                    className={cn(activeView === "investors" && "bg-accent/10 text-accent")}
+                  >
+                    Matches
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("investor-search")}
+                    className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
+                  >
+                    Search
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("connections")}
+                    className={cn(activeView === "connections" && "bg-accent/10 text-accent")}
+                  >
+                    Connections
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Network Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["directory", "groups", "events"].includes(activeView) && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "directory", label: "Directory" },
+                { id: "groups", label: "Groups" },
+                { id: "events", label: "Events" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onViewChange?.(tab.id as ViewType)}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === tab.id
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {activeView === "directory" ? "Directory" : activeView === "groups" ? "Groups" : "Events"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("directory")}
+                    className={cn(activeView === "directory" && "bg-accent/10 text-accent")}
+                  >
+                    Directory
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("groups")}
+                    className={cn(activeView === "groups" && "bg-accent/10 text-accent")}
+                  >
+                    Groups
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("events")}
+                    className={cn(activeView === "events" && "bg-accent/10 text-accent")}
+                  >
+                    Events
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Data Room Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && activeView === "data-room" && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "audit", label: "Deck Audit" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === "audit") onViewChange?.("data-room");
+                  }}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === "data-room" && tab.id === "audit"
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">Deck Audit</span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("data-room")}
+                    className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
+                  >
+                    Deck Audit
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "market-investors", label: "Investors" },
+                { id: "market-market", label: "Market" },
+                { id: "market-tech", label: "Tech" },
+                { id: "market-network", label: "Network" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onViewChange?.(tab.id as ViewType)}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === tab.id
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {activeView === "market-investors" ? "Investors" : activeView === "market-market" ? "Market" : activeView === "market-tech" ? "Tech" : activeView === "market-network" ? "Network" : "Market Intelligence"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-investors")}
+                    className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
+                  >
+                    Investors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-market")}
+                    className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
+                  >
+                    Market
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-tech")}
+                    className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
+                  >
+                    Tech
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("market-network")}
+                    className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
+                  >
+                    Network
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Dashboard Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && activeView === "dashboard" && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "company", label: "Company" },
+                { id: "industry", label: "Industry" },
+                { id: "competitive", label: "Competitive" },
+                { id: "competitors", label: "Competitors" },
+                { id: "sector", label: "Sector" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onDashboardViewChange?.(tab.id as any)}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    dashboardView === tab.id
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">
+                      {dashboardView === "company" ? "Company" : dashboardView === "industry" ? "Industry" : dashboardView === "competitive" ? "Competitive" : dashboardView === "competitors" ? "Competitors" : "Sector"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-40">
+                  <DropdownMenuItem
+                    onClick={() => onDashboardViewChange?.("company")}
+                    className={cn(dashboardView === "company" && "bg-accent/10 text-accent")}
+                  >
+                    Company
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDashboardViewChange?.("industry")}
+                    className={cn(dashboardView === "industry" && "bg-accent/10 text-accent")}
+                  >
+                    Industry
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDashboardViewChange?.("competitive")}
+                    className={cn(dashboardView === "competitive" && "bg-accent/10 text-accent")}
+                  >
+                    Competitive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDashboardViewChange?.("competitors")}
+                    className={cn(dashboardView === "competitors" && "bg-accent/10 text-accent")}
+                  >
+                    Competitors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDashboardViewChange?.("sector")}
+                    className={cn(dashboardView === "sector" && "bg-accent/10 text-accent")}
+                  >
+                    Sector
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
         <div className="h-4 w-px shrink-0 bg-border/40" />
 
         <TooltipProvider delayDuration={200}>
-          <div className="flex shrink-0 items-center gap-4">
+          <div className="hidden md:flex shrink-0 items-center gap-4">
             {(() => {
               const locked = profileCompletion < 100;
               const views = 12;
@@ -460,7 +810,7 @@ export function GlobalTopNav({
           </div>
         </TooltipProvider>
 
-        <div className="h-4 w-px shrink-0 bg-border/40" />
+        <div className="hidden md:block h-4 w-px shrink-0 bg-border/40" />
 
         {autosaveStatus !== "idle" && (
           <TooltipProvider delayDuration={200}>
@@ -502,7 +852,10 @@ export function GlobalTopNav({
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              <button
+                onClick={() => onViewChange?.("help")}
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-pointer"
+              >
                 <CircleHelp className="h-4 w-4" />
               </button>
             </TooltipTrigger>

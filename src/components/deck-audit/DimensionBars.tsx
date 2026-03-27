@@ -64,10 +64,10 @@ export function DimensionBars({ scores }: DimensionBarsProps) {
                 <span className="text-xs font-semibold text-foreground w-[140px] text-left shrink-0 truncate">
                   {dim.label}
                 </span>
-                <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
-                    className={cn("h-full rounded-full transition-all duration-700 ease-out", getBarColor(dim.score))}
-                    style={{ width: `${dim.score}%` }}
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{ width: `${dim.score}%`, backgroundColor: dim.score >= 70 ? "hsl(var(--success))" : dim.score >= 50 ? "hsl(38, 92%, 50%)" : "hsl(var(--destructive))" }}
                   />
                 </div>
                 <span className={cn("text-xs font-mono font-bold tabular-nums w-8 text-right shrink-0", getTextColor(dim.score))}>
