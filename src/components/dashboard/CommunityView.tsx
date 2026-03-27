@@ -943,15 +943,15 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/60" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
                   </div>
-                  <div className="text-left leading-none">
-                    <span className="text-[9px] text-amber-700/60 font-bold uppercase tracking-wider block mb-0.5">Open to</span>
-                    <span className="text-[10px] font-black text-amber-900 uppercase tracking-tight flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold whitespace-nowrap">
+                    <span className="text-amber-800/40 uppercase tracking-wide text-[9px]">Open to</span>
+                    <span className="text-amber-900 uppercase tracking-tight text-[10px] font-black">
                       {userStatuses.length > 1 
                         ? `${userStatuses[0].replace("_", " ")} +${userStatuses.length - 1}`
                         : userStatuses[0]?.replace("_", " ") || "STATUS"
                       }
-                      <ChevronDown className="h-3 w-3 text-amber-700/60 group-hover:text-amber-600 transition-colors" />
                     </span>
+                    <ChevronDown className="h-3 w-3 text-amber-700/50" />
                   </div>
                 </button>
               </DropdownMenuTrigger>
