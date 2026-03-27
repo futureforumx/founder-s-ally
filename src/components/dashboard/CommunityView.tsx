@@ -822,7 +822,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       case "recent":
         return { title: "Recently Added", subtitle: "Newest additions to the directory" };
       default:
-        return { title: "All Investors", subtitle: "The complete investor directory" };
+        return { title: "Complete Network", subtitle: "The complete ecosystem network" };
     }
   }, [activeInvestorTab, userStage, userSector]);
 
@@ -912,7 +912,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         {variant !== "investor-search" && (
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Investor Directory
+            Network
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
         </div>
