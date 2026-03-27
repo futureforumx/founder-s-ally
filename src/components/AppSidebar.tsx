@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -96,6 +96,17 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             )}>
             <Users className="h-4 w-4" />
             Network
+          </button>
+          <button
+            onClick={() => onViewChange("data-room")}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+              activeView === "data-room"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}>
+            <FileText className="h-4 w-4" />
+            Data Room
           </button>
         </nav>
 
