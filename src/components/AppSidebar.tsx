@@ -59,6 +59,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               {item.label}
             </button>
           )}
+          <div className="px-3 py-1.5 mt-3 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/50">Market Intelligence</div>
           <button
             onClick={() => onViewChange("investors")}
             className={cn(
