@@ -24,6 +24,7 @@ const clerkKey = readClerkPublishableKey();
 
 const showLiveKeyOnLocalhostWarning =
   import.meta.env.DEV && Boolean(clerkKey?.startsWith("pk_live_"));
+const shouldMountClerk = Boolean(clerkKey) && !showLiveKeyOnLocalhostWarning;
 
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
@@ -32,34 +33,23 @@ if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   );
 }
 
-const appTree = clerkKey ? (
+const appTree = shouldMountClerk ? (
   <div className="flex min-h-screen flex-col">
-    {showLiveKeyOnLocalhostWarning ? (
-      <div
-        role="status"
-        className="shrink-0 border-b border-amber-300/80 bg-amber-50 px-4 py-3 text-center text-[13px] leading-snug text-amber-950"
-      >
-        <strong className="font-semibold">Local dev:</strong> Clerk <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_live_</code>{" "}
-        keys cannot be used on localhost (no allowlist will fix this). In{" "}
-        <a
-          href="https://dashboard.clerk.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium underline underline-offset-2"
-        >
-          Clerk Dashboard
-        </a>
-        , switch to the <strong>Development</strong> instance → API Keys → copy the{" "}
-        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_test_…</code> publishable key into{" "}
-        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">.env.local</code> and restart Vite. Use{" "}
-        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_live_</code> only on your real production URL.
-      </div>
-    ) : null}
     <div className="min-h-0 flex-1">
       <ClerkProvider publishableKey={clerkKey}>
         <App />
       </ClerkProvider>
     </div>
+  </div>
+) : showLiveKeyOnLocalhostWarning ? (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
+    <p className="text-sm font-medium text-zinc-900">Clerk key mismatch for localhost</p>
+    <p className="max-w-lg text-sm text-zinc-600">
+      You are running locally with a production Clerk publishable key. Use a Development key (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code>, then restart Vite.
+    </p>
+    <p className="max-w-lg text-xs text-zinc-500">
+      This avoids runtime crashes in local development. Keep <code className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono text-xs">pk_live_…</code> only for the deployed production domain.
+    </p>
   </div>
 ) : (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">

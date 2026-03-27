@@ -25,6 +25,8 @@ interface StepIdentityProps {
   onNext: () => void;
 }
 
+type SocialReachabilityState = "idle" | "syncing" | "verified" | "invalid" | "uncertain";
+
 const USER_TYPES = [
   { id: "founder", label: "Founder", icon: Users, desc: "building a startup." },
   { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startup." },
@@ -36,8 +38,10 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
-  const [xSyncing, setXSyncing] = useState(false);
-  const [xVerified, setXVerified] = useState(false);
+  const [linkedinReachability, setLinkedinReachability] = useState<SocialReachabilityState>("idle");
+  const [xReachability, setXReachability] = useState<SocialReachabilityState>("idle");
+  const [linkedinValidationMessage, setLinkedinValidationMessage] = useState<string>("");
+  const [xValidationMessage, setXValidationMessage] = useState<string>("");
   const [socialShake, setSocialShake] = useState(false);
   const [showSocialHint, setShowSocialHint] = useState(false);
 
@@ -184,9 +188,48 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     }
   };
 
+  const validateSocialReachability = useCallback(async (
+    platform: "linkedin" | "x",
+    rawValue: string,
+    setState: (state: SocialReachabilityState) => void,
+    setMessage: (message: string) => void,
+  ) => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      setState("idle");
+      setMessage("");
+      return;
+    }
+
+    setState("syncing");
+    setMessage("");
+
+    const { data, error } = await supabase.functions.invoke("validate-social-profile", {
+      body: { url: trimmed, platform },
+    });
+
+    if (error || !data?.status) {
+      setState("uncertain");
+      setMessage("We couldn't confirm this profile. Enter the real username or profile URL and try again.");
+      return;
+    }
+
+    if (data.status === "reachable") {
+      setState("verified");
+      setMessage("");
+      return;
+    }
+    if (data.status === "unreachable") {
+      setState("invalid");
+      setMessage(data.reason || "This profile URL appears invalid or does not exist. Input the real username and try again.");
+      return;
+    }
+    setState("uncertain");
+    setMessage(data.reason || "This platform blocked validation. Input the real username and try again, or override if you know the link is correct.");
+  }, []);
+
   const enrichXProfile = async (twitterUrl: string) => {
     if (!twitterUrl.trim()) return;
-    setXSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("sync-x-profile", {
         body: { twitterUrl },
@@ -203,20 +246,10 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       if (xData.location && !state.location.trim()) updates.location = xData.location;
       if (xData.avatar_url && !state.avatarUrl) updates.avatarUrl = xData.avatar_url;
       if (Object.keys(updates).length > 0) update(updates);
-      setXVerified(true);
       toast({ title: "X profile enriched successfully" });
     } catch {
       toast({ title: "X enrichment skipped", description: "Please fill bio manually." });
-    } finally {
-      setXSyncing(false);
     }
-  };
-
-  const handleEnrichX = async () => {
-    const formatted = formatSocialUrl("x", xUrl);
-    setXUrl(formatted);
-    update({ twitterUrl: formatted });
-    await enrichXProfile(formatted);
   };
 
   // Sync fullName from firstName + lastName
@@ -379,27 +412,65 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                       platform="linkedin"
                       label="LinkedIn"
                       value={url}
-                      onChange={(v) => { setUrl(v); if (showSocialHint) setShowSocialHint(false); }}
-                      onBlur={() => {
+                      onChange={(v) => {
+                        setUrl(v);
+                        if (!v.trim()) {
+                          setLinkedinReachability("idle");
+                          setLinkedinValidationMessage("");
+                        }
+                        if (showSocialHint) setShowSocialHint(false);
+                      }}
+                      onBlur={async () => {
                         const formatted = formatSocialUrl("linkedin_personal", url);
                         if (formatted !== url) setUrl(formatted);
                         update({ linkedinUrl: formatted });
+                        await validateSocialReachability("linkedin", formatted, setLinkedinReachability, setLinkedinValidationMessage);
                       }}
-                      verifyState="idle"
+                      verifyState={linkedinReachability}
+                      verifyMessage={linkedinValidationMessage}
+                      onVerify={async () => {
+                        const formatted = formatSocialUrl("linkedin_personal", url);
+                        if (formatted !== url) setUrl(formatted);
+                        update({ linkedinUrl: formatted });
+                        await validateSocialReachability("linkedin", formatted, setLinkedinReachability, setLinkedinValidationMessage);
+                      }}
+                      onOverride={() => {
+                        setLinkedinReachability("idle");
+                        setLinkedinValidationMessage("");
+                      }}
+                      verifyLabel="Check"
                     />
                     <MorphingUrlInput
                       platform="x"
                       label="X / Twitter"
                       value={xUrl}
-                      onChange={(v) => { setXUrl(v); if (showSocialHint) setShowSocialHint(false); }}
-                      onBlur={() => {
+                      onChange={(v) => {
+                        setXUrl(v);
+                        if (!v.trim()) {
+                          setXReachability("idle");
+                          setXValidationMessage("");
+                        }
+                        if (showSocialHint) setShowSocialHint(false);
+                      }}
+                      onBlur={async () => {
                         const formatted = formatSocialUrl("x", xUrl);
                         if (formatted !== xUrl) setXUrl(formatted);
                         update({ twitterUrl: formatted });
+                        await validateSocialReachability("x", formatted, setXReachability, setXValidationMessage);
                       }}
-                      verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                      onVerify={handleEnrichX}
-                      verifyLabel="Enrich"
+                      verifyState={xReachability}
+                      verifyMessage={xValidationMessage}
+                      onVerify={async () => {
+                        const formatted = formatSocialUrl("x", xUrl);
+                        if (formatted !== xUrl) setXUrl(formatted);
+                        update({ twitterUrl: formatted });
+                        await validateSocialReachability("x", formatted, setXReachability, setXValidationMessage);
+                      }}
+                      onOverride={() => {
+                        setXReachability("idle");
+                        setXValidationMessage("");
+                      }}
+                      verifyLabel="Check"
                     />
                   </div>
 

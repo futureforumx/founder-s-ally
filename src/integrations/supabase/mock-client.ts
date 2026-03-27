@@ -61,36 +61,33 @@ class MockSupabaseClient {
   // Database mock
   from(table: string) {
     const self = this;
-    const queryData = this.getData(table);
     let patchData: any = null;
     let filters: { key: string; value: any }[] = [];
+    let mutation:
+      | null
+      | { type: "insert"; rows: any[] }
+      | { type: "upsert"; rows: any[] }
+      | { type: "delete" }
+      | { type: "update"; patch: any } = null;
 
     const chain = {
       select: (str?: string) => chain,
-      insert: async (row: any) => {
-        const rows = Array.isArray(row) ? row : [row];
-        const newRows = rows.map(r => ({ 
-          id: Math.random().toString(36).substring(7), 
-          created_at: new Date().toISOString(),
-          ...r 
-        }));
-        const updated = [...self.getData(table), ...newRows];
-        self.setData(table, updated);
-        return { data: Array.isArray(row) ? newRows : newRows[0], error: null };
+      insert: (row: any) => {
+        mutation = { type: "insert", rows: Array.isArray(row) ? row : [row] };
+        return chain;
       },
       update: (patch: any) => {
         patchData = patch;
+        mutation = { type: "update", patch };
         return chain;
       },
-      upsert: async (row: any) => {
-        const data = self.getData(table);
-        const rows = Array.isArray(row) ? row : [row];
-        const updated = [...data, ...rows];
-        self.setData(table, updated);
-        return { data: row, error: null };
+      upsert: (row: any) => {
+        mutation = { type: "upsert", rows: Array.isArray(row) ? row : [row] };
+        return chain;
       },
       delete: () => {
-        patchData = "DELETE"; 
+        patchData = "DELETE";
+        mutation = { type: "delete" };
         return chain;
       },
       eq: (key: string, value: any) => {
@@ -118,6 +115,7 @@ class MockSupabaseClient {
       range: () => chain,
       then: (onfulfilled: any) => {
         let currentData = self.getData(table);
+        let resultData: any = null;
         
         // Apply filters
         let filtered = [...currentData];
@@ -130,11 +128,34 @@ class MockSupabaseClient {
           }
         });
 
-        // Apply update/delete if requested
-        if (patchData) {
+        // Apply mutations
+        if (mutation?.type === "insert") {
+          const newRows = mutation.rows.map(r => ({
+            id: r?.id || Math.random().toString(36).substring(7),
+            created_at: r?.created_at || new Date().toISOString(),
+            ...r,
+          }));
+          currentData = [...currentData, ...newRows];
+          self.setData(table, currentData);
+          resultData = newRows;
+        } else if (mutation?.type === "upsert") {
+          const rows = mutation.rows.map(r => ({
+            id: r?.id || Math.random().toString(36).substring(7),
+            created_at: r?.created_at || new Date().toISOString(),
+            ...r,
+          }));
+          const byId = new Map(currentData.map(item => [item?.id, item]));
+          for (const row of rows) {
+            byId.set(row.id, { ...(byId.get(row.id) || {}), ...row, updated_at: new Date().toISOString() });
+          }
+          currentData = Array.from(byId.values());
+          self.setData(table, currentData);
+          resultData = rows;
+        } else if (patchData) {
           if (patchData === "DELETE") {
             const filteredIds = new Set(filtered.map(i => i?.id));
             currentData = currentData.filter(item => item && !filteredIds.has(item.id));
+            resultData = filtered;
           } else {
             currentData = currentData.map(item => {
               if (!item) return item;
@@ -148,11 +169,12 @@ class MockSupabaseClient {
               return isMatch ? { ...item, ...patchData, updated_at: new Date().toISOString() } : item;
             });
             filtered = filtered.map(item => item ? { ...item, ...patchData } : item);
+              resultData = filtered;
           }
           self.setData(table, currentData);
         }
 
-        return Promise.resolve({ data: filtered, error: null }).then(onfulfilled);
+          return Promise.resolve({ data: resultData ?? filtered, error: null }).then(onfulfilled);
       }
     };
     

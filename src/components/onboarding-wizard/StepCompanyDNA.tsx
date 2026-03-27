@@ -64,6 +64,7 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [isWebsiteSuggested, setIsWebsiteSuggested] = useState(false);
   const [approvalCode, setApprovalCode] = useState("");
   const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -127,9 +128,11 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const handleSelectCompany = (company: CompanyResult) => {
     setSelectedCompany(company);
     setSearchQuery(company.name);
+    const pulledWebsite = company.websiteUrl || state.websiteUrl;
+    setIsWebsiteSuggested(Boolean(company.websiteUrl));
     update({
       companyName: company.name,
-      websiteUrl: company.websiteUrl || state.websiteUrl,
+      websiteUrl: pulledWebsite,
     });
     setShowDropdown(false);
   };
@@ -137,6 +140,7 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
   const handleClearSelection = () => {
     setSelectedCompany(null);
     setSearchQuery("");
+    setIsWebsiteSuggested(false);
     update({ companyName: "", websiteUrl: "" });
   };
 
@@ -483,11 +487,20 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
                   value={state.websiteUrl}
-                  onChange={(e) => update({ websiteUrl: e.target.value })}
+                  onChange={(e) => {
+                    if (isWebsiteSuggested) setIsWebsiteSuggested(false);
+                    update({ websiteUrl: e.target.value });
+                  }}
                   placeholder="https://yourcompany.com"
-                  className="pl-10"
+                  className={cn(
+                    "pl-10",
+                    isWebsiteSuggested && "text-[#6C44FC]"
+                  )}
                 />
               </div>
+              {isWebsiteSuggested && (
+                <p className="text-[11px] font-medium text-[#6C44FC]">is this your correct URL?</p>
+              )}
               {websiteDomain && (
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <img src={faviconSrc(websiteDomain)} alt="" className="h-3 w-3 rounded-sm" />
