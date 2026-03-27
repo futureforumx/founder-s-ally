@@ -124,7 +124,7 @@ export function CompetitorTagInput({ tags, onChange, isAiDraft, aiTags = [], onA
   return (
     <div className={`flex flex-wrap items-center gap-1.5 rounded-lg border border-input px-3 py-2 min-h-[38px] transition-colors ${isAiDraft ? "bg-accent/5 border-accent/20" : "bg-background"}`}>
       {tags.map(tag => {
-        const domain = getDomain(tag);
+        const domain = normalizeDomain(tag, KNOWN_COMPANIES);
         const info = getCompanyInfo(tag);
         const ai = isAiTag(tag);
 
