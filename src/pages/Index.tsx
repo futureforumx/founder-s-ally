@@ -28,7 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -414,6 +414,14 @@ const Index = () => {
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
+          ) : activeView === "market-intelligence" ? (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Market Intelligence</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Market trends, competitive landscape, and industry insights</p>
+              </div>
+              <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+            </div>
           ) : activeView === "competitors" ? (
             <CompetitorsView
               companyData={companyData}
