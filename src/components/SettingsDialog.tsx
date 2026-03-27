@@ -302,7 +302,7 @@ function AccountTab({ displayName, displayEmail, initials, userId }: { displayNa
               <p className="text-[10px] text-muted-foreground">Not enabled</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase font-bold">Off</Badge>
+          <Badge variant="outline-sm">Off</Badge>
         </button>
       </div>
 
@@ -453,7 +453,7 @@ function PrivacyTab() {
               <span className="text-xs text-muted-foreground">Sectors</span>
               <div className="flex flex-wrap gap-1">
                 {onboardingData.sectors.map((s: string) => (
-                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                  <Badge key={s} variant="secondary-sm">{s}</Badge>
                 ))}
               </div>
             </div>
@@ -478,7 +478,7 @@ function PrivacyTab() {
               <span className="text-xs text-muted-foreground">Superpowers</span>
               <div className="flex flex-wrap gap-1">
                 {onboardingData.superpowers.map((s: string) => (
-                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                  <Badge key={s} variant="secondary-sm">{s}</Badge>
                 ))}
               </div>
             </div>
@@ -549,7 +549,7 @@ function BillingTab() {
             <Crown className="h-5 w-5 text-primary" />
             <span className="text-base font-bold text-foreground">Pro Plan</span>
           </div>
-          <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px] uppercase font-bold">Active</Badge>
+          <Badge variant="default-sm">Active</Badge>
         </div>
         <div className="flex items-baseline gap-1 mb-1">
           <span className="text-3xl font-black text-foreground">$49</span>
