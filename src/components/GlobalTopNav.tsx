@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -110,6 +110,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "events", label: "Events" },
   ]},
   messages: { section: "Community", label: "Messages" },
+  "data-room": { section: "Data Room", label: "Deck Audit" },
   settings: { section: "Settings", label: "Settings" },
 };
 
@@ -547,6 +548,56 @@ export function GlobalTopNav({
                     className={cn(activeView === "events" && "bg-accent/10 text-accent")}
                   >
                     Events
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Data Room Section Tabs (visible when search collapsed) ── */}
+        {!searchOpen && activeView === "data-room" && (
+          <>
+            {/* Tabs for larger screens */}
+            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
+              {[
+                { id: "audit", label: "Deck Audit" }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === "audit") onViewChange?.("data-room");
+                  }}
+                  className={cn(
+                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                    activeView === "data-room" && tab.id === "audit"
+                      ? "text-accent bg-accent/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdown for smaller screens */}
+            <div className="md:hidden ml-2 mr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
+                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                    <span className="truncate max-w-[80px]">Deck Audit</span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => onViewChange?.("data-room")}
+                    className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
+                  >
+                    Deck Audit
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
