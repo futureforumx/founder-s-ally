@@ -20,7 +20,7 @@ export default function Auth() {
 
   const clerkAppearance = {
     elements: {
-      rootBox: "w-full flex justify-center",
+      rootBox: "w-full flex justify-start",
       // Do not strip card background/border — transparent card made the form invisible on white.
       socialButtonsBlockButton:
         "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 h-10",
@@ -43,22 +43,24 @@ export default function Auth() {
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
         <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
           <div className="font-clash flex h-full flex-col justify-center px-8 py-8 sm:px-10 lg:px-12">
-            <div className="mb-4 md:mb-8 flex flex-col items-start gap-4">
-              <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
+            <div className="mx-auto w-full max-w-[420px]">
+              <div className="mb-4 md:mb-8 flex flex-col items-start gap-4">
+                <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
+              </div>
+              {children}
+              <p className="mt-8 text-xs leading-relaxed text-zinc-500">
+                Our privacy standards are worldclass. Find them{" "}
+                <a
+                  href="https://tryvekta.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-900"
+                >
+                  here
+                </a>
+                .
+              </p>
             </div>
-            {children}
-            <p className="mt-8 text-xs leading-relaxed text-zinc-500">
-              Our privacy standards are worldclass. Find them{" "}
-              <a
-                href="https://tryvekta.com/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-900"
-              >
-                here
-              </a>
-              .
-            </p>
           </div>
         </div>
 
