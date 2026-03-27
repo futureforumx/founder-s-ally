@@ -124,13 +124,19 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                   </div>
 
                   {/* Stage and Sector moved to the right */}
-                  <div className="flex flex-col items-end gap-1.5 shrink-0 pt-1">
-                    <Badge variant="outline" className="text-[10px] px-2 py-1 bg-secondary/5 font-medium border-border/60 hover:border-border transition-colors uppercase tracking-wider">
-                      {founder.stage}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-secondary/50 font-medium border-transparent uppercase tracking-wider">
-                      {founder.sector}
-                    </Badge>
+                  <div className="flex flex-col items-end gap-2.5 shrink-0 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Stage</span>
+                      <Badge variant="outline" className="text-[10px] px-2 py-1 bg-secondary/5 font-medium border-border/60 hover:border-border transition-colors uppercase tracking-wider">
+                        {founder.stage}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground/50 tracking-widest uppercase">Sector</span>
+                      <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-secondary/50 font-medium border-transparent uppercase tracking-wider">
+                        {founder.sector}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>
