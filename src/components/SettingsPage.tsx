@@ -15,6 +15,7 @@ import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combob
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
+import { useClerk } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -1597,27 +1598,10 @@ function ThemeTab() {
 // ── Security Tab ──
 function SecurityTab() {
   const { user } = useAuth();
-  const [changingEmail, setChangingEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
+  const { openUserProfile } = useClerk();
 
-  const handleChangeEmail = async () => {
-    if (!newEmail.trim() || !newEmail.includes("@")) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-    setEmailLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
-      if (error) throw error;
-      toast.success("Confirmation email sent", { description: "Check both your old and new email inboxes to confirm the change." });
-      setChangingEmail(false);
-      setNewEmail("");
-    } catch (err: any) {
-      toast.error("Failed to update email", { description: err.message });
-    } finally {
-      setEmailLoading(false);
-    }
+  const handleOpenAccountSettings = () => {
+    openUserProfile();
   };
 
   return (
@@ -1634,65 +1618,31 @@ function SecurityTab() {
       </div>
 
       <div className="space-y-3">
-        {/* Change Email */}
+        {/* Email & password (Clerk) */}
         <div className="rounded-xl border border-border p-4 space-y-3">
-          <button
-            onClick={() => setChangingEmail(prev => !prev)}
-            className="w-full flex items-center gap-3 text-left"
-          >
+          <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Change Email</p>
-              <p className="text-[10px] text-muted-foreground">{user?.email || "No email set"}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Account & email</p>
+              <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
             </div>
-            <ArrowRight className={cn("h-4 w-4 text-muted-foreground/40 transition-transform", changingEmail && "rotate-90")} />
-          </button>
-
-          <AnimatePresence>
-            {changingEmail && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-2 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">New Email Address</label>
-                    <Input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Enter new email address"
-                      className="rounded-lg h-9 text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleChangeEmail}
-                      disabled={emailLoading || !newEmail.trim()}
-                      size="sm"
-                      className="rounded-lg text-xs gap-1.5"
-                    >
-                      {emailLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                      Send Confirmation
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setChangingEmail(false); setNewEmail(""); }} className="rounded-lg text-xs">
-                      Cancel
-                    </Button>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground/60">A confirmation link will be sent to both your current and new email addresses.</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Email, password, and security are managed through your Clerk account.
+          </p>
+          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs" onClick={handleOpenAccountSettings}>
+            Open account settings
+          </Button>
         </div>
 
         {/* Change Password */}
-        <button className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left">
+        <button
+          type="button"
+          onClick={() => openUserProfile()}
+          className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
             <Lock className="h-4 w-4 text-muted-foreground" />
           </div>

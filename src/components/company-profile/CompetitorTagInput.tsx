@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Plus, Sparkles, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 
 interface CompetitorTagInputProps {
   tags: string[];
@@ -35,18 +36,26 @@ const KNOWN_COMPANIES: { name: string; domain: string; series?: string; valuatio
   { name: "Rippling", domain: "rippling.com", series: "Series E", valuation: "$13.5B", overlap: "12%" },
 ];
 
-function getDomain(name: string): string {
-  const known = KNOWN_COMPANIES.find(c => c.name.toLowerCase() === name.toLowerCase());
-  if (known) return known.domain;
-  return name.trim().toLowerCase().replace(/\s+/g, "") + ".com";
+/** Get a company info entry by name OR domain/URL — so both work for market-pulse tooltips */
+function getCompanyInfo(input: string) {
+  const lower = input.trim().toLowerCase();
+  const domain = normalizeDomain(input, KNOWN_COMPANIES);
+  return KNOWN_COMPANIES.find(
+    c =>
+      c.name.toLowerCase() === lower ||
+      c.domain.toLowerCase() === lower ||
+      c.domain.toLowerCase() === domain
+  );
 }
 
-function getCompanyInfo(name: string) {
-  return KNOWN_COMPANIES.find(c => c.name.toLowerCase() === name.toLowerCase());
+function faviconUrl(input: string) {
+  return getFaviconUrl(input, 64);
 }
 
-function faviconUrl(domain: string) {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+/** Best display label for a tag: canonical company name if known, otherwise the raw input */
+function displayLabel(tag: string): string {
+  const info = getCompanyInfo(tag);
+  return info ? info.name : tag;
 }
 
 export function CompetitorTagInput({ tags, onChange, isAiDraft, aiTags = [], onAiTagConfirm }: CompetitorTagInputProps) {
@@ -115,7 +124,7 @@ export function CompetitorTagInput({ tags, onChange, isAiDraft, aiTags = [], onA
   return (
     <div className={`flex flex-wrap items-center gap-1.5 rounded-lg border border-input px-3 py-2 min-h-[38px] transition-colors ${isAiDraft ? "bg-accent/5 border-accent/20" : "bg-background"}`}>
       {tags.map(tag => {
-        const domain = getDomain(tag);
+        const domain = normalizeDomain(tag, KNOWN_COMPANIES);
         const info = getCompanyInfo(tag);
         const ai = isAiTag(tag);
 
