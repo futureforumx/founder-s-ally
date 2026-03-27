@@ -33,7 +33,7 @@ export function HealthGauge({ label, value, benchmark, description, status }: He
           <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>
         </div>
         <span
-          className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border"
+          className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border whitespace-nowrap"
           style={{
             backgroundColor: `${statusColors[status]}10`,
             color: statusColors[status],
