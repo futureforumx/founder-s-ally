@@ -433,6 +433,15 @@ export function CompanyTab() {
 
     toast.success("Workspace created! Welcome email sent.", { id: "welcome-email" });
 
+    // Seed pending company data so the OnboardingStepper modal appears on the dashboard
+    try {
+      localStorage.setItem("pending-company-seed", JSON.stringify({
+        companyName: name.trim(),
+        websiteUrl: "",
+      }));
+      window.dispatchEvent(new CustomEvent("show-onboarding"));
+    } catch {}
+
     setMembership({ id: "", company_id: newComp.id, role: "manager" });
     setState("linked");
     setDropdownOpen(false);
