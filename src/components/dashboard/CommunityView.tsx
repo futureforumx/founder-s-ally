@@ -8,8 +8,6 @@ import {
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
-import { InvestorSearchOmnibox } from "./InvestorSearchOmnibox";
-import { InvestorCommandPalette, InvestorSearchTrigger } from "./InvestorCommandPalette";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -516,7 +514,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const isInvestorSearch = variant === "investor-search";
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [activeInvestorTab, setActiveInvestorTab] = useState<string>("all");
-  const [showMagicPrompts, setShowMagicPrompts] = useState(true);
   const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -525,7 +522,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
@@ -661,8 +657,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   }, [vcEntries, realFounderEntries, getDbMatch, getVCFirmMatch]);
 
   const hasProfile = !!companyData?.name;
-
-  const placeholder = useTypingPlaceholder(SCOPE_PLACEHOLDERS[activeScope]);
 
   // ── Smart Cohort data ──
   const cohorts = useMemo(() => {
@@ -930,7 +924,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               key={tab.id}
               onClick={() => {
                 setActiveScope(tab.id);
-                setShowMagicPrompts(true);
               }}
               className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
               isActive ?
@@ -944,41 +937,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       </div>
       )}
 
-      {/* Search bar with inline filter chips — investor-search variant */}
-      {isInvestorSearch ? (
-        <>
-          <InvestorSearchTrigger
-            placeholder={placeholder}
-            onClick={() => setCommandPaletteOpen(true)}
-            activeChip={activeInvestorTab}
-            onChipChange={(chip) => setActiveInvestorTab(chip)}
-          />
-          <InvestorCommandPalette
-            open={commandPaletteOpen}
-            onOpenChange={setCommandPaletteOpen}
-            firms={vcFirms}
-            people={vcPeople}
-            firmMap={firmMap}
-            dbInvestors={dbInvestors}
-            userSector={companyData?.sector}
-            userStage={companyData?.stage}
-            onSelectFirm={(firmId) => {
-              const firm = getFirmById(firmId);
-              if (firm) {
-                setSelectedVCFirm(firm);
-                // Also open investor detail
-                const entry = mergedEntries.find(e => e.name.toLowerCase() === firm.name.toLowerCase());
-                if (entry) setSelectedInvestor(entry);
-              }
-            }}
-            onSelectPerson={(personId) => {
-              const person = vcPeople.find(p => p.id === personId);
-              if (person) setSelectedVCPerson(person);
-            }}
-            onNavigateMatches={() => setActiveInvestorTab("matches")}
-          />
-        </>
-      ) : null}
       
 
       {/* ═══════ Carousel: Suggested ═══════ */}
