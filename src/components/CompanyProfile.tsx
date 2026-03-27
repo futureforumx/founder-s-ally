@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -319,6 +320,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
 }
 
 export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+  const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -1009,15 +1011,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             highlight: inv.highlight || "", sourceUrl: inv.sourceUrl || "", domain: inv.domain || "",
           }));
         }
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: existingAnalysis } = await supabase.from("company_analyses").select("id").eq("user_id", user.id).limit(1).maybeSingle();
+        if (authUser?.id) {
+          const { data: existingAnalysis } = await supabase.from("company_analyses").select("id").eq("user_id", authUser.id).limit(1).maybeSingle();
           const companyDomain = form.website.trim() ? form.website.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "";
           const { data: syncData, error: syncError } = await supabase.functions.invoke("sync-investor-data", {
-            body: { company_id: existingAnalysis?.id || crypto.randomUUID(), company_domain: companyDomain, user_id: user.id, company_name: form.name },
+            body: { company_id: existingAnalysis?.id || crypto.randomUUID(), company_domain: companyDomain, user_id: authUser.id, company_name: form.name },
           });
           if (!syncError && syncData?.newInvestorsFound > 0) {
-            const { data: pendingRows } = await supabase.from("pending_investors").select("investor_name, entity_type, instrument, amount, source_date").eq("user_id", user.id).eq("status", "pending").order("created_at", { ascending: false }).limit(syncData.newInvestorsFound);
+            const { data: pendingRows } = await supabase.from("pending_investors").select("investor_name, entity_type, instrument, amount, source_date").eq("user_id", authUser.id).eq("status", "pending").order("created_at", { ascending: false }).limit(syncData.newInvestorsFound);
             const webInvestors = (pendingRows || []).map((p: any) => ({ investorName: p.investor_name, entityType: p.entity_type, instrument: p.instrument, amount: p.amount || 0, date: p.source_date || "", source: "web" as const }));
             const exaNames = new Set(deepSearchInvestors.map((i: any) => i.investorName.toLowerCase().trim()));
             for (const wi of webInvestors) { if (!exaNames.has(wi.investorName.toLowerCase().trim())) deepSearchInvestors.push(wi); }

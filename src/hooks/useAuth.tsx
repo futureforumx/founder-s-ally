@@ -1,6 +1,15 @@
-import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  useEffect,
+  useRef,
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/clerk-react";
 import type { User, Session } from "@supabase/supabase-js";
+import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
@@ -20,40 +29,113 @@ interface AuthCtx {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthCtx>({ user: null, session: null, loading: true, signOut: async () => {} });
+const AuthContext = createContext<AuthCtx>({
+  user: null,
+  session: null,
+  loading: true,
+  signOut: async () => {},
+});
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(DEMO_MODE ? DEMO_USER : null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(!DEMO_MODE);
+function clerkUserToCompatUser(clerkUser: ReturnType<typeof useUser>["user"]): User | null {
+  if (!clerkUser) return null;
+  const email = clerkUser.primaryEmailAddress?.emailAddress ?? "";
+  return {
+    id: clerkUser.id,
+    aud: "authenticated",
+    role: "authenticated",
+    email,
+    email_confirmed_at:
+      clerkUser.primaryEmailAddress?.verification?.status === "verified"
+        ? new Date().toISOString()
+        : null,
+    phone: "",
+    confirmed_at: null,
+    last_sign_in_at: null,
+    app_metadata: {},
+    user_metadata: {},
+    identities: [],
+    created_at: clerkUser.createdAt?.toISOString?.() ?? "",
+    updated_at: clerkUser.updatedAt?.toISOString?.() ?? "",
+    is_anonymous: false,
+    factors: null,
+  } as User;
+}
+
+function buildSession(u: User | null): Session | null {
+  if (!u) return null;
+  return {
+    access_token: "",
+    refresh_token: "",
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    token_type: "bearer",
+    user: u,
+  } as Session;
+}
+
+function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const [user] = useState<User | null>(DEMO_USER);
+  const [session] = useState<Session | null>(() => buildSession(DEMO_USER));
+  const [loading] = useState(false);
 
   useEffect(() => {
-    if (DEMO_MODE) return;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    setSupabaseAccessTokenGetter(null);
   }, []);
 
-  const signOut = async () => {
-    if (!DEMO_MODE) await supabase.auth.signOut();
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthCtx>(
+    () => ({
+      user,
+      session,
+      loading,
+      signOut: async () => {},
+    }),
+    [user, session, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function ClerkAuthProvider({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn, getToken } = useClerkAuth();
+  const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
+  useEffect(() => {
+    setSupabaseAccessTokenGetter(async () => {
+      if (!isLoaded || !isSignedIn) return null;
+      const gt = getTokenRef.current;
+      try {
+        const t = await gt({ template: "supabase" });
+        if (t) return t;
+      } catch {
+        /* JWT template "supabase" may not exist yet in Clerk */
+      }
+      return (await gt()) ?? null;
+    });
+    return () => setSupabaseAccessTokenGetter(null);
+  }, [isLoaded, isSignedIn]);
+
+  const user = useMemo(() => clerkUserToCompatUser(clerkUser), [clerkUser]);
+  const session = useMemo(() => buildSession(isSignedIn && user ? user : null), [isSignedIn, user]);
+
+  const value = useMemo<AuthCtx>(
+    () => ({
+      user: isSignedIn && user ? user : null,
+      session: isSignedIn ? session : null,
+      loading: !isLoaded,
+      signOut: () => signOut({ redirectUrl: "/auth/sign-in" }),
+    }),
+    [isLoaded, isSignedIn, user, session, signOut]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  if (DEMO_MODE) return <DemoAuthProvider>{children}</DemoAuthProvider>;
+  return <ClerkAuthProvider>{children}</ClerkAuthProvider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

@@ -43,6 +43,7 @@ const stageOptions = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C", "G
 
 // ── Create Event Form ──
 function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; defaults: { location: string; sector: string; stage: string } }) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -58,8 +59,11 @@ function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; def
     }
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { toast.error("Please sign in to create events"); setLoading(false); return; }
+      if (!user?.id) {
+        toast.error("Please sign in to create events");
+        setLoading(false);
+        return;
+      }
 
       const dateTime = new Date(`${form.event_date}T${form.event_time}`).toISOString();
       const { error } = await (supabase as any).from("community_events").insert({

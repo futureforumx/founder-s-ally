@@ -27,12 +27,11 @@ export const lovable = {
         return result;
       }
 
-      try {
-        await supabase.auth.setSession(result.tokens);
-      } catch (e) {
-        return { error: e instanceof Error ? e : new Error(String(e)) };
-      }
-      return result;
+      // Auth is Clerk + Supabase (JWT); do not sync Lovable tokens into Supabase Auth.
+      return {
+        ...result,
+        error: new Error("Google sign-in is handled by Clerk on the sign-in page."),
+      };
     },
   },
 };

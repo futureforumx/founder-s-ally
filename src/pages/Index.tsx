@@ -23,6 +23,7 @@ import { CommunityView } from "@/components/dashboard/CommunityView";
 import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
@@ -35,6 +36,7 @@ try {
 } catch {}
 
 const Index = () => {
+  const { user: authUser } = useAuth();
   const capTable = useCapTable();
   const [activeView, setActiveView] = useState<ViewType>(() => {
     if (_postOnboardingView === "settings") {
@@ -183,9 +185,8 @@ const Index = () => {
 
     // Mark onboarding as completed in the database
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", user.id);
+      if (authUser?.id) {
+        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", authUser.id);
       }
     } catch {}
 
