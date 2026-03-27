@@ -209,26 +209,6 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         </div>
       )}
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Company Health</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {mode === "market"
-              ? `Real-time positioning against up-to-date market data${contextLabel ? ` for ${contextLabel}` : ""}`
-              : `Positioning against similar founders on the platform${contextLabel ? ` (${contextLabel})` : ""}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg bg-muted p-1">
-          <button onClick={() => setMode("market")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "market" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            Market
-          </button>
-          <button onClick={() => setMode("community")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            Network
-          </button>
-        </div>
-      </div>
 
       <div className="grid grid-cols-2 gap-4">
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
