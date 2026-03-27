@@ -50,7 +50,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => onViewChange(item.id)}
             className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === item.id && "border")}
             style={activeView === item.id ? {
-              backgroundColor: "#f3f4f6",
+              backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
@@ -64,7 +64,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => onViewChange("market-intelligence")}
             className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "market-intelligence" && "border")}
             style={activeView === "market-intelligence" ? {
-              backgroundColor: "#f3f4f6",
+              backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
@@ -76,7 +76,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => onViewChange("investors")}
             className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "investors" || activeView === "investor-search" || activeView === "connections") && "border")}
             style={(activeView === "investors" || activeView === "investor-search" || activeView === "connections") ? {
-              backgroundColor: "#f3f4f6",
+              backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
@@ -88,7 +88,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => onViewChange("directory")}
             className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "directory" || activeView === "groups" || activeView === "events") && "border")}
             style={(activeView === "directory" || activeView === "groups" || activeView === "events") ? {
-              backgroundColor: "#f3f4f6",
+              backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
@@ -100,7 +100,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             onClick={() => onViewChange("data-room")}
             className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
             style={activeView === "data-room" ? {
-              backgroundColor: "#f3f4f6",
+              backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
@@ -116,7 +116,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               <button
                 className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50", activeView === "settings" && "border")}
                 style={activeView === "settings" ? {
-                  backgroundColor: "#f3f4f6",
+                  backgroundColor: "#d1d5db",
                   borderColor: "#4b5563",
                   color: "#1f2937",
                   boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
