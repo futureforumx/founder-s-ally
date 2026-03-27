@@ -1,15 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import { mockSupabase } from "./mock-client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
-const fallbackSupabaseUrl = "https://placeholder.supabase.co";
-const fallbackSupabaseKey = "placeholder-anon-key";
 
 if (import.meta.env.DEV && !hasSupabaseConfig) {
   console.warn(
-    "[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Using a placeholder client so the UI can render in local dev. Add real values to .env.local when you need live auth or data."
+    "[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Falling back to Mock Storage mode so the UI can function in local dev. Data will be saved to your browser's local storage."
   );
 }
 
@@ -20,20 +19,27 @@ export function setSupabaseAccessTokenGetter(fn: () => Promise<string | null>) {
   accessTokenGetter = fn;
 }
 
-export const supabase = createClient<Database>(
-  hasSupabaseConfig ? SUPABASE_URL : fallbackSupabaseUrl,
-  hasSupabaseConfig ? SUPABASE_PUBLISHABLE_KEY : fallbackSupabaseKey,
-  {
-    accessToken: async () => accessTokenGetter(),
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storage: {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {},
-      },
-    },
-  }
-);
+// Export either the real client or our mock
+export const supabase = hasSupabaseConfig 
+  ? createClient<Database>(
+      SUPABASE_URL!,
+      SUPABASE_PUBLISHABLE_KEY!,
+      {
+        global: {
+          fetch: (...args) => fetch(...args),
+        },
+        accessToken: async () => accessTokenGetter(),
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          },
+        },
+      }
+    )
+  : mockSupabase;
+
