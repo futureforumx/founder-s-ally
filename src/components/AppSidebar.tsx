@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog } from "lucide-react";
+import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,12 +62,12 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <button
             onClick={() => onViewChange("market-intelligence")}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3 whitespace-nowrap",
               activeView === "market-intelligence"
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
-            <Users className="h-4 w-4" />
+            <TrendingUp className="h-4 w-4 flex-shrink-0" />
             Market Intelligence
           </button>
           <button
