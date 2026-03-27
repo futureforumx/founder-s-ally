@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ReviewSubmissionModalProps {
   open: boolean;
@@ -26,14 +27,13 @@ const NPS_LABELS: Record<number, string> = {
 };
 
 function useExistingReview(firmId?: string) {
+  const { user } = useAuth();
   const [existing, setExisting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!firmId) { setLoading(false); return; }
+    if (!firmId || !user) { setLoading(false); return; }
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
       const { data } = await supabase
         .from("investor_reviews" as any)
         .select("*")
@@ -43,12 +43,13 @@ function useExistingReview(firmId?: string) {
       setExisting(data);
       setLoading(false);
     })();
-  }, [firmId]);
+  }, [firmId, user]);
 
   return { existing, loading };
 }
 
 export function ReviewSubmissionModal({ open, onClose, firmName, firmId }: ReviewSubmissionModalProps) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [nps, setNps] = useState<number | null>(null);
   const [interactionType, setInteractionType] = useState<string | null>(null);
@@ -87,7 +88,6 @@ export function ReviewSubmissionModal({ open, onClose, firmName, firmId }: Revie
     setSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       // Resolve firm_id if not provided

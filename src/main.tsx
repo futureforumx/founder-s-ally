@@ -1,7 +1,10 @@
 import * as Sentry from "@sentry/react";
+import { ClerkProvider } from "@clerk/clerk-react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const sentryDsn =
   import.meta.env.VITE_SENTRY_DSN ??
@@ -17,12 +20,102 @@ if (sentryEnabled) {
   });
 }
 
-createRoot(document.getElementById("root")!).render(
-  sentryEnabled ? (
-    <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
-      <App />
-    </Sentry.ErrorBoundary>
-  ) : (
-    <App />
-  )
+const clerkKey = readClerkPublishableKey();
+
+const showLiveKeyOnLocalhostWarning =
+  import.meta.env.DEV && Boolean(clerkKey?.startsWith("pk_live_"));
+
+if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
+  console.warn(
+    "[Clerk] pk_live_ keys are tied to your production domain and do not work on http://localhost. " +
+      "Use your Development instance publishable key (pk_test_...) in .env.local for local dev."
+  );
+}
+
+const appTree = clerkKey ? (
+  <div className="flex min-h-screen flex-col">
+    {showLiveKeyOnLocalhostWarning ? (
+      <div
+        role="status"
+        className="shrink-0 border-b border-amber-300/80 bg-amber-50 px-4 py-3 text-center text-[13px] leading-snug text-amber-950"
+      >
+        <strong className="font-semibold">Local dev:</strong> Clerk <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_live_</code>{" "}
+        keys cannot be used on localhost (no allowlist will fix this). In{" "}
+        <a
+          href="https://dashboard.clerk.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline underline-offset-2"
+        >
+          Clerk Dashboard
+        </a>
+        , switch to the <strong>Development</strong> instance → API Keys → copy the{" "}
+        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_test_…</code> publishable key into{" "}
+        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">.env.local</code> and restart Vite. Use{" "}
+        <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-xs">pk_live_</code> only on your real production URL.
+      </div>
+    ) : null}
+    <div className="min-h-0 flex-1">
+      <ClerkProvider publishableKey={clerkKey}>
+        <App />
+      </ClerkProvider>
+    </div>
+  </div>
+) : (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
+    <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
+    <p className="max-w-md text-sm text-zinc-600">
+      Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for
+      local dev, <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
+      (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
+      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
+    </p>
+  </div>
 );
+
+if (import.meta.env.DEV && !clerkKey) {
+  console.warn(
+    "[Clerk] Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_… and/or VITE_CLERK_PUBLISHABLE_KEY in .env.local (see .env.example)."
+  );
+}
+
+class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    if (import.meta.env.DEV) {
+      console.error("[RootErrorBoundary]", error, info.componentStack);
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-screen flex-col items-start gap-3 bg-zinc-100 p-8 text-left font-sans">
+          <p className="text-sm font-semibold text-zinc-900">The app failed to render</p>
+          <pre className="max-h-[40vh] w-full max-w-2xl overflow-auto rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-800 shadow-sm">
+            {this.state.error.message}
+          </pre>
+          <p className="text-xs text-zinc-600">
+            Open the browser devtools console for the full stack. If you use Clerk on localhost, use Development keys (
+            <code className="rounded bg-zinc-200/80 px-1">pk_test_…</code>) —{" "}
+            <code className="rounded bg-zinc-200/80 px-1">pk_live_</code> only works on your production domain.
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const inner = sentryEnabled ? (
+  <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>{appTree}</Sentry.ErrorBoundary>
+) : (
+  appTree
+);
+
+createRoot(document.getElementById("root")!).render(<RootErrorBoundary>{inner}</RootErrorBoundary>);
