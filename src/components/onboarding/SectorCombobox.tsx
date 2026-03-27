@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { PredictiveBadge } from "./PredictiveBadge";
+import { AI_SUGGESTED_TEXT_CLASS } from "./SmartSelect";
 
 const SECTORS = [
   "SaaS / B2B Software", "Fintech", "Health Tech", "Consumer / D2C",
@@ -13,23 +14,40 @@ interface SectorComboboxProps {
   value: string;
   onChange: (val: string) => void;
   predictedValue?: string;
+  highlightAi?: boolean;
+  onAiAutofill?: () => void;
+  /** Called when the user picks a sector or types in the search box (not when AI auto-fills) */
+  onUserEdited?: () => void;
 }
 
-export function SectorCombobox({ value, onChange, predictedValue }: SectorComboboxProps) {
+export function SectorCombobox({
+  value,
+  onChange,
+  predictedValue,
+  highlightAi = false,
+  onAiAutofill,
+  onUserEdited,
+}: SectorComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [focusedIdx, setFocusedIdx] = useState(-1);
   const [isPredicted, setIsPredicted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const autofillFired = useRef(false);
 
   // Apply predicted value once
   useEffect(() => {
     if (predictedValue && !value) {
       onChange(predictedValue);
       setIsPredicted(true);
+      if (!autofillFired.current) {
+        autofillFired.current = true;
+        onAiAutofill?.();
+      }
     }
-  }, [predictedValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onChange is stable setState from parent
+  }, [predictedValue, value]);
 
   // Close on outside click
   useEffect(() => {
@@ -54,11 +72,12 @@ export function SectorCombobox({ value, onChange, predictedValue }: SectorCombob
   const totalItems = (showCustom ? 1 : 0) + filtered.length;
 
   const select = (val: string) => {
+    onUserEdited?.();
     onChange(val);
     setQuery("");
     setOpen(false);
     setFocusedIdx(-1);
-    if (val !== predictedValue) setIsPredicted(false);
+    setIsPredicted(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -90,7 +109,7 @@ export function SectorCombobox({ value, onChange, predictedValue }: SectorCombob
     <div className="space-y-1.5" ref={containerRef}>
       <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
         Sector <span className="text-destructive">*</span>
-        {isPredicted && sanitized && <PredictiveBadge />}
+        {(isPredicted || highlightAi) && sanitized && <PredictiveBadge />}
       </label>
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
@@ -100,9 +119,17 @@ export function SectorCombobox({ value, onChange, predictedValue }: SectorCombob
           value={open ? query : sanitized}
           placeholder="Search or enter sector..."
           onFocus={() => { setOpen(true); setQuery(""); setFocusedIdx(-1); }}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); setFocusedIdx(-1); }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setFocusedIdx(-1);
+            setIsPredicted(false);
+            onUserEdited?.();
+          }}
           onKeyDown={handleKeyDown}
-          className="w-full rounded-lg border border-input bg-background pl-9 pr-16 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30"
+          className={`w-full rounded-lg border border-input bg-background pl-9 pr-16 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+            !open && highlightAi && sanitized ? AI_SUGGESTED_TEXT_CLASS : "text-foreground"
+          }`}
         />
         <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
           <Sparkles className="h-3.5 w-3.5 text-accent" />

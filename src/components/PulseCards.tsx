@@ -73,7 +73,7 @@ export function PulseCards({ sector }: PulseCardsProps) {
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10">
               <Users className="h-3.5 w-3.5 text-accent" />
             </div>
-            Community Pulse
+            Network Pulse
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">

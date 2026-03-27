@@ -207,7 +207,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
           </button>
           <button onClick={() => setMode("community")}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-all ${mode === "community" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-            Community
+            Network
           </button>
         </div>
       </div>

@@ -538,13 +538,13 @@ export function SectorSubsectorPicker({
             {subsectors.map(sub => (
               <span
                 key={sub}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${getSubsectorPillStyle(sub)}`}
+                className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap ${getSubsectorPillStyle(sub)}`}
               >
                 {sub}
                 <button
                   type="button"
                   onClick={e => { e.stopPropagation(); removeSubsector(sub); }}
-                  className="rounded-full p-0.5 hover:bg-accent/20 transition-colors"
+                  className="rounded-full p-0.5 hover:bg-black/10 transition-colors"
                 >
                   <X className="h-2.5 w-2.5" />
                 </button>
@@ -556,7 +556,7 @@ export function SectorSubsectorPicker({
                 key={`ai-${sub}`}
                 type="button"
                 onClick={e => { e.stopPropagation(); toggleSubsector(sub); }}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent/30 px-2.5 py-0.5 text-[11px] text-accent/60 hover:bg-accent/5 transition-colors"
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-accent/30 px-2.5 py-1 text-[11px] text-accent/60 hover:bg-accent/5 transition-colors whitespace-nowrap"
               >
                 <Sparkles className="h-2.5 w-2.5" />
                 {sub}
@@ -596,7 +596,7 @@ export function SectorSubsectorPicker({
                     type="button"
                     disabled={subsectors.length >= 3}
                     onClick={() => toggleSubsector(sub)}
-                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-2.5 py-0.5 text-[11px] text-muted-foreground hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-muted-foreground/30 px-2.5 py-1 text-[11px] text-muted-foreground hover:border-accent/40 hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     <Sparkles className="h-2.5 w-2.5" />
                     {sub}

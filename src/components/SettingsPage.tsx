@@ -15,6 +15,7 @@ import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combob
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
+import { useClerk } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,11 @@ function setTabInUrl(tab: SettingsTab) {
 }
 
 // ── Main Page ──
-export function SettingsPage() {
+interface SettingsPageProps {
+  tourEnabled?: boolean;
+}
+
+export function SettingsPage({ tourEnabled = true }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
 
   // Re-sync tab from URL when navigated externally (e.g. dropdown)
@@ -239,7 +244,9 @@ export function SettingsPage() {
   return (
     <div className="min-h-screen">
       {/* Settings Tour */}
-      <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+      {tourEnabled && (
+        <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
+      )}
 
       {/* Copilot Mission Banner */}
       <div data-tour="profile-strength">
@@ -578,46 +585,47 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
   // handleSave removed — autosave handles persistence
 
-  // ── Magic Sync (Auth0 LinkedIn OAuth) ──
+  // ── Magic Sync (Supabase LinkedIn edge function) ──
   const handleSyncProfile = async () => {
+    if (!linkedinUrl.trim()) {
+      toast.error("Enter your LinkedIn URL first, then click Sync.");
+      return;
+    }
     setSyncing(true);
     try {
-      const incoming = await verifyLinkedIn();
+      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
+        body: { linkedinUrl: linkedinUrl.trim() },
+      });
+      if (error) throw error;
+
+      const profileData = data?.data || {};
+
+      const incoming = {
+        full_name: profileData.full_name || null,
+        title: profileData.title || null,
+        bio: profileData.bio ? profileData.bio.slice(0, 160) : null,
+        location: profileData.location || null,
+        avatar_url: profileData.avatar_url || null,
+      };
 
       const fields: SyncField[] = [
         { key: "full_name", label: "Full Name", existing: name, incoming: incoming.full_name },
         { key: "title", label: "Title / Role", existing: title, incoming: incoming.title },
-        { key: "bio", label: "Bio", existing: bio, incoming: incoming.bio?.slice(0, 160) || null },
+        { key: "bio", label: "Bio", existing: bio, incoming: incoming.bio },
         { key: "location", label: "Location", existing: location, incoming: incoming.location },
       ];
 
-      // If we got an avatar, include it
       if (incoming.avatar_url) {
         fields.push({ key: "avatar_url", label: "Profile Photo", existing: avatarUrl, incoming: incoming.avatar_url });
       }
 
-      // Auto-set LinkedIn URL if returned email or name verifies identity
-      if (incoming.full_name) {
-        // Mark as verified via LinkedIn OAuth
-        setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
-      }
-
-      // If we got a LinkedIn URL from the OAuth, update it
-      if (!linkedinUrl.trim() && incoming.full_name) {
-        const slug = incoming.full_name.toLowerCase().replace(/\s+/g, "");
-        const guessedUrl = `https://linkedin.com/in/${slug}`;
-        setLinkedinUrl(guessedUrl);
-        saveImmediate({ linkedinUrl: guessedUrl });
-      }
+      // Mark as verified
+      setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
 
       setSyncFields(fields);
       setSyncReviewOpen(true);
     } catch (err: any) {
-      if (err?.message?.includes("cancelled") || err?.message?.includes("Popup closed")) {
-        toast("LinkedIn sync cancelled", { description: "You can try again anytime." });
-      } else {
-        toast.error("Sync failed: " + (err.message || "Unknown error"));
-      }
+      toast.error("Sync failed: " + (err.message || "Unknown error"));
     } finally {
       setSyncing(false);
     }
@@ -1590,27 +1598,10 @@ function ThemeTab() {
 // ── Security Tab ──
 function SecurityTab() {
   const { user } = useAuth();
-  const [changingEmail, setChangingEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
+  const { openUserProfile } = useClerk();
 
-  const handleChangeEmail = async () => {
-    if (!newEmail.trim() || !newEmail.includes("@")) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-    setEmailLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
-      if (error) throw error;
-      toast.success("Confirmation email sent", { description: "Check both your old and new email inboxes to confirm the change." });
-      setChangingEmail(false);
-      setNewEmail("");
-    } catch (err: any) {
-      toast.error("Failed to update email", { description: err.message });
-    } finally {
-      setEmailLoading(false);
-    }
+  const handleOpenAccountSettings = () => {
+    openUserProfile();
   };
 
   return (
@@ -1627,65 +1618,31 @@ function SecurityTab() {
       </div>
 
       <div className="space-y-3">
-        {/* Change Email */}
+        {/* Email & password (Clerk) */}
         <div className="rounded-xl border border-border p-4 space-y-3">
-          <button
-            onClick={() => setChangingEmail(prev => !prev)}
-            className="w-full flex items-center gap-3 text-left"
-          >
+          <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Change Email</p>
-              <p className="text-[10px] text-muted-foreground">{user?.email || "No email set"}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Account & email</p>
+              <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
             </div>
-            <ArrowRight className={cn("h-4 w-4 text-muted-foreground/40 transition-transform", changingEmail && "rotate-90")} />
-          </button>
-
-          <AnimatePresence>
-            {changingEmail && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-2 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">New Email Address</label>
-                    <Input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Enter new email address"
-                      className="rounded-lg h-9 text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleChangeEmail}
-                      disabled={emailLoading || !newEmail.trim()}
-                      size="sm"
-                      className="rounded-lg text-xs gap-1.5"
-                    >
-                      {emailLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                      Send Confirmation
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setChangingEmail(false); setNewEmail(""); }} className="rounded-lg text-xs">
-                      Cancel
-                    </Button>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground/60">A confirmation link will be sent to both your current and new email addresses.</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Email, password, and security are managed through your Clerk account.
+          </p>
+          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs" onClick={handleOpenAccountSettings}>
+            Open account settings
+          </Button>
         </div>
 
         {/* Change Password */}
-        <button className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left">
+        <button
+          type="button"
+          onClick={() => openUserProfile()}
+          className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
             <Lock className="h-4 w-4 text-muted-foreground" />
           </div>

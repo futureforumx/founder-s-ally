@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { Sparkles, CheckCircle2, Loader2 } from "lucide-react";
+import { Sparkles, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type SocialPlatformType = "linkedin" | "linkedin_company" | "x" | "instagram";
 
@@ -69,9 +70,13 @@ interface MorphingUrlInputProps {
   value: string;
   onChange: (value: string) => void;
   onBlur?: (formattedValue: string) => void;
-  /** "idle" | "syncing" | "verified" */
-  verifyState?: "idle" | "syncing" | "verified";
+  /** "idle" | "syncing" | "verified" | "invalid" | "uncertain" */
+  verifyState?: "idle" | "syncing" | "verified" | "invalid" | "uncertain";
+  verifyMessage?: string;
   onVerify?: () => void;
+  onOverride?: () => void;
+  /** Shown in invalid/uncertain tooltip; clears the handle field in the parent. */
+  onClear?: () => void;
   verifyLabel?: string;
   className?: string;
   label?: string;
@@ -83,7 +88,10 @@ export function MorphingUrlInput({
   onChange,
   onBlur,
   verifyState = "idle",
+  verifyMessage,
   onVerify,
+  onOverride,
+  onClear,
   verifyLabel = "Verify",
   className,
   label,
@@ -217,6 +225,62 @@ export function MorphingUrlInput({
                 </motion.div>
                 <span className="hidden sm:inline">Verified</span>
               </motion.span>
+            )}
+
+            {(verifyState === "invalid" || verifyState === "uncertain") && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.button
+                    key={verifyState}
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-destructive transition-colors hover:bg-destructive/10"
+                    aria-label="Profile validation details"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                  </motion.button>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="end" className="max-w-[260px] p-3 text-xs leading-relaxed">
+                  <div className="space-y-2">
+                    <p className="font-medium text-foreground">
+                      {verifyMessage || "We could not confirm this profile. Enter the real username or profile URL and try again."}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Use the actual account username, not a display name or incomplete link.
+                    </p>
+                    {(onOverride || onClear) && (
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-border/50">
+                        {onOverride && (
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-accent hover:text-accent/80 text-left"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOverride();
+                            }}
+                          >
+                            Use anyway
+                          </button>
+                        )}
+                        {onClear && (
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-destructive hover:text-destructive/80 text-left"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onClear();
+                            }}
+                          >
+                            Clear username.
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {verifyState === "idle" && hasValue && onVerify && (

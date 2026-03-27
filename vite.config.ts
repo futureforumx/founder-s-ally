@@ -2,22 +2,38 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import basicSsl from '@vitejs/plugin-basic-ssl';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    hmr: {
-      overlay: false,
+export default defineConfig(async ({ mode }) => {
+  const plugins = [react(), mode === "development" && componentTagger()].filter(Boolean);
+  const enableHttps = process.env.DEV_HTTPS === "true";
+
+  if (enableHttps) {
+    try {
+      const { default: basicSsl } = await import("@vitejs/plugin-basic-ssl");
+      plugins.splice(1, 0, basicSsl());
+    } catch {
+      // Allow local dev to run even when the optional SSL plugin is not installed.
+    }
+  }
+
+  return {
+    server: {
+      // true = listen on 0.0.0.0 — works with http://localhost and http://127.0.0.1 (host "::" often breaks on macOS).
+      host: true,
+      port: 5173,
+      strictPort: false,
+      open: true,
+      hmr: {
+        overlay: false,
+      },
     },
-  },
-  plugins: [react(), basicSsl(), mode === "development" && componentTagger()].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    plugins,
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+      dedupe: ["react", "react-dom", "react/jsx-runtime", "@radix-ui/react-progress"],
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "@radix-ui/react-progress"],
-  },
-}));
+  };
+});

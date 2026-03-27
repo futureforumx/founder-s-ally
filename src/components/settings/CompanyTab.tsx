@@ -331,19 +331,37 @@ export function CompanyTab() {
       return;
     }
 
-    await (supabase as any)
+    const { error: claimError } = await (supabase as any)
       .from("company_analyses")
       .update({ claimed_by: user.id, is_claimed: true })
       .eq("id", comp.id);
 
-    await supabase
+    if (claimError) {
+      toast.error("Failed to claim company profile: " + claimError.message);
+      setRequesting(false);
+      return;
+    }
+
+    const { error: memberError } = await supabase
       .from("company_members" as any)
       .insert({ user_id: user.id, company_id: comp.id, role: "manager" });
 
-    await (supabase as any)
+    if (memberError) {
+      toast.error("Profile claimed but failed to link you as manager: " + memberError.message);
+      setRequesting(false);
+      return;
+    }
+
+    const { error: profileError } = await (supabase as any)
       .from("profiles")
       .update({ company_id: comp.id })
       .eq("user_id", user.id);
+
+    if (profileError) {
+      toast.error("Profile claimed but failed to update your metadata: " + profileError.message);
+      setRequesting(false);
+      return;
+    }
 
     setMembership({ id: "", company_id: comp.id, role: "manager" });
     setState("linked");
@@ -370,19 +388,32 @@ export function CompanyTab() {
       .single();
 
     if (compError || !newComp) {
-      toast.error("Failed to create workspace");
+      toast.error("Failed to create workspace: " + (compError?.message || "Unknown error"));
+      setRequesting(true); // Keep modal open for user to fix if needed, but error toast will show why
+      setRequesting(false); 
+      return;
+    }
+
+    const { error: memberError } = await supabase
+      .from("company_members" as any)
+      .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
+
+    if (memberError) {
+      toast.error("Workspace created but failed to link you as manager: " + memberError.message);
       setRequesting(false);
       return;
     }
 
-    await supabase
-      .from("company_members" as any)
-      .insert({ user_id: user.id, company_id: newComp.id, role: "manager" });
-
-    await (supabase as any)
+    const { error: profileError } = await (supabase as any)
       .from("profiles")
       .update({ company_id: newComp.id })
       .eq("user_id", user.id);
+
+    if (profileError) {
+      toast.error("Workspace created but failed to update your profile: " + profileError.message);
+      setRequesting(false);
+      return;
+    }
 
     // Get user profile name for welcome email
     const { data: userProfile } = await (supabase as any)
@@ -402,6 +433,15 @@ export function CompanyTab() {
 
     toast.success("Workspace created! Welcome email sent.", { id: "welcome-email" });
 
+    // Seed pending company data so the OnboardingStepper modal appears on the dashboard
+    try {
+      localStorage.setItem("pending-company-seed", JSON.stringify({
+        companyName: name.trim(),
+        websiteUrl: "",
+      }));
+      window.dispatchEvent(new CustomEvent("show-onboarding"));
+    } catch {}
+
     setMembership({ id: "", company_id: newComp.id, role: "manager" });
     setState("linked");
     setDropdownOpen(false);
@@ -419,7 +459,11 @@ export function CompanyTab() {
 
   const handleUnlink = async () => {
     if (membership) {
-      await supabase.from("company_members" as any).delete().eq("id", membership.id);
+      const { error } = await supabase.from("company_members" as any).delete().eq("id", membership.id);
+      if (error) {
+        toast.error("Failed to unlink: " + error.message);
+        return;
+      }
       setMembership(null);
     }
     setState("search");
@@ -545,6 +589,7 @@ export function CompanyTab() {
               onProfileVerified={setIsProfileVerified}
               onSectionConfirmedChange={setSectionConfirmed}
               onCompletionChange={setProfileCompletion}
+              companyId={membership?.company_id}
               onSyncCompany={async (url: string) => {
                 setCompanySyncing(true);
                 try {

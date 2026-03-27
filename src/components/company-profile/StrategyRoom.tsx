@@ -58,7 +58,7 @@ export function StrategyRoom({ stageClassification, currentStage }: StrategyRoom
             <div className="flex items-center gap-2">
               <Badge
                 variant="secondary"
-                className={`text-[10px] px-2 py-0.5 gap-1 ${
+                className={`text-[10px] px-2 py-1 gap-1 whitespace-nowrap ${
                   isHigh ? "bg-success/10 text-success border-success/20" :
                   isMedium ? "bg-accent/10 text-accent border-accent/20" :
                   "bg-warning/10 text-warning border-warning/20"
@@ -69,7 +69,7 @@ export function StrategyRoom({ stageClassification, currentStage }: StrategyRoom
                 {confidence}%
               </Badge>
               {mismatch && (
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-warning/10 text-warning border-warning/20">
+                <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-warning/10 text-warning border-warning/20 whitespace-nowrap">
                   Stage mismatch
                 </Badge>
               )}
