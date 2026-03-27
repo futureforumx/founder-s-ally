@@ -476,31 +476,31 @@ function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder:
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          {founder._isRealProfile && founder.model && (
-            <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
-          )}
-          {founder._companyName && (
-            <div className="flex items-center gap-1.5 mt-1 text-accent">
-              {founder._websiteUrl ? (
-                <img 
-                  src={`https://www.google.com/s2/favicons?domain=${founder._websiteUrl}&sz=32`} 
-                  alt="" 
-                  className="h-3 w-3 rounded-sm opacity-80" 
-                />
-              ) : (
-                <Building2 className="h-3 w-3 text-accent/70" />
-              )}
-              <span className="text-[11px] font-bold leading-none">{founder._companyName}</span>
-            </div>
-          )}
+          <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">{founder.description}</p>
         </div>
-        <div className="flex items-center justify-between pt-1 border-t border-border/40">
-          {founder.location &&
-          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <MapPin className="h-2.5 w-2.5" /> {founder.location}
-            </span>
-          }
+        <div className="flex items-center justify-between pt-1 border-t border-border/40 flex-wrap gap-y-2">
+          <div className="flex items-center gap-3">
+            {founder._companyName && (
+              <div className="flex items-center gap-1.5 text-accent">
+                {founder._websiteUrl ? (
+                  <img 
+                    src={`https://www.google.com/s2/favicons?domain=${founder._websiteUrl}&sz=32`} 
+                    alt="" 
+                    className="h-3 w-3 rounded-sm opacity-80" 
+                  />
+                ) : (
+                  <Building2 className="h-3 w-3" />
+                )}
+                <span className="text-[10px] font-bold tracking-tight uppercase">{founder._companyName}</span>
+              </div>
+            )}
+            {founder.location &&
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                <MapPin className="h-2.5 w-2.5" /> {founder.location}
+              </span>
+            }
+          </div>
           {founder.matchReason &&
           <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
               <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
