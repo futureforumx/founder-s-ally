@@ -72,6 +72,7 @@ interface DirectoryEntry {
   _isTrending?: boolean;
   _isPopular?: boolean;
   _isRecent?: boolean;
+  competitors?: string[];
 }
 
 // ── Mock data: Suggested ──
@@ -654,6 +655,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
       _isRealProfile: true,
       _companyName: f.company_name,
       _profileId: f.id,
+      competitors: f.company_competitors || [],
     }));
   }, [realFounders]);
 
