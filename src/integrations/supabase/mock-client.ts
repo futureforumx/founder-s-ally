@@ -127,6 +127,9 @@ class MockSupabaseClient {
       unsubscribe: () => {}
     })
   });
+
+  removeChannel = async (channel: any) => {};
+  removeAllChannels = async () => {};
 }
 
 export const mockSupabase = new MockSupabaseClient() as any;
