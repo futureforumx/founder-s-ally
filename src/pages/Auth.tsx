@@ -43,7 +43,7 @@ export default function Auth() {
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
         <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
           <div className="font-clash flex h-full flex-col justify-center px-8 py-8 sm:px-10 lg:px-12">
-            <div className="mb-8 flex flex-col items-start gap-4">
+            <div className="mb-4 md:mb-8 flex flex-col items-start gap-4">
               <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
             </div>
             {children}
@@ -201,8 +201,8 @@ export default function Auth() {
       </>
     ) : (
       <>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
-        <p className="mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
+        <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
+        <p className="hidden md:block mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
         <div className="mt-8 w-full min-w-0">
           <SignIn
             routing="path"
