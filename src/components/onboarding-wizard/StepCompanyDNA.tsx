@@ -4,6 +4,7 @@ import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search,
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -36,17 +37,11 @@ interface CompanyResult {
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech"];
 
 function extractDomain(url: string): string | null {
-  try {
-    let u = url.trim();
-    if (!u) return null;
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    const hostname = new URL(u).hostname.replace(/^www\./, "");
-    return hostname || null;
-  } catch { return null; }
+  return normalizeDomain(url) || null;
 }
 
 function faviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
+  return getFaviconUrl(domain, 64);
 }
 
 function formatFileSize(bytes: number): string {
