@@ -48,7 +48,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
-            className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === item.id && "border")}
+            className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === item.id && "border")}
             style={activeView === item.id ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
@@ -62,7 +62,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           )}
           <button
             onClick={() => onViewChange("market-intelligence")}
-            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "market-intelligence" && "border")}
+            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "market-intelligence" && "border")}
             style={activeView === "market-intelligence" ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
@@ -74,7 +74,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           </button>
           <button
             onClick={() => onViewChange("investors")}
-            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "investors" || activeView === "investor-search" || activeView === "connections") && "border")}
+            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "investors" || activeView === "investor-search" || activeView === "connections") && "border")}
             style={(activeView === "investors" || activeView === "investor-search" || activeView === "connections") ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
@@ -86,7 +86,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           </button>
           <button
             onClick={() => onViewChange("directory")}
-            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "directory" || activeView === "groups" || activeView === "events") && "border")}
+            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors mt-3 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "directory" || activeView === "groups" || activeView === "events") && "border")}
             style={(activeView === "directory" || activeView === "groups" || activeView === "events") ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
@@ -98,7 +98,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           </button>
           <button
             onClick={() => onViewChange("data-room")}
-            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
+            className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
             style={activeView === "data-room" ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
@@ -114,7 +114,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50", activeView === "settings" && "border")}
+                className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[11px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50", activeView === "settings" && "border")}
                 style={activeView === "settings" ? {
                   backgroundColor: "#d1d5db",
                   borderColor: "#4b5563",
