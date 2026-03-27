@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "peers" | "trend" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -87,10 +87,32 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             Investors
           </button>
           <button
-            onClick={() => onViewChange("directory")}
+            onClick={() => onViewChange("peers")}
             className={cn(
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors mt-3",
-              (activeView === "directory" || activeView === "groups" || activeView === "events")
+              activeView === "peers"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}>
+            <Users className="h-4 w-4" />
+            Peers
+          </button>
+          <button
+            onClick={() => onViewChange("trend")}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+              activeView === "trend"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+            )}>
+            <Users className="h-4 w-4" />
+            Trend
+          </button>
+          <button
+            onClick={() => onViewChange("network")}
+            className={cn(
+              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+              (activeView === "directory" || activeView === "groups" || activeView === "events" || activeView === "network")
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
             )}>
