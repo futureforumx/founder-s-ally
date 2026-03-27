@@ -543,8 +543,16 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [userStatus, setUserStatus] = useState<string>("PARTNERSHIPS");
+  const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const toggleStatus = (status: string) => {
+    setUserStatuses(prev => 
+      prev.includes(status) 
+        ? (prev.length > 1 ? prev.filter(s => s !== status) : prev) 
+        : [...prev, status]
+    );
+  };
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
   const {
@@ -938,7 +946,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
                   <div className="text-left leading-none">
                     <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider block mb-0.5">Open to</span>
                     <span className="text-[10px] font-black text-foreground uppercase tracking-tight flex items-center gap-1">
-                      {userStatus.replace("_", " ")}
+                      {userStatuses.length > 1 
+                        ? `${userStatuses[0].replace("_", " ")} +${userStatuses.length - 1}`
+                        : userStatuses[0]?.replace("_", " ") || "STATUS"
+                      }
                       <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-accent transition-colors" />
                     </span>
                   </div>
@@ -953,11 +964,19 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
                 ].map((option) => (
                   <DropdownMenuItem
                     key={option.id}
-                    onClick={() => setUserStatus(option.id)}
-                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold cursor-pointer focus:bg-accent focus:text-accent-foreground transition-colors"
+                    onSelect={(e) => {
+                      e.preventDefault(); // Prevent close on select
+                      toggleStatus(option.id);
+                    }}
+                    className="flex items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold cursor-pointer focus:bg-accent focus:text-accent-foreground transition-colors group/item"
                   >
-                    <option.icon className="h-3.5 w-3.5" />
-                    {option.label}
+                    <div className="flex items-center gap-2">
+                      <option.icon className="h-3.5 w-3.5" />
+                      {option.label}
+                    </div>
+                    {userStatuses.includes(option.id) && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
