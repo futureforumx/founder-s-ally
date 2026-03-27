@@ -93,16 +93,44 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
 
               {/* ─── Header Content ─── */}
               <div className="px-6 pt-10 pb-4 shrink-0">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h2 className="text-2xl font-bold text-foreground truncate">{founder.name}</h2>
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.stage}</Badge>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-1 whitespace-nowrap">{founder.sector}</Badge>
+                    
+                    {/* Role at Company with Favicon */}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <span className="text-sm font-medium text-muted-foreground">{founder.model}</span>
+                      {((founder as any)._companyName || founder.companyName) && (
+                        <>
+                          <span className="text-sm text-muted-foreground/50 italic">at</span>
+                          <div className="flex items-center gap-1.5 text-accent/90">
+                            {((founder as any)._websiteUrl || founder.companyWebsite) ? (
+                              <img 
+                                src={`https://www.google.com/s2/favicons?domain=${(founder as any)._websiteUrl || founder.companyWebsite}&sz=32`} 
+                                alt="" 
+                                className="h-4 w-4 rounded-sm" 
+                              />
+                            ) : (
+                              <Building2 className="h-4 w-4" />
+                            )}
+                            <span className="text-sm font-bold tracking-tight">{(founder as any)._companyName || founder.companyName}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
+                  </div>
+
+                  {/* Stage and Sector moved to the right */}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0 pt-1">
+                    <Badge variant="outline" className="text-[10px] px-2 py-1 bg-secondary/5 font-medium border-border/60 hover:border-border transition-colors uppercase tracking-wider">
+                      {founder.stage}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] px-2 py-1 bg-secondary/50 font-medium border-transparent uppercase tracking-wider">
+                      {founder.sector}
+                    </Badge>
                   </div>
                 </div>
               </div>
