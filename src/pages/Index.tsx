@@ -13,6 +13,8 @@ import { SectorClassification } from "@/components/SectorTags";
 import { DeckAuditView } from "@/components/DeckAuditView";
 import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
 import { InvestorMatch } from "@/components/InvestorMatch";
+import { SectorHeatmapCard } from "@/components/investor-match/IntelligenceCards";
+import { type TimeRange } from "@/components/investor-match/TimeRangeControl";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
@@ -415,12 +417,12 @@ const Index = () => {
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
           ) : activeView === "market-intelligence" ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Market Intelligence</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Market trends, competitive landscape, and industry insights</p>
               </div>
-              <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+              <SectorHeatmapCard sector={companyData?.sector} timeRange={"ytd" as TimeRange} />
             </div>
           ) : activeView === "competitors" ? (
             <CompetitorsView
