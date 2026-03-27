@@ -161,33 +161,54 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
   return (
     <div className="space-y-6">
       {overallScore !== null && (
-        <div className="surface-card p-6 flex items-center gap-6">
-          <div className="relative h-28 w-28 flex-shrink-0">
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-              <circle cx="50" cy="50" r="42" fill="none"
-                stroke={overallScore >= 70 ? "hsl(var(--success))" : overallScore >= 40 ? "hsl(38, 92%, 50%)" : "hsl(var(--destructive))"}
-                strokeWidth="8" strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 42}
-                strokeDashoffset={2 * Math.PI * 42 * (1 - overallScore / 100)}
-                className="transition-all duration-1000"
-                style={{ animation: "gauge-fill 1.2s cubic-bezier(0.2, 0, 0, 1) forwards" }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold tracking-tight text-foreground">{overallScore}</span>
-              <span className="text-[9px] font-mono text-muted-foreground uppercase">/ 100</span>
+        <div className="surface-card p-6 space-y-5">
+          <div className="flex items-start justify-between">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">Health Score</h2>
+            <button className="text-muted-foreground hover:text-foreground transition-colors">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex items-end justify-between gap-6">
+            <div className="flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}</span>
+                <span className="text-xs text-muted-foreground font-mono">/ 100</span>
+              </div>
+            </div>
+            <div className="text-right flex-1">
+              <div className="flex items-center justify-end gap-2 mb-1">
+                <TrendingUp className="h-3.5 w-3.5 text-success" />
+                <span className="text-sm font-medium text-success">+8%</span>
+              </div>
+              <span className="text-xs text-muted-foreground">{Math.round((overallScore / 100) * 100)}% to target</span>
             </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Health Score</h2>
-            <p className="text-xs text-muted-foreground mt-1">AI-generated score based on your website and pitch deck analysis</p>
-            {analysisResult?.executiveSummary && (
-              <p className="text-xs text-muted-foreground mt-3 leading-relaxed line-clamp-3">
-                {analysisResult.executiveSummary}
-              </p>
-            )}
+
+          {/* Progress bar with segments */}
+          <div className="flex gap-1">
+            {Array.from({ length: 25 }).map((_, i) => {
+              const segmentFilled = (i / 25) * 100 < overallScore;
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 h-2 rounded-xs transition-colors ${
+                    segmentFilled ? "bg-blue-500/80" : "bg-muted/40"
+                  }`}
+                />
+              );
+            })}
           </div>
+
+          {analysisResult?.executiveSummary && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {analysisResult.executiveSummary}
+            </p>
+          )}
         </div>
       )}
 
