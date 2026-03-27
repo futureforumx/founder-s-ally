@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Users } from "lucide-react";
 import { SectorClassification } from "@/components/SectorTags";
 import { CompanyData } from "@/components/CompanyProfile";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -287,13 +287,13 @@ export function IntelligenceCards({
       />
 
       <MetricCard
-        label="Capital Track"
-        value={formattedAmount}
-        subtitle="Total raised to date"
+        label={`Total Investors in ${sector || "Your Sector"}`}
+        value="847"
+        subtitle="Active investors in your sector"
         trendValue={capitalTrend}
         trendLabel={timeLabel}
         accentColor="hsl(var(--success))"
-        icon={<ArrowRight className="h-3 w-3 text-success" />}
+        icon={<Users className="h-3 w-3 text-success" />}
       />
     </div>
   );
