@@ -476,31 +476,34 @@ function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder:
                 <Flame className="h-2.5 w-2.5 mr-0.5" /> Trending
               </Badge>
             }
-            <Badge variant="outline" className="text-[9px] font-medium px-2 py-0.5">{founder.stage}</Badge>
-            <Badge variant="secondary" className="text-[9px] font-normal px-2 py-0.5 max-w-[120px] truncate">{founder.sector}</Badge>
           </div>
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          <p className="text-[11px] font-medium text-muted-foreground">{founder.model}</p>
-          <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">{founder.description}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className="text-[11px] font-medium text-muted-foreground">{founder.model}</span>
+            {founder._companyName && (
+              <>
+                <span className="text-[11px] text-muted-foreground/50 italic">at</span>
+                <div className="flex items-center gap-1 text-accent/90">
+                  {founder._websiteUrl ? (
+                    <img 
+                      src={`https://www.google.com/s2/favicons?domain=${founder._websiteUrl}&sz=32`} 
+                      alt="" 
+                      className="h-3 w-3 rounded-sm opacity-90" 
+                    />
+                  ) : (
+                    <Building2 className="h-3 w-3" />
+                  )}
+                  <span className="text-[11px] font-bold tracking-tight">{founder._companyName}</span>
+                </div>
+              </>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1.5 line-clamp-2">{founder.description}</p>
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-border/40 flex-wrap gap-y-2">
           <div className="flex items-center gap-3">
-            {founder._companyName && (
-              <div className="flex items-center gap-1.5 text-accent">
-                {founder._websiteUrl ? (
-                  <img 
-                    src={`https://www.google.com/s2/favicons?domain=${founder._websiteUrl}&sz=32`} 
-                    alt="" 
-                    className="h-3 w-3 rounded-sm opacity-80" 
-                  />
-                ) : (
-                  <Building2 className="h-3 w-3" />
-                )}
-                <span className="text-[10px] font-bold tracking-tight uppercase">{founder._companyName}</span>
-              </div>
-            )}
             {founder.location &&
               <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                 <MapPin className="h-2.5 w-2.5" /> {founder.location}
