@@ -61,7 +61,7 @@ class MockSupabaseClient {
   // Database mock
   from(table: string) {
     const self = this;
-    let queryData = this.getData(table);
+    const queryData = this.getData(table);
     let lastQuery: any[] = [...queryData];
 
     const chain = {
@@ -78,11 +78,10 @@ class MockSupabaseClient {
         lastQuery = newRows;
         return { data: Array.isArray(row) ? newRows : newRows[0], error: null };
       },
-      update: async (patch: any) => {
-        // We need 'eq' to find which one to update, but 'update' is usually chained
-        // For mock, we'll just "remember" the target ID from eq() call later
-        // Actually, simple mock: just return success
-        return { data: patch, error: null };
+      update: (patch: any) => {
+        // In real Supabase, update returns a FilterBuilder. 
+        // We'll return the chain so .eq() can be called.
+        return chain;
       },
       upsert: async (row: any) => {
         const data = self.getData(table);
@@ -91,9 +90,7 @@ class MockSupabaseClient {
         self.setData(table, updated);
         return { data: row, error: null };
       },
-      delete: () => {
-        return { error: null };
-      },
+      delete: () => chain,
       eq: (key: string, value: any) => {
         lastQuery = lastQuery.filter(item => item[key] === value);
         return chain;
@@ -102,24 +99,18 @@ class MockSupabaseClient {
         lastQuery = lastQuery.filter(item => item[key] !== value);
         return chain;
       },
-      hover: () => chain, // dummy
       single: async () => ({ data: lastQuery[0] || null, error: null }),
       maybeSingle: async () => ({ data: lastQuery[0] || null, error: null }),
       order: () => chain,
       limit: () => chain,
       range: () => chain,
-      csv: () => chain,
-    };
-
-    // Special return for select to support .select().single()
-    const selectChain = {
-      ...chain,
+      // Support the .then() pattern which many finders use
       then: (onfulfilled: any) => {
         return Promise.resolve({ data: lastQuery, error: null }).then(onfulfilled);
       }
     };
     
-    return selectChain as any;
+    return chain as any;
   }
 
   // RPC mock
