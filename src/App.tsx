@@ -11,6 +11,7 @@ import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
+import SsoCallback from "./pages/SsoCallback.tsx";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -29,6 +30,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setAuthTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setAuthTimedOut(true), 15_000);
+    return () => window.clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     if (!user) { setOnboardingChecked(true); return; }
@@ -49,6 +60,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         setOnboardingChecked(true);
       });
   }, [user, location.pathname]);
+
+  if (loading && authTimedOut) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+        <p className="max-w-md text-sm text-foreground">Authentication is taking too long to load.</p>
+        <p className="max-w-lg text-xs text-muted-foreground">
+          Try a normal browser window (not the embedded preview), disable ad blockers for localhost, and add this origin
+          in Clerk → Domains. Then hard-refresh.
+        </p>
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   if (loading || !onboardingChecked) {
     return (
@@ -76,7 +100,8 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/*" element={<Auth />} />
+            <Route path="/sso-callback" element={<SsoCallback />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />

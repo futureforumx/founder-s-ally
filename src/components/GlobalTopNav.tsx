@@ -3,9 +3,10 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2, SlidersHorizontal,
+  User, Settings2, SlidersHorizontal, LogOut
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -210,6 +211,7 @@ export function GlobalTopNav({
   const pulse = useRotatingPulse();
 
   const autosaveStatus = useAutosaveStatus();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -291,221 +293,212 @@ export function GlobalTopNav({
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 z-50 px-5 py-2 flex items-center gap-3 transition-all duration-300",
+        "fixed top-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-2 transition-all duration-300",
         scrolled
           ? "bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
           : "bg-transparent border-b border-transparent"
       )}
       style={{ left: "11rem" }}
     >
-      {/* ── Left: Pulse ── */}
-      <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {/* ── Left: Pulse ── */}
+        <div className="flex min-w-0 shrink-0 items-center gap-2.5">
+          {isInvestorArea ? (
+            <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
+              <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
+            </div>
+          ) : lastSyncedAt ? (
+            <div className="flex items-center gap-1.5 text-[11px] font-medium">
+              <Clock className="h-3 w-3 text-muted-foreground/50" />
+              <span className={cn("hidden truncate transition-colors duration-500 xl:inline", syncFlash ? "text-success" : "text-muted-foreground/70")}>
+                {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
+              </span>
+            </div>
+          ) : null}
+        </div>
 
-        {isInvestorArea ? (
-          <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
-            <span className="relative flex h-1.5 w-1.5 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        {/* ── Search ── */}
+        <div ref={searchRef} className="relative min-w-[220px] flex-1 max-w-4xl">
+          <button
+            onClick={handleSearchClick}
+            className={cn(
+              "group flex h-9 w-full cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
+              searchOpen ? "border-accent/40 bg-muted/50 shadow-sm" : "border-border/50 hover:border-border"
+            )}
+          >
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
+            <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
+              Search...
             </span>
-            <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
-            <span className="text-muted-foreground truncate hidden xl:inline">{pulse.text}</span>
-          </div>
-        ) : lastSyncedAt ? (
-          <div className="flex items-center gap-1.5 text-[11px] font-medium">
-            <Clock className="h-3 w-3 text-muted-foreground/50" />
-            <span className={cn("transition-colors duration-500 truncate hidden xl:inline", syncFlash ? "text-success" : "text-muted-foreground/70")}>
-              {syncFlash ? "Analyzed just now" : `Last analyzed ${relativeTime || ""}`}
-            </span>
-          </div>
-        ) : null}
-      </div>
+            <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
+              ⌘K
+            </kbd>
+          </button>
 
-      {/* ── Center: Expanded Omni-Search with dropdown ── */}
-      <div ref={searchRef} className="relative flex-1 max-w-xl min-w-[200px]">
-        <button
-          onClick={handleSearchClick}
-          className={cn(
-            "flex h-9 w-full items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 hover:bg-muted/50 transition-all cursor-text group",
-            searchOpen ? "border-accent/40 bg-muted/50 shadow-sm" : "border-border/50 hover:border-border"
-          )}
-        >
-          <Search className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors shrink-0" />
-          <span className="text-[13px] text-muted-foreground/40 truncate flex-1 text-left">
-            Search...
-          </span>
-          <kbd className="hidden sm:inline-flex items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40">
-            ⌘K
-          </kbd>
-        </button>
+          {searchOpen && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-xl border border-border/60 bg-popover/95 shadow-xl backdrop-blur-2xl">
+              <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
+                <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
+                {FILTER_CHIPS.map(chip => {
+                  const Icon = chip.icon;
+                  const isActive = activeChip === chip.id;
+                  return (
+                    <button
+                      key={chip.id}
+                      onClick={() => setActiveChip(chip.id)}
+                      className={cn(
+                        "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all",
+                        isActive
+                          ? "border-accent/20 bg-accent/15 text-accent shadow-sm"
+                          : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-        {/* ── Search dropdown ── */}
-        {searchOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1.5 rounded-xl border border-border/60 bg-popover/95 backdrop-blur-2xl shadow-xl overflow-hidden z-50 animate-scale-in">
-            {/* Filter chips */}
-            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border/40 overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
-              <span className="text-[10px] text-muted-foreground/60 font-medium shrink-0 mr-0.5">I'm looking for</span>
-              {FILTER_CHIPS.map(chip => {
-                const Icon = chip.icon;
-                const isActive = activeChip === chip.id;
-                return (
+              <div className="px-3 py-2">
+                <div className="flex items-center gap-1.5 px-1 pb-2">
+                  <Sparkles className="h-3 w-3 text-emerald-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">AI Suggestions</span>
+                </div>
+                {suggestions.map((suggestion, i) => (
                   <button
-                    key={chip.id}
-                    onClick={() => setActiveChip(chip.id)}
+                    key={suggestion}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    onMouseEnter={() => setHighlightIdx(i)}
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all shrink-0 cursor-pointer",
-                      isActive
-                        ? "bg-accent/15 text-accent shadow-sm border border-accent/20"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                      "group/item flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                      i === highlightIdx
+                        ? "bg-accent/10 text-foreground"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-3 w-3" />
-                    {chip.label}
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                        i === highlightIdx ? "bg-accent/20" : "bg-muted/60"
+                      )}
+                    >
+                      <Sparkles className={cn("h-4 w-4", i === highlightIdx ? "text-accent" : "text-muted-foreground/60")} />
+                    </div>
+                    <span className="flex-1 text-sm">{suggestion}</span>
+                    <span className="text-[10px] italic text-muted-foreground/40 opacity-0 transition-opacity group-hover/item:opacity-100">try this</span>
                   </button>
-                );
-              })}
-            </div>
-
-            {/* AI Suggestions */}
-            <div className="px-3 py-2">
-              <div className="flex items-center gap-1.5 px-1 pb-2">
-                <Sparkles className="h-3 w-3 text-emerald-400" />
-                <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-400/80">AI Suggestions</span>
+                ))}
               </div>
-              {suggestions.map((suggestion, i) => (
-                <button
-                  key={suggestion}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  onMouseEnter={() => setHighlightIdx(i)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer group/item",
-                    i === highlightIdx
-                      ? "bg-accent/10 text-foreground"
-                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                  )}
-                >
-                  <div className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
-                    i === highlightIdx ? "bg-accent/20" : "bg-muted/60"
-                  )}>
-                    <Sparkles className={cn("h-4 w-4", i === highlightIdx ? "text-accent" : "text-muted-foreground/60")} />
-                  </div>
-                  <span className="text-sm flex-1">{suggestion}</span>
-                  <span className="text-[10px] text-muted-foreground/40 italic opacity-0 group-hover/item:opacity-100 transition-opacity">try this</span>
-                </button>
-              ))}
-            </div>
 
-            {/* Footer hint */}
-            <div className="flex items-center justify-between border-t border-border/40 px-4 py-2">
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">↵</kbd> Open
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">esc</kbd> Close
-                </span>
+              <div className="flex items-center justify-between border-t border-border/40 px-4 py-2">
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">↵</kbd> Open
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">esc</kbd> Close
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono text-muted-foreground/30">Contextual · AI</span>
               </div>
-              <span className="text-[9px] text-muted-foreground/30 font-mono">Contextual · AI</span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* ── Divider ── */}
-      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
+      <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
+        <div className="h-4 w-px shrink-0 bg-border/40" />
 
-      {/* ── Smart Stats ── */}
-      <TooltipProvider delayDuration={200}>
-        <div className="flex items-center gap-4 shrink-0">
-          {(() => {
-            const locked = profileCompletion < 100;
-            const views = 12;
-            const searches = 85;
-            return (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 cursor-default">
-                      <Eye className="h-4 w-4 text-muted-foreground/60" />
-                      {locked ? (
-                        <Lock className="h-3 w-3 text-muted-foreground/40" />
-                      ) : (
-                        <span className="text-xs font-medium text-foreground">{views}</span>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {locked ? "Complete your profile to unlock Investor Views" : `${views} Total Investor Views this week`}
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 cursor-default">
-                      <Radar className="h-4 w-4 text-muted-foreground/60" />
-                      {locked ? (
-                        <Lock className="h-3 w-3 text-muted-foreground/40" />
-                      ) : (
-                        <span className="text-xs font-medium text-foreground">{searches}</span>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {locked ? "Complete your profile to unlock Search Appearances" : `${searches} Search Appearances this week`}
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            );
-          })()}
-        </div>
-      </TooltipProvider>
-
-      {/* ── Divider ── */}
-      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
-
-      {/* ── AGENT Button ── */}
-      <button className="flex items-center gap-1.5 rounded-lg border border-violet-300/30 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-violet-500 hover:bg-violet-500/5 transition-all shrink-0 shadow-[0_0_8px_-2px_rgba(139,92,246,0.15)]">
-        <Sparkles className="h-4 w-4" />
-        Agent
-      </button>
-
-      {/* ── Autosave Status ── */}
-      {autosaveStatus !== "idle" && (
         <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 shrink-0">
-                {autosaveStatus === "saving" && (
-                  <Cloud className="h-3.5 w-3.5 text-muted-foreground/60 animate-pulse" />
-                )}
-                {autosaveStatus === "saved" && (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-success animate-fade-in" />
-                )}
-                {autosaveStatus === "error" && (
-                  <WifiOff className="h-3.5 w-3.5 text-destructive animate-pulse" />
-                )}
-                <span className={cn(
-                  "text-[9px] font-mono uppercase tracking-wider hidden sm:inline",
-                  autosaveStatus === "saving" && "text-muted-foreground/60",
-                  autosaveStatus === "saved" && "text-success",
-                  autosaveStatus === "error" && "text-destructive",
-                )}>
-                  {autosaveStatus === "saving" ? "Saving" : autosaveStatus === "saved" ? "Saved" : "Offline"}
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {autosaveStatus === "saving" ? "Saving changes..." : autosaveStatus === "saved" ? "All changes saved" : "Changes not saved — will retry"}
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex shrink-0 items-center gap-4">
+            {(() => {
+              const locked = profileCompletion < 100;
+              const views = 12;
+              const searches = 85;
+              return (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center gap-1.5">
+                        <Eye className="h-4 w-4 text-muted-foreground/60" />
+                        {locked ? (
+                          <Lock className="h-3 w-3 text-muted-foreground/40" />
+                        ) : (
+                          <span className="text-xs font-medium text-foreground">{views}</span>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {locked ? "Complete your profile to unlock Investor Views" : `${views} Total Investor Views this week`}
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center gap-1.5">
+                        <Radar className="h-4 w-4 text-muted-foreground/60" />
+                        {locked ? (
+                          <Lock className="h-3 w-3 text-muted-foreground/40" />
+                        ) : (
+                          <span className="text-xs font-medium text-foreground">{searches}</span>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {locked ? "Complete your profile to unlock Search Appearances" : `${searches} Search Appearances this week`}
+                    </TooltipContent>
+                  </Tooltip>
+                </>
+              );
+            })()}
+          </div>
         </TooltipProvider>
-      )}
 
-      {/* ── Divider ── */}
-      <div className="w-[1px] h-4 bg-border/40 shrink-0" />
+        <div className="h-4 w-px shrink-0 bg-border/40" />
 
-      {/* ── Right: Help + Persona Switcher ── */}
-      <div className="flex items-center gap-4 shrink-0">
+        {autosaveStatus !== "idle" && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex shrink-0 items-center gap-1">
+                  {autosaveStatus === "saving" && (
+                    <Cloud className="h-3.5 w-3.5 animate-pulse text-muted-foreground/60" />
+                  )}
+                  {autosaveStatus === "saved" && (
+                    <CheckCircle2 className="h-3.5 w-3.5 animate-fade-in text-success" />
+                  )}
+                  {autosaveStatus === "error" && (
+                    <WifiOff className="h-3.5 w-3.5 animate-pulse text-destructive" />
+                  )}
+                  <span
+                    className={cn(
+                      "hidden text-[9px] font-mono uppercase tracking-wider sm:inline",
+                      autosaveStatus === "saving" && "text-muted-foreground/60",
+                      autosaveStatus === "saved" && "text-success",
+                      autosaveStatus === "error" && "text-destructive",
+                    )}
+                  >
+                    {autosaveStatus === "saving" ? "Saving" : autosaveStatus === "saved" ? "Saved" : "Offline"}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {autosaveStatus === "saving" ? "Saving changes..." : autosaveStatus === "saved" ? "All changes saved" : "Changes not saved — will retry"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        <div className="h-4 w-px shrink-0 bg-border/40" />
+
+        {/* ── Right: Help + Persona Switcher ── */}
+        <div className="flex shrink-0 items-center gap-4">
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -617,9 +610,18 @@ export function GlobalTopNav({
                   {item.label}
                 </DropdownMenuItem>
               ))}
+              <div className="border-t border-border/50 my-1" />
+              <DropdownMenuItem
+                onClick={() => signOut()}
+                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/5 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign Out
+              </DropdownMenuItem>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
       </div>
     </div>
   );
