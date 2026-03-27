@@ -175,10 +175,7 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
 
           <div className="flex items-end justify-between gap-6">
             <div className="flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}</span>
-                <span className="text-xs text-muted-foreground font-mono">/ 100</span>
-              </div>
+              <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}%</span>
             </div>
             <div className="text-right flex-1">
               <div className="flex items-center justify-end gap-2 mb-1">
