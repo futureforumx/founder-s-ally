@@ -1,12 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
+import { mockSupabase } from "./mock-client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
-if (import.meta.env.DEV && (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY)) {
-  console.error(
-    "[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Copy .env.example to .env.local, add your project URL and anon key from the Supabase dashboard, then restart Vite."
+if (import.meta.env.DEV && !hasSupabaseConfig) {
+  console.warn(
+    "[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Falling back to Mock Storage mode so the UI can function in local dev. Data will be saved to your browser's local storage."
   );
 }
 
@@ -17,16 +19,27 @@ export function setSupabaseAccessTokenGetter(fn: () => Promise<string | null>) {
   accessTokenGetter = fn;
 }
 
-export const supabase = createClient<Database>(SUPABASE_URL ?? "", SUPABASE_PUBLISHABLE_KEY ?? "", {
-  accessToken: async () => accessTokenGetter(),
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-    storage: {
-      getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-    },
-  },
-});
+// Export either the real client or our mock
+export const supabase = hasSupabaseConfig 
+  ? createClient<Database>(
+      SUPABASE_URL!,
+      SUPABASE_PUBLISHABLE_KEY!,
+      {
+        global: {
+          fetch: (...args) => fetch(...args),
+        },
+        accessToken: async () => accessTokenGetter(),
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          },
+        },
+      }
+    )
+  : mockSupabase;
+

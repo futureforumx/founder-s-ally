@@ -180,6 +180,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
       {effectiveInvestor && (
         <>
           <motion.div
+            key="investor-backdrop"
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -190,6 +191,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
+              key="investor-modal"
               className="pointer-events-auto max-w-6xl w-full bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden relative max-h-[85vh] flex flex-col"
               initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -363,6 +365,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         </>
       )}
       <ReviewSubmissionModal
+        key="review-modal"
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         firmName={heroName}

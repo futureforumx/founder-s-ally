@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Settings, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, TrendingUp, Network } from "lucide-react";
+import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intel
 interface AppSidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
+  onAgentClick?: () => void;
 }
 
 const topItems = [
@@ -24,7 +25,7 @@ const communityItems = [
   { id: "groups" as const, label: "Groups", icon: UsersRound },
   { id: "events" as const, label: "Events", icon: MapPin }];
 
-export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSidebarProps) {
   const { profile } = useProfile();
   const { user, signOut } = useAuth();
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
@@ -110,51 +111,17 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           </button>
         </nav>
 
-        <div className="border-t border-sidebar-border px-3 py-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50", activeView === "settings" && "border")}
-                style={activeView === "settings" ? {
-                  backgroundColor: "#d1d5db",
-                  borderColor: "#4b5563",
-                  color: "#1f2937",
-                  boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
-                } : {}}>
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={displayName}
-                    className="h-5 w-5 rounded-full object-cover shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary shrink-0">
-                    {initials}
-                  </div>
-                )}
-                <span className="truncate">{displayName}</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-48 p-1.5">
-              {activeView !== "settings" && (
-                <button
-                  onClick={() => onViewChange("settings")}
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-                >
-                  <UserCog className="h-4 w-4" />
-                  Settings
-                </button>
-              )}
-              <button
-                onClick={() => signOut()}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </button>
-            </PopoverContent>
-          </Popover>
+        <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
+          <button
+            onClick={onAgentClick}
+            className="group flex w-full flex-row items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple"
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none">
+            </div>
+            <span className="block text-[13px] font-thin uppercase tracking-[0.2em] text-violet-100/90 leading-none">
+              AGENT
+            </span>
+          </button>
         </div>
       </aside>
   );

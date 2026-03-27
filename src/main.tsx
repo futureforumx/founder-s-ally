@@ -4,6 +4,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const sentryDsn =
   import.meta.env.VITE_SENTRY_DSN ??
@@ -19,33 +20,52 @@ if (sentryEnabled) {
   });
 }
 
-/** Trim and strip accidental quotes from .env.local (common copy-paste mistake). */
-function readClerkPublishableKey(): string {
-  const raw = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-  if (raw == null || typeof raw !== "string") return "";
-  return raw.trim().replace(/^["']|["']$/g, "");
-}
-
 const clerkKey = readClerkPublishableKey();
 
-const appTree = clerkKey ? (
-  <ClerkProvider publishableKey={clerkKey}>
-    <App />
-  </ClerkProvider>
+const showLiveKeyOnLocalhostWarning =
+  import.meta.env.DEV && Boolean(clerkKey?.startsWith("pk_live_"));
+const shouldMountClerk = Boolean(clerkKey) && !showLiveKeyOnLocalhostWarning;
+
+if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
+  console.warn(
+    "[Clerk] pk_live_ keys are tied to your production domain and do not work on http://localhost. " +
+      "Use your Development instance publishable key (pk_test_...) in .env.local for local dev."
+  );
+}
+
+const appTree = shouldMountClerk ? (
+  <div className="flex min-h-screen flex-col">
+    <div className="min-h-0 flex-1">
+      <ClerkProvider publishableKey={clerkKey}>
+        <App />
+      </ClerkProvider>
+    </div>
+  </div>
+) : showLiveKeyOnLocalhostWarning ? (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
+    <p className="text-sm font-medium text-zinc-900">Clerk key mismatch for localhost</p>
+    <p className="max-w-lg text-sm text-zinc-600">
+      You are running locally with a production Clerk publishable key. Use a Development key (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code>, then restart Vite.
+    </p>
+    <p className="max-w-lg text-xs text-zinc-500">
+      This avoids runtime crashes in local development. Keep <code className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono text-xs">pk_live_…</code> only for the deployed production domain.
+    </p>
+  </div>
 ) : (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
     <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
     <p className="max-w-md text-sm text-zinc-600">
-      Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code>{" "}
-      to <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
-      See <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.example</code>.
+      Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for
+      local dev, <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
+      (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
+      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
     </p>
   </div>
 );
 
 if (import.meta.env.DEV && !clerkKey) {
   console.warn(
-    "[Clerk] VITE_CLERK_PUBLISHABLE_KEY is not set. Add it to .env.local (see .env.example)."
+    "[Clerk] Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_… and/or VITE_CLERK_PUBLISHABLE_KEY in .env.local (see .env.example)."
   );
 }
 
@@ -71,8 +91,9 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
             {this.state.error.message}
           </pre>
           <p className="text-xs text-zinc-600">
-            Open the browser devtools console for the full stack. If you use Clerk, confirm this origin is allowed in
-            the Clerk dashboard (e.g. http://localhost:8080 and http://127.0.0.1:8080).
+            Open the browser devtools console for the full stack. If you use Clerk on localhost, use Development keys (
+            <code className="rounded bg-zinc-200/80 px-1">pk_test_…</code>) —{" "}
+            <code className="rounded bg-zinc-200/80 px-1">pk_live_</code> only works on your production domain.
           </p>
         </div>
       );
