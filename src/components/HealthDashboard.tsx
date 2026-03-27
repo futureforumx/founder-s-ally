@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { HealthGauge } from "./HealthGauge";
 import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
 
 const stageMultipliers: Record<string, number> = {
@@ -178,13 +179,28 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
         <div className="surface-card p-6 space-y-5">
           <div className="flex items-start justify-between">
             <h2 className="text-sm font-normal tracking-tight text-foreground">Health Score</h2>
-            <button className="text-muted-foreground hover:text-foreground transition-colors">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Info className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="left" className="w-64 p-3">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Health Score Calculation</h3>
+                  <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
+                    <p>Your health score is calculated based on key metrics across four dimensions:</p>
+                    <ul className="space-y-1.5 pl-3 list-disc">
+                      <li><span className="font-medium text-foreground">Financial Health</span> - Revenue, burn rate, and runway</li>
+                      <li><span className="font-medium text-foreground">GTM Strength</span> - Product-market fit and customer acquisition</li>
+                      <li><span className="font-medium text-foreground">Market Position</span> - Competitive advantage and market trends</li>
+                      <li><span className="font-medium text-foreground">Team & Moat</span> - Team strength and defensibility</li>
+                    </ul>
+                    <p className="pt-1">Scores are benchmarked against similar companies in your stage and sector.</p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex items-start justify-between gap-6">
