@@ -173,15 +173,15 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
             </button>
           </div>
 
-          <div className="flex items-end justify-between gap-6">
-            <div className="flex-1">
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}%</span>
-            </div>
-            <div className="text-right flex-1">
-              <div className="flex items-center justify-end gap-2 mb-1">
+              <div className="flex items-center gap-1">
                 <TrendingUp className="h-3.5 w-3.5 text-success" />
                 <span className="text-sm font-medium text-success">+8%</span>
               </div>
+            </div>
+            <div className="text-right">
               <span className="text-xs text-muted-foreground">{Math.round((overallScore / 100) * 100)}% to target</span>
             </div>
           </div>
