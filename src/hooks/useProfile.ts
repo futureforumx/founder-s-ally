@@ -109,33 +109,28 @@ export function useFounderProfiles() {
           return;
         }
 
-        // Fetch linked companies
         const companyIds = (profiles as any[])
-          .map(p => p.company_id)
+          .map((p) => p.company_id)
           .filter(Boolean);
 
-      // Fetch linked companies
-      const companyIds = (profiles as any[])
-        .filter(p => p && p.company_id)
-        .map(p => p.company_id);
-
-      let companyMap = new Map<string, any>();
-      if (companyIds.length > 0) {
-        const { data: companies } = await supabase
-          .from("company_analyses")
-          .select("id, company_name, sector, stage, competitors")
-          .in("id", companyIds);
-        if (companies) {
-          for (const c of companies) companyMap.set(c.id, c);
+        const companyMap = new Map<string, any>();
+        if (companyIds.length > 0) {
+          const { data: companies } = await supabase
+            .from("company_analyses")
+            .select("id, company_name, sector, stage, competitors")
+            .in("id", companyIds);
+          if (companies) {
+            for (const c of companies) companyMap.set(c.id, c);
+          }
         }
 
-      const result: FounderProfile[] = (profiles as any[]).map(p => ({
-        ...p,
-        company_name: p.company_id ? companyMap.get(p.company_id)?.company_name || null : null,
-        company_sector: p.company_id ? companyMap.get(p.company_id)?.sector || null : null,
-        company_stage: p.company_id ? companyMap.get(p.company_id)?.stage || null : null,
-        company_competitors: p.company_id ? companyMap.get(p.company_id)?.competitors || null : null,
-      }));
+        const result: FounderProfile[] = (profiles as any[]).map((p) => ({
+          ...p,
+          company_name: p.company_id ? companyMap.get(p.company_id)?.company_name || null : null,
+          company_sector: p.company_id ? companyMap.get(p.company_id)?.sector || null : null,
+          company_stage: p.company_id ? companyMap.get(p.company_id)?.stage || null : null,
+          company_competitors: p.company_id ? companyMap.get(p.company_id)?.competitors || null : null,
+        }));
 
         setFounders(result);
       } catch (err) {
