@@ -1353,11 +1353,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const hasSocialLinks = form.socialTwitter || form.socialLinkedin || form.socialInstagram;
       if (!hasSocialLinks) {
         setSocialLinksMessage("Social profiles help us scan for competitors, customers, and keep you updated.");
-        // Clear message after 5 seconds
-        setTimeout(() => {
-          setSocialLinksMessage("");
-        }, 5000);
         return; // Do NOT approve
+      } else {
+        // Clear message when confirming with valid social links
+        setSocialLinksMessage("");
       }
     }
 
@@ -2512,8 +2511,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
                     {/* Social Links Message */}
                     {socialLinksMessage && (
-                      <div className="mt-4 rounded-lg border border-accent/20 bg-accent/5 p-3">
-                        <p className="text-[11px] text-foreground">{socialLinksMessage}</p>
+                      <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                        <p className="text-[11px] text-orange-900">{socialLinksMessage}</p>
                       </div>
                     )}
 
