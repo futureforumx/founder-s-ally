@@ -102,11 +102,7 @@ function setTabInUrl(tab: SettingsTab) {
 }
 
 // ── Main Page ──
-interface SettingsPageProps {
-  tourEnabled?: boolean;
-}
-
-export function SettingsPage({ tourEnabled = true }: SettingsPageProps) {
+export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(getTabFromUrl);
 
   // Re-sync tab from URL when navigated externally (e.g. dropdown)
@@ -244,9 +240,7 @@ export function SettingsPage({ tourEnabled = true }: SettingsPageProps) {
   return (
     <div className="min-h-screen">
       {/* Settings Tour */}
-      {tourEnabled && (
-        <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
-      )}
+      <SettingsTour onSectionChange={(sectionId) => handleSectionChange(sectionId as SettingsSection)} />
 
       {/* Copilot Mission Banner */}
       <div data-tour="profile-strength">
@@ -585,47 +579,46 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
   // handleSave removed — autosave handles persistence
 
-  // ── Magic Sync (Supabase LinkedIn edge function) ──
+  // ── Magic Sync (Auth0 LinkedIn OAuth) ──
   const handleSyncProfile = async () => {
-    if (!linkedinUrl.trim()) {
-      toast.error("Enter your LinkedIn URL first, then click Sync.");
-      return;
-    }
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
-        body: { linkedinUrl: linkedinUrl.trim() },
-      });
-      if (error) throw error;
-
-      const profileData = data?.data || {};
-
-      const incoming = {
-        full_name: profileData.full_name || null,
-        title: profileData.title || null,
-        bio: profileData.bio ? profileData.bio.slice(0, 160) : null,
-        location: profileData.location || null,
-        avatar_url: profileData.avatar_url || null,
-      };
+      const incoming = await verifyLinkedIn();
 
       const fields: SyncField[] = [
         { key: "full_name", label: "Full Name", existing: name, incoming: incoming.full_name },
         { key: "title", label: "Title / Role", existing: title, incoming: incoming.title },
-        { key: "bio", label: "Bio", existing: bio, incoming: incoming.bio },
+        { key: "bio", label: "Bio", existing: bio, incoming: incoming.bio?.slice(0, 160) || null },
         { key: "location", label: "Location", existing: location, incoming: incoming.location },
       ];
 
+      // If we got an avatar, include it
       if (incoming.avatar_url) {
         fields.push({ key: "avatar_url", label: "Profile Photo", existing: avatarUrl, incoming: incoming.avatar_url });
       }
 
-      // Mark as verified
-      setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
+      // Auto-set LinkedIn URL if returned email or name verifies identity
+      if (incoming.full_name) {
+        // Mark as verified via LinkedIn OAuth
+        setSyncedKeys(prev => new Set([...prev, "__linkedin_verified"]));
+      }
+
+      // If we got a LinkedIn URL from the OAuth, update it
+      if (!linkedinUrl.trim() && incoming.full_name) {
+        const slug = incoming.full_name.toLowerCase().replace(/\s+/g, "");
+        const guessedUrl = `https://linkedin.com/in/${slug}`;
+        setLinkedinUrl(guessedUrl);
+        saveImmediate({ linkedinUrl: guessedUrl });
+      }
 
       setSyncFields(fields);
       setSyncReviewOpen(true);
     } catch (err: any) {
-      toast.error("Sync failed: " + (err.message || "Unknown error"));
+      if (err?.message?.includes("cancelled") || err?.message?.includes("Popup closed")) {
+        toast("LinkedIn sync cancelled", { description: "You can try again anytime." });
+      } else {
+        toast.error("Sync failed: " + (err.message || "Unknown error"));
+      }
     } finally {
       setSyncing(false);
     }
@@ -1596,13 +1589,31 @@ function ThemeTab() {
 }
 
 // ── Security Tab ──
-function SecurityTab() {
+function SecurityTabDemo() {
+  const { user } = useAuth();
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-6"
+    >
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Security</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Demo mode — sign-in is simulated</p>
+      </div>
+      <div className="rounded-xl border border-border p-4 space-y-2">
+        <p className="text-sm font-medium text-foreground">Email</p>
+        <p className="text-[10px] text-muted-foreground">{user?.email || "No email set"}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function SecurityTabClerk() {
   const { user } = useAuth();
   const { openUserProfile } = useClerk();
-
-  const handleOpenAccountSettings = () => {
-    openUserProfile();
-  };
 
   return (
     <motion.div
@@ -1614,44 +1625,30 @@ function SecurityTab() {
     >
       <div>
         <h3 className="text-sm font-semibold text-foreground">Security</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Manage your account security settings</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Email, password, and 2FA are managed in your Clerk account.</p>
       </div>
 
       <div className="space-y-3">
-        {/* Email & password (Clerk) */}
         <div className="rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
               <Mail className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">Account & email</p>
+              <p className="text-sm font-medium text-foreground">Account email</p>
               <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">
-            Email, password, and security are managed through your Clerk account.
-          </p>
-          <Button type="button" variant="outline" size="sm" className="rounded-lg text-xs" onClick={handleOpenAccountSettings}>
-            Open account settings
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-lg text-xs gap-1.5 w-full sm:w-auto"
+            onClick={() => openUserProfile()}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open account & security
           </Button>
         </div>
-
-        {/* Change Password */}
-        <button
-          type="button"
-          onClick={() => openUserProfile()}
-          className="w-full flex items-center gap-3 rounded-xl border border-border p-4 hover:bg-muted/30 transition-colors text-left"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Change Password</p>
-            <p className="text-[10px] text-muted-foreground">Last updated 30 days ago</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
-        </button>
 
         <div className="flex items-center justify-between rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
@@ -1660,14 +1657,19 @@ function SecurityTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-              <p className="text-[10px] text-muted-foreground">Add an extra layer of protection</p>
+              <p className="text-[10px] text-muted-foreground">Configure in Clerk account settings</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase font-bold">Off</Badge>
+          <Badge variant="outline" className="text-[9px] uppercase font-bold">Clerk</Badge>
         </div>
       </div>
     </motion.div>
   );
+}
+
+function SecurityTab() {
+  if (import.meta.env.VITE_DEMO_MODE === "true") return <SecurityTabDemo />;
+  return <SecurityTabClerk />;
 }
 
 // ── Subscription Tab ──

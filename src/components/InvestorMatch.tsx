@@ -189,16 +189,10 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<Record<string, EnrichResult>>({});
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
-  const [userId, setUserId] = useState<string | undefined>();
+  const userId = user?.id;
   const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [weights, setWeights] = useState<WeightConfig>({ fit: 50, sentiment: 50, responsiveness: 50, activity: 50 });
-
-  // Get current user ID
-  useEffect(() => {
-    if (user) setUserId(user.id);
-    else setUserId(undefined);
-  }, [user]);
 
   const {
     savedFirmIds,
@@ -225,18 +219,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
   useEffect(() => {
     (async () => {
-      try {
-        const { data, error } = await supabase.from("investor_database").select("*");
-        if (error) {
-          console.warn("Failed to fetch investors:", error);
-        } else if (data) {
-          setInvestors(data as unknown as Investor[]);
-        }
-      } catch (err) {
-        console.warn("Error fetching investors:", err);
-      } finally {
-        setLoading(false);
-      }
+      const { data, error } = await supabase.from("investor_database").select("*");
+      if (!error && data) setInvestors(data as unknown as Investor[]);
+      setLoading(false);
     })();
   }, []);
 
@@ -244,7 +229,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   useEffect(() => {
     if (externalBackers) return;
     (async () => {
-      if (!user) return;
+      if (!user?.id) return;
       const { data } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
       if (data) {
         setInternalBackers(
@@ -261,7 +246,7 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         );
       }
     })();
-  }, [externalBackers, user]);
+  }, [externalBackers, user?.id]);
 
   const scoredInvestors = useMemo(() => {
     return investors
