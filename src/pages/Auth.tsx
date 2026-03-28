@@ -290,6 +290,20 @@ export default function Auth() {
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+    html.classList.add("auth-route-lock");
+    body.classList.add("auth-route-lock");
+    root?.classList.add("auth-route-lock");
+    return () => {
+      html.classList.remove("auth-route-lock");
+      body.classList.remove("auth-route-lock");
+      root?.classList.remove("auth-route-lock");
+    };
+  }, []);
+
+  useEffect(() => {
     if (isLoaded) {
       setClerkLoadTimedOut(false);
       return;

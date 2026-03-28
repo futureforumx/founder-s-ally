@@ -113,6 +113,13 @@
     @apply border-border;
   }
 
+  html.auth-route-lock,
+  body.auth-route-lock,
+  #root.auth-route-lock {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
     font-family: var(--font-sans);
