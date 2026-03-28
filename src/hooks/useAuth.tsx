@@ -73,12 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
       try {
-        const t = await gt({ template: "supabase" });
-        if (t) return t;
+        const sessionJwt = await gt();
+        if (sessionJwt) return sessionJwt;
       } catch {
-        /* template may not exist yet */
+        /* ignore */
       }
-      return (await gt()) ?? null;
+      try {
+        return (await gt({ template: "supabase" })) ?? null;
+      } catch {
+        /* template may not exist */
+        return null;
+      }
     });
   }, [isLoaded, isSignedIn]);
 
