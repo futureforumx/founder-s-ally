@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
+import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 
 interface CompanyContext {
   name?: string;
@@ -61,6 +62,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
   const { data: userCredits } = useUserCredits();
   const isAdmin = userCredits?.tier === "admin";
+
+  // ── Investor mapping — determines which review form to show ──
+  const investorName = investor?.name || vcFirm?.name || null;
+  const { isMapped: investorIsMappedToProfile, mappingRecordId } =
+    useInvestorMapping(investorName);
 
   // ── Live data hook ──
   const liveQuery = useInvestorProfileByName(
@@ -371,6 +377,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         onClose={() => setReviewOpen(false)}
         firmName={heroName}
         vcFirmId={vcFirm?.id ?? null}
+        investorIsMappedToProfile={investorIsMappedToProfile}
+        mappingRecordId={mappingRecordId}
       />
     </AnimatePresence>
   );
