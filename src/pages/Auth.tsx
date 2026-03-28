@@ -191,7 +191,7 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
 
   return (
     <AuthHeroMediaStage>
-      <div className="auth-hero-mux absolute inset-0 overflow-hidden">
+      <div className="auth-hero-mux relative h-full w-full min-h-0 overflow-hidden">
         <MuxPlayer
           key={activeId}
           playbackId={activeId}
@@ -205,7 +205,7 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
           thumbnailTime={0}
           capRenditionToPlayerSize={false}
           style={muxPlayerHeroStyle}
-          className="auth-hero-mux-player pointer-events-none absolute inset-0 h-full w-full"
+          className="auth-hero-mux-player block h-full w-full pointer-events-none"
           onEnded={muxLoop ? undefined : () => setMuxIndex((i) => (i + 1) % ids.length)}
           {...{ "media-object-fit": "cover" }}
         />
@@ -252,16 +252,15 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 }
 
 function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
-  const leftOverflow = isSignUp ? "md:overflow-y-auto" : "md:overflow-hidden";
   const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
   return (
-    <div className="flex min-h-screen w-full flex-col bg-zinc-50 md:grid md:h-screen md:max-h-screen md:min-h-0 md:grid-cols-2 md:grid-rows-1">
+    <div className="h-screen w-full overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
       <div
-        className={`flex min-h-0 flex-1 flex-col justify-center self-stretch px-6 py-10 sm:px-10 md:max-h-screen md:min-h-0 ${leftPadMd} ${leftOverflow}`}
+        className={`h-full overflow-y-auto px-6 sm:px-10 md:min-h-0 ${leftPadMd} py-10`}
       >
         <div className="mx-auto w-full max-w-[440px]">{children}</div>
       </div>
-      <div className="relative hidden min-h-0 self-stretch md:block md:h-full md:min-h-0 md:overflow-hidden">
+      <div className="relative hidden h-full min-h-0 self-stretch md:block md:overflow-hidden">
         <div className="relative h-full min-h-0 w-full self-stretch overflow-hidden rounded-l-[28px] border-y border-l border-zinc-800/80 bg-black shadow-2xl">
           <AuthHeroMedia isSignUp={isSignUp} />
           <AuthHeroCopy copyIndex={heroCopyIndex} />
