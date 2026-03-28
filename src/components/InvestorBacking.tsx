@@ -436,7 +436,10 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   }, [isScanning, syncing]);
 
   const fetchRows = useCallback(async () => {
-    if (!user) { setLoading(false); return; }
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from("cap_table")
       .select("*")
@@ -455,10 +458,10 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
     setRows(mapped);
     setOriginal(mapped);
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   const fetchPending = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     const { data } = await supabase
       .from("pending_investors")
       .select("*")
@@ -466,7 +469,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
       .eq("status", "pending")
       .order("created_at", { ascending: false });
     setPending((data as PendingInvestor[]) || []);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => { fetchRows(); fetchPending(); }, [fetchRows, fetchPending]);
 
@@ -525,7 +528,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
 
   const approveCard = async (row: CapRow) => {
     try {
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.id) throw new Error("Not authenticated");
       const { error } = await supabase.from("cap_table").insert({
         id: row.id,
         user_id: user.id,
@@ -553,7 +556,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const saveChanges = async () => {
     setSaving(true);
     try {
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.id) throw new Error("Not authenticated");
       for (const row of rows) {
         const payload = {
           user_id: user.id, investor_name: row.investor_name, entity_type: row.entity_type,
@@ -580,7 +583,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   };
 
   const acceptPending = async (p: PendingInvestor) => {
-    if (!user) return;
+    if (!user?.id) return;
     const { error: insertErr } = await supabase.from("cap_table").insert({
       user_id: user.id, investor_name: p.investor_name, entity_type: p.entity_type,
       instrument: p.instrument, amount: p.amount, date: p.source_date || "", notes: `${p.source_type}: ${p.source_detail || ""}`.trim(),
@@ -601,7 +604,7 @@ export function InvestorBacking({ extractedInvestors, isScanning = false, compan
   const triggerSync = async () => {
     setSyncing(true);
     try {
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.id) throw new Error("Not authenticated");
       const { data: analyses } = await supabase
         .from("company_analyses")
         .select("id, company_name, website_url")

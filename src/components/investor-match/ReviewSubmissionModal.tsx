@@ -32,7 +32,10 @@ function useExistingReview(firmId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!firmId || !user) { setLoading(false); return; }
+    if (!firmId || !user?.id) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       const { data } = await supabase
         .from("investor_reviews" as any)
@@ -43,7 +46,7 @@ function useExistingReview(firmId?: string) {
       setExisting(data);
       setLoading(false);
     })();
-  }, [firmId, user]);
+  }, [firmId, user?.id]);
 
   return { existing, loading };
 }
@@ -88,7 +91,7 @@ export function ReviewSubmissionModal({ open, onClose, firmName, firmId }: Revie
     setSubmitting(true);
 
     try {
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.id) throw new Error("Not authenticated");
 
       // Resolve firm_id if not provided
       let resolvedFirmId = firmId;

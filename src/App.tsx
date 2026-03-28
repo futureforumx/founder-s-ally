@@ -11,7 +11,6 @@ import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
-import SsoCallback from "./pages/SsoCallback.tsx";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -25,23 +24,16 @@ const queryClient = new QueryClient({
   },
 });
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(DEMO_MODE);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [authTimedOut, setAuthTimedOut] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      setAuthTimedOut(false);
-      return;
-    }
-    const t = window.setTimeout(() => setAuthTimedOut(true), 15_000);
-    return () => window.clearTimeout(t);
-  }, [loading]);
-
-  useEffect(() => {
+    if (DEMO_MODE) return;
     if (!user) { setOnboardingChecked(true); return; }
     setOnboardingChecked(false);
     supabase
@@ -61,19 +53,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       });
   }, [user, location.pathname]);
 
-  if (loading && authTimedOut) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-        <p className="max-w-md text-sm text-foreground">Authentication is taking too long to load.</p>
-        <p className="max-w-lg text-xs text-muted-foreground">
-          Try a normal browser window (not the embedded preview), disable ad blockers for localhost, and add this origin
-          in Clerk → Domains. Then hard-refresh.
-        </p>
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-      </div>
-    );
-  }
-
   if (loading || !onboardingChecked) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -81,7 +60,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/auth/sign-in" replace />;
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
@@ -101,7 +80,6 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth/*" element={<Auth />} />
-            <Route path="/sso-callback" element={<SsoCallback />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
