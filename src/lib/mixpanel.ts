@@ -7,16 +7,32 @@ const token = (import.meta.env.VITE_MIXPANEL_TOKEN ?? "").trim() || DEFAULT_MIXP
 
 let initialized = false;
 
+function doInit(): boolean {
+  if (initialized || !token) return initialized;
+  try {
+    mixpanel.init(token, {
+      debug: import.meta.env.DEV,
+      track_pageview: false,
+      persistence: "localStorage",
+      autocapture: true,
+      // Session replay loads extra code; failures during init left `hooks` unset and broke `track` (before_track).
+    });
+    initialized = true;
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[mixpanel] init failed", e);
+    }
+  }
+  return initialized;
+}
+
+/** Call once at app startup; safe if init throws (will retry on first track). */
 export function initMixpanel(): void {
-  if (initialized || !token) return;
-  initialized = true;
-  mixpanel.init(token, {
-    debug: import.meta.env.DEV,
-    track_pageview: false,
-    persistence: "localStorage",
-    autocapture: true,
-    record_sessions_percent: 100,
-  });
+  doInit();
+}
+
+function ensureReady(): boolean {
+  return doInit();
 }
 
 export function isMixpanelEnabled(): boolean {
@@ -27,19 +43,37 @@ export function mixpanelIdentify(
   userId: string,
   peopleProps?: { $email?: string; $name?: string; [key: string]: unknown }
 ): void {
-  if (!token) return;
-  mixpanel.identify(userId);
-  if (peopleProps && Object.keys(peopleProps).length > 0) {
-    mixpanel.people.set(peopleProps);
+  if (!token || !ensureReady()) return;
+  try {
+    mixpanel.identify(userId);
+    if (peopleProps && Object.keys(peopleProps).length > 0) {
+      mixpanel.people.set(peopleProps);
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[mixpanel] identify failed", e);
+    }
   }
 }
 
 export function mixpanelReset(): void {
-  if (!token) return;
-  mixpanel.reset();
+  if (!token || !ensureReady()) return;
+  try {
+    mixpanel.reset();
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[mixpanel] reset failed", e);
+    }
+  }
 }
 
 export function trackMixpanelEvent(name: string, props?: Record<string, unknown>): void {
-  if (!token) return;
-  mixpanel.track(name, props);
+  if (!token || !ensureReady()) return;
+  try {
+    mixpanel.track(name, props);
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[mixpanel] track failed", e);
+    }
+  }
 }
