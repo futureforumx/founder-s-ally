@@ -55,10 +55,21 @@ const appTree = shouldMountClerk ? (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
     <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
     <p className="max-w-md text-sm text-zinc-600">
-      Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for
-      local dev, <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
-      (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
-      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
+      {import.meta.env.DEV ? (
+        <>
+          Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for local dev,{" "}
+          <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
+          (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
+          <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
+        </>
+      ) : (
+        <>
+          This build has no <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code>. In{" "}
+          <strong className="font-medium">Vercel</strong> (or your host) open{" "}
+          <strong className="font-medium">Project → Settings → Environment Variables</strong>, add it for{" "}
+          <strong className="font-medium">Production</strong> (and Preview if you use previews), then redeploy.
+        </>
+      )}
     </p>
   </div>
 );

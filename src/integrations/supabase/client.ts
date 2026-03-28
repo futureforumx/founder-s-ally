@@ -20,26 +20,21 @@ export function setSupabaseAccessTokenGetter(fn: () => Promise<string | null>) {
 }
 
 // Export either the real client or our mock
-export const supabase = hasSupabaseConfig 
-  ? createClient<Database>(
-      SUPABASE_URL!,
-      SUPABASE_PUBLISHABLE_KEY!,
-      {
-        global: {
-          fetch: (...args) => fetch(...args),
+export const supabase = hasSupabaseConfig
+  ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      global: {
+        fetch: (...args) => fetch(...args),
+      },
+      accessToken: async () => accessTokenGetter(),
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storage: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
         },
-        accessToken: async () => accessTokenGetter(),
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          storage: {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {},
-          },
-        },
-      }
-    )
+      },
+    })
   : mockSupabase;
-
