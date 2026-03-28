@@ -75,8 +75,8 @@ export function useUserPreferences() {
     privacy_settings?: PrivacySettings;
     onboarding_data?: OnboardingData;
     notification_settings?: NotificationSettings;
-  }) => {
-    if (!user) return;
+  }): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!user) return { ok: false, error: "Not signed in" };
     const payload = {
       user_id: user.id,
       updated_at: new Date().toISOString(),
@@ -90,20 +90,21 @@ export function useUserPreferences() {
       .maybeSingle();
 
     if (existing) {
-      await (supabase as any)
+      const { error } = await (supabase as any)
         .from("user_preferences")
         .update(payload)
         .eq("user_id", user.id);
+      if (error) return { ok: false as const, error: error.message };
     } else {
-      await (supabase as any)
-        .from("user_preferences")
-        .insert(payload);
+      const { error } = await (supabase as any).from("user_preferences").insert(payload);
+      if (error) return { ok: false as const, error: error.message };
     }
 
     // Update local state
     if (updates.privacy_settings) setPrivacy(updates.privacy_settings);
     if (updates.onboarding_data) setOnboardingData(updates.onboarding_data);
     if (updates.notification_settings) setNotifications(updates.notification_settings);
+    return { ok: true as const };
   }, [user]);
 
   return { privacy, onboardingData, notifications, loading, upsertPrefs, refetch: fetchPrefs };

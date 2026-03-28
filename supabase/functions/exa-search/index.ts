@@ -1,3 +1,6 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { jwtSubjectMatchesUser } from "../_shared/jwt-sub.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -13,6 +16,75 @@ interface ExaResult {
   text?: string;
 }
 
+/** Bing Web Search v7 → same shape as Exa snippets for the shared LLM extractor. */
+async function searchViaBingWebSearch(query: string, subscriptionKey: string): Promise<ExaResult[] | null> {
+  const url = new URL("https://api.bing.microsoft.com/v7.0/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", "10");
+  url.searchParams.set("mkt", "en-US");
+  url.searchParams.set("safeSearch", "Moderate");
+
+  const resp = await fetch(url.toString(), {
+    method: "GET",
+    headers: { "Ocp-Apim-Subscription-Key": subscriptionKey },
+  });
+
+  if (!resp.ok) {
+    console.warn("Bing Web Search error:", resp.status, await resp.text().catch(() => ""));
+    return null;
+  }
+
+  const data = (await resp.json()) as {
+    webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; datePublished?: string; datePublishedDisplayDate?: string }> };
+  };
+  const values = data?.webPages?.value;
+  if (!Array.isArray(values) || values.length === 0) return null;
+
+  return values.map((v) => {
+    const snippet = (v.snippet || "").trim();
+    return {
+      title: v.name || v.url || "Result",
+      url: v.url || "",
+      publishedDate: v.datePublished || v.datePublishedDisplayDate,
+      highlights: snippet ? [snippet] : [],
+      text: snippet,
+    };
+  });
+}
+
+async function searchViaExa(
+  query: string,
+  highlightQuery: string,
+  apiKey: string,
+): Promise<{ ok: boolean; results: ExaResult[]; status: number }> {
+  const resp = await fetch("https://api.exa.ai/search", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      type: "auto",
+      numResults: 10,
+      contents: {
+        highlights: {
+          query: highlightQuery,
+          highlightsPerUrl: 2,
+          numSentences: 3,
+        },
+      },
+    }),
+  });
+  const status = resp.status;
+  if (!resp.ok) {
+    return { ok: false, results: [], status };
+  }
+  const data = await resp.json();
+  const results: ExaResult[] = Array.isArray(data?.results) ? data.results : [];
+  return { ok: true, results, status };
+}
+
 interface ParsedInvestor {
   investorName: string;
   entityType: string;
@@ -24,6 +96,100 @@ interface ParsedInvestor {
   highlight: string;
   sourceUrl: string;
   domain: string;
+}
+
+/** Upsert into pending_investors (service role). Caller JWT sub must match userId. */
+async function persistInvestorsToPending(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  companyAnalysisId: string | null,
+  investors: ParsedInvestor[],
+  webSource: "exa" | "bing",
+): Promise<{ inserted: number; updated: number }> {
+  if (investors.length === 0) return { inserted: 0, updated: 0 };
+
+  const { data: capRows } = await supabase.from("cap_table").select("investor_name").eq("user_id", userId);
+  const capLower = new Set(
+    (capRows || []).map((r: { investor_name: string }) => r.investor_name.toLowerCase().trim()),
+  );
+
+  let pendingQuery = supabase
+    .from("pending_investors")
+    .select("id, investor_name")
+    .eq("user_id", userId)
+    .eq("status", "pending");
+  pendingQuery = companyAnalysisId
+    ? pendingQuery.eq("company_analysis_id", companyAnalysisId)
+    : pendingQuery.is("company_analysis_id", null);
+
+  const { data: pendingRows, error: pendingErr } = await pendingQuery;
+  if (pendingErr) {
+    console.warn("pending_investors load failed:", pendingErr);
+    return { inserted: 0, updated: 0 };
+  }
+
+  const pendingByLower = new Map<string, { id: string }>();
+  for (const row of pendingRows || []) {
+    pendingByLower.set((row as { investor_name: string }).investor_name.toLowerCase().trim(), {
+      id: (row as { id: string }).id,
+    });
+  }
+
+  const sourceType = webSource === "exa" ? "News / Exa" : "News / Bing";
+  let inserted = 0;
+  let updated = 0;
+  const seenBatch = new Set<string>();
+
+  for (const inv of investors) {
+    const key = inv.investorName.toLowerCase().trim();
+    if (!key || capLower.has(key) || seenBatch.has(key)) continue;
+    seenBatch.add(key);
+
+    const sourceDetail = [inv.highlight, inv.sourceUrl].filter(Boolean).join(" — ").slice(0, 8000);
+    const payload = {
+      user_id: userId,
+      company_analysis_id: companyAnalysisId,
+      investor_name: inv.investorName.trim(),
+      entity_type: inv.entityType || "VC Firm",
+      instrument: inv.instrument || "Equity",
+      amount: Math.min(Math.max(0, Math.round(Number(inv.amount) || 0)), 2_147_483_647),
+      round_name: inv.round?.trim() || null,
+      source_type: sourceType,
+      source_detail: sourceDetail || null,
+      source_date: inv.date?.trim() || null,
+      status: "pending",
+    };
+
+    const existing = pendingByLower.get(key);
+    if (existing) {
+      const { error } = await supabase
+        .from("pending_investors")
+        .update({
+          entity_type: payload.entity_type,
+          instrument: payload.instrument,
+          amount: payload.amount,
+          round_name: payload.round_name,
+          source_type: payload.source_type,
+          source_detail: payload.source_detail,
+          source_date: payload.source_date,
+        })
+        .eq("id", existing.id);
+      if (!error) updated++;
+      continue;
+    }
+
+    const { data: ins, error } = await supabase.from("pending_investors").insert(payload).select("id").maybeSingle();
+    if (error) {
+      console.warn("pending_investors insert failed:", error);
+      continue;
+    }
+    if (ins?.id) {
+      inserted++;
+      pendingByLower.set(key, { id: ins.id });
+    }
+  }
+
+  return { inserted, updated };
 }
 
 const MOCK_INVESTORS: ParsedInvestor[] = [
@@ -253,7 +419,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { companyName, subsector } = body;
+    const { companyName, subsector, user_id: bodyUserId, company_analysis_id: bodyCompanyAnalysisId } = body;
+    const userId = typeof bodyUserId === "string" && bodyUserId.trim() ? bodyUserId.trim() : null;
+    const companyAnalysisId =
+      typeof bodyCompanyAnalysisId === "string" && bodyCompanyAnalysisId.trim() ? bodyCompanyAnalysisId.trim() : null;
 
     if (!companyName) {
       return new Response(JSON.stringify({ error: "companyName is required" }), {
@@ -263,59 +432,69 @@ Deno.serve(async (req) => {
     }
 
     const exaApiKey = Deno.env.get("EXA_API_KEY");
-    if (!exaApiKey) {
-      console.warn("EXA_API_KEY not set, returning mock data");
+    const bingKey = Deno.env.get("BING_SEARCH_API_KEY");
+
+    const query = `Recent venture capital investors and funding rounds for ${companyName}${subsector ? ` in the ${subsector} space` : ""}`;
+    const highlightQuery = `${companyName} investors funding`;
+
+    let results: ExaResult[] = [];
+    let webSource: "exa" | "bing" = "exa";
+
+    if (exaApiKey) {
+      const exa = await searchViaExa(query, highlightQuery, exaApiKey);
+      if (exa.ok && exa.results.length > 0) {
+        results = exa.results;
+        webSource = "exa";
+      } else {
+        console.warn(`Exa API not usable (status ${exa.status}), trying web search backup`);
+      }
+    }
+
+    if (results.length === 0 && bingKey) {
+      const bingResults = await searchViaBingWebSearch(query, bingKey);
+      if (bingResults?.length) {
+        results = bingResults;
+        webSource = "bing";
+      }
+    }
+
+    if (results.length === 0) {
+      if (!exaApiKey && !bingKey) {
+        console.warn("EXA_API_KEY and BING_SEARCH_API_KEY not set, returning mock data");
+      } else {
+        console.warn("No web results from Exa or Bing, returning mock data");
+      }
       return new Response(JSON.stringify({ investors: MOCK_INVESTORS, source: "mock" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const query = `Recent venture capital investors and funding rounds for ${companyName}${subsector ? ` in the ${subsector} space` : ""}`;
-
-    const resp = await fetch("https://api.exa.ai/search", {
-      method: "POST",
-      headers: {
-        "x-api-key": exaApiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-        type: "auto",
-        numResults: 10,
-        contents: {
-          highlights: {
-            query: `${companyName} investors funding`,
-            highlightsPerUrl: 2,
-            numSentences: 3,
-          },
-        },
-      }),
-    });
-
-    if (!resp.ok) {
-      const status = resp.status;
-      console.error(`Exa API error: ${status}`);
-      if (status === 401 || status === 403) {
-        return new Response(JSON.stringify({ investors: MOCK_INVESTORS, source: "mock_fallback" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`Exa API returned ${status}`);
-    }
-
-    const data = await resp.json();
-    const results: ExaResult[] = data?.results || [];
-
-    // Pass through LLM extraction instead of regex
     const investors = await extractInvestorsViaLLM(results, companyName);
 
     if (investors.length === 0) {
-      return new Response(JSON.stringify({ investors: MOCK_INVESTORS, source: "mock_no_results" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ investors: MOCK_INVESTORS, source: webSource === "bing" ? "mock_no_results_bing" : "mock_no_results" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    return new Response(JSON.stringify({ investors, source: "exa" }), {
+    let persisted: { inserted: number; updated: number } | undefined;
+    if (userId) {
+      if (!jwtSubjectMatchesUser(req.headers.get("Authorization"), userId)) {
+        console.warn("exa-search: user_id does not match JWT identity claims; skipping DB persist");
+      } else {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (supabaseUrl && serviceKey) {
+          const supabase = createClient(supabaseUrl, serviceKey);
+          persisted = await persistInvestorsToPending(supabase, userId, companyAnalysisId, investors, webSource);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ investors, source: webSource, ...(persisted ? { persisted } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

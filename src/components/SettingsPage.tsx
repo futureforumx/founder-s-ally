@@ -4,7 +4,7 @@ import { formatSocialUrl } from "@/lib/socialFormat";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
-  User, Mail, Linkedin, Twitter, Bell, BellOff,
+  User, Star, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 
 // ── Section & Tab definitions ──
 type SettingsSection = "personal" | "company-sec" | "network-sec" | "preferences-sec" | "subscription-sec" | "account-sec";
-type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "security" | "subscription";
+type SettingsTab = "account" | "company" | "network" | "notifications" | "privacy" | "theme" | "activity" | "security" | "subscription";
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "personal", label: "Personal" },
@@ -66,6 +66,7 @@ const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]
   "account-sec": [
     { id: "security", label: "Security" },
     { id: "theme", label: "Theme" },
+    { id: "activity", label: "Activity" },
   ],
 };
 
@@ -76,6 +77,7 @@ const ALL_TABS: { id: SettingsTab; label: string }[] = [
   { id: "notifications", label: "Notifications" },
   { id: "privacy", label: "Privacy" },
   { id: "theme", label: "Theme" },
+  { id: "activity", label: "Activity" },
   { id: "security", label: "Security" },
   { id: "subscription", label: "Subscription" },
 ];
@@ -327,6 +329,7 @@ export function SettingsPage({ tourEnabled = true }: SettingsPageProps) {
           {activeTab === "notifications" && <NotificationsTab key="notifications" />}
           {activeTab === "privacy" && <PrivacyTab key="privacy" />}
           {activeTab === "theme" && <ThemeTab key="theme" />}
+          {activeTab === "activity" && <ActivityTab key="activity" />}
           {activeTab === "security" && <SecurityTab key="security" />}
           {activeTab === "subscription" && <SubscriptionTab key="subscription" />}
         </AnimatePresence>
@@ -1590,6 +1593,336 @@ function ThemeTab() {
             {theme === id && <CheckCircle2 className="h-4 w-4 text-accent shrink-0" />}
           </button>
         ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Activity Tab ──
+interface FeedbackItem {
+  id: string;
+  nps_score: number;
+  interaction_type: string;
+  comment: string | null;
+  created_at: string;
+  did_respond: boolean;
+  firm_id: string;
+  firm: { firm_name: string; logo_url?: string | null };
+}
+
+interface ConnectionItem {
+  id: string;
+  name: string;
+  subtitle: string | null;
+  type: "investor" | "founder" | "operator";
+  sector?: string | null;
+  stage?: string | null;
+  amount?: number;
+  date?: string | null;
+}
+
+type ConnFilter = "all" | "investor" | "founder" | "operator";
+
+function ActivityTab() {
+  const { user } = useAuth();
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [connections, setConnections] = useState<ConnectionItem[]>([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(true);
+  const [loadingConns, setLoadingConns] = useState(true);
+  const [connFilter, setConnFilter] = useState<ConnFilter>("all");
+
+  // Fetch investor feedback (reviews left by this user)
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function fetchFeedback() {
+      const { data, error } = await supabase
+        .from("investor_reviews")
+        .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
+        .eq("founder_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (!cancelled && !error && data && data.length > 0) {
+        const firmIds = [...new Set(data.map((r) => r.firm_id))];
+        const { data: firms } = await supabase
+          .from("investor_database")
+          .select("id, firm_name, logo_url")
+          .in("id", firmIds);
+        const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
+        if (!cancelled) {
+          setFeedback(
+            data.map((r) => ({
+              ...r,
+              firm: firmMap[r.firm_id] || { firm_name: "Unknown Firm" },
+            }))
+          );
+        }
+      }
+      if (!cancelled) setLoadingFeedback(false);
+    }
+    fetchFeedback();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Fetch connections (investors from cap_table + founders/operators from community)
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function fetchConnections() {
+      const [{ data: capData }, { data: capFirst }] = await Promise.all([
+        supabase
+          .from("cap_table")
+          .select("id, investor_name, entity_type, instrument, amount, date")
+          .eq("user_id", user!.id)
+          .order("date", { ascending: false }),
+        supabase
+          .from("cap_table")
+          .select("investor_name")
+          .eq("user_id", user!.id)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      const investorConns: ConnectionItem[] = (capData || []).map((c) => ({
+        id: c.id,
+        name: c.investor_name,
+        subtitle: c.instrument || null,
+        type: "investor" as const,
+        amount: c.amount,
+        date: c.date,
+      }));
+
+      let communityConns: ConnectionItem[] = [];
+      if (capFirst?.investor_name) {
+        const { data: conns } = await supabase.rpc("find_connections_by_investor", {
+          _investor_name: capFirst.investor_name,
+        });
+        if (conns && !cancelled) {
+          const filtered = (conns as { user_id: string; company_name: string; sector: string | null; stage: string | null }[]).filter(
+            (c) => c.user_id !== user!.id
+          );
+          const userIds = filtered.map((c) => c.user_id);
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, full_name, user_type, title")
+            .in("user_id", userIds);
+          const profileMap = Object.fromEntries((profiles || []).map((p) => [p.user_id, p]));
+          communityConns = filtered.map((c) => {
+            const profile = profileMap[c.user_id];
+            const rawType = profile?.user_type?.toLowerCase() || "founder";
+            const type: ConnectionItem["type"] =
+              rawType === "operator" ? "operator" : rawType === "investor" ? "investor" : "founder";
+            return {
+              id: c.user_id,
+              name: profile?.full_name || c.company_name,
+              subtitle: profile?.title || c.company_name || null,
+              type,
+              sector: c.sector,
+              stage: c.stage,
+            };
+          });
+        }
+      }
+
+      if (!cancelled) {
+        setConnections([...investorConns, ...communityConns]);
+        setLoadingConns(false);
+      }
+    }
+    fetchConnections();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const filteredConns =
+    connFilter === "all" ? connections : connections.filter((c) => c.type === connFilter);
+
+  const connCounts = useMemo(() => ({
+    all: connections.length,
+    investor: connections.filter((c) => c.type === "investor").length,
+    founder: connections.filter((c) => c.type === "founder").length,
+    operator: connections.filter((c) => c.type === "operator").length,
+  }), [connections]);
+
+  function npsColor(score: number) {
+    if (score >= 9) return "bg-success/10 text-success border-success/20";
+    if (score >= 7) return "bg-accent/10 text-accent border-accent/20";
+    if (score >= 5) return "bg-warning/10 text-warning border-warning/20";
+    return "bg-destructive/10 text-destructive border-destructive/20";
+  }
+
+  function typeColor(type: ConnectionItem["type"]) {
+    if (type === "investor") return "bg-accent/10 text-accent";
+    if (type === "operator") return "bg-warning/10 text-warning";
+    return "bg-primary/10 text-primary";
+  }
+
+  function typeIcon(type: ConnectionItem["type"]) {
+    if (type === "investor") return Building2;
+    return User;
+  }
+
+  function initials(name: string) {
+    return name
+      .split(" ")
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -8 }}
+      transition={{ duration: 0.15 }}
+      className="space-y-8"
+    >
+      {/* ── Investor Feedback ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
+            <MessageSquare className="h-3.5 w-3.5 text-accent" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Investor Feedback</h3>
+            <p className="text-[10px] text-muted-foreground">Reviews you've submitted about investors</p>
+          </div>
+        </div>
+
+        {loadingFeedback ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : feedback.length === 0 ? (
+          <div className="rounded-xl border border-border bg-muted/20 p-5 text-center text-sm text-muted-foreground">
+            No feedback submitted yet.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {feedback.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-border bg-muted/10 p-4 space-y-2 hover:bg-muted/20 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{item.firm.firm_name}</span>
+                    {item.interaction_type && (
+                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        {item.interaction_type}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                        npsColor(item.nps_score)
+                      )}
+                    >
+                      NPS {item.nps_score}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </div>
+                {item.comment && (
+                  <p className="text-xs text-muted-foreground leading-relaxed pl-9">{item.comment}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* ── Connections ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
+            <Network className="h-3.5 w-3.5 text-accent" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Connections</h3>
+            <p className="text-[10px] text-muted-foreground">Investors, founders, and operators in your network</p>
+          </div>
+        </div>
+
+        {/* Filter pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(["all", "investor", "founder", "operator"] as ConnFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setConnFilter(f)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[11px] font-medium transition-all capitalize",
+                connFilter === f
+                  ? "border-accent/40 bg-accent/10 text-accent ring-1 ring-accent/20"
+                  : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"
+              )}
+            >
+              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1) + "s"}&nbsp;
+              <span className="opacity-60">{connCounts[f]}</span>
+            </button>
+          ))}
+        </div>
+
+        {loadingConns ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredConns.length === 0 ? (
+          <div className="rounded-xl border border-border bg-muted/20 p-5 text-center text-sm text-muted-foreground">
+            No {connFilter === "all" ? "" : connFilter + " "}connections found.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredConns.map((conn) => {
+              const Icon = typeIcon(conn.type);
+              return (
+                <div
+                  key={conn.id}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-[11px] font-semibold text-muted-foreground">
+                    {initials(conn.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{conn.name}</p>
+                    {conn.subtitle && (
+                      <p className="text-[10px] text-muted-foreground truncate">{conn.subtitle}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                    {conn.sector && (
+                      <span className="rounded-full bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground border border-border">
+                        {conn.sector}
+                      </span>
+                    )}
+                    {conn.stage && (
+                      <span className="rounded-full bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground border border-border">
+                        {conn.stage}
+                      </span>
+                    )}
+                    <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium capitalize", typeColor(conn.type))}>
+                      <Icon className="h-2.5 w-2.5" />
+                      {conn.type}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </motion.div>
   );

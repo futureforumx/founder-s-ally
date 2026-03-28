@@ -7,7 +7,9 @@ import {
   ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight, Loader2, Linkedin
 } from "lucide-react";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { CompanyProfile, type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { MissionControlInvestors } from "@/components/company-profile/MissionControlInvestors";
 
@@ -160,31 +163,72 @@ export function CompanyTab() {
   const bootstrapState = async () => {
     setLoading(true);
 
-    // First, check if user created a company during onboarding (localStorage)
+    let localSeed: { name: string; website?: string } | null = null;
     try {
       const savedProfile = localStorage.getItem("company-profile");
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
-        if (profile.name) {
-          // User has a local company profile from onboarding
-          // Skip the workspace linking entirely - show their company details
-          setState("linked");
-          setLoading(false);
-          return;
+        if (profile?.name) {
+          localSeed = { name: profile.name, website: profile.website || "" };
         }
       }
     } catch (e) {
       console.warn("Failed to check local company profile:", e);
     }
 
-    // Then check database for company membership
-    const { data: mem } = await supabase
+    let { data: mem } = await supabase
       .from("company_members" as any)
       .select("id, company_id, role")
       .eq("user_id", user!.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (!mem && localSeed) {
+      const ensured = await ensureCompanyWorkspace(user!.id, {
+        name: localSeed.name,
+        website: localSeed.website || "",
+      });
+      if (!ensured.ok) {
+        console.warn("ensureCompanyWorkspace (local profile):", ensured.error);
+      } else {
+        const refetch = await supabase
+          .from("company_members" as any)
+          .select("id, company_id, role")
+          .eq("user_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        mem = refetch.data;
+      }
+    }
+
+    if (!mem) {
+      const { data: ownCompany } = await supabase
+        .from("company_analyses")
+        .select("id, company_name")
+        .eq("user_id", user!.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ownCompany) {
+        const ensured = await ensureCompanyWorkspace(user!.id, {
+          name: (ownCompany as any).company_name || "Company",
+          website: "",
+        });
+        if (ensured.ok) {
+          const refetch = await supabase
+            .from("company_members" as any)
+            .select("id, company_id, role")
+            .eq("user_id", user!.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          mem = refetch.data;
+        }
+      }
+    }
 
     if (mem) {
       const m = mem as any;
@@ -197,19 +241,7 @@ export function CompanyTab() {
         setState("linked");
       }
     } else {
-      const { data: ownCompany } = await supabase
-        .from("company_analyses")
-        .select("id")
-        .eq("user_id", user!.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (ownCompany) {
-        setState("linked");
-      } else {
-        setState("search");
-      }
+      setState("search");
     }
     setLoading(false);
   };
@@ -350,13 +382,71 @@ export function CompanyTab() {
       return;
     }
 
+    const finishClaimSuccess = (membershipRowId?: string) => {
+      setMembership({ id: membershipRowId ?? "", company_id: comp.id, role: "manager" });
+      setState("linked");
+      setDropdownOpen(false);
+      setQuery("");
+      setRequesting(false);
+      toast.success("Profile claimed! You are now the manager.");
+    };
+
+    if (isSupabaseConfigured) {
+      const jwt = await getEdgeFunctionAuthToken();
+      if (jwt) {
+        const { data, error } = await supabase.functions.invoke("claim-company-workspace", {
+          body: { companyId: comp.id, userId: user.id },
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
+        const payload = (data || {}) as {
+          success?: boolean;
+          companyId?: string;
+          membershipId?: string;
+          error?: string;
+        };
+
+        if (payload.success && payload.companyId) {
+          finishClaimSuccess(payload.membershipId);
+          return;
+        }
+
+        if (payload.error) {
+          toast.error(payload.error, { duration: 10_000 });
+          setRequesting(false);
+          return;
+        }
+
+        if (error) {
+          const jsonErr = await readFunctionsHttpErrorMessage(error);
+          if (jsonErr) {
+            toast.error(jsonErr, { duration: 10_000 });
+            setRequesting(false);
+            return;
+          }
+          if (isFunctionsHttpError(error) && error.context.status !== 404) {
+            toast.error(
+              `Claim failed (HTTP ${error.context.status}). Deploy claim-company-workspace or configure Clerk "supabase" JWT.`,
+              { duration: 12_000 },
+            );
+            setRequesting(false);
+            return;
+          }
+        }
+      }
+    }
+
     const { error: claimError } = await (supabase as any)
       .from("company_analyses")
       .update({ claimed_by: user.id, is_claimed: true })
       .eq("id", comp.id);
 
     if (claimError) {
-      toast.error("Failed to claim company profile: " + claimError.message);
+      toast.error(
+        "Failed to claim company profile: " +
+          claimError.message +
+          " If you are not the original creator of this row, deploy claim-company-workspace (service role) or add a Clerk \"supabase\" JWT template.",
+        { duration: 12_000 },
+      );
       setRequesting(false);
       return;
     }
@@ -366,7 +456,9 @@ export function CompanyTab() {
       .insert({ user_id: user.id, company_id: comp.id, role: "manager" });
 
     if (memberError) {
-      toast.error("Profile claimed but failed to link you as manager: " + memberError.message);
+      toast.error(
+        `Could not add you as manager: ${memberError.message}. If this persists, apply DB migration 20260328180000 or deploy claim-company-workspace.`,
+      );
       setRequesting(false);
       return;
     }
@@ -382,95 +474,49 @@ export function CompanyTab() {
       return;
     }
 
-    setMembership({ id: "", company_id: comp.id, role: "manager" });
-    setState("linked");
-    setDropdownOpen(false);
-    setQuery("");
-    setRequesting(false);
-    toast.success("Profile claimed! You are now the manager.");
+    const { data: memRef } = await supabase
+      .from("company_members" as any)
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("company_id", comp.id)
+      .maybeSingle();
+    finishClaimSuccess((memRef as { id?: string } | null)?.id);
   };
 
   // ── Scenario C: Create Workspace ──
   const handleCreateWorkspace = async (name: string) => {
     if (!user) return;
+    const workspaceName = name.trim();
+    if (!workspaceName) {
+      toast.error("Enter a workspace name first.");
+      return;
+    }
     setRequesting(true);
 
     try {
-      // Step 1: Try to create company workspace
-      let newComp: any = null;
-      let compError: any = null;
-
-      try {
-        const result = await supabase
-          .from("company_analyses")
-          .insert({
-            user_id: user.id,
-            company_name: name.trim(),
-            is_claimed: true,
-            claimed_by: user.id,
-          } as any)
-          .select("id")
-          .single();
-
-        newComp = result.data;
-        compError = result.error;
-      } catch (insertErr: any) {
-        compError = insertErr;
-      }
-
-      if (compError || !newComp) {
-        console.error("Company creation error:", compError);
-
-        // User-friendly error messages
-        let errorMsg = "Failed to create workspace. ";
-        if (compError?.message?.includes("No suitable key")) {
-          errorMsg += "There's a database configuration issue. Please contact support.";
-        } else if (compError?.message?.includes("Unauthorized") || compError?.code === "PGRST301") {
-          errorMsg += "You don't have permission to create workspaces. Please contact support.";
-        } else if (compError?.message?.includes("duplicate")) {
-          errorMsg += "A workspace with this name already exists. Try a different name.";
-        } else {
-          errorMsg += compError?.message || "Please try again.";
+      const ws = await ensureCompanyWorkspace(user.id, { name: workspaceName, website: "" });
+      if (!ws.ok) {
+        console.error("Company workspace error:", ws.error);
+        let errorMsg = ws.error;
+        if (
+          ws.error.includes("No suitable key") ||
+          ws.error.toLowerCase().includes("wrong key type")
+        ) {
+          errorMsg =
+            "Database rejected your login token. Add a Clerk JWT template named exactly \"supabase\" and enable Clerk in Supabase → Authentication (see Supabase third-party Clerk docs). Or deploy the create-company-workspace edge function.";
+        } else if (ws.error.includes("Unauthorized") || ws.error.includes("PGRST301")) {
+          errorMsg = "Sign-in session invalid. Sign out and back in, then try again.";
+        } else if (ws.error.toLowerCase().includes("duplicate")) {
+          errorMsg = "A workspace may already exist for this account. Refresh the page.";
+        } else if (ws.error.includes("Missing or invalid bearer")) {
+          errorMsg = "Not signed in, or session token missing. Refresh the page and try again.";
         }
-
-        toast.error(errorMsg);
+        toast.error(errorMsg, { duration: 12_000 });
         setRequesting(false);
         return;
       }
 
-      // Step 2: Try to add user to company as manager
-      const { error: memberError } = await supabase
-        .from("company_members" as any)
-        .insert({ user_id: user.id, company_id: newComp.id, role: "manager" })
-        .catch((err) => ({ error: err }));
-
-      if (memberError) {
-        console.error("Member creation error:", memberError);
-        // Try to clean up the company we just created
-        try {
-          await supabase.from("company_analyses").delete().eq("id", newComp.id);
-        } catch (cleanupErr) {
-          console.warn("Cleanup failed:", cleanupErr);
-        }
-        toast.error("Failed to set up workspace membership. Please try again.");
-        setRequesting(false);
-        return;
-      }
-
-      // Step 3: Update user profile with company_id (non-fatal if fails)
-      try {
-        const { error: profileError } = await (supabase as any)
-          .from("profiles")
-          .update({ company_id: newComp.id })
-          .eq("user_id", user.id);
-
-        if (profileError) {
-          console.warn("Profile update non-fatal error:", profileError);
-          // Continue anyway - this is not critical
-        }
-      } catch (err) {
-        console.warn("Profile update failed (non-critical):", err);
-      }
+      const newComp = { id: ws.companyId };
 
       // Step 4: Get user profile for welcome email (optional)
       let userProfile = null;
@@ -493,7 +539,7 @@ export function CompanyTab() {
           type: "workspace_welcome",
           recipientEmail: user.email,
           recipientName: userProfile?.full_name || user.email?.split("@")[0],
-          companyName: name.trim(),
+          companyName: workspaceName,
         });
       } catch (emailErr) {
         console.warn("Email notification failed (non-critical):", emailErr);
@@ -506,7 +552,7 @@ export function CompanyTab() {
       try {
         localStorage.setItem(
           "pending-company-seed",
-          JSON.stringify({ companyName: name.trim(), websiteUrl: "" }),
+          JSON.stringify({ companyName: workspaceName, websiteUrl: "" }),
         );
         window.dispatchEvent(new CustomEvent("show-onboarding"));
       } catch {

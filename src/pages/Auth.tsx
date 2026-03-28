@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -10,9 +10,20 @@ export default function Auth() {
   const { isLoaded, userId } = useClerkAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
   const clerkKey = readClerkPublishableKey();
   const showLocalPreviewFallback =
     import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
+  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
+
+  useEffect(() => {
+    if (isLoaded) {
+      setClerkLoadTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setClerkLoadTimedOut(true), 15_000);
+    return () => window.clearTimeout(t);
+  }, [isLoaded]);
 
   useEffect(() => {
     if (isLoaded && userId) navigate("/", { replace: true });
@@ -173,7 +184,7 @@ export default function Auth() {
     );
   }
 
-  if (!isLoaded) {
+  if (!isLoaded && !clerkLoadTimedOut) {
     return shell(
       <div className="flex min-h-[320px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
@@ -186,6 +197,12 @@ export default function Auth() {
   return shell(
     isSignUp ? (
       <>
+        {clerkLoadTimedOut && (
+          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+            Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
+            add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
+          </div>
+        )}
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
         <p className="mt-2 text-sm text-zinc-500">
           Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
@@ -203,6 +220,12 @@ export default function Auth() {
       </>
     ) : (
       <>
+        {clerkLoadTimedOut && (
+          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+            Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
+            add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
+          </div>
+        )}
         <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
         <p className="hidden md:block mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
         <div className="mt-8 w-full min-w-0">

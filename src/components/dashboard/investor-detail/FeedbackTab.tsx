@@ -39,9 +39,11 @@ type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 
 interface FeedbackTabProps {
   investorName: string;
+  /** Opens the same review modal as the header “Rate” button */
+  onLogInteraction?: () => void;
 }
 
-export function FeedbackTab({ investorName }: FeedbackTabProps) {
+export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps) {
   const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
   const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
 
@@ -139,7 +141,12 @@ export function FeedbackTab({ investorName }: FeedbackTabProps) {
             <p className="text-xs font-semibold leading-snug">Pitched {investorName} recently?</p>
             <p className="text-[10px] text-background/60 mt-0.5">Share your experience to help the community.</p>
           </div>
-          <button className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors">
+          <button
+            type="button"
+            onClick={onLogInteraction}
+            className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors disabled:opacity-50"
+            disabled={!onLogInteraction}
+          >
             Log Interaction
           </button>
         </div>

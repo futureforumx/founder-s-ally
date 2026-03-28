@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useLayoutEffect,
   useRef,
   createContext,
   useContext,
@@ -9,6 +9,7 @@ import {
 import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/clerk-react";
 import type { User, Session } from "@supabase/supabase-js";
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
+import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 
 interface AuthCtx {
   user: User | null;
@@ -68,22 +69,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
 
-  useEffect(() => {
+  // Register before paint so edge-function calls right after sign-in see real tokens (not stale null getters).
+  useLayoutEffect(() => {
+    registerClerkSessionTokenGetter(async () => {
+      if (!isLoaded || !isSignedIn) return null;
+      try {
+        return (await getTokenRef.current()) ?? null;
+      } catch {
+        return null;
+      }
+    });
+
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
+      // PostgREST RLS needs a JWT Supabase can verify (Clerk "supabase" template).
+      // Clerk's default session token is Clerk-signed — PostgREST returns "No suitable key or wrong key type".
       try {
-        const sessionJwt = await gt();
-        if (sessionJwt) return sessionJwt;
+        const supabaseJwt = await gt({ template: "supabase" });
+        if (supabaseJwt) return supabaseJwt;
       } catch {
-        /* ignore */
+        /* template missing or misconfigured */
       }
-      try {
-        return (await gt({ template: "supabase" })) ?? null;
-      } catch {
-        /* template may not exist */
-        return null;
-      }
+      console.warn(
+        '[Supabase + Clerk] No JWT from template "supabase". Row-level security on tables will fail until you add it: Clerk Dashboard → JWT Templates → name exactly `supabase`, then Supabase → Authentication → Sign In / Providers → Clerk. Docs: https://supabase.com/docs/guides/auth/third-party/clerk',
+      );
+      return null;
     });
   }, [isLoaded, isSignedIn]);
 

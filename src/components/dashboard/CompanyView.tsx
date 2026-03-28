@@ -52,6 +52,11 @@ export function CompanyView({ companyData, analysisResult, onMetricEdit, onNavig
         sector={companyData?.sector}
         analysisResult={analysisResult}
         onMetricEdit={onMetricEdit}
+        linkedinProfileUrl={
+          companyData?.socialLinkedin && /linkedin\.com\/in\//i.test(companyData.socialLinkedin)
+            ? companyData.socialLinkedin
+            : null
+        }
       />
     </div>
   );

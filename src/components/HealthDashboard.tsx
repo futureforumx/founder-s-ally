@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { HealthGauge } from "./HealthGauge";
-import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info, ExternalLink } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
@@ -157,16 +158,57 @@ const defaultMetrics: { label: string; key: keyof AnalysisResult["metrics"]; cha
 
 type BenchmarkMode = "market" | "community" | "trend" | "network";
 
+export interface LinkedInPublicProfileRow {
+  full_name: string | null;
+  title: string | null;
+  bio: string | null;
+  location: string | null;
+  avatar_url: string | null;
+  linkedin_url: string;
+}
+
 interface HealthDashboardProps {
   stage?: string;
   sector?: string;
   analysisResult?: AnalysisResult | null;
   onMetricEdit?: (key: string, value: string) => void;
+  /** Personal LinkedIn URL (`/in/...`) — loads public profile preview via edge function (RapidAPI when configured). */
+  linkedinProfileUrl?: string | null;
 }
 
-export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }: HealthDashboardProps) {
+export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit, linkedinProfileUrl }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const [liProfile, setLiProfile] = useState<LinkedInPublicProfileRow | null>(null);
+  const [liLoading, setLiLoading] = useState(false);
+
+  useEffect(() => {
+    const url = linkedinProfileUrl?.trim();
+    if (!url || !/linkedin\.com\/in\//i.test(url)) {
+      setLiProfile(null);
+      setLiLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLiLoading(true);
+    setLiProfile(null);
+    (async () => {
+      const { data, error } = await supabase.functions.invoke("sync-linkedin-profile", {
+        body: { linkedinUrl: url },
+      });
+      if (cancelled) return;
+      setLiLoading(false);
+      if (error || !data || typeof data !== "object" || !("success" in data) || !(data as { success?: boolean }).success) {
+        setLiProfile(null);
+        return;
+      }
+      const row = (data as { data?: LinkedInPublicProfileRow }).data;
+      if (row?.linkedin_url) setLiProfile(row);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedinProfileUrl]);
 
   const healthData = useMemo(() => buildHealthData(mode, stage, sector), [mode, stage, sector]);
 
@@ -202,6 +244,53 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit }:
               </PopoverContent>
             </Popover>
           </div>
+
+          {(linkedinProfileUrl?.trim() &&
+            /linkedin\.com\/in\//i.test(linkedinProfileUrl) &&
+            (liLoading || liProfile)) && (
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-3">
+              {liLoading && (
+                <p className="text-xs text-muted-foreground">Loading public LinkedIn profile…</p>
+              )}
+              {!liLoading && liProfile && (
+                <div className="flex gap-3">
+                  {liProfile.avatar_url ? (
+                    <img
+                      src={liProfile.avatar_url}
+                      alt=""
+                      className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-border/60"
+                    />
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                      in
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-semibold text-foreground truncate">
+                        {liProfile.full_name || "LinkedIn profile"}
+                      </span>
+                      <a
+                        href={liProfile.linkedin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        aria-label="Open LinkedIn profile"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                    {liProfile.title && (
+                      <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{liProfile.title}</p>
+                    )}
+                    {liProfile.location && (
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80">{liProfile.location}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-start justify-between gap-6">
             <div className="flex items-baseline gap-2">

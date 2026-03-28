@@ -22,6 +22,41 @@ export function setSupabaseAccessTokenGetter(fn: () => Promise<string | null>) {
   accessTokenGetter = fn;
 }
 
+/** Clerk (or other) JWT sent to Supabase — use for edge functions that need the signed-in user. */
+export async function getSupabaseAccessToken(): Promise<string | null> {
+  try {
+    return await accessTokenGetter();
+  } catch {
+    return null;
+  }
+}
+
+const sharedAuthOptions = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    storage: {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    },
+  },
+} as const;
+
+/**
+ * Clerk session JWT is not verifiable by PostgREST unless you add Clerk’s `supabase` JWT template.
+ * VC directory reads use this client instead: publishable key only → `anon` role + RLS policies on `vc_*`.
+ */
+export const supabaseVcDirectory = hasSupabaseConfig
+  ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      global: {
+        fetch: (...args) => fetch(...args),
+      },
+      ...sharedAuthOptions,
+    })
+  : mockSupabase;
+
 // Export either the real client or our mock
 export const supabase = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
@@ -29,15 +64,6 @@ export const supabase = hasSupabaseConfig
         fetch: (...args) => fetch(...args),
       },
       accessToken: async () => accessTokenGetter(),
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        storage: {
-          getItem: () => null,
-          setItem: () => {},
-          removeItem: () => {},
-        },
-      },
+      ...sharedAuthOptions,
     })
   : mockSupabase;

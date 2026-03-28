@@ -1,0 +1,1524 @@
+[
+  {
+    "name": "Sonali Singh",
+    "title": "Partner",
+    "email": "sonalis@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/sonali-singh/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Abhishek Malani",
+    "title": "Partner",
+    "email": "amalani@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/abhishek-malani/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Cole Pergament",
+    "title": "Partner",
+    "email": "cpergament@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/cole-pergament/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Brian Halligan",
+    "title": "Partner",
+    "email": "bhalligan@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/brian-halligan/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Dean Meyer",
+    "title": "Partner",
+    "email": "dmeyer@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/dean-meyer/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "James Flynn",
+    "title": "Partner",
+    "email": "jflynn@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/james-flynn/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Julien Bek",
+    "title": "Partner",
+    "email": "julien@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/julien-bek/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "David Cahn",
+    "title": "Partner",
+    "email": "dcahn@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/david-cahn/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Lauren Reeder",
+    "title": "Partner",
+    "email": "reeder@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/lauren-reeder/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Stephanie Zhan",
+    "title": "Partner",
+    "email": "szhan@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/stephanie-zhan/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Shaun Maguire",
+    "title": "Partner",
+    "email": "smaguire@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/shaun-maguire/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Sonya Huang",
+    "title": "Partner",
+    "email": "shuang@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/sonya-huang/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Ravi Gupta",
+    "title": "Partner",
+    "email": "rkg@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/ravi-gupta/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Pat Grady",
+    "title": "Partner",
+    "email": "grady@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/pat-grady/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Roelof Botha",
+    "title": "Partner",
+    "email": "roelof@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/roelof-botha/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Bryan Schreier",
+    "title": "Partner",
+    "email": "bryan@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/bryan-schreier/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "George Robson",
+    "title": "Partner",
+    "email": "grobson@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/george-robson/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Andrew Reed",
+    "title": "Partner",
+    "email": "areed@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/andrew-reed/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Luciana Lixandru",
+    "title": "Partner",
+    "email": "luciana@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/luciana-lixandru/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Alfred Lin",
+    "title": "Partner",
+    "email": "alfred@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/alfred-lin/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Doug Leone",
+    "title": "Partner",
+    "email": "leone@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/doug-leone/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Jess Lee",
+    "title": "Partner",
+    "email": "jess@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/jess-lee/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Jim Goetz",
+    "title": "Partner",
+    "email": "goetz@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/jim-goetz/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Carl Eschenbach",
+    "title": "Partner",
+    "email": "eschenbach@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/carl-eschenbach/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Bill Coughran",
+    "title": "Partner",
+    "email": "wmc@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/bill-coughran/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Josephine Chen",
+    "title": "Partner",
+    "email": "josephine@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/josephine-chen/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Konstantine Buhler",
+    "title": "Partner",
+    "email": "konstantine@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/konstantine-buhler/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Isaiah Boone",
+    "title": "Partner",
+    "email": "boone@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/isaiah-boone/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Anas Biad",
+    "title": "Partner",
+    "email": "biad@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/anas-biad/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Bogomil Balkansky",
+    "title": "Partner",
+    "email": "bogomil@sequoiacap.com",
+    "firm": {
+      "name": "Sequoia Capital",
+      "slug": "sequoia-capital",
+      "url": "https://sequoiacap.com"
+    },
+    "profile_url": "https://sequoiacap.com/people/bogomil-balkansky/",
+    "source": "https://sequoiacap.com/our-team/"
+  },
+  {
+    "name": "Casey Aylward",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/casey-aylward",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Mahendran Balachandran",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/mahendran-balachandran",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Luca Bocchio",
+    "title": "Partner",
+    "email": "luca@accel.com",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/luca-bocchio",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Philippe Botteri",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/philippe-botteri",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Andrew Braccia",
+    "title": "Partner",
+    "email": "abraccia@accel.com",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/andrew-braccia",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Andrei Brasoveanu",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/andrei-brasoveanu",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Abhinav Chaturvedi",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/abhinav-chaturvedi",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Miles Clements",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/miles-clements",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Kevin Comolli",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/kevin-comolli",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Anand Daniel",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/anand-daniel",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Sonali De Rycker",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/sonali-de-rycker",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Christine Esserman",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/christine-esserman",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ben Fletcher",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ben-fletcher",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Sameer Gandhi",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/sameer-gandhi",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Sara Ittelson",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/sara-ittelson",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Dinesh Katiyar",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/dinesh-katiyar",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Shekhar Kirani",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/shekhar-kirani",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Amit Kumar",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/amit-kumar",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Daniel Levine",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/daniel-levine",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ping Li",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ping-li",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "John Locke",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/john-locke",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Zhenya Loginov",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/zhenya-loginov",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Steve Loughlin",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/steve-loughlin",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Arun Mathew",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/arun-mathew",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Subrata Mitra",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/subrata-mitra",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Vas Natarajan",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/vas-natarajan",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Harry Nelis",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/harry-nelis",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Nate Niparko",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/nate-niparko",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Prashanth Prakash",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/prashanth-prakash",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Matt Robinson",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/matt-robinson",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Barath Shankar Subramanian",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/barath-shankar-subramanian",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Prayank Swaroop",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/prayank-swaroop",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ryan Sweeney",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ryan-sweeney",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Jonathan Turner",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/jonathan-turner",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Matt Weigand",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/matt-weigand",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Rich Wong",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/rich-wong",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Myrel Iturrey",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/myrel-iturrey",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Nafis Jamal",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/nafis-jamal",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Gonzalo Mocorrea",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/gonzalo-mocorrea",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ben Quazzo",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ben-quazzo",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Kerry Wang",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/kerry-wang",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Eric Wolford",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/eric-wolford",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ivan Zhou",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ivan-zhou",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Jakob Buchmayer",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/jakob-buchmayer",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Dana Eliaz",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/dana-eliaz",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Kelly Kung",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/kelly-kung",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Bilal Mobarik",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/bilal-mobarik",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Tim Rawlinson",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/tim-rawlinson",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Alex Reinert",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/alex-reinert",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "AJ Tennant",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/aj-tennant",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Cecilia Wang",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/cecilia-wang",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Carlo Biggio",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/carlo-biggio",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Rishika Garg",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/rishika-garg",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Rachit Parekh",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/rachit-parekh",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Anagh Prasad",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/anagh-prasad",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Manasi Shah",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/manasi-shah",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Sarthak Singh",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/sarthak-singh",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Ayushi Gupta",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/ayushi-gupta",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Shashank Gupta",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/shashank-gupta",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Astha Jakher",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/astha-jakher",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Eknoor Malhotra",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/eknoor-malhotra",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Nayan Nandan",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/nayan-nandan",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Shourya Shrivastava",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/shourya-shrivastava",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Pratik Agarwal",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/pratik-agarwal",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Kevin Efrusy",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/kevin-efrusy",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Bruce Golden",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/bruce-golden",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Arthur Patterson",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/arthur-patterson",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Jim Swartz",
+    "title": "Partner",
+    "firm": {
+      "name": "Accel",
+      "slug": "accel",
+      "url": "https://www.accel.com"
+    },
+    "profile_url": "https://www.accel.com/team/jim-swartz",
+    "source": "https://www.accel.com/people"
+  },
+  {
+    "name": "Kent Bennett",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/kent-bennett",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Charles Birnbaum",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/charles-birnbaum",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "David Cowan",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/david-cowan",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Byron Deeter",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/byron-deeter",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Sameer Dholakia",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/sameer-dholakia",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Mike Droesch",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/mike-droesch",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Brian Feinstein",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/brian-feinstein",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Alex Ferrara",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/alex-ferrara",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Adam Fisher",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/adam-fisher",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Talia Goldberg",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/talia-goldberg",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Bob Goodman",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/bob-goodman",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Sofia Guerra",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/sofia-guerra",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Vishal Gupta",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/vishal-gupta",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Felda Hardymon",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/felda-hardymon",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Andrew Hedin",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/andrew-hedin",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Nithin Kaimal",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/nithin-kaimal",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Amit Karp",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/amit-karp",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Steve Kraus",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/steve-kraus",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Jeremy Levine",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/jeremy-levine",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Pankaj Mitra",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/pankaj-mitra",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Lauri Moore",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/lauri-moore",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Elliott Robinson",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/elliott-robinson",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Rob Stavis",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/rob-stavis",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Ariel Sterman",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/ariel-sterman",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Janelle Teng Wade",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/janelle-teng-wade",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Anant Vidur Puri",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/anant-vidur-puri",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Lance Co Ting Keh",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/lance-co-ting-keh",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Bryan Wu",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/bryan-wu",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Shrey Agarwal",
+    "title": "Partner",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/shrey-agarwal",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Tess Hatch",
+    "title": "Partner",
+    "email": "tess@bvp.com",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "profile_url": "https://www.bvp.com/team/tess-hatch",
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Ethan Kurzweil",
+    "title": "Partner",
+    "email": "ethan@bvp.com",
+    "firm": {
+      "name": "Bessemer Venture Partners",
+      "slug": "bessemer",
+      "url": "https://www.bvp.com"
+    },
+    "source": "https://www.bvp.com/team"
+  },
+  {
+    "name": "Bill Gurley",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Matt Cohler",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Peter Fenton",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Miles Grimshaw",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Eric Vishria",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Chetan Puttagunta",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  },
+  {
+    "name": "Sarah Tavel",
+    "title": "General Partner",
+    "firm": {
+      "name": "Benchmark",
+      "slug": "benchmark",
+      "url": "https://www.benchmark.com"
+    },
+    "source": "https://www.benchmark.com"
+  }
+]

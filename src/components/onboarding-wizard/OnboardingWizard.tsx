@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
+import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
+import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
@@ -32,59 +34,27 @@ export function OnboardingWizard() {
 
       const resolvedCompanyName = overrideCompanyName || state.companyName;
       if (resolvedCompanyName) {
-        const { data: existing } = await (supabase as any)
-          .from("company_analyses")
-          .select("id")
-          .eq("user_id", user.id)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (existing) {
-          companyId = existing.id;
-          await (supabase as any)
-            .from("company_analyses")
-            .update({
-              company_name: resolvedCompanyName,
-              website_url: state.websiteUrl || null,
-              deck_text: state.deckText || null,
-              stage: state.stage || null,
-              sector: state.sectors?.[0] || null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existing.id);
-        } else {
-          const { data: newComp } = await (supabase as any)
-            .from("company_analyses")
-            .insert({
-              user_id: user.id,
-              company_name: resolvedCompanyName,
-              website_url: state.websiteUrl || null,
-              deck_text: state.deckText || null,
-              stage: state.stage || null,
-              sector: state.sectors?.[0] || null,
-            })
-            .select("id")
-            .single();
-          if (newComp) companyId = newComp.id;
+        const ws = await ensureCompanyWorkspace(user.id, {
+          name: resolvedCompanyName,
+          website: state.websiteUrl?.trim() || "",
+        });
+        if (!ws.ok) {
+          toast({
+            title: "Couldn't create company workspace",
+            description:
+              ws.error +
+              (/\b(bearer|JWT|401|deploy|HTTP)\b/i.test(ws.error)
+                ? " Deploy the create-company-workspace edge function, or add Clerk's \"supabase\" JWT template for direct database access."
+                : ""),
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
         }
+        companyId = ws.companyId;
       }
 
-      await upsertProfile({
-        full_name: state.fullName || undefined,
-        title: state.title || null,
-        bio: state.bio || null,
-        location: state.location || null,
-        avatar_url: state.avatarUrl || null,
-        linkedin_url: state.linkedinUrl || null,
-        twitter_url: state.twitterUrl || null,
-        user_type: state.userType || "founder",
-        has_completed_onboarding: true,
-        has_seen_settings_tour: false,
-        ...(companyId ? { company_id: companyId } : {}),
-      } as any);
-
-      await upsertPrefs({
+      const prefsPayload = {
         onboarding_data: {
           stage: state.stage,
           sectors: state.sectors,
@@ -103,7 +73,114 @@ export function OnboardingWizard() {
           discoverableToInvestors: false,
           useMeetingNotes: false,
         },
-      });
+      };
+
+      const edgePayload = {
+        userId: user.id,
+        companyId: companyId || undefined,
+        companyFields:
+          companyId && resolvedCompanyName
+            ? {
+                company_name: resolvedCompanyName,
+                website_url: state.websiteUrl || null,
+                deck_text: state.deckText || null,
+                stage: state.stage || null,
+                sector: state.sectors?.[0] || null,
+              }
+            : undefined,
+        profile: {
+          full_name: state.fullName || undefined,
+          title: state.title || null,
+          bio: state.bio || null,
+          location: state.location || null,
+          avatar_url: state.avatarUrl || null,
+          linkedin_url: state.linkedinUrl || null,
+          twitter_url: state.twitterUrl || null,
+          user_type: state.userType || "founder",
+          has_completed_onboarding: true,
+          has_seen_settings_tour: false,
+          company_id: companyId,
+        },
+        preferences: prefsPayload,
+      };
+
+      const edge = await completeFounderOnboardingEdge(edgePayload);
+
+      if (!edge.ok) {
+        if (edge.fallbackToClient) {
+          if (companyId && resolvedCompanyName) {
+            const { error: patchErr } = await (supabase as any)
+              .from("company_analyses")
+              .update({
+                company_name: resolvedCompanyName,
+                website_url: state.websiteUrl || null,
+                deck_text: state.deckText || null,
+                stage: state.stage || null,
+                sector: state.sectors?.[0] || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", companyId);
+
+            if (patchErr) {
+              toast({
+                title: "Workspace ready — extra details not synced",
+                description: `${patchErr.message} Deploy complete-founder-onboarding or add Clerk \"supabase\" JWT.`,
+              });
+            }
+          }
+
+          const profileRes = await upsertProfile({
+            full_name: state.fullName || undefined,
+            title: state.title || null,
+            bio: state.bio || null,
+            location: state.location || null,
+            avatar_url: state.avatarUrl || null,
+            linkedin_url: state.linkedinUrl || null,
+            twitter_url: state.twitterUrl || null,
+            user_type: state.userType || "founder",
+            has_completed_onboarding: true,
+            has_seen_settings_tour: false,
+            ...(companyId ? { company_id: companyId } : {}),
+          } as any);
+
+          if (!profileRes.ok) {
+            toast({
+              title: "Couldn't save your profile",
+              description:
+                profileRes.error +
+                (profileRes.error.includes("row-level security") ||
+                profileRes.error.includes("RLS") ||
+                profileRes.error.includes("No suitable key") ||
+                profileRes.error.includes("wrong key type")
+                  ? " Deploy edge functions create-company-workspace + complete-founder-onboarding, or add Clerk JWT template \"supabase\" in Supabase third-party auth."
+                  : ""),
+              variant: "destructive",
+            });
+            setSaving(false);
+            return;
+          }
+
+          const prefsRes = await upsertPrefs(prefsPayload);
+
+          if (!prefsRes.ok) {
+            toast({
+              title: "Couldn't save preferences",
+              description: prefsRes.error,
+              variant: "destructive",
+            });
+            setSaving(false);
+            return;
+          }
+        } else {
+          toast({
+            title: "Couldn't finish onboarding",
+            description: edge.error,
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+      }
 
       // ── Seed data for the OnboardingStepper popup on the main app ──
       try {

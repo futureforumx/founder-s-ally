@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Copy, Check, Loader2, Mail } from "lucide-react";
 import { useRevealContact, useUserCredits } from "@/hooks/useContactReveal";
@@ -9,6 +9,8 @@ interface ContactRevealProps {
   firmName: string;
   /** If the user is admin, show source metadata after reveal */
   isAdmin?: boolean;
+  /** Automatically reveal on mount without requiring a click */
+  autoReveal?: boolean;
 }
 
 function maskEmail(firmName: string): string {
@@ -17,29 +19,36 @@ function maskEmail(firmName: string): string {
   return `${first}${"••••"}@${slug.slice(0, 4) || "firm"}.com`;
 }
 
-export function ContactRevealButton({ investorId, firmName, isAdmin }: ContactRevealProps) {
+export function ContactRevealButton({ investorId, firmName, isAdmin, autoReveal }: ContactRevealProps) {
   const reveal = useRevealContact();
   const { data: credits } = useUserCredits();
   const [revealed, setRevealed] = useState<{ email: string; source?: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleReveal = async () => {
+  useEffect(() => {
+    if (autoReveal && investorId && !revealed && !reveal.isPending) {
+      handleReveal(true); // silent — no toasts on auto-fetch
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoReveal, investorId]);
+
+  const handleReveal = async (silent = false) => {
     if (!investorId) {
-      toast.error("Investor ID not available");
+      if (!silent) toast.error("Investor ID not available");
       return;
     }
     try {
       const result = await reveal.mutateAsync(investorId);
       if (result.error) {
-        toast.error(result.error);
+        if (!silent) toast.error(result.error);
         return;
       }
       if (result.email) {
         setRevealed({ email: result.email });
-        toast.success(`Contact revealed · ${result.credits_remaining === -1 ? "Unlimited" : result.credits_remaining} credits remaining`);
+        if (!silent) toast.success(`Contact revealed · ${result.credits_remaining === -1 ? "Unlimited" : result.credits_remaining} credits remaining`);
       }
     } catch (e) {
-      toast.error("Failed to reveal contact info");
+      if (!silent) toast.error("Failed to reveal contact info");
     }
   };
 
@@ -50,6 +59,49 @@ export function ContactRevealButton({ investorId, firmName, isAdmin }: ContactRe
     toast.success("Email copied");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Auto-reveal mode: just show a spinner while loading, then the email — no masked button
+  if (autoReveal) {
+    if (!revealed && reveal.isPending) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+          <span>Loading contact…</span>
+        </div>
+      );
+    }
+    if (!revealed) return null;
+    return (
+      <div className="flex items-center gap-1.5">
+        <Mail className="h-3.5 w-3.5 text-accent" />
+        <a
+          href={`mailto:${revealed.email}`}
+          className="text-sm font-medium text-foreground hover:text-accent transition-colors"
+        >
+          {revealed.email}
+        </a>
+        <button
+          onClick={handleCopy}
+          className="ml-1 p-1 rounded-md hover:bg-secondary transition-colors"
+          title="Copy email"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-accent" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+        </button>
+        {isAdmin && (
+          <span
+            className="ml-2 text-[8px] font-bold uppercase tracking-wider text-muted-foreground bg-secondary px-1.5 py-0.5 rounded"
+            title="Confidence: 98%"
+          >
+            Source: Apollo API
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2">

@@ -11,7 +11,8 @@ import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, getSupabaseAccessToken } from "@/integrations/supabase/client";
+import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
@@ -38,6 +39,7 @@ import {
 export type { CompanyData, AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./company-profile/types";
 
 type AnalyzeStepKey = "scraping" | "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
+const MAX_ANALYZE_DECK_TEXT_CHARS = 40000;
 const STEP_LABELS: Record<AnalyzeStepKey, string> = {
   scraping: "Parsing Deck Structure...",
   analyzing: "Cross-referencing with live market data...",
@@ -1075,7 +1077,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setAnalyzeStep("deepSearch");
       let deepSearchInvestors: any[] = [];
       try {
-        const { data: exaData, error: exaError } = await supabase.functions.invoke("exa-search", { body: { companyName: form.name, subsector: form.sector || "" } });
+        let companyAnalysisIdForSearch: string | null = null;
+        if (authUser) {
+          const { data: existingAnalysisForSearch } = await supabase
+            .from("company_analyses")
+            .select("id")
+            .eq("user_id", authUser.id)
+            .limit(1)
+            .maybeSingle();
+          companyAnalysisIdForSearch = existingAnalysisForSearch?.id ?? null;
+        }
+        // Clerk session JWT first so `sub` matches `authUser.id`; supabase template JWT may use a different `sub`.
+        const exaBearer = (await getClerkSessionToken()) ?? (await getSupabaseAccessToken());
+        const { data: exaData, error: exaError } = await supabase.functions.invoke("exa-search", {
+          body: {
+            companyName: form.name,
+            subsector: form.sector || "",
+            ...(authUser
+              ? { user_id: authUser.id, company_analysis_id: companyAnalysisIdForSearch }
+              : {}),
+          },
+          ...(exaBearer ? { headers: { Authorization: `Bearer ${exaBearer}` } } : {}),
+        });
         if (!exaError && exaData?.investors?.length > 0) {
           deepSearchInvestors = exaData.investors.map((inv: any) => ({
             investorName: inv.investorName, entityType: inv.entityType || "VC Firm", instrument: inv.instrument || "Equity",
@@ -1084,10 +1107,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           }));
         }
         if (authUser) {
-          const { data: existingAnalysis } = await supabase.from("company_analyses").select("id").eq("user_id", authUser.id).limit(1).maybeSingle();
           const companyDomain = form.website.trim() ? form.website.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "";
           const { data: syncData, error: syncError } = await supabase.functions.invoke("sync-investor-data", {
-            body: { company_id: existingAnalysis?.id || crypto.randomUUID(), company_domain: companyDomain, user_id: authUser.id, company_name: form.name },
+            body: {
+              company_id: companyAnalysisIdForSearch || crypto.randomUUID(),
+              company_domain: companyDomain,
+              user_id: authUser.id,
+              company_name: form.name,
+            },
           });
           if (!syncError && syncData?.newInvestorsFound > 0) {
             const { data: pendingRows } = await supabase.from("pending_investors").select("investor_name, entity_type, instrument, amount, source_date").eq("user_id", authUser.id).eq("status", "pending").order("created_at", { ascending: false }).limit(syncData.newInvestorsFound);
@@ -1099,8 +1126,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       } catch (deepErr) { console.warn("Deep search failed (non-blocking):", deepErr); }
 
       setAnalyzeStep("verifying");
+      const safeDeckText = deckText ? deckText.slice(0, MAX_ANALYZE_DECK_TEXT_CHARS) : "";
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
-        body: { websiteText: scrapedMarkdown, deckText, companyName: form.name, stage: form.stage, sector: form.sector },
+        body: { websiteText: scrapedMarkdown, deckText: safeDeckText, companyName: form.name, stage: form.stage, sector: form.sector },
       });
       if (analysisError) throw new Error(analysisError.message || "Analysis failed");
       if (analysisData?.error) throw new Error(analysisData.error);
@@ -1127,7 +1155,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setAnalyzeStep("");
       setAnalysisReviewOpen(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Analysis failed. Please try again.");
+      const rawMessage = e instanceof Error ? e.message : "Analysis failed. Please try again.";
+      const isTransportError = /failed to send a request to the edge function/i.test(rawMessage);
+      setError(
+        isTransportError
+          ? "Deck payload was too large for analysis. We trimmed the upload for processing; please try again."
+          : rawMessage,
+      );
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStep("");

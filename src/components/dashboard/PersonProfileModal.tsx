@@ -2,8 +2,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
-  BookOpen, ExternalLink, Sparkles, Target, ChevronRight,
+  BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star,
 } from "lucide-react";
+import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -45,6 +46,7 @@ const SOCIALS = [
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const [emailRevealed, setEmailRevealed] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
 
@@ -122,6 +124,15 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
                 {/* ── Quick-Contact Bar ── */}
                 <div className="flex flex-wrap gap-3 mb-6">
+                  {firm?.id && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-4 py-2 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                    >
+                      <Star className="h-4 w-4" /> Rate
+                    </button>
+                  )}
                   {person.email ? (
                     emailRevealed ? (
                       <a
@@ -271,6 +282,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               </div>
             </motion.div>
           </div>
+
+          {firm && (
+            <ReviewSubmissionModal
+              open={reviewOpen}
+              onClose={() => setReviewOpen(false)}
+              firmName={firm.name}
+              firmId={firm.id}
+              personId={person.id}
+              personName={person.full_name}
+            />
+          )}
         </>
       )}
     </AnimatePresence>
