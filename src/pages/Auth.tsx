@@ -278,6 +278,8 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
+  const isSignUpVerifyEmailRoute =
+    isSignUpRoute && location.pathname.includes("verify-email-address");
   const forceAuthPreview = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("preview") === "1";
@@ -373,11 +375,15 @@ export default function Auth() {
             add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
           </div>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
-        </p>
-        <div className="mt-8 w-full min-w-0">
+        {!isSignUpVerifyEmailRoute && (
+          <>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
+            </p>
+          </>
+        )}
+        <div className={`w-full min-w-0 ${isSignUpVerifyEmailRoute ? "mt-0" : "mt-8"}`}>
           <SignUp
             routing="path"
             path="/auth/sign-up"
