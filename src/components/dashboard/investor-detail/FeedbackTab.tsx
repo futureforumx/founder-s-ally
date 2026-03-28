@@ -1,9 +1,18 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
 import { motion } from "framer-motion";
 import {
   Star, TrendingUp, MessageCircle, Sparkles,
   Newspaper, MessagesSquare, Share2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import {
+  aggregateVcRatings,
+  INTERACTION_DISPLAY,
+  type VcRatingRow,
+} from "@/lib/vcRatingsAggregate";
+import { fetchVcRatingsForFirm } from "@/lib/vcRatingsQueries";
 
 const WHISPER_FEED = [
   {
@@ -39,13 +48,53 @@ type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 
 interface FeedbackTabProps {
   investorName: string;
-  /** Opens the same review modal as the header “Rate” button */
+  /** `vc_firms.id` — loads `vc_ratings` for this firm */
+  vcFirmId?: string | null;
   onLogInteraction?: () => void;
 }
 
-export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps) {
+function formatRatingWhen(row: VcRatingRow): string {
+  const raw = row.interaction_date || row.created_at?.slice(0, 10);
+  if (!raw) return "—";
+  try {
+    return format(parseISO(raw.length <= 10 ? `${raw}T12:00:00` : raw), "MMM d, yyyy");
+  } catch {
+    return raw;
+  }
+}
+
+export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: FeedbackTabProps) {
   const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
   const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
+
+  const ratingsQuery = useQuery({
+    queryKey: ["vc-ratings-firm", vcFirmId],
+    queryFn: () => fetchVcRatingsForFirm(vcFirmId!),
+    enabled: Boolean(vcFirmId && isSupabaseConfigured),
+  });
+
+  const rows = ratingsQuery.data ?? [];
+  const agg = useMemo(() => aggregateVcRatings(rows), [rows]);
+  const useLive = Boolean(vcFirmId && isSupabaseConfigured && !ratingsQuery.isLoading && rows.length > 0);
+
+  const sortedLive = useMemo(() => {
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      if (reviewSort === "latest") return db - da;
+      if (reviewSort === "earliest") return da - db;
+      if (reviewSort === "highest") return b.nps - a.nps;
+      return a.nps - b.nps;
+    });
+    return copy;
+  }, [rows, reviewSort]);
+
+  const overallDisplay = useLive && agg.overallStars != null ? agg.overallStars.toFixed(1) : "4.8";
+  const npsDisplay = useLive ? String(agg.nps) : "72";
+  const countLabel = useLive
+    ? `${agg.count} founder rating${agg.count === 1 ? "" : "s"}`
+    : "Based on 23 founder reviews (sample)";
 
   return (
     <motion.div
@@ -54,9 +103,7 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
       transition={{ duration: 0.15 }}
       className="space-y-4"
     >
-      {/* Rating + Sentiment Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Community Rating */}
         <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-success/10">
@@ -64,24 +111,49 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
             </div>
             <p className="text-[9px] font-mono uppercase tracking-wider text-success/70 font-semibold">Community Rating</p>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-black text-foreground leading-none">4.8</span>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-4xl font-black text-foreground leading-none">{overallDisplay}</span>
             <span className="text-sm font-semibold text-muted-foreground">/5</span>
+            {useLive ? (
+              <span className="text-[10px] font-bold text-muted-foreground ml-1">
+                NPS <span className="text-foreground tabular-nums">{npsDisplay}</span>
+              </span>
+            ) : null}
           </div>
-          <p className="text-[9px] text-muted-foreground mt-1 mb-2">Based on 23 founder reviews</p>
-          <div className="space-y-1 border-t border-success/10 pt-2">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-success" />
-              <span className="text-[9px] text-muted-foreground">Top trait: <span className="font-semibold text-foreground">Fast Conviction</span></span>
+          <p className="text-[9px] text-muted-foreground mt-1 mb-2">{countLabel}</p>
+
+          {useLive && agg.breakdown.length > 0 ? (
+            <div className="space-y-1 border-t border-success/10 pt-2 text-[9px] text-muted-foreground">
+              <p className="font-mono uppercase tracking-wider text-success/70 font-semibold mb-1">By interaction</p>
+              {agg.breakdown.map((b) => (
+                <div key={b.interactionType} className="flex justify-between gap-2">
+                  <span>
+                    {INTERACTION_DISPLAY[b.interactionType] ?? b.interactionType} ({b.count})
+                  </span>
+                  <span className="font-semibold text-foreground tabular-nums shrink-0">
+                    {b.avgStars != null ? `${b.avgStars.toFixed(1)}/5` : "—"}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-3 h-3 text-success" />
-              <span className="text-[9px] text-muted-foreground">Trending <span className="font-semibold text-success">+0.3</span> over 30 days</span>
+          ) : (
+            <div className="space-y-1 border-t border-success/10 pt-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-success" />
+                <span className="text-[9px] text-muted-foreground">
+                  Top trait: <span className="font-semibold text-foreground">Fast Conviction</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-3 h-3 text-success" />
+                <span className="text-[9px] text-muted-foreground">
+                  Trending <span className="font-semibold text-success">+0.3</span> over 30 days
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Social Sentiment */}
         <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-success/10">
@@ -100,21 +172,26 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
           <div className="space-y-1 border-t border-success/10 pt-2">
             <div className="flex items-center gap-1.5">
               <Newspaper className="w-3 h-3 text-success" />
-              <span className="text-[9px] text-muted-foreground">PR mentions <span className="font-semibold text-success">trending up</span></span>
+              <span className="text-[9px] text-muted-foreground">
+                PR mentions <span className="font-semibold text-success">trending up</span>
+              </span>
             </div>
             <div className="flex items-center gap-1.5">
               <MessagesSquare className="w-3 h-3 text-success" />
-              <span className="text-[9px] text-muted-foreground">Founder chatter <span className="font-semibold text-foreground">active</span></span>
+              <span className="text-[9px] text-muted-foreground">
+                Founder chatter <span className="font-semibold text-foreground">active</span>
+              </span>
             </div>
             <div className="flex items-center gap-1.5">
               <Share2 className="w-3 h-3 text-success" />
-              <span className="text-[9px] text-muted-foreground">Social signals <span className="font-semibold text-success">positive</span></span>
+              <span className="text-[9px] text-muted-foreground">
+                Social signals <span className="font-semibold text-success">positive</span>
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Founder Reviews */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Founder Reviews</p>
@@ -122,6 +199,7 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
             {(["latest", "earliest", "highest", "lowest"] as ReviewSort[]).map((s) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => setReviewSort(s)}
                 className={`text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
                   reviewSort === s
@@ -135,7 +213,6 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
           </div>
         </div>
 
-        {/* CTA */}
         <div className="bg-foreground text-background rounded-xl px-4 py-3 flex items-center justify-between mb-3">
           <div className="min-w-0 mr-3">
             <p className="text-xs font-semibold leading-snug">Pitched {investorName} recently?</p>
@@ -151,60 +228,147 @@ export function FeedbackTab({ investorName, onLogInteraction }: FeedbackTabProps
           </button>
         </div>
 
-        {/* Reviews */}
+        {vcFirmId && ratingsQuery.isLoading ? (
+          <p className="text-[10px] text-muted-foreground py-4">Loading ratings…</p>
+        ) : null}
+        {vcFirmId && ratingsQuery.isError ? (
+          <p className="text-[10px] text-destructive py-2">Could not load ratings.</p>
+        ) : null}
+
         <div className="space-y-1.5">
-          {[...WHISPER_FEED]
-            .sort((a, b) => {
-              if (reviewSort === "latest") return new Date(b.date).getTime() - new Date(a.date).getTime();
-              if (reviewSort === "earliest") return new Date(a.date).getTime() - new Date(b.date).getTime();
-              if (reviewSort === "highest") return b.nps - a.nps;
-              return a.nps - b.nps;
-            })
-            .map((review) => {
-              const origIdx = WHISPER_FEED.indexOf(review);
-              const vote = votes[origIdx] ?? null;
-              return (
-                <div key={origIdx} className="bg-card border border-border px-3 py-2 rounded-lg flex items-center gap-3">
-                  <div className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
-                    review.nps >= 8 ? "border-success/30 bg-success/10 text-success"
-                      : review.nps >= 5 ? "border-warning/30 bg-warning/10 text-warning"
-                      : "border-destructive/30 bg-destructive/10 text-destructive"
-                  }`}>
-                    {review.nps}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-[10px] text-foreground">{review.sector} {review.stage} Founder</span>
-                      {review.tags.map((tag, j) => (
-                        <span key={tag} className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${review.tagColors[j]}`}>
-                          {tag}
-                        </span>
-                      ))}
+          {useLive
+            ? sortedLive.map((review, origIdx) => {
+                const vote = votes[origIdx] ?? null;
+                const label = INTERACTION_DISPLAY[review.interaction_type] ?? review.interaction_type;
+                const when = formatRatingWhen(review);
+                const snippet =
+                  review.comment?.trim() ||
+                  review.interaction_detail?.trim() ||
+                  "No comment.";
+                return (
+                  <div
+                    key={review.id}
+                    className="bg-card border border-border px-3 py-2 rounded-lg flex items-center gap-3"
+                  >
+                    <div
+                      className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
+                        review.nps >= 8
+                          ? "border-success/30 bg-success/10 text-success"
+                          : review.nps >= 5
+                            ? "border-warning/30 bg-warning/10 text-warning"
+                            : "border-destructive/30 bg-destructive/10 text-destructive"
+                      }`}
+                    >
+                      {review.nps}
                     </div>
-                    <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">{review.text}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-[10px] text-foreground">
+                          {when} · {label}
+                        </span>
+                        {review.anonymous ? (
+                          <span className="text-[8px] uppercase font-bold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                            Anon
+                          </span>
+                        ) : null}
+                        {review.verified ? (
+                          <span className="text-[8px] uppercase font-bold px-1.5 py-0.5 rounded bg-success/10 text-success">
+                            Verified
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">{snippet}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setVotes((v) => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
+                        className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                          vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        <ThumbsUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVotes((v) => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
+                        className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                          vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        <ThumbsDown className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
-                      className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
-                        vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <ThumbsUp className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => setVotes(v => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
-                      className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
-                        vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <ThumbsDown className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            : [...WHISPER_FEED]
+                .sort((a, b) => {
+                  if (reviewSort === "latest") return new Date(b.date).getTime() - new Date(a.date).getTime();
+                  if (reviewSort === "earliest") return new Date(a.date).getTime() - new Date(b.date).getTime();
+                  if (reviewSort === "highest") return b.nps - a.nps;
+                  return a.nps - b.nps;
+                })
+                .map((review) => {
+                  const origIdx = WHISPER_FEED.indexOf(review);
+                  const vote = votes[origIdx] ?? null;
+                  return (
+                    <div key={origIdx} className="bg-card border border-border px-3 py-2 rounded-lg flex items-center gap-3">
+                      <div
+                        className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
+                          review.nps >= 8
+                            ? "border-success/30 bg-success/10 text-success"
+                            : review.nps >= 5
+                              ? "border-warning/30 bg-warning/10 text-warning"
+                              : "border-destructive/30 bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {review.nps}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-[10px] text-foreground">
+                            {review.sector} {review.stage} Founder
+                          </span>
+                          {review.tags.map((tag, j) => (
+                            <span
+                              key={tag}
+                              className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${review.tagColors[j]}`}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">{review.text}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setVotes((v) => ({ ...v, [origIdx]: vote === "up" ? null : "up" }))}
+                          className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                            vote === "up" ? "bg-success/15 text-success" : "hover:bg-secondary text-muted-foreground"
+                          }`}
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVotes((v) => ({ ...v, [origIdx]: vote === "down" ? null : "down" }))}
+                          className={`flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                            vote === "down" ? "bg-destructive/15 text-destructive" : "hover:bg-secondary text-muted-foreground"
+                          }`}
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
         </div>
+
+        {vcFirmId && isSupabaseConfigured && !ratingsQuery.isLoading && rows.length === 0 ? (
+          <p className="text-[10px] text-muted-foreground mt-3">No ratings yet for this firm. Be the first to log an interaction.</p>
+        ) : null}
       </div>
     </motion.div>
   );

@@ -341,6 +341,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <motion.div key="feedback" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <FeedbackTab
                           investorName={effectiveInvestor.name}
+                          vcFirmId={vcFirm?.id ?? null}
                           onLogInteraction={() => setReviewOpen(true)}
                         />
                       </motion.div>
@@ -369,7 +370,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         firmName={heroName}
-        firmId={resolvedFirmId || liveProfile?.id || vcFirm?.id}
+        vcFirmId={vcFirm?.id ?? null}
       />
     </AnimatePresence>
   );

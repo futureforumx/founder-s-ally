@@ -33,3 +33,5 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vc_people_sector_focus_gin
 -- ── Optional: pgvector (separate table or add column via Prisma Unsupported) ─
 -- CREATE EXTENSION IF NOT EXISTS vector;
 -- CREATE TABLE vc_entity_embeddings (... embedding vector(1536) ...);
+
+-- ── vc_firm_aliases: backfill via Prisma/ETL (e.g. SLUG + WEBSITE_DOMAIN from vc_firms.slug / website_url); use normalized alias_value

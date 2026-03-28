@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Star, CheckCircle2, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,21 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { mapReviewStarsToVcRatingScores, type InteractionKey } from "@/lib/mapReviewStarsToVcRatingScores";
 
 export interface ReviewSubmissionModalProps {
   open: boolean;
   onClose: () => void;
   firmName: string;
-  firmId?: string;
-  /** Partner id (e.g. vc_people.id) — empty string / omit = firm-level review */
+  /** `vc_firms.id` — used for `vc_ratings.vc_firm_id` (FK). */
+  vcFirmId?: string | null;
+  /** Partner id (`vc_people.id`) — empty = firm-level rating */
   personId?: string;
   personName?: string;
 }
-
-type InteractionKey = "meeting" | "email" | "intro" | "other";
 
 const INTERACTION_OPTIONS: { key: InteractionKey; label: string; emoji: string }[] = [
   { key: "meeting", label: "Took Meeting/Call", emoji: "📞" },
@@ -67,31 +67,20 @@ const NPS_LABELS: Record<number, string> = {
   10: "Outstanding",
 };
 
-function useExistingReview(firmId?: string, personId?: string) {
-  const { user } = useAuth();
-  const pid = personId ?? "";
-  const [existing, setExisting] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
+function todayISODate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
-  useEffect(() => {
-    if (!firmId || !user) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      const q = supabase
-        .from("investor_reviews" as any)
-        .select("*")
-        .eq("founder_id", user.id)
-        .eq("firm_id", firmId)
-        .eq("person_id", pid);
-      const { data } = await q.maybeSingle();
-      setExisting(data as Record<string, unknown> | null);
-      setLoading(false);
-    })();
-  }, [firmId, user, pid]);
-
-  return { existing, loading };
+async function resolveVcFirmId(firmName: string, hint: string | null | undefined): Promise<string | null> {
+  const trimmed = hint?.trim();
+  if (trimmed) return trimmed;
+  const { data, error } = await (supabaseVcDirectory as unknown as { from: (t: string) => any })
+    .from("vc_firms")
+    .select("id")
+    .ilike("firm_name", firmName.trim())
+    .limit(1);
+  if (error || !data?.[0]?.id) return null;
+  return data[0].id as string;
 }
 
 function StarRow({
@@ -133,21 +122,20 @@ export function ReviewSubmissionModal({
   open,
   onClose,
   firmName,
-  firmId,
+  vcFirmId,
   personId = "",
   personName,
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
   const [interactionType, setInteractionType] = useState<InteractionKey | null>(null);
   const [interactionOther, setInteractionOther] = useState("");
+  const [interactionDate, setInteractionDate] = useState(todayISODate);
   const [starRatings, setStarRatings] = useState<Record<string, number>>({});
   const [nps, setNps] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const [anonymous, setAnonymous] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-
-  const { existing, loading: loadingExisting } = useExistingReview(firmId, personId);
 
   const criteria = useMemo(
     () => (interactionType ? STAR_CRITERIA[interactionType] : []),
@@ -156,25 +144,10 @@ export function ReviewSubmissionModal({
 
   const subjectLine = personName ? `${personName} · ${firmName}` : firmName;
 
-  useEffect(() => {
-    if (!existing || !open) return;
-    const it = existing.interaction_type as string | undefined;
-    if (it === "meeting" || it === "email" || it === "intro" || it === "other") {
-      setInteractionType(it);
-    }
-    setInteractionOther((existing.interaction_detail as string) || "");
-    setNps(typeof existing.nps_score === "number" ? existing.nps_score : null);
-    setComment((existing.comment as string) || "");
-    setAnonymous(existing.is_anonymous !== false);
-    const sr = existing.star_ratings;
-    if (sr && typeof sr === "object" && !Array.isArray(sr)) {
-      setStarRatings(sr as Record<string, number>);
-    }
-  }, [existing, open]);
-
   const reset = useCallback(() => {
     setInteractionType(null);
     setInteractionOther("");
+    setInteractionDate(todayISODate());
     setStarRatings({});
     setNps(null);
     setComment("");
@@ -203,42 +176,40 @@ export function ReviewSubmissionModal({
     setSubmitting(true);
 
     try {
-      let resolvedFirmId = firmId;
+      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
       if (!resolvedFirmId) {
-        const { data: firms } = await supabase
-          .from("investor_database")
-          .select("id")
-          .ilike("firm_name", firmName.trim())
-          .limit(1);
-        resolvedFirmId = firms?.[0]?.id as string | undefined;
+        throw new Error(
+          "Could not resolve this firm in the VC directory. Open the investor from search so we have a match, or ensure the firm exists in vc_firms.",
+        );
       }
-      if (!resolvedFirmId) throw new Error("Could not resolve firm. Open this investor from the directory so we have a firm id.");
 
-      const payload: Record<string, unknown> = {
-        founder_id: user.id,
-        firm_id: resolvedFirmId,
-        person_id: personId || "",
-        nps_score: nps,
-        interaction_type: interactionType,
+      const scores = mapReviewStarsToVcRatingScores(interactionType!, starRatings);
+      const pid = personId?.trim() || null;
+
+      const payload = {
+        author_user_id: user.id,
+        vc_firm_id: resolvedFirmId,
+        vc_person_id: pid,
+        interaction_type: interactionType!,
         interaction_detail: interactionType === "other" ? interactionOther.trim() || null : null,
-        star_ratings: starRatings,
+        interaction_date: interactionDate.trim() || null,
+        ...scores,
+        nps: nps!,
         comment: comment.trim() || null,
-        is_anonymous: anonymous,
-        did_respond: null,
+        anonymous,
+        verified: false,
       };
 
-      const { error } = await supabase
-        .from("investor_reviews" as any)
-        .upsert(payload, { onConflict: "founder_id,firm_id,person_id" });
+      const { error } = await supabase.from("vc_ratings").insert(payload);
 
       if (error) throw error;
 
       setSubmitted(true);
-      toast.success(anonymous ? "Thanks — your review was submitted anonymously." : "Thanks — your review was submitted.");
+      toast.success(anonymous ? "Thanks — your rating was submitted anonymously." : "Thanks — your rating was submitted.");
 
       setTimeout(() => handleClose(), 1800);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit review");
+      toast.error(err instanceof Error ? err.message : "Failed to submit rating");
     } finally {
       setSubmitting(false);
     }
@@ -252,10 +223,10 @@ export function ReviewSubmissionModal({
     return "bg-destructive text-destructive-foreground ring-2 ring-destructive/30 scale-110";
   };
 
-  const sectionEmoji = (interactionType: InteractionKey | null) => {
-    if (interactionType === "meeting") return "📞";
-    if (interactionType === "email") return "✉️";
-    if (interactionType === "intro") return "🤝";
+  const sectionEmoji = (it: InteractionKey | null) => {
+    if (it === "meeting") return "📞";
+    if (it === "email") return "✉️";
+    if (it === "intro") return "🤝";
     return "⭐";
   };
 
@@ -287,10 +258,7 @@ export function ReviewSubmissionModal({
                     <h3 className="text-sm font-bold text-foreground truncate">
                       {personName ? `Rate ${personName}` : "Rate your interaction"}
                     </h3>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {subjectLine}
-                      {existing ? " · Update" : ""}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">{subjectLine}</p>
                   </div>
                 </div>
                 <button
@@ -316,10 +284,6 @@ export function ReviewSubmissionModal({
                     Your feedback helps founders choose the right investors.
                   </p>
                 </motion.div>
-              ) : loadingExisting ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
               ) : (
                 <>
                   <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
@@ -363,6 +327,21 @@ export function ReviewSubmissionModal({
                         )}
                       </div>
                     </section>
+
+                    {interactionType && (
+                      <section>
+                        <Label htmlFor="interaction-date" className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
+                          <span className="text-base leading-none">📅</span> Interaction date
+                        </Label>
+                        <Input
+                          id="interaction-date"
+                          type="date"
+                          value={interactionDate}
+                          onChange={(e) => setInteractionDate(e.target.value)}
+                          className="text-sm max-w-[220px]"
+                        />
+                      </section>
+                    )}
 
                     {/* 2 — Stars */}
                     {interactionType && (

@@ -93,6 +93,21 @@ enum SourceType {
   OTHER
 }
 
+/// Alternate identifiers for a VC firm — dedupe imports and resolve merged / renamed entities.
+enum VCFirmAliasType {
+  WEBSITE_DOMAIN
+  SLUG
+  LEGAL_NAME
+  ALSO_KNOWN_AS
+  CRUNCHBASE_SLUG
+  CRUNCHBASE_UUID
+  LINKEDIN_COMPANY_SLUG
+  LINKEDIN_NUMERIC_ID
+  EMAIL_DOMAIN
+  EXTERNAL_REF
+  MANUAL
+}
+
 /// Activity category for VCSignal (recent investments, team changes, content, events, deployment)
 enum SignalType {
   RECENT_INVESTMENT
@@ -195,6 +210,8 @@ model VCFirm {
   recent_investments VCInvestment[]
   source_links       VCSourceLink[]
   score_snapshots    VCScoreSnapshot[]
+  ratings            VCRating[]
+  aliases            VCFirmAlias[]
 
   @@index([firm_name])
   @@index([firm_type])
@@ -205,6 +222,31 @@ model VCFirm {
   @@index([industry_reputation])
   @@index([deleted_at])
   @@map("vc_firms")
+}
+
+/// Maps normalized alternate keys (domains, slugs, legal names, vendor IDs) to the canonical `vc_firms` row.
+/// Store `alias_value` in a consistent normalized form (e.g. lowercase host without `www.`).
+model VCFirmAlias {
+  id         String @id @default(cuid())
+  firm_id    String
+  firm       VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+
+  alias_type  VCFirmAliasType
+  alias_value String @db.Text
+
+  /// Provenance: importer name, "merge", "admin", etc.
+  source     String?
+  notes      String?  @db.Text
+  /// Optional match strength for fuzzy / heuristic links (0–1).
+  confidence Float?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([alias_type, alias_value])
+  @@index([firm_id])
+  @@index([alias_value])
+  @@map("vc_firm_aliases")
 }
 
 // =============================================================================
@@ -347,6 +389,7 @@ model VCPerson {
 
   signals         VCSignal[]
   score_snapshots VCScoreSnapshot[]
+  ratings         VCRating[]
 
   @@index([firm_id])
   @@index([email])
@@ -356,6 +399,38 @@ model VCPerson {
   @@index([responsiveness_score])
   @@index([deleted_at])
   @@map("vc_people")
+}
+
+// =============================================================================
+// VCRating — founder-submitted interaction scores (firm and/or partner)
+// =============================================================================
+
+model VCRating {
+  id                String    @id @default(uuid())
+  authorUserId      String?   @map("author_user_id")
+  vcPersonId        String?   @map("vc_person_id")
+  vcFirmId          String?   @map("vc_firm_id")
+  interactionType   String    @map("interaction_type")
+  interactionDetail String?   @map("interaction_detail") @db.Text
+  interactionDate   DateTime? @map("interaction_date") @db.Date
+  scoreResp         Int?      @map("score_resp")
+  scoreRespect      Int?      @map("score_respect")
+  scoreFeedback     Int?      @map("score_feedback")
+  scoreFollowThru   Int?      @map("score_follow_thru")
+  scoreValueAdd     Int?      @map("score_value_add")
+  nps               Int       @map("nps")
+  comment           String?   @db.Text
+  anonymous         Boolean   @default(true) @map("anonymous")
+  verified          Boolean   @default(false) @map("verified")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  vcPerson VCPerson? @relation(fields: [vcPersonId], references: [id], onDelete: Cascade)
+  vcFirm   VCFirm?   @relation(fields: [vcFirmId], references: [id], onDelete: Cascade)
+
+  @@index([vcPersonId, interactionType])
+  @@index([vcFirmId, interactionType])
+  @@index([createdAt])
+  @@map("vc_ratings")
 }
 
 // =============================================================================

@@ -29,6 +29,7 @@
     "vc:investor-news": "python3 scripts/investor_news_refresh.py",
     "db:seed:curated-investors": "tsx scripts/seed_curated_investors.ts",
     "db:seed:founder-suite-funds": "tsx scripts/seed_founder_suite_funds.ts",
+    "db:seed:vc-ratings": "tsx scripts/seed_vc_ratings.ts",
     "db:generate:curated-investors": "tsx scripts/generate_curated_partners_json.ts",
     "supabase": "supabase",
     "supabase:db:push": "supabase db push",
