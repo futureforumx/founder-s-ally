@@ -24,7 +24,7 @@ import {
 
 const UA =
   process.env.STARTUP_PROFESSIONALS_UA ??
-  "VektaStartupProfessionals/1.0 (YC directory seed; contact: see your org privacy policy)";
+  "Mozilla/5.0 (compatible; VektaStartupProfessionals/1.0; +https://ycombinator.com/robots.txt)";
 
 const SITEMAP_URL = "https://www.ycombinator.com/companies/sitemap";
 const SKIP_SLUGS = new Set([
