@@ -12,7 +12,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { loadDatabaseUrl } from "./lib/loadDatabaseUrl";
-import { splitFullName, toCreateInput, toUpdateInput, type ProfessionalSeedRow } from "./lib/startupProfessionalUpsert";
+import {
+  mergeStartupProfessional,
+  splitFullName,
+  SOURCE_PRIORITY,
+  type ProfessionalIngestPayload,
+} from "./lib/startupProfessionalMerge";
 
 loadDatabaseUrl();
 const prisma = new PrismaClient();
@@ -30,7 +35,7 @@ type FileRow = {
   prevStartups?: string[];
 };
 
-function toRow(r: FileRow): ProfessionalSeedRow {
+function toRow(r: FileRow): ProfessionalIngestPayload {
   const { first, last } = splitFullName(r.fullName);
   return {
     firstName: first,
@@ -46,6 +51,7 @@ function toRow(r: FileRow): ProfessionalSeedRow {
     location: r.location ?? null,
     followers: r.followers ?? 0,
     source: "angellist",
+    sourcePriority: SOURCE_PRIORITY.angellist,
   };
 }
 
@@ -76,13 +82,7 @@ async function main() {
   let err = 0;
   for (const r of raw.founders.map(toRow)) {
     try {
-      await prisma.startupProfessional.upsert({
-        where: {
-          fullName_currentStartup: { fullName: r.fullName, currentStartup: r.currentStartup },
-        },
-        create: toCreateInput(r),
-        update: toUpdateInput(r),
-      });
+      await mergeStartupProfessional(prisma, r);
       ok++;
     } catch {
       err++;

@@ -11,7 +11,13 @@
 
 import { PrismaClient } from "@prisma/client";
 import { loadDatabaseUrl } from "./lib/loadDatabaseUrl";
-import { splitFullName, toCreateInput, toUpdateInput, type ProfessionalSeedRow } from "./lib/startupProfessionalUpsert";
+import {
+  mergeStartupProfessional,
+  splitFullName,
+  SOURCE_PRIORITY,
+  looksLikeVcInvestor,
+  type ProfessionalIngestPayload,
+} from "./lib/startupProfessionalMerge";
 
 const UA = process.env.STARTUP_PROFESSIONALS_UA ?? "VektaStartupProfessionals/1.0 (GitHub public API)";
 
@@ -95,30 +101,28 @@ async function main() {
     const login = logins[i];
     try {
       const u = (await ghGet(`/users/${encodeURIComponent(login)}`)) as GhUser;
+      if (process.env.GITHUB_SKIP_INVESTOR_HEURISTIC !== "0" && looksLikeVcInvestor(u.bio)) {
+        continue;
+      }
       const stars = await maxStarsFromRepos(login);
       const display = (u.name || u.login).trim();
       const { first, last } = splitFullName(display);
       const role = roleFromBio(u.bio);
-      const row: ProfessionalSeedRow = {
+      const row: ProfessionalIngestPayload = {
         firstName: first,
         lastName: last || "",
         fullName: display,
-        title: `${role} @ GitHub/${u.login}`,
+        title: `${role} @ ${u.login}`,
         currentRole: role,
-        currentStartup: u.login,
+        currentStartup: u.login.toLowerCase(),
         githubHandle: u.login,
         githubStars: stars,
         followers: u.followers,
         location: u.location,
         source: "github",
+        sourcePriority: SOURCE_PRIORITY.github,
       };
-      await prisma.startupProfessional.upsert({
-        where: {
-          fullName_currentStartup: { fullName: row.fullName, currentStartup: row.currentStartup },
-        },
-        create: toCreateInput(row),
-        update: toUpdateInput(row),
-      });
+      await mergeStartupProfessional(prisma, row);
       ok++;
     } catch (e) {
       console.warn(`[${login}] ${e instanceof Error ? e.message : e}`);
