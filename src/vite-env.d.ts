@@ -1,9 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_CLERK_PUBLISHABLE_KEY?: string;
-  /** Dev-only: `pk_test_…` from Clerk Development instance; overrides main key when running `vite` */
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY: string;
+  readonly VITE_CLERK_PUBLISHABLE_KEY: string;
   readonly VITE_CLERK_PUBLISHABLE_KEY_DEV?: string;
+  readonly VITE_DEMO_MODE?: string;
 }
 
 interface ImportMeta {
