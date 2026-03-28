@@ -406,30 +406,53 @@ export function ReviewSubmissionModal({
               ) : (
                 <>
                   <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-                    {formConfig.questions.map((q, i) => (
-                      <QuestionBlock
-                        key={q.id}
-                        index={i + 1}
-                        label={q.label}
-                        optional={q.optional}
-                      >
-                        {q.type === "single_select" && (
-                          <SingleSelect
-                            options={q.options ?? []}
-                            value={(answers[q.id] as string) ?? null}
-                            onChange={(v) => setAnswer(q.id, v)}
-                          />
-                        )}
+                    {/* Render non-text questions first */}
+                    {formConfig.questions
+                      .filter((q) => q.type !== "text")
+                      .map((q, i) => (
+                        <QuestionBlock
+                          key={q.id}
+                          index={i + 1}
+                          label={q.label}
+                          optional={q.optional}
+                        >
+                          {q.type === "single_select" && (
+                            <SingleSelect
+                              options={q.options ?? []}
+                              value={(answers[q.id] as string) ?? null}
+                              onChange={(v) => setAnswer(q.id, v)}
+                            />
+                          )}
 
-                        {q.type === "multi_select" && (
-                          <MultiSelect
-                            options={q.options ?? []}
-                            selected={(answers[q.id] as string[]) ?? []}
-                            onChange={(v) => setAnswer(q.id, v)}
-                          />
-                        )}
+                          {q.type === "multi_select" && (
+                            <MultiSelect
+                              options={q.options ?? []}
+                              selected={(answers[q.id] as string[]) ?? []}
+                              onChange={(v) => setAnswer(q.id, v)}
+                            />
+                          )}
+                        </QuestionBlock>
+                      ))}
 
-                        {q.type === "text" && (
+                    {/* Tag selector — non-investor form only, above the textarea */}
+                    {!investorIsMappedToProfile && (
+                      <TagSelector
+                        tags={formConfig.tags}
+                        selected={selectedTags}
+                        onChange={setSelectedTags}
+                      />
+                    )}
+
+                    {/* Optional text question rendered last */}
+                    {formConfig.questions
+                      .filter((q) => q.type === "text")
+                      .map((q) => (
+                        <QuestionBlock
+                          key={q.id}
+                          index={formConfig.questions.findIndex((fq) => fq.id === q.id) + 1}
+                          label={q.label}
+                          optional={q.optional}
+                        >
                           <div className="space-y-1">
                             <Textarea
                               value={(answers[q.id] as string) ?? ""}
@@ -443,18 +466,8 @@ export function ReviewSubmissionModal({
                               {((answers[q.id] as string) ?? "").length}/500
                             </span>
                           </div>
-                        )}
-                      </QuestionBlock>
-                    ))}
-
-                    {/* Tag selector — only for non-investor form */}
-                    {!investorIsMappedToProfile && (
-                      <TagSelector
-                        tags={formConfig.tags}
-                        selected={selectedTags}
-                        onChange={setSelectedTags}
-                      />
-                    )}
+                        </QuestionBlock>
+                      ))}
 
                     {/* Anonymous toggle */}
                     <div className="flex items-center justify-between gap-3 pt-4 border-t border-border">
