@@ -72,7 +72,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
             } : {}}>
             <TrendingUp className="h-4 w-4 flex-shrink-0" />
-            Market Intelligence
+            Intelligence
           </button>
           <button
             onClick={() => onViewChange("investors")}
