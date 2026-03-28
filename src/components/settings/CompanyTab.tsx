@@ -95,6 +95,10 @@ export function CompanyTab() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  /** One delayed re-fetch when we link via profile/localStorage fallback (avoid infinite retries if RLS never returns a row). */
+  const membershipFallbackRetryScheduledRef = useRef(false);
+  /** Ignore stale async bootstrap completions (overlapping calls were resetting linked → search). */
+  const bootstrapGenRef = useRef(0);
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -154,6 +158,10 @@ export function CompanyTab() {
     return () => window.removeEventListener("scroll-to-investors", handler);
   }, []);
 
+  useEffect(() => {
+    membershipFallbackRetryScheduledRef.current = false;
+  }, [user?.id]);
+
   // Bootstrap
   useEffect(() => {
     if (!user) return;
@@ -161,15 +169,19 @@ export function CompanyTab() {
   }, [user]);
 
   const bootstrapState = async () => {
-    setLoading(true);
+    const gen = ++bootstrapGenRef.current;
+    const isStale = () => gen !== bootstrapGenRef.current;
 
+    setLoading(true);
+    try {
     let localSeed: { name: string; website?: string } | null = null;
     try {
       const savedProfile = localStorage.getItem("company-profile");
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
-        if (profile?.name) {
-          localSeed = { name: profile.name, website: profile.website || "" };
+        const n = typeof profile?.name === "string" ? profile.name.trim() : "";
+        if (n) {
+          localSeed = { name: n, website: profile.website || "" };
         }
       }
     } catch (e) {
@@ -180,8 +192,9 @@ export function CompanyTab() {
         const pending = localStorage.getItem("pending-company-seed");
         if (pending) {
           const j = JSON.parse(pending);
-          if (j.companyName) {
-            localSeed = { name: j.companyName, website: j.websiteUrl || "" };
+          const cn = typeof j.companyName === "string" ? j.companyName.trim() : "";
+          if (cn) {
+            localSeed = { name: cn, website: j.websiteUrl || "" };
           }
         }
       } catch (e) {
@@ -213,6 +226,15 @@ export function CompanyTab() {
           .limit(1)
           .maybeSingle();
         mem = refetch.data;
+        // Server/edge created the workspace but PostgREST often cannot SELECT company_members with a misconfigured Clerk JWT — still link using the id we know is correct.
+        if (!mem && ensured.ok) {
+          mem = { id: "", company_id: ensured.companyId, role: "manager" } as any;
+          try {
+            localStorage.setItem("vekta-last-workspace-company-id", ensured.companyId);
+          } catch {
+            /* ignore */
+          }
+        }
       }
     }
 
@@ -239,12 +261,29 @@ export function CompanyTab() {
             .limit(1)
             .maybeSingle();
           mem = refetch.data;
+          if (!mem && ensured.ok) {
+            mem = { id: "", company_id: ensured.companyId, role: "manager" } as any;
+            try {
+              localStorage.setItem("vekta-last-workspace-company-id", ensured.companyId);
+            } catch {
+              /* ignore */
+            }
+          }
         }
       }
     }
 
+    if (isStale()) return;
+
     if (mem) {
       const m = mem as any;
+      if (m.id) {
+        try {
+          localStorage.removeItem("vekta-last-workspace-company-id");
+        } catch {
+          /* ignore */
+        }
+      }
       setMembership({ id: m.id, company_id: m.company_id, role: m.role });
 
       if (m.role === "pending") {
@@ -254,9 +293,69 @@ export function CompanyTab() {
         setState("linked");
       }
     } else {
-      setState("search");
+      // Post-onboarding: workspace + profile.company_id often exist before company_members is visible to the client (JWT/RLS timing).
+      const { data: prof } = await supabase
+        .from("profiles" as any)
+        .select("company_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (isStale()) return;
+      const profileCompanyId = (prof as { company_id?: string } | null)?.company_id;
+
+      let storedWorkspaceId: string | null = null;
+      try {
+        storedWorkspaceId = localStorage.getItem("vekta-last-workspace-company-id");
+      } catch {
+        /* ignore */
+      }
+      const uuidOk =
+        typeof storedWorkspaceId === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storedWorkspaceId.trim());
+
+      if (profileCompanyId) {
+        setMembership({ id: "", company_id: profileCompanyId, role: "manager" });
+        setState("linked");
+        if (!membershipFallbackRetryScheduledRef.current) {
+          membershipFallbackRetryScheduledRef.current = true;
+          window.setTimeout(() => {
+            void bootstrapState();
+          }, 2500);
+        }
+      } else if (uuidOk && localSeed?.name) {
+        setMembership({ id: "", company_id: storedWorkspaceId!.trim(), role: "manager" });
+        setState("linked");
+        if (!membershipFallbackRetryScheduledRef.current) {
+          membershipFallbackRetryScheduledRef.current = true;
+          window.setTimeout(() => {
+            void bootstrapState();
+          }, 2500);
+        }
+      } else if (localSeed?.name) {
+        // Last resort: workspace API succeeded before but this client still has no row — call edge again and trust returned id.
+        const last = await ensureCompanyWorkspace(user!.id, {
+          name: localSeed.name,
+          website: localSeed.website || "",
+        });
+        if (!isStale() && last.ok) {
+          setMembership({ id: "", company_id: last.companyId, role: "manager" });
+          setState("linked");
+          try {
+            localStorage.setItem("vekta-last-workspace-company-id", last.companyId);
+          } catch {
+            /* ignore */
+          }
+        } else if (!isStale()) {
+          setState("search");
+        }
+      } else {
+        setState("search");
+      }
     }
-    setLoading(false);
+    } finally {
+      if (gen === bootstrapGenRef.current) {
+        setLoading(false);
+      }
+    }
   };
 
   const fetchOwner = async (companyId: string) => {
@@ -587,21 +686,45 @@ export function CompanyTab() {
 
   const handleCancelRequest = async () => {
     if (!membership) return;
-    await supabase.from("company_members" as any).delete().eq("id", membership.id);
+    if (membership.id) {
+      await supabase.from("company_members" as any).delete().eq("id", membership.id);
+    } else {
+      await supabase
+        .from("company_members" as any)
+        .delete()
+        .eq("user_id", user!.id)
+        .eq("company_id", membership.company_id)
+        .eq("role", "pending");
+    }
     setMembership(null);
     setState("search");
     toast.success("Request cancelled");
   };
 
   const handleUnlink = async () => {
-    if (membership) {
-      const { error } = await supabase.from("company_members" as any).delete().eq("id", membership.id);
-      if (error) {
-        toast.error("Failed to unlink: " + error.message);
-        return;
-      }
-      setMembership(null);
+    if (!membership) return;
+    let error: { message: string } | null = null;
+    if (membership.id) {
+      const res = await supabase.from("company_members" as any).delete().eq("id", membership.id);
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from("company_members" as any)
+        .delete()
+        .eq("user_id", user!.id)
+        .eq("company_id", membership.company_id);
+      error = res.error;
     }
+    if (error) {
+      toast.error("Failed to unlink: " + error.message);
+      return;
+    }
+    try {
+      localStorage.removeItem("vekta-last-workspace-company-id");
+    } catch {
+      /* ignore */
+    }
+    setMembership(null);
     setState("search");
     toast.success("Company unlinked from your account");
   };
@@ -749,6 +872,7 @@ export function CompanyTab() {
                   if (incoming.logo_url) {
                     try {
                       localStorage.setItem("company-logo-url", incoming.logo_url);
+                      window.dispatchEvent(new Event("company-logo-changed"));
                     } catch {}
                   }
 

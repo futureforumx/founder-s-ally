@@ -1,5 +1,11 @@
 project_id = "zmnlsdohtwztneamvwaq"
 
+# Local PostgREST + Clerk (only if you use `supabase start` and hit local API with real Clerk JWTs):
+# https://supabase.com/docs/guides/auth/third-party/clerk#configure-for-local-development-or-self-hosting
+# [auth.third_party.clerk]
+# enabled = true
+# domain = "your-instance.clerk.accounts.dev"
+
 [functions.audit-deck]
 verify_jwt = false
 

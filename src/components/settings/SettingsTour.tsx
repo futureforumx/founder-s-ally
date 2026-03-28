@@ -45,8 +45,8 @@ const TOUR_STEPS: TourStep[] = [
   // ── Intro: Profile ──
   {
     selector: '[data-tour-section="profile"]',
-    title: "Profile — Personal",
-    description: "Next up: your personal identity. Confirm your name and email so investors know who you are.",
+    title: "Personal information",
+    description: "Next up: your personal identity. Confirm your full name and details so investors know who you are.",
     sectionId: "personal",
     placement: "bottom",
     isIntro: true,
@@ -55,7 +55,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     selector: '[data-tour-section="profile"]',
     title: "Confirm Your Details",
-    description: "Review your first name, last name, and email. Click 'Confirm Details' when everything looks right.",
+    description: "Review your personal information and email. Click 'Confirm Details' when everything looks right.",
     sectionId: "personal",
     placement: "bottom",
     expandSection: "profile",

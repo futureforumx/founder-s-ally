@@ -19,8 +19,8 @@ if (import.meta.env.DEV && !hasSupabaseConfig) {
 let accessTokenGetter: () => Promise<string | null> = async () => null;
 
 /** Called from AuthProvider when Clerk session changes — forwards JWT to Supabase (third-party auth). */
-export function setSupabaseAccessTokenGetter(fn: () => Promise<string | null>) {
-  accessTokenGetter = fn;
+export function setSupabaseAccessTokenGetter(fn: (() => Promise<string | null>) | null) {
+  accessTokenGetter = fn ?? (async () => null);
 }
 
 /** Clerk (or other) JWT sent to Supabase — use for edge functions that need the signed-in user. */

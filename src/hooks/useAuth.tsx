@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/clerk-react";
+import { useAuth as useClerkAuth, useUser, useClerk, useSession } from "@clerk/clerk-react";
 import type { User, Session } from "@supabase/supabase-js";
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
@@ -151,10 +151,13 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
 
 function ClerkAuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, getToken, sessionId } = useClerkAuth();
+  const { session: clerkSession } = useSession();
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const clerkSessionRef = useRef(clerkSession);
+  clerkSessionRef.current = clerkSession;
 
   // Register before paint so edge-function calls right after sign-in see real tokens (not stale null getters).
   useLayoutEffect(() => {
@@ -170,21 +173,29 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
-      // PostgREST RLS needs a JWT Supabase can verify (Clerk "supabase" template).
-      // Clerk's default session token is Clerk-signed — PostgREST returns "No suitable key or wrong key type".
+      // PostgREST needs a JWT Supabase accepts as `authenticated` (Third-party Clerk in Supabase dashboard).
+      // Current Clerk + Supabase: session JWT with `role: "authenticated"` (Clerk Dashboard → Supabase integration).
+      // Legacy: JWT template named exactly "supabase" (deprecated per Supabase, but still supported).
       try {
-        const supabaseJwt = await gt({ template: "supabase" });
-        if (supabaseJwt) return supabaseJwt;
+        const templateJwt = await gt({ template: "supabase" });
+        if (templateJwt) return templateJwt;
       } catch {
-        /* template missing or misconfigured */
+        /* template missing */
+      }
+      try {
+        const s = clerkSessionRef.current;
+        const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
+        if (sessionJwt) return sessionJwt;
+      } catch {
+        /* no session token */
       }
       console.warn(
-        '[Supabase + Clerk] No JWT from template "supabase". Row-level security on tables will fail until you add it: Clerk Dashboard → JWT Templates → name exactly `supabase`, then Supabase → Authentication → Sign In / Providers → Clerk. Docs: https://supabase.com/docs/guides/auth/third-party/clerk',
+        "[Supabase + Clerk] No usable JWT for PostgREST. Enable Clerk's Supabase integration (session `role: authenticated`) or add JWT template `supabase`. Supabase dashboard → Authentication → Third-party → Clerk. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
       );
       return null;
     });
     return () => setSupabaseAccessTokenGetter(null);
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, clerkSession?.id]);
 
   const user = useMemo(() => clerkUserToCompatUser(clerkUser), [clerkUser]);
   const session = useMemo(() => buildSession(isSignedIn && user ? user : null), [isSignedIn, user]);
