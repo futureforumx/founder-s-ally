@@ -117,7 +117,6 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             className="group flex w-full flex-row items-center justify-center gap-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple"
           >
             <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none">
-              <Sparkles className="h-3.5 w-3.5 animate-pulse" />
             </div>
             <span className="block text-[10px] font-thin uppercase tracking-[0.2em] text-violet-100/90 leading-none">
               AGENT
