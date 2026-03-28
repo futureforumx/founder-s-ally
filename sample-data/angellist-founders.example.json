@@ -1,0 +1,14 @@
+{
+  "founders": [
+    {
+      "fullName": "Alex Rivera",
+      "title": "CEO @ ExampleCo",
+      "currentRole": "CEO",
+      "currentStartup": "ExampleCo",
+      "angelListId": "12345678",
+      "linkedin": "https://www.linkedin.com/in/example",
+      "location": "Austin, TX",
+      "followers": 420
+    }
+  ]
+}

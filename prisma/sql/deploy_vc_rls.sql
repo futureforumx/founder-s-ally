@@ -2,6 +2,7 @@
 
 ALTER TABLE public.vc_firms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_firm_aliases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reg_d_filings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_funds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_people ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_investments ENABLE ROW LEVEL SECURITY;
@@ -10,6 +11,8 @@ ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authenticated read active vc_firms" ON public.vc_firms;
+DROP POLICY IF EXISTS "Authenticated read active vc_firm_aliases" ON public.vc_firm_aliases;
+DROP POLICY IF EXISTS "Authenticated read active reg_d_filings" ON public.reg_d_filings;
 DROP POLICY IF EXISTS "Authenticated read active vc_funds" ON public.vc_funds;
 DROP POLICY IF EXISTS "Authenticated read active vc_people" ON public.vc_people;
 DROP POLICY IF EXISTS "Authenticated read active vc_investments" ON public.vc_investments;
@@ -19,6 +22,7 @@ DROP POLICY IF EXISTS "Authenticated read active vc_score_snapshots" ON public.v
 
 DROP POLICY IF EXISTS "Anon read active vc_firms" ON public.vc_firms;
 DROP POLICY IF EXISTS "Anon read active vc_firm_aliases" ON public.vc_firm_aliases;
+DROP POLICY IF EXISTS "Anon read active reg_d_filings" ON public.reg_d_filings;
 DROP POLICY IF EXISTS "Anon read active vc_funds" ON public.vc_funds;
 DROP POLICY IF EXISTS "Anon read active vc_people" ON public.vc_people;
 DROP POLICY IF EXISTS "Anon read active vc_investments" ON public.vc_investments;
@@ -37,6 +41,9 @@ CREATE POLICY "Authenticated read active vc_firm_aliases"
       WHERE f.id = vc_firm_aliases.firm_id AND f.deleted_at IS NULL
     )
   );
+
+CREATE POLICY "Authenticated read active reg_d_filings"
+  ON public.reg_d_filings FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "Authenticated read active vc_funds"
   ON public.vc_funds FOR SELECT TO authenticated USING (deleted_at IS NULL);
@@ -67,6 +74,9 @@ CREATE POLICY "Anon read active vc_firm_aliases"
       WHERE f.id = vc_firm_aliases.firm_id AND f.deleted_at IS NULL
     )
   );
+
+CREATE POLICY "Anon read active reg_d_filings"
+  ON public.reg_d_filings FOR SELECT TO anon USING (true);
 
 CREATE POLICY "Anon read active vc_funds"
   ON public.vc_funds FOR SELECT TO anon USING (deleted_at IS NULL);

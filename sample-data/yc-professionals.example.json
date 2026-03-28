@@ -1,0 +1,28 @@
+{
+  "professionals": [
+    {
+      "fullName": "Jane Doe",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "title": "Founder @ Acme AI",
+      "currentRole": "Founder",
+      "currentStartup": "Acme AI",
+      "ycBatch": "W26",
+      "linkedin": "https://linkedin.com/in/janedoe",
+      "location": "San Francisco, CA, USA",
+      "source": "yc"
+    },
+    {
+      "fullName": "John Smith",
+      "firstName": "John",
+      "lastName": "Smith",
+      "title": "CTO @ SaaS XYZ",
+      "currentRole": "CTO",
+      "currentStartup": "SaaS XYZ",
+      "githubHandle": "johnsmithdev",
+      "githubStars": 2500,
+      "location": "NYC",
+      "source": "github"
+    }
+  ]
+}
