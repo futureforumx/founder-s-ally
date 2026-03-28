@@ -23,6 +23,9 @@ migrated_storage.json
 db.dump
 db.sql
 
+# Local agent / IDE scaffolds
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
