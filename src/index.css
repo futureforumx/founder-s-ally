@@ -113,11 +113,26 @@
     @apply border-border;
   }
 
-  html.auth-route-lock,
-  body.auth-route-lock,
+  html.auth-route-lock {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
+  body.auth-route-lock {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+
   #root.auth-route-lock {
     height: 100%;
-    overflow: hidden;
+    max-height: 100%;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   body {
