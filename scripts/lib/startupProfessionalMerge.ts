@@ -337,8 +337,18 @@ export async function mergeStartupProfessional(
   push("phMaker", existing.phMaker, nextPhMaker);
   push("source", existing.source, nextSource);
   push("sourcePriority", existing.sourcePriority, nextMaxPri);
-  push("lastSeenAt", existing.lastSeenAt?.toISOString() ?? null, nextLastSeen.toISOString());
-  push("sourceUpdatedAt", existing.sourceUpdatedAt?.toISOString() ?? null, nextSrcUpdDate.toISOString());
+  // lastSeenAt / sourceUpdatedAt are maintenance only — never audited (avoids 8K+ changelog rows per re-run)
+
+  if (changes.length === 0) {
+    await prisma.startupProfessional.update({
+      where: { id: existing.id },
+      data: {
+        lastSeenAt: nextLastSeen,
+        sourceUpdatedAt: nextSrcUpdDate,
+      },
+    });
+    return { id: existing.id, created: false, changeCount: 0 };
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.startupProfessional.update({
@@ -368,7 +378,7 @@ export async function mergeStartupProfessional(
       },
     });
 
-    if (auditEnabled() && changes.length > 0) {
+    if (auditEnabled()) {
       await tx.startupProfessionalChangeLog.create({
         data: {
           startupProfessionalId: existing.id,

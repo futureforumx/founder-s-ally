@@ -4,8 +4,8 @@
 # To make this agent available, merge this file into the default repository branch.
 # For format details, see: https://gh.io/customagents/config
 
-name:
-description:
+name: Vekta Repository Agent
+description: Handles repository coding tasks, bug fixes, and safe code changes for the VEKTA app.
 ---
 
 # My Agent
