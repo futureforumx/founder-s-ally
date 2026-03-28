@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -89,6 +90,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function MixpanelPageViewTracker() {
+  const location = useLocation();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    trackMixpanelEvent("Page View", {
+      page_url: typeof window !== "undefined" ? window.location.href : "",
+      page_title: typeof document !== "undefined" ? document.title : "",
+      ...(user?.id ? { user_id: user.id } : {}),
+    });
+  }, [location.pathname, location.search, user?.id]);
+
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -96,6 +112,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <MixpanelPageViewTracker />
           <Routes>
             <Route path="/auth/*" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />

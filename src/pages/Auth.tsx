@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import MuxPlayer from "@mux/mux-player-react";
 import { Loader2 } from "lucide-react";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
@@ -23,6 +24,246 @@ const fallback = (
   </div>
 );
 
+/** Default Mux playback IDs (see https://player.mux.com/{id}) — rotated after each clip ends. */
+const AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS: readonly string[] = [
+  "8sKr9J00300jCEI34syMhVQsS2R00t82NigJdUO2XSDIZY",
+  "C2tc8dcA7ZQ3kPcaSZsywOCsoLc7sihr228Is1f02HNo",
+  "rtDFG2JYsK6XXtHXz6Sj6VKueY6KODyCzNnq63Od00qM",
+];
+
+const AUTH_HERO_MARKETING_COPY = [
+  {
+    label: "Founder Intelligence",
+    headline: "The AI command center for startup founders.",
+    body: "Search, sync, and operate from a workspace that feels composed even while the market moves underneath it.",
+  },
+  {
+    label: "Agentic fundraising",
+    headline: "Your startup command center for capital, competition, and execution.",
+    body: "Find the right investors, track competitors, monitor market shifts in real time, and manage your raise from first target to signed term sheet -- all in one place.",
+  },
+  {
+    label: "Network Intelligence",
+    headline: "Proactive workflows to supercharge your network and scale.",
+    body: "Organize key relationships, manage priorities, capture insights, and stay on top of fundraising and execution, all in one place.",
+  },
+] as const;
+
+function extractMuxPlaybackId(raw: string): string | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  const fromPlayer = s.match(/player\.mux\.com\/([^/?#]+)/i);
+  if (fromPlayer?.[1]) return fromPlayer[1];
+  const fromStream = s.match(/stream\.mux\.com\/([^/.?#]+)/i);
+  if (fromStream?.[1]) return fromStream[1];
+  if (/^[A-Za-z0-9]{20,}$/.test(s)) return s;
+  return undefined;
+}
+
+function parseCommaMuxIds(value: string | undefined): string[] {
+  if (!value?.trim()) return [];
+  const out: string[] = [];
+  for (const part of value.split(",")) {
+    const id = extractMuxPlaybackId(part);
+    if (id && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+function isDirectVideoFileUrl(s: string): boolean {
+  return /\.(mp4|webm|ogg)(\?|#|$)/i.test(s) || s.startsWith("blob:");
+}
+
+type AuthHeroPlayback =
+  | { mode: "mux"; ids: string[] }
+  | { mode: "video"; src: string }
+  | { mode: "none" };
+
+function authHeroPlayback(isSignUp: boolean): AuthHeroPlayback {
+  const primary = (
+    isSignUp
+      ? (import.meta.env.VITE_AUTH_VIDEO_SIGNUP as string | undefined)
+      : (import.meta.env.VITE_AUTH_VIDEO_SIGNIN as string | undefined)
+  )?.trim();
+  const shared = (import.meta.env.VITE_AUTH_VIDEO_URL as string | undefined)?.trim();
+  const muxEnvList = (() => {
+    const globalList = parseCommaMuxIds(import.meta.env.VITE_AUTH_MUX_PLAYBACK_IDS as string | undefined);
+    if (globalList.length) return globalList;
+    return isSignUp
+      ? parseCommaMuxIds(import.meta.env.VITE_AUTH_MUX_PLAYBACK_IDS_SIGNUP as string | undefined)
+      : parseCommaMuxIds(import.meta.env.VITE_AUTH_MUX_PLAYBACK_IDS_SIGNIN as string | undefined);
+  })();
+
+  if (primary && isDirectVideoFileUrl(primary)) {
+    return { mode: "video", src: primary };
+  }
+
+  const ids: string[] = [];
+  const pushRaw = (raw: string | undefined) => {
+    if (!raw) return;
+    const id = extractMuxPlaybackId(raw);
+    if (id && !ids.includes(id)) ids.push(id);
+  };
+
+  for (const id of muxEnvList) {
+    if (!ids.includes(id)) ids.push(id);
+  }
+  pushRaw(primary);
+  if (shared && !isDirectVideoFileUrl(shared)) pushRaw(shared);
+
+  for (const id of AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS) {
+    if (!ids.includes(id)) ids.push(id);
+  }
+
+  if (ids.length > 0) return { mode: "mux", ids };
+
+  if (shared && isDirectVideoFileUrl(shared)) return { mode: "video", src: shared };
+
+  return { mode: "none" };
+}
+
+const muxPlayerHeroStyle = {
+  ["--media-object-fit" as string]: "cover",
+  ["--media-object-position" as string]: "center",
+} as CSSProperties;
+
+/** Native hero background video: fill parent; dimensions forced in CSS with !important. */
+const authHeroNativeVideoClass =
+  "auth-hero-native-video pointer-events-none absolute inset-0 h-full w-full object-cover";
+
+/** Strict background-media container: both layers clip; outer pins to the hero card with inset-0. */
+function AuthHeroMediaStage({ children }: { children: ReactNode }) {
+  return (
+    <div className="absolute inset-0 h-full w-full min-h-0 overflow-hidden">
+      <div className="relative h-full w-full min-h-0 overflow-hidden bg-black">{children}</div>
+    </div>
+  );
+}
+
+function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
+  const playback = useMemo(() => authHeroPlayback(isSignUp), [isSignUp]);
+  const [muxIndex, setMuxIndex] = useState(0);
+  const muxIdsKey = playback.mode === "mux" ? playback.ids.join("|") : "";
+
+  useEffect(() => {
+    setMuxIndex(0);
+  }, [isSignUp, muxIdsKey]);
+
+  if (playback.mode === "none") {
+    return (
+      <AuthHeroMediaStage>
+        <div
+          className="absolute inset-0 h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black"
+          aria-hidden
+        />
+      </AuthHeroMediaStage>
+    );
+  }
+
+  if (playback.mode === "video") {
+    const src = playback.src;
+    return (
+      <AuthHeroMediaStage>
+        <video
+          key={src}
+          className={authHeroNativeVideoClass}
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+        />
+      </AuthHeroMediaStage>
+    );
+  }
+
+  const { ids } = playback;
+  const activeId = ids[muxIndex % ids.length]!;
+  const muxLoop = ids.length <= 1;
+
+  return (
+    <AuthHeroMediaStage>
+      <div className="auth-hero-mux absolute inset-0 overflow-hidden">
+        <MuxPlayer
+          key={activeId}
+          playbackId={activeId}
+          streamType="on-demand"
+          muted
+          autoPlay
+          loop={muxLoop}
+          playsInline
+          nohotkeys
+          proudlyDisplayMuxBadge={false}
+          thumbnailTime={0}
+          capRenditionToPlayerSize={false}
+          style={muxPlayerHeroStyle}
+          className="auth-hero-mux-player pointer-events-none absolute inset-0 h-full w-full"
+          onEnded={muxLoop ? undefined : () => setMuxIndex((i) => (i + 1) % ids.length)}
+          {...{ "media-object-fit": "cover" }}
+        />
+      </div>
+    </AuthHeroMediaStage>
+  );
+}
+
+function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
+  const activeMessage = AUTH_HERO_MARKETING_COPY[copyIndex % AUTH_HERO_MARKETING_COPY.length]!;
+
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-8 md:p-10">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/20 px-3 py-1.5 backdrop-blur-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
+            Live founder signal
+          </span>
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/25 to-transparent px-8 pb-10 pt-32 md:px-10 md:pb-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">{activeMessage.label}</p>
+        <h2 className="mt-3 max-w-xl text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">
+          {activeMessage.headline}
+        </h2>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/75">{activeMessage.body}</p>
+        <div className="mt-5 flex items-center gap-2">
+          {AUTH_HERO_MARKETING_COPY.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 w-6 rounded-full transition-all ${
+                i === copyIndex % AUTH_HERO_MARKETING_COPY.length ? "bg-white/90" : "bg-white/30"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
+  const leftOverflow = isSignUp ? "md:overflow-y-auto" : "md:overflow-hidden";
+  const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
+  return (
+    <div className="flex min-h-screen w-full flex-col bg-zinc-50 md:grid md:h-screen md:max-h-screen md:min-h-0 md:grid-cols-2 md:grid-rows-1">
+      <div
+        className={`flex min-h-0 flex-1 flex-col justify-center self-stretch px-6 py-10 sm:px-10 md:max-h-screen md:min-h-0 ${leftPadMd} ${leftOverflow}`}
+      >
+        <div className="mx-auto w-full max-w-[440px]">{children}</div>
+      </div>
+      <div className="relative hidden min-h-0 self-stretch md:block md:h-full md:min-h-0 md:overflow-hidden">
+        <div className="relative h-full min-h-0 w-full self-stretch overflow-hidden rounded-l-[28px] border-y border-l border-zinc-800/80 bg-black shadow-2xl">
+          <AuthHeroMedia isSignUp={isSignUp} />
+          <AuthHeroCopy copyIndex={heroCopyIndex} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Path-based routes under `/auth/*` — set the same paths in Clerk Dashboard → Paths if prompted.
  */
@@ -30,7 +271,13 @@ export default function Auth() {
   const { isLoaded, userId } = useClerkAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
+  const forceAuthPreview = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("preview") === "1";
+  }, [location.search]);
   const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
+  const [heroCopyIndex, setHeroCopyIndex] = useState(0);
   const clerkKey = readClerkPublishableKey();
   const showLocalPreviewFallback =
     import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
@@ -46,8 +293,31 @@ export default function Auth() {
   }, [isLoaded]);
 
   useEffect(() => {
-    if (isLoaded && userId) navigate("/", { replace: true });
-  }, [isLoaded, userId, navigate]);
+    if (isLoaded && userId && !forceAuthPreview) navigate("/", { replace: true });
+  }, [isLoaded, userId, navigate, forceAuthPreview]);
+
+  useEffect(() => {
+    setHeroCopyIndex(0);
+  }, [isSignUpRoute]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setHeroCopyIndex((prev) => (prev + 1) % AUTH_HERO_MARKETING_COPY.length);
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (isSignUpRoute) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "1");
+      } else if (location.pathname.startsWith("/auth")) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "0");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [isSignUpRoute, location.pathname]);
 
   if (showLocalPreviewFallback) {
     return (
@@ -68,14 +338,14 @@ export default function Auth() {
     return shell(
       <div className="flex min-h-[320px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-      </div>
+      </div>,
+      isSignUpRoute,
+      heroCopyIndex
     );
   }
 
-  const isSignUp = location.pathname.startsWith("/auth/sign-up");
-
   return shell(
-    isSignUp ? (
+    isSignUpRoute ? (
       <>
         {clerkLoadTimedOut && (
           <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
@@ -108,7 +378,7 @@ export default function Auth() {
         )}
         <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
         <p className="hidden md:block mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
-        <div className="mt-8 w-full min-w-0">
+        <div className="mt-6 w-full min-w-0">
           <SignIn
             routing="path"
             path="/auth"
@@ -119,6 +389,8 @@ export default function Auth() {
           />
         </div>
       </>
-    )
+    ),
+    isSignUpRoute,
+    heroCopyIndex
   );
 }
