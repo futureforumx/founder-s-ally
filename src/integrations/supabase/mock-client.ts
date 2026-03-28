@@ -54,6 +54,75 @@ class MockSupabaseClient {
           error: null 
         };
       }
+      if (name === "sync-linkedin-profile") {
+        return {
+          data: {
+            success: true,
+            data: {
+              full_name: "Alex Founder",
+              title: "CEO & Co-founder · MockCo",
+              bio: null,
+              location: "San Francisco, CA",
+              avatar_url: null,
+              linkedin_url: String(payload?.body?.linkedinUrl || "https://linkedin.com/in/mock"),
+              source: "mock",
+            },
+          },
+          error: null,
+        };
+      }
+      if (name === "market-updates") {
+        return {
+          data: {
+            source: "mock",
+            headlines: [
+              {
+                title: "Mock headline: sector activity",
+                summary: "Local mock data for market pulse without Supabase functions.",
+                relevance: `Illustrative relevance for ${payload?.body?.sector || "your sector"}.`,
+              },
+            ],
+          },
+          error: null,
+        };
+      }
+      if (name === "research-agent") {
+        return {
+          data: {
+            answer: "Mock research-agent: configure Supabase secrets (TAVILY_API_KEY, etc.) for live pipeline.",
+            modelUsed: "mock",
+            searchProvider: "none",
+            topHits: [],
+            urlReads: [],
+            intents: { preferExa: false },
+            strategy: {},
+          },
+          error: null,
+        };
+      }
+      if (name === "create-company-workspace") {
+        return {
+          data: {
+            success: true,
+            companyId: "00000000-0000-4000-8000-000000000001",
+            created: true,
+          },
+          error: null,
+        };
+      }
+      if (name === "claim-company-workspace") {
+        return {
+          data: {
+            success: true,
+            companyId: "00000000-0000-4000-8000-000000000002",
+            membershipId: "00000000-0000-4000-8000-000000000003",
+          },
+          error: null,
+        };
+      }
+      if (name === "complete-founder-onboarding") {
+        return { data: { success: true }, error: null };
+      }
       return { data: { success: true }, error: null };
     }
   };

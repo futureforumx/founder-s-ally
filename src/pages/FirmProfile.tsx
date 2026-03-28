@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, Building2, ExternalLink, Globe, MapPin } from "lucide-react";
 
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { fetchVCFirmDetail, type VCFirmDetail, type VcFundRow } from "@/lib/vcFirmDetail";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ const FirmProfile = () => {
 
   const query = useQuery({
     queryKey: ["vc-firm-detail", id],
-    queryFn: () => fetchVCFirmDetail(supabase, id!),
+    queryFn: () => fetchVCFirmDetail(supabaseVcDirectory, id!),
     enabled: Boolean(id && isSupabaseConfigured),
   });
 
@@ -90,14 +90,43 @@ const FirmProfile = () => {
   }
 
   if (query.isError) {
+    const msg = (query.error as Error).message;
+    const isJwtKeyError =
+      msg.includes("No suitable key") ||
+      msg.includes("wrong key type") ||
+      msg.includes("PGRST301");
+
     return (
       <div className="min-h-screen bg-background p-6 md:p-10">
         <Card className="mx-auto max-w-lg border-destructive/40">
           <CardHeader>
             <CardTitle>Could not load firm</CardTitle>
-            <CardDescription>
-              {(query.error as Error).message}. If you see a policy or permission error, add RLS <code className="text-xs">SELECT</code>{" "}
-              policies for <code className="text-xs">vc_*</code> tables for the <code className="text-xs">authenticated</code> role.
+            <CardDescription className="space-y-2 text-pretty">
+              {isJwtKeyError ? (
+                <>
+                  <p>
+                    Supabase rejected the token (often: Clerk’s <strong>default</strong> session JWT was sent). This app only sends the Clerk template named{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase</code>, which must match{" "}
+                    <a
+                      className="font-medium text-accent underline-offset-4 hover:underline"
+                      href="https://supabase.com/docs/guides/auth/third-party/clerk"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Supabase’s Clerk guide
+                    </a>
+                    .
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Clerk → Configure → JWT Templates → create <code className="rounded bg-muted px-1">supabase</code>. Supabase → Authentication → add Clerk as third-party provider. Then sign out and sign in again.
+                  </p>
+                </>
+              ) : (
+                <p>
+                  {msg}. If this is a policy error, add RLS <code className="text-xs">SELECT</code> on <code className="text-xs">vc_*</code> for the{" "}
+                  <code className="text-xs">authenticated</code> role.
+                </p>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex gap-2">

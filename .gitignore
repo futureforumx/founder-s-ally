@@ -37,3 +37,15 @@ db.sql
 # Local scaffolds / tooling artifacts (do not commit)
 my-clerk-app/
 supabase/.temp/
+.vercel
+.env*.local
+
+# Large local OpenVC dumps (keep example JSON in repo)
+data/openvc/investors.json
+data/vcsheet/investors.json
+data/imports/venture-capital.json
+data/imports/airtable-vc.json
+data/imports/signal-nfx-lists.json
+data/imports/signal-nfx-featured.json
+data/imports/founder-s-ally-*.json
+data/enriched/*.json

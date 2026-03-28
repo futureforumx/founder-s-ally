@@ -55,34 +55,38 @@ export function useProfile() {
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  const upsertProfile = useCallback(async (updates: Partial<Profile>) => {
-    if (!user) return;
-    try {
-      const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
+  const upsertProfile = useCallback(
+    async (updates: Partial<Profile>): Promise<{ ok: true } | { ok: false; error: string }> => {
+      if (!user) return { ok: false, error: "Not signed in" };
+      try {
+        const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
 
-      if (profile) {
-        const { error } = await (supabase as any)
-          .from("profiles")
-          .update(payload)
-          .eq("user_id", user.id);
-        if (error) {
-          console.warn("Failed to update profile:", error);
-          return;
+        if (profile) {
+          const { error } = await (supabase as any)
+            .from("profiles")
+            .update(payload)
+            .eq("user_id", user.id);
+          if (error) {
+            console.warn("Failed to update profile:", error);
+            return { ok: false, error: error.message };
+          }
+        } else {
+          const { error } = await (supabase as any).from("profiles").insert(payload);
+          if (error) {
+            console.warn("Failed to insert profile:", error);
+            return { ok: false, error: error.message };
+          }
         }
-      } else {
-        const { error } = await (supabase as any)
-          .from("profiles")
-          .insert(payload);
-        if (error) {
-          console.warn("Failed to insert profile:", error);
-          return;
-        }
+        await fetchProfile();
+        return { ok: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("Error upserting profile:", err);
+        return { ok: false, error: msg };
       }
-      await fetchProfile();
-    } catch (err) {
-      console.warn("Error upserting profile:", err);
-    }
-  }, [user, profile, fetchProfile]);
+    },
+    [user, profile, fetchProfile],
+  );
 
   return { profile, loading, upsertProfile, refetch: fetchProfile };
 }

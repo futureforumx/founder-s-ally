@@ -1,0 +1,17 @@
+{
+  "source": "https://www.vcsheet.com/investors",
+  "investors": [
+    {
+      "slug": "claire-smilow",
+      "profile_url": "https://www.vcsheet.com/who/claire-smilow",
+      "display_name": "Claire Smilow",
+      "title": "Partner",
+      "firm_names_raw": "BoxGroup",
+      "check_sizes_raw": "$100K - $500K, $500K - $1M",
+      "stages_raw": "Pre-Seed, Seed, Series A",
+      "sectors_raw": "Fintech, Deeptech / Hardware, Devtools, AI, Consumer",
+      "geography_raw": "USA",
+      "fetched_at": "2026-03-27T00:00:00.000Z"
+    }
+  ]
+}

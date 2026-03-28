@@ -44,3 +44,18 @@ verify_jwt = false
 
 [functions.send-login-otp]
 verify_jwt = false
+
+[functions.investor-waitlist]
+verify_jwt = false
+
+[functions.research-agent]
+verify_jwt = false
+
+[functions.create-company-workspace]
+verify_jwt = false
+
+[functions.claim-company-workspace]
+verify_jwt = false
+
+[functions.complete-founder-onboarding]
+verify_jwt = false

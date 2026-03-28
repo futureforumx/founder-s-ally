@@ -668,32 +668,44 @@ export type Database = {
         Row: {
           comment: string | null
           created_at: string
-          did_respond: boolean
+          did_respond: boolean | null
           firm_id: string
           founder_id: string
           id: string
+          interaction_detail: string | null
           interaction_type: string
+          is_anonymous: boolean
           nps_score: number
+          person_id: string
+          star_ratings: Record<string, number>
         }
         Insert: {
           comment?: string | null
           created_at?: string
-          did_respond?: boolean
+          did_respond?: boolean | null
           firm_id: string
           founder_id: string
           id?: string
+          interaction_detail?: string | null
           interaction_type?: string
+          is_anonymous?: boolean
           nps_score: number
+          person_id?: string
+          star_ratings?: Record<string, number>
         }
         Update: {
           comment?: string | null
           created_at?: string
-          did_respond?: boolean
+          did_respond?: boolean | null
           firm_id?: string
           founder_id?: string
           id?: string
+          interaction_detail?: string | null
           interaction_type?: string
+          is_anonymous?: boolean
           nps_score?: number
+          person_id?: string
+          star_ratings?: Record<string, number>
         }
         Relationships: []
       }

@@ -18,7 +18,22 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:seed:angellist": "tsx scripts/seed_angellist_relay.ts",
+    "db:seed:openvc": "tsx scripts/seed_openvc.ts",
+    "db:seed:vcsheet": "tsx scripts/seed_vcsheet.ts",
+    "db:seed:venture-csv": "tsx scripts/seed_venture_capital_csv.ts",
+    "db:seed:airtable": "tsx scripts/seed_airtable_vc.ts",
+    "db:seed:signal-nfx": "tsx scripts/seed_signal_nfx.ts",
+    "db:seed:founder-sally": "tsx scripts/seed_founder_s_ally.ts",
+    "vc:enrich": "python3 scripts/vc_enrich_gemini.py",
+    "vc:investor-news": "python3 scripts/investor_news_refresh.py",
+    "db:seed:curated-investors": "tsx scripts/seed_curated_investors.ts",
+    "db:seed:founder-suite-funds": "tsx scripts/seed_founder_suite_funds.ts",
+    "db:generate:curated-investors": "tsx scripts/generate_curated_partners_json.ts",
+    "supabase": "supabase",
+    "supabase:db:push": "supabase db push",
+    "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -116,6 +131,7 @@
     "postcss": "^8.5.6",
     "prisma": "6.19.0",
     "shadcn-ui": "^0.9.5",
+    "supabase": "^2.84.4",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "^5.8.3",

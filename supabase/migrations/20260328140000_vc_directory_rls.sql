@@ -9,6 +9,14 @@ ALTER TABLE public.vc_source_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated read active vc_firms" ON public.vc_firms;
+DROP POLICY IF EXISTS "Authenticated read active vc_funds" ON public.vc_funds;
+DROP POLICY IF EXISTS "Authenticated read active vc_people" ON public.vc_people;
+DROP POLICY IF EXISTS "Authenticated read active vc_investments" ON public.vc_investments;
+DROP POLICY IF EXISTS "Authenticated read active vc_source_links" ON public.vc_source_links;
+DROP POLICY IF EXISTS "Authenticated read active vc_signals" ON public.vc_signals;
+DROP POLICY IF EXISTS "Authenticated read active vc_score_snapshots" ON public.vc_score_snapshots;
+
 CREATE POLICY "Authenticated read active vc_firms"
   ON public.vc_firms
   FOR SELECT

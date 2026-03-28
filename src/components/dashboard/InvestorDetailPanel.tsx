@@ -23,7 +23,6 @@ import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
-import { ContactRevealButton } from "./investor-detail/ContactRevealButton";
 import { useUserCredits } from "@/hooks/useContactReveal";
 
 interface CompanyContext {
@@ -237,14 +236,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                             <MapPin className="w-3 h-3 text-muted-foreground/50" />
                             <span className="font-semibold text-foreground">{heroLocation}</span>
                           </div>
-                          {/* Contact Reveal */}
-                          <div className="mt-2">
-                            <ContactRevealButton
-                              investorId={resolvedFirmId || liveProfile?.id || null}
-                              firmName={heroName}
-                              isAdmin={isAdmin}
-                            />
-                          </div>
                         </>
                       )}
                     </div>
@@ -348,13 +339,22 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Feedback" && (
                       <motion.div key="feedback" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <FeedbackTab investorName={effectiveInvestor.name} />
+                        <FeedbackTab
+                          investorName={effectiveInvestor.name}
+                          onLogInteraction={() => setReviewOpen(true)}
+                        />
                       </motion.div>
                     )}
 
                     {activeTab === "Connect" && (
                       <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <ConnectionsTab investorName={effectiveInvestor.name} currentUserId={session?.user?.id} />
+                        <ConnectionsTab
+                          investorName={effectiveInvestor.name}
+                          currentUserId={session?.user?.id}
+                          investorId={resolvedFirmId || liveProfile?.id || null}
+                          isAdmin={isAdmin}
+                          location={heroLocation || null}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -369,7 +369,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         firmName={heroName}
-        firmId={resolvedFirmId || liveProfile?.id}
+        firmId={resolvedFirmId || liveProfile?.id || vcFirm?.id}
       />
     </AnimatePresence>
   );

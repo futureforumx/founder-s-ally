@@ -27,11 +27,52 @@ import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { HelpCenter } from "@/components/HelpCenter";
 import { supabase } from "@/integrations/supabase/client";
+import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
+import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { getFaviconUrl } from "@/utils/company-utils";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings" | "help";
+
+/** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
+function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: AnalysisResult): Record<string, unknown> {
+  type AR = AnalysisResult & {
+    scrapedHeader?: string;
+    scrapedValueProp?: string;
+    scrapedPricing?: string;
+  };
+  const a = analysis as AR;
+  const deckParts = [
+    a.scrapedHeader,
+    a.scrapedValueProp,
+    analysis.header,
+    analysis.valueProposition,
+  ].filter(Boolean);
+  const deck_text = deckParts.length ? deckParts.join("\n\n") : null;
+
+  const patch: Record<string, unknown> = {
+    company_name: company.name,
+    website_url: company.website || null,
+    deck_text,
+    stage: company.stage || null,
+    sector: company.sector || null,
+    executive_summary: analysis.executiveSummary || null,
+    health_score: analysis.healthScore,
+    mrr: analysis.metrics?.mrr?.value || null,
+    burn_rate: analysis.metrics?.burnRate?.value || null,
+    runway: analysis.metrics?.runway?.value || null,
+    cac: analysis.metrics?.cac?.value || null,
+    ltv: analysis.metrics?.ltv?.value || null,
+    scraped_header: a.scrapedHeader || analysis.header || null,
+    scraped_value_prop: a.scrapedValueProp || analysis.valueProposition || null,
+    scraped_pricing: a.scrapedPricing || analysis.pricingStructure || null,
+  };
+  if (typeof patch.health_score !== "number" || Number.isNaN(patch.health_score as number)) {
+    delete patch.health_score;
+  }
+  return patch;
+}
 
 // Module-level: read once, survives StrictMode double-mount
 let _postOnboardingView: string | null = null;
@@ -218,12 +259,39 @@ const Index = () => {
     setShowOnboarding(false);
     setShowTerminal(true);
 
-    // Mark onboarding as completed in the database
     try {
       if (authUser) {
-        await (supabase as any).from("profiles").update({ has_completed_onboarding: true }).eq("user_id", authUser.id);
+        const ws = await ensureCompanyWorkspace(authUser.id, company);
+        if (!ws.ok) {
+          console.warn("[onboarding] ensureCompanyWorkspace:", ws.error);
+        } else {
+          const sync = await completeFounderOnboardingEdge({
+            userId: authUser.id,
+            companyId: ws.companyId,
+            companyFields: buildCompanyAnalysisPatchForDb(company, analysis),
+            profile: {
+              has_completed_onboarding: true,
+              company_id: ws.companyId,
+            },
+          });
+          if (!sync.ok) {
+            if (sync.fallbackToClient) {
+              const { error: pe } = await (supabase as any)
+                .from("profiles")
+                .update({ has_completed_onboarding: true, company_id: ws.companyId })
+                .eq("user_id", authUser.id);
+              if (pe) {
+                console.warn("[onboarding] profile sync (RLS — deploy complete-founder-onboarding):", pe.message);
+              }
+            } else {
+              console.warn("[onboarding] complete-founder-onboarding:", sync.error);
+            }
+          }
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn("[onboarding] profile/workspace sync:", e);
+    }
 
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);

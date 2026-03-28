@@ -1,0 +1,15 @@
+{
+  "investors": [
+    {
+      "firm": {
+        "name": "Example Seed Fund",
+        "url": "https://example.com",
+        "location": "USA",
+        "focus": ["SaaS", "AI/ML"]
+      },
+      "name": "Jane Investor",
+      "title": "Partner",
+      "email": "jane@example.com"
+    }
+  ]
+}

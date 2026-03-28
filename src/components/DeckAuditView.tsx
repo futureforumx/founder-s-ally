@@ -16,6 +16,7 @@ import { VersionHistoryAccordion } from "./deck-audit/VersionHistoryAccordion";
 import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
+const MAX_AUDIT_DECK_TEXT_CHARS = 30000;
 
 /** Convert legacy edge-function response to the full AuditResult schema */
 function normalizeAuditResponse(raw: any): AuditResult {
@@ -98,7 +99,8 @@ export function DeckAuditView() {
   const handleUpload = useCallback(async (deckText: string) => {
     setState("processing");
     try {
-      const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText } });
+      const safeDeckText = deckText.slice(0, MAX_AUDIT_DECK_TEXT_CHARS);
+      const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText: safeDeckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
       const normalized = normalizeAuditResponse(data);
@@ -107,7 +109,15 @@ export function DeckAuditView() {
       setState("report");
     } catch (err) {
       console.error("Audit error:", err);
-      toast({ title: "Analysis Failed", description: err instanceof Error ? err.message : "Something went wrong.", variant: "destructive" });
+      const rawMessage = err instanceof Error ? err.message : "Something went wrong.";
+      const isTransportError = /failed to send a request to the edge function/i.test(rawMessage);
+      toast({
+        title: "Analysis Failed",
+        description: isTransportError
+          ? "Deck payload was too large for transport. We now send a trimmed deck snapshot; please try upload again."
+          : rawMessage,
+        variant: "destructive",
+      });
       setState("upload");
     }
   }, []);
