@@ -175,6 +175,19 @@ export function CompanyTab() {
     } catch (e) {
       console.warn("Failed to check local company profile:", e);
     }
+    if (!localSeed) {
+      try {
+        const pending = localStorage.getItem("pending-company-seed");
+        if (pending) {
+          const j = JSON.parse(pending);
+          if (j.companyName) {
+            localSeed = { name: j.companyName, website: j.websiteUrl || "" };
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to read pending-company-seed:", e);
+      }
+    }
 
     let { data: mem } = await supabase
       .from("company_members" as any)

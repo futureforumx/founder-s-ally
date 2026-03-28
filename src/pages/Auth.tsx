@@ -254,9 +254,9 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
   const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
   return (
-    <div className="h-screen w-full overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
+    <div className="fixed inset-0 z-[100] flex min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
       <div
-        className={`h-full overflow-y-auto px-6 sm:px-10 md:min-h-0 ${leftPadMd} py-10`}
+        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-10`}
       >
         <div className="mx-auto w-full max-w-[440px]">{children}</div>
       </div>
@@ -278,6 +278,8 @@ export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
+  const isSignUpVerifyEmailRoute =
+    isSignUpRoute && location.pathname.includes("verify-email-address");
   const forceAuthPreview = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("preview") === "1";
@@ -288,6 +290,20 @@ export default function Auth() {
   const showLocalPreviewFallback =
     import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+    html.classList.add("auth-route-lock");
+    body.classList.add("auth-route-lock");
+    root?.classList.add("auth-route-lock");
+    return () => {
+      html.classList.remove("auth-route-lock");
+      body.classList.remove("auth-route-lock");
+      root?.classList.remove("auth-route-lock");
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoaded) {
@@ -327,7 +343,7 @@ export default function Auth() {
 
   if (showLocalPreviewFallback) {
     return (
-      <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
+      <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-y-contain bg-zinc-100 px-4 py-10 sm:py-14">
         <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Preview mode</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-500">
@@ -359,11 +375,15 @@ export default function Auth() {
             add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
           </div>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
-        </p>
-        <div className="mt-8 w-full min-w-0">
+        {!isSignUpVerifyEmailRoute && (
+          <>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
+            </p>
+          </>
+        )}
+        <div className={`w-full min-w-0 ${isSignUpVerifyEmailRoute ? "mt-0" : "mt-8"}`}>
           <SignUp
             routing="path"
             path="/auth/sign-up"
