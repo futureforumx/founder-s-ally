@@ -288,7 +288,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               open={reviewOpen}
               onClose={() => setReviewOpen(false)}
               firmName={firm.name}
-              firmId={firm.id}
+              vcFirmId={firm.id}
               personId={person.id}
               personName={person.full_name}
             />

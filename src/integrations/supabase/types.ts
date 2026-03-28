@@ -709,6 +709,66 @@ export type Database = {
         }
         Relationships: []
       }
+      vc_ratings: {
+        Row: {
+          anonymous: boolean
+          author_user_id: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          interaction_date: string | null
+          interaction_detail: string | null
+          interaction_type: string
+          nps: number
+          score_feedback: number | null
+          score_follow_thru: number | null
+          score_resp: number | null
+          score_respect: number | null
+          score_value_add: number | null
+          vc_firm_id: string | null
+          vc_person_id: string | null
+          verified: boolean
+        }
+        Insert: {
+          anonymous?: boolean
+          author_user_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          interaction_date?: string | null
+          interaction_detail?: string | null
+          interaction_type: string
+          nps: number
+          score_feedback?: number | null
+          score_follow_thru?: number | null
+          score_resp?: number | null
+          score_respect?: number | null
+          score_value_add?: number | null
+          vc_firm_id?: string | null
+          vc_person_id?: string | null
+          verified?: boolean
+        }
+        Update: {
+          anonymous?: boolean
+          author_user_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          interaction_date?: string | null
+          interaction_detail?: string | null
+          interaction_type?: string
+          nps?: number
+          score_feedback?: number | null
+          score_follow_thru?: number | null
+          score_resp?: number | null
+          score_respect?: number | null
+          score_value_add?: number | null
+          vc_firm_id?: string | null
+          vc_person_id?: string | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
       pending_investors: {
         Row: {
           amount: number

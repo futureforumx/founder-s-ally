@@ -5,6 +5,8 @@ import { ArrowLeft, Building2, ExternalLink, Globe, MapPin } from "lucide-react"
 
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { fetchVCFirmDetail, type VCFirmDetail, type VcFundRow } from "@/lib/vcFirmDetail";
+import { fetchVcRatingsForFirm } from "@/lib/vcRatingsQueries";
+import { aggregateVcRatings, INTERACTION_DISPLAY, type VcRatingRow } from "@/lib/vcRatingsAggregate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,12 +41,28 @@ function scoreBadges(firm: VCFirmDetail) {
   return pairs.filter(([, v]) => typeof v === "number");
 }
 
+function fmtVcRatingWhen(row: VcRatingRow): string {
+  const raw = row.interaction_date || row.created_at?.slice(0, 10);
+  if (!raw) return "—";
+  try {
+    return format(parseISO(raw.length <= 10 ? `${raw}T12:00:00` : raw), "MMM d, yyyy");
+  } catch {
+    return raw;
+  }
+}
+
 const FirmProfile = () => {
   const { id } = useParams<{ id: string }>();
 
   const query = useQuery({
     queryKey: ["vc-firm-detail", id],
     queryFn: () => fetchVCFirmDetail(supabaseVcDirectory, id!),
+    enabled: Boolean(id && isSupabaseConfigured),
+  });
+
+  const ratingsQuery = useQuery({
+    queryKey: ["vc-ratings-firm", id],
+    queryFn: () => fetchVcRatingsForFirm(id!),
     enabled: Boolean(id && isSupabaseConfigured),
   });
 
@@ -143,6 +161,10 @@ const FirmProfile = () => {
   }
 
   const firm = query.data;
+  const ratingRows = ratingsQuery.data ?? [];
+  const ratingAgg = aggregateVcRatings(ratingRows);
+  const recentRating = ratingRows[0];
+
   if (!firm) {
     return (
       <div className="min-h-screen bg-background p-6 md:p-10">
@@ -254,6 +276,75 @@ const FirmProfile = () => {
       </div>
 
       <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
+        {ratingsQuery.isError ? (
+          <Card className="mb-8 border-destructive/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Founder ratings</CardTitle>
+              <CardDescription className="text-destructive">
+                Could not load ratings. Check RLS and that <code className="text-xs">vc_ratings</code> exists.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : !ratingsQuery.isLoading ? (
+          <Card className="mb-8">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                {String(firm.firm_name)} ({ratingAgg.count} rating{ratingAgg.count === 1 ? "" : "s"})
+              </CardTitle>
+              <CardDescription>Founder-submitted interaction scores (by type).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {ratingAgg.count === 0 ? (
+                <p className="text-muted-foreground">No founder ratings yet.</p>
+              ) : (
+                <>
+                  <p>
+                    <span className="font-semibold">Overall:</span>{" "}
+                    {ratingAgg.overallStars != null ? `${ratingAgg.overallStars.toFixed(1)}/5` : "—"}
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · NPS: {ratingAgg.nps}
+                    </span>
+                  </p>
+                  <div className="space-y-1 text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground">By interaction</p>
+                    <ul className="list-none space-y-0.5 pl-0">
+                      {ratingAgg.breakdown.map((b) => (
+                        <li key={b.interactionType} className="flex flex-wrap gap-x-2 gap-y-0">
+                          <span>
+                            {INTERACTION_DISPLAY[b.interactionType] ?? b.interactionType} ({b.count}):
+                          </span>
+                          <span className="font-medium text-foreground tabular-nums">
+                            {b.avgStars != null ? `${b.avgStars.toFixed(1)}/5` : "—"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {recentRating ? (
+                    <p className="text-xs text-muted-foreground border-t pt-3">
+                      <span className="font-semibold text-foreground">Recent:</span>{" "}
+                      {fmtVcRatingWhen(recentRating)}{" "}
+                      {INTERACTION_DISPLAY[recentRating.interaction_type] ?? recentRating.interaction_type} –{" "}
+                      <span className="italic">
+                        &ldquo;
+                        {(recentRating.comment || recentRating.interaction_detail || "No comment").slice(0, 120)}
+                        {(recentRating.comment || recentRating.interaction_detail || "").length > 120 ? "…" : ""}
+                        &rdquo;
+                      </span>
+                      {recentRating.anonymous ? (
+                        <span className="text-foreground"> [Anon]</span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="mb-8 text-sm text-muted-foreground">Loading founder ratings…</p>
+        )}
+
         {typeof firm.description === "string" && firm.description ? (
           <>
             <Card className="mb-8">
