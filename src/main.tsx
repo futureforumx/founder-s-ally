@@ -21,7 +21,7 @@ const shouldMountClerk = !DEMO_MODE && Boolean(clerkKey) && !showLiveKeyOnLocalh
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
     "[Clerk] pk_live_ keys are tied to your production domain and do not work on http://localhost. " +
-      "Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_… in .env.local for local dev."
+      "Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_... in .env.local for local dev."
   );
 }
 
@@ -37,17 +37,14 @@ const appTree = DEMO_MODE ? (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
     <p className="text-sm font-medium text-zinc-900">Clerk key mismatch for localhost</p>
     <p className="max-w-lg text-sm text-zinc-600">
-      Use a Development publishable key (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
-      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>, then restart Vite.
+      Use a Development publishable key in VITE_CLERK_PUBLISHABLE_KEY_DEV, then restart Vite.
     </p>
   </div>
 ) : !clerkKey ? (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
     <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
     <p className="max-w-md text-sm text-zinc-600">
-      Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> (and optional{" "}
-      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>) in{" "}
-      <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code>.
+      Add VITE_CLERK_PUBLISHABLE_KEY in your environment variables.
     </p>
   </div>
 ) : (
@@ -57,7 +54,16 @@ const appTree = DEMO_MODE ? (
 );
 
 createRoot(document.getElementById("root")!).render(
-  <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>
-    <App />
+  <Sentry.ErrorBoundary
+    fallback={({ error }) => (
+      <div style={{ padding: "24px", fontFamily: "monospace" }}>
+        <p style={{ fontWeight: "bold", color: "#111" }}>An error has occurred</p>
+        <pre style={{ whiteSpace: "pre-wrap", color: "#b00", fontSize: "13px", marginTop: "8px" }}>
+          {error instanceof Error ? error.name + ": " + error.message + "\n\n" + (error.stack ?? "") : String(error)}
+        </pre>
+      </div>
+    )}
+  >
+    {appTree}
   </Sentry.ErrorBoundary>
 );
