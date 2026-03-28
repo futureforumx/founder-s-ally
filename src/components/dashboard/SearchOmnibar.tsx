@@ -3,6 +3,8 @@ import { Search, Users, Briefcase, Building2, Sparkles, Clock, X, Loader2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isRateLimited } from "@/lib/rateLimit";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
+import { useAuth } from "@/hooks/useAuth";
 
 export type EntityScope = "founders" | "investors" | "companies" | "operators" | "all";
 
@@ -78,6 +80,7 @@ function addToSearchHistory(term: string) {
 }
 
 export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(function SearchOmnibar({ value, onChange, scope, placeholder }, _ref) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [aiResults, setAiResults] = useState<SearchResult[]>([]);
@@ -108,6 +111,12 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
       try {
         if (isRateLimited("semantic-search", 30, 60_000)) {
           toast.error("Too many searches. Please slow down.");
+          trackMixpanelEvent("Error", {
+            error_type: "rate_limit",
+            error_message: "semantic-search client rate limit",
+            page_url: typeof window !== "undefined" ? window.location.href : "",
+            ...(user?.id ? { user_id: user.id } : {}),
+          });
           setIsSearching(false);
           return;
         }
@@ -119,20 +128,43 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
 
         if (error) {
           console.error("Semantic search error:", error);
+          trackMixpanelEvent("Error", {
+            error_type: "server",
+            error_message: String(error.message ?? error),
+            page_url: typeof window !== "undefined" ? window.location.href : "",
+            ...(user?.id ? { user_id: user.id } : {}),
+          });
           setAiResults([]);
         } else if (data?.results) {
           setAiResults(data.results);
+          trackMixpanelEvent("Search", {
+            search_query: value.trim(),
+            results_count: Array.isArray(data.results) ? data.results.length : 0,
+            ...(user?.id ? { user_id: user.id } : {}),
+          });
         } else if (data?.error) {
           if (data.error.includes("Rate limit")) {
             toast.error("Search rate limited. Please wait a moment.");
           } else if (data.error.includes("Credits")) {
             toast.error("AI credits exhausted. Add funds in Settings > Workspace > Usage.");
           }
+          trackMixpanelEvent("Error", {
+            error_type: "server",
+            error_message: String(data.error),
+            page_url: typeof window !== "undefined" ? window.location.href : "",
+            ...(user?.id ? { user_id: user.id } : {}),
+          });
           setAiResults([]);
         }
       } catch (e) {
         if (!controller.signal.aborted) {
           console.error("Search failed:", e);
+          trackMixpanelEvent("Error", {
+            error_type: "network",
+            error_message: e instanceof Error ? e.message : String(e),
+            page_url: typeof window !== "undefined" ? window.location.href : "",
+            ...(user?.id ? { user_id: user.id } : {}),
+          });
           setAiResults([]);
         }
       } finally {
@@ -141,7 +173,7 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
     }, 400);
 
     return () => clearTimeout(debounceRef.current);
-  }, [value, scope, isTyping]);
+  }, [value, scope, isTyping, user?.id]);
 
   // Scope-aware recommendations
   const recommendations = useMemo(() => {
