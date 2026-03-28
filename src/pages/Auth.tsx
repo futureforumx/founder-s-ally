@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
@@ -23,6 +23,48 @@ const fallback = (
     <p className="text-center text-xs text-zinc-500">Loading…</p>
   </div>
 );
+
+/** Picks one background per full page load / refresh. */
+const AUTH_HERO_BACKGROUNDS = [
+  { kind: "mp4" as const, src: "/auth-wave.mp4" },
+  {
+    kind: "mux" as const,
+    playbackId: "hoUpKcH1LBS86dkrgoXP1x9ORxOJusTFFhF5P02Pp5T00",
+  },
+];
+
+function AuthHeroBackground() {
+  const variant = useMemo(() => {
+    const i = Math.floor(Math.random() * AUTH_HERO_BACKGROUNDS.length);
+    return AUTH_HERO_BACKGROUNDS[i]!;
+  }, []);
+
+  if (variant.kind === "mp4") {
+    return (
+      <video
+        className="absolute inset-0 h-full w-full object-cover"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+      >
+        <source src={variant.src} type="video/mp4" />
+      </video>
+    );
+  }
+
+  const iframeSrc = `https://player.mux.com/${variant.playbackId}?muted=true&autoplay=true&loop=true&playsinline=true`;
+
+  return (
+    <iframe
+      title="Background video"
+      src={iframeSrc}
+      className="pointer-events-none absolute inset-0 h-full w-full border-0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    />
+  );
+}
 
 function shell(content: ReactNode) {
   return (
@@ -52,16 +94,7 @@ function shell(content: ReactNode) {
         </div>
 
         <div className="relative hidden min-h-0 flex-1 overflow-hidden bg-zinc-950 lg:block">
-          <video
-            className="absolute inset-0 h-full w-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-          >
-            <source src="/auth-wave.mp4" type="video/mp4" />
-          </video>
+          <AuthHeroBackground />
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
 
