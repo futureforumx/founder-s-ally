@@ -10,7 +10,12 @@
 
 import { PrismaClient } from "@prisma/client";
 import { loadDatabaseUrl } from "./lib/loadDatabaseUrl";
-import { splitFullName, toCreateInput, toUpdateInput, type ProfessionalSeedRow } from "./lib/startupProfessionalUpsert";
+import {
+  mergeStartupProfessional,
+  splitFullName,
+  SOURCE_PRIORITY,
+  type ProfessionalIngestPayload,
+} from "./lib/startupProfessionalMerge";
 
 const UA =
   process.env.STARTUP_PROFESSIONALS_UA ??
@@ -114,26 +119,21 @@ async function main() {
     const base = (name || username).replace(/\s+/g, " ").trim();
     const fullName = `${base} (@${username})`;
     const { first: fn, last: ln } = splitFullName(base);
-    const row: ProfessionalSeedRow = {
+    const row: ProfessionalIngestPayload = {
       firstName: fn,
       lastName: ln || "",
       fullName,
       title: `Maker on Product Hunt (${posts.size} posts in sample)`,
       currentRole: "Maker",
-      currentStartup: "Product Hunt",
+      currentStartup: "product hunt",
       phMaker: true,
       phLaunchCount: posts.size,
       source: "ph",
+      sourcePriority: SOURCE_PRIORITY.ph,
       githubHandle: null,
     };
     try {
-      await prisma.startupProfessional.upsert({
-        where: {
-          fullName_currentStartup: { fullName: row.fullName, currentStartup: row.currentStartup },
-        },
-        create: toCreateInput(row),
-        update: toUpdateInput(row),
-      });
+      await mergeStartupProfessional(prisma, row);
       ok++;
     } catch {
       err++;

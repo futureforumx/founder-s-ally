@@ -207,12 +207,12 @@ function loadJsonProfessionals(path: string): ProfessionalIngestPayload[] {
   });
 }
 
-function loadJsonCompanies(path: string): ProfessionalSeedRow[] {
+function loadJsonCompanies(path: string): ProfessionalIngestPayload[] {
   const raw = JSON.parse(readFileSync(path, "utf8")) as {
     companies?: Array<{ name: string; batch?: string; founders: string[]; location?: string }>;
   };
   if (!raw.companies?.length) throw new Error(`${path}: expected { "companies": [ { name, founders: [] } ] }`);
-  const rows: ProfessionalSeedRow[] = [];
+  const rows: ProfessionalIngestPayload[] = [];
   for (const c of raw.companies) {
     for (const fullName of c.founders) {
       const { first, last } = splitFullName(fullName);
@@ -226,6 +226,7 @@ function loadJsonCompanies(path: string): ProfessionalSeedRow[] {
         ycBatch: c.batch ?? null,
         location: c.location ?? null,
         source: "yc",
+        sourcePriority: SOURCE_PRIORITY.yc,
       });
     }
   }
@@ -242,13 +243,13 @@ async function main() {
 
   if (profPath) {
     const rows = loadJsonProfessionals(join(process.cwd(), profPath));
-    const r = await upsertRows(rows);
+    const r = await mergeRows(rows);
     console.log(`YC (JSON professionals file): upserted ${r.upserted}, errors ${r.errors}`);
     return;
   }
   if (coPath) {
     const rows = loadJsonCompanies(join(process.cwd(), coPath));
-    const r = await upsertRows(rows);
+    const r = await mergeRows(rows);
     console.log(`YC (JSON companies file): upserted ${r.upserted}, errors ${r.errors}`);
     return;
   }
@@ -264,7 +265,7 @@ async function main() {
   if (maxSlugs && maxSlugs > 0) slugs = slugs.slice(0, maxSlugs);
   console.log(`Parsed ${slugs.length} company slugs. Fetching pages (${concurrency} concurrent, ${delayMs}ms stagger)…`);
 
-  const allRows: ProfessionalSeedRow[] = [];
+  const allRows: ProfessionalIngestPayload[] = [];
   let done = 0;
   await poolMap(slugs, concurrency, async (slug) => {
     await new Promise((r) => setTimeout(r, delayMs * (Math.random() * 0.5 + 0.5)));
@@ -280,7 +281,7 @@ async function main() {
   });
 
   console.log(`Parsed ${allRows.length} founder rows from HTML. Upserting…`);
-  const r = await upsertRows(allRows);
+  const r = await mergeRows(allRows);
   console.log(`YC crawl: upserted ${r.upserted}, errors ${r.errors}`);
 }
 
