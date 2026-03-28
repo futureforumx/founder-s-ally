@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   createContext,
@@ -11,6 +12,51 @@ import { useAuth as useClerkAuth, useUser, useClerk } from "@clerk/clerk-react";
 import type { User, Session } from "@supabase/supabase-js";
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
+import {
+  mixpanelIdentify,
+  mixpanelReset,
+  trackMixpanelEvent,
+} from "@/lib/mixpanel";
+
+const MP_SIGNUP_INTENT_KEY = "vekta_mp_signup_intent";
+
+function readSignupIntent(): string | null {
+  try {
+    return sessionStorage.getItem(MP_SIGNUP_INTENT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearSignupIntent(): void {
+  try {
+    sessionStorage.removeItem(MP_SIGNUP_INTENT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function utmFromLocation(): {
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+} {
+  if (typeof window === "undefined") return {};
+  const p = new URLSearchParams(window.location.search);
+  const utm_source = p.get("utm_source") ?? undefined;
+  const utm_medium = p.get("utm_medium") ?? undefined;
+  const utm_campaign = p.get("utm_campaign") ?? undefined;
+  return { utm_source, utm_medium, utm_campaign };
+}
+
+function authMethodLabel(
+  clerkUser: NonNullable<ReturnType<typeof useUser>["user"]>
+): string {
+  const oauth = clerkUser.externalAccounts?.[0]?.provider;
+  if (oauth) return oauth;
+  if (clerkUser.primaryEmailAddressId) return "email";
+  return "unknown";
+}
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
@@ -83,6 +129,13 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(null);
   }, []);
 
+  useEffect(() => {
+    mixpanelIdentify(DEMO_USER.id, {
+      $email: DEMO_USER.email,
+      $name: (DEMO_USER.user_metadata as { full_name?: string })?.full_name ?? "Demo User",
+    });
+  }, []);
+
   const value = useMemo<AuthCtx>(
     () => ({
       user,
@@ -97,7 +150,7 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
 }
 
 function ClerkAuthProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, getToken } = useClerkAuth();
+  const { isLoaded, isSignedIn, getToken, sessionId } = useClerkAuth();
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
   const getTokenRef = useRef(getToken);
@@ -135,6 +188,57 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
 
   const user = useMemo(() => clerkUserToCompatUser(clerkUser), [clerkUser]);
   const session = useMemo(() => buildSession(isSignedIn && user ? user : null), [isSignedIn, user]);
+
+  const sessionBootstrapRef = useRef(false);
+  const lastSessionIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!sessionBootstrapRef.current) {
+      sessionBootstrapRef.current = true;
+      lastSessionIdRef.current = sessionId ?? null;
+      return;
+    }
+
+    if (!isSignedIn || !sessionId) {
+      if (lastSessionIdRef.current) {
+        mixpanelReset();
+      }
+      lastSessionIdRef.current = null;
+      return;
+    }
+
+    if (!clerkUser) return;
+    if (lastSessionIdRef.current === sessionId) return;
+
+    lastSessionIdRef.current = sessionId;
+
+    const email = clerkUser.primaryEmailAddress?.emailAddress ?? "";
+    if (readSignupIntent() === "1") {
+      trackMixpanelEvent("Sign Up", {
+        user_id: clerkUser.id,
+        email,
+        signup_method: authMethodLabel(clerkUser),
+        ...utmFromLocation(),
+      });
+      clearSignupIntent();
+    } else {
+      trackMixpanelEvent("Sign In", {
+        user_id: clerkUser.id,
+        login_method: authMethodLabel(clerkUser),
+        success: true,
+      });
+    }
+  }, [isLoaded, isSignedIn, sessionId, clerkUser]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser) return;
+    const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ").trim();
+    mixpanelIdentify(clerkUser.id, {
+      $email: clerkUser.primaryEmailAddress?.emailAddress,
+      ...(displayName ? { $name: displayName } : {}),
+    });
+  }, [isLoaded, isSignedIn, clerkUser]);
 
   const value = useMemo<AuthCtx>(
     () => ({
