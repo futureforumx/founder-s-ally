@@ -3,10 +3,17 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { clerkLocalization } from "@/lib/clerkLocalization";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
+
+/** Off when `VITE_SENTRY_ENABLED=false`. In dev, capture only if `VITE_SENTRY_IN_DEV=true` (avoids 403 noise from ad blockers / domain filters). */
+const sentryCaptureEvents =
+  import.meta.env.VITE_SENTRY_ENABLED !== "false" &&
+  (import.meta.env.PROD || import.meta.env.VITE_SENTRY_IN_DEV === "true");
 
 Sentry.init({
   dsn: "https://158b3b03e9e65de9964dad4502ae581b@o4511090895749120.ingest.us.sentry.io/4511090900008960",
+  enabled: sentryCaptureEvents,
   sendDefaultPii: true,
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: 1.0,
@@ -27,7 +34,7 @@ const shouldMountClerk = Boolean(clerkKey);
 const appTree = shouldMountClerk ? (
   <div className="flex min-h-screen flex-col">
     <div className="min-h-0 flex-1">
-      <ClerkProvider publishableKey={clerkKey}>
+      <ClerkProvider publishableKey={clerkKey} localization={clerkLocalization}>
         <App />
       </ClerkProvider>
     </div>

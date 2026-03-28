@@ -8,6 +8,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
+import { EMPTY_FORM } from "@/components/company-profile/types";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
@@ -183,7 +184,7 @@ export function OnboardingWizard() {
         }
       }
 
-      // ── Seed data for the OnboardingStepper popup on the main app ──
+      // ── Seed for Index / Company tab: workspace already exists; avoid "Link Your Workspace" gate ──
       try {
         localStorage.setItem("pending-company-seed", JSON.stringify({
           companyName: resolvedCompanyName || "",
@@ -192,8 +193,19 @@ export function OnboardingWizard() {
           stage: state.stage || "",
           sectors: state.sectors || [],
         }));
-        // Don't set company-profile or company-analysis here —
-        // the OnboardingStepper popup on Index will handle the full company setup
+        if (resolvedCompanyName?.trim()) {
+          localStorage.setItem(
+            "company-profile",
+            JSON.stringify({
+              ...EMPTY_FORM,
+              name: resolvedCompanyName.trim(),
+              website: (state.websiteUrl || "").trim(),
+              stage: state.stage || "",
+              sector: state.sectors?.[0] || "",
+              subsectors: state.sectors?.length ? state.sectors.slice(1) : [],
+            }),
+          );
+        }
       } catch {}
 
       // Snapshot personal profile for nav HUD completion meter
@@ -216,7 +228,7 @@ export function OnboardingWizard() {
       });
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-      navigate("/");
+      navigate({ pathname: "/", search: "?tab=company" });
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
