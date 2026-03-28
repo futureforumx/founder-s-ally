@@ -41,28 +41,33 @@ function AuthHeroBackground() {
 
   if (variant.kind === "mp4") {
     return (
-      <video
-        className="absolute inset-0 h-full w-full object-cover"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-      >
-        <source src={variant.src} type="video/mp4" />
-      </video>
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <video
+          className="absolute inset-0 z-0 h-full w-full min-h-full min-w-full object-cover object-center"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+        >
+          <source src={variant.src} type="video/mp4" />
+        </video>
+      </div>
     );
   }
 
   const iframeSrc = `https://player.mux.com/${variant.playbackId}?muted=true&autoplay=true&loop=true&playsinline=true`;
 
+  /* Mux’s hosted player letterboxes inside the iframe; scale + clip to mimic object-cover. */
   return (
-    <iframe
-      title="Background video"
-      src={iframeSrc}
-      className="pointer-events-none absolute inset-0 h-full w-full border-0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    />
+    <div className="absolute inset-0 z-0 overflow-hidden">
+      <iframe
+        title="Background video"
+        src={iframeSrc}
+        className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-full w-full max-w-none -translate-x-1/2 -translate-y-1/2 origin-center scale-[1.28] border-0 xl:scale-[1.18]"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      />
+    </div>
   );
 }
 
@@ -93,12 +98,12 @@ function shell(content: ReactNode) {
           </div>
         </div>
 
-        <div className="relative hidden min-h-0 flex-1 overflow-hidden bg-zinc-950 lg:block">
+        <div className="relative isolate hidden min-h-0 flex-1 overflow-hidden bg-zinc-950 lg:block">
           <AuthHeroBackground />
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
 
-          <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
+          <div className="relative z-[2] flex h-full min-h-0 flex-col justify-between p-10 xl:p-14">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white backdrop-blur-sm">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
