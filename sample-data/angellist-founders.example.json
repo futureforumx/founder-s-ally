@@ -8,7 +8,9 @@
       "angelListId": "12345678",
       "linkedin": "https://www.linkedin.com/in/example",
       "location": "Austin, TX",
-      "followers": 420
+      "followers": 420,
+      "prevStartups": ["PriorCo"],
+      "sourceUpdatedAt": "2026-03-28T12:00:00.000Z"
     }
   ]
 }

@@ -1,0 +1,18 @@
+{
+  "_comment": "Product Hunt is normally ingested via GraphQL (npm run db:seed:producthunt-makers). This file documents the merge payload shape if you add a JSON importer.",
+  "makers": [
+    {
+      "fullName": "Jamie Maker (@jamie)",
+      "firstName": "Jamie",
+      "lastName": "Maker",
+      "title": "Maker on Product Hunt (3 posts in sample)",
+      "currentRole": "Maker",
+      "currentStartup": "product hunt",
+      "phMaker": true,
+      "phLaunchCount": 3,
+      "source": "ph",
+      "sourcePriority": 80,
+      "sourceUpdatedAt": "2026-03-28T12:00:00.000Z"
+    }
+  ]
+}

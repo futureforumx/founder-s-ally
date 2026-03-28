@@ -1,0 +1,20 @@
+{
+  "_comment": "GitHub is normally ingested via Search API (npm run db:seed:github-operators). This file documents the merge payload shape for a hypothetical JSON importer.",
+  "operators": [
+    {
+      "fullName": "Ada Developer",
+      "firstName": "Ada",
+      "lastName": "Developer",
+      "title": "Engineer @ octocat",
+      "currentRole": "Engineer",
+      "currentStartup": "octocat",
+      "githubHandle": "octocat",
+      "githubStars": 4200,
+      "followers": 5000,
+      "location": "San Francisco, CA",
+      "source": "github",
+      "sourcePriority": 70,
+      "sourceUpdatedAt": "2026-03-28T12:00:00.000Z"
+    }
+  ]
+}
