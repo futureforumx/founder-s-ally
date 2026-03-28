@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const clerkAppearance = {
   elements: {
@@ -25,9 +26,68 @@ const fallback = (
 
 function shell(content: ReactNode) {
   return (
-    <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
-      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
-        {content}
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
+        <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
+          <div className="font-clash flex h-full flex-col justify-center px-8 py-8 sm:px-10 lg:px-12">
+            <div className="mx-auto w-full max-w-[420px]">
+              <div className="mb-4 md:mb-8 flex flex-col items-start gap-4">
+                <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
+              </div>
+              {content}
+              <p className="mt-8 text-xs leading-relaxed text-zinc-500">
+                Our privacy standards are worldclass. Find them{" "}
+                <a
+                  href="https://tryvekta.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-900"
+                >
+                  here
+                </a>
+                .
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative hidden flex-1 overflow-hidden bg-zinc-950 lg:block">
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+          >
+            <source src="/auth-wave.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(10,10,10,0.76)_0%,rgba(24,24,27,0.28)_42%,rgba(255,255,255,0.08)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_38%)]" />
+
+          <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white bg-white/8 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white backdrop-blur-sm">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Live Founder Signal
+            </div>
+
+            <div className="max-w-xl space-y-5">
+              <p className="text-sm font-medium uppercase tracking-[0.34em] text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.45)]">
+                Founder Intelligence
+              </p>
+              <h2 className="text-4xl font-semibold leading-tight tracking-tight text-white xl:text-5xl">
+                A calm front door for a fast-moving fundraising system.
+              </h2>
+              <p className="max-w-lg text-base leading-7 text-white">
+                Search, sync, and operate from a workspace that feels composed even while the market moves underneath
+                it.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
