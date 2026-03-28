@@ -1,0 +1,36 @@
+# Re-download Founder’s Ally US CSV and upsert vc_firms / vc_people (same as local `npm run db:refresh-investors`).
+#
+# Required repo secret: DATABASE_URL (Postgres connection string for Prisma).
+# Schema must already match migrations (`npx prisma migrate deploy` in deploy pipeline or once manually).
+#
+# Optional: add workflow_dispatch to run on demand from the Actions tab.
+
+name: Refresh investors
+
+on:
+  schedule:
+    - cron: "0 2 * * 1" # Mondays 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prisma migrate (idempotent)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Refresh US investors CSV seed
+        run: rm -f data/us-investors-920.csv && US_INVESTORS_920_FETCH=1 npm run db:seed:us-investors
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

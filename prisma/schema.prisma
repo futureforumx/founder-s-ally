@@ -108,6 +108,12 @@ enum VCFirmAliasType {
   MANUAL
 }
 
+/// SEC Regulation D primary_doc.xml — pooled fund vs operating company.
+enum RegDFilingKind {
+  VC_FUND
+  STARTUP
+}
+
 /// Activity category for VCSignal (recent investments, team changes, content, events, deployment)
 enum SignalType {
   RECENT_INVESTMENT
@@ -212,6 +218,7 @@ model VCFirm {
   score_snapshots    VCScoreSnapshot[]
   ratings            VCRating[]
   aliases            VCFirmAlias[]
+  reg_d_filings      RegDFiling[]
 
   @@index([firm_name])
   @@index([firm_type])
@@ -247,6 +254,38 @@ model VCFirmAlias {
   @@index([firm_id])
   @@index([alias_value])
   @@map("vc_firm_aliases")
+}
+
+/// Parsed SEC Form D filing (Regulation D). VC_FUND rows link to vc_firms + vc_funds; STARTUP rows stand in for issuer “company” until claimed in product.
+model RegDFiling {
+  id                 String         @id @default(cuid())
+  kind               RegDFilingKind
+  entity_name        String
+  industry_group     String?        @db.Text
+  total_offering_raw String?        @map("total_offering_raw") @db.Text
+  amount_raised_usd  Float?
+  filing_date        DateTime?
+  /// primary_doc.xml URL (unique ingestion key)
+  source_url         String         @unique
+  /// SEC index.htm link from Atom feed (human-readable)
+  index_url          String?
+
+  sec_cik       String?
+  sec_accession String?
+
+  vc_firm_id String?
+  vc_fund_id String?
+  firm       VCFirm? @relation(fields: [vc_firm_id], references: [id], onDelete: SetNull)
+  fund       VCFund? @relation(fields: [vc_fund_id], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([kind, filing_date])
+  @@index([sec_cik])
+  @@index([vc_firm_id])
+  @@index([vc_fund_id])
+  @@map("reg_d_filings")
 }
 
 // =============================================================================
@@ -316,6 +355,7 @@ model VCFund {
 
   investments     VCInvestment[]
   score_snapshots VCScoreSnapshot[]
+  reg_d_filings   RegDFiling[]
 
   @@index([firm_id])
   @@index([fund_status])
@@ -387,10 +427,15 @@ model VCPerson {
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
+  /// Importer idempotency (e.g. `us-investors-920` + CSV `record_id`)
+  data_source      String? @map("data_source")
+  import_record_id String? @map("import_record_id")
+
   signals         VCSignal[]
   score_snapshots VCScoreSnapshot[]
   ratings         VCRating[]
 
+  @@unique([data_source, import_record_id])
   @@index([firm_id])
   @@index([email])
   @@index([country, state, city])
@@ -587,4 +632,71 @@ model VCScoreSnapshot {
   @@index([reputation_score])
   @@index([deleted_at])
   @@map("vc_score_snapshots")
+}
+
+// =============================================================================
+// StartupProfessional — non-investor operators (founders, CTOs, makers) for intel
+// =============================================================================
+
+model StartupProfessional {
+  id             String @id @default(uuid())
+  firstName      String @map("first_name")
+  lastName       String @map("last_name")
+  fullName       String @map("full_name")
+  linkedin       String? @unique
+  email          String?
+  title          String
+  currentRole    String @map("current_role")
+  currentStartup String @map("current_startup")
+  prevStartups   String[] @default([]) @map("prev_startups")
+  ycBatch        String? @map("yc_batch")
+  phMaker        Boolean @default(false) @map("ph_maker")
+  /// Posts shipped as maker (for “2+ launches” style filters)
+  phLaunchCount  Int     @default(0) @map("ph_launch_count")
+  githubHandle   String? @map("github_handle")
+  githubStars    Int     @default(0) @map("github_stars")
+  angelListId    String? @map("angel_list_id")
+  followers      Int     @default(0)
+  location       String?
+  /// Last writer source label for this ingest (audit log has full history)
+  source         String
+  /// Max sourcePriority applied to this row (trust / merge precedence)
+  sourcePriority Int     @default(0) @map("source_priority")
+  lastSeenAt     DateTime? @map("last_seen_at")
+  sourceUpdatedAt DateTime? @map("source_updated_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  changeLogs StartupProfessionalChangeLog[]
+
+  @@unique([fullName, currentStartup], map: "startup_professionals_full_name_current_startup_key")
+  @@index([ycBatch])
+  @@index([currentRole])
+  @@index([source])
+  @@index([sourcePriority])
+  @@index([githubStars])
+  @@index([location])
+  @@index([phLaunchCount])
+  @@index([lastSeenAt])
+  @@map("startup_professionals")
+}
+
+/// Field-level history (legacy) plus optional `patch` JSON for one ingest transaction.
+model StartupProfessionalChangeLog {
+  id                    String   @id @default(uuid())
+  startupProfessionalId String   @map("startup_professional_id")
+  /// Use "*" when `patch` holds a batch of changes
+  field                 String
+  oldValue              String?  @map("old_value")
+  newValue              String?  @map("new_value")
+  source                String
+  sourcePriority        Int      @default(0) @map("source_priority")
+  patch                 Json?
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  startupProfessional StartupProfessional @relation(fields: [startupProfessionalId], references: [id], onDelete: Cascade)
+
+  @@index([startupProfessionalId])
+  @@index([createdAt])
+  @@map("startup_professional_changelogs")
 }

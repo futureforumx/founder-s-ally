@@ -40,6 +40,12 @@ supabase/.temp/
 .vercel
 .env*.local
 
+# Raw CSV imports (keep *.example.json samples in repo)
+data/*.csv
+# CRM export (PII)
+data/investors-enriched.json
+data/ai-seed-outreach.json
+
 # Large local OpenVC dumps (keep example JSON in repo)
 data/openvc/investors.json
 data/vcsheet/investors.json
