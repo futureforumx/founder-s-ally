@@ -111,14 +111,14 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
           </button>
         </nav>
 
-        <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
+        <div className="border-t border-sidebar-border/30 px-3 py-3 mt-auto">
           <button
             onClick={onAgentClick}
-            className="group flex w-full flex-row items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-2 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple"
+            className="group flex w-full flex-row items-center justify-center gap-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none">
             </div>
-            <span className="block text-[13px] font-thin uppercase tracking-[0.2em] text-violet-100/90 leading-none">
+            <span className="block text-[10px] font-thin uppercase tracking-[0.2em] text-violet-100/90 leading-none">
               AGENT
             </span>
           </button>
