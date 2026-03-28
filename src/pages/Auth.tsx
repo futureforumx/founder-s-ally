@@ -27,10 +27,11 @@ const fallback = (
 /** Picks one background per full page load / refresh. */
 const AUTH_HERO_BACKGROUNDS = [
   { kind: "mp4" as const, src: "/auth-wave.mp4" },
-  {
-    kind: "mux" as const,
-    playbackId: "hoUpKcH1LBS86dkrgoXP1x9ORxOJusTFFhF5P02Pp5T00",
-  },
+  { kind: "mux" as const, playbackId: "GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld2bxSywt3M" },
+  { kind: "mux" as const, playbackId: "hoUpKcH1LBS86dkrgoXP1x9ORxOJusTFFhF5P02Pp5T00" },
+  { kind: "mux" as const, playbackId: "HNOyYRA6pFJoX9F51frOfUsK6XRUewFXa6eHobQAGYE" },
+  { kind: "mux" as const, playbackId: "lv1NDSSrTxFmV4xzCc02vvVDqyxIUflWlr7ZCoMMmgEY" },
+  { kind: "mux" as const, playbackId: "1U00V6TZvQ3t9EmnfP2003tG802kAgP7KtsUMlehWQu01Oo" },
 ];
 
 function AuthHeroBackground() {
