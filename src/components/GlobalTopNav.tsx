@@ -217,6 +217,10 @@ export function GlobalTopNav({
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeChip, setActiveChip] = useState("all");
   const [highlightIdx, setHighlightIdx] = useState(0);
+  const [logoImgError, setLogoImgError] = useState(false);
+
+  // Reset error state whenever the URL changes so a new URL gets a fresh attempt
+  useEffect(() => { setLogoImgError(false); }, [logoUrl]);
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
 
@@ -878,8 +882,8 @@ export function GlobalTopNav({
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
             <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
+              {logoUrl && !logoImgError ? (
+                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
               ) : hasProfile ? (
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {companyName?.charAt(0).toUpperCase() || "?"}
@@ -894,8 +898,8 @@ export function GlobalTopNav({
             {/* Active Workspace Header */}
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="relative w-9 h-9 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
+                {logoUrl && !logoImgError ? (
+                  <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
                 ) : hasProfile ? (
                   <span className="text-xs font-bold text-muted-foreground">
                     {companyName?.charAt(0).toUpperCase() || "?"}
