@@ -26,10 +26,10 @@ const fallback = (
 
 function shell(content: ReactNode) {
   return (
-    <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] p-4 sm:p-6">
+    <div className="h-screen h-dvh overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.98),_rgba(244,244,245,0.92)_45%,_rgba(228,228,231,0.82)_100%)] p-4 sm:p-6">
       <div className="mx-auto flex h-full w-full max-w-7xl overflow-hidden rounded-[32px] border border-zinc-200/80 bg-white shadow-[0_30px_120px_rgba(15,23,42,0.12)]">
         <div className="w-full lg:w-[460px] lg:border-r lg:border-zinc-200/80 xl:w-[520px]">
-          <div className="font-clash flex h-full flex-col justify-center overflow-y-auto px-8 py-6 sm:px-10 lg:px-12">
+          <div className="font-clash flex h-full flex-col justify-start overflow-y-auto px-8 py-8 sm:px-10 lg:justify-center lg:px-12">
             <div className="mx-auto w-full max-w-[420px]">
               <div className="mb-4 md:mb-8 flex flex-col items-start gap-4">
                 <BrandLogo variant="black" className="w-[132px] sm:w-[148px]" />
