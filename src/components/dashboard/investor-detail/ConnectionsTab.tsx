@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Building2, Loader2, Users, Mail, Clock, ArrowRight, ThumbsUp } from "lucide-react";
+import { Network, MessageSquare, Building2, Loader2, Users, Mail, MapPin, Clock, ArrowRight, ThumbsUp, Plus } from "lucide-react";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectionsGate } from "./ConnectionsGate";
+import { ContactRevealButton } from "./ContactRevealButton";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Connection {
@@ -19,6 +20,9 @@ interface Connection {
 interface ConnectionsTabProps {
   investorName: string;
   currentUserId?: string;
+  investorId?: string | null;
+  isAdmin?: boolean;
+  location?: string | null;
 }
 
 const WARM_PATHS = [
@@ -27,7 +31,7 @@ const WARM_PATHS = [
   { name: "Marcus Chen", company: "BuildStack", badge: "1st Degree", context: "Co-led their Pre-Seed in Mar 2024.", avatar: "MC" },
 ];
 
-export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabProps) {
+export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmin, location }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +79,43 @@ export function ConnectionsTab({ investorName, currentUserId }: ConnectionsTabPr
       transition={{ duration: 0.15 }}
       className="space-y-5"
     >
+      {/* Contact Details */}
+      {(investorId || location) ? (
+        <div className="rounded-2xl border border-border bg-card px-5 py-4 space-y-3">
+          {investorId && (
+            <div className="flex items-center gap-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
+                <Mail className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <ContactRevealButton
+                investorId={investorId}
+                firmName={investorName}
+                isAdmin={isAdmin}
+                autoReveal
+              />
+            </div>
+          )}
+          {location && (
+            <div className="flex items-center gap-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
+                <MapPin className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <p className="text-sm font-medium text-foreground">{location}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <button className="w-full rounded-2xl border border-dashed border-border bg-card px-5 py-4 flex items-center gap-3 text-left hover:border-accent/40 hover:bg-accent/5 transition-colors group">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary group-hover:bg-accent/10 transition-colors shrink-0">
+            <Plus className="w-3.5 h-3.5 text-muted-foreground group-hover:text-accent transition-colors" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">Add contact details</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-0.5">Email, phone, or address</p>
+          </div>
+        </button>
+      )}
+
       {/* Intro Pathfinder */}
       <IntroPathfinder investorName={investorName} />
 
