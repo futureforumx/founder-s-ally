@@ -26,9 +26,16 @@ const fallback = (
 
 /** Default Mux playback IDs (see https://player.mux.com/{id}) — rotated after each clip ends. */
 const AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS: readonly string[] = [
-  "8sKr9J00300jCEI34syMhVQsS2R00t82NigJdUO2XSDIZY",
-  "C2tc8dcA7ZQ3kPcaSZsywOCsoLc7sihr228Is1f02HNo",
+  "HNOyYRA6pFJoX9F51frOfUsK6XRUewFXa6eHobQAGYE",
+  "GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld2bxSywt3M",
+  "hoUpKcH1LBS86dkrgoXP1x9ORxOJusTFFhF5P02Pp5T00",
+  "mVGsBCWO5V46YB2cOR14YqV8qQMkbLenCQj66NPP01gk",
+  "mus1E01ZlGiMcnJRqP01wTRGcEt4QrmGQD8hE6oKGDFOw",
+  "1U00V6TZvQ3t9EmnfP2003tG802kAgP7KtsUMlehWQu01Oo",
+  "lv1NDSSrTxFmV4xzCc02vvVDqyxIUflWlr7ZCoMMmgEY",
   "rtDFG2JYsK6XXtHXz6Sj6VKueY6KODyCzNnq63Od00qM",
+  "C2tc8dcA7ZQ3kPcaSZsywOCsoLc7sihr228Is1f02HNo",
+  "8sKr9J00300jCEI34syMhVQsS2R00t82NigJdUO2XSDIZY",
 ];
 
 const AUTH_HERO_MARKETING_COPY = [
