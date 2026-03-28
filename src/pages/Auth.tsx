@@ -155,8 +155,7 @@ export default function Auth() {
         )}
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Ready for big things?</h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-          It&apos;s easy to get started. Join with a current social account or your email. Don&apos;t know the low-down on
-          Vekta? Find out more{" "}
+          It&apos;s easy to get started. Don&apos;t know the low-down on Vekta? Find out more{" "}
           <a
             href="https://tryvekta.com"
             target="_blank"
