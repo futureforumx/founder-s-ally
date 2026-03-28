@@ -8,13 +8,64 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
-import { EMPTY_FORM } from "@/components/company-profile/types";
+import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
+import type { OnboardingState } from "@/components/onboarding-wizard/types";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
+
+function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: string): CompanyData {
+  const fundBits = [
+    state.currentlyRaising && "Currently raising",
+    state.targetRaise && `Target raise: ${state.targetRaise}`,
+    state.roundType && `Round: ${state.roundType}`,
+    state.targetCloseDate && `Target close: ${state.targetCloseDate}`,
+  ].filter(Boolean);
+  const opsBits = [
+    state.revenueBand && `Revenue: ${state.revenueBand}`,
+    state.cofounderCount &&
+      (state.cofounderCount === "Solo" ? "Solo founder" : `${state.cofounderCount} founders`),
+    state.superpowers?.length && `Strengths: ${state.superpowers.join(", ")}`,
+    state.role && `Role: ${state.role}`,
+  ].filter(Boolean);
+  const extra = [fundBits.join(" · "), opsBits.join(" · ")].filter(Boolean).join("\n");
+  const description = [state.deckText?.trim(), extra].filter(Boolean).join("\n\n").slice(0, 8000);
+  const teamSize =
+    state.cofounderCount === "Solo"
+      ? "1"
+      : state.cofounderCount && /^\d+$/.test(state.cofounderCount)
+        ? state.cofounderCount
+        : state.cofounderCount || "";
+
+  return {
+    ...EMPTY_FORM,
+    name: resolvedCompanyName.trim(),
+    website: (state.websiteUrl || "").trim(),
+    stage: state.stage || "",
+    sector: state.sectors?.[0] || "",
+    subsectors: state.sectors?.length > 1 ? state.sectors.slice(1) : [],
+    description,
+    currentARR: state.revenueBand || "",
+    totalHeadcount: teamSize,
+    uniqueValueProp: state.superpowers?.length ? state.superpowers.join(" · ") : "",
+  };
+}
+
+function buildExecutiveSummaryForDb(state: OnboardingState): string | null {
+  const parts = [
+    state.deckText?.trim()?.slice(0, 2000),
+    state.currentlyRaising &&
+      `Fundraising: ${[state.targetRaise, state.roundType, state.targetCloseDate].filter(Boolean).join(" · ")}`,
+    state.revenueBand && `Revenue: ${state.revenueBand}`,
+    state.cofounderCount && `Team: ${state.cofounderCount}`,
+    state.superpowers?.length && `Focus areas: ${state.superpowers.join(", ")}`,
+  ].filter(Boolean);
+  const s = parts.join("\n\n").trim();
+  return s ? s.slice(0, 8000) : null;
+}
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
@@ -70,13 +121,14 @@ export function OnboardingWizard() {
           connectedIntegrations: state.connectedIntegrations,
         },
         privacy_settings: {
-          aiInboxPaths: false,
-          shareAnonMetrics: false,
-          discoverableToInvestors: false,
-          useMeetingNotes: false,
+          aiInboxPaths: state.aiInboxPaths,
+          shareAnonMetrics: state.shareAnonMetrics,
+          discoverableToInvestors: state.discoverableToInvestors,
+          useMeetingNotes: state.useMeetingNotes,
         },
       };
 
+      const execSummary = buildExecutiveSummaryForDb(state);
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,
@@ -88,6 +140,7 @@ export function OnboardingWizard() {
                 deck_text: state.deckText || null,
                 stage: state.stage || null,
                 sector: state.sectors?.[0] || null,
+                ...(execSummary ? { executive_summary: execSummary } : {}),
               }
             : undefined,
         profile: {
@@ -208,15 +261,19 @@ export function OnboardingWizard() {
         }
       } catch {}
 
-      // Snapshot personal profile for nav HUD completion meter
+      // Snapshot personal profile for nav HUD + settings pre-fill hints
       try {
         localStorage.setItem("user-profile-snapshot", JSON.stringify({
           full_name: state.fullName,
+          first_name: state.firstName,
+          last_name: state.lastName,
+          email: state.email,
           title: state.title,
           bio: state.bio,
           location: state.location,
           linkedin_url: state.linkedinUrl,
           twitter_url: state.twitterUrl,
+          avatar_url: state.avatarUrl,
         }));
       } catch {}
 
@@ -228,7 +285,7 @@ export function OnboardingWizard() {
       });
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-      navigate({ pathname: "/", search: "?tab=company" });
+      navigate({ pathname: "/", search: "?tab=company&tour=true" });
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {

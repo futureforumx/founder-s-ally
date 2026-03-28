@@ -7,7 +7,29 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType =
+  | "company"
+  | "dashboard"
+  | "industry"
+  | "competitive"
+  | "audit"
+  | "benchmarks"
+  | "market-intelligence"
+  | "market-investors"
+  | "market-market"
+  | "market-tech"
+  | "market-network"
+  | "investors"
+  | "investor-search"
+  | "directory"
+  | "connections"
+  | "messages"
+  | "events"
+  | "competitors"
+  | "sector"
+  | "groups"
+  | "data-room"
+  | "settings";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -36,6 +58,13 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
     activeView === "directory" || activeView === "groups" || activeView === "events"
   );
 
+  const missionControlActive =
+    activeView === "dashboard" ||
+    activeView === "industry" ||
+    activeView === "competitive" ||
+    activeView === "competitors" ||
+    activeView === "sector";
+
   return (
       <aside className="flex h-screen w-44 flex-col bg-sidebar text-sidebar-foreground">
         <div className="px-5 py-5">
@@ -50,8 +79,16 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
-            className={cn("flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === item.id && "border")}
-            style={activeView === item.id ? {
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+              item.id === "dashboard" ? missionControlActive && "border" : activeView === item.id && "border"
+            )}
+            style={item.id === "dashboard" && missionControlActive ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : item.id !== "dashboard" && activeView === item.id ? {
               backgroundColor: "#d1d5db",
               borderColor: "#4b5563",
               color: "#1f2937",
