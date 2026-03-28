@@ -445,38 +445,32 @@
   }
 }
 
-/* /auth hero: direct parent of mux-player (absolute inset-0 + clip) */
+/* Mux: pierce shadow DOM so internal <video> covers the player box (official + !important). */
+mux-player::part(video) {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* /auth hero: mux-player parent — relative + full height so the player can fill */
 .auth-hero-mux {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+  position: relative;
   height: 100%;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-/* Mux Player host: fill parent; object-fit via CSS var + optional media-object-fit attr */
 .auth-hero-mux mux-player.auth-hero-mux-player {
   display: block;
   box-sizing: border-box;
-  position: absolute;
-  inset: 0;
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
   --media-object-fit: cover !important;
   --media-object-position: center;
-}
-
-.auth-hero-mux mux-player.auth-hero-mux-player::part(video) {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
-  object-fit: cover !important;
-  object-position: center;
 }
 
 .auth-hero-mux mux-player.auth-hero-mux-player::part(bottom) {
