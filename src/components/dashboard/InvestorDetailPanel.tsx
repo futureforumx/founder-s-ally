@@ -23,7 +23,6 @@ import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
-import { ContactRevealButton } from "./investor-detail/ContactRevealButton";
 import { useUserCredits } from "@/hooks/useContactReveal";
 
 interface CompanyContext {
@@ -159,7 +158,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const heroLogo = liveProfile?.logo_url ?? effectiveInvestor?.logo_url ?? null;
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
-  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? "San Francisco, CA";
+  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
   const heroPartnerCount = liveProfile?.partners?.length ?? (vcPartners.length > 0 ? vcPartners.length : null);
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at ? new Date(liveProfile.last_enriched_at) : enrichedData ? new Date(enrichedData.profile.lastVerified) : null;
@@ -233,17 +232,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                             <span className="text-border">·</span>
                             <Users className="w-3 h-3 text-muted-foreground/50" />
                             <span className="font-semibold text-foreground">{heroPartnerCount ?? "45"}</span>
-                            <span className="text-border">·</span>
-                            <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                            <span className="font-semibold text-foreground">{heroLocation}</span>
-                          </div>
-                          {/* Contact Reveal */}
-                          <div className="mt-2">
-                            <ContactRevealButton
-                              investorId={resolvedFirmId || liveProfile?.id || null}
-                              firmName={heroName}
-                              isAdmin={isAdmin}
-                            />
+                            {heroLocation && (
+                              <>
+                                <span className="text-border">·</span>
+                                <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                                <span className="font-semibold text-foreground">{heroLocation}</span>
+                              </>
+                            )}
                           </div>
                         </>
                       )}
@@ -354,7 +349,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Connect" && (
                       <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <ConnectionsTab investorName={effectiveInvestor.name} currentUserId={session?.user?.id} />
+                        <ConnectionsTab
+                          investorName={effectiveInvestor.name}
+                          currentUserId={session?.user?.id}
+                          investorId={resolvedFirmId || liveProfile?.id || null}
+                          isAdmin={isAdmin}
+                          location={heroLocation || null}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>
