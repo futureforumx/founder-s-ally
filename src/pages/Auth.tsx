@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import MuxPlayer from "@mux/mux-player-react";
@@ -254,7 +254,7 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
   const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
   return (
-    <div className="fixed inset-0 z-[100] flex min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
+    <div className="fixed inset-0 z-[100] flex h-dvh max-h-dvh min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
       <div
         className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-10`}
       >
@@ -291,17 +291,89 @@ export default function Auth() {
     import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const html = document.documentElement;
     const body = document.body;
     const root = document.getElementById("root");
+    const scrollY = window.scrollY;
+
+    const prevHtml = {
+      overflow: html.style.overflow,
+      position: html.style.position,
+      inset: html.style.inset,
+      width: html.style.width,
+      height: html.style.height,
+    };
+    const prevBody = {
+      overflow: body.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      width: body.style.width,
+      minHeight: body.style.minHeight,
+      height: body.style.height,
+    };
+    const prevRoot = root
+      ? {
+          overflow: root.style.overflow,
+          height: root.style.height,
+          minHeight: root.style.minHeight,
+          maxHeight: root.style.maxHeight,
+        }
+      : null;
+
     html.classList.add("auth-route-lock");
     body.classList.add("auth-route-lock");
     root?.classList.add("auth-route-lock");
+
+    html.style.overflow = "hidden";
+    html.style.position = "fixed";
+    html.style.inset = "0";
+    html.style.width = "100%";
+    html.style.height = "100%";
+
+    body.style.overflow = "hidden";
+    body.style.position = "relative";
+    body.style.top = "0";
+    body.style.left = "0";
+    body.style.width = "100%";
+    body.style.minHeight = "100%";
+    body.style.height = "100%";
+
+    if (root) {
+      root.style.overflow = "hidden";
+      root.style.height = "100%";
+      root.style.minHeight = "100%";
+      root.style.maxHeight = "100%";
+    }
+
     return () => {
       html.classList.remove("auth-route-lock");
       body.classList.remove("auth-route-lock");
       root?.classList.remove("auth-route-lock");
+
+      html.style.overflow = prevHtml.overflow;
+      html.style.position = prevHtml.position;
+      html.style.inset = prevHtml.inset;
+      html.style.width = prevHtml.width;
+      html.style.height = prevHtml.height;
+
+      body.style.overflow = prevBody.overflow;
+      body.style.position = prevBody.position;
+      body.style.top = prevBody.top;
+      body.style.left = prevBody.left;
+      body.style.width = prevBody.width;
+      body.style.minHeight = prevBody.minHeight;
+      body.style.height = prevBody.height;
+
+      if (root && prevRoot) {
+        root.style.overflow = prevRoot.overflow;
+        root.style.height = prevRoot.height;
+        root.style.minHeight = prevRoot.minHeight;
+        root.style.maxHeight = prevRoot.maxHeight;
+      }
+
+      window.scrollTo(0, scrollY);
     };
   }, []);
 
