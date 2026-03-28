@@ -22,16 +22,14 @@ if (sentryEnabled) {
 
 const clerkKey = readClerkPublishableKey();
 
-const showLiveKeyOnLocalhostWarning =
-  import.meta.env.DEV && Boolean(clerkKey?.startsWith("pk_live_"));
-const shouldMountClerk = Boolean(clerkKey) && !showLiveKeyOnLocalhostWarning;
-
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
-    "[Clerk] pk_live_ keys are tied to your production domain and do not work on http://localhost. " +
-      "Use your Development instance publishable key (pk_test_...) in .env.local for local dev."
+    "[Clerk] pk_live_ on localhost: sign-in may not work. Use pk_test_… in VITE_CLERK_PUBLISHABLE_KEY_DEV for real auth, or use the in-app Preview Mode on /auth."
   );
 }
+
+// Always mount the app when a key exists so /auth can show Preview Mode (pk_live + localhost) instead of a blank gate.
+const shouldMountClerk = Boolean(clerkKey);
 
 const appTree = shouldMountClerk ? (
   <div className="flex min-h-screen flex-col">
@@ -40,16 +38,6 @@ const appTree = shouldMountClerk ? (
         <App />
       </ClerkProvider>
     </div>
-  </div>
-) : showLiveKeyOnLocalhostWarning ? (
-  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
-    <p className="text-sm font-medium text-zinc-900">Clerk key mismatch for localhost</p>
-    <p className="max-w-lg text-sm text-zinc-600">
-      You are running locally with a production Clerk publishable key. Use a Development key (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code>, then restart Vite.
-    </p>
-    <p className="max-w-lg text-xs text-zinc-500">
-      This avoids runtime crashes in local development. Keep <code className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono text-xs">pk_live_…</code> only for the deployed production domain.
-    </p>
   </div>
 ) : (
   <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
