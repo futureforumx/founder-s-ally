@@ -61,58 +61,6 @@ if (import.meta.env.DEV && !clerkKey) {
   );
 }
 
-class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state: { error: Error | null } = { error: null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    if (import.meta.env.DEV) {
-      console.error("[RootErrorBoundary]", error, info.componentStack);
-    }
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="flex min-h-screen flex-col items-start gap-3 bg-zinc-100 p-8 text-left font-sans">
-          <p className="text-sm font-semibold text-zinc-900">The app failed to render</p>
-          <pre className="max-h-[40vh] w-full max-w-2xl overflow-auto rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-800 shadow-sm">
-            {this.state.error.message}
-          </pre>
-          <p className="text-xs text-zinc-600">
-            Open the browser devtools console for the full stack. If you use Clerk on localhost, use Development keys (
-            <code className="rounded bg-zinc-200/80 px-1">pk_test_…</code>) —{" "}
-            <code className="rounded bg-zinc-200/80 px-1">pk_live_</code> only works on your production domain.
-          </p>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const inner = sentryEnabled ? (
-  <Sentry.ErrorBoundary
-    fallback={({ error }) => (
-      <div style={{ padding: "24px", fontFamily: "monospace", background: "#fafafa", minHeight: "100vh" }}>
-        <p style={{ fontWeight: "bold", color: "#111" }}>An error has occurred</p>
-        <pre style={{ whiteSpace: "pre-wrap", color: "#b00", fontSize: "13px", marginTop: "8px", background: "#fff", padding: "12px", borderRadius: "6px", border: "1px solid #eee" }}>
-          {error instanceof Error ? `${error.name}: ${error.message}\n\n${error.stack ?? ""}` : String(error)}
-        </pre>
-      </div>
-    )}
-  >
-    {appTree}
-  </Sentry.ErrorBoundary>
-) : (
-  <ClerkProvider publishableKey={clerkKey}>
-    <App />
-  </ClerkProvider>
-);
-
 createRoot(document.getElementById("root")!).render(
   <Sentry.ErrorBoundary
     fallback={({ error }) => (
