@@ -566,6 +566,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try {
       if (logoUrl) localStorage.setItem("company-logo-url", logoUrl);
       else localStorage.removeItem("company-logo-url");
+      // Notify other components in the same tab (the `storage` event only fires cross-tab)
+      window.dispatchEvent(new Event("company-logo-changed"));
     } catch {}
   }, [logoUrl]);
 

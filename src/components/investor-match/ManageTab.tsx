@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Users, Plus, Search, UserPlus, Loader2, ChevronDown, SlidersHorizontal, ChevronRight, X, MapPin, Briefcase, Calendar, DollarSign, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { toast } from "sonner";
 import { formatCompactCurrency } from "./InlineAmountInput";
 import { type CapBacker } from "./CapTableRow";
@@ -112,6 +113,26 @@ function parseDateString(d: string | undefined | null): number {
 
 export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enrichCache = {} }: ManageTabProps) {
   const { user } = useAuth();
+  const { firms: vcFirms } = useVCDirectory();
+
+  /**
+   * Resolve a domain for a backer name using the curated VC directory first,
+   * then fall back to naive name-stripping. This fixes cases like
+   * "Sequoia Capital" → sequoiacap.com (not sequoiacapital.com).
+   */
+  const resolveWebsiteForBacker = useCallback((name: string): string => {
+    const normalized = name.toLowerCase().trim();
+    const match = vcFirms.find(f => {
+      const fn = f.name.toLowerCase();
+      return fn === normalized || fn.startsWith(normalized) || normalized.startsWith(fn);
+    });
+    if (match?.website_url) {
+      try {
+        return new URL(match.website_url).hostname.replace(/^www\./, "");
+      } catch {}
+    }
+    return normalized.replace(/\s+/g, "") + ".com";
+  }, [vcFirms]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
@@ -568,7 +589,7 @@ export function ManageTab({ confirmedBackers, totalRaised, formatCurrency, enric
           const slogan = b.slogan || enriched?.profile?.currentThesis || null;
           const location = enriched?.profile?.geography || null;
           const firmWebsite = b.website || enriched?.profile?.logoUrl?.replace(/\/favicon\.ico$/, "") || null;
-          const websiteForFavicon = firmWebsite || (b.name.toLowerCase().replace(/\s+/g, "") + ".com");
+          const websiteForFavicon = firmWebsite || resolveWebsiteForBacker(b.name);
 
           return (
             <Popover key={b.id}>

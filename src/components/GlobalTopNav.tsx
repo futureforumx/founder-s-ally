@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -38,13 +38,13 @@ interface GlobalTopNavProps {
   userStage?: string | null;
   profileCompletion?: number;
   personalCompletion?: number;
-  dashboardView?: "company" | "competitive" | "industry" | "competitors" | "sector";
-  onDashboardViewChange?: (view: "company" | "competitive" | "industry" | "competitors" | "sector") => void;
 }
 
 // ── View metadata for breadcrumbs ──
 const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: { id: ViewType; label: string }[] }> = {
-  dashboard: { section: "Mission Control", label: "Overview" },
+  dashboard: { section: "Mission Control", label: "Company" },
+  industry: { section: "Mission Control", label: "Industry" },
+  competitive: { section: "Mission Control", label: "Competitive" },
   company: { section: "My Company", label: "Company Settings", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
@@ -146,6 +146,8 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
       ];
     case "competitors":
     case "benchmarks":
+    case "industry":
+    case "competitive":
       return [
         `Top ${s} competitors`,
         "Companies at similar stage",
@@ -210,8 +212,6 @@ export function GlobalTopNav({
   userStage,
   profileCompletion = 0,
   personalCompletion = 0,
-  dashboardView = "company",
-  onDashboardViewChange,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -683,34 +683,38 @@ export function GlobalTopNav({
           </>
         )}
 
-        {/* ── Dashboard Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && activeView === "dashboard" && (
+        {/* ── Mission Control section tabs (visible when search collapsed) — not Intelligence */}
+        {!searchOpen &&
+          ["dashboard", "industry", "competitive", "competitors", "sector"].includes(activeView) && (
           <>
-            {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "company", label: "Company" },
-                { id: "industry", label: "Industry" },
-                { id: "competitive", label: "Competitive" },
-                { id: "competitors", label: "Competitors" },
-                { id: "sector", label: "Sector" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => onDashboardViewChange?.(tab.id as any)}
-                  className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                    dashboardView === tab.id
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {(
+                [
+                  { nav: "dashboard" as const, label: "Company" },
+                  { nav: "industry" as const, label: "Industry" },
+                  { nav: "competitive" as const, label: "Competitive" },
+                  { nav: "competitors" as const, label: "Competitors" },
+                  { nav: "sector" as const, label: "Sector" },
+                ] as const
+              ).map((tab) => {
+                const tabActive = activeView === tab.nav;
+                return (
+                  <button
+                    key={tab.nav}
+                    onClick={() => onViewChange?.(tab.nav)}
+                    className={cn(
+                      "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
+                      tabActive
+                        ? "text-accent bg-accent/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Dropdown for smaller screens */}
             <div className="md:hidden ml-2 mr-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -719,39 +723,47 @@ export function GlobalTopNav({
                     "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}>
                     <span className="truncate max-w-[80px]">
-                      {dashboardView === "company" ? "Company" : dashboardView === "industry" ? "Industry" : dashboardView === "competitive" ? "Competitive" : dashboardView === "competitors" ? "Competitors" : "Sector"}
+                      {activeView === "dashboard"
+                        ? "Company"
+                        : activeView === "industry"
+                          ? "Industry"
+                          : activeView === "competitive"
+                            ? "Competitive"
+                            : activeView === "competitors"
+                              ? "Competitors"
+                              : "Sector"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
                   <DropdownMenuItem
-                    onClick={() => onDashboardViewChange?.("company")}
-                    className={cn(dashboardView === "company" && "bg-accent/10 text-accent")}
+                    onClick={() => onViewChange?.("dashboard")}
+                    className={cn(activeView === "dashboard" && "bg-accent/10 text-accent")}
                   >
                     Company
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => onDashboardViewChange?.("industry")}
-                    className={cn(dashboardView === "industry" && "bg-accent/10 text-accent")}
+                    onClick={() => onViewChange?.("industry")}
+                    className={cn(activeView === "industry" && "bg-accent/10 text-accent")}
                   >
                     Industry
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => onDashboardViewChange?.("competitive")}
-                    className={cn(dashboardView === "competitive" && "bg-accent/10 text-accent")}
+                    onClick={() => onViewChange?.("competitive")}
+                    className={cn(activeView === "competitive" && "bg-accent/10 text-accent")}
                   >
                     Competitive
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => onDashboardViewChange?.("competitors")}
-                    className={cn(dashboardView === "competitors" && "bg-accent/10 text-accent")}
+                    onClick={() => onViewChange?.("competitors")}
+                    className={cn(activeView === "competitors" && "bg-accent/10 text-accent")}
                   >
                     Competitors
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => onDashboardViewChange?.("sector")}
-                    className={cn(dashboardView === "sector" && "bg-accent/10 text-accent")}
+                    onClick={() => onViewChange?.("sector")}
+                    className={cn(activeView === "sector" && "bg-accent/10 text-accent")}
                   >
                     Sector
                   </DropdownMenuItem>

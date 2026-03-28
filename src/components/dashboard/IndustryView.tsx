@@ -8,9 +8,10 @@ interface Props {
   sector?: string;
   onNavigateBenchmarks: () => void;
   onNavigateProfile: () => void;
+  variant?: "full" | "sectorFocus";
 }
 
-export function IndustryView({ sector, onNavigateBenchmarks, onNavigateProfile }: Props) {
+export function IndustryView({ sector, onNavigateBenchmarks, onNavigateProfile, variant = "full" }: Props) {
   if (!sector) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -31,17 +32,23 @@ export function IndustryView({ sector, onNavigateBenchmarks, onNavigateProfile }
     );
   }
 
+  const primary = (
+    <div>
+      <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
+        Your Sector
+      </h3>
+      <SectorHeatmap sector={sector} onNavigateBenchmarks={onNavigateBenchmarks} />
+    </div>
+  );
+
+  if (variant === "sectorFocus") {
+    return <div className="space-y-6">{primary}</div>;
+  }
+
   return (
     <div className="space-y-6">
-      {/* Primary sector heatmap */}
-      <div>
-        <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-          Your Sector
-        </h3>
-        <SectorHeatmap sector={sector} onNavigateBenchmarks={onNavigateBenchmarks} />
-      </div>
+      {primary}
 
-      {/* All sectors overview */}
       <div>
         <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
           Full Sector Landscape · 2026

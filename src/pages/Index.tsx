@@ -15,12 +15,10 @@ import { InvestorMatch } from "@/components/InvestorMatch";
 import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { DashboardSegmentedControl, type DashboardView } from "@/components/dashboard/DashboardSegmentedControl";
 import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { ArrowRight } from "lucide-react";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
@@ -28,7 +26,29 @@ import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType =
+  | "company"
+  | "dashboard"
+  | "industry"
+  | "competitive"
+  | "audit"
+  | "benchmarks"
+  | "market-intelligence"
+  | "market-investors"
+  | "market-market"
+  | "market-tech"
+  | "market-network"
+  | "investors"
+  | "investor-search"
+  | "directory"
+  | "connections"
+  | "messages"
+  | "events"
+  | "competitors"
+  | "sector"
+  | "groups"
+  | "data-room"
+  | "settings";
 
 /** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
 function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: AnalysisResult): Record<string, unknown> {
@@ -69,26 +89,27 @@ function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: Analysis
   return patch;
 }
 
-// Module-level: read once, survives StrictMode double-mount
-let _postOnboardingView: string | null = null;
-try {
-  _postOnboardingView = localStorage.getItem("post-onboarding-view");
-  if (_postOnboardingView) localStorage.removeItem("post-onboarding-view");
-} catch {}
-
 const Index = () => {
   const { user: authUser } = useAuth();
   const capTable = useCapTable();
+  // Read post-onboarding-view on first Index mount (not module load) so /onboarding can set it first.
   const [activeView, setActiveView] = useState<ViewType>(() => {
-    if (_postOnboardingView === "settings") {
-      _postOnboardingView = null; // consume so HMR doesn't re-trigger
-      return "settings";
+    try {
+      const post = localStorage.getItem("post-onboarding-view");
+      if (post === "settings") {
+        localStorage.removeItem("post-onboarding-view");
+        return "settings";
+      }
+    } catch {
+      /* ignore */
     }
     try {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
-    } catch {}
+    } catch {
+      /* ignore */
+    }
     return "dashboard";
   });
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
@@ -98,6 +119,27 @@ const Index = () => {
     } catch {}
     return null;
   });
+
+  const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => {
+    try { return localStorage.getItem("company-logo-url"); } catch { return null; }
+  });
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const url = localStorage.getItem("company-logo-url");
+        setNavLogoUrl(prev => url !== prev ? url : prev);
+      } catch {}
+    };
+    window.addEventListener("storage", sync);
+    window.addEventListener("company-logo-changed", sync);
+    const interval = setInterval(sync, 2000);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("company-logo-changed", sync);
+      clearInterval(interval);
+    };
+  }, []);
+
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
     try {
       const saved = localStorage.getItem("company-analysis");
@@ -105,7 +147,6 @@ const Index = () => {
     } catch {}
     return null;
   });
-  const [dashboardView, setDashboardView] = useState<DashboardView>("company");
   const [showOnboarding, setShowOnboarding] = useState(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -294,6 +335,8 @@ const Index = () => {
         if (domain) {
           const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
           localStorage.setItem("company-logo-url", logoUrl);
+          setNavLogoUrl(logoUrl);
+          window.dispatchEvent(new Event("company-logo-changed"));
         }
       }
       const now = new Date();
@@ -342,7 +385,7 @@ const Index = () => {
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
           companyName={companyData?.name}
-          logoUrl={(() => { try { return localStorage.getItem("company-logo-url"); } catch { return null; } })()}
+          logoUrl={navLogoUrl}
           hasProfile={!!companyData?.name}
           lastSyncedAt={lastSyncedAt}
           syncFlash={syncFlash}
@@ -360,41 +403,44 @@ const Index = () => {
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Market intelligence, community pulse, and company health</p>
+                  <h1 className="text-xl font-semibold tracking-tight text-foreground">Mission Control</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Company health, metrics, and executive summary</p>
                 </div>
               </div>
 
-              <DashboardSegmentedControl active={dashboardView} onChange={setDashboardView} />
-
-              <div className="mt-6 animate-fade-in" key={dashboardView}>
-                {dashboardView === "company" && (
-                  <CompanyView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onMetricEdit={handleMetricEdit}
-                    onNavigateProfile={() => setActiveView("company")}
-                    stageClassification={stageClassification}
-                  />
-                )}
-                {dashboardView === "competitive" && (
-                  <CompetitiveView
-                    companyData={companyData}
-                    analysisResult={analysisResult}
-                    onNavigateProfile={() => setActiveView("company")}
-                  />
-                )}
-                {dashboardView === "industry" && (
-                  <IndustryView
-                    sector={companyData?.sector}
-                    onNavigateBenchmarks={() => setActiveView("benchmarks")}
-                    onNavigateProfile={() => setActiveView("company")}
-                  />
-                )}
-                {dashboardView === "community" && (
-                  <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} />
-                )}
+              <div className="mt-6 animate-fade-in">
+                <CompanyView
+                  companyData={companyData}
+                  analysisResult={analysisResult}
+                  onMetricEdit={handleMetricEdit}
+                  onNavigateProfile={() => setActiveView("company")}
+                  stageClassification={stageClassification}
+                />
               </div>
+            </div>
+          ) : activeView === "industry" ? (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Industry</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Sector heatmaps and full market landscape</p>
+              </div>
+              <IndustryView
+                sector={companyData?.sector}
+                onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                onNavigateProfile={() => setActiveView("company")}
+              />
+            </div>
+          ) : activeView === "competitive" ? (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">Competitive</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Benchmarking, scorecard, and competitive context</p>
+              </div>
+              <CompetitiveView
+                companyData={companyData}
+                analysisResult={analysisResult}
+                onNavigateProfile={() => setActiveView("company")}
+              />
             </div>
           ) : activeView === "benchmarks" ? (
             <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
@@ -419,12 +465,17 @@ const Index = () => {
           ) : activeView === "investors" ? (
             <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
           ) : activeView === "sector" ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Sector</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Sector intelligence and market positioning</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Your sector positioning and benchmarks</p>
               </div>
-              <div className="flex items-center justify-center h-64 rounded-xl border border-border bg-card/50 text-muted-foreground text-sm">Coming soon</div>
+              <IndustryView
+                variant="sectorFocus"
+                sector={companyData?.sector}
+                onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                onNavigateProfile={() => setActiveView("company")}
+              />
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
@@ -440,7 +491,7 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
-          ) : activeView === "audit" ? (
+          ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "settings" ? (
             <SettingsPage />

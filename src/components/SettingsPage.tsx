@@ -8,7 +8,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
-  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronDown
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -48,7 +48,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
 
 const SECTION_TABS: Record<SettingsSection, { id: SettingsTab; label: string }[]> = {
   "personal": [
-    { id: "account", label: "Profile" },
+    { id: "account", label: "Details" },
   ],
   "company-sec": [
     { id: "company", label: "Company" },
@@ -376,24 +376,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
   const [xVerified, setXVerified] = useState(false);
   const [xSyncing, setXSyncing] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(true);
-  const [profileConfirmed, setProfileConfirmed] = useState(false);
-
-  // Listen for tour-expand-section events to auto-collapse/expand sections
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const section = (e as CustomEvent).detail?.section;
-      if (section === "profile") {
-        setProfileOpen(true);
-      } else if (section === "data-sources") {
-        // Collapse profile when focusing data sources
-        setProfileOpen(false);
-      }
-    };
-    window.addEventListener("tour-expand-section", handler);
-    return () => window.removeEventListener("tour-expand-section", handler);
-  }, []);
-
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
     // Map field names to DB column names
@@ -711,59 +693,166 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
   };
 
-  // ── Progressive disclosure logic ──
-  // Accept full linkedin URLs, partial paths, or bare usernames (alphanumeric, dots, hyphens)
-  const isLinkedinInvalid = linkedinUrl.trim() !== "" && /[@\s]|^\d+$/.test(linkedinUrl.trim()) && !/linkedin\.com/i.test(linkedinUrl.trim());
-  const isLinkedinValid = linkedinUrl.trim() !== "" && !isLinkedinInvalid;
   const hasSynced = syncedKeys.has("__linkedin_verified") || !!(name && name !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
-  const isComplete = !!(name.trim() && title.trim() && bio.trim() && location.trim() && linkedinUrl.trim());
-  const showTwitter = isLinkedinValid || isComplete;
-  const showPersonalInfo = hasSynced || isComplete;
-
 
   return (
     <TabWrapper>
       <div className="space-y-4">
-        {/* ── User Type Selector (condensed) ── */}
-        {(() => {
-          const activeType = USER_TYPES.find(t => t.id === userType) || USER_TYPES[0];
-          const ActiveIcon = activeType.icon;
-          return (
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="px-5 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold">I am a</h3>
-                  <div className="flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1">
-                    <ActiveIcon className="h-3 w-3 text-accent" />
-                    <span className="text-[11px] font-semibold text-foreground">{activeType.label}</span>
+        {/* ── Personal Information (single card: role + identity + fields — no separate Profile section) ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" />
+              Personal Information
+            </h3>
+          </div>
+          <div className="p-5 space-y-4">
+            {(() => {
+              const activeType = USER_TYPES.find(t => t.id === userType) || USER_TYPES[0];
+              const ActiveIcon = activeType.icon;
+              return (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-border/40">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">I am a</span>
+                    <div className="flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1">
+                      <ActiveIcon className="h-3 w-3 text-accent" />
+                      <span className="text-[11px] font-semibold text-foreground">{activeType.label}</span>
+                    </div>
+                    <span className="text-[9px] text-muted-foreground">{activeType.desc}</span>
                   </div>
-                  <span className="text-[9px] text-muted-foreground">{activeType.desc}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2 shrink-0 self-start sm:self-auto">Change</button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-[160px]">
+                      {USER_TYPES.map((type) => {
+                        const Icon = type.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={type.id}
+                            onClick={() => { setUserType(type.id); saveImmediate({ userType: type.id }); }}
+                            className={cn("flex items-center gap-2", userType === type.id && "bg-accent/10")}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            <span className="text-[11px]">{type.label}</span>
+                            {userType === type.id && <CheckCircle2 className="h-3 w-3 text-accent ml-auto" />}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">Change</button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[160px]">
-                    {USER_TYPES.map((type) => {
-                      const Icon = type.icon;
-                      return (
-                        <DropdownMenuItem
-                          key={type.id}
-                          onClick={() => { setUserType(type.id); saveImmediate({ userType: type.id }); }}
-                          className={cn("flex items-center gap-2", userType === type.id && "bg-accent/10")}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          <span className="text-[11px]">{type.label}</span>
-                          {userType === type.id && <CheckCircle2 className="h-3 w-3 text-accent ml-auto" />}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              );
+            })()}
+
+            <div className="flex items-center gap-4">
+              <div className="relative group">
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                {avatarUploading ? (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted border-2 border-border">
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full" />
+                  </div>
+                ) : avatarUrl && !avatarError ? (
+                  <img src={avatarUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border-2 border-primary/20" onError={() => setAvatarError(true)} />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-base font-bold text-primary">{initials}</div>
+                )}
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{name.trim() || displayName}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
+                  <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold shrink-0">Verified</Badge>
+                </div>
               </div>
             </div>
-          );
-        })()}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
+                <Input value={name} onChange={(e) => { setName(e.target.value); autosave({ name: e.target.value }); }} className="rounded-lg h-9 text-sm" />
+              </div>
+              <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
+                <SmartCombobox
+                  value={title}
+                  onChange={setTitle}
+                  onBlur={() => handleFieldBlur("title", title)}
+                  options={ROLE_OPTIONS}
+                  placeholder="e.g. CEO & Co-Founder"
+                  verified={syncedKeys.has("title")}
+                  highlightSync={syncedKeys.has("title")}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+                <div className="relative">
+                  <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
+                  <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
+                </div>
+              </div>
+              <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
+                <SmartCombobox
+                  value={location}
+                  onChange={setLocation}
+                  onBlur={() => handleFieldBlur("location", location)}
+                  options={LOCATION_OPTIONS}
+                  placeholder="San Francisco, CA"
+                  verified={syncedKeys.has("location")}
+                  highlightSync={syncedKeys.has("location")}
+                />
+              </div>
+            </div>
+            <p className="text-[9px] text-muted-foreground/60">
+              Want to change your email?{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("tab", "security");
+                  window.history.replaceState({}, "", url.toString());
+                  window.dispatchEvent(new Event("popstate"));
+                }}
+                className="text-accent hover:text-accent/80 underline underline-offset-2 font-medium transition-colors"
+              >
+                Go to Account → Security
+              </button>
+            </p>
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
+                <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
+              </div>
+              <textarea value={bio} onChange={(e) => { const v = e.target.value.slice(0, 160); setBio(v); autosave({ bio: v }); }} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+            </div>
+            <Separator className="my-2" />
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const trimmed = name.trim();
+                  const parts = trimmed.split(/\s+/).filter(Boolean);
+                  if (parts.length < 2) {
+                    toast.error("Please enter your first and last name");
+                    return;
+                  }
+                  saveImmediate({ name });
+                  toast.success("Profile details confirmed");
+                }}
+                className="rounded-full px-5 h-9 text-sm font-medium gap-2 border-border"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Confirm Details
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {/* ── Data Sources ── */}
         <div className="space-y-3" data-tour-section="data-sources">
@@ -916,242 +1005,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             </div>
           </div>
         </div>
-
-        {/* ── Profile (First Name, Last Name, Email) ── */}
-        {(() => {
-          const firstName = name.split(" ")[0]?.trim() || "";
-          const lastName = name.split(" ").slice(1).join(" ")?.trim() || "";
-          const isProfileEmpty = !firstName && !lastName;
-          const isProfileComplete = !!firstName && !!lastName;
-
-          const statusDot = profileConfirmed && isProfileComplete ? (
-            <span className="inline-flex rounded-full h-2 w-2 bg-success" />
-          ) : isProfileEmpty ? (
-            <span className="inline-flex rounded-full h-2 w-2 bg-destructive/40" />
-          ) : isProfileComplete ? (
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-            </span>
-          ) : (
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
-            </span>
-          );
-
-          return (
-            <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
-              {/* Collapsible header */}
-              <button
-                onClick={() => setProfileOpen(prev => !prev)}
-                className="w-full px-5 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
-              >
-                <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-2">
-                  <User className="h-3.5 w-3.5" />
-                  Profile
-                  {statusDot}
-                </h3>
-                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", profileOpen && "rotate-180")} />
-              </button>
-
-              {/* Collapsible content */}
-              <AnimatePresence initial={false}>
-                {profileOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-5 pb-5 pt-2 border-t border-border/60">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1" data-field="first_name">
-                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                            First Name <span className="text-destructive">*</span>
-                          </label>
-                          <Input
-                            value={firstName}
-                            onChange={(e) => {
-                              const newName = lastName ? `${e.target.value} ${lastName}` : e.target.value;
-                              setName(newName);
-                              autosave({ name: newName });
-                              if (profileConfirmed) setProfileConfirmed(false);
-                            }}
-                            placeholder="First name"
-                            className="rounded-lg h-9 text-sm"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1" data-field="last_name">
-                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Last Name <span className="text-destructive">*</span>
-                          </label>
-                          <Input
-                            value={lastName}
-                            onChange={(e) => {
-                              const newName = e.target.value ? `${firstName} ${e.target.value}` : firstName;
-                              setName(newName);
-                              autosave({ name: newName });
-                              if (profileConfirmed) setProfileConfirmed(false);
-                            }}
-                            placeholder="Last name"
-                            className="rounded-lg h-9 text-sm"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1 sm:col-span-2" data-field="email">
-                          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                            Email <span className="text-destructive">*</span>
-                          </label>
-                          <Input
-                            value={displayEmail}
-                            disabled
-                            className="rounded-lg h-9 text-sm opacity-70"
-                          />
-                          <p className="text-[9px] text-muted-foreground/60">
-                            Want to change your email?{" "}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const url = new URL(window.location.href);
-                                url.searchParams.set("tab", "security");
-                                window.history.replaceState({}, "", url.toString());
-                                window.dispatchEvent(new Event("popstate"));
-                              }}
-                              className="text-accent hover:text-accent/80 underline underline-offset-2 font-medium transition-colors"
-                            >
-                              Go to Account → Security
-                            </button>
-                          </p>
-                        </div>
-                      </div>
-                      <Separator className="my-4" />
-                      <div className="flex justify-end">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            if (!firstName || !lastName) {
-                              toast.error("First Name and Last Name are required");
-                              return;
-                            }
-                            saveImmediate({ name });
-                            setProfileConfirmed(true);
-                            setProfileOpen(false);
-                            toast.success("Profile details confirmed");
-                          }}
-                          className="rounded-full px-5 h-9 text-sm font-medium gap-2 border-border"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          Confirm Details
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })()}
-
-        {/* ── Personal Information (revealed after sync / or if complete) ── */}
-        <AnimatePresence>
-          {showPersonalInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 16, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: 16, height: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="overflow-hidden"
-            >
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-5 pt-4 pb-3 border-b border-border/60">
-                  <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" />
-                    Personal Information
-                  </h3>
-                </div>
-                <div className="p-5 space-y-4">
-                  {/* Avatar & Name */}
-                  <div className="flex items-center gap-4">
-                    <div className="relative group">
-                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                      {avatarUploading ? (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted border-2 border-border">
-                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full" />
-                        </div>
-                      ) : avatarUrl && !avatarError ? (
-                        <img src={avatarUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border-2 border-primary/20" onError={() => setAvatarError(true)} />
-                      ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 text-base font-bold text-primary">{initials}</div>
-                      )}
-                      <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/60 text-background opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <Camera className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{displayName}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-muted-foreground">{displayEmail}</p>
-                        <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Form grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("full_name") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="full_name">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Full Name</label>
-                      <Input value={name} onChange={(e) => { setName(e.target.value); autosave({ name: e.target.value }); }} className="rounded-lg h-9 text-sm" />
-                    </div>
-                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
-                      <SmartCombobox
-                        value={title}
-                        onChange={setTitle}
-                        onBlur={() => handleFieldBlur("title", title)}
-                        options={ROLE_OPTIONS}
-                        placeholder="e.g. CEO & Co-Founder"
-                        verified={syncedKeys.has("title")}
-                        highlightSync={syncedKeys.has("title")}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
-                      <div className="relative">
-                        <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
-                        <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
-                      </div>
-                    </div>
-                    <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
-                      <SmartCombobox
-                        value={location}
-                        onChange={setLocation}
-                        onBlur={() => handleFieldBlur("location", location)}
-                        options={LOCATION_OPTIONS}
-                        placeholder="San Francisco, CA"
-                        verified={syncedKeys.has("location")}
-                        highlightSync={syncedKeys.has("location")}
-                      />
-                    </div>
-                  </div>
-                  <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
-                      <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
-                    </div>
-                    <textarea value={bio} onChange={(e) => { const v = e.target.value.slice(0, 160); setBio(v); autosave({ bio: v }); }} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
 
       </div>
 
