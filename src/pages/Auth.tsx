@@ -23,6 +23,16 @@ const fallback = (
   </div>
 );
 
+function shell(content: ReactNode) {
+  return (
+    <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
+      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
+        {content}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Path-based routes under `/auth/*` — set the same paths in Clerk Dashboard → Paths if prompted.
  */
