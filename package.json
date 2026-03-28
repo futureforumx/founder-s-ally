@@ -13,7 +13,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clone:auth": "tsx scripts/clone_auth_users.ts",
-    "clone:storage": "tsx scripts/clone_storage.ts"
+    "clone:storage": "tsx scripts/clone_storage.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.18.0",
@@ -83,7 +91,8 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.170.0",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@prisma/client": "6.19.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -105,6 +114,7 @@
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
     "postcss": "^8.5.6",
+    "prisma": "6.19.0",
     "shadcn-ui": "^0.9.5",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",

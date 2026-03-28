@@ -1,0 +1,515 @@
+// VC platform — PostgreSQL + Prisma (core domain)
+// Vector search: enable extension + column via raw SQL after first migrate; see repo notes from your architect.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums (filtering / consistency) ---
+
+enum FirmType {
+  VC
+  CVC
+  ANGEL_NETWORK
+  MICRO_FUND
+  FAMILY_OFFICE
+  PE
+  ACCELERATOR
+  OTHER
+}
+
+enum FundStatus {
+  ACTIVE
+  CLOSED
+  FORMING
+  WINDING_DOWN
+}
+
+enum FundType {
+  TRADITIONAL
+  ROLLING
+  SYNDICATE
+  MICRO
+  CVC
+  FAMILY_OFFICE
+}
+
+enum LeadFollowPreference {
+  LEAD_ONLY
+  LEAD_PREFERRED
+  FOLLOW_ONLY
+  FLEXIBLE
+}
+
+enum StageFocus {
+  PRE_SEED
+  SEED
+  SERIES_A
+  SERIES_B
+  SERIES_C
+  GROWTH
+  LATE
+  IPO
+}
+
+enum SectorFocus {
+  FINTECH
+  ENTERPRISE_SAAS
+  AI
+  HEALTHTECH
+  BIOTECH
+  CONSUMER
+  CLIMATE
+  MOBILITY
+  INDUSTRIAL
+  CYBERSECURITY
+  MEDIA
+  WEB3
+  EDTECH
+  GOVTECH
+  HARDWARE
+  ROBOTICS
+  MARKETPLACE
+  AGRITECH
+  PROPTECH
+  OTHER
+}
+
+enum SourceType {
+  CRUNCHBASE
+  CB_INSIGHTS
+  SIGNAL_NFX
+  VCSHEET
+  VC_PRO_DATABASE
+  VENTUREXPERT
+  ANGELLIST
+  OPENVC
+  TRUSTFINTA
+  OTHER
+}
+
+/// Activity category for VCSignal (recent investments, team changes, content, events, deployment)
+enum SignalType {
+  RECENT_INVESTMENT
+  HIRE
+  DEPARTURE
+  BLOG_POST
+  EVENT
+  DEPLOYMENT_UPDATE
+  OTHER
+}
+
+enum ExitType {
+  IPO
+  ACQUISITION
+  SECONDARY
+  SHUTDOWN
+  STILL_PRIVATE
+  UNKNOWN
+}
+
+enum InvestmentLifecycleStatus {
+  ACTIVE
+  EXITED
+  WRITTEN_OFF
+  UNKNOWN
+}
+
+// =============================================================================
+// VCFirm
+// =============================================================================
+
+model VCFirm {
+  id String @id @default(cuid())
+
+  firm_name      String
+  legal_name     String?
+  slug           String  @unique
+  logo_url       String?
+  elevator_pitch String?
+  description    String? @db.Text
+
+  website_url String?
+  email       String?
+  phone       String?
+  address     String?
+
+  hq_city    String?
+  hq_state   String?
+  hq_country String?
+  locations  Json?
+
+  x_url         String?
+  linkedin_url  String?
+  substack_url  String?
+  medium_url    String?
+  beehiiv_url   String?
+  instagram_url String?
+  facebook_url  String?
+  youtube_url   String?
+  tiktok_url    String?
+
+  crunchbase_url    String?
+  cb_insights_url   String?
+  signal_nfx_url    String?
+  vcsheet_url       String?
+  vcprodatabase_url String?
+  venturexpert_url  String?
+  angellist_url     String?
+  openvc_url        String?
+  trustfinta_url    String?
+
+  total_headcount       Int?
+  total_investors       Int?
+  total_partners        Int?
+  general_partner_count Int?
+  partner_names         String[] @default([])
+  general_partner_names String[] @default([])
+
+  firm_type             FirmType @default(VC)
+  founded_year          Int?
+  status                String?
+  verification_status   String?
+  data_confidence_score Int?
+
+  reputation_score     Int?
+  founder_sentiment    Int?
+  industry_reputation  Int?
+  responsiveness_score Int?
+  value_add_score      Int?
+  network_strength     Int?
+  match_score          Int?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  funds              VCFund[]
+  people             VCPerson[]
+  signals            VCSignal[]
+  recent_investments VCInvestment[]
+  source_links       VCSourceLink[]
+  score_snapshots    VCScoreSnapshot[]
+
+  @@index([firm_name])
+  @@index([firm_type])
+  @@index([hq_country, hq_state, hq_city])
+  @@index([match_score])
+  @@index([reputation_score])
+  @@index([founder_sentiment])
+  @@index([industry_reputation])
+  @@index([deleted_at])
+  @@map("vc_firms")
+}
+
+// =============================================================================
+// VCFund
+// =============================================================================
+
+model VCFund {
+  id      String @id @default(cuid())
+  firm_id String
+  firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+
+  fund_name    String
+  fund_number  Int?
+  vintage_year Int?
+  open_date    DateTime?
+  close_date   DateTime?
+
+  fund_status FundStatus @default(ACTIVE)
+  fund_type   FundType   @default(TRADITIONAL)
+
+  size_usd          Float?
+  aum_usd           Float?
+  committed_capital Float?
+  gp_commit_usd     Float?
+
+  management_fee_pct Float?
+  carry_pct          Float?
+  fund_term_years    Int?
+  investment_period_yrs Int?
+
+  focus_summary      String? @db.Text
+  thesis_description String? @db.Text
+  themes             String[] @default([])
+
+  stage_focus     StageFocus[]
+  sector_focus    SectorFocus[]
+  geography_focus String[]     @default([])
+
+  prefer_to_lead        Boolean?
+  lead_percentage       Float?
+  co_invest_percentage  Float?
+  lead_follow           LeadFollowPreference?
+  reserve_for_follow_on Float?
+  board_seat_preference Boolean?
+
+  actively_deploying Boolean @default(true)
+
+  avg_check_size_min    Float?
+  avg_check_size_max    Float?
+  avg_check_size_mean   Float?
+  avg_check_size_median Float?
+
+  deployment_rate        Float?
+  last_investment_date   DateTime?
+  investments_last_60d  Int?
+  investments_last_12m  Int?
+  deployed_capital_usd  Float?
+  capital_remaining_usd Float?
+  target_investments    Int?
+
+  fund_match_score    Int?
+  active_signal_score Int?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  investments     VCInvestment[]
+  score_snapshots VCScoreSnapshot[]
+
+  @@index([firm_id])
+  @@index([fund_status])
+  @@index([fund_type])
+  @@index([actively_deploying])
+  @@index([vintage_year])
+  @@index([size_usd])
+  @@index([aum_usd])
+  @@index([lead_follow])
+  @@index([fund_match_score])
+  @@index([deleted_at])
+  @@map("vc_funds")
+}
+
+// =============================================================================
+// VCPerson
+// =============================================================================
+
+model VCPerson {
+  id      String @id @default(cuid())
+  firm_id String
+  firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+
+  first_name     String
+  last_name      String
+  preferred_name String?
+  title          String?
+  role           String?
+  bio            String? @db.Text
+  avatar_url     String?
+
+  email       String?
+  phone       String?
+  website_url String?
+  linkedin_url String?
+  x_url       String?
+
+  city     String?
+  state    String?
+  country  String?
+  timezone String?
+
+  stage_focus  StageFocus[]
+  sector_focus SectorFocus[]
+
+  check_size_min Float?
+  check_size_max Float?
+
+  warm_intro_preferred Boolean @default(true)
+  cold_outreach_ok     Boolean @default(false)
+
+  personal_thesis_tags String[] @default([])
+  investment_style     String?
+  background_summary   String?  @db.Text
+  prior_firms          String[] @default([])
+  education_summary    String?  @db.Text
+
+  responsiveness_score  Int?
+  recent_deal_count     Int?
+  last_active_date      DateTime?
+  is_actively_investing Boolean   @default(true)
+
+  reputation_score Int?
+  value_add_score  Int?
+  network_strength Int?
+  match_score      Int?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  signals         VCSignal[]
+  score_snapshots VCScoreSnapshot[]
+
+  @@index([firm_id])
+  @@index([email])
+  @@index([country, state, city])
+  @@index([is_actively_investing])
+  @@index([match_score])
+  @@index([responsiveness_score])
+  @@index([deleted_at])
+  @@map("vc_people")
+}
+
+// =============================================================================
+// VCInvestment
+// =============================================================================
+
+model VCInvestment {
+  id      String  @id @default(cuid())
+  firm_id String
+  fund_id String?
+  firm    VCFirm  @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+  fund    VCFund? @relation(fields: [fund_id], references: [id], onDelete: SetNull)
+
+  company_name String
+  company_url  String?
+
+  sector              SectorFocus?
+  stage_at_investment StageFocus?
+  location            String?
+
+  investment_date DateTime?
+  check_size_usd  Float?
+
+  round_type          String?
+  ownership_pct       Float?
+  entry_valuation_usd Float?
+
+  pro_rata_participation Boolean?
+  follow_on_support      Boolean?
+
+  outcome_status   String?
+  exit_type        ExitType?
+  exit_date        DateTime?
+  current_status   InvestmentLifecycleStatus?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  @@index([firm_id])
+  @@index([fund_id])
+  @@index([sector])
+  @@index([stage_at_investment])
+  @@index([investment_date])
+  @@index([check_size_usd])
+  @@index([location])
+  @@index([current_status])
+  @@index([exit_type])
+  @@index([deleted_at])
+  @@map("vc_investments")
+}
+
+// =============================================================================
+// VCSourceLink
+// =============================================================================
+
+model VCSourceLink {
+  id      String @id @default(cuid())
+  firm_id String
+  firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+
+  source_type SourceType
+  label       String
+  url         String
+
+  last_verified_at DateTime?
+  confidence_score Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  @@index([firm_id])
+  @@index([source_type])
+  @@index([last_verified_at])
+  @@index([deleted_at])
+  @@map("vc_source_links")
+}
+
+// =============================================================================
+// VCSignal
+// =============================================================================
+
+model VCSignal {
+  id      String @id @default(cuid())
+  firm_id String
+  firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+
+  person_id String?
+  person    VCPerson? @relation(fields: [person_id], references: [id], onDelete: SetNull)
+
+  signal_type SignalType
+
+  title       String
+  url         String?
+  description String? @db.Text
+  signal_date DateTime?
+
+  source_type       SourceType?
+  source_confidence Int?
+  metadata          Json?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  @@index([firm_id])
+  @@index([person_id])
+  @@index([signal_type])
+  @@index([signal_date])
+  @@index([source_type])
+  @@index([deleted_at])
+  @@map("vc_signals")
+}
+
+// =============================================================================
+// VCScoreSnapshot (time-series / model outputs)
+// =============================================================================
+
+model VCScoreSnapshot {
+  id String @id @default(cuid())
+
+  firm_id   String
+  person_id String?
+  fund_id   String?
+
+  firm   VCFirm    @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+  person VCPerson? @relation(fields: [person_id], references: [id], onDelete: SetNull)
+  fund   VCFund?   @relation(fields: [fund_id], references: [id], onDelete: SetNull)
+
+  match_score          Int @default(0)
+  reputation_score     Int @default(0)
+  founder_sentiment    Int @default(0)
+  industry_reputation  Int @default(0)
+  responsiveness_score Int @default(0)
+  founder_satisfaction Int @default(0)
+  value_add_ability    Int @default(0)
+  network_strength     Int @default(0)
+  active_deployment    Int @default(0)
+
+  explanation   String? @db.Text
+  model_version String?
+  computed_at   DateTime @default(now())
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  deleted_at DateTime?
+
+  @@index([firm_id])
+  @@index([person_id])
+  @@index([fund_id])
+  @@index([computed_at])
+  @@index([match_score])
+  @@index([reputation_score])
+  @@index([deleted_at])
+  @@map("vc_score_snapshots")
+}

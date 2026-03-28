@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +12,9 @@ import NotFound from "./pages/NotFound.tsx";
 import AdminIntelligence from "./pages/AdminIntelligence.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import SsoCallback from "./pages/SsoCallback.tsx";
+import FirmProfile from "./pages/FirmProfile.tsx";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authTimedOut, setAuthTimedOut] = useState(false);
+  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
 
   useEffect(() => {
     if (!loading) {
@@ -62,16 +65,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [user, location.pathname]);
 
   if (loading && authTimedOut) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-        <p className="max-w-md text-sm text-foreground">Authentication is taking too long to load.</p>
-        <p className="max-w-lg text-xs text-muted-foreground">
-          Try a normal browser window (not the embedded preview), disable ad blockers for localhost, and add this origin
-          in Clerk → Domains. Then hard-refresh.
-        </p>
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-      </div>
-    );
+    return <Navigate to="/auth?timeout=1" replace />;
   }
 
   if (loading || !onboardingChecked) {
@@ -105,6 +99,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
+            <Route path="/firms/:id" element={<ProtectedRoute><FirmProfile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
