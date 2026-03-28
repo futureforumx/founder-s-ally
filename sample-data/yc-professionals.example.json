@@ -10,7 +10,9 @@
       "ycBatch": "W26",
       "linkedin": "https://linkedin.com/in/janedoe",
       "location": "San Francisco, CA, USA",
-      "source": "yc"
+      "source": "yc",
+      "sourcePriority": 100,
+      "sourceUpdatedAt": "2026-03-28T12:00:00.000Z"
     },
     {
       "fullName": "John Smith",
@@ -22,7 +24,9 @@
       "githubHandle": "johnsmithdev",
       "githubStars": 2500,
       "location": "NYC",
-      "source": "github"
+      "source": "github",
+      "sourcePriority": 70,
+      "sourceUpdatedAt": "2026-03-28T12:00:00.000Z"
     }
   ]
 }

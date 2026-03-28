@@ -277,6 +277,10 @@ export async function mergeStartupProfessional(
     nextAl = pickScalar(existing.angelListId, raw.angelListId?.trim() || null, exPri, inPri, exAt, inAt) ?? nextAl;
   }
 
+  if (freezeIdentity && (ghIncoming || phIncoming)) {
+    nextLoc = pickScalar(existing.location, raw.location, exPri, inPri, exAt, inAt) ?? nextLoc;
+  }
+
   if (!freezeIdentity && !phIncoming) {
     const exS = normalizeStartupName(existing.currentStartup);
     if (ycOrAl && inPri >= 60 && exS !== nStartup) {
