@@ -11,6 +11,7 @@
  * Throttle: YC_REQUEST_MS_DELAY (default 150), YC_MAX_SLUGS (optional cap), YC_FETCH_CONCURRENCY (default 6).
  */
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
@@ -21,10 +22,12 @@ import {
   SOURCE_PRIORITY,
   type ProfessionalIngestPayload,
 } from "./lib/startupProfessionalMerge";
+import { enqueueDeadLetter, toErrorMessage, toJsonPayload } from "./lib/deadLetterQueue";
 
-const UA =
-  process.env.STARTUP_PROFESSIONALS_UA ??
-  "Mozilla/5.0 (compatible; VektaStartupProfessionals/1.0; +https://ycombinator.com/robots.txt)";
+/** YC often 404s custom bot UAs; use a real browser string (override with YC_FETCH_USER_AGENT). */
+const YC_FETCH_UA =
+  process.env.YC_FETCH_USER_AGENT?.trim() ||
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 const SITEMAP_URL = "https://www.ycombinator.com/companies/sitemap";
 const SKIP_SLUGS = new Set([
@@ -43,12 +46,33 @@ const SKIP_SLUGS = new Set([
 loadDatabaseUrl();
 const prisma = new PrismaClient();
 
+function fetchTextViaCurl(url: string): string {
+  const out = execFileSync("curl", ["-sS", "-L", "-A", YC_FETCH_UA, url], {
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (!out.trim()) throw new Error("empty response");
+  return out;
+}
+
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
+    headers: {
+      "User-Agent": YC_FETCH_UA,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    redirect: "follow",
   });
-  if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
-  return res.text();
+  if (res.ok) return res.text();
+  if (process.env.YC_FETCH_DISABLE_CURL === "1") {
+    throw new Error(`GET ${url} → ${res.status}`);
+  }
+  try {
+    return fetchTextViaCurl(url);
+  } catch (e) {
+    throw new Error(`GET ${url} → ${res.status} (fetch); curl fallback: ${e instanceof Error ? e.message : e}`);
+  }
 }
 
 function parseSlugsFromSitemap(xml: string): string[] {
@@ -74,10 +98,16 @@ function decodeEntities(s: string): string {
 }
 
 function metaContent(html: string, prop: "og:description" | "og:title" | "description"): string | null {
-  const og = html.match(new RegExp(`property="${prop}"\\s+content="([^"]*)"`, "i"));
-  if (og) return decodeEntities(og[1]);
+  if (prop === "og:description" || prop === "og:title") {
+    const forward = html.match(new RegExp(`property="${prop}"\\s+content="([^"]*)"`, "i"));
+    const reverse = html.match(new RegExp(`content="([^"]*)"\\s+property="${prop}"`, "i"));
+    const og = forward || reverse;
+    if (og) return decodeEntities(og[1]);
+  }
   if (prop === "description") {
-    const n = html.match(/name="description"\s+content="([^"]*)"/i);
+    const n1 = html.match(/name="description"\s+content="([^"]*)"/i);
+    const n2 = html.match(/content="([^"]*)"\s+name="description"/i);
+    const n = n1 || n2;
     if (n) return decodeEntities(n[1]);
   }
   return null;
@@ -169,7 +199,13 @@ async function mergeRows(rows: ProfessionalIngestPayload[]): Promise<{ upserted:
     try {
       await mergeStartupProfessional(prisma, row);
       upserted++;
-    } catch {
+    } catch (e) {
+      await enqueueDeadLetter(prisma, {
+        targetTable: "startup_professionals",
+        failedOperation: "StartupProfessional_Merge",
+        errorMessage: toErrorMessage(e),
+        rawPayload: toJsonPayload(row),
+      });
       errors++;
     }
   }
@@ -275,6 +311,12 @@ async function main() {
       allRows.push(...rows);
     } catch (e) {
       console.warn(`[${slug}] ${e instanceof Error ? e.message : e}`);
+      await enqueueDeadLetter(prisma, {
+        targetTable: "startup_professionals",
+        failedOperation: "YC_Scrape",
+        errorMessage: toErrorMessage(e),
+        rawPayload: toJsonPayload({ slug, url: `https://www.ycombinator.com/companies/${slug}` }),
+      });
     }
     done++;
     if (done % 200 === 0) console.log(`… ${done}/${slugs.length} pages`);

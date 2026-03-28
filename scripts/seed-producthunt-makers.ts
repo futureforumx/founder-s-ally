@@ -16,6 +16,7 @@ import {
   SOURCE_PRIORITY,
   type ProfessionalIngestPayload,
 } from "./lib/startupProfessionalMerge";
+import { enqueueDeadLetter, toErrorMessage, toJsonPayload } from "./lib/deadLetterQueue";
 
 const UA =
   process.env.STARTUP_PROFESSIONALS_UA ??
@@ -135,7 +136,13 @@ async function main() {
     try {
       await mergeStartupProfessional(prisma, row);
       ok++;
-    } catch {
+    } catch (e) {
+      await enqueueDeadLetter(prisma, {
+        targetTable: "startup_professionals",
+        failedOperation: "ProductHunt_Merge",
+        errorMessage: toErrorMessage(e),
+        rawPayload: toJsonPayload({ username, row }),
+      });
       err++;
     }
   }
