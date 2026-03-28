@@ -254,9 +254,9 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
   const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
   return (
-    <div className="h-screen w-full overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
+    <div className="fixed inset-0 z-[100] flex min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
       <div
-        className={`h-full overflow-y-auto px-6 sm:px-10 md:min-h-0 ${leftPadMd} py-10`}
+        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-10`}
       >
         <div className="mx-auto w-full max-w-[440px]">{children}</div>
       </div>
@@ -341,7 +341,7 @@ export default function Auth() {
 
   if (showLocalPreviewFallback) {
     return (
-      <div className="min-h-screen bg-zinc-100 px-4 py-10 sm:py-14">
+      <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-y-contain bg-zinc-100 px-4 py-10 sm:py-14">
         <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Preview mode</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-500">
