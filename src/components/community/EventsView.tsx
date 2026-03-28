@@ -59,7 +59,11 @@ function CreateEventDialog({ onCreated, defaults }: { onCreated: () => void; def
     }
     setLoading(true);
     try {
-      if (!user) { toast.error("Please sign in to create events"); setLoading(false); return; }
+      if (!user?.id) {
+        toast.error("Please sign in to create events");
+        setLoading(false);
+        return;
+      }
 
       const dateTime = new Date(`${form.event_date}T${form.event_time}`).toISOString();
       const { error } = await (supabase as any).from("community_events").insert({

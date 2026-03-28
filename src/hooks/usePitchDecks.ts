@@ -22,7 +22,7 @@ export function usePitchDecks() {
 
   const fetchDecks = useCallback(async () => {
     try {
-      if (!user) return;
+      if (!user?.id) return;
 
       const { data, error } = await supabase
         .from("company_pitch_decks" as any)
@@ -40,13 +40,13 @@ export function usePitchDecks() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => { fetchDecks(); }, [fetchDecks]);
 
   const uploadDeck = useCallback(async (file: File): Promise<PitchDeck | null> => {
     try {
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.id) throw new Error("Not authenticated");
 
       // Upload file to storage
       const filePath = `${user.id}/${Date.now()}-${file.name}`;
@@ -86,7 +86,7 @@ export function usePitchDecks() {
       toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       return null;
     }
-  }, [fetchDecks, user]);
+  }, [fetchDecks, user?.id]);
 
   const makeActive = useCallback(async (deckId: string) => {
     try {

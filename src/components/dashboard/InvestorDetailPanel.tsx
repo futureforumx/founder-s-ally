@@ -158,7 +158,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const heroLogo = liveProfile?.logo_url ?? effectiveInvestor?.logo_url ?? null;
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
-  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? "San Francisco, CA";
+  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
   const heroPartnerCount = liveProfile?.partners?.length ?? (vcPartners.length > 0 ? vcPartners.length : null);
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at ? new Date(liveProfile.last_enriched_at) : enrichedData ? new Date(enrichedData.profile.lastVerified) : null;

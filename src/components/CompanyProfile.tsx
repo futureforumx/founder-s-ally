@@ -14,7 +14,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase, getSupabaseAccessToken } from "@/integrations/supabase/client";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
-import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
 import { Badge } from "@/components/ui/badge";
@@ -52,11 +51,17 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
 
 function extractDomain(url: string): string | null {
-  return normalizeDomain(url) || null;
+  try {
+    let u = url.trim();
+    if (!u) return null;
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    const hostname = new URL(u).hostname.replace(/^www\./, "");
+    return hostname || null;
+  } catch { return null; }
 }
 
 function faviconSrc(domain: string): string {
-  return getFaviconUrl(domain, 64);
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
 }
 
 function cleanDomainToName(domain: string): string {
@@ -230,7 +235,6 @@ interface CompanyProfileProps {
   companySyncing?: boolean;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
-  companyId?: string;
 }
 
 export interface CompanyProfileHandle {
@@ -317,7 +321,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData, companyId }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -372,28 +376,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       img.src = faviconUrl;
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-load favicon when form website is set and favicon hasn't been loaded yet
-  useEffect(() => {
-    // Only auto-load if we don't have a favicon URL yet
-    if (form.website && !faviconUrl) {
-      const domain = extractDomain(form.website);
-      if (domain) {
-        const fav = faviconSrc(domain);
-        setFaviconUrl(fav);
-        setFaviconLoaded(false);
-        // Try to preload it
-        const img = new Image();
-        img.onload = () => setFaviconLoaded(true);
-        img.onerror = () => {
-          // Try fallback favicon service if primary fails
-          setFaviconUrl(`https://www.google.com/s2/favicons?domain=${domain}&sz=32`);
-          setFaviconLoaded(false);
-        };
-        img.src = fav;
-      }
-    }
-  }, [form.website, faviconUrl]); // Watch form.website changes
 
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
@@ -461,7 +443,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [highlightCompetitors, setHighlightCompetitors] = useState(false);
   const [verifiedFields, setVerifiedFields] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("company-verified-fields");
@@ -535,7 +516,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [overviewValidationErrors, setOverviewValidationErrors] = useState<Set<string>>(new Set());
   const validationPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [overviewApproveLabel, setOverviewApproveLabel] = useState<string | null>(null);
-  const [socialLinksMessage, setSocialLinksMessage] = useState<string>("");
 
   // Monthly / Annual toggle
   const [metricPeriod, setMetricPeriod] = useState<"monthly" | "annual">(() => {
@@ -548,7 +528,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Auto-save
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
+    saveTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem("company-profile", JSON.stringify(form));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
@@ -560,31 +540,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-period", metricPeriod);
         localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
-
-        // Sync to Supabase if linked
-        if (companyId) {
-          await supabase.from("company_analyses").update({
-            company_name: form.name,
-            website_url: form.website,
-            stage: form.stage,
-            sector: form.sector,
-            executive_summary: form.description,
-            hq_location: form.hqLocation,
-            competitors: form.competitors,
-            unique_value_prop: form.uniqueValueProp,
-            current_arr: form.currentARR,
-            total_headcount: form.totalHeadcount,
-            social_twitter: form.socialTwitter,
-            social_linkedin: form.socialLinkedin,
-            updated_at: new Date().toISOString()
-          } as any).eq("id", companyId);
-        }
-
         if (form.name) { setSaveIndicator("Live"); }
       } catch {}
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod, sectionConfirmed, companyId]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed]);
 
   // Notify parent of section confirmation changes
   useEffect(() => {
@@ -710,38 +670,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     window.addEventListener("mission-navigate-field", handler);
     return () => window.removeEventListener("mission-navigate-field", handler);
   }, [isInReviewMode]);
-
-  // Check localStorage on mount and scroll to competitors field if needed
-  useEffect(() => {
-    try {
-      const shouldScroll = localStorage.getItem("scroll-to-competitors-on-mount");
-      if (shouldScroll === "true") {
-        // Clear the flag
-        localStorage.removeItem("scroll-to-competitors-on-mount");
-
-        // Open the positioning section
-        setOpenSections(prev => ({ ...prev, positioning: true }));
-
-        // Highlight the competitors field
-        setHighlightCompetitors(true);
-
-        // Scroll to the competitors field with a slight delay to allow DOM to render
-        setTimeout(() => {
-          const element = document.getElementById("competitors-field");
-          if (element) {
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }, 300);
-
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          setHighlightCompetitors(false);
-        }, 2300);
-      }
-    } catch (e) {
-      console.warn("Failed to check scroll-to-competitors flag:", e);
-    }
-  }, []);
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -1395,18 +1323,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           setOverviewApproveLabel(null);
         }, 2000);
         return; // Do NOT approve
-      }
-    }
-
-    // Validation for social links
-    if (section === "social") {
-      const hasSocialLinks = form.socialTwitter || form.socialLinkedin || form.socialInstagram;
-      if (!hasSocialLinks) {
-        setSocialLinksMessage("Social profiles help us scan for competitors, customers, and keep you updated.");
-        return; // Do NOT approve
-      } else {
-        // Clear message when confirming with valid social links
-        setSocialLinksMessage("");
       }
     }
 
@@ -2179,14 +2095,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
 
               {/* Competitors */}
-              <div
-                id="competitors-field"
-                className={`space-y-1.5 scroll-mt-32 transition-all duration-300 rounded-lg p-4 -mx-4 ${
-                  highlightCompetitors
-                    ? "bg-accent/10 border-2 border-accent/50 shadow-lg shadow-accent/20"
-                    : "hover:bg-muted/40"
-                }`}
-              >
+              <div className="space-y-1.5">
                 <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   Direct Competitors {renderFieldBadge("competitors")}
                 </label>
@@ -2558,13 +2467,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         />
                       </div>
                     </div>
-
-                    {/* Social Links Message */}
-                    {socialLinksMessage && (
-                      <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
-                        <p className="text-[11px] text-orange-900">{socialLinksMessage}</p>
-                      </div>
-                    )}
 
                     {/* Approve button */}
                     {analysisComplete && !confirmed && (

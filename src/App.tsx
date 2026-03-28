@@ -27,10 +27,12 @@ const queryClient = new QueryClient({
   },
 });
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(DEMO_MODE);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
@@ -45,6 +47,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   useEffect(() => {
+    if (DEMO_MODE) return;
     if (!user) { setOnboardingChecked(true); return; }
     setOnboardingChecked(false);
     supabase
@@ -75,7 +78,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/auth/sign-in" replace />;
   if (needsOnboarding && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
@@ -95,7 +98,6 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth/*" element={<Auth />} />
-            <Route path="/sso-callback" element={<SsoCallback />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
