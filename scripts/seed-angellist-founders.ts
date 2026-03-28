@@ -18,6 +18,7 @@ import {
   SOURCE_PRIORITY,
   type ProfessionalIngestPayload,
 } from "./lib/startupProfessionalMerge";
+import { enqueueDeadLetter, toErrorMessage, toJsonPayload } from "./lib/deadLetterQueue";
 
 loadDatabaseUrl();
 const prisma = new PrismaClient();
@@ -86,7 +87,13 @@ async function main() {
     try {
       await mergeStartupProfessional(prisma, r);
       ok++;
-    } catch {
+    } catch (e) {
+      await enqueueDeadLetter(prisma, {
+        targetTable: "startup_professionals",
+        failedOperation: "AngelList_Merge",
+        errorMessage: toErrorMessage(e),
+        rawPayload: toJsonPayload(r),
+      });
       err++;
     }
   }

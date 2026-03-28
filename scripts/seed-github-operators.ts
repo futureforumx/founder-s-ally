@@ -18,6 +18,7 @@ import {
   looksLikeVcInvestor,
   type ProfessionalIngestPayload,
 } from "./lib/startupProfessionalMerge";
+import { enqueueDeadLetter, toErrorMessage, toJsonPayload } from "./lib/deadLetterQueue";
 
 const UA = process.env.STARTUP_PROFESSIONALS_UA ?? "VektaStartupProfessionals/1.0 (GitHub public API)";
 
@@ -126,6 +127,12 @@ async function main() {
       ok++;
     } catch (e) {
       console.warn(`[${login}] ${e instanceof Error ? e.message : e}`);
+      await enqueueDeadLetter(prisma, {
+        targetTable: "startup_professionals",
+        failedOperation: "GitHub_Seed",
+        errorMessage: toErrorMessage(e),
+        rawPayload: toJsonPayload({ login }),
+      });
       err++;
     }
     if ((i + 1) % 50 === 0) console.log(`… ${i + 1}/${logins.length} profiles`);

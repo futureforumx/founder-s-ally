@@ -141,6 +141,12 @@ enum InvestmentLifecycleStatus {
   UNKNOWN
 }
 
+enum DeadLetterStatus {
+  PENDING_RETRY    @map("Pending Retry")
+  FAILED_PERMANENT @map("Failed Permanent")
+  RESOLVED         @map("Resolved")
+}
+
 // =============================================================================
 // VCFirm
 // =============================================================================
@@ -206,6 +212,15 @@ model VCFirm {
   network_strength     Int?
   match_score          Int?
 
+  /// Gemini text-embedding-004 (768-dim) of elevator_pitch / thesis.
+  /// Written by the AI enrichment worker; use raw SQL or pg client for vector ops.
+  thesis_embedding Unsupported("vector(768)")?
+
+  /// 1 = mega-fund (slow decay), 2 = mid-size, 3 = micro-fund (fast decay)
+  volatility_score         Int      @default(1)
+  last_verified_at         DateTime @default(now()) @db.Timestamptz(6)
+  next_update_scheduled_at DateTime @default(dbgenerated("(now() + '30 days'::interval)")) @db.Timestamptz(6)
+
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
@@ -227,6 +242,7 @@ model VCFirm {
   @@index([reputation_score])
   @@index([founder_sentiment])
   @@index([industry_reputation])
+  @@index([next_update_scheduled_at])
   @@index([deleted_at])
   @@map("vc_firms")
 }
@@ -234,16 +250,16 @@ model VCFirm {
 /// Maps normalized alternate keys (domains, slugs, legal names, vendor IDs) to the canonical `vc_firms` row.
 /// Store `alias_value` in a consistent normalized form (e.g. lowercase host without `www.`).
 model VCFirmAlias {
-  id         String @id @default(cuid())
-  firm_id    String
-  firm       VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  firm_id String
+  firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
 
   alias_type  VCFirmAliasType
-  alias_value String @db.Text
+  alias_value String          @db.Text
 
   /// Provenance: importer name, "merge", "admin", etc.
   source     String?
-  notes      String?  @db.Text
+  notes      String? @db.Text
   /// Optional match strength for fuzzy / heuristic links (0–1).
   confidence Float?
 
@@ -300,29 +316,31 @@ model VCFund {
   fund_name    String
   fund_number  Int?
   vintage_year Int?
-  open_date    DateTime?
-  close_date   DateTime?
+  open_date    DateTime? @db.Timestamptz(6)
+  close_date   DateTime? @db.Timestamptz(6)
 
-  fund_status FundStatus @default(ACTIVE)
-  fund_type   FundType   @default(TRADITIONAL)
+  status     FundStatus @default(ACTIVE) @map("fund_status")
+  fund_type  FundType   @default(TRADITIONAL)
+  source_url String?
+  confidence Decimal?   @default(0.00) @db.Decimal(3, 2)
 
   size_usd          Float?
   aum_usd           Float?
   committed_capital Float?
   gp_commit_usd     Float?
 
-  management_fee_pct Float?
-  carry_pct          Float?
-  fund_term_years    Int?
+  management_fee_pct    Float?
+  carry_pct             Float?
+  fund_term_years       Int?
   investment_period_yrs Int?
 
-  focus_summary      String? @db.Text
-  thesis_description String? @db.Text
+  focus_summary      String?  @db.Text
+  thesis_description String?  @db.Text
   themes             String[] @default([])
 
   stage_focus     StageFocus[]
   sector_focus    SectorFocus[]
-  geography_focus String[]     @default([])
+  geography_focus String[]      @default([])
 
   prefer_to_lead        Boolean?
   lead_percentage       Float?
@@ -338,8 +356,8 @@ model VCFund {
   avg_check_size_mean   Float?
   avg_check_size_median Float?
 
-  deployment_rate        Float?
-  last_investment_date   DateTime?
+  deployment_rate       Float?
+  last_investment_date  DateTime?
   investments_last_60d  Int?
   investments_last_12m  Int?
   deployed_capital_usd  Float?
@@ -358,7 +376,7 @@ model VCFund {
   reg_d_filings   RegDFiling[]
 
   @@index([firm_id])
-  @@index([fund_status])
+  @@index([status])
   @@index([fund_type])
   @@index([actively_deploying])
   @@index([vintage_year])
@@ -387,11 +405,11 @@ model VCPerson {
   bio            String? @db.Text
   avatar_url     String?
 
-  email       String?
-  phone       String?
-  website_url String?
+  email        String?
+  phone        String?
+  website_url  String?
   linkedin_url String?
-  x_url       String?
+  x_url        String?
 
   city     String?
   state    String?
@@ -479,52 +497,49 @@ model VCRating {
 }
 
 // =============================================================================
+// Startup
+// =============================================================================
+
+model Startup {
+  id                String         @id @default(cuid())
+  company_name      String         @unique
+  company_url       String?
+  sector            SectorFocus?
+  location          String?
+  total_raised_usd  Decimal?       @db.Decimal(15, 2)
+  last_funding_date DateTime?      @db.Date
+  last_verified_at  DateTime       @default(now()) @db.Timestamptz(6)
+  investments       VCInvestment[]
+
+  @@map("startups")
+}
+
+// =============================================================================
 // VCInvestment
 // =============================================================================
 
 model VCInvestment {
-  id      String  @id @default(cuid())
-  firm_id String
-  fund_id String?
-  firm    VCFirm  @relation(fields: [firm_id], references: [id], onDelete: Cascade)
-  fund    VCFund? @relation(fields: [fund_id], references: [id], onDelete: SetNull)
+  id         String  @id @default(cuid())
+  firm_id    String
+  fund_id    String?
+  startup_id String
+  firm       VCFirm  @relation(fields: [firm_id], references: [id], onDelete: Cascade)
+  fund       VCFund? @relation(fields: [fund_id], references: [id], onDelete: SetNull)
+  startup    Startup @relation(fields: [startup_id], references: [id], onDelete: Cascade)
 
-  company_name String
-  company_url  String?
+  round_type      StageFocus?
+  check_size_usd  Decimal?    @db.Decimal(15, 2)
+  led_round       Boolean     @default(false)
+  investment_date DateTime?   @db.Timestamptz(6)
+  source_url      String?
+  confidence      Decimal?    @default(0.00) @db.Decimal(3, 2)
 
-  sector              SectorFocus?
-  stage_at_investment StageFocus?
-  location            String?
-
-  investment_date DateTime?
-  check_size_usd  Float?
-
-  round_type          String?
-  ownership_pct       Float?
-  entry_valuation_usd Float?
-
-  pro_rata_participation Boolean?
-  follow_on_support      Boolean?
-
-  outcome_status   String?
-  exit_type        ExitType?
-  exit_date        DateTime?
-  current_status   InvestmentLifecycleStatus?
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  deleted_at DateTime?
-
+  @@unique([firm_id, startup_id, round_type])
   @@index([firm_id])
   @@index([fund_id])
-  @@index([sector])
-  @@index([stage_at_investment])
+  @@index([startup_id])
   @@index([investment_date])
   @@index([check_size_usd])
-  @@index([location])
-  @@index([current_status])
-  @@index([exit_type])
-  @@index([deleted_at])
   @@map("vc_investments")
 }
 
@@ -544,8 +559,8 @@ model VCSourceLink {
   last_verified_at DateTime?
   confidence_score Int?
 
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
   @@index([firm_id])
@@ -571,15 +586,15 @@ model VCSignal {
 
   title       String
   url         String?
-  description String? @db.Text
+  description String?   @db.Text
   signal_date DateTime?
 
   source_type       SourceType?
   source_confidence Int?
   metadata          Json?
 
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
   @@index([firm_id])
@@ -616,12 +631,12 @@ model VCScoreSnapshot {
   network_strength     Int @default(0)
   active_deployment    Int @default(0)
 
-  explanation   String? @db.Text
+  explanation   String?  @db.Text
   model_version String?
   computed_at   DateTime @default(now())
 
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
   @@index([firm_id])
@@ -639,33 +654,33 @@ model VCScoreSnapshot {
 // =============================================================================
 
 model StartupProfessional {
-  id             String @id @default(uuid())
-  firstName      String @map("first_name")
-  lastName       String @map("last_name")
-  fullName       String @map("full_name")
-  linkedin       String? @unique
-  email          String?
-  title          String
-  currentRole    String @map("current_role")
-  currentStartup String @map("current_startup")
-  prevStartups   String[] @default([]) @map("prev_startups")
-  ycBatch        String? @map("yc_batch")
-  phMaker        Boolean @default(false) @map("ph_maker")
+  id              String    @id @default(uuid())
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  fullName        String    @map("full_name")
+  linkedin        String?   @unique
+  email           String?
+  title           String
+  currentRole     String    @map("current_role")
+  currentStartup  String    @map("current_startup")
+  prevStartups    String[]  @default([]) @map("prev_startups")
+  ycBatch         String?   @map("yc_batch")
+  phMaker         Boolean   @default(false) @map("ph_maker")
   /// Posts shipped as maker (for “2+ launches” style filters)
-  phLaunchCount  Int     @default(0) @map("ph_launch_count")
-  githubHandle   String? @map("github_handle")
-  githubStars    Int     @default(0) @map("github_stars")
-  angelListId    String? @map("angel_list_id")
-  followers      Int     @default(0)
-  location       String?
+  phLaunchCount   Int       @default(0) @map("ph_launch_count")
+  githubHandle    String?   @map("github_handle")
+  githubStars     Int       @default(0) @map("github_stars")
+  angelListId     String?   @map("angel_list_id")
+  followers       Int       @default(0)
+  location        String?
   /// Last writer source label for this ingest (audit log has full history)
-  source         String
+  source          String
   /// Max sourcePriority applied to this row (trust / merge precedence)
-  sourcePriority Int     @default(0) @map("source_priority")
-  lastSeenAt     DateTime? @map("last_seen_at")
+  sourcePriority  Int       @default(0) @map("source_priority")
+  lastSeenAt      DateTime? @map("last_seen_at")
   sourceUpdatedAt DateTime? @map("source_updated_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   changeLogs StartupProfessionalChangeLog[]
 
@@ -699,4 +714,27 @@ model StartupProfessionalChangeLog {
   @@index([startupProfessionalId])
   @@index([createdAt])
   @@map("startup_professional_changelogs")
+}
+
+/// Dead-letter queue for failed ingest / enrichment operations.
+/// Stores raw payloads so failed writes can be retried or resolved manually.
+model DeadLetterQueue {
+  id String @id @default(uuid()) @db.Uuid
+
+  target_table String
+  target_id    String?
+
+  failed_operation String
+  error_message    String? @db.Text
+  raw_payload      Json?
+
+  retry_count Int              @default(0)
+  status      DeadLetterStatus @default(PENDING_RETRY)
+
+  failed_at   DateTime  @default(now()) @db.Timestamptz(6)
+  resolved_at DateTime? @db.Timestamptz(6)
+
+  @@index([status, failed_at])
+  @@index([target_table, target_id])
+  @@map("dead_letter_queue")
 }
