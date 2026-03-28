@@ -1,9 +1,13 @@
 import * as Sentry from "@sentry/react";
 import { ClerkProvider } from "@clerk/clerk-react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
+import { initMixpanel } from "@/lib/mixpanel";
+
+initMixpanel();
 
 Sentry.init({
   dsn: "https://158b3b03e9e65de9964dad4502ae581b@o4511090895749120.ingest.us.sentry.io/4511090900008960",
@@ -14,6 +18,7 @@ Sentry.init({
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 const clerkKey = readClerkPublishableKey();
+const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
 
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
@@ -108,22 +113,9 @@ const inner = sentryEnabled ? (
     {appTree}
   </Sentry.ErrorBoundary>
 ) : (
-  <ClerkProvider publishableKey={clerkKey}>
-    <App />
-  </ClerkProvider>
+  appTree
 );
 
 createRoot(document.getElementById("root")!).render(
-  <Sentry.ErrorBoundary
-    fallback={({ error }) => (
-      <div style={{ padding: "24px", fontFamily: "monospace" }}>
-        <p style={{ fontWeight: "bold", color: "#111" }}>An error has occurred</p>
-        <pre style={{ whiteSpace: "pre-wrap", color: "#b00", fontSize: "13px", marginTop: "8px" }}>
-          {error instanceof Error ? error.name + ": " + error.message + "\n\n" + (error.stack ?? "") : String(error)}
-        </pre>
-      </div>
-    )}
-  >
-    {appTree}
-  </Sentry.ErrorBoundary>
+  <RootErrorBoundary>{inner}</RootErrorBoundary>
 );

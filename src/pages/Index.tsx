@@ -27,7 +27,6 @@ import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEd
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
-import { useCapTable } from "@/hooks/useCapTable";
 
 type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 

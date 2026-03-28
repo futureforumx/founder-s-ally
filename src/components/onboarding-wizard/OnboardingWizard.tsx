@@ -13,6 +13,7 @@ import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
 
 export function OnboardingWizard() {
   const { state, update, reset } = useOnboardingState();
@@ -208,6 +209,11 @@ export function OnboardingWizard() {
       } catch {}
 
       toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
+      trackMixpanelEvent("Conversion", {
+        "Conversion Type": "onboarding_complete",
+        "Conversion Value": 0,
+        user_id: user.id,
+      });
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
       navigate("/");
