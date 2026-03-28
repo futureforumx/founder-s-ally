@@ -11,6 +11,21 @@ export type EnsureWorkspaceResult =
 
 const sb = supabase as any;
 
+/** Append setup hints when PostgREST denies inserts/updates due to RLS (common in local dev without Clerk↔Supabase JWT). */
+function withPostgrestRlsHint(message: string | undefined, code?: string): string {
+  const msg = message || "Unknown error";
+  const lowered = msg.toLowerCase();
+  if (
+    code === "42501" ||
+    lowered.includes("row-level security") ||
+    lowered.includes("rls policy") ||
+    lowered.includes("violates row-level security")
+  ) {
+    return `${msg} — Fix: Clerk Dashboard → JWT Templates → name exactly "supabase" (e.g. sub: {{user.id}}), then Supabase → Authentication → Third-party auth → Clerk. Or deploy create-company-workspace and set function secrets so the app uses the service-role path. See .env.example.`;
+  }
+  return msg;
+}
+
 /**
  * Ensures the user has a company_analyses row + company_members(manager) row.
  * Prefers the create-company-workspace edge function (service role — avoids RLS/client JWT issues).
@@ -94,7 +109,7 @@ export async function ensureCompanyWorkspace(
   if (own?.id) {
     const mem = await ensureManagerMembership(sb, userId, own.id);
     if (!mem.ok) {
-      return { ok: false, error: mem.error };
+      return { ok: false, error: withPostgrestRlsHint(mem.error) };
     }
 
     await sb.from("profiles").update({ company_id: own.id }).eq("user_id", userId);
@@ -115,13 +130,13 @@ export async function ensureCompanyWorkspace(
   } as any);
 
   if (compError) {
-    return { ok: false, error: compError.message };
+    return { ok: false, error: withPostgrestRlsHint(compError.message, compError.code) };
   }
 
   const mem = await ensureManagerMembership(sb, userId, newCompId);
   if (!mem.ok) {
     await supabase.from("company_analyses").delete().eq("id", newCompId);
-    return { ok: false, error: mem.error };
+    return { ok: false, error: withPostgrestRlsHint(mem.error) };
   }
 
   await sb.from("profiles").update({ company_id: newCompId }).eq("user_id", userId);
