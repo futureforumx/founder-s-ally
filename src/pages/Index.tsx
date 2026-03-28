@@ -333,7 +333,7 @@ const Index = () => {
           } catch { return null; }
         })();
         if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
