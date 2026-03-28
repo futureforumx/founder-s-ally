@@ -33,6 +33,7 @@ type FileRow = {
   location?: string;
   followers?: number;
   prevStartups?: string[];
+  sourceUpdatedAt?: string;
 };
 
 function toRow(r: FileRow): ProfessionalIngestPayload {
@@ -52,6 +53,7 @@ function toRow(r: FileRow): ProfessionalIngestPayload {
     followers: r.followers ?? 0,
     source: "angellist",
     sourcePriority: SOURCE_PRIORITY.angellist,
+    sourceUpdatedAt: r.sourceUpdatedAt ? new Date(r.sourceUpdatedAt) : undefined,
   };
 }
 
