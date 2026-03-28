@@ -114,7 +114,18 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 }
 
 const inner = sentryEnabled ? (
-  <Sentry.ErrorBoundary fallback={<p>An error has occurred</p>}>{appTree}</Sentry.ErrorBoundary>
+  <Sentry.ErrorBoundary
+    fallback={({ error }) => (
+      <div style={{ padding: "24px", fontFamily: "monospace", background: "#fafafa", minHeight: "100vh" }}>
+        <p style={{ fontWeight: "bold", color: "#111" }}>An error has occurred</p>
+        <pre style={{ whiteSpace: "pre-wrap", color: "#b00", fontSize: "13px", marginTop: "8px", background: "#fff", padding: "12px", borderRadius: "6px", border: "1px solid #eee" }}>
+          {error instanceof Error ? `${error.name}: ${error.message}\n\n${error.stack ?? ""}` : String(error)}
+        </pre>
+      </div>
+    )}
+  >
+    {appTree}
+  </Sentry.ErrorBoundary>
 ) : (
   appTree
 );
