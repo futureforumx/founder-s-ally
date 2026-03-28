@@ -141,7 +141,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
       user: isSignedIn && user ? user : null,
       session: isSignedIn ? session : null,
       loading: !isLoaded,
-      signOut: () => signOut({ redirectUrl: "/auth/sign-in" }),
+      signOut: () => signOut({ redirectUrl: "/auth" }),
     }),
     [isLoaded, isSignedIn, user, session, signOut]
   );
