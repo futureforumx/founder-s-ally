@@ -9,6 +9,7 @@
  *   YC_COMPANIES_JSON_PATH — { "companies": [ { "name", "batch"?, "founders": ["Jane Doe"], "location"? } ] }
  *
  * Throttle: YC_REQUEST_MS_DELAY (default 150), YC_MAX_SLUGS (optional cap), YC_FETCH_CONCURRENCY (default 6).
+ * Merge: PROFESSIONALS_MERGE_LOG_EVERY=250 (0 = quiet), PROFESSIONALS_AUDIT_LOG=0 to skip changelogs on bulk re-runs.
  */
 
 import { execFileSync } from "node:child_process";
@@ -195,11 +196,16 @@ async function poolMap<T, R>(items: T[], concurrency: number, fn: (item: T, i: n
 async function mergeRows(rows: ProfessionalIngestPayload[]): Promise<{ upserted: number; errors: number }> {
   let upserted = 0;
   let errors = 0;
-  for (const row of rows) {
+  let firstErr: string | null = null;
+  const logEvery = Math.max(0, Number(process.env.PROFESSIONALS_MERGE_LOG_EVERY ?? "250") || 250);
+  const n = rows.length;
+  for (let i = 0; i < n; i++) {
+    const row = rows[i]!;
     try {
       await mergeStartupProfessional(prisma, row);
       upserted++;
     } catch (e) {
+      if (!firstErr) firstErr = toErrorMessage(e);
       await enqueueDeadLetter(prisma, {
         targetTable: "startup_professionals",
         failedOperation: "StartupProfessional_Merge",
@@ -208,7 +214,12 @@ async function mergeRows(rows: ProfessionalIngestPayload[]): Promise<{ upserted:
       });
       errors++;
     }
+    const at = i + 1;
+    if (logEvery > 0 && (at % logEvery === 0 || at === n)) {
+      console.log(`… merge ${at}/${n} (${upserted} ok, ${errors} err)`);
+    }
   }
+  if (errors > 0 && firstErr) console.warn(`[merge] first error (${errors} total): ${firstErr}`);
   return { upserted, errors };
 }
 
