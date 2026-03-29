@@ -375,36 +375,41 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "group relative overflow-hidden rounded-2xl p-4 min-w-[104px]",
+                "group relative overflow-hidden rounded-2xl px-4 py-2.5 min-w-[104px]",
                 "flex flex-col items-start gap-0",
-                "transition-all duration-200 select-none cursor-pointer",
+                "backdrop-blur-md border transition-all duration-200 select-none cursor-pointer",
                 isActive
-                  ? `${colors.activeTintBg} ${colors.activeBorder} border`
-                  : "bg-muted/40 hover:bg-muted/60 hover:-translate-y-0.5",
+                  ? `${colors.activeTintBg} ${colors.activeBorder}`
+                  : "bg-white/[0.06] dark:bg-white/[0.04] border-white/[0.12] hover:bg-white/[0.10] hover:border-white/[0.18] hover:-translate-y-0.5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]",
               ].join(" ")}
             >
+              {/* Glass inner highlight */}
+              {!isActive && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              )}
+
               {/* Label */}
-              <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 leading-none mb-1.5">
+              <span className="text-[10px] tracking-wide font-medium text-muted-foreground/60 leading-none mb-1.5">
                 {tile.shortLabel}
               </span>
 
               {/* Score + glow */}
               <div className="relative mb-1">
-                <span className={["text-4xl font-semibold leading-none tabular-nums", colors.valueCls].join(" ")}>
+                <span className={["text-[28px] font-semibold leading-none tabular-nums", colors.valueCls].join(" ")}>
                   {tile.value}
                 </span>
-                <div className={["absolute inset-0 blur-xl opacity-20 rounded-full", colors.barCls].join(" ")} />
+                <div className={["absolute inset-0 blur-2xl opacity-30 rounded-full scale-150", colors.barCls].join(" ")} />
               </div>
 
               {/* Caption */}
-              <span className="text-[11px] text-muted-foreground/60 leading-none">
+              <span className="text-[11px] text-muted-foreground/50 leading-none">
                 {caption}
               </span>
 
               {/* Progress bar */}
-              <div className="mt-3 h-1 w-full rounded-full bg-muted/60">
+              <div className="mt-2 h-[3px] w-full rounded-full bg-white/10">
                 <motion.div
-                  className={`h-1 rounded-full ${colors.barCls}`}
+                  className={`h-[3px] rounded-full ${colors.barCls} opacity-70`}
                   initial={{ width: 0 }}
                   animate={{ width: `${tile.value}%` }}
                   transition={{ duration: 0.5, ease: "easeOut" }}
@@ -412,8 +417,8 @@ export function ScoreTilesRow({
               </div>
 
               {/* Shimmer line */}
-              <div className={["absolute bottom-0 left-0 h-[2px] w-full overflow-hidden", colors.barCls + "/20"].join(" ")}>
-                <div className={["h-full w-1/3 animate-shimmer", colors.barCls + "/60"].join(" ")} />
+              <div className={["absolute bottom-0 left-0 h-[2px] w-full overflow-hidden", colors.barCls + "/15"].join(" ")}>
+                <div className={["h-full w-1/3 animate-shimmer", colors.barCls + "/50"].join(" ")} />
               </div>
             </button>
           );
