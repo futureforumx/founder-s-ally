@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
+type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -118,6 +118,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   "market-tech": { section: "Market Intelligence", label: "Tech" },
   "market-network": { section: "Market Intelligence", label: "Network" },
   "data-room": { section: "Data Room", label: "Deck Audit" },
+  resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
 };
 

@@ -313,13 +313,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         </>
                       )}
                     </div>
-                    {/* Match Score – spans both rows */}
-                    <MatchScoreDropdown
-                      matchScore={matchScore}
-                      firmName={heroName}
-                      companyContext={companyData}
-                      investorContext={investorContext}
-                    />
                   </div>
 
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
