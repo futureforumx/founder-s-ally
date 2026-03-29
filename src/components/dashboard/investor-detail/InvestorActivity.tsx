@@ -325,44 +325,48 @@ function RichPostCard({ card }: { card: UpdateCard }) {
 
   return (
     <Card className="overflow-hidden border-border/80 shadow-sm border-l-[3px] border-l-accent/90 bg-card/95">
-      {card.image_url && (
-        <div className="h-36 overflow-hidden bg-secondary/40">
-          <img
-            src={card.image_url}
-            alt={card.title}
-            className="h-full w-full object-cover"
-            onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = "none"; }}
-          />
-        </div>
-      )}
       <CardContent className="p-4 space-y-3">
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-semibold flex items-center gap-0.5", typeConf.badgeClass)}>
-            <TypeIcon className="h-2.5 w-2.5" />
-            {card.type}
-          </Badge>
-          {/* Impact dot */}
-          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", impact.dotClass)} title={impact.label} />
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Calendar className="h-3 w-3 opacity-70" />
-            {card.display_date}
-          </span>
-          <span className="text-border">·</span>
-          <span className="text-[10px] font-medium text-foreground/70">{card.display_source}</span>
-          <span className="text-border">·</span>
-          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" />
-            {card.estimated_read_time_minutes} min
-          </span>
-        </div>
-
-        {/* Title + subtitle */}
-        <div>
-          <h4 className="text-base font-semibold text-foreground leading-snug tracking-tight">{card.title}</h4>
-          {card.subtitle && (
-            <p className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">{card.subtitle}</p>
+        <div className="flex gap-3">
+          {card.image_url && (
+            <div className="shrink-0 h-14 w-14 overflow-hidden rounded-lg bg-secondary/40 mt-0.5">
+              <img
+                src={card.image_url}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = "none"; }}
+              />
+            </div>
           )}
+          <div className="flex-1 min-w-0 space-y-2">
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-semibold flex items-center gap-0.5", typeConf.badgeClass)}>
+                <TypeIcon className="h-2.5 w-2.5" />
+                {card.type}
+              </Badge>
+              {/* Impact dot */}
+              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", impact.dotClass)} title={impact.label} />
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3 opacity-70" />
+                {card.display_date}
+              </span>
+              <span className="text-border">·</span>
+              <span className="text-[10px] font-medium text-foreground/70">{card.display_source}</span>
+              <span className="text-border">·</span>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <Clock className="h-2.5 w-2.5" />
+                {card.estimated_read_time_minutes} min
+              </span>
+            </div>
+
+            {/* Title + subtitle */}
+            <div>
+              <h4 className="text-base font-semibold text-foreground leading-snug tracking-tight">{card.title}</h4>
+              {card.subtitle && (
+                <p className="mt-1 text-sm text-muted-foreground leading-relaxed line-clamp-2">{card.subtitle}</p>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Why it matters */}
@@ -421,9 +425,20 @@ function CompactCard({ card }: { card: UpdateCard }) {
         hasLink && "cursor-pointer hover:bg-card/80 no-underline",
       )}
     >
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60">
-        <TypeIcon className="h-3 w-3 text-muted-foreground/75" />
-      </div>
+      {card.image_url ? (
+        <div className="mt-0.5 shrink-0 h-10 w-10 overflow-hidden rounded-lg bg-secondary/40">
+          <img
+            src={card.image_url}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = "none"; }}
+          />
+        </div>
+      ) : (
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60">
+          <TypeIcon className="h-3 w-3 text-muted-foreground/75" />
+        </div>
+      )}
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className={cn("px-1.5 py-0 text-[9px] font-normal uppercase tracking-[0.12em]", typeConf.badgeClass)}>
@@ -458,17 +473,7 @@ function CompactCard({ card }: { card: UpdateCard }) {
           </div>
         )}
       </div>
-      {card.image_url && (
-        <div className="shrink-0 h-[60px] w-[60px] overflow-hidden rounded-lg bg-secondary/40">
-          <img
-            src={card.image_url}
-            alt=""
-            className="h-full w-full object-cover"
-            onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = "none"; }}
-          />
-        </div>
-      )}
-      {hasLink && !card.image_url && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 mt-1" />}
+      {hasLink && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 mt-1" />}
     </Row>
   );
 }
