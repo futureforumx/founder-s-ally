@@ -264,6 +264,8 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
       ? new Date(enrichedData.profile.lastVerified)
       : null;
 
+  const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
+
   const metaFacts = [
     { label: "AUM", value: heroAum },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
@@ -299,76 +301,122 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
               {/* Header */}
-              <div className="flex flex-col gap-4 px-8 pt-6 pb-6 border-b border-border shrink-0">
-                {/* Top Row: Identity & Actions */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4 min-w-0">
+              <div className="shrink-0 border-b border-border/40">
+                {/* Identity + Actions row */}
+                <div className="flex items-start justify-between gap-8 px-8 pt-6 pb-5">
+
+                  {/* Left: Identity block */}
+                  <div className="flex items-start gap-3.5 min-w-0">
                     {liveLoading ? (
-                      <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
+                      <Skeleton className="h-11 w-11 rounded-xl shrink-0 mt-0.5" />
                     ) : (
                       <FirmLogo
                         firmName={heroName}
                         logoUrl={heroLogo}
                         websiteUrl={liveProfile?.website_url ?? null}
                         size="lg"
-                        className="h-16 w-16"
+                        className="h-11 w-11 shrink-0 mt-0.5 ring-1 ring-border/20"
                       />
                     )}
                     <div className="min-w-0 flex-1">
                       {liveLoading ? (
                         <>
-                          <Skeleton className="h-7 w-48 rounded-lg mb-2" />
-                          <Skeleton className="h-4 w-64 rounded-md" />
+                          <Skeleton className="h-[26px] w-44 rounded mb-1.5" />
+                          <Skeleton className="h-3.5 w-60 rounded mb-3" />
+                          <div className="flex gap-3">
+                            <Skeleton className="h-3.5 w-14 rounded" />
+                            <Skeleton className="h-3.5 w-10 rounded" />
+                            <Skeleton className="h-3.5 w-20 rounded" />
+                          </div>
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2.5">
-                            <h2 className="text-2xl font-bold text-foreground truncate">{heroName}</h2>
-                            <CheckCircle2 className="h-5 w-5 shrink-0 text-accent fill-accent/20" />
+                          {/* Name + verified */}
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <h2 className="text-[21px] font-semibold tracking-[-0.4px] text-foreground truncate leading-tight">
+                              {heroName}
+                            </h2>
+                            <CheckCircle2 className="h-[15px] w-[15px] shrink-0 text-accent fill-accent/15 mb-0.5" />
                           </div>
-                          {/* Meta Details Row */}
-                          <div className="flex items-center gap-x-2.5 mt-1.5 text-xs text-muted-foreground">
-                            <Landmark className="w-3 h-3 text-muted-foreground/50" />
-                            <span className="font-semibold text-foreground">{metaFacts[0].value}</span>
-                            <span className="text-border">·</span>
-                            <Users className="w-3 h-3 text-muted-foreground/50" />
-                            <span className="font-semibold text-foreground">{heroPartnerCount ?? "45"}</span>
-                            <span className="text-border">·</span>
-                            <MapPin className="w-3 h-3 text-muted-foreground/50" />
-                            <span className="font-semibold text-foreground">{heroLocation}</span>
+
+                          {/* Tagline */}
+                          {heroTagline && (
+                            <p className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 truncate max-w-sm">
+                              {heroTagline}
+                            </p>
+                          )}
+
+                          {/* Meta — inline dots, no pill background */}
+                          <div className={cn("flex items-center gap-2 text-[11.5px]", !heroTagline && "mt-2")}>
+                            {heroAum && (
+                              <span className="flex items-center gap-1 text-foreground/70">
+                                <Landmark className="w-[11px] h-[11px] opacity-40 shrink-0" />
+                                <span className="font-medium">{heroAum}</span>
+                              </span>
+                            )}
+                            {heroAum && (heroPartnerCount != null || heroLocation) && (
+                              <span className="text-border/50 select-none">·</span>
+                            )}
+                            {heroPartnerCount != null && (
+                              <span className="flex items-center gap-1 text-foreground/70">
+                                <Users className="w-[11px] h-[11px] opacity-40 shrink-0" />
+                                <span className="font-medium">{heroPartnerCount} partners</span>
+                              </span>
+                            )}
+                            {heroPartnerCount != null && heroLocation && (
+                              <span className="text-border/50 select-none">·</span>
+                            )}
+                            {heroLocation && (
+                              <span className="flex items-center gap-1 text-foreground/70">
+                                <MapPin className="w-[11px] h-[11px] opacity-40 shrink-0" />
+                                <span className="font-medium">{heroLocation}</span>
+                              </span>
+                            )}
                           </div>
                         </>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
-                          myFirmRateDisplay
-                            ? myFirmRateDisplay.className
-                            : "border-2 border-warning/30 text-warning hover:bg-warning/5",
-                        )}
-                        aria-label={
-                          myFirmRateDisplay
-                            ? `Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to update.`
-                            : "Rate this firm"
-                        }
-                      >
-                        <Star className="h-4 w-4 shrink-0" /> {myFirmRateDisplay?.label ?? "Rate"}
+                  {/* Right: Actions */}
+                  <div className="flex flex-col items-end gap-2.5 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      {/* Rate */}
+                      {myFirmRateDisplay ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                          className={cn(
+                            "inline-flex flex-col items-center justify-center rounded-xl px-3 py-1.5 leading-none transition-colors",
+                            myFirmRateDisplay.className,
+                          )}
+                          aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to update.`}
+                        >
+                          <span className="text-[9px] font-semibold opacity-50 mb-0.5 uppercase tracking-widest">Your rating</span>
+                          <span className="text-[13px] font-bold">{myFirmRateDisplay.label}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-[9px] text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                          aria-label="Rate this firm"
+                        >
+                          <Star className="h-3.5 w-3.5 shrink-0" />
+                          Rate
+                        </button>
+                      )}
+                      {/* Track — primary */}
+                      <button className="inline-flex items-center gap-1.5 rounded-xl bg-foreground text-background px-4 py-[9px] text-[13px] font-semibold hover:bg-foreground/90 transition-colors shadow-sm">
+                        <BookmarkPlus className="h-3.5 w-3.5 shrink-0" />
+                        Track
                       </button>
-                      <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
-                        <BookmarkPlus className="h-4 w-4" /> Track
-                      </button>
+                      {/* Close */}
                       <button
                         onClick={handleClose}
-                        className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary/60 transition-colors ml-1"
+                        className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-muted-foreground/50 hover:text-foreground hover:bg-secondary/60 transition-colors ml-0.5"
                       >
-                        <X className="h-4 w-4 text-muted-foreground" />
+                        <X className="h-[14px] w-[14px]" />
                       </button>
                     </div>
                     <DataProvenanceBadge
@@ -378,13 +426,15 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   </div>
                 </div>
 
-                {/* Score tiles row — directly under AUM/location */}
-                <ScoreTilesRow
-                  matchScore={matchScore}
-                  firmName={heroName}
-                  companyContext={companyData}
-                  investorContext={investorContext}
-                />
+                {/* Score strip */}
+                <div className="px-8 pb-5">
+                  <ScoreTilesRow
+                    matchScore={matchScore}
+                    firmName={heroName}
+                    companyContext={companyData}
+                    investorContext={investorContext}
+                  />
+                </div>
               </div>
 
               {/* Body */}
