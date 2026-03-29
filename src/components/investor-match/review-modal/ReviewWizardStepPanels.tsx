@@ -24,6 +24,13 @@ import {
   OverallInteractionScale,
 } from "@/components/investor-match/review-modal/ReviewWizardParts";
 // Imports removed for unused functions (replaced with direct logic)
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -76,6 +83,13 @@ function RelationshipOriginOtherField({
   );
 }
 
+const REMEMBER_WHO_LEVEL_OPTIONS = [
+  "Associate",
+  "Principal",
+  "General Partner",
+  "Managing Partner",
+] as const;
+
 const RELATIONSHIP_ORIGIN_ICONS: Record<string, LucideIcon> = {
   "Warm intro": Handshake,
   "Cold inbound": Inbox,
@@ -99,7 +113,10 @@ function RelationshipOriginSelect({
 }) {
   return (
     <div
-      className={cn("flex flex-wrap", compact ? "gap-1.5" : "gap-2")}
+      className={cn(
+        "grid w-full grid-cols-4",
+        compact ? "gap-1.5" : "gap-2",
+      )}
       role="listbox"
       aria-label="Relationship origin"
     >
@@ -112,12 +129,13 @@ function RelationshipOriginSelect({
             type="button"
             role="option"
             aria-selected={selected}
+            title={opt}
             onClick={() => onChange(opt)}
             className={cn(
-              "inline-flex items-center rounded-full border font-medium transition-all duration-150",
+              "flex min-h-0 min-w-0 w-full flex-col items-center justify-center rounded-xl border text-center font-medium transition-all duration-150",
               compact
-                ? "gap-1.5 px-2 py-1 text-[11px] leading-tight"
-                : "gap-2 px-2.5 py-1.5 text-xs",
+                ? "gap-0.5 px-1 py-1.5 text-[9px] leading-tight sm:text-[10px]"
+                : "gap-1 px-1.5 py-2 text-[10px] leading-tight sm:px-2 sm:py-2 sm:text-[11px]",
               reviewWizardChipFocus,
               selected ? reviewWizardChipSelected : reviewWizardChipIdle,
             )}
@@ -128,7 +146,7 @@ function RelationshipOriginSelect({
                 aria-hidden
               />
             ) : null}
-            <span>{opt}</span>
+            <span className="max-w-full [text-wrap:balance]">{opt}</span>
           </button>
         );
       })}
@@ -534,31 +552,93 @@ function TagSelector({
   );
 }
 
+export type RememberWhoChipOption = { name: string; vcPersonId?: string };
+
+function RememberWhoInputBlock({
+  rememberWho,
+  setRememberWho,
+  rememberWhoChips,
+  applyRememberWhoChip,
+  onRememberWhoRoleFallback,
+}: {
+  rememberWho: string;
+  setRememberWho: (v: string) => void;
+  rememberWhoChips: RememberWhoChipOption[];
+  applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
+  onRememberWhoRoleFallback?: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <p className="text-xs font-bold text-foreground leading-none">Remember who?</p>
+        <span className="text-[10px] font-medium text-muted-foreground leading-none">Optional</span>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        <Input
+          value={rememberWho}
+          onChange={(e) => setRememberWho(e.target.value)}
+          placeholder="Partner, associate, or contact name"
+          className="h-9 min-w-0 flex-1 text-sm"
+          maxLength={200}
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 whitespace-nowrap px-3 text-xs font-medium sm:h-auto"
+            >
+              don&apos;t remember?
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-[400] w-56">
+            <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">I met with a:</p>
+            {REMEMBER_WHO_LEVEL_OPTIONS.map((level) => (
+              <DropdownMenuItem
+                key={level}
+                className="text-sm"
+                onSelect={() => {
+                  setRememberWho(`I met with a: ${level}`);
+                  onRememberWhoRoleFallback?.();
+                }}
+              >
+                {level}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <RememberWhoSmartChips chips={rememberWhoChips} onPick={applyRememberWhoChip} />
+    </div>
+  );
+}
+
 function RememberWhoSmartChips({
-  names,
+  chips,
   onPick,
 }: {
-  names: string[];
-  onPick: (name: string) => void;
+  chips: RememberWhoChipOption[];
+  onPick: (name: string, vcPersonId?: string) => void;
 }) {
-  if (names.length === 0) return null;
+  if (chips.length === 0) return null;
   return (
     <div className="mt-2 space-y-1.5">
-      <p className="text-[10px] font-medium text-muted-foreground">Popular investors</p>
+      <p className="text-[10px] font-medium text-muted-foreground">People at this firm</p>
       <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 sm:gap-1.5">
-        {names.map((name) => (
+        {chips.map((chip) => (
           <button
-            key={name}
+            key={chip.vcPersonId ?? chip.name}
             type="button"
-            title={name}
-            onClick={() => onPick(name)}
+            title={chip.name}
+            onClick={() => onPick(chip.name, chip.vcPersonId)}
             className={cn(
               "shrink-0 rounded-lg border border-dashed px-2.5 py-1.5 text-[10px] font-medium transition-colors",
               "border-muted-foreground/40 bg-transparent text-muted-foreground",
               "hover:border-primary/35 hover:bg-primary/5 hover:text-foreground",
             )}
           >
-            {name}
+            {chip.name}
           </button>
         ))}
       </div>
@@ -590,18 +670,33 @@ export function ReviewWizardLinkedStep2({
   formConfig,
   answers,
   setAnswer,
+  rememberWho,
+  setRememberWho,
+  rememberWhoChips,
+  applyRememberWhoChip,
+  onRememberWhoRoleFallback,
 }: {
   formConfig: ReviewFormConfig;
   answers: Record<string, string | string[]>;
   setAnswer: (id: string, value: string | string[]) => void;
+  rememberWho: string;
+  setRememberWho: (v: string) => void;
+  rememberWhoChips: RememberWhoChipOption[];
+  applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
+  onRememberWhoRoleFallback?: () => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-6">
+      <RememberWhoInputBlock
+        rememberWho={rememberWho}
+        setRememberWho={setRememberWho}
+        rememberWhoChips={rememberWhoChips}
+        applyRememberWhoChip={applyRememberWhoChip}
+        onRememberWhoRoleFallback={onRememberWhoRoleFallback}
+      />
       {formConfig.questions
         .filter((q) => q.id === "standout_tags")
-        .map((q) =>
-          renderNonTextQuestion(q, 1, answers, setAnswer, { compact: true }),
-        )}
+        .map((q) => renderNonTextQuestion(q, 1, answers, setAnswer))}
     </div>
   );
 }
@@ -629,7 +724,7 @@ export function ReviewWizardUnlinkedStep1({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:space-y-10">
       <section className="space-y-3">
         <p className="text-sm font-bold leading-snug text-foreground">
           <span className="text-muted-foreground">1.</span> How was your experience with {name}?
@@ -713,16 +808,15 @@ export function ReviewWizardUnlinkedStep3({
   const stepQuestions = unlinkedContextQuestions(formConfig, answers);
 
   return (
-    <div className="space-y-1.5 sm:space-y-2">
-      <section className="space-y-1.5 sm:space-y-2">
-        <p className="text-xs font-bold leading-tight text-foreground sm:text-sm sm:leading-snug">
+    <div className="space-y-6">
+      <section className="space-y-6">
+        <p className="text-sm font-bold leading-snug text-foreground">
           <span className="text-muted-foreground">2.</span> Characterize your interaction.
         </p>
-        <div className="flex flex-col gap-1.5 sm:gap-2">
+        <div className="flex flex-col gap-5 sm:gap-6">
           {stepQuestions.map((q, i) =>
             renderNonTextQuestion(q, i + 1, answers, setAnswer, {
               showQuestionNumber: false,
-              compact: true,
             }),
           )}
         </div>
@@ -738,8 +832,9 @@ export function ReviewWizardUnlinkedStep4({
   setSelectedTags,
   rememberWho,
   setRememberWho,
-  rememberWhoChipNames,
+  rememberWhoChips,
   applyRememberWhoChip,
+  onRememberWhoRoleFallback,
 }: {
   formConfig: ReviewFormConfig;
   answers: Record<string, string | string[]>;
@@ -747,32 +842,23 @@ export function ReviewWizardUnlinkedStep4({
   setSelectedTags: (tags: string[]) => void;
   rememberWho: string;
   setRememberWho: (v: string) => void;
-  rememberWhoChipNames: string[];
-  applyRememberWhoChip: (name: string) => void;
+  rememberWhoChips: RememberWhoChipOption[];
+  applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
+  /** Clear linked `vc_person` ids when user picks a seniority instead of a name. */
+  onRememberWhoRoleFallback?: () => void;
 }) {
   return (
     <div className="space-y-6">
       <p className="text-sm font-bold leading-snug text-foreground">
         <span className="text-muted-foreground">3.</span> People &amp; tags
       </p>
-      {Array.isArray(answers.interaction_how) && answers.interaction_how.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <p className="text-xs font-bold text-foreground leading-none">Remember who?</p>
-            <span className="text-[10px] font-medium text-muted-foreground leading-none">
-              Optional
-            </span>
-          </div>
-          <Input
-            value={rememberWho}
-            onChange={(e) => setRememberWho(e.target.value)}
-            placeholder="Partner, associate, or contact name"
-            className="h-9 text-sm"
-            maxLength={200}
-          />
-          <RememberWhoSmartChips names={rememberWhoChipNames} onPick={applyRememberWhoChip} />
-        </div>
-      ) : null}
+      <RememberWhoInputBlock
+        rememberWho={rememberWho}
+        setRememberWho={setRememberWho}
+        rememberWhoChips={rememberWhoChips}
+        applyRememberWhoChip={applyRememberWhoChip}
+        onRememberWhoRoleFallback={onRememberWhoRoleFallback}
+      />
 
       <TagSelector tags={formConfig.tags} selected={selectedTags} onChange={setSelectedTags} />
     </div>

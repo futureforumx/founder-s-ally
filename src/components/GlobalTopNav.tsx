@@ -39,6 +39,11 @@ interface GlobalTopNavProps {
   userStage?: string | null;
   profileCompletion?: number;
   personalCompletion?: number;
+  investorSearchChip?: string;
+  onInvestorSearchChipChange?: (chip: string) => void;
+  investorSearchQuery?: string;
+  onInvestorSearchQueryChange?: (query: string) => void;
+  onInvestorSuggestionSelect?: (suggestion: string) => void;
 }
 
 // ── View metadata for breadcrumbs ──
@@ -224,6 +229,11 @@ export function GlobalTopNav({
   userStage,
   profileCompletion = 0,
   personalCompletion = 0,
+  investorSearchChip,
+  onInvestorSearchChipChange,
+  investorSearchQuery,
+  onInvestorSearchQueryChange,
+  onInvestorSuggestionSelect,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);

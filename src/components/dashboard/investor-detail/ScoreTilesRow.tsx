@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useMatchBreakdown } from "./InvestorAIInsight";
@@ -143,7 +143,11 @@ export function ScoreTilesRow({
   lastUpdated,
   confidenceScore = 87,
 }: ScoreTilesRowProps) {
-  const [activeTile, setActiveTile] = useState<TileId | null>("match");
+  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+
+  useEffect(() => {
+    setActiveTile(null);
+  }, [firmName]);
 
   // Shared with the big Match pill — sessionStorage caches so no duplicate calls.
   const { items: matchItems } = useMatchBreakdown(

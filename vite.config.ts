@@ -7,6 +7,8 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(async ({ mode }) => {
   const plugins = [react(), mode === "development" && componentTagger()].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
+  const devHost = process.env.DEV_HOST || "127.0.0.1";
+  const devPort = Number(process.env.DEV_PORT || "5173");
 
   if (enableHttps) {
     try {
@@ -25,14 +27,20 @@ export default defineConfig(async ({ mode }) => {
       "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(vercelEnv),
     },
     server: {
-      // true = listen on 0.0.0.0 — works with http://localhost and http://127.0.0.1 (host "::" often breaks on macOS).
-      host: true,
-      port: 5173,
+      // Use an explicit localhost host so VS Code browser previews have a stable URL on macOS.
+      host: devHost,
+      port: devPort,
       strictPort: false,
-      open: true,
+      open: false,
       hmr: {
         overlay: false,
       },
+    },
+    preview: {
+      host: devHost,
+      port: devPort,
+      strictPort: false,
+      open: false,
     },
     plugins,
     resolve: {

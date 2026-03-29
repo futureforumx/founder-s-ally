@@ -5,6 +5,7 @@ import { X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import {
   buildReviewFormConfig,
@@ -28,6 +29,7 @@ import {
   ReviewWizardSummaryPanel,
 } from "./review-modal/ReviewWizardSections";
 import {
+  type RememberWhoChipOption,
   ReviewWizardLinkedStep1,
   ReviewWizardLinkedStep2,
   ReviewWizardNoteStep,
@@ -69,22 +71,6 @@ export interface ReviewSubmissionModalProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Widely searched partners — dashed chips under Remember who (deduped with firm context). */
-const POPULAR_INVESTOR_CHIPS = [
-  "Marc Andreessen",
-  "Ben Horowitz",
-  "Reid Hoffman",
-  "Roelof Botha",
-  "Alfred Lin",
-  "Mary Meeker",
-  "Bill Gurley",
-  "Ann Miura-Ko",
-  "Aileen Lee",
-  "Jenny Lee",
-  "Kirsten Green",
-  "Keith Rabois",
-] as const;
 
 function formatVcPersonChipName(row: {
   preferred_name?: string | null;
@@ -134,6 +120,7 @@ export function ReviewSubmissionModal({
   companyId = "",
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
+  const { firms, getPartnersForFirm } = useVCDirectory();
 
   // Build form config from the mapping decision
   const formConfig = useMemo(
@@ -152,7 +139,8 @@ export function ReviewSubmissionModal({
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [rememberWho, setRememberWho] = useState("");
-  const [firmPartnerNames, setFirmPartnerNames] = useState<string[]>([]);
+  const [firmPartnerChips, setFirmPartnerChips] = useState<{ id: string; name: string }[]>([]);
+  const [rememberWhoPersonIds, setRememberWhoPersonIds] = useState<string[]>([]);
   const [anonymous, setAnonymous] = useState(true);
   const [reviewRecordId, setReviewRecordId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<ReviewWizardStep>(1);
@@ -170,72 +158,134 @@ export function ReviewSubmissionModal({
     return t.length > 0 ? t : null;
   }, [firmLogoUrlProp]);
 
-  const rememberWhoChipNames = useMemo(() => {
-    const out: string[] = [];
+  /** Same firm id as `vc_mdm_output.json` when `vcFirmId` is set; else match directory firm by name. */
+  const directoryFirmId = useMemo(() => {
+    const hint = vcFirmId?.trim();
+    if (hint) return hint;
+    const n = firmName.trim().toLowerCase();
+    if (!n) return "";
+    const exact = firms.find((f) => (f.name || "").trim().toLowerCase() === n);
+    if (exact?.id) return exact.id;
+    if (n.length < 4) return "";
+    const loose = firms.find((f) => {
+      const fn = (f.name || "").trim().toLowerCase();
+      if (fn.length < 4) return false;
+      return fn.startsWith(n) || n.startsWith(fn);
+    });
+    return loose?.id ?? "";
+  }, [vcFirmId, firmName, firms]);
+
+  const directoryPartnerChips = useMemo(() => {
+    if (!directoryFirmId) return [] as { id: string; name: string }[];
+    return getPartnersForFirm(directoryFirmId)
+      .map((p) => {
+        const name =
+          (p.preferred_name && p.preferred_name.trim()) ||
+          (p.full_name && p.full_name.trim()) ||
+          [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+        const id = typeof p.id === "string" ? p.id.trim() : "";
+        if (!id || !name) return null;
+        return { id, name };
+      })
+      .filter((x): x is { id: string; name: string } => Boolean(x));
+  }, [directoryFirmId, getPartnersForFirm]);
+
+  /** Supabase `vc_people` (when configured) + static VC directory JSON for the same firm. */
+  const mergedFirmPartnerChips = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string }>();
+    for (const c of firmPartnerChips) {
+      if (c.id && c.name.trim()) byId.set(c.id, c);
+    }
+    for (const c of directoryPartnerChips) {
+      if (c.id && c.name.trim() && !byId.has(c.id)) byId.set(c.id, c);
+    }
+    return Array.from(byId.values());
+  }, [firmPartnerChips, directoryPartnerChips]);
+
+  const rememberWhoChips = useMemo((): RememberWhoChipOption[] => {
+    const out: RememberWhoChipOption[] = [];
     const seen = new Set<string>();
-    const add = (raw: string | null | undefined) => {
-      const t = raw?.trim();
+    const add = (name: string, vcPersonId?: string) => {
+      const t = name.trim();
       if (!t) return;
       const k = t.toLowerCase();
       if (seen.has(k)) return;
       seen.add(k);
-      out.push(t);
+      out.push(vcPersonId ? { name: t, vcPersonId } : { name: t });
     };
-    add(personName);
-    for (const n of firmPartnerNames) add(n);
-    for (const n of POPULAR_INVESTOR_CHIPS) {
-      if (out.length >= 14) break;
-      add(n);
-    }
+    const pn = personName?.trim();
+    const pid = personId?.trim();
+    if (pn) add(pn, pid || undefined);
+    for (const p of mergedFirmPartnerChips) add(p.name, p.id);
     return out;
-  }, [personName, firmPartnerNames]);
+  }, [personName, personId, mergedFirmPartnerChips]);
 
-  const applyRememberWhoChip = useCallback((name: string) => {
+  const applyRememberWhoChip = useCallback((name: string, vcPersonId?: string) => {
     setRememberWho((prev) => {
       const t = prev.trim();
       if (!t) return name;
       if (t.toLowerCase().includes(name.toLowerCase())) return t;
       return `${t}, ${name}`;
     });
+    if (vcPersonId) {
+      setRememberWhoPersonIds((prev) => (prev.includes(vcPersonId) ? prev : [...prev, vcPersonId]));
+    }
   }, []);
 
   useEffect(() => {
-    if (!open || !vcFirmId) {
-      setFirmPartnerNames([]);
+    if (!open) {
+      setFirmPartnerChips([]);
       return;
     }
     let cancelled = false;
     (async () => {
+      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
+      if (!resolvedFirmId || cancelled) {
+        if (!cancelled) setFirmPartnerChips([]);
+        return;
+      }
       try {
         const { data, error } = await (supabaseVcDirectory as unknown as { from: (t: string) => any })
           .from("vc_people")
-          .select("first_name, last_name, preferred_name")
-          .eq("firm_id", vcFirmId)
+          .select("id, first_name, last_name, preferred_name")
+          .eq("firm_id", resolvedFirmId)
           .is("deleted_at", null)
-          .limit(12);
-        if (cancelled || error) return;
-        const names = (data ?? [])
-          .map((row: { first_name?: string; last_name?: string; preferred_name?: string }) =>
-            formatVcPersonChipName(row),
-          )
-          .filter((n: string | null): n is string => Boolean(n));
-        const uniq: string[] = [];
-        const s = new Set<string>();
-        for (const n of names) {
-          const k = n.toLowerCase();
-          if (s.has(k)) continue;
-          s.add(k);
-          uniq.push(n);
+          .order("last_name", { ascending: true })
+          .order("first_name", { ascending: true })
+          .limit(48);
+        if (cancelled || error) {
+          if (import.meta.env.DEV && error) {
+            console.warn("[ReviewSubmissionModal] vc_people fetch failed:", error);
+          }
+          if (!cancelled) setFirmPartnerChips([]);
+          return;
         }
-        if (!cancelled) setFirmPartnerNames(uniq);
+        const rows = (data ?? []) as {
+          id?: string;
+          first_name?: string;
+          last_name?: string;
+          preferred_name?: string;
+        }[];
+        const chips: { id: string; name: string }[] = [];
+        const seen = new Set<string>();
+        for (const row of rows) {
+          const id = typeof row.id === "string" ? row.id.trim() : "";
+          const label = formatVcPersonChipName(row);
+          if (!id || !label) continue;
+          const k = label.toLowerCase();
+          if (seen.has(k)) continue;
+          seen.add(k);
+          chips.push({ id, name: label });
+        }
+        if (!cancelled) setFirmPartnerChips(chips);
       } catch {
-        if (!cancelled) setFirmPartnerNames([]);
+        if (!cancelled) setFirmPartnerChips([]);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, vcFirmId]);
+  }, [open, firmName, vcFirmId]);
 
   useEffect(() => {
     if (!open) {
@@ -315,6 +365,7 @@ export function ReviewSubmissionModal({
             answers?: Record<string, string | string[]>;
             tags?: string[];
             remember_who?: string;
+            remember_who_vc_person_ids?: unknown;
           } | null;
         } | undefined;
 
@@ -336,6 +387,11 @@ export function ReviewSubmissionModal({
           setAnswers(loadedAnswers);
           setSelectedTags(Array.isArray(sr?.tags) ? sr.tags.filter((t) => typeof t === "string") : []);
           setRememberWho(typeof sr?.remember_who === "string" ? sr.remember_who : "");
+          const rawIds = sr?.remember_who_vc_person_ids;
+          const ids = Array.isArray(rawIds)
+            ? rawIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+            : [];
+          setRememberWhoPersonIds(ids);
           setAnonymous(typeof row.anonymous === "boolean" ? row.anonymous : true);
         }
       } catch {
@@ -393,8 +449,9 @@ export function ReviewSubmissionModal({
     setAnswers({});
     setSelectedTags([]);
     setRememberWho("");
+    setRememberWhoPersonIds([]);
     setReviewRecordId(null);
-    setFirmPartnerNames([]);
+    setFirmPartnerChips([]);
     setFetchedHeaderFirm(null);
     setAnonymous(true);
     setCurrentStep(1);
@@ -404,6 +461,7 @@ export function ReviewSubmissionModal({
   useEffect(() => {
     if (!investorIsMappedToProfile && selectedTags.length === 0) {
       setRememberWho("");
+      setRememberWhoPersonIds([]);
       setAnswers((prev) => {
         if (!prev.founder_note) return prev;
         const next = { ...prev };
@@ -532,6 +590,8 @@ export function ReviewSubmissionModal({
         answers,
         tags: selectedTags,
         remember_who: rememberWho.trim() || undefined,
+        remember_who_vc_person_ids:
+          rememberWhoPersonIds.length > 0 ? rememberWhoPersonIds : undefined,
       };
 
       // Derive legacy score columns for backward-compat with aggregation
@@ -633,8 +693,8 @@ export function ReviewSubmissionModal({
               {/* Header */}
               <div
                 className={cn(
-                  "flex shrink-0 items-center justify-between border-b border-border bg-secondary/20",
-                  !submitted && currentStep === 2 ? "px-4 py-2.5" : "px-5 py-4",
+                  "flex shrink-0 items-center justify-between border-b border-border bg-secondary/20 px-5",
+                  !submitted && currentStep === 2 ? "py-3" : "py-4",
                 )}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -680,8 +740,6 @@ export function ReviewSubmissionModal({
                     step={currentStep}
                     summary={summaryAside}
                     compactMainColumn={currentStep === 2}
-                    hideMobileSummary={currentStep === 2}
-                    omitDesktopSummary={currentStep === 2}
                   >
                     {investorIsMappedToProfile ? (
                       <>
@@ -697,6 +755,11 @@ export function ReviewSubmissionModal({
                             formConfig={formConfig}
                             answers={answers}
                             setAnswer={setAnswer}
+                            rememberWho={rememberWho}
+                            setRememberWho={setRememberWho}
+                            rememberWhoChips={rememberWhoChips}
+                            applyRememberWhoChip={applyRememberWhoChip}
+                            onRememberWhoRoleFallback={() => setRememberWhoPersonIds([])}
                           />
                         ) : null}
                       </>
@@ -725,8 +788,9 @@ export function ReviewSubmissionModal({
                             setSelectedTags={setSelectedTags}
                             rememberWho={rememberWho}
                             setRememberWho={setRememberWho}
-                            rememberWhoChipNames={rememberWhoChipNames}
+                            rememberWhoChips={rememberWhoChips}
                             applyRememberWhoChip={applyRememberWhoChip}
+                            onRememberWhoRoleFallback={() => setRememberWhoPersonIds([])}
                           />
                         ) : null}
                       </>

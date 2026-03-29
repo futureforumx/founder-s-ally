@@ -197,7 +197,7 @@ class MockSupabaseClient {
   from(table: string) {
     const self = this;
     let patchData: any = null;
-    let filters: { key: string; value: any }[] = [];
+    let filters: { key: string; value: any; operator?: string }[] = [];
     let mutation:
       | null
       | { type: "insert"; rows: any[] }
@@ -229,6 +229,10 @@ class MockSupabaseClient {
         filters.push({ key, value });
         return chain;
       },
+      is: (key: string, value: any) => {
+        filters.push({ key, value, operator: "is" } as { key: string; value: any; operator: string });
+        return chain;
+      },
       neq: (key: string, value: any) => {
         // Simple mock: just ignore for now or implement if needed
         return chain;
@@ -254,12 +258,21 @@ class MockSupabaseClient {
         
         // Apply filters
         let filtered = [...currentData];
-        filters.forEach(f => {
-          if ((f as any).operator === "in") {
+        filters.forEach((f) => {
+          const op = (f as { operator?: string }).operator;
+          if (op === "in") {
             const valSet = new Set(Array.isArray(f.value) ? f.value : [f.value]);
-            filtered = filtered.filter(item => item && valSet.has(item[f.key]));
+            filtered = filtered.filter((item) => item && valSet.has(item[f.key]));
+          } else if (op === "is") {
+            if (f.value === null) {
+              filtered = filtered.filter(
+                (item) => item && (item[f.key] === null || item[f.key] === undefined),
+              );
+            } else {
+              filtered = filtered.filter((item) => item && item[f.key] === f.value);
+            }
           } else {
-            filtered = filtered.filter(item => item && item[f.key] === f.value);
+            filtered = filtered.filter((item) => item && item[f.key] === f.value);
           }
         });
 
@@ -294,10 +307,16 @@ class MockSupabaseClient {
           } else {
             currentData = currentData.map(item => {
               if (!item) return item;
-              const isMatch = filters.every(f => {
-                if ((f as any).operator === "in") {
+              const isMatch = filters.every((f) => {
+                const op = (f as { operator?: string }).operator;
+                if (op === "in") {
                   const s = new Set(Array.isArray(f.value) ? f.value : [f.value]);
                   return s.has(item[f.key]);
+                }
+                if (op === "is") {
+                  return f.value === null
+                    ? item[f.key] === null || item[f.key] === undefined
+                    : item[f.key] === f.value;
                 }
                 return item[f.key] === f.value;
               });
