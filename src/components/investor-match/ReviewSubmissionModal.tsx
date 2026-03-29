@@ -951,11 +951,6 @@ export function ReviewSubmissionModal({
 
     try {
       const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
-      if (!resolvedFirmId) {
-        throw new Error(
-          "We could not match this firm to the investor directory. Check the firm name, or open the investor from Search so we can link it.",
-        );
-      }
 
       const pid = personId?.trim() || null;
 
@@ -968,6 +963,8 @@ export function ReviewSubmissionModal({
         remember_who: rememberWho.trim() || undefined,
         remember_who_vc_person_ids:
           rememberWhoPersonIds.length > 0 ? rememberWhoPersonIds : undefined,
+        // Preserve firm name for linkage even when vc_firm_id could not be resolved
+        firm_name: firmName.trim() || undefined,
       };
 
       // Derive legacy score columns for backward-compat with aggregation
