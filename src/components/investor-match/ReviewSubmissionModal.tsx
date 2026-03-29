@@ -495,17 +495,20 @@ export function ReviewSubmissionModal({
           <div className="fixed inset-0 z-[310] flex items-start justify-center overflow-y-auto p-4 pt-8 sm:pt-10 pointer-events-none">
             <motion.div
               data-vekta-review-modal="true"
-              className={cn(
-                "pointer-events-auto grid w-full max-w-3xl max-h-[90vh] overflow-hidden bg-card rounded-2xl border border-border shadow-2xl",
-                submitted ? "grid-rows-[auto_minmax(0,1fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_auto]",
-              )}
+              className="pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+              style={{
+                // Definite height so nested flex-1 / min-h-0 scroll regions work (max-h-only flex parents collapse).
+                height: "min(90dvh, calc(100dvh - 2.5rem))",
+                maxHeight: "min(90dvh, calc(100dvh - 2.5rem))",
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/20 shrink-0 min-h-0">
+              <div className="flex shrink-0 items-center justify-between border-b border-border bg-secondary/20 px-5 py-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <FirmLogo
                     firmName={headerFirmDisplayName}
@@ -525,14 +528,13 @@ export function ReviewSubmissionModal({
                 </button>
               </div>
 
-              {/* Body: grid middle row(s) — minmax(0,1fr) avoids collapsed flex-1 scroll under max-h-only parents */}
               {submitted ? (
-                <div className="min-h-0 overflow-y-auto [scrollbar-gutter:stable]">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
                   <SuccessState />
                 </div>
               ) : (
-                <div className="contents">
-                  <div className="shrink-0 px-5 pb-3 pt-1 border-b border-border/60 bg-secondary/10 min-h-0">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div className="shrink-0 border-b border-border/60 bg-secondary/10 px-5 pb-3 pt-1">
                     <ReviewWizardProgressBar step={currentStep} />
                   </div>
 

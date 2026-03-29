@@ -19,6 +19,7 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
+import { ScoreTilesRow } from "./investor-detail/ScoreTilesRow";
 import { useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -345,6 +346,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     />
                   </div>
                 </div>
+
+                {/* Score tiles row — directly under AUM/location */}
+                {!liveLoading && (
+                  <ScoreTilesRow
+                    matchScore={matchScore}
+                  />
+                )}
               </div>
 
               {/* Body */}
