@@ -99,7 +99,7 @@ export function ReviewWizardFooter({
 }) {
   const isLast = step === 3;
   return (
-    <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-border bg-secondary/10 shrink-0">
+    <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-secondary/10 px-5 py-3.5">
       <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="text-muted-foreground">
         Cancel
       </Button>
@@ -148,7 +148,7 @@ export function ReviewWizardBody({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <div className="lg:hidden shrink-0 border-b border-border/60 px-5 py-3 bg-secondary/5">
         {summary}
       </div>
