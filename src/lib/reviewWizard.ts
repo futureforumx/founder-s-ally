@@ -173,7 +173,8 @@ export function isContextStepValidUnlinked(answers: Record<string, string | stri
   const depthOk =
     typeof answers.interaction_meeting_depth === "string" && answers.interaction_meeting_depth.length > 0;
   if (!depthOk) return false;
-  // “Remember who?” in the wizard is optional free text + chips (separate `remember_who` on save), not
+  // “Remember who?” is optional free text + firm-linked chips; `remember_who` + optional
+  // `remember_who_vc_person_ids` on save (see ReviewSubmissionModal), not
   // `interaction_remembered_who_*` in answers — do not block step 1 on participant-memory fields.
   return true;
 }
