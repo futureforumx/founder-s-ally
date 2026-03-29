@@ -348,11 +348,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 </div>
 
                 {/* Score tiles row — directly under AUM/location */}
-                {!liveLoading && (
-                  <ScoreTilesRow
-                    matchScore={matchScore}
-                  />
-                )}
+                <ScoreTilesRow
+                  matchScore={matchScore}
+                  firmName={heroName}
+                  companyContext={companyData}
+                  investorContext={investorContext}
+                />
               </div>
 
               {/* Body */}

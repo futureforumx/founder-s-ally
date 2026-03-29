@@ -11,7 +11,9 @@ USAGE:
   python enrich_investors.py
 
 CONFIG:
-  Edit the API_KEYS section below before running.
+  Set API keys via environment variables (never commit real keys). Example:
+    export GROQ_API_KEY=... APOLLO_API_KEY=... HUNTER_API_KEY=...
+  See API_KEYS below for the full env var name list.
 """
 
 import csv
@@ -29,14 +31,16 @@ from tqdm import tqdm
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 API_KEYS = {
-    "clay":       "ef8d660258566d76c81c",
-    "apollo":     "qvE-yC7EdFSebjyRdCFS2g",
-    "hunter":     "0febd81b4c73d7647f48edb0cc0edb1e50277f34",
-    "explorium":  "c32c28e0-4d13-49b7-b09c-ad652c4d9bec",
-    "hubspot":    "na2-1909-fc67-49ea-9f3c-3f65f139e205",
-    # For AI validation — add one of these:
-    "openai":     "",   # sk-...
-    "anthropic":  "",   # sk-ant-...
+    "clay": os.environ.get("CLAY_API_KEY", ""),
+    "apollo": os.environ.get("APOLLO_API_KEY", ""),
+    "hunter": os.environ.get("HUNTER_API_KEY", ""),
+    "explorium": os.environ.get("EXPLORIUM_API_KEY", ""),
+    "hubspot": os.environ.get("HUBSPOT_API_KEY", ""),
+    "openai": os.environ.get("OPENAI_API_KEY", ""),
+    "gemini": os.environ.get("GEMINI_API_KEY", ""),
+    "deepseek": os.environ.get("DEEPSEEK_API_KEY", ""),
+    "groq": os.environ.get("GROQ_API_KEY", ""),
+    "anthropic": os.environ.get("ANTHROPIC_API_KEY", ""),
 }
 
 # Files to enrich (relative to this script's directory)
@@ -327,17 +331,8 @@ def hubspot_search_contact(email: str = "", name: str = "") -> dict:
 
 # ─── AI VALIDATION ────────────────────────────────────────────────────────────
 
-def validate_with_ai(original: dict, enriched: dict) -> dict:
-    """
-    Uses OpenAI or Anthropic to validate enriched fields.
-    Returns a dict of {field: is_valid (bool)} for each enriched field.
-    Falls back to accepting all values if no AI key is configured.
-    """
-    if not API_KEYS.get("openai") and not API_KEYS.get("anthropic"):
-        # No AI key — accept all enriched values
-        return {k: True for k in enriched}
-
-    prompt = f"""You are a data quality validator for a VC investor database.
+def build_validation_prompt(original: dict, enriched: dict) -> str:
+    return f"""You are a data quality validator for a VC investor database.
 
 I enriched an investor record with new data from third-party APIs. Please validate whether the enriched values are plausible and consistent with the investor's original record.
 
@@ -353,7 +348,21 @@ For each enriched field, respond with a JSON object like:
 Set to true if the value looks accurate and plausible, false if it seems wrong or inconsistent.
 Respond with ONLY the JSON object, no explanation."""
 
+
+def validate_with_ai(original: dict, enriched: dict) -> dict:
+    """
+    Validates enriched fields using whichever AI key is configured.
+    Supports OpenAI, Gemini, DeepSeek, or Anthropic.
+    Falls back to accepting all values if no key is set.
+    """
+    has_key = any(API_KEYS.get(k) for k in ["openai", "gemini", "deepseek", "groq", "anthropic"])
+    if not has_key:
+        return {k: True for k in enriched}
+
+    prompt = build_validation_prompt(original, enriched)
+
     try:
+        # ── OpenAI (GPT-4o mini) ──────────────────────────────────────────
         if API_KEYS.get("openai"):
             import openai
             client = openai.OpenAI(api_key=API_KEYS["openai"])
@@ -363,9 +372,62 @@ Respond with ONLY the JSON object, no explanation."""
                 temperature=0,
                 max_tokens=200,
             )
-            raw = resp.choices[0].message.content.strip()
+            return json.loads(resp.choices[0].message.content.strip())
+
+        # ── Google Gemini ─────────────────────────────────────────────────
+        elif API_KEYS.get("gemini"):
+            r = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+                params={"key": API_KEYS["gemini"]},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=15,
+            )
+            raw = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            # Strip markdown code fences if present
+            raw = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
             return json.loads(raw)
 
+        # ── DeepSeek ──────────────────────────────────────────────────────
+        elif API_KEYS.get("deepseek"):
+            r = requests.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0,
+                    "max_tokens": 200,
+                },
+                headers={
+                    "Authorization": f"Bearer {API_KEYS['deepseek']}",
+                    "Content-Type": "application/json",
+                },
+                timeout=15,
+            )
+            raw = r.json()["choices"][0]["message"]["content"].strip()
+            raw = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+            return json.loads(raw)
+
+        # ── Groq (fast inference) ─────────────────────────────────────────
+        elif API_KEYS.get("groq"):
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json={
+                    "model": "llama3-8b-8192",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0,
+                    "max_tokens": 200,
+                },
+                headers={
+                    "Authorization": f"Bearer {API_KEYS['groq']}",
+                    "Content-Type": "application/json",
+                },
+                timeout=15,
+            )
+            raw = r.json()["choices"][0]["message"]["content"].strip()
+            raw = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+            return json.loads(raw)
+
+        # ── Anthropic (Claude Haiku) ───────────────────────────────────────
         elif API_KEYS.get("anthropic"):
             r = requests.post(
                 "https://api.anthropic.com/v1/messages",
@@ -658,9 +720,9 @@ def main():
         status = "✓" if key else "✗ (not set)"
         print(f"  {svc:12s}: {status}")
 
-    if not API_KEYS.get("openai") and not API_KEYS.get("anthropic"):
+    if not any(API_KEYS.get(k) for k in ["openai", "gemini", "deepseek", "anthropic"]):
         print("\n  ⚠  No AI validation key set — enriched values will be accepted without validation.")
-        print("     Set API_KEYS['openai'] or API_KEYS['anthropic'] for quality gating.\n")
+        print("     Set one of: API_KEYS['openai'], ['gemini'], ['deepseek'], or ['anthropic']\n")
 
     total = 0
     for filename in INPUT_FILES:

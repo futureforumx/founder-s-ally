@@ -14,6 +14,24 @@ import { EVENT_TYPE_DISPLAY_LABELS } from "@/lib/reviewFormContent";
 
 export type ReviewStep = 1 | 2 | 3;
 
+export type ReviewDraftRelationshipOrigin = 
+  | "warm_intro" 
+  | "cold_inbound" 
+  | "cold_outbound" 
+  | "event" 
+  | "existing_relationship" 
+  | "other" 
+  | null;
+
+export type ReviewDraftEventType = 
+  | "conference" 
+  | "demo_day" 
+  | "dinner" 
+  | "private_gathering" 
+  | "office_hours" 
+  | "other" 
+  | null;
+
 export type ReviewDraftInitiator = "investor" | "founder" | "mutual_unclear" | null;
 
 export type ReviewDraftInteractionChannel =
@@ -25,14 +43,38 @@ export type ReviewDraftInteractionChannel =
   | "social"
   | "phone";
 
+export type ReviewDraftMeetingDepth = "email_only" | "single_meeting" | "multiple_meetings" | null;
+
 export type ReviewDraft = {
-  initiator: ReviewDraftInitiator;
-  interactionTypes: ReviewDraftInteractionChannel[];
+  /** How the relationship started */
+  relationshipOrigin: ReviewDraftRelationshipOrigin;
+
+  /** Only if origin = event */
+  eventType: ReviewDraftEventType;
+  hadEventFollowUp: boolean | null;
+  eventFollowUpFirstBy: "founder" | "investor" | null;
+
+  /** Who initiated the interaction */
+  initiatedBy: ReviewDraftInitiator;
+
+  /** How they interacted / meeting format (multi-select) */
+  interactionChannels: ReviewDraftInteractionChannel[];
+
+  /** Who was involved */
   participantNames: string[];
   participantRolesRemembered: ParticipantRoleKey[];
   participantMemoryMode: "names_only" | "roles_only" | "names_and_roles" | "unknown" | null;
+
+  /** Depth of engagement */
+  meetingDepth: ReviewDraftMeetingDepth;
+
+  /** Overall evaluation score (1-10 for unlinked, or rating text for linked) */
   overallRating: string | number | null;
-  tags: string[];
+
+  /** Evaluative tags / qualitative descriptors */
+  interactionTags: string[];
+
+  /** Optional founder note */
   note: string;
 };
 
@@ -170,43 +212,111 @@ export function deriveReviewDraftFromAnswers(
   selectedTags: string[],
   investorIsMappedToProfile: boolean,
 ): ReviewDraft {
-  const warm = (answers.interaction_warm_intro_who as string | undefined)?.trim();
-  let initiator: ReviewDraftInitiator = null;
-  if (warm === "Investor initiated") initiator = "investor";
-  else if (warm === "Founder initiated") initiator = "founder";
-  else if (warm === "Mutual / unclear") initiator = "mutual_unclear";
+  // ── Relationship origin and conditionals ────────────────────────────────
+  const introRaw = (answers.interaction_intro as string | undefined)?.trim();
+  let relationshipOrigin: ReviewDraftRelationshipOrigin = null;
+  let eventType: ReviewDraftEventType = null;
+  let hadEventFollowUp: boolean | null = null;
+  let eventFollowUpFirstBy: "founder" | "investor" | null = null;
 
+  if (introRaw === "Warm intro") {
+    relationshipOrigin = "warm_intro";
+  } else if (introRaw === "Cold inbound") {
+    relationshipOrigin = "cold_inbound";
+  } else if (introRaw === "Cold outbound") {
+    relationshipOrigin = "cold_outbound";
+  } else if (introRaw === "Event") {
+    relationshipOrigin = "event";
+    const eventTypeRaw = (answers.interaction_event_type as string | undefined)?.trim();
+    if (eventTypeRaw === "conference") {
+      eventType = "conference";
+    } else if (eventTypeRaw === "demo day") {
+      eventType = "demo_day";
+    } else if (eventTypeRaw === "dinner") {
+      eventType = "dinner";
+    } else if (eventTypeRaw === "private gathering") {
+      eventType = "private_gathering";
+    } else if (eventTypeRaw === "office hours") {
+      eventType = "office_hours";
+    } else if (eventTypeRaw === "other") {
+      eventType = "other";
+    }
+
+    const followUpRaw = (answers.interaction_event_followup as string | undefined)?.trim();
+    hadEventFollowUp = followUpRaw === "Yes" ? true : followUpRaw === "No" ? false : null;
+
+    if (hadEventFollowUp) {
+      const firstByRaw = (answers.interaction_event_followup_first as string | undefined)?.trim();
+      eventFollowUpFirstBy = firstByRaw === "founder" ? "founder" : firstByRaw === "investor" ? "investor" : null;
+    }
+  } else if (introRaw === "Existing relationship") {
+    relationshipOrigin = "existing_relationship";
+  } else if (introRaw === "Other") {
+    relationshipOrigin = "other";
+  }
+
+  // ── Who initiated ──────────────────────────────────────────────────────
+  let initiatedBy: ReviewDraftInitiator = null;
+  const initiatorRaw = (answers.interaction_warm_intro_who as string | undefined)?.trim();
+  if (initiatorRaw === "Investor initiated") {
+    initiatedBy = "investor";
+  } else if (initiatorRaw === "Founder initiated") {
+    initiatedBy = "founder";
+  } else if (initiatorRaw === "Mutual / unclear") {
+    initiatedBy = "mutual_unclear";
+  }
+
+  // ── How did you interact (channels) ────────────────────────────────────
   const howArr = Array.isArray(answers.interaction_how) ? (answers.interaction_how as string[]) : [];
-  const interactionTypes = howArr
+  const interactionChannels = howArr
     .map((h) => HOW_LABEL_TO_CHANNEL[h])
     .filter(Boolean) as ReviewDraftInteractionChannel[];
 
+  // ── Participant memory ─────────────────────────────────────────────────
   const names = answers.interaction_remembered_who_names;
   const participantNames = Array.isArray(names)
     ? names.map((n) => String(n).trim()).filter(Boolean)
     : [];
   const participantRolesRemembered = getRememberedRoleKeysFromAnswers(answers);
-
   const participantMemoryMode = deriveParticipantMemoryMode(participantNames, participantRolesRemembered);
 
+  // ── Meeting depth ──────────────────────────────────────────────────────
+  let meetingDepth: ReviewDraftMeetingDepth = null;
+  const depthRaw = (answers.interaction_meeting_depth as string | undefined)?.trim();
+  if (depthRaw === "Email only") {
+    meetingDepth = "email_only";
+  } else if (depthRaw === "Single meeting") {
+    meetingDepth = "single_meeting";
+  } else if (depthRaw === "Multiple meetings") {
+    meetingDepth = "multiple_meetings";
+  }
+
+  // ── Evaluation rating ──────────────────────────────────────────────────
   const overallRating = investorIsMappedToProfile
     ? ((answers.work_with_them_rating as string) ?? null)
     : ((answers.overall_interaction as string) ?? null);
 
-  const tags = investorIsMappedToProfile
+  // ── Tags ───────────────────────────────────────────────────────────────
+  const interactionTags = investorIsMappedToProfile
     ? (Array.isArray(answers.standout_tags) ? (answers.standout_tags as string[]) : [])
     : selectedTags;
 
+  // ── Note ───────────────────────────────────────────────────────────────
   const note = (answers.founder_note as string) ?? "";
 
   return {
-    initiator,
-    interactionTypes,
+    relationshipOrigin,
+    eventType,
+    hadEventFollowUp,
+    eventFollowUpFirstBy,
+    initiatedBy,
+    interactionChannels,
     participantNames,
     participantRolesRemembered,
     participantMemoryMode,
+    meetingDepth,
     overallRating,
-    tags,
+    interactionTags,
     note,
   };
 }
@@ -231,11 +341,6 @@ export function formatInitiator(value: ReviewDraftInitiator): string {
   if (value === "founder") return "Founder initiated";
   if (value === "mutual_unclear") return "Mutual / unclear";
   return "—";
-}
-
-export function formatInteractionTypes(values: ReviewDraftInteractionChannel[]): string {
-  if (!values.length) return "—";
-  return values.map((v) => CHANNEL_DISPLAY[v]).join(", ");
 }
 
 export function formatIntroLine(answers: Record<string, string | string[]>): string {
@@ -321,16 +426,61 @@ export function formatContextSectionUnlinked(
   draft: ReviewDraft,
 ): string {
   if (!isContextStepValidUnlinked(answers)) return "Not completed";
-  const intro = formatIntroLine(answers);
-  const how = formatInteractionTypes(draft.interactionTypes);
-  const who = formatParticipantsSummary(answers, draft);
-  const init =
-    (answers.interaction_intro as string) === "Warm intro"
-      ? formatInitiator(draft.initiator)
+
+  const bits: string[] = [];
+
+  // ── Relationship origin ────────────────────────────────────────────────
+  const originLabel = draft.relationshipOrigin === "warm_intro" ? "Warm intro"
+    : draft.relationshipOrigin === "cold_inbound" ? "Cold inbound"
+    : draft.relationshipOrigin === "cold_outbound" ? "Cold outbound"
+    : draft.relationshipOrigin === "event" ? "Event"
+    : draft.relationshipOrigin === "existing_relationship" ? "Existing relationship"
+    : draft.relationshipOrigin === "other" ? (answers.interaction_intro_other as string | undefined)?.trim() || "Other"
+    : null;
+  if (originLabel) bits.push(originLabel);
+
+  // ── Event-specific info ────────────────────────────────────────────────
+  if (draft.relationshipOrigin === "event" && draft.eventType) {
+    const eventLabel = EVENT_TYPE_DISPLAY_LABELS[draft.eventType] ?? draft.eventType;
+    bits.push(`Event: ${eventLabel}`);
+    if (draft.hadEventFollowUp !== null) {
+      bits.push(`Follow-up: ${draft.hadEventFollowUp ? "Yes" : "No"}`);
+      if (draft.hadEventFollowUp && draft.eventFollowUpFirstBy) {
+        const firstLabel = draft.eventFollowUpFirstBy === "founder" ? "Founder" : "Investor";
+        bits.push(`First follow-up: ${firstLabel}`);
+      }
+    }
+  }
+
+  // ── Who initiated (only for warm intros) ────────────────────────────────
+  if (draft.relationshipOrigin === "warm_intro") {
+    const initiatorLabel = formatInitiator(draft.initiatedBy);
+    if (initiatorLabel !== "—") bits.push(initiatorLabel);
+  }
+
+  // ── Interaction channels ───────────────────────────────────────────────
+  const channelLabel = formatInteractionChannels(draft.interactionChannels);
+  if (channelLabel !== "—") bits.push(channelLabel);
+
+  // ── Meeting depth ─────────────────────────────────────────────────────
+  if (draft.meetingDepth) {
+    const depthLabel = draft.meetingDepth === "email_only" ? "Email only"
+      : draft.meetingDepth === "single_meeting" ? "Single meeting"
+      : draft.meetingDepth === "multiple_meetings" ? "Multiple meetings"
       : null;
-  const bits = [intro, how, who];
-  if (init && init !== "—") bits.splice(1, 0, init);
-  return bits.filter((b) => b && b !== "—").join(" · ");
+    if (depthLabel) bits.push(depthLabel);
+  }
+
+  // ── Participants ───────────────────────────────────────────────────────
+  const participantLabel = formatParticipantsSummary(answers, draft);
+  if (participantLabel !== "—") bits.push(participantLabel);
+
+  return bits.filter(Boolean).join(" · ") || "Not completed";
+}
+
+export function formatInteractionChannels(values: ReviewDraftInteractionChannel[]): string {
+  if (!values.length) return "—";
+  return values.map((v) => CHANNEL_DISPLAY[v]).join(", ");
 }
 
 export function formatEvaluationSectionUnlinked(answers: Record<string, string | string[]>): string {

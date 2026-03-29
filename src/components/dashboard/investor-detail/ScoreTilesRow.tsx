@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown } from "lucide-react";
+import { useMatchBreakdown } from "./InvestorAIInsight";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,8 +22,31 @@ interface TileConfig {
   subscores: Subscore[];
 }
 
+interface CompanyContext {
+  name?: string;
+  sector?: string;
+  stage?: string;
+  model?: string;
+  description?: string;
+}
+
+interface InvestorContext {
+  name: string;
+  description?: string;
+  stage?: string;
+  sector?: string;
+  checkSize?: string;
+  recentDeals?: string;
+  currentThesis?: string;
+  geography?: string;
+  source?: string;
+}
+
 export interface ScoreTilesRowProps {
   matchScore: number;
+  firmName?: string;
+  companyContext?: CompanyContext | null;
+  investorContext?: InvestorContext | null;
   founderSentimentScore?: number;
   founderReputationScore?: number;
   industryReputationScore?: number;
@@ -38,48 +63,69 @@ function getCaption(score: number): string {
   return "Low";
 }
 
+// Returns color tokens for a given score.
+// `subtleCls` is used on inactive tiles so the score reads quieter than the big MATCH pill.
 function colorTokens(score: number) {
   if (score >= 85)
     return {
       valueCls: "text-success",
-      tintBg: "bg-success/[0.06]",
-      activeTintBg: "bg-success/[0.10]",
+      subtleCls: "text-success/70",
+      activeTintBg: "bg-success/[0.05]",
+      activeBorder: "border-success/25",
       barCls: "bg-success",
-      borderActive: "border-success/25",
     };
   if (score >= 65)
     return {
       valueCls: "text-warning",
-      tintBg: "bg-warning/[0.06]",
-      activeTintBg: "bg-warning/[0.10]",
+      subtleCls: "text-warning/70",
+      activeTintBg: "bg-warning/[0.05]",
+      activeBorder: "border-warning/25",
       barCls: "bg-warning",
-      borderActive: "border-warning/25",
     };
   return {
     valueCls: "text-destructive",
-    tintBg: "bg-destructive/[0.06]",
-    activeTintBg: "bg-destructive/[0.10]",
+    subtleCls: "text-destructive/70",
+    activeTintBg: "bg-destructive/[0.05]",
+    activeBorder: "border-destructive/25",
     barCls: "bg-destructive",
-    borderActive: "border-destructive/25",
   };
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Subscore row ─────────────────────────────────────────────────────────────
+// Layout: Label | bar track | score | note
+// All bars share the same color (keyed to the panel's overall score range).
 
-function ScoreBar({ value, barCls }: { value: number; barCls: string }) {
+function SubscoreRow({ sub, barCls }: { sub: Subscore; barCls: string }) {
   return (
-    <div className="flex items-center gap-2 flex-1">
-      <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+    <div className="flex items-center gap-3">
+      {/* Label */}
+      <span className="text-[11px] text-foreground/70 w-32 shrink-0 leading-snug">
+        {sub.label}
+      </span>
+
+      {/* Bar track */}
+      <div className="flex-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
         <motion.div
           className={`h-full rounded-full ${barCls}`}
           initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          animate={{ width: `${sub.value}%` }}
+          transition={{ duration: 0.32, ease: "easeOut" }}
         />
       </div>
-      <span className="text-[10px] font-semibold text-muted-foreground tabular-nums w-7 text-right">
-        {value}
+
+      {/* Score number */}
+      <span className="text-[11px] font-semibold text-foreground/70 w-6 text-right tabular-nums shrink-0">
+        {sub.value}
       </span>
+
+      {/* Optional note */}
+      {sub.note ? (
+        <span className="text-[10px] text-muted-foreground/50 w-40 text-right shrink-0 leading-snug truncate">
+          {sub.note}
+        </span>
+      ) : (
+        <span className="w-40 shrink-0" />
+      )}
     </div>
   );
 }
@@ -88,6 +134,9 @@ function ScoreBar({ value, barCls }: { value: number; barCls: string }) {
 
 export function ScoreTilesRow({
   matchScore,
+  firmName = "",
+  companyContext,
+  investorContext,
   founderSentimentScore = 74,
   founderReputationScore = 68,
   industryReputationScore = 81,
@@ -96,21 +145,44 @@ export function ScoreTilesRow({
 }: ScoreTilesRowProps) {
   const [activeTile, setActiveTile] = useState<TileId | null>(null);
 
+  // Shared with the big Match pill — sessionStorage caches so no duplicate calls.
+  const { items: matchItems } = useMatchBreakdown(
+    firmName,
+    companyContext,
+    investorContext,
+    matchScore,
+  );
+
+  const computedMatchScore = useMemo(() => {
+    if (!matchItems.length) return matchScore;
+    return Math.round(
+      matchItems.reduce((s, i) => s + i.score, 0) / matchItems.length,
+    );
+  }, [matchItems, matchScore]);
+
   const tiles: TileConfig[] = [
     {
       id: "match",
       shortLabel: "MATCH",
       displayLabel: "Match",
-      value: matchScore,
+      value: computedMatchScore,
       definition:
         "How well this investor matches your stage, sector, geography, and check size.",
-      subscores: [
-        { label: "Stage fit", value: 92, note: "Active in your target stage" },
-        { label: "Sector fit", value: 88, note: "Strong thesis overlap" },
-        { label: "Geography fit", value: 78, note: "Invests in your region" },
-        { label: "Check size fit", value: 85, note: "Within sweet spot" },
-        { label: "Lead / follow fit", value: 80, note: "Willing to lead rounds" },
-      ],
+      subscores: matchItems.length
+        ? matchItems.map((item) => ({
+            label:
+              item.category.charAt(0).toUpperCase() +
+              item.category.slice(1) +
+              " fit",
+            value: item.score,
+            note: item.detail,
+          }))
+        : [
+            { label: "Stage fit", value: 92, note: "Active in your target stage" },
+            { label: "Sector fit", value: 88, note: "Strong thesis overlap" },
+            { label: "Geography fit", value: 78, note: "Invests in your region" },
+            { label: "Profile fit", value: 82, note: "Aligned check size and model" },
+          ],
     },
     {
       id: "founderSentiment",
@@ -121,9 +193,9 @@ export function ScoreTilesRow({
         "How positively founders in our network talk about working with this investor.",
       subscores: [
         { label: "Overall experience", value: 76 },
-        { label: "Would work with again", value: 72 },
-        { label: "Support in hard times", value: 68 },
-        { label: "Communication quality", value: 80 },
+        { label: "Work with again", value: 72 },
+        { label: "Hard times support", value: 68 },
+        { label: "Communication", value: 80 },
       ],
     },
     {
@@ -150,7 +222,7 @@ export function ScoreTilesRow({
       subscores: [
         { label: "Tier", value: 85, note: "Tier 1" },
         { label: "Brand recognition", value: 90 },
-        { label: "Signal to other investors", value: 82 },
+        { label: "Investor signal", value: 82 },
         { label: "Sector authority", value: 78 },
       ],
     },
@@ -158,17 +230,23 @@ export function ScoreTilesRow({
 
   const formattedDate =
     lastUpdated ??
-    new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
 
-  const handleTileClick = (id: TileId) => {
+  const handleTileClick = (id: TileId) =>
     setActiveTile((prev) => (prev === id ? null : id));
-  };
 
-  const activeTileConfig = activeTile ? tiles.find((t) => t.id === activeTile) : null;
+  const activeTileConfig = activeTile
+    ? tiles.find((t) => t.id === activeTile)
+    : null;
 
   return (
-    <div className="w-full">
-      {/* ── Tile row ── */}
+    // w-fit keeps the panel the same width as the tile strip — no full-bleed sprawl.
+    <div className="w-fit">
+      {/* ── Tile strip ─────────────────────────────────────────────────────── */}
       <div className="flex gap-2">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
@@ -181,82 +259,99 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "flex-1 flex flex-col items-center justify-center gap-0.5",
-                "min-w-[88px] max-w-[104px] h-[68px]",
+                // Fixed size so 4 tiles stay compact
+                "relative w-24 h-[64px]",
+                "flex flex-col items-center justify-center gap-0.5 px-2",
                 "rounded-[8px] border transition-all duration-200 select-none",
-                // Base: neutral surface with subtle tint
                 isActive
-                  ? `${colors.activeTintBg} ${colors.borderActive} shadow-sm`
-                  : `bg-[#F7F8FA] dark:bg-secondary/50 border-transparent hover:border-border/60 hover:shadow-sm ${colors.tintBg}`,
+                  ? `${colors.activeTintBg} ${colors.activeBorder}`
+                  : "bg-white dark:bg-card border-[#E5E7EB] dark:border-border hover:shadow-md hover:border-border",
               ].join(" ")}
             >
               {/* Label */}
-              <span className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground/70 leading-none">
+              <span
+                className={[
+                  "text-[10px] tracking-wider uppercase leading-none",
+                  isActive
+                    ? "font-bold text-foreground/75"
+                    : "font-medium text-muted-foreground/60",
+                ].join(" ")}
+              >
                 {tile.shortLabel}
               </span>
 
-              {/* Value */}
-              <span className={`text-[20px] font-black leading-none ${colors.valueCls}`}>
+              {/* Score value — lighter than big pill when inactive */}
+              <span
+                className={[
+                  "text-[20px] font-bold leading-tight",
+                  isActive ? colors.valueCls : colors.subtleCls,
+                ].join(" ")}
+              >
                 {tile.value}
               </span>
 
-              {/* Caption + caret */}
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 leading-none">
+              {/* Caption */}
+              <span className="text-[10px] text-muted-foreground/50 leading-none">
                 {caption}
-                <span className="text-[9px]">{isActive ? "▾" : "▸"}</span>
               </span>
+
+              {/* Chevron — bottom-right corner, rotates on active */}
+              <ChevronDown
+                className={[
+                  "absolute bottom-1.5 right-1.5 w-3 h-3 transition-all duration-200",
+                  isActive
+                    ? "text-muted-foreground/60 rotate-0"
+                    : "text-muted-foreground/30 -rotate-90",
+                ].join(" ")}
+              />
             </button>
           );
         })}
       </div>
 
-      {/* ── Breakdown accordion panel ── */}
-      <AnimatePresence>
+      {/* ── Breakdown panel ────────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
         {activeTileConfig && (
           <motion.div
             key={activeTileConfig.id}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            className="overflow-hidden"
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden w-full"
           >
-            <div className="mt-2 rounded-xl bg-secondary/40 dark:bg-secondary/30 border border-border/50 px-4 py-4">
-              {/* Panel header */}
-              <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground mb-2">
-                {activeTileConfig.displayLabel} — score breakdown
-              </p>
+            {(() => {
+              const colors = colorTokens(activeTileConfig.value);
+              return (
+                <div className="mt-2 rounded-[10px] bg-secondary/30 dark:bg-secondary/20 border border-border/50 px-4 pt-3.5 pb-3 w-full">
+                  {/* Panel header */}
+                  <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/60 mb-2.5">
+                    {activeTileConfig.displayLabel} — score breakdown
+                  </p>
 
-              {/* Definition */}
-              <p className="text-[12px] text-muted-foreground leading-relaxed mb-3">
-                {activeTileConfig.definition}
-              </p>
+                  {/* Definition */}
+                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed mb-3.5">
+                    {activeTileConfig.definition}
+                  </p>
 
-              {/* Subscores */}
-              <div className="space-y-2">
-                {activeTileConfig.subscores.map((sub) => {
-                  const colors = colorTokens(sub.value);
-                  return (
-                    <div key={sub.label} className="flex items-center gap-3">
-                      <span className="text-[12px] text-foreground/80 w-36 shrink-0 leading-tight">
-                        {sub.label}
-                      </span>
-                      <ScoreBar value={sub.value} barCls={colors.barCls} />
-                      {sub.note && (
-                        <span className="text-[10px] text-muted-foreground/60 w-28 text-right shrink-0 leading-tight">
-                          {sub.note}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                  {/* Subscores — all bars share the panel's color family */}
+                  <div className="space-y-3">
+                    {activeTileConfig.subscores.map((sub) => (
+                      <SubscoreRow
+                        key={sub.label}
+                        sub={sub}
+                        barCls={colors.barCls}
+                      />
+                    ))}
+                  </div>
 
-              {/* Footer */}
-              <p className="mt-3 text-[10px] text-muted-foreground/50 border-t border-border/30 pt-2.5">
-                Last updated: {formattedDate} · Confidence: {confidenceScore}%
-              </p>
-            </div>
+                  {/* Footer */}
+                  <p className="mt-3.5 text-[9px] text-muted-foreground/35 border-t border-border/20 pt-2">
+                    Updated {formattedDate} · Confidence {confidenceScore}%
+                  </p>
+                </div>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
