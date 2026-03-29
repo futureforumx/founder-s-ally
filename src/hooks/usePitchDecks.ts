@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseAccessToken } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
@@ -14,20 +15,44 @@ export interface PitchDeck {
   slide_count: number | null;
 }
 
+interface UploadDeckOptions {
+  silent?: boolean;
+}
+
+function parseJwtSub(token: string | null): string | null {
+  if (!token) return null;
+
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload?.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function usePitchDecks() {
   const { user } = useAuth();
   const [decks, setDecks] = useState<PitchDeck[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDeck, setActiveDeck] = useState<PitchDeck | null>(null);
 
+  const resolveRlsUserId = useCallback(async (): Promise<string | null> => {
+    const token = await getSupabaseAccessToken();
+    const jwtSub = parseJwtSub(token);
+    return jwtSub ?? user?.id ?? null;
+  }, [user?.id]);
+
   const fetchDecks = useCallback(async () => {
     try {
-      if (!user?.id) return;
+      const rlsUserId = await resolveRlsUserId();
+      if (!rlsUserId) return;
 
       const { data, error } = await supabase
         .from("company_pitch_decks" as any)
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", rlsUserId)
         .order("uploaded_at", { ascending: false });
 
       if (error) throw error;
@@ -40,16 +65,17 @@ export function usePitchDecks() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [resolveRlsUserId]);
 
   useEffect(() => { fetchDecks(); }, [fetchDecks]);
 
-  const uploadDeck = useCallback(async (file: File): Promise<PitchDeck | null> => {
+  const uploadDeck = useCallback(async (file: File, options?: UploadDeckOptions): Promise<PitchDeck | null> => {
     try {
-      if (!user?.id) throw new Error("Not authenticated");
+      const rlsUserId = await resolveRlsUserId();
+      if (!rlsUserId) throw new Error("Not authenticated");
 
       // Upload file to storage
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+      const filePath = `${rlsUserId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("pitch-decks")
         .upload(filePath, file);
@@ -65,7 +91,7 @@ export function usePitchDecks() {
       const { data, error } = await supabase
         .from("company_pitch_decks" as any)
         .insert({
-          user_id: user.id,
+          user_id: rlsUserId,
           file_name: file.name,
           file_url: filePath,
           is_active: true,
@@ -83,10 +109,12 @@ export function usePitchDecks() {
       return newDeck;
     } catch (err) {
       console.error("Upload failed:", err);
-      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+      if (!options?.silent) {
+        toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+      }
       return null;
     }
-  }, [fetchDecks, user?.id]);
+  }, [fetchDecks, resolveRlsUserId]);
 
   const makeActive = useCallback(async (deckId: string) => {
     try {

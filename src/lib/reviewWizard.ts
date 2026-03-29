@@ -163,11 +163,21 @@ function introFollowupsCompleteFromAnswers(answers: Record<string, string | stri
   );
 }
 
-export function isContextStepValidUnlinked(answers: Record<string, string | string[]>): boolean {
+/**
+ * Relationship origin is chosen and any branch follow-ups are done (who initiated, cold inbound
+ * path, event details, Other text, etc.). Used to reveal "How did you interact?" only after this block.
+ */
+export function isUnlinkedRelationshipOriginComplete(
+  answers: Record<string, string | string[]>,
+): boolean {
   const introOk =
-    typeof answers.interaction_intro === "string" && answers.interaction_intro.length > 0;
+    typeof answers.interaction_intro === "string" && answers.interaction_intro.trim().length > 0;
   if (!introOk) return false;
-  if (!introFollowupsCompleteFromAnswers(answers)) return false;
+  return introFollowupsCompleteFromAnswers(answers);
+}
+
+export function isContextStepValidUnlinked(answers: Record<string, string | string[]>): boolean {
+  if (!isUnlinkedRelationshipOriginComplete(answers)) return false;
   const howOk = Array.isArray(answers.interaction_how) && answers.interaction_how.length > 0;
   if (!howOk) return false;
   const depthOk =

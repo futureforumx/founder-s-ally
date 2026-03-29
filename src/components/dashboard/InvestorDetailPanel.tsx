@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
+import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
+import { cn } from "@/lib/utils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -78,6 +81,7 @@ function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm, initialTab }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [ratingRefresh, setRatingRefresh] = useState(0);
 
   // Reset tab when initialTab or investor changes
   useEffect(() => {
@@ -123,7 +127,22 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   const displayName = effectiveInvestor?.name || "";
 
-  const databaseFirmId = liveProfile?.id ?? resolvedFirmId ?? null;
+  const investorDbIdFromEntry =
+    typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
+      ? investor.investorDatabaseId.trim()
+      : null;
+  const databaseFirmId = liveProfile?.id ?? investorDbIdFromEntry ?? resolvedFirmId ?? null;
+  const reviewVcFirmId = databaseFirmId ?? vcFirm?.id ?? null;
+  const { starRatings: myFirmRatingJson } = useLatestMyVcRating(
+    session?.user?.id,
+    reviewVcFirmId,
+    null,
+    ratingRefresh,
+  );
+  const myFirmRateDisplay = useMemo(
+    () => formatMyReviewRateButton(myFirmRatingJson),
+    [myFirmRatingJson],
+  );
 
   const mergedPartners = useMemo((): VCPerson[] => {
     const firmKey = databaseFirmId ?? vcFirm?.id ?? "";
@@ -318,10 +337,21 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                        className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-3 py-2.5 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                          myFirmRateDisplay
+                            ? myFirmRateDisplay.className
+                            : "border-2 border-warning/30 text-warning hover:bg-warning/5",
+                        )}
+                        aria-label={
+                          myFirmRateDisplay
+                            ? `Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to update.`
+                            : "Rate this firm"
+                        }
                       >
-                        <Star className="h-4 w-4" /> Rate
+                        <Star className="h-4 w-4 shrink-0" /> {myFirmRateDisplay?.label ?? "Rate"}
                       </button>
                       <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
                         <MessageSquare className="h-4 w-4" /> Request Intro
@@ -353,17 +383,17 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               <div className="flex-1 overflow-y-auto">
                 <div className="px-8 py-6 space-y-5">
                   {/* Tabs */}
-                  <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
+                  <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
                     {INVESTOR_TABS.map((tab) => {
                       const isActive = activeTab === tab;
                       return (
                         <button
                           key={tab}
                           onClick={() => setActiveTab(tab)}
-                          className={`relative px-3.5 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                          className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
                             isActive
-                              ? "bg-card text-foreground shadow-surface"
-                              : "text-muted-foreground hover:text-foreground"
+                              ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                              : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
                           }`}
                         >
                           {tab}
@@ -430,7 +460,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <motion.div key="feedback" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <FeedbackTab
                           investorName={effectiveInvestor.name}
-                          vcFirmId={databaseFirmId ?? vcFirm?.id ?? null}
+                          vcFirmId={reviewVcFirmId}
                           onLogInteraction={() => setReviewOpen(true)}
                         />
                       </motion.div>
@@ -457,11 +487,16 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
       <ReviewSubmissionModal
         key="review-modal"
         open={reviewOpen}
-        onClose={() => setReviewOpen(false)}
+        onClose={() => {
+          setReviewOpen(false);
+          setRatingRefresh((n) => n + 1);
+        }}
         firmName={heroName}
         firmLogoUrl={heroLogo}
-        firmWebsiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
-        vcFirmId={databaseFirmId ?? vcFirm?.id ?? null}
+        firmWebsiteUrl={
+          liveProfile?.website_url ?? vcFirm?.website_url ?? investor?.websiteUrl ?? null
+        }
+        vcFirmId={reviewVcFirmId}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
       />

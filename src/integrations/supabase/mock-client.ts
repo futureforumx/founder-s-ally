@@ -233,6 +233,10 @@ class MockSupabaseClient {
         filters.push({ key, value, operator: "is" } as { key: string; value: any; operator: string });
         return chain;
       },
+      ilike: (key: string, value: any) => {
+        filters.push({ key, value, operator: "ilike" });
+        return chain;
+      },
       neq: (key: string, value: any) => {
         // Simple mock: just ignore for now or implement if needed
         return chain;
@@ -271,6 +275,18 @@ class MockSupabaseClient {
             } else {
               filtered = filtered.filter((item) => item && item[f.key] === f.value);
             }
+          } else if (op === "ilike") {
+            const pattern = String(f.value ?? "");
+            const key = f.key;
+            const unquoted = pattern.replace(/%/g, "").toLowerCase();
+            filtered = filtered.filter((item) => {
+              const v = String(item?.[key] ?? "").toLowerCase();
+              if (!unquoted) return true;
+              if (pattern.startsWith("%") && pattern.endsWith("%")) return v.includes(unquoted);
+              if (pattern.endsWith("%")) return v.startsWith(unquoted);
+              if (pattern.startsWith("%")) return v.endsWith(unquoted);
+              return v === unquoted;
+            });
           } else {
             filtered = filtered.filter((item) => item && item[f.key] === f.value);
           }
@@ -317,6 +333,17 @@ class MockSupabaseClient {
                   return f.value === null
                     ? item[f.key] === null || item[f.key] === undefined
                     : item[f.key] === f.value;
+                }
+                if (op === "ilike") {
+                  const pattern = String(f.value ?? "");
+                  const key = f.key;
+                  const unquoted = pattern.replace(/%/g, "").toLowerCase();
+                  const v = String(item?.[key] ?? "").toLowerCase();
+                  if (!unquoted) return true;
+                  if (pattern.startsWith("%") && pattern.endsWith("%")) return v.includes(unquoted);
+                  if (pattern.endsWith("%")) return v.startsWith(unquoted);
+                  if (pattern.startsWith("%")) return v.endsWith(unquoted);
+                  return v === unquoted;
                 }
                 return item[f.key] === f.value;
               });

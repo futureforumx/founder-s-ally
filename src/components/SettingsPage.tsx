@@ -294,7 +294,7 @@ export function SettingsPage() {
         {/* Sub-tabs (only when section has multiple tabs) */}
         {currentTabs.length > 1 && (
           <div className="px-8">
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide relative">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm w-fit max-w-full">
               {currentTabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -302,20 +302,13 @@ export function SettingsPage() {
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
-                      "relative px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap",
+                      "inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
                       isActive
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                        : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
                     )}
                   >
                     {tab.label}
-                    {isActive && (
-                      <motion.div
-                        layoutId="settings-tab-indicator"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      />
-                    )}
                   </button>
                 );
               })}
@@ -2011,14 +2004,18 @@ function SubscriptionTab() {
   const [currentProductId, setCurrentProductId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
 
   const POLAR_PLANS = [
     {
       name: "Basic",
       productId: "4c9f357d-b420-486f-827d-2901b96afd4b",
+      annualProductId: "4c9f357d-b420-486f-827d-2901b96afd4b",
       tier: "FREE",
-      tierColor: "bg-amber-500",
-      price: "$0",
+      description: "Get started with core tools for your fundraising journey.",
+      icon: Zap,
+      priceMonthly: 0,
+      priceAnnually: 0,
       features: [
         "Basic company profile",
         "Limited investor directory access",
@@ -2031,9 +2028,12 @@ function SubscriptionTab() {
     {
       name: "Pro",
       productId: "2e689769-7782-456a-88b3-687e0e825df7",
+      annualProductId: "2e689769-7782-456a-88b3-687e0e825df7",
       tier: "PRO",
-      tierColor: "bg-amber-500",
-      price: "$29",
+      description: "The complete toolkit for founders actively raising capital.",
+      icon: Sparkles,
+      priceMonthly: 29,
+      priceAnnually: 23,
       features: [
         "Full investor matching engine",
         "Unlimited pitch deck audits",
@@ -2046,9 +2046,12 @@ function SubscriptionTab() {
     {
       name: "Premiere",
       productId: "ca6f76eb-8c2d-4593-847f-2f66c59838a5",
+      annualProductId: "ca6f76eb-8c2d-4593-847f-2f66c59838a5",
       tier: "PREMIERE",
-      tierColor: "bg-emerald-500",
-      price: "$99",
+      description: "Every edge for high-volume fundraisers and power users.",
+      icon: Crown,
+      priceMonthly: 99,
+      priceAnnually: 79,
       features: [
         "Everything in Pro",
         "AI-powered investor intelligence",
@@ -2158,85 +2161,136 @@ function SubscriptionTab() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* ── Billing Cycle Toggle ── */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 p-1">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={cn(
+                "rounded-full px-5 py-1.5 text-[11px] font-normal uppercase tracking-[0.14em] transition-all",
+                billingCycle === "monthly"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setBillingCycle("annually")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-5 py-1.5 text-[11px] font-normal uppercase tracking-[0.14em] transition-all",
+                billingCycle === "annually"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Year
+              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-500">
+                SAVE 20%
+              </span>
+            </button>
+          </div>
+          {billingCycle === "annually" && (
+            <p className="text-[11px] text-muted-foreground">Billed as one annual payment · cancel anytime</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {POLAR_PLANS.map((plan) => {
             const isCurrent = currentProductId === plan.productId;
+            const price = billingCycle === "annually" ? plan.priceAnnually : plan.priceMonthly;
+            const activeProductId = billingCycle === "annually" ? plan.annualProductId : plan.productId;
+            const PlanIcon = plan.icon;
             return (
               <div
                 key={plan.name}
                 className={cn(
-                  "relative rounded-2xl border p-6 flex flex-col justify-between transition-all",
+                  "relative flex min-h-[27rem] flex-col overflow-hidden rounded-[22px] border transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_24px_60px_-28px_rgba(15,23,42,0.22)]",
                   plan.highlighted
-                    ? "bg-primary text-primary-foreground border-primary shadow-surface-lg"
-                    : "bg-card border-border"
+                    ? "border-primary/25 bg-gradient-to-b from-white via-slate-50 to-primary/5 shadow-[0_18px_48px_-24px_rgba(15,23,42,0.28)]"
+                    : "border-border/70 bg-white/90 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.16)]"
                 )}
               >
-                <div className={cn("absolute top-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-                <div className={cn("absolute top-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-                <div className={cn("absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
-                <div className={cn("absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full", plan.highlighted ? "bg-primary-foreground/20" : "bg-muted-foreground/15")} />
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
+                    <span className="inline-flex whitespace-nowrap rounded-full border border-primary/20 bg-primary px-3.5 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-primary-foreground shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
 
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <h3 className={cn("text-sm font-bold", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
-                      {plan.name}
-                    </h3>
-                    <Badge className={cn(
-                      "text-[9px] uppercase font-bold tracking-wider border-0 gap-1.5",
+                <div className="flex flex-1 flex-col gap-4 p-5">
+                  {/* Header */}
+                  <div className="flex items-center gap-2.5">
+                    <div className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm",
                       plan.highlighted
-                        ? "bg-primary-foreground/15 text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
+                        ? "border-primary/15 bg-primary/10 text-primary"
+                        : "border-border/60 bg-muted/40 text-muted-foreground"
                     )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full", plan.tierColor)} />
-                      {plan.tier}
-                    </Badge>
+                      <PlanIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold tracking-tight text-foreground">{plan.name}</p>
+                      <p className={cn(
+                        "mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]",
+                        plan.tier === "PREMIERE" ? "text-emerald-500" : plan.tier === "PRO" ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        {plan.tier}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex items-baseline gap-1.5">
-                    <span className={cn("text-4xl font-black tracking-tight", plan.highlighted ? "text-primary-foreground" : "text-foreground")}>
-                      {plan.price}
-                    </span>
-                    <span className={cn("text-sm", plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground")}>
-                      /month
-                    </span>
-                  </div>
+                  <p className="max-w-[22ch] text-sm leading-7 text-muted-foreground/90">{plan.description}</p>
 
-                  <Button
-                    variant={plan.highlighted ? "secondary" : "outline"}
-                    className={cn(
-                      "w-full rounded-xl font-semibold text-xs h-10",
-                      plan.highlighted
-                        ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-                        : isCurrent
-                          ? "bg-muted border-border text-foreground cursor-default"
-                          : plan.price === "$0"
-                            ? "bg-muted border-border text-foreground cursor-default"
-                            : ""
+                  {/* Price */}
+                  <div className="space-y-1">
+                    <div className="flex items-end gap-1.5">
+                      <span className="text-4xl font-semibold leading-none tracking-tight text-foreground">${price}</span>
+                      <span className="pb-1 text-base font-normal text-muted-foreground">/mo</span>
+                    </div>
+                    {billingCycle === "annually" && price > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        ${price * 12} billed annually · <span className="line-through opacity-50">${plan.priceMonthly * 12}</span>
+                      </p>
                     )}
-                    disabled={loading || isCurrent || plan.price === "$0"}
-                    onClick={() => handleCheckout(plan.productId)}
-                  >
-                    {isCurrent ? "Current Plan" : plan.price === "$0" ? "Free Forever" : "Upgrade Plan"}
-                  </Button>
-
-                  <Separator className={plan.highlighted ? "bg-primary-foreground/10" : ""} />
-
-                  <div className="space-y-2.5">
-                    {plan.features.map((f) => (
-                      <div key={f} className="flex items-start gap-2">
-                        <CheckCircle2 className={cn(
-                          "h-3.5 w-3.5 shrink-0 mt-0.5",
-                          plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground/50"
-                        )} />
-                        <span className={cn(
-                          "text-xs leading-relaxed",
-                          plan.highlighted ? "text-primary-foreground/70" : "text-muted-foreground"
-                        )}>
-                          {f}
-                        </span>
-                      </div>
-                    ))}
+                    {price === 0 && (
+                      <p className="text-xs leading-6 text-muted-foreground">Free forever · no credit card needed</p>
+                    )}
                   </div>
+
+                  {/* CTA */}
+                  <Button
+                    variant={plan.highlighted ? "default" : "outline"}
+                    className={cn(
+                      "mt-auto h-11 w-full rounded-xl text-sm font-semibold shadow-sm transition-all",
+                      !plan.highlighted && "border-border/70 bg-background/80 hover:bg-background",
+                      isCurrent && "opacity-60 cursor-default"
+                    )}
+                    disabled={loading || isCurrent || price === 0}
+                    onClick={() => handleCheckout(activeProductId)}
+                  >
+                    {isCurrent ? "Current Plan" : price === 0 ? "Free Forever" : "Get Started"}
+                  </Button>
+                </div>
+
+                <Separator className="bg-border/70" />
+
+                {/* Features */}
+                <div className="flex flex-col gap-2 bg-muted/20 p-5">
+                  {plan.features.map((f) => (
+                    <div key={f} className="flex items-start gap-2.5">
+                      <div className={cn(
+                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-1",
+                        plan.highlighted
+                          ? "bg-primary/12 text-primary ring-primary/15"
+                          : "bg-background text-muted-foreground ring-border/70"
+                      )}>
+                        <Check className="h-2.5 w-2.5" />
+                      </div>
+                      <span className="text-[12px] leading-5 text-muted-foreground">{f}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             );

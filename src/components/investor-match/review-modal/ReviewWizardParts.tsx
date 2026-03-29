@@ -720,8 +720,7 @@ export function ReviewStepEvaluationUnlinked({
     <div className="space-y-6">
       <section className="space-y-3">
         <p className="text-sm font-bold leading-snug text-foreground">
-          <span className="text-muted-foreground">1.</span> How was your experience with{" "}
-          {firmName.trim() || "this firm"}?
+          How was your experience with {firmName.trim() || "this firm"}?
         </p>
         <OverallInteractionScale
           value={(answers.overall_interaction as string) ?? null}

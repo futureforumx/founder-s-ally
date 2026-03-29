@@ -382,21 +382,21 @@ function CompetitorUpdatesFeed({ competitors, onOpenBattlecard }: { competitors:
       </div>
 
       {/* Segmented Control — outside scroll area */}
-      <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/50 p-1 mb-4">
+      <div className="mb-4 inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
         {SIGNAL_TABS.map(tab => {
           const count = tab.key === "all" ? allUpdates.length : allUpdates.filter(u => u.signalTab === tab.key).length;
           return (
             <button
               key={tab.key}
               onClick={() => { setActiveTab(tab.key); setShowAll(false); }}
-              className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 inline-flex items-center gap-1.5 ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
                 activeTab === tab.key
-                  ? "bg-card shadow-sm text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                  : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
               }`}
             >
               {tab.label}
-              <span className={`text-[10px] font-medium rounded-full px-1.5 py-0 min-w-[18px] text-center ${
+              <span className={`rounded-full px-1.5 py-0 min-w-[18px] text-center text-[9px] font-medium ${
                 activeTab === tab.key ? "bg-secondary text-foreground" : "bg-secondary/70 text-muted-foreground"
               }`}>{count}</span>
             </button>

@@ -359,16 +359,16 @@ export function EventsView() {
         <CreateEventDialog onCreated={fetchEvents} defaults={defaults} />
       </div>
 
-      <div className="flex gap-1 border-b border-border/60 pb-0">
+      <div className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
         {filterTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setFilter(tab.id)}
             className={cn(
-              "px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px",
+              "inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
               filter === tab.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
             )}
           >
             {tab.label}

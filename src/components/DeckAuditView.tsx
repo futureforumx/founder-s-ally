@@ -81,7 +81,7 @@ export function DeckAuditView() {
   });
   const [compareMode, setCompareMode] = useState(false);
   const [isRerunning, setIsRerunning] = useState(false);
-  const { decks, activeDeck, loading, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
+  const { decks, activeDeck, loading, uploadDeck, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [pendingDeckText, setPendingDeckText] = useState<string | null>(null);
@@ -96,9 +96,19 @@ export function DeckAuditView() {
     })();
   }, [activeDeck, getDownloadUrl]);
 
-  const handleUpload = useCallback(async (deckText: string) => {
+  const handleUpload = useCallback(async (deckText: string, file?: File) => {
     setState("processing");
     try {
+      if (file) {
+        const savedDeck = await uploadDeck(file, { silent: true });
+        if (!savedDeck) {
+          toast({
+            title: "Continuing without version save",
+            description: "Your deck was analyzed, but we could not save this file to Version History.",
+          });
+        }
+      }
+
       const safeDeckText = deckText.slice(0, MAX_AUDIT_DECK_TEXT_CHARS);
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText: safeDeckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
@@ -120,7 +130,7 @@ export function DeckAuditView() {
       });
       setState("upload");
     }
-  }, []);
+  }, [uploadDeck]);
 
   // Auto-run audit if a pending deck was queued from Mission Control
   useEffect(() => {

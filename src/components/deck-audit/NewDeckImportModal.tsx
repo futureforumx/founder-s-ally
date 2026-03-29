@@ -8,33 +8,78 @@ interface NewDeckImportModalProps {
   onImport: (text: string) => void;
 }
 
+interface ParsedDeck {
+  text: string;
+  pageImages: string[];
+}
+
 export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImportModalProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [pendingImportText, setPendingImportText] = useState<string | null>(null);
+  const [pagePreviews, setPagePreviews] = useState<string[]>([]);
+  const [activePreviewPage, setActivePreviewPage] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
+  const resetModalState = useCallback(() => {
+    setLinkUrl("");
+    setIsDragging(false);
+    setError(null);
+    setIsExtracting(false);
+    setPendingImportText(null);
+    setPagePreviews([]);
+    setActivePreviewPage(0);
+  }, []);
+
+  const handleModalOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) resetModalState();
+    onOpenChange(nextOpen);
+  }, [onOpenChange, resetModalState]);
+
+  const parseDeckFromFile = useCallback(async (file: File): Promise<ParsedDeck> => {
     const name = file.name.toLowerCase();
 
     if (name.endsWith(".txt") || name.endsWith(".md")) {
-      return await file.text();
+      return {
+        text: await file.text(),
+        pageImages: [],
+      };
     }
 
     if (name.endsWith(".pdf")) {
-      const pdfjsLib = await import("pdfjs-dist");
+      const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
       const pages: string[] = [];
+      const previews: string[] = [];
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
+
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
         pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
+
+        if (ctx) {
+          const viewport = page.getViewport({ scale: 0.75 });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          previews.push(canvas.toDataURL("image/jpeg", 0.82));
+        }
       }
-      return pages.join("\n\n");
+
+      return {
+        text: pages.join("\n\n"),
+        pageImages: previews,
+      };
     }
 
     throw new Error("Unsupported file type. Please upload a PDF or TXT file.");
@@ -46,21 +91,25 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
       setError("File too large. Maximum size is 50 MB.");
       return;
     }
+
     setIsExtracting(true);
     try {
-      const text = await extractTextFromFile(file);
-      if (text.trim().length < 50) {
+      const parsed = await parseDeckFromFile(file);
+
+      if (parsed.text.trim().length < 50) {
         setError("Could not extract enough text from this file.");
         return;
       }
-      onOpenChange(false);
-      onImport(text);
+
+      setPendingImportText(parsed.text);
+      setPagePreviews(parsed.pageImages);
+      setActivePreviewPage(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to read file.");
     } finally {
       setIsExtracting(false);
     }
-  }, [extractTextFromFile, onImport, onOpenChange]);
+  }, [parseDeckFromFile]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -84,16 +133,24 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
     if (!linkUrl.trim()) return;
     setError(null);
     setIsExtracting(true);
+
     // Simulate link fetch — in production this would call an edge function
     setTimeout(() => {
       setIsExtracting(false);
-      onOpenChange(false);
-      onImport(`[Link Import]\nImported deck from: ${linkUrl}\n\n[Slide 01]\nTitle slide content extracted from link.\n\n[Slide 02]\nProblem statement and market analysis.\n\n[Slide 03]\nSolution overview and product demo.\n\n[Slide 04]\nTraction metrics and growth chart.\n\n[Slide 05]\nTeam and advisors.`);
+      setPendingImportText(`[Link Import]\nImported deck from: ${linkUrl}\n\n[Slide 01]\nTitle slide content extracted from link.\n\n[Slide 02]\nProblem statement and market analysis.\n\n[Slide 03]\nSolution overview and product demo.\n\n[Slide 04]\nTraction metrics and growth chart.\n\n[Slide 05]\nTeam and advisors.`);
+      setPagePreviews([]);
+      setActivePreviewPage(0);
     }, 1500);
-  }, [linkUrl, onImport, onOpenChange]);
+  }, [linkUrl]);
+
+  const handleConfirmImport = useCallback(() => {
+    if (!pendingImportText) return;
+    onImport(pendingImportText);
+    handleModalOpenChange(false);
+  }, [handleModalOpenChange, onImport, pendingImportText]);
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={handleModalOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
@@ -182,6 +239,54 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
                 onChange={handleInputChange}
               />
 
+              {/* Slide preview with page buttons */}
+              {pagePreviews.length > 0 && (
+                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Slide preview
+                    </p>
+                    <span className="text-[11px] text-muted-foreground">
+                      Page {activePreviewPage + 1} of {pagePreviews.length}
+                    </span>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-border bg-card">
+                    <img
+                      src={pagePreviews[activePreviewPage]}
+                      alt={`Slide ${activePreviewPage + 1}`}
+                      className="h-48 w-full object-contain"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {pagePreviews.map((src, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActivePreviewPage(idx)}
+                        className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border transition-all ${
+                          idx === activePreviewPage
+                            ? "border-primary ring-1 ring-primary/40"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <img src={src} alt={`Slide ${idx + 1}`} className="h-full w-full object-cover" />
+                        <span className="absolute bottom-0 left-0 right-0 bg-foreground/70 px-1 py-0.5 text-[10px] font-medium text-background">
+                          {idx + 1}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pendingImportText && pagePreviews.length === 0 && (
+                <div className="rounded-lg border border-success/20 bg-success/10 px-3 py-2.5 text-xs text-success">
+                  Deck content is ready to import.
+                </div>
+              )}
+
               {/* Error */}
               {error && (
                 <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
@@ -192,9 +297,16 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3 border-t border-border bg-muted/20 flex justify-end">
+            <div className="px-6 py-3 border-t border-border bg-muted/20 flex justify-end gap-2">
               <button
-                onClick={() => onOpenChange(false)}
+                onClick={handleConfirmImport}
+                disabled={!pendingImportText || isExtracting}
+                className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-all hover:opacity-90 disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Import deck
+              </button>
+              <button
+                onClick={() => handleModalOpenChange(false)}
                 className="rounded-lg px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted active:scale-[0.97]"
               >
                 Cancel

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { useMatchBreakdown } from "./InvestorAIInsight";
+import { useMatchBreakdown, getMatchFitNote } from "./InvestorAIInsight";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +61,118 @@ function getCaption(score: number): string {
   if (score >= 70) return "Good";
   if (score >= 55) return "Medium";
   return "Low";
+}
+
+type SubscoreTier = "high" | "good" | "medium" | "low";
+
+function tierForSubscore(score: number): SubscoreTier {
+  if (score >= 85) return "high";
+  if (score >= 70) return "good";
+  if (score >= 55) return "medium";
+  return "low";
+}
+
+/** Notes for founder-sentiment rows — always aligned to the numeric score. */
+function founderSentimentNote(
+  row: "overall" | "workAgain" | "hardTimes" | "communication",
+  score: number
+): string {
+  const t = tierForSubscore(score);
+  const m: Record<typeof row, Record<SubscoreTier, string>> = {
+    overall: {
+      high: "Consistently praised overall experience",
+      good: "Generally positive experiences reported",
+      medium: "Mixed experiences across founders",
+      low: "Frequent concerns about the partnership",
+    },
+    workAgain: {
+      high: "Most would partner again enthusiastically",
+      good: "Majority likely to work together again",
+      medium: "Split on whether they’d repeat",
+      low: "Many would not choose to work again",
+    },
+    hardTimes: {
+      high: "Stands out for support in hard moments",
+      good: "Reasonable support when things get tough",
+      medium: "Uneven support through downturns",
+      low: "Often absent or unhelpful in crises",
+    },
+    communication: {
+      high: "Clear, frequent, respectful communication",
+      good: "Solid communication with occasional gaps",
+      medium: "Inconsistent clarity or responsiveness",
+      low: "Communication is a common pain point",
+    },
+  };
+  return m[row][t];
+}
+
+function founderReputationNote(
+  row: "responsiveness" | "friendliness" | "followThrough" | "valueAdd",
+  score: number
+): string {
+  const t = tierForSubscore(score);
+  const m: Record<typeof row, Record<SubscoreTier, string>> = {
+    responsiveness: {
+      high: "Fast, reliable responses to founders",
+      good: "Usually reachable within a reasonable window",
+      medium: "Slow or uneven response patterns",
+      low: "Often hard to reach or unresponsive",
+    },
+    friendliness: {
+      high: "Widely seen as founder-aligned and fair",
+      good: "Generally constructive working style",
+      medium: "Perceived as transactional or distant",
+      low: "Often described as difficult or adversarial",
+    },
+    followThrough: {
+      high: "Commitments and promises reliably kept",
+      good: "Mostly follows through; rare misses",
+      medium: "Mixed track record on commitments",
+      low: "Frequent gaps between say and do",
+    },
+    valueAdd: {
+      high: "Strong operator and network leverage",
+      good: "Helpful introductions and light support",
+      medium: "Limited hands-on value beyond capital",
+      low: "Little perceived help beyond the check",
+    },
+  };
+  return m[row][t];
+}
+
+function industryReputationNote(
+  row: "tier" | "brand" | "signal" | "authority",
+  score: number
+): string {
+  const t = tierForSubscore(score);
+  const m: Record<typeof row, Record<SubscoreTier, string>> = {
+    tier: {
+      high: "Top-quartile firm in peer rankings",
+      good: "Well-regarded institutional brand",
+      medium: "Credible but not tier-defining",
+      low: "Below peers on perceived firm quality",
+    },
+    brand: {
+      high: "Highly recognized name in the market",
+      good: "Solid brand familiarity among founders",
+      medium: "Known in niche circles more than broadly",
+      low: "Limited brand recognition vs peers",
+    },
+    signal: {
+      high: "Their logo strongly validates a round",
+      good: "Positive signal to other investors",
+      medium: "Modest signaling effect",
+      low: "Weak signal to follow-on capital",
+    },
+    authority: {
+      high: "Seen as a thought leader in the space",
+      good: "Credible sector perspective",
+      medium: "Average sector voice and influence",
+      low: "Limited authority in your vertical",
+    },
+  };
+  return m[row][t];
 }
 
 // Returns color tokens for a given score.
@@ -179,13 +291,13 @@ export function ScoreTilesRow({
               item.category.slice(1) +
               " fit",
             value: item.score,
-            note: item.detail,
+            note: getMatchFitNote(item.category, item.score),
           }))
         : [
-            { label: "Stage fit", value: 92, note: "Active in your target stage" },
-            { label: "Sector fit", value: 88, note: "Strong thesis overlap" },
-            { label: "Geography fit", value: 78, note: "Invests in your region" },
-            { label: "Profile fit", value: 82, note: "Aligned check size and model" },
+            { label: "Sector fit", value: 88, note: getMatchFitNote("sector", 88) },
+            { label: "Stage fit", value: 95, note: getMatchFitNote("stage", 95) },
+            { label: "Geography fit", value: 78, note: getMatchFitNote("geography", 78) },
+            { label: "Profile fit", value: 82, note: getMatchFitNote("profile", 82) },
           ],
     },
     {
@@ -196,10 +308,10 @@ export function ScoreTilesRow({
       definition:
         "How positively founders in our network talk about working with this investor.",
       subscores: [
-        { label: "Overall experience", value: 76 },
-        { label: "Work with again", value: 72 },
-        { label: "Hard times support", value: 68 },
-        { label: "Communication", value: 80 },
+        { label: "Overall experience", value: 76, note: founderSentimentNote("overall", 76) },
+        { label: "Work with again", value: 72, note: founderSentimentNote("workAgain", 72) },
+        { label: "Hard times support", value: 68, note: founderSentimentNote("hardTimes", 68) },
+        { label: "Communication", value: 80, note: founderSentimentNote("communication", 80) },
       ],
     },
     {
@@ -210,10 +322,10 @@ export function ScoreTilesRow({
       definition:
         "Reputation of this investor among founders more broadly, beyond your immediate network.",
       subscores: [
-        { label: "Responsiveness", value: 70 },
-        { label: "Founder friendliness", value: 65 },
-        { label: "Follow-through", value: 72 },
-        { label: "Value-add", value: 66 },
+        { label: "Responsiveness", value: 70, note: founderReputationNote("responsiveness", 70) },
+        { label: "Founder friendliness", value: 65, note: founderReputationNote("friendliness", 65) },
+        { label: "Follow-through", value: 72, note: founderReputationNote("followThrough", 72) },
+        { label: "Value-add", value: 66, note: founderReputationNote("valueAdd", 66) },
       ],
     },
     {
@@ -224,10 +336,10 @@ export function ScoreTilesRow({
       definition:
         "How this firm is perceived in the wider market and within your sector.",
       subscores: [
-        { label: "Tier", value: 85, note: "Tier 1" },
-        { label: "Brand recognition", value: 90 },
-        { label: "Investor signal", value: 82 },
-        { label: "Sector authority", value: 78 },
+        { label: "Tier", value: 85, note: industryReputationNote("tier", 85) },
+        { label: "Brand recognition", value: 90, note: industryReputationNote("brand", 90) },
+        { label: "Investor signal", value: 82, note: industryReputationNote("signal", 82) },
+        { label: "Sector authority", value: 78, note: industryReputationNote("authority", 78) },
       ],
     },
   ];

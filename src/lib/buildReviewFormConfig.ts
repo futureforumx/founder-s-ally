@@ -392,10 +392,21 @@ const ENGAGE_NPS: Record<string, number> = {
   No: 0,
 };
 
+/**
+ * Unlinked reviews store `overall_interaction` as "1"…"10". Legacy `score_respect` is 1–5 for
+ * `vcRatingsAggregate` / firm rollups — map ~two deciles per star.
+ */
+export function mapOverallTenToLegacyRespectScore(raw: unknown): number | null {
+  if (typeof raw !== "string") return null;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 10 || String(n) !== raw) return null;
+  return Math.max(1, Math.min(5, Math.round(n / 2)));
+}
+
 export function deriveNonInvestorScores(answers: Record<string, string | string[]>) {
   return {
     score_resp: null,
-    score_respect: RATING_SCORE[answers.overall_interaction as string] ?? null,
+    score_respect: mapOverallTenToLegacyRespectScore(answers.overall_interaction),
     score_feedback: null,
     score_follow_thru: null,
     score_value_add: null,
