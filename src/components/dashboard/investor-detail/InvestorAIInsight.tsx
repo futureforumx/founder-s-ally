@@ -64,7 +64,7 @@ function scoreBg(s: number) {
   return "bg-destructive/10";
 }
 
-function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | null, investorContext?: InvestorContext | null, matchScore?: number) {
+export function useMatchBreakdown(firmName: string, companyContext?: CompanyContext | null, investorContext?: InvestorContext | null, matchScore?: number) {
   const [items, setItems] = useState<BreakdownItem[]>([]);
   const [loading, setLoading] = useState(false);
 

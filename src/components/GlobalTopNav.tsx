@@ -463,24 +463,6 @@ export function GlobalTopNav({
           )}
         </div>
 
-        {/* ── Intelligence entry (any view except already in intel area) ── */}
-        {!searchOpen &&
-          !["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(
-            activeView
-          ) && (
-            <button
-              type="button"
-              onClick={() => routeView("market-intelligence")}
-              className={cn(
-                "shrink-0 ml-2 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
-                "border-border/60 bg-muted/40 text-foreground hover:bg-muted/60"
-              )}
-            >
-              <Radar className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Intelligence</span>
-            </button>
-          )}
-
         {/* ── Investor Section Tabs (visible when search collapsed) ── */}
         {!searchOpen && ["investors", "investor-search", "connections"].includes(activeView) && (
           <>
