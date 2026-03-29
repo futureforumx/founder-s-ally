@@ -219,17 +219,17 @@ export function InvestorMatchSection({
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-800/60">
-        <div className="flex items-center gap-1">
+      <div>
+        <div className="flex w-fit items-center gap-1 rounded-full border border-slate-700/70 bg-slate-900/55 p-1 shadow-sm backdrop-blur-sm">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id as typeof internalTab)}
               className={cn(
-                "px-4 py-3 text-sm font-medium transition-all border-b-2",
+                "inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
                 internalTab === tab.id
-                  ? "border-slate-400/60 text-white"
-                  : "border-transparent text-slate-400/60 hover:text-slate-300"
+                  ? "bg-slate-800 text-white shadow-sm ring-1 ring-slate-600/60"
+                  : "text-slate-400/70 hover:bg-slate-800/50 hover:text-slate-200"
               )}
             >
               {tab.label}

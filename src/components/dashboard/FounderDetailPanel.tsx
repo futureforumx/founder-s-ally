@@ -148,17 +148,17 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
 
               {/* ─── Pill Tabs ─── */}
               <div className="mx-6 mb-4 shrink-0">
-                <div className="inline-flex bg-secondary/60 p-1 rounded-lg">
+                <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
                   {TABS.map((tab) => {
                     const isActive = activeTab === tab;
                     return (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                        className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
                           isActive
-                            ? "bg-card text-foreground shadow-surface"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                            : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
                         }`}
                       >
                         {tab}

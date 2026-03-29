@@ -22,7 +22,7 @@ export function SlideCoachingView({ slides, deckUrl }: SlideCoachingViewProps) {
     setRenderingSlides(true);
 
     try {
-      const pdfjsLib = await import("pdfjs-dist");
+      const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
       const response = await fetch(url);

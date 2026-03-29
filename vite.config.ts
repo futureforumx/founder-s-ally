@@ -36,8 +36,9 @@ export default defineConfig(async ({ mode }) => {
         overlay: false,
       },
     },
+    // Listen on all interfaces so `vite preview`, Cursor/VS Code “Simple Browser”, and LAN devices can open the URL.
     preview: {
-      host: devHost,
+      host: true,
       port: devPort,
       strictPort: false,
       open: false,

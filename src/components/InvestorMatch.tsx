@@ -346,21 +346,18 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
 
       {/* Sticky Tab Bar */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm -mx-1 px-1 mb-6">
-        <div className="flex items-center gap-1 border-b border-border">
+        <div className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
           {TABS.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
                 activeTab === tab.key
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground/70"
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
+                  : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
               }`}
             >
               {tab.label}
-              {activeTab === tab.key && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-full" />
-              )}
             </button>
           ))}
         </div>
@@ -382,17 +379,20 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
           onUnsave={(firmId) => removeInteraction.mutate({ firmId, action: "saved" })}
           onSkip={(firmId) => recordInteraction.mutate({ firmId, action: "skipped" })}
-          onViewInvestor={(inv) => setSelectedInvestor({
-            name: inv.firm_name,
-            sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Multi-stage",
-            stage: inv.preferred_stage || "Multi-stage",
-            description: inv.reasoning,
-            location: inv.location || "",
-            model: `${formatCheckSize(inv.min_check_size)}–${formatCheckSize(inv.max_check_size)}`,
-            initial: inv.firm_name.charAt(0).toUpperCase(),
-            matchReason: inv.reasoning,
-            category: "investor" as const,
-          })}
+          onViewInvestor={(inv) =>
+            setSelectedInvestor({
+              name: inv.firm_name,
+              sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Multi-stage",
+              stage: inv.preferred_stage || "Multi-stage",
+              description: inv.reasoning,
+              location: inv.location || "",
+              model: `${formatCheckSize(inv.min_check_size)}–${formatCheckSize(inv.max_check_size)}`,
+              initial: inv.firm_name.charAt(0).toUpperCase(),
+              matchReason: inv.reasoning,
+              category: "investor" as const,
+              investorDatabaseId: inv.id,
+              websiteUrl: inv.website_url ?? null,
+            })}
         />
       )}
       {activeTab === "activity" && <ActivityTab />}

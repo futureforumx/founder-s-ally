@@ -289,6 +289,12 @@ export function GlobalTopNav({
     return () => document.removeEventListener("mousedown", handler);
   }, [searchOpen]);
 
+  // Keep filter chips aligned with investor directory tab when opening search
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (investorSearchChip) setActiveChip(investorSearchChip);
+  }, [searchOpen, investorSearchChip]);
+
   // Cmd+K shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -323,6 +329,12 @@ export function GlobalTopNav({
         setHighlightIdx(i => (i > 0 ? i - 1 : sug.length - 1));
       } else if (e.key === "Enter") {
         e.preventDefault();
+        const q = (investorSearchQuery || "").trim();
+        if (q) {
+          onInvestorSearchQueryChange?.(investorSearchQuery || "");
+        } else if (sug[highlightIdx]) {
+          onInvestorSuggestionSelect?.(sug[highlightIdx]);
+        }
         setSearchOpen(false);
         setHighlightIdx(0);
         onOpenCommandPalette?.();
@@ -330,7 +342,17 @@ export function GlobalTopNav({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [searchOpen, activeView, userSector, userStage, onOpenCommandPalette]);
+  }, [
+    searchOpen,
+    activeView,
+    userSector,
+    userStage,
+    highlightIdx,
+    investorSearchQuery,
+    onOpenCommandPalette,
+    onInvestorSearchQueryChange,
+    onInvestorSuggestionSelect,
+  ]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
@@ -342,10 +364,15 @@ export function GlobalTopNav({
     setSearchOpen(true);
   }, []);
 
-  const handleSuggestionClick = useCallback((suggestion: string) => {
-    setSearchOpen(false);
-    onOpenCommandPalette?.();
-  }, [onOpenCommandPalette]);
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      setSearchOpen(false);
+      setHighlightIdx(0);
+      onInvestorSuggestionSelect?.(suggestion);
+      onOpenCommandPalette?.();
+    },
+    [onInvestorSuggestionSelect, onOpenCommandPalette]
+  );
 
   return (
     <div
@@ -413,7 +440,10 @@ export function GlobalTopNav({
                   return (
                     <button
                       key={chip.id}
-                      onClick={() => setActiveChip(chip.id)}
+                      onClick={() => {
+                        setActiveChip(chip.id);
+                        onInvestorSearchChipChange?.(chip.id);
+                      }}
                       className={cn(
                         "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all",
                         isActive
@@ -426,6 +456,17 @@ export function GlobalTopNav({
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="border-b border-border/40 px-4 py-2">
+                <input
+                  type="text"
+                  placeholder="Type to search..."
+                  value={investorSearchQuery || ""}
+                  onChange={(e) => onInvestorSearchQueryChange?.(e.target.value)}
+                  className="w-full rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:border-accent/40 focus:bg-muted/50"
+                  autoFocus
+                />
               </div>
 
               <div className="px-3 py-2">

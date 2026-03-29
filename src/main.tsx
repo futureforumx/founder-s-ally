@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { clerkLocalization } from "@/lib/clerkLocalization";
-import { resolveClerkPublishableKey } from "@/lib/clerkPublishableKey";
+import { readClerkPublishableKeyWithSource } from "@/lib/clerkPublishableKey";
 import { initMixpanel } from "@/lib/mixpanel";
 
 initMixpanel();
@@ -24,7 +24,7 @@ Sentry.init({
 });
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
-const { key: clerkKey, source: clerkKeySource } = resolveClerkPublishableKey();
+const { key: clerkKey, source: clerkKeySource } = readClerkPublishableKeyWithSource();
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
 
 // #region agent log

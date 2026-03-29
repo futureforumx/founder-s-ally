@@ -31,11 +31,54 @@ interface MatchScoreDropdownProps {
   investorContext?: InvestorContext | null;
 }
 
+export type MatchFitCategory = "sector" | "stage" | "geography" | "profile";
+
 interface BreakdownItem {
-  category: "sector" | "stage" | "geography" | "profile";
+  category: MatchFitCategory;
   score: number;
   type: "match" | "warning";
   detail: string;
+}
+
+type FitTier = "high" | "good" | "medium" | "low";
+
+function tierForFitScore(score: number): FitTier {
+  if (score >= 85) return "high";
+  if (score >= 70) return "good";
+  if (score >= 55) return "medium";
+  return "low";
+}
+
+/** Short explanation keyed to the numeric score so copy always matches the bar. */
+export function getMatchFitNote(category: MatchFitCategory, score: number): string {
+  const t = tierForFitScore(score);
+  const byCat: Record<MatchFitCategory, Record<FitTier, string>> = {
+    sector: {
+      high: "Strong overlap in thesis and vertical focus",
+      good: "Solid sector alignment with minor thesis gaps",
+      medium: "Partial overlap — validate thesis fit before outreach",
+      low: "Limited sector match; likely outside core thesis",
+    },
+    stage: {
+      high: "Highly active at your stage and round profile",
+      good: "Regularly invests at your stage",
+      medium: "Some stage fit — confirm round and sizing",
+      low: "Stage focus diverges from your round",
+    },
+    geography: {
+      high: "Strong mandate and activity in your region",
+      good: "Regularly backs companies in your geography",
+      medium: "Limited regional presence but not excluded",
+      low: "Geography is not a core focus for this fund",
+    },
+    profile: {
+      high: "Check size and investment model align well",
+      good: "Generally aligned on check size and structure",
+      medium: "Partial fit — validate check size and modality",
+      low: "Check size or model may be a material gap",
+    },
+  };
+  return byCat[category][t];
 }
 
 const CATEGORY_META: Record<string, { icon: typeof Globe; label: string }> = {
@@ -245,7 +288,9 @@ export function MatchScoreDropdown({ matchScore, firmName, companyContext, inves
                             </div>
                             <span className={`text-[10px] font-bold ${scoreColor(item.score)}`}>{item.score}/100</span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-relaxed">{item.detail}</p>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            {getMatchFitNote(item.category, item.score)}
+                          </p>
                         </div>
                       </motion.div>
                     )}

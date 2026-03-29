@@ -184,7 +184,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Enterprise buyers want agents inside existing compliance boundaries—not generic chat.",
       why_it_matters: "Signals this firm is actively deploying in vertical AI—relevant if you're building in a regulated stack.",
       url: `https://example.com/blog/${slug}/vertical-ai`,
-      image_url: null,
+      image_url: "https://picsum.photos/seed/vertical-ai/800/400",
       estimated_read_time_minutes: 4,
       impact_level: "medium",
       display_tags: ["Thesis", "AI", "Enterprise"],
@@ -197,7 +197,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Runway discipline and a path to profitable growth are now table stakes.",
       why_it_matters: "Understand exactly what metrics this firm will scrutinize before your A round.",
       url: `https://medium.com/search?q=${encodeURIComponent(firm)}`,
-      image_url: null,
+      image_url: "https://picsum.photos/seed/series-a-bar/800/400",
       estimated_read_time_minutes: 3,
       impact_level: "medium",
       display_tags: ["Series A", "Metrics", "Efficiency"],
@@ -210,7 +210,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Applied LLM stack for industrial quality control with Fortune 500 strategic angels.",
       why_it_matters: "Shows active conviction in B2B AI—check their portfolio overlap with your sector.",
       url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firm)}`,
-      image_url: null,
+      image_url: "https://picsum.photos/seed/latticemind/800/400",
       estimated_read_time_minutes: 2,
       impact_level: "high",
       display_tags: ["Investment", "Series A", "B2B AI"],
@@ -223,7 +223,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Targeting early-stage B2B and fintech with the same core partnership.",
       why_it_matters: "Fresh dry powder means this firm is actively deploying—great timing to reach out.",
       url: "",
-      image_url: null,
+      image_url: "https://picsum.photos/seed/fund-close/800/400",
       estimated_read_time_minutes: 2,
       impact_level: "high",
       display_tags: ["New fund", "Funding", "B2B"],
@@ -236,7 +236,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Previously principal covering enterprise infrastructure; led two breakout seed deals.",
       why_it_matters: "New partner coverage means fresh mandates—she may be looking to lead her first deals.",
       url: "",
-      image_url: null,
+      image_url: "https://picsum.photos/seed/team-priya/800/400",
       estimated_read_time_minutes: 1,
       impact_level: "high",
       display_tags: ["Hiring", "Partner", "Promotion"],
@@ -249,7 +249,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Developer platform for maritime logistics APIs; repeat founder team from Stripe alum network.",
       why_it_matters: "Reveals the firm's appetite for developer-first, infra plays at seed stage.",
       url: `https://www.crunchbase.com/textsearch?q=HarborStack`,
-      image_url: null,
+      image_url: "https://picsum.photos/seed/harborstack/800/400",
       estimated_read_time_minutes: 2,
       impact_level: "medium",
       display_tags: ["Seed", "DevTools", "Logistics"],
@@ -262,7 +262,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "45-minute conversation on portfolio construction and avoiding hype cycles in AI infra.",
       why_it_matters: "Listen to understand their current conviction and what they're avoiding.",
       url: "",
-      image_url: null,
+      image_url: "https://picsum.photos/seed/podcast-itb/800/400",
       estimated_read_time_minutes: 45,
       impact_level: "low",
       display_tags: ["Podcast", "Insight"],
@@ -275,7 +275,7 @@ function buildMockCards(firm: string, seed: number): UpdateCard[] {
       subtitle: "Themes: capital efficiency, AI copilots with measurable ROI, and vertical SaaS resilience.",
       why_it_matters: "Annual letters reveal real thesis shifts—read before you pitch.",
       url: "",
-      image_url: null,
+      image_url: "https://picsum.photos/seed/annual-letter/800/400",
       estimated_read_time_minutes: 6,
       impact_level: "medium",
       display_tags: ["Annual letter", "Thesis", "AI"],
@@ -422,18 +422,18 @@ function CompactCard({ card }: { card: UpdateCard }) {
       )}
     >
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60">
-        <TypeIcon className="h-3.5 w-3.5 text-muted-foreground" />
+        <TypeIcon className="h-3 w-3 text-muted-foreground/75" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-semibold", typeConf.badgeClass)}>
+          <Badge variant="outline" className={cn("px-1.5 py-0 text-[9px] font-normal uppercase tracking-[0.12em]", typeConf.badgeClass)}>
             {card.type}
           </Badge>
           {/* Impact dot */}
           <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", impact.dotClass)} title={impact.label} />
-          <span className="text-[10px] text-muted-foreground">{card.display_date}</span>
+          <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-muted-foreground">{card.display_date}</span>
           <span className="text-border text-[10px]">·</span>
-          <span className="text-[10px] text-muted-foreground">{card.display_source}</span>
+          <span className="text-[10px] font-normal uppercase tracking-[0.12em] text-muted-foreground">{card.display_source}</span>
         </div>
         <p className="text-sm font-medium text-foreground leading-snug">{card.title}</p>
         {card.subtitle && (
@@ -450,7 +450,7 @@ function CompactCard({ card }: { card: UpdateCard }) {
             {card.display_tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex rounded-full bg-secondary/70 px-1.5 py-0 text-[10px] font-medium text-muted-foreground border border-border/60"
+                className="inline-flex rounded-full border border-border/60 bg-secondary/70 px-1.5 py-0 text-[10px] font-normal uppercase tracking-[0.12em] text-muted-foreground"
               >
                 {tag}
               </span>
@@ -458,7 +458,17 @@ function CompactCard({ card }: { card: UpdateCard }) {
           </div>
         )}
       </div>
-      {hasLink && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 mt-1" />}
+      {card.image_url && (
+        <div className="shrink-0 h-[60px] w-[60px] overflow-hidden rounded-lg bg-secondary/40">
+          <img
+            src={card.image_url}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={(e) => { (e.target as HTMLElement).parentElement!.style.display = "none"; }}
+          />
+        </div>
+      )}
+      {hasLink && !card.image_url && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 mt-1" />}
     </Row>
   );
 }

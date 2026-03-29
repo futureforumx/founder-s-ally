@@ -398,9 +398,6 @@ const Index = () => {
     setTimeout(() => setSyncFlash(false), 1500);
   };
 
-  const isInvestorNavArea =
-    activeView === "investors" || activeView === "investor-search" || activeView === "connections";
-
   const handleInvestorNavChip = useCallback((chip: string) => {
     setInvestorDirectoryTab(chip);
     setInvestorListQuery("");
@@ -454,11 +451,11 @@ const Index = () => {
           onNavigateProfile={() => setActiveView("company")}
           activeView={activeView}
           onViewChange={setActiveView}
-          investorSearchChip={isInvestorNavArea ? investorDirectoryTab : undefined}
-          onInvestorSearchChipChange={isInvestorNavArea ? handleInvestorNavChip : undefined}
-          investorSearchQuery={isInvestorNavArea ? investorListQuery : undefined}
-          onInvestorSearchQueryChange={isInvestorNavArea ? handleInvestorSearchQuery : undefined}
-          onInvestorSuggestionSelect={isInvestorNavArea ? handleInvestorSuggestion : undefined}
+          investorSearchChip={investorDirectoryTab}
+          onInvestorSearchChipChange={handleInvestorNavChip}
+          investorSearchQuery={investorListQuery}
+          onInvestorSearchQueryChange={handleInvestorSearchQuery}
+          onInvestorSuggestionSelect={handleInvestorSuggestion}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}

@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
+import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
@@ -108,8 +112,10 @@ const SOCIALS = [
 ] as const;
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
+  const { session } = useAuth();
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [ratingRefresh, setRatingRefresh] = useState(0);
 
   const reviewFirmDisplayName =
     firm?.name?.trim() ||
@@ -118,6 +124,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.affiliations?.[0]?.firm_name?.trim() ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+
+  const { starRatings: myPersonRatingJson } = useLatestMyVcRating(
+    session?.user?.id,
+    reviewVcFirmId,
+    person?.id ?? null,
+    ratingRefresh,
+  );
+  const myPersonRateDisplay = useMemo(
+    () => formatMyReviewRateButton(myPersonRatingJson),
+    [myPersonRatingJson],
+  );
 
   const {
     isMapped: investorIsMappedToProfile,
@@ -206,9 +223,19 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   <button
                     type="button"
                     onClick={() => setReviewOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-4 py-2 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
+                      myPersonRateDisplay
+                        ? myPersonRateDisplay.className
+                        : "border-2 border-warning/30 text-warning hover:bg-warning/5",
+                    )}
+                    aria-label={
+                      myPersonRateDisplay
+                        ? `Your rating: ${myPersonRateDisplay.label}. ${myPersonRateDisplay.ariaDetail}. Click to update.`
+                        : "Rate this investor"
+                    }
                   >
-                    <Star className="h-4 w-4" /> Rate
+                    <Star className="h-4 w-4 shrink-0" /> {myPersonRateDisplay?.label ?? "Rate"}
                   </button>
                   {person.email ? (
                     emailRevealed ? (
@@ -360,7 +387,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
           <ReviewSubmissionModal
             open={reviewOpen}
-            onClose={() => setReviewOpen(false)}
+            onClose={() => {
+              setReviewOpen(false);
+              setRatingRefresh((n) => n + 1);
+            }}
             firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
             firmLogoUrl={firm?.logo_url ?? null}
             firmWebsiteUrl={firm?.website_url ?? null}

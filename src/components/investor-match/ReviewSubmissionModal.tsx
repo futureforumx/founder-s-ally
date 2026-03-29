@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -21,6 +22,8 @@ import {
   formatUnlinkedEvaluationSummary,
   type ReviewWizardStep,
 } from "@/lib/reviewModalWizard";
+import { nonInvestorTagsForOverallScore } from "@/lib/reviewFormContent";
+import { isContextStepValidUnlinked, isEvaluationStepValidUnlinked } from "@/lib/reviewWizard";
 import { cn } from "@/lib/utils";
 import {
   ReviewWizardBody,
@@ -85,21 +88,367 @@ function formatVcPersonChipName(row: {
   return full.length > 0 ? full : null;
 }
 
+/** Hostname from a URL or bare domain (for matching `vc_firms.website_url`). */
+function parseWebsiteHost(raw: string | null | undefined): string | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  try {
+    const u = t.includes("://") ? new URL(t) : new URL(`https://${t}`);
+    let h = u.hostname.toLowerCase();
+    if (h.startsWith("www.")) h = h.slice(4);
+    return /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(h) ? h : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Collapse whitespace and strip a leading “.” (MDM JSON uses names like “.406 Ventures”). */
+function normalizeFirmLabel(s: string): string {
+  return s.trim().replace(/\s+/g, " ").replace(/^\.+\s*/, "");
+}
+
+/** Escape `%` / `_` for use inside PostgREST `ilike` patterns we build with wildcards. */
+function escapeIlikeWildcards(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+type MdmFirmLite = { id: string; name: string; website_url?: string | null };
+
+/**
+ * Returns a `vc_firms.id` suitable for `vc_ratings.vc_firm_id` FK.
+ * `hint` may be `vc_firms.id`, `investor_database.id`, an MDM JSON id (often a domain e.g. `406ventures.com`),
+ * or a `vc_firms.slug` — all are normalized here.
+ */
 async function resolveVcFirmId(
   firmName: string,
   hint: string | null | undefined,
+  ctx?: { websiteUrl?: string | null; mdmFirms?: readonly MdmFirmLite[] },
 ): Promise<string | null> {
+  const name = firmName.trim();
+  const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+  const mdmFirms = ctx?.mdmFirms ?? [];
+
+  const resolveByWebsiteHost = async (host: string): Promise<string | null> => {
+    const h = host.trim().toLowerCase();
+    if (!h) return null;
+    const safe = escapeIlikeWildcards(h);
+    const { data } = await dir
+      .from("vc_firms")
+      .select("id")
+      .ilike("website_url", `%${safe}%`)
+      .is("deleted_at", null)
+      .limit(1);
+    return (data?.[0]?.id as string) ?? null;
+  };
+
+  const resolveOneNameString = async (raw: string): Promise<string | null> => {
+    const n = raw.trim();
+    if (!n) return null;
+
+    const { data: exact, error: exactErr } = await dir
+      .from("vc_firms")
+      .select("id")
+      .ilike("firm_name", n)
+      .is("deleted_at", null)
+      .limit(1);
+    if (!exactErr && exact?.[0]?.id) return exact[0].id as string;
+
+    const { data: legalExact } = await dir
+      .from("vc_firms")
+      .select("id")
+      .ilike("legal_name", n)
+      .is("deleted_at", null)
+      .limit(1);
+    if (legalExact?.[0]?.id) return legalExact[0].id as string;
+
+    const safe = escapeIlikeWildcards(n);
+    const { data: looseName } = await dir
+      .from("vc_firms")
+      .select("id")
+      .ilike("firm_name", `%${safe}%`)
+      .is("deleted_at", null)
+      .limit(1);
+    if (looseName?.[0]?.id) return looseName[0].id as string;
+
+    const { data: looseLegal } = await dir
+      .from("vc_firms")
+      .select("id")
+      .ilike("legal_name", `%${safe}%`)
+      .is("deleted_at", null)
+      .limit(1);
+    return (looseLegal?.[0]?.id as string) ?? null;
+  };
+
+  const resolveByName = async (raw: string): Promise<string | null> => {
+    const alnum = raw
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const variants = [
+      ...new Set([raw.trim(), normalizeFirmLabel(raw), alnum].filter(Boolean)),
+    ];
+    for (const v of variants) {
+      const id = await resolveOneNameString(v);
+      if (id) return id;
+    }
+    return null;
+  };
+
+  const verifyVcFirmId = async (candidate: string): Promise<string | null> => {
+    const { data, error } = await dir
+      .from("vc_firms")
+      .select("id")
+      .eq("id", candidate)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!error && data?.id) return data.id as string;
+    return null;
+  };
+
   const trimmed = hint?.trim();
-  if (trimmed) return trimmed;
-  const { data, error } = await (
-    supabaseVcDirectory as unknown as { from: (t: string) => any }
-  )
-    .from("vc_firms")
-    .select("id")
-    .ilike("firm_name", firmName.trim())
-    .limit(1);
-  if (error || !data?.[0]?.id) return null;
-  return data[0].id as string;
+  if (trimmed) {
+    const byPk = await verifyVcFirmId(trimmed);
+    if (byPk) return byPk;
+
+    const { data: bySlug } = await dir
+      .from("vc_firms")
+      .select("id")
+      .eq("slug", trimmed)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (bySlug?.id) return bySlug.id as string;
+
+    if (trimmed.includes(".")) {
+      const slugHyphen = trimmed.replace(/\./g, "-");
+      if (slugHyphen !== trimmed) {
+        const { data: bySlugHy } = await dir
+          .from("vc_firms")
+          .select("id")
+          .eq("slug", slugHyphen)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (bySlugHy?.id) return bySlugHy.id as string;
+      }
+    }
+
+    const { data: aliasRows, error: aliasErr } = await dir
+      .from("vc_firm_aliases")
+      .select("firm_id")
+      .ilike("alias_value", trimmed)
+      .limit(1);
+    if (!aliasErr && aliasRows?.[0]?.firm_id) {
+      const viaAlias = await verifyVcFirmId(aliasRows[0].firm_id as string);
+      if (viaAlias) return viaAlias;
+    }
+
+    if (trimmed.includes(".")) {
+      const safeHost = escapeIlikeWildcards(trimmed);
+      const { data: byUrl } = await dir
+        .from("vc_firms")
+        .select("id")
+        .ilike("website_url", `%${safeHost}%`)
+        .is("deleted_at", null)
+        .limit(1);
+      if (byUrl?.[0]?.id) return byUrl[0].id as string;
+    }
+
+    const { data: invRow, error: invErr } = await supabase
+      .from("investor_database")
+      .select("firm_name, legal_name, prisma_firm_id")
+      .eq("id", trimmed)
+      .maybeSingle();
+
+    if (!invErr && invRow) {
+      const prismaId =
+        invRow && typeof invRow === "object" && typeof (invRow as { prisma_firm_id?: string }).prisma_firm_id === "string"
+          ? (invRow as { prisma_firm_id: string }).prisma_firm_id.trim()
+          : "";
+      if (prismaId) {
+        const linked = await verifyVcFirmId(prismaId);
+        if (linked) return linked;
+      }
+
+      const fn = typeof (invRow as { firm_name?: string }).firm_name === "string" ? (invRow as { firm_name: string }).firm_name.trim() : "";
+      const ln = typeof (invRow as { legal_name?: string }).legal_name === "string" ? (invRow as { legal_name: string }).legal_name.trim() : "";
+
+      for (const label of [fn, ln].filter(Boolean)) {
+        const mapped = await resolveByName(label);
+        if (mapped) return mapped;
+      }
+    }
+  }
+
+  const urlHost = parseWebsiteHost(ctx?.websiteUrl);
+  if (urlHost) {
+    const w = await resolveByWebsiteHost(urlHost);
+    if (w) return w;
+  }
+
+  if (mdmFirms.length > 0) {
+    const trimmedHint = hint?.trim();
+    if (trimmedHint) {
+      const mdm = mdmFirms.find((f) => f.id === trimmedHint);
+      if (mdm) {
+        const byN = await resolveByName(mdm.name);
+        if (byN) return byN;
+        const mh = parseWebsiteHost(mdm.website_url) || parseWebsiteHost(`https://${mdm.id}`);
+        if (mh) {
+          const byW = await resolveByWebsiteHost(mh);
+          if (byW) return byW;
+        }
+      }
+    }
+    const nn = normalizeFirmLabel(name).toLowerCase();
+    if (nn) {
+      const mdmN = mdmFirms.find((f) => normalizeFirmLabel(f.name).toLowerCase() === nn);
+      if (mdmN && (!trimmedHint || mdmN.id !== trimmedHint)) {
+        const byN = await resolveByName(mdmN.name);
+        if (byN) return byN;
+        const mh = parseWebsiteHost(mdmN.website_url) || parseWebsiteHost(`https://${mdmN.id}`);
+        if (mh) {
+          const byW = await resolveByWebsiteHost(mh);
+          if (byW) return byW;
+        }
+      }
+    }
+  }
+
+  return resolveByName(name);
+}
+
+/** Keys that must form a complete v2 “Characterize interaction” step for unlinked reviews. */
+const UNLINKED_CONTEXT_ANSWER_KEYS = [
+  "interaction_intro",
+  "interaction_intro_other",
+  "interaction_warm_intro_who",
+  "interaction_cold_inbound_discovery",
+  "interaction_cold_inbound_social_platform",
+  "interaction_cold_inbound_social_other",
+  "interaction_event_type",
+  "interaction_event_type_other",
+  "interaction_event_followup",
+  "interaction_event_followup_first",
+  "interaction_how",
+  "interaction_meeting_depth",
+] as const;
+
+function sanitizeHydratedUnlinkedAnswers(
+  loaded: Record<string, string | string[]>,
+): Record<string, string | string[]> {
+  let next = { ...loaded };
+  if (!isContextStepValidUnlinked(next)) {
+    for (const k of UNLINKED_CONTEXT_ANSWER_KEYS) {
+      delete next[k];
+    }
+  }
+  if (!isEvaluationStepValidUnlinked(next)) {
+    const { overall_interaction: _o, would_engage_again: _w, ...rest } = next;
+    next = rest;
+  }
+  return next;
+}
+
+function formatReviewSubmitError(err: unknown): string {
+  const rlsHint =
+    "Saving needs a valid Supabase session: enable Clerk’s Supabase third-party integration (or a JWT template named “supabase”) so your user id matches the review author, then sign out and back in.";
+
+  const fromParts = (message: string, code?: string, details?: string, hint?: string) => {
+    const bits = [message];
+    if (details?.trim()) bits.push(details.trim());
+    if (hint?.trim()) bits.push(hint.trim());
+    if (code?.trim()) bits.push(`[${code.trim()}]`);
+    const text = [...new Set(bits.filter(Boolean))].join(" — ");
+    if (/row-level security|rls|42501|permission denied for table|violates row-level security/i.test(text)) {
+      return `${text} ${rlsHint}`;
+    }
+    return text;
+  };
+
+  if (err instanceof Error) {
+    const ex = err as Error & { details?: string; code?: string; hint?: string };
+    return fromParts(ex.message, ex.code, ex.details, ex.hint);
+  }
+
+  if (err && typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    const message =
+      (typeof o.message === "string" && o.message) ||
+      (typeof o.error_description === "string" && o.error_description) ||
+      (typeof o.msg === "string" && o.msg) ||
+      "";
+    const code = typeof o.code === "string" ? o.code : "";
+    const details = typeof o.details === "string" ? o.details : "";
+    const hint = typeof o.hint === "string" ? o.hint : "";
+    if (message) return fromParts(message, code, details, hint);
+  }
+
+  return "Failed to submit rating";
+}
+
+function isVcPersonFkViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const o = err as { code?: string; message?: string; details?: string };
+  const blob = `${o.code ?? ""} ${o.message ?? ""} ${o.details ?? ""}`.toLowerCase();
+  return (
+    o.code === "23503" ||
+    (blob.includes("vc_person") && (blob.includes("foreign key") || blob.includes("violates")))
+  );
+}
+
+type VcRatingInsertPayload = Record<string, unknown>;
+
+async function upsertVcRatingRow(opts: {
+  supabaseClient: typeof supabase;
+  reviewRecordId: string | null;
+  userId: string;
+  payload: VcRatingInsertPayload;
+}): Promise<{ savedAsRevision: boolean }> {
+  const { supabaseClient, reviewRecordId, userId, payload } = opts;
+
+  const insertWithPersonFallback = async (p: VcRatingInsertPayload) => {
+    const { error } = await supabaseClient.from("vc_ratings").insert(p);
+    if (!error) return null;
+    if (isVcPersonFkViolation(error) && p.vc_person_id) {
+      const { error: e2 } = await supabaseClient
+        .from("vc_ratings")
+        .insert({ ...p, vc_person_id: null });
+      return e2;
+    }
+    return error;
+  };
+
+  const throwIfSupabaseError = (error: unknown, fallback: string) => {
+    if (!error) return;
+    if (error instanceof Error) throw error;
+    if (typeof error === "object" && error !== null && "message" in error) {
+      const o = error as { message?: string; details?: string; hint?: string; code?: string };
+      const e = new Error(typeof o.message === "string" && o.message ? o.message : fallback);
+      (e as Error & { details?: string; code?: string; hint?: string }).details = o.details;
+      (e as Error & { details?: string; code?: string; hint?: string }).hint = o.hint;
+      (e as Error & { details?: string; code?: string; hint?: string }).code = o.code;
+      throw e;
+    }
+    throw new Error(fallback);
+  };
+
+  if (reviewRecordId) {
+    const { error: updateError } = await supabaseClient
+      .from("vc_ratings")
+      .update(payload)
+      .eq("id", reviewRecordId)
+      .eq("author_user_id", userId);
+    if (!updateError) return { savedAsRevision: false };
+
+    const insertErr = await insertWithPersonFallback(payload);
+    if (!insertErr) return { savedAsRevision: true };
+    throwIfSupabaseError(insertErr, "Could not save your review after update failed.");
+  }
+
+  const insertErr = await insertWithPersonFallback(payload);
+  if (!insertErr) return { savedAsRevision: false };
+  throwIfSupabaseError(insertErr, "Could not save your review.");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +469,8 @@ export function ReviewSubmissionModal({
   companyId = "",
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
-  const { firms, getPartnersForFirm } = useVCDirectory();
+  const { firms, firmMap, getPartnersForFirm } = useVCDirectory();
+  const mdmFirmsForResolve = useMemo(() => [...firmMap.values()] as MdmFirmLite[], [firmMap]);
 
   // Build form config from the mapping decision
   const formConfig = useMemo(
@@ -170,10 +520,29 @@ export function ReviewSubmissionModal({
     const loose = firms.find((f) => {
       const fn = (f.name || "").trim().toLowerCase();
       if (fn.length < 4) return false;
-      return fn.startsWith(n) || n.startsWith(fn);
+      return fn.startsWith(n) || n.startsWith(fn) || fn.includes(n) || n.includes(fn);
     });
     return loose?.id ?? "";
   }, [vcFirmId, firmName, firms]);
+
+  const headerLogoUrlResolved = logoUrlFromProp ?? fetchedHeaderFirm?.logo ?? null;
+  const headerWebsiteResolved =
+    (firmWebsiteUrl && firmWebsiteUrl.trim()) || fetchedHeaderFirm?.website || undefined;
+  const headerFirmDisplayName =
+    (firmName && firmName.trim()) || fetchedHeaderFirm?.name?.trim() || "Firm";
+
+  const resolveVcFirmCtx = useMemo(
+    () => ({
+      websiteUrl: headerWebsiteResolved?.trim() || null,
+      mdmFirms: mdmFirmsForResolve,
+    }),
+    [headerWebsiteResolved, mdmFirmsForResolve],
+  );
+
+  const vcFirmResolveHint = useMemo(
+    () => vcFirmId?.trim() || directoryFirmId.trim() || null,
+    [vcFirmId, directoryFirmId],
+  );
 
   const directoryPartnerChips = useMemo(() => {
     if (!directoryFirmId) return [] as { id: string; name: string }[];
@@ -239,7 +608,7 @@ export function ReviewSubmissionModal({
     }
     let cancelled = false;
     (async () => {
-      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
+      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
       if (!resolvedFirmId || cancelled) {
         if (!cancelled) setFirmPartnerChips([]);
         return;
@@ -285,7 +654,7 @@ export function ReviewSubmissionModal({
     return () => {
       cancelled = true;
     };
-  }, [open, firmName, vcFirmId]);
+  }, [open, firmName, vcFirmResolveHint, resolveVcFirmCtx]);
 
   useEffect(() => {
     if (!open) {
@@ -340,7 +709,7 @@ export function ReviewSubmissionModal({
 
     (async () => {
       try {
-        const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
+        const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
         if (!resolvedFirmId || cancelled) return;
 
         const pid = personId?.trim() || null;
@@ -382,9 +751,13 @@ export function ReviewSubmissionModal({
           loadedAnswers.founder_note = row.comment.trim();
         }
 
+        const answersToApply = investorIsMappedToProfile
+          ? loadedAnswers
+          : sanitizeHydratedUnlinkedAnswers(loadedAnswers);
+
         if (!cancelled) {
           setReviewRecordId(row.id);
-          setAnswers(loadedAnswers);
+          setAnswers(answersToApply);
           setSelectedTags(Array.isArray(sr?.tags) ? sr.tags.filter((t) => typeof t === "string") : []);
           setRememberWho(typeof sr?.remember_who === "string" ? sr.remember_who : "");
           const rawIds = sr?.remember_who_vc_person_ids;
@@ -402,13 +775,7 @@ export function ReviewSubmissionModal({
     return () => {
       cancelled = true;
     };
-  }, [open, user, firmName, vcFirmId, personId]);
-
-  const headerLogoUrlResolved = logoUrlFromProp ?? fetchedHeaderFirm?.logo ?? null;
-  const headerWebsiteResolved =
-    (firmWebsiteUrl && firmWebsiteUrl.trim()) || fetchedHeaderFirm?.website || undefined;
-  const headerFirmDisplayName =
-    (firmName && firmName.trim()) || fetchedHeaderFirm?.name?.trim() || "Firm";
+  }, [open, user, firmName, vcFirmResolveHint, resolveVcFirmCtx, personId, investorIsMappedToProfile]);
 
   const setAnswer = useCallback((id: string, value: string | string[]) => {
     setAnswers((prev) => {
@@ -471,6 +838,18 @@ export function ReviewSubmissionModal({
     }
   }, [selectedTags.length, investorIsMappedToProfile]);
 
+  /** Drop tag selections that are not valid for the current 1–10 experience score tier. */
+  useEffect(() => {
+    if (investorIsMappedToProfile) return;
+    const allowed = new Set(
+      nonInvestorTagsForOverallScore(answers.overall_interaction as string | undefined),
+    );
+    setSelectedTags((prev) => {
+      const next = prev.filter((t) => allowed.has(t));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [investorIsMappedToProfile, answers.overall_interaction]);
+
   const handleClose = () => {
     reset();
     onClose();
@@ -506,22 +885,9 @@ export function ReviewSubmissionModal({
         answers.take_money_again.length > 0
       );
     } else {
-      // Non-investor form: context (intro + how + depth) + evaluation (overall + engage) required
-      const contextOk =
-        typeof answers.interaction_intro === "string" &&
-        answers.interaction_intro.length > 0 &&
-        Array.isArray(answers.interaction_how) &&
-        answers.interaction_how.length > 0 &&
-        typeof answers.interaction_meeting_depth === "string" &&
-        answers.interaction_meeting_depth.length > 0;
-
-      const evalOk =
-        typeof answers.overall_interaction === "string" &&
-        answers.overall_interaction.length > 0 &&
-        typeof answers.would_engage_again === "string" &&
-        answers.would_engage_again.length > 0;
-
-      return contextOk && evalOk;
+      return (
+        isContextStepValidUnlinked(answers) && isEvaluationStepValidUnlinked(answers)
+      );
     }
   }, [answers, investorIsMappedToProfile]);
 
@@ -574,10 +940,10 @@ export function ReviewSubmissionModal({
     setSubmitting(true);
 
     try {
-      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
+      const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
       if (!resolvedFirmId) {
         throw new Error(
-          "Could not resolve this firm in the VC directory. Open the investor from search so we have a match.",
+          "We could not match this firm to the investor directory. Check the firm name, or open the investor from Search so we can link it.",
         );
       }
 
@@ -618,26 +984,38 @@ export function ReviewSubmissionModal({
         comment: (answers.founder_note as string | undefined)?.trim() || null,
         anonymous,
         verified: false,
+        is_draft: false,
         star_ratings: structuredAnswers,
       };
 
       let savedAsRevision = false;
-      if (reviewRecordId) {
-        const { error: updateError } = await supabase
-          .from("vc_ratings")
-          .update(payload)
-          .eq("id", reviewRecordId)
-          .eq("author_user_id", user.id);
 
-        // Fallback: if update is blocked (often RLS), persist edit as a new revision.
-        if (updateError) {
-          const { error: insertError } = await supabase.from("vc_ratings").insert(payload);
-          if (insertError) throw insertError;
-          savedAsRevision = true;
+      if (isSupabaseConfigured) {
+        const edge = await submitVcRatingViaEdge({
+          supabaseClient: supabase,
+          userId: user.id,
+          reviewRecordId,
+          payload,
+        });
+        if (edge.ok) {
+          savedAsRevision = edge.savedAsRevision;
+        } else if (edge.fallbackToDirect) {
+          const result = await upsertVcRatingRow({
+            supabaseClient: supabase,
+            reviewRecordId,
+            userId: user.id,
+            payload,
+          });
+          savedAsRevision = result.savedAsRevision;
         }
       } else {
-        const { error } = await supabase.from("vc_ratings").insert(payload);
-        if (error) throw error;
+        const result = await upsertVcRatingRow({
+          supabaseClient: supabase,
+          reviewRecordId,
+          userId: user.id,
+          payload,
+        });
+        savedAsRevision = result.savedAsRevision;
       }
 
       setSubmitted(true);
@@ -655,7 +1033,8 @@ export function ReviewSubmissionModal({
 
       setTimeout(() => handleClose(), 1800);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit rating");
+      console.error("[ReviewSubmissionModal] submit failed", err);
+      toast.error(formatReviewSubmitError(err));
     } finally {
       setSubmitting(false);
     }
@@ -758,6 +1137,7 @@ export function ReviewSubmissionModal({
                             rememberWho={rememberWho}
                             setRememberWho={setRememberWho}
                             rememberWhoChips={rememberWhoChips}
+                            rememberWhoPersonIds={rememberWhoPersonIds}
                             applyRememberWhoChip={applyRememberWhoChip}
                             onRememberWhoRoleFallback={() => setRememberWhoPersonIds([])}
                           />
@@ -789,6 +1169,7 @@ export function ReviewSubmissionModal({
                             rememberWho={rememberWho}
                             setRememberWho={setRememberWho}
                             rememberWhoChips={rememberWhoChips}
+                            rememberWhoPersonIds={rememberWhoPersonIds}
                             applyRememberWhoChip={applyRememberWhoChip}
                             onRememberWhoRoleFallback={() => setRememberWhoPersonIds([])}
                           />

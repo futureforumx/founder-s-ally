@@ -785,7 +785,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try {
       if (name.endsWith(".txt")) { const txt = await file.text(); setDeckText(txt); try { sessionStorage.setItem("pending-deck-audit", txt); } catch {} }
       else {
-        const pdfjsLib = await import("pdfjs-dist");
+        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
         const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
         const pages: string[] = [];

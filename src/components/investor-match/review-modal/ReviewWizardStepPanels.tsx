@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   Handshake,
   Inbox,
   Link2,
@@ -25,18 +26,16 @@ import {
 } from "@/components/investor-match/review-modal/ReviewWizardParts";
 // Imports removed for unused functions (replaced with direct logic)
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS } from "@/lib/reviewFormContent";
+import {
+  nonInvestorTagsForOverallScore,
+  RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS,
+} from "@/lib/reviewFormContent";
 import { cn } from "@/lib/utils";
 import {
   reviewWizardChipFocus,
@@ -48,6 +47,7 @@ import {
   reviewWizardOptionRowCompact,
   reviewWizardQuestionLabelClass,
 } from "@/components/investor-match/review-modal/reviewWizardUi";
+import { isUnlinkedRelationshipOriginComplete } from "@/lib/reviewWizard";
 
 const UNLINKED_CONTEXT_TEXT_IDS = new Set([
   "interaction_intro_other",
@@ -89,6 +89,57 @@ const REMEMBER_WHO_LEVEL_OPTIONS = [
   "General Partner",
   "Managing Partner",
 ] as const;
+
+/** Heuristic: keyboard mash, odd symbols, almost no vowels, etc. — nudge user to verify. */
+function shouldDoubleCheckRememberWhoInput(raw: string): boolean {
+  const v = raw.trim();
+  if (v.length < 4) return false;
+  if (/^I met with a:/i.test(v)) return false;
+
+  const lower = v.toLowerCase();
+  if (/(.)\1{3,}/.test(v)) return true;
+
+  const keyboardSmash = [
+    "qwerty",
+    "asdf",
+    "zxcv",
+    "hjkl",
+    "fdsa",
+    "qwer",
+    "poiu",
+    "lkjh",
+    "asdfg",
+    "zxcvb",
+    "vbnm",
+    "wert",
+    "erty",
+    "sdfg",
+    "ghjk",
+  ];
+  if (keyboardSmash.some((k) => lower.includes(k))) return true;
+
+  const compact = v.replace(/\s/g, "");
+  const digits = (compact.match(/\d/g) ?? []).length;
+  if (digits >= 2) return true;
+
+  const lettersOnly = compact.replace(/[^a-zA-Z]/g, "");
+  const weirdCount = v.replace(/[a-zA-Z\s,.'&-]/g, "").length;
+  if (weirdCount >= 2) return true;
+  if (v.length >= 6 && weirdCount / v.length > 0.18) return true;
+
+  if (lettersOnly.length >= 8) {
+    const vowels = lettersOnly.replace(/[^aeiouyAEIOUY]/g, "").length;
+    if (vowels / lettersOnly.length < 0.12) return true;
+  }
+
+  const alnum = compact.replace(/[^a-zA-Z0-9]/g, "");
+  if (alnum.length >= 10) {
+    const uniq = new Set(alnum.toLowerCase().split(""));
+    if (uniq.size / alnum.length > 0.82) return true;
+  }
+
+  return false;
+}
 
 const RELATIONSHIP_ORIGIN_ICONS: Record<string, LucideIcon> = {
   "Warm intro": Handshake,
@@ -522,15 +573,23 @@ function TagSelector({
       selected.includes(tag) ? selected.filter((t) => t !== tag) : [...selected, tag],
     );
 
+  /** Exactly two rows; columns split the list evenly so the grid uses full width. */
+  const columnCount = Math.max(1, Math.ceil(tags.length / 2));
+
   return (
-    <section className="space-y-2">
+    <section className="w-full min-w-0 space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <p className={cn(reviewWizardQuestionLabelClass, "leading-none")}>Interaction tags</p>
         <span className="text-[9px] font-medium normal-case tracking-normal text-muted-foreground leading-none">
           Select all that apply
         </span>
       </div>
-      <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 [scrollbar-gutter:stable] sm:gap-1.5">
+      <div
+        className="grid w-full min-w-0 grid-rows-2 gap-1.5 sm:gap-2"
+        style={{
+          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+        }}
+      >
         {tags.map((tag) => (
           <button
             key={tag}
@@ -539,7 +598,7 @@ function TagSelector({
             title={tag}
             onClick={() => toggle(tag)}
             className={cn(
-              "shrink-0 max-w-[6rem] rounded-lg border px-2 py-2 text-center text-[9px] font-medium leading-tight transition-all duration-150 [text-wrap:balance] sm:max-w-[7rem] sm:px-2.5 sm:text-[10px] sm:leading-snug",
+              "flex h-full min-h-[2.5rem] w-full min-w-0 items-center justify-center rounded-lg border px-1 py-2 text-center text-[9px] font-medium leading-tight transition-all duration-150 [text-wrap:balance] sm:min-h-[2.75rem] sm:px-1.5 sm:text-[10px] sm:leading-snug",
               reviewWizardChipFocus,
               selected.includes(tag) ? reviewWizardChipSelected : reviewWizardChipIdle,
             )}
@@ -554,94 +613,227 @@ function TagSelector({
 
 export type RememberWhoChipOption = { name: string; vcPersonId?: string };
 
+function isRememberWhoChipSelected(
+  chip: RememberWhoChipOption,
+  rememberWho: string,
+  selectedPersonIds: string[],
+): boolean {
+  const id = chip.vcPersonId?.trim();
+  if (id && selectedPersonIds.includes(id)) return true;
+  const name = chip.name.trim().toLowerCase();
+  if (!name) return false;
+  const segments = rememberWho
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return segments.includes(name);
+}
+
 function RememberWhoInputBlock({
   rememberWho,
   setRememberWho,
   rememberWhoChips,
+  rememberWhoPersonIds,
   applyRememberWhoChip,
   onRememberWhoRoleFallback,
 }: {
   rememberWho: string;
   setRememberWho: (v: string) => void;
   rememberWhoChips: RememberWhoChipOption[];
+  rememberWhoPersonIds: string[];
   applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
   onRememberWhoRoleFallback?: () => void;
 }) {
+  const [roleSectionOpen, setRoleSectionOpen] = useState(false);
+
+  const showRememberWhoDoubleCheck = useMemo(
+    () => shouldDoubleCheckRememberWhoInput(rememberWho),
+    [rememberWho],
+  );
+
+  const pickSeniorityRole = (level: (typeof REMEMBER_WHO_LEVEL_OPTIONS)[number]) => {
+    setRememberWho(`I met with a: ${level}`);
+    onRememberWhoRoleFallback?.();
+    setRoleSectionOpen(false);
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <p className="text-xs font-bold text-foreground leading-none">Remember who?</p>
         <span className="text-[10px] font-medium text-muted-foreground leading-none">Optional</span>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-        <Input
-          value={rememberWho}
-          onChange={(e) => setRememberWho(e.target.value)}
-          placeholder="Partner, associate, or contact name"
-          className="h-9 min-w-0 flex-1 text-sm"
-          maxLength={200}
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+      <Collapsible open={roleSectionOpen} onOpenChange={setRoleSectionOpen}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <Input
+            value={rememberWho}
+            onChange={(e) => setRememberWho(e.target.value)}
+            placeholder="Partner, associate, or contact name"
+            className="h-9 min-w-0 flex-1 text-sm"
+            maxLength={200}
+          />
+          <CollapsibleTrigger asChild>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 shrink-0 whitespace-nowrap px-3 text-xs font-medium sm:h-auto"
+              className="h-9 shrink-0 gap-1 whitespace-nowrap px-3 text-xs font-medium sm:h-auto"
+              aria-expanded={roleSectionOpen}
             >
               don&apos;t remember?
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                  roleSectionOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-[400] w-56">
-            <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">I met with a:</p>
-            {REMEMBER_WHO_LEVEL_OPTIONS.map((level) => (
-              <DropdownMenuItem
-                key={level}
-                className="text-sm"
-                onSelect={() => {
-                  setRememberWho(`I met with a: ${level}`);
-                  onRememberWhoRoleFallback?.();
-                }}
-              >
-                {level}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <RememberWhoSmartChips chips={rememberWhoChips} onPick={applyRememberWhoChip} />
+          </CollapsibleTrigger>
+        </div>
+        {showRememberWhoDoubleCheck ? (
+          <p
+            className="mt-1.5 text-xs font-medium text-amber-800 dark:text-amber-200/95"
+            role="status"
+          >
+            Are you sure this is right?
+          </p>
+        ) : null}
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+          <div className="mt-2 space-y-2 rounded-lg border border-border/70 bg-secondary/20 px-3 py-3 sm:px-4">
+            <p className={cn(reviewWizardQuestionLabelClass, "normal-case tracking-normal text-muted-foreground")}>
+              I met with a:
+            </p>
+            <div
+              className={cn(reviewWizardOptionRow, "overflow-x-auto py-0.5 [scrollbar-gutter:stable]")}
+              role="group"
+              aria-label="Seniority you met with"
+            >
+              {REMEMBER_WHO_LEVEL_OPTIONS.map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  title={level}
+                  onClick={() => pickSeniorityRole(level)}
+                  className={cn(
+                    reviewWizardOptionRowBtn,
+                    reviewWizardChipFocus,
+                    reviewWizardChipIdle,
+                    "[text-wrap:balance]",
+                  )}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+      <RememberWhoSmartChips
+        chips={rememberWhoChips}
+        rememberWho={rememberWho}
+        rememberWhoPersonIds={rememberWhoPersonIds}
+        onPick={applyRememberWhoChip}
+      />
     </div>
   );
 }
 
+/** ~two rows of name chips in the review modal before “More”; wraps, no horizontal scroll. */
+const REMEMBER_WHO_CHIPS_COLLAPSED_COUNT = 8;
+
 function RememberWhoSmartChips({
   chips,
+  rememberWho,
+  rememberWhoPersonIds,
   onPick,
 }: {
   chips: RememberWhoChipOption[];
+  rememberWho: string;
+  rememberWhoPersonIds: string[];
   onPick: (name: string, vcPersonId?: string) => void;
 }) {
+  const [peopleExpanded, setPeopleExpanded] = useState(false);
+
   if (chips.length === 0) return null;
+
+  const needsMore = chips.length > REMEMBER_WHO_CHIPS_COLLAPSED_COUNT;
+  const visibleChips =
+    !needsMore || peopleExpanded ? chips : chips.slice(0, REMEMBER_WHO_CHIPS_COLLAPSED_COUNT);
+  const moreCount = chips.length - REMEMBER_WHO_CHIPS_COLLAPSED_COUNT;
+
+  const hasPeopleSelection = chips.some((chip) =>
+    isRememberWhoChipSelected(chip, rememberWho, rememberWhoPersonIds),
+  );
+
   return (
-    <div className="mt-2 space-y-1.5">
-      <p className="text-[10px] font-medium text-muted-foreground">People at this firm</p>
-      <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 sm:gap-1.5">
-        {chips.map((chip) => (
-          <button
-            key={chip.vcPersonId ?? chip.name}
-            type="button"
-            title={chip.name}
-            onClick={() => onPick(chip.name, chip.vcPersonId)}
-            className={cn(
-              "shrink-0 rounded-lg border border-dashed px-2.5 py-1.5 text-[10px] font-medium transition-colors",
-              "border-muted-foreground/40 bg-transparent text-muted-foreground",
-              "hover:border-primary/35 hover:bg-primary/5 hover:text-foreground",
-            )}
-          >
-            {chip.name}
-          </button>
-        ))}
+    <div
+      className={cn(
+        "mt-2 space-y-1.5 rounded-xl border px-3 py-2.5 transition-colors duration-200",
+        hasPeopleSelection
+          ? "border-primary/40 bg-primary/5 shadow-sm dark:border-primary/45 dark:bg-primary/10"
+          : "border-border/45 bg-secondary/10 dark:border-border/55 dark:bg-secondary/15",
+      )}
+    >
+      <p
+        className={cn(
+          "text-[10px] font-medium transition-colors",
+          hasPeopleSelection ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        People at this firm
+      </p>
+      <div className="flex w-full min-w-0 flex-wrap gap-1.5">
+        {visibleChips.map((chip) => {
+          const selected = isRememberWhoChipSelected(chip, rememberWho, rememberWhoPersonIds);
+          return (
+            <button
+              key={chip.vcPersonId ?? chip.name}
+              type="button"
+              title={chip.name}
+              aria-pressed={selected}
+              onClick={() => onPick(chip.name, chip.vcPersonId)}
+              className={cn(
+                "rounded-lg border px-2.5 py-1.5 text-[10px] font-medium transition-colors",
+                reviewWizardChipFocus,
+                selected
+                  ? cn("border-transparent", reviewWizardChipSelected)
+                  : cn(
+                      "border-dashed border-muted-foreground/40 bg-transparent text-muted-foreground",
+                      "hover:border-primary/35 hover:bg-primary/5 hover:text-foreground",
+                    ),
+              )}
+            >
+              {chip.name}
+            </button>
+          );
+        })}
       </div>
+      {needsMore ? (
+        <button
+          type="button"
+          onClick={() => setPeopleExpanded((v) => !v)}
+          className={cn(
+            "inline-flex items-center gap-1 text-[10px] font-semibold text-primary",
+            "underline-offset-2 hover:underline",
+            reviewWizardChipFocus,
+          )}
+          aria-expanded={peopleExpanded}
+        >
+          {peopleExpanded ? (
+            "Show less"
+          ) : (
+            <>
+              More{" "}
+              <span className="font-medium text-muted-foreground">({moreCount})</span>
+            </>
+          )}
+          <ChevronDown
+            className={cn("h-3 w-3 shrink-0 transition-transform", peopleExpanded && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -660,7 +852,7 @@ export function ReviewWizardLinkedStep1({
       {(["work_with_them_rating", "take_money_again"] as const).map((id, i) => {
         const q = formConfig.questions.find((x) => x.id === id);
         if (!q || q.type === "text") return null;
-        return renderNonTextQuestion(q, i + 1, answers, setAnswer);
+        return renderNonTextQuestion(q, i + 1, answers, setAnswer, { showQuestionNumber: false });
       })}
     </div>
   );
@@ -673,6 +865,7 @@ export function ReviewWizardLinkedStep2({
   rememberWho,
   setRememberWho,
   rememberWhoChips,
+  rememberWhoPersonIds,
   applyRememberWhoChip,
   onRememberWhoRoleFallback,
 }: {
@@ -682,6 +875,7 @@ export function ReviewWizardLinkedStep2({
   rememberWho: string;
   setRememberWho: (v: string) => void;
   rememberWhoChips: RememberWhoChipOption[];
+  rememberWhoPersonIds: string[];
   applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
   onRememberWhoRoleFallback?: () => void;
 }) {
@@ -691,12 +885,13 @@ export function ReviewWizardLinkedStep2({
         rememberWho={rememberWho}
         setRememberWho={setRememberWho}
         rememberWhoChips={rememberWhoChips}
+        rememberWhoPersonIds={rememberWhoPersonIds}
         applyRememberWhoChip={applyRememberWhoChip}
         onRememberWhoRoleFallback={onRememberWhoRoleFallback}
       />
       {formConfig.questions
         .filter((q) => q.id === "standout_tags")
-        .map((q) => renderNonTextQuestion(q, 1, answers, setAnswer))}
+        .map((q) => renderNonTextQuestion(q, 1, answers, setAnswer, { showQuestionNumber: false }))}
     </div>
   );
 }
@@ -727,7 +922,7 @@ export function ReviewWizardUnlinkedStep1({
     <div className="space-y-6 lg:space-y-10">
       <section className="space-y-3">
         <p className="text-sm font-bold leading-snug text-foreground">
-          <span className="text-muted-foreground">1.</span> How was your experience with {name}?
+          How was your experience with {name}?
         </p>
         <OverallInteractionScale
           value={(answers.overall_interaction as string) ?? null}
@@ -736,7 +931,7 @@ export function ReviewWizardUnlinkedStep1({
       </section>
       <section className="space-y-3">
         <p className="text-sm font-bold leading-snug text-foreground">
-          <span className="text-muted-foreground">2.</span> Would you engage with this investor again?
+          Would you engage with this investor again?
         </p>
         <EngageSentimentScale
           options={engageOptions}
@@ -790,7 +985,14 @@ function unlinkedContextQuestions(
       return true;
     }
 
-    if (["interaction_how", "interaction_meeting_depth"].includes(q.id)) return true;
+    if (q.id === "interaction_how") {
+      return isUnlinkedRelationshipOriginComplete(answers);
+    }
+    if (q.id === "interaction_meeting_depth") {
+      const how = answers.interaction_how;
+      const howSelected = Array.isArray(how) && how.length > 0;
+      return isUnlinkedRelationshipOriginComplete(answers) && howSelected;
+    }
 
     return false;
   });
@@ -811,7 +1013,7 @@ export function ReviewWizardUnlinkedStep3({
     <div className="space-y-6">
       <section className="space-y-6">
         <p className="text-sm font-bold leading-snug text-foreground">
-          <span className="text-muted-foreground">2.</span> Characterize your interaction.
+          Characterize your interaction.
         </p>
         <div className="flex flex-col gap-5 sm:gap-6">
           {stepQuestions.map((q, i) =>
@@ -826,13 +1028,14 @@ export function ReviewWizardUnlinkedStep3({
 }
 
 export function ReviewWizardUnlinkedStep4({
-  formConfig,
+  formConfig: _formConfig,
   answers,
   selectedTags,
   setSelectedTags,
   rememberWho,
   setRememberWho,
   rememberWhoChips,
+  rememberWhoPersonIds,
   applyRememberWhoChip,
   onRememberWhoRoleFallback,
 }: {
@@ -843,24 +1046,36 @@ export function ReviewWizardUnlinkedStep4({
   rememberWho: string;
   setRememberWho: (v: string) => void;
   rememberWhoChips: RememberWhoChipOption[];
+  rememberWhoPersonIds: string[];
   applyRememberWhoChip: (name: string, vcPersonId?: string) => void;
   /** Clear linked `vc_person` ids when user picks a seniority instead of a name. */
   onRememberWhoRoleFallback?: () => void;
 }) {
+  const tagsForOverallScore = useMemo(
+    () => nonInvestorTagsForOverallScore(answers.overall_interaction as string | undefined),
+    [answers.overall_interaction],
+  );
+
   return (
     <div className="space-y-6">
-      <p className="text-sm font-bold leading-snug text-foreground">
-        <span className="text-muted-foreground">3.</span> People &amp; tags
-      </p>
+      <p className="text-sm font-bold leading-snug text-foreground">People &amp; tags</p>
       <RememberWhoInputBlock
         rememberWho={rememberWho}
         setRememberWho={setRememberWho}
         rememberWhoChips={rememberWhoChips}
+        rememberWhoPersonIds={rememberWhoPersonIds}
         applyRememberWhoChip={applyRememberWhoChip}
         onRememberWhoRoleFallback={onRememberWhoRoleFallback}
       />
 
-      <TagSelector tags={formConfig.tags} selected={selectedTags} onChange={setSelectedTags} />
+      {tagsForOverallScore.length > 0 ? (
+        <TagSelector tags={tagsForOverallScore} selected={selectedTags} onChange={setSelectedTags} />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Interaction tags match your 1–10 experience score from step 1. Go back to set or change that score
+          to see tags here.
+        </p>
+      )}
     </div>
   );
 }
@@ -890,6 +1105,7 @@ export function ReviewWizardNoteStep({
           index={formConfig.questions.findIndex((fq) => fq.id === founderNoteQuestion.id) + 1}
           label={founderNoteQuestion.label}
           optional={founderNoteQuestion.optional}
+          showIndex={false}
         >
           <div className="space-y-1">
             <Textarea

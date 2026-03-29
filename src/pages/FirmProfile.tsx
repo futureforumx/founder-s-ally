@@ -360,7 +360,7 @@ const FirmProfile = () => {
         ) : null}
 
         <Tabs defaultValue="funds" className="w-full">
-          <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1">
+          <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 border-0 bg-transparent p-0 shadow-none backdrop-blur-0">
             <TabsTrigger value="funds">Funds ({funds.length})</TabsTrigger>
             <TabsTrigger value="people">People ({people.length})</TabsTrigger>
             <TabsTrigger value="investments">Investments ({investments.length})</TabsTrigger>

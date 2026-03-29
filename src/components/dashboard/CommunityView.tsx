@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart, Info, ChevronDown } from
+  DollarSign, Activity, Heart, Info, ChevronDown, X } from
 "lucide-react";
 import {
   DropdownMenu,
@@ -558,6 +558,7 @@ export function CommunityView({
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
+  const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleStatus = (status: string) => {
@@ -708,6 +709,8 @@ export function CommunityView({
 
   const hasProfile = !!companyData?.name;
 
+  type CohortCluster = "location" | "stage" | "connections" | "professionals";
+
   // ── Smart Cohort data ──
   const cohorts = useMemo(() => {
     const userLocation = companyData?.hqLocation || "San Francisco, CA";
@@ -720,19 +723,95 @@ export function CommunityView({
     const matchCount = ALL_ENTRIES.filter((e) => e.matchReason).length;
 
     return [
-    { id: "local", value: localCount || 12, label: `In ${userCity}`, icon: MapPin, filterKey: userCity },
-    { id: "stage", value: stageCount || 8, label: `${userStage} Stage Peers`, icon: Zap, filterKey: userStage },
-    { id: "founders", value: founderCount, label: "Active Founders", icon: Users, filterKey: "" },
-    { id: "matches", value: matchCount || 5, label: "New Matches", icon: TrendingUp, filterKey: "" }] as
-    const;
+      {
+        id: "matches",
+        value: matchCount || 5,
+        label: "IN YOUR NETWORK",
+        icon: TrendingUp,
+        filterKey: "",
+        timeframe: "this week",
+        trend: "▲ 18% vs last week",
+        trendUp: true,
+        sparkline: [3, 4, 5, 4, 6, 7],
+        cluster: "professionals" as CohortCluster,
+        isPrimary: true,
+      },
+      {
+        id: "local",
+        value: localCount || 12,
+        label: `In ${userCity}`,
+        icon: MapPin,
+        filterKey: userCity,
+        timeframe: "last 30 days",
+        trend: "▲ 6% vs previous month",
+        trendUp: true,
+        sparkline: [2, 3, 3, 4, 4, 5],
+        cluster: "location" as CohortCluster,
+        isPrimary: false,
+      },
+      {
+        id: "stage",
+        value: stageCount || 8,
+        label: `${userStage} Stage Peers`,
+        icon: Zap,
+        filterKey: userStage,
+        timeframe: "last 30 days",
+        trend: "▲ 12% vs prior period",
+        trendUp: true,
+        sparkline: [2, 3, 4, 3, 4, 5],
+        cluster: "stage" as CohortCluster,
+        isPrimary: false,
+      },
+      {
+        id: "founders",
+        value: founderCount,
+        label: "RECOMMENDED",
+        icon: Users,
+        filterKey: "",
+        timeframe: "this week",
+        trend: "▼ 3% vs last week",
+        trendUp: false,
+        sparkline: [5, 5, 4, 4, 4, 3],
+        cluster: "connections" as CohortCluster,
+        isPrimary: false,
+      },
+    ] as const;
   }, [companyData]);
+
+  // Cohort detail entries — filtered list shown inside the detail drawer
+  const cohortDetailEntries = useMemo(() => {
+    if (!activeCohortId) return [];
+    const userLocation = companyData?.hqLocation || "San Francisco, CA";
+    const userCity = userLocation.split(",")[0].trim();
+    const userStage = companyData?.stage || "Seed";
+    switch (activeCohortId) {
+      case "matches":
+        return mergedEntries.filter((e) => e.matchReason);
+      case "local":
+        return mergedEntries.filter((e) => e.location.includes(userCity));
+      case "stage":
+        return mergedEntries.filter((e) => e.stage === userStage);
+      case "founders":
+        return mergedEntries.filter((e) => e.category === "founder");
+      default:
+        return [];
+    }
+  }, [activeCohortId, mergedEntries, companyData]);
 
   // Cohort click handler — filter results
   const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
     if (filterKey) {
       setActiveFilter(filterKey);
     }
-    if (scopeOverride) setActiveScope(scopeOverride);
+    if (scopeOverride) {
+      setActiveScope(scopeOverride);
+      return;
+    }
+
+    // Ensure metrics with no filter key (e.g. New Matches) still drill into a details view.
+    if (!filterKey) {
+      setActiveScope("investors");
+    }
   }, []);
 
   // Reset pagination on filter/scope change
@@ -1021,34 +1100,87 @@ export function CommunityView({
       </div>
 
       {/* ── Smart Cohort Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
-        {cohorts.map((cohort) => {
-          const Icon = cohort.icon;
-          return (
-            <button
-              key={cohort.id}
-              onClick={() => handleCohortClick(
-                cohort.filterKey,
-                cohort.id === "founders" ? "founders" : undefined
-              )}
-              className="relative overflow-hidden bg-card border border-border rounded-xl p-4 flex flex-col text-left cursor-pointer hover:border-accent/50 hover:shadow-md hover:-translate-y-0.5 transition-all group">
-              
-              <span className="text-2xl font-bold text-foreground group-hover:text-accent transition-colors">
-                {cohort.value}
-              </span>
-              <span className="text-xs text-muted-foreground font-medium mt-0.5">
-                {cohort.label}
-              </span>
-              <Icon className="absolute -bottom-1.5 -right-1.5 w-10 h-10 text-muted/60 group-hover:text-accent/10 transition-colors" />
-            </button>);
+      <div className="mb-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:overflow-x-visible">
+        <div className="flex min-w-max items-stretch gap-3 lg:min-w-0 lg:w-full">
+          {cohorts.map((cohort) => {
+            const Icon = cohort.icon;
+            const isPrimary = cohort.isPrimary;
+            const scopeOverride: EntityScope | undefined = cohort.id === "founders" ? "founders" : undefined;
+            return (
+              <button
+                key={cohort.id}
+                onClick={() => setActiveCohortId(cohort.id)}
+                className={[
+                  "group relative snap-start shrink-0 flex flex-col justify-between overflow-hidden rounded-xl px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
+                  "w-[220px] lg:w-auto lg:min-w-0 lg:flex-1",
+                  isPrimary
+                    ? "border border-accent/30 bg-gradient-to-br from-accent/[0.10] to-card shadow-sm hover:border-accent/50"
+                    : "border border-border bg-card shadow-sm hover:border-accent/40",
+                ].join(" ")}
+              >
+                {/* Top row: category label left, icon right */}
+                <div className="flex items-center justify-between">
+                  <span className={[
+                    "text-[9px] font-semibold uppercase tracking-[0.1em]",
+                    isPrimary ? "text-accent/80" : "text-muted-foreground/60",
+                  ].join(" ")}>
+                    {cohort.cluster}
+                  </span>
+                  <Icon className={[
+                    "h-3.5 w-3.5",
+                    isPrimary ? "text-accent/60" : "text-muted-foreground/50",
+                  ].join(" ")} />
+                </div>
 
-        })}
+                {/* Middle: number + label */}
+                <div className="mt-3">
+                  <p className={[
+                    "leading-none font-bold tracking-tight transition-colors",
+                    isPrimary
+                      ? "text-[32px] text-foreground group-hover:text-accent"
+                      : "text-[26px] text-foreground group-hover:text-accent",
+                  ].join(" ")}>
+                    {cohort.value}
+                  </p>
+                  <p className="mt-1.5 text-[12px] font-semibold text-foreground leading-tight">
+                    {cohort.label}
+                  </p>
+                </div>
+
+                {/* Bottom row: timeframe left, trend + sparkline right */}
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <p className="text-[10px] text-muted-foreground">{cohort.timeframe}</p>
+                  <div className="flex items-end gap-2">
+                    <span className={[
+                      "text-[10px] font-medium whitespace-nowrap",
+                      cohort.trendUp ? "text-emerald-600" : "text-rose-500",
+                    ].join(" ")}>
+                      {cohort.trend}
+                    </span>
+                    <div className="flex items-end gap-[2px]" aria-hidden>
+                      {cohort.sparkline.map((bar, idx) => (
+                        <span
+                          key={`${cohort.id}-${idx}`}
+                          className={[
+                            "w-[3px] rounded-[2px]",
+                            isPrimary ? "bg-accent/50" : "bg-muted-foreground/30",
+                          ].join(" ")}
+                          style={{ height: `${Math.max(4, bar * 2)}px` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Global Entity Tabs — hidden for investor-search */}
       {!isInvestorSearch && (
-      <div className="flex space-x-1 bg-secondary/50 p-1 rounded-lg w-fit">
-        {GLOBAL_TABS.filter(tab => tab.id !== "investors").map((tab) => {
+      <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 w-fit shadow-sm backdrop-blur-sm">
+        {GLOBAL_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeScope === tab.id;
           return (
@@ -1057,12 +1189,12 @@ export function CommunityView({
               onClick={() => {
                 setActiveScope(tab.id);
               }}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all ${
               isActive ?
-              "bg-card text-foreground shadow-sm" :
-              "text-muted-foreground hover:text-foreground"}`
+              "bg-card text-foreground shadow-sm ring-1 ring-border/60" :
+              "text-muted-foreground hover:bg-card/50 hover:text-foreground"}`
               }>
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-3 w-3 opacity-75" />
               {tab.label}
             </button>);
         })}
@@ -1105,7 +1237,7 @@ export function CommunityView({
                 <p className="text-[10px] text-muted-foreground mt-0.5">{investorTabHeader.subtitle}</p>
               )}
             </div>
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono uppercase">
               {`${visibleFounders.length} of ${textFilteredEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
             </span>
           </div>
@@ -1197,13 +1329,159 @@ export function CommunityView({
           )}
         </div>
 
+      {/* ── Cohort Detail Drawer ── */}
+      <AnimatePresence>
+        {activeCohortId && (() => {
+          const cohort = cohorts.find((c) => c.id === activeCohortId);
+          if (!cohort) return null;
+          const Icon = cohort.icon;
+          return (
+            <>
+              <motion.div
+                className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={() => setActiveCohortId(null)}
+              />
+              <motion.div
+                className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-card shadow-2xl border-l border-border"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 320 }}
+              >
+                {/* Header */}
+                <div className={[
+                  "shrink-0 px-5 pt-5 pb-4 border-b border-border",
+                  cohort.isPrimary ? "bg-gradient-to-br from-accent/[0.08] to-card" : "",
+                ].join(" ")}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={[
+                        "inline-flex items-center justify-center rounded-lg p-1.5",
+                        cohort.isPrimary ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground",
+                      ].join(" ")}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{cohort.cluster}</p>
+                        <p className="text-sm font-semibold text-foreground leading-tight">{cohort.label}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveCohortId(null)}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-4 flex items-end gap-3">
+                    <p className={[
+                      "leading-none font-bold tracking-tight",
+                      cohort.isPrimary ? "text-[40px] text-accent" : "text-[34px] text-foreground",
+                    ].join(" ")}>
+                      {cohort.value}
+                    </p>
+                    <div className="mb-1 flex flex-col gap-0.5">
+                      <span className={[
+                        "text-[11px] font-medium",
+                        cohort.trendUp ? "text-emerald-600" : "text-rose-500",
+                      ].join(" ")}>
+                        {cohort.trend}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{cohort.timeframe}</span>
+                    </div>
+                    <div className="mb-1.5 ml-auto flex items-end gap-[2px]" aria-hidden>
+                      {cohort.sparkline.map((bar, idx) => (
+                        <span
+                          key={idx}
+                          className={[
+                            "w-[4px] rounded-[2px]",
+                            cohort.isPrimary ? "bg-accent/55" : "bg-muted-foreground/35",
+                          ].join(" ")}
+                          style={{ height: `${Math.max(5, bar * 3)}px` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Entry list */}
+                <div className="flex-1 overflow-y-auto py-3">
+                  {cohortDetailEntries.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center px-6">
+                      <Icon className="h-8 w-8 text-muted-foreground/30" />
+                      <p className="text-sm font-medium text-muted-foreground">No entries found</p>
+                      <p className="text-xs text-muted-foreground/70">Complete your profile to see more matches.</p>
+                    </div>
+                  ) : (
+                    cohortDetailEntries.map((entry, i) => (
+                      <button
+                        key={`detail-${i}`}
+                        onClick={() => {
+                          setActiveCohortId(null);
+                          setTimeout(() => {
+                            if (entry.category === "investor") {
+                              const vcMatch = getVCFirmMatch(entry.name);
+                              if (vcMatch) setSelectedVCFirm(vcMatch);
+                              setSelectedInvestor(entry);
+                            } else {
+                              setSelectedFounder(entry);
+                            }
+                          }, 220);
+                        }}
+                        className="group w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted/60 transition-colors border-b border-border/40 last:border-0"
+                      >
+                        <div className="shrink-0 h-9 w-9 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-foreground border border-border/50">
+                          {entry.initial}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-foreground truncate group-hover:text-accent transition-colors">{entry.name}</p>
+                            {entry.matchReason && (
+                              <span className="shrink-0 inline-flex items-center rounded-full bg-accent/10 border border-accent/20 px-1.5 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wide">
+                                match
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{entry.location} · {entry.stage}</p>
+                          <p className="text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1">{entry.description}</p>
+                        </div>
+                        <ArrowRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-accent transition-colors mt-1" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* Detail Panels */}
       <FounderDetailPanel
         founder={selectedFounder}
         companyName={companyData?.name}
         onClose={() => setSelectedFounder(null)} />
       <InvestorDetailPanel
-        investor={selectedInvestor ? { ...selectedInvestor, category: "investor" as const } : null}
+        investor={
+          selectedInvestor
+            ? {
+                ...selectedInvestor,
+                category: "investor" as const,
+                investorDatabaseId:
+                  typeof selectedInvestor._firmId === "string" &&
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                    selectedInvestor._firmId.trim(),
+                  )
+                    ? selectedInvestor._firmId.trim()
+                    : null,
+                websiteUrl: selectedInvestor._websiteUrl ?? null,
+              }
+            : null
+        }
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => { setSelectedInvestor(null); setInvestorInitialTab("Updates"); }}
