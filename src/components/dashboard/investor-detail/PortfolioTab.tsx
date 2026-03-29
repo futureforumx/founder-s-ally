@@ -123,7 +123,7 @@ function CountUpNumber({ target, label }: { target: number; label: string }) {
 }
 
 function CompanyLogo({ website, name, size = "w-10 h-10" }: { website: string; name: string; size?: string }) {
-  const [src, setSrc] = useState(`https://logo.clearbit.com/${website}`);
+  const [src, setSrc] = useState(`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${website}&size=128`);
   const [failed, setFailed] = useState(false);
 
   if (failed) {
@@ -140,7 +140,7 @@ function CompanyLogo({ website, name, size = "w-10 h-10" }: { website: string; n
       alt={name}
       className={`${size} rounded-xl border border-border object-contain bg-background p-1 shrink-0`}
       onError={() => {
-        if (src.includes("clearbit")) {
+        if (src.includes("gstatic")) {
           setSrc(`https://www.google.com/s2/favicons?domain=${website}&sz=128`);
         } else {
           setFailed(true);

@@ -132,6 +132,63 @@ class MockSupabaseClient {
       if (name === "admin-update-permission") {
         return { data: { success: true }, error: null };
       }
+      if (name === "intelligence-feed") {
+        const action = payload?.body?.action || "feed";
+        if (action === "summary") {
+          return {
+            data: {
+              summary: {
+                highSignal24h: 5,
+                investorActivity: 7,
+                competitorMoves: 4,
+                peopleMoves: 3,
+                newFunds: 2,
+                productLaunches: 3,
+                regulatory: 1,
+              },
+            },
+            error: null,
+          };
+        }
+        const demoEvents = [
+          {
+            id: "mock-e1",
+            event_type: "new_investment_made",
+            category: "investors",
+            title: "Apex Ventures leads Series B for DataForge (mock)",
+            summary: "Mock intelligence card when Supabase functions are not deployed.",
+            why_it_matters: "Illustrates how canonical events surface with interpretation, not raw RSS.",
+            confidence_score: 0.85,
+            importance_score: 0.8,
+            relevance_score: 0.78,
+            sentiment: "positive",
+            first_seen_at: new Date().toISOString(),
+            last_seen_at: new Date().toISOString(),
+            canonical_source_url: "https://example.com/mock",
+            source_count: 2,
+            metadata: {},
+            entities: [
+              { id: "mock-ent1", type: "fund", name: "Apex Ventures", role: "investor" },
+              { id: "mock-ent2", type: "company", name: "DataForge", role: "subject" },
+            ],
+            saved: false,
+            rank: 0.81,
+          },
+        ];
+        return {
+          data: {
+            events: action === "feed" ? demoEvents : demoEvents,
+            meta: { limit: 15, offset: 0 },
+            sideRail: {
+              trendingInvestors: [{ id: "m1", name: "Apex Ventures", type: "fund" }],
+              newFunds: [{ id: "m2", name: "Harbor Fund II", type: "fund" }],
+              peopleMoves: [{ id: "m3", name: "Jamie Chen", type: "person" }],
+              risingTopics: ["Agentic workflows", "EU AI Act", "Mid-market security"],
+            },
+          },
+          error: null,
+        };
+      }
       return { data: { success: true }, error: null };
     }
   };

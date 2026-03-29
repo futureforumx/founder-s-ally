@@ -26,7 +26,7 @@ interface InvestorDiscoveryProps {
 function logoUrl(name: string) {
   if (!name.trim()) return null;
   const domain = name.trim().toLowerCase().replace(/\s+/g, "") + ".com";
-  return `https://logo.clearbit.com/${domain}`;
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
 }
 
 function matchScore(p: PendingInvestor): number {

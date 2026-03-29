@@ -99,3 +99,9 @@ verify_jwt = false
 
 [functions.sync-x-profile]
 verify_jwt = false
+
+[functions.intelligence-feed]
+verify_jwt = false
+
+[functions.intelligence-pipeline]
+verify_jwt = false

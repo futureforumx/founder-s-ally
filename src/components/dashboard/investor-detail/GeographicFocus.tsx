@@ -262,7 +262,7 @@ interface DealRow {
 
 function companyLogoUrl(name: string): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return `https://logo.clearbit.com/${slug}.com`;
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${slug}.com&size=128`;
 }
 
 export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: GeographicFocusProps) {

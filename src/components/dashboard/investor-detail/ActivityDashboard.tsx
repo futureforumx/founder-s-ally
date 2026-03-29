@@ -443,17 +443,22 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
             return (
               <div key={deal.company} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0 overflow-hidden">
-                  <img 
-                    src={`https://logo.clearbit.com/${deal.domain || 'example.com'}`} 
+                  <img
+                    src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${deal.domain || 'example.com'}&size=64`}
                     alt={deal.company}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      const parent = (e.target as HTMLImageElement).parentElement;
-                      if (parent) {
-                        const span = document.createElement('span');
-                        span.textContent = deal.initial;
-                        parent.appendChild(span);
+                      const img = e.target as HTMLImageElement;
+                      if (img.src.includes("gstatic")) {
+                        img.src = `https://www.google.com/s2/favicons?domain=${deal.domain || 'example.com'}&sz=64`;
+                      } else {
+                        img.style.display = 'none';
+                        const parent = img.parentElement;
+                        if (parent) {
+                          const span = document.createElement('span');
+                          span.textContent = deal.initial;
+                          parent.appendChild(span);
+                        }
                       }
                     }}
                   />

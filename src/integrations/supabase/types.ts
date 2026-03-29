@@ -1067,6 +1067,369 @@ export type Database = {
         }
         Relationships: []
       }
+      intelligence_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          event_id: string | null
+          id: string
+          status: string
+          user_id: string
+          watchlist_id: string | null
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          status?: string
+          user_id: string
+          watchlist_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+          watchlist_id?: string | null
+        }
+        Relationships: []
+      }
+      intelligence_dismissed_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      intelligence_entities: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          description: string | null
+          domain: string | null
+          geography: string | null
+          id: string
+          metadata: Json
+          name: string
+          sectors: string[]
+          tags: string[]
+          type: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          geography?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          sectors?: string[]
+          tags?: string[]
+          type: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          geography?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          sectors?: string[]
+          tags?: string[]
+          type?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      intelligence_event_entities: {
+        Row: {
+          created_at: string
+          entity_id: string
+          event_id: string
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          event_id: string
+          id?: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          event_id?: string
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      intelligence_events: {
+        Row: {
+          canonical_source_url: string | null
+          category: string
+          confidence_score: number
+          created_at: string
+          dedupe_key: string | null
+          event_type: string
+          first_seen_at: string
+          id: string
+          importance_score: number
+          last_seen_at: string
+          metadata: Json
+          relevance_score: number
+          sentiment: string | null
+          source_count: number
+          summary: string
+          title: string
+          updated_at: string
+          why_it_matters: string
+        }
+        Insert: {
+          canonical_source_url?: string | null
+          category: string
+          confidence_score?: number
+          created_at?: string
+          dedupe_key?: string | null
+          event_type: string
+          first_seen_at?: string
+          id?: string
+          importance_score?: number
+          last_seen_at?: string
+          metadata?: Json
+          relevance_score?: number
+          sentiment?: string | null
+          source_count?: number
+          summary?: string
+          title: string
+          updated_at?: string
+          why_it_matters?: string
+        }
+        Update: {
+          canonical_source_url?: string | null
+          category?: string
+          confidence_score?: number
+          created_at?: string
+          dedupe_key?: string | null
+          event_type?: string
+          first_seen_at?: string
+          id?: string
+          importance_score?: number
+          last_seen_at?: string
+          metadata?: Json
+          relevance_score?: number
+          sentiment?: string | null
+          source_count?: number
+          summary?: string
+          title?: string
+          updated_at?: string
+          why_it_matters?: string
+        }
+        Relationships: []
+      }
+      intelligence_event_types: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          default_category: string
+          description: string | null
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          default_category: string
+          description?: string | null
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          default_category?: string
+          description?: string | null
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      intelligence_saved_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+          project_label: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          project_label?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          project_label?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      intelligence_sources: {
+        Row: {
+          active: boolean
+          base_url: string | null
+          created_at: string
+          credibility_score: number
+          id: string
+          metadata: Json
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          base_url?: string | null
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          metadata?: Json
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          base_url?: string | null
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          metadata?: Json
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      intelligence_watchlists: {
+        Row: {
+          alert_threshold: string | null
+          category: string | null
+          created_at: string
+          digest_frequency: string | null
+          entity_id: string | null
+          id: string
+          keyword: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_threshold?: string | null
+          category?: string | null
+          created_at?: string
+          digest_frequency?: string | null
+          entity_id?: string | null
+          id?: string
+          keyword?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_threshold?: string | null
+          category?: string | null
+          created_at?: string
+          digest_frequency?: string | null
+          entity_id?: string | null
+          id?: string
+          keyword?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      raw_intelligence_items: {
+        Row: {
+          author: string | null
+          body: string | null
+          content_hash: string
+          created_at: string
+          excerpt: string | null
+          fetched_at: string
+          id: string
+          metadata: Json
+          processing_status: string
+          published_at: string | null
+          source_id: string
+          source_url: string | null
+          title: string
+        }
+        Insert: {
+          author?: string | null
+          body?: string | null
+          content_hash: string
+          created_at?: string
+          excerpt?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json
+          processing_status?: string
+          published_at?: string | null
+          source_id: string
+          source_url?: string | null
+          title: string
+        }
+        Update: {
+          author?: string | null
+          body?: string | null
+          content_hash?: string
+          created_at?: string
+          excerpt?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json
+          processing_status?: string
+          published_at?: string | null
+          source_id?: string
+          source_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       investor_directory_safe: {

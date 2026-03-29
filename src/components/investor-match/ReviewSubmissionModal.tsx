@@ -1,24 +1,16 @@
-import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, Loader2, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import type { FormQuestion } from "@/lib/buildReviewFormConfig";
 import {
   buildReviewFormConfig,
   deriveNonInvestorScores,
   deriveInvestorScores,
   shouldShowFollowUpAfterEventQuestion,
-  shouldShowRememberWhoSection,
 } from "@/lib/buildReviewFormConfig";
 import {
   canAdvanceWizardStep,
@@ -35,6 +27,13 @@ import {
   ReviewWizardProgressBar,
   ReviewWizardSummaryPanel,
 } from "./review-modal/ReviewWizardSections";
+import {
+  ReviewWizardLinkedStep1,
+  ReviewWizardLinkedStep2,
+  ReviewWizardNoteStep,
+  ReviewWizardUnlinkedStep1,
+  ReviewWizardUnlinkedStep2,
+} from "./review-modal/ReviewWizardStepPanels";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -117,214 +116,6 @@ async function resolveVcFirmId(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Single-select radio pill group */
-function SingleSelect({
-  options,
-  value,
-  onChange,
-}: {
-  options: string[];
-  value: string | null;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            value === opt
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
-          )}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Multi-select toggle chip group */
-function MultiSelect({
-  options,
-  selected,
-  onChange,
-}: {
-  options: string[];
-  selected: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const toggle = (opt: string) => {
-    onChange(
-      selected.includes(opt)
-        ? selected.filter((s) => s !== opt)
-        : [...selected, opt],
-    );
-  };
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => toggle(opt)}
-          className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            selected.includes(opt)
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
-          )}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Numbered question block */
-function QuestionBlock({
-  index,
-  label,
-  optional,
-  children,
-}: {
-  index: number;
-  label: string;
-  optional?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-2">
-      <p className="text-xs font-bold text-foreground flex items-start gap-1.5">
-        <span className="text-base leading-none shrink-0">{index}.</span>
-        <span>
-          {label}
-          {optional && (
-            <span className="font-normal text-muted-foreground ml-1">(optional)</span>
-          )}
-        </span>
-      </p>
-      {children}
-    </section>
-  );
-}
-
-function renderNonTextQuestion(
-  q: FormQuestion,
-  displayIndex: number,
-  answers: Record<string, string | string[]>,
-  setAnswer: (id: string, value: string | string[]) => void,
-) {
-  return (
-    <QuestionBlock key={q.id} index={displayIndex} label={q.label} optional={q.optional}>
-      {q.type === "single_select" && (
-        <SingleSelect
-          options={q.options ?? []}
-          value={(answers[q.id] as string) ?? null}
-          onChange={(v) => setAnswer(q.id, v)}
-        />
-      )}
-      {q.type === "multi_select" && (
-        <MultiSelect
-          options={q.options ?? []}
-          selected={(answers[q.id] as string[]) ?? []}
-          onChange={(v) => setAnswer(q.id, v)}
-        />
-      )}
-    </QuestionBlock>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tag selector (non-investor form only)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TagSelector({
-  tags,
-  selected,
-  onChange,
-}: {
-  tags: string[];
-  selected: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const toggle = (tag: string) =>
-    onChange(
-      selected.includes(tag)
-        ? selected.filter((t) => t !== tag)
-        : [...selected, tag],
-    );
-
-  return (
-    <section className="space-y-2">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        <p className="text-xs font-bold text-foreground leading-none">How did you interact?</p>
-        <span className="text-[10px] font-medium text-muted-foreground leading-none">
-          Select all that apply
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
-          <button
-            key={tag}
-            type="button"
-            onClick={() => toggle(tag)}
-            className={cn(
-              "px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all duration-150",
-              selected.includes(tag)
-                ? "border-warning/60 bg-warning/10 text-warning-foreground"
-                : "border-border bg-secondary/30 text-muted-foreground hover:border-warning/30 hover:bg-secondary/60",
-            )}
-          >
-            {tag}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RememberWhoSmartChips({
-  names,
-  onPick,
-}: {
-  names: string[];
-  onPick: (name: string) => void;
-}) {
-  if (names.length === 0) return null;
-  return (
-    <div className="mt-2 space-y-1.5">
-      <p className="text-[10px] font-medium text-muted-foreground">Popular investors</p>
-      <div className="flex flex-wrap gap-1.5">
-        {names.map((name) => (
-          <button
-            key={name}
-            type="button"
-            onClick={() => onPick(name)}
-            className={cn(
-              "rounded-full border border-dashed px-2.5 py-1 text-[11px] font-medium transition-colors",
-              "border-muted-foreground/40 bg-transparent text-muted-foreground",
-              "hover:border-accent/55 hover:bg-accent/5 hover:text-foreground",
-            )}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -370,7 +161,6 @@ export function ReviewSubmissionModal({
     website: string | null;
     name: string | null;
   } | null>(null);
-  const reviewBodyScrollRef = useRef<HTMLDivElement | null>(null);
 
   const logoUrlFromProp = useMemo(() => {
     if (firmLogoUrlProp == null) return null;
@@ -504,58 +294,6 @@ export function ReviewSubmissionModal({
     });
   }, []);
 
-  /** Keys that change visible form height (omit long text fields to avoid log spam). */
-  const reviewLayoutBumpKey = useMemo(
-    () =>
-      JSON.stringify({
-        interaction_type: answers.interaction_type,
-        follow_up_after_event: answers.follow_up_after_event,
-        overall_interaction: answers.overall_interaction,
-        response_time: answers.response_time,
-        would_engage_again: answers.would_engage_again,
-        work_with_them_rating: answers.work_with_them_rating,
-        take_money_again: answers.take_money_again,
-        tagCount: selectedTags.length,
-        rememberWhoLen: rememberWho.length,
-      }),
-    [
-      answers.interaction_type,
-      answers.follow_up_after_event,
-      answers.overall_interaction,
-      answers.response_time,
-      answers.would_engage_again,
-      answers.work_with_them_rating,
-      answers.take_money_again,
-      selectedTags.length,
-      rememberWho.length,
-    ],
-  );
-
-  // #region agent log
-  useLayoutEffect(() => {
-    if (!open || submitted) return;
-    const el = reviewBodyScrollRef.current;
-    fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "4b2f23" },
-      body: JSON.stringify({
-        sessionId: "4b2f23",
-        runId: "post-flex-fix",
-        hypothesisId: "H-FLEX",
-        location: "ReviewSubmissionModal:layout-after-bump-key",
-        message: "inner scroll metrics after layout-affecting answers",
-        data: {
-          scrollTop: el?.scrollTop ?? null,
-          scrollHeight: el?.scrollHeight ?? null,
-          clientHeight: el?.clientHeight ?? null,
-          hasOverflow: el != null && el.scrollHeight > el.clientHeight,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }, [open, submitted, reviewLayoutBumpKey]);
-  // #endregion
-
   // ── Reset on close ────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     setAnswers({});
@@ -672,7 +410,11 @@ export function ReviewSubmissionModal({
 
   // ── Submission ────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!canSubmit || !user) return;
+    if (!user) {
+      toast.error("Sign in to submit a review.");
+      return;
+    }
+    if (!canSubmit) return;
     setSubmitting(true);
 
     try {
@@ -753,14 +495,17 @@ export function ReviewSubmissionModal({
           <div className="fixed inset-0 z-[310] flex items-start justify-center overflow-y-auto p-4 pt-8 sm:pt-10 pointer-events-none">
             <motion.div
               data-vekta-review-modal="true"
-              className="pointer-events-auto flex min-h-0 w-full max-w-lg max-h-[90vh] flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
+              className={cn(
+                "pointer-events-auto grid w-full max-w-3xl max-h-[90vh] overflow-hidden bg-card rounded-2xl border border-border shadow-2xl",
+                submitted ? "grid-rows-[auto_minmax(0,1fr)]" : "grid-rows-[auto_auto_minmax(0,1fr)_auto]",
+              )}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/20 shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/20 shrink-0 min-h-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <FirmLogo
                     firmName={headerFirmDisplayName}
@@ -780,161 +525,84 @@ export function ReviewSubmissionModal({
                 </button>
               </div>
 
-              {/* Body */}
+              {/* Body: grid middle row(s) — minmax(0,1fr) avoids collapsed flex-1 scroll under max-h-only parents */}
               {submitted ? (
-                <SuccessState />
+                <div className="min-h-0 overflow-y-auto [scrollbar-gutter:stable]">
+                  <SuccessState />
+                </div>
               ) : (
-                <>
-                  <div
-                    ref={reviewBodyScrollRef}
-                    className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 space-y-6 [scrollbar-gutter:stable] [overflow-anchor:none]"
-                  >
-                    {/* Render non-text questions first */}
-                    {formConfig.questions
-                      .filter((q) => q.type !== "text")
-                      .filter(
-                        (q) =>
-                          q.id !== "follow_up_after_event" ||
-                          shouldShowFollowUpAfterEventQuestion(answers),
-                      )
-                      .map((q, i) => (
-                        <QuestionBlock
-                          key={q.id}
-                          index={i + 1}
-                          label={q.label}
-                          optional={q.optional}
-                        >
-                          {q.type === "single_select" && (
-                            <SingleSelect
-                              options={q.options ?? []}
-                              value={(answers[q.id] as string) ?? null}
-                              onChange={(v) => setAnswer(q.id, v)}
-                            />
-                          )}
-
-                          {q.type === "multi_select" && (
-                            <MultiSelect
-                              options={q.options ?? []}
-                              selected={(answers[q.id] as string[]) ?? []}
-                              onChange={(v) => setAnswer(q.id, v)}
-                            />
-                          )}
-                        </QuestionBlock>
-                      ))}
-
-                    {/* Tag selector — non-investor form only, above the textarea */}
-                    {!investorIsMappedToProfile && (
-                      <TagSelector
-                        tags={formConfig.tags}
-                        selected={selectedTags}
-                        onChange={setSelectedTags}
-                      />
-                    )}
-
-                    {!investorIsMappedToProfile && shouldShowRememberWhoSection(selectedTags) && (
-                      <section className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <p className="text-xs font-bold text-foreground leading-none">Remember who?</p>
-                          <span className="text-[10px] font-medium text-muted-foreground leading-none">
-                            Optional
-                          </span>
-                        </div>
-                        <Input
-                          value={rememberWho}
-                          onChange={(e) => setRememberWho(e.target.value)}
-                          placeholder="Partner, associate, or contact name"
-                          className="h-9 text-sm"
-                          maxLength={200}
-                        />
-                        <RememberWhoSmartChips names={rememberWhoChipNames} onPick={applyRememberWhoChip} />
-                      </section>
-                    )}
-
-                    {/* Optional text question rendered last (non-investor: only after a tag chip is selected) */}
-                    {formConfig.questions
-                      .filter((q) => q.type === "text")
-                      .filter(
-                        (q) =>
-                          q.id !== "founder_note" ||
-                          investorIsMappedToProfile ||
-                          selectedTags.length > 0,
-                      )
-                      .map((q) => (
-                        <QuestionBlock
-                          key={q.id}
-                          index={formConfig.questions.findIndex((fq) => fq.id === q.id) + 1}
-                          label={q.label}
-                          optional={q.optional}
-                        >
-                          <div className="space-y-1">
-                            <Textarea
-                              value={(answers[q.id] as string) ?? ""}
-                              onChange={(e) => setAnswer(q.id, e.target.value)}
-                              placeholder='e.g. "Partner gave sharp GTM feedback…"'
-                              rows={3}
-                              maxLength={500}
-                              className="resize-none text-sm"
-                            />
-                            <span className="text-[10px] text-muted-foreground tabular-nums">
-                              {((answers[q.id] as string) ?? "").length}/500
-                            </span>
-                          </div>
-                        </QuestionBlock>
-                      ))}
-
-                    {/* Anonymous toggle */}
-                    <div className="flex items-center justify-between gap-3 pt-4 border-t border-border">
-                      <div className="space-y-0.5">
-                        <Label
-                          htmlFor="review-anon"
-                          className="text-sm font-semibold text-foreground cursor-pointer"
-                        >
-                          Submit anonymously
-                        </Label>
-                        <p className="text-[10px] text-muted-foreground">
-                          {anonymous
-                            ? "Your name won't appear on the public feed."
-                            : "Your name may be visible to verified founders."}
-                        </p>
-                      </div>
-                      <Switch
-                        id="review-anon"
-                        checked={anonymous}
-                        onCheckedChange={setAnonymous}
-                      />
-                    </div>
+                <div className="contents">
+                  <div className="shrink-0 px-5 pb-3 pt-1 border-b border-border/60 bg-secondary/10 min-h-0">
+                    <ReviewWizardProgressBar step={currentStep} />
                   </div>
 
-                  {/* Footer */}
-                  <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-secondary/10 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClose}
-                      className="text-muted-foreground"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleSubmit}
-                      disabled={!canSubmit || submitting}
-                      className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90 px-5"
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting…
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-3.5 w-3.5" /> Submit
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </>
+                  <ReviewWizardBody step={currentStep} summary={summaryAside}>
+                    {investorIsMappedToProfile ? (
+                      <>
+                        {currentStep === 1 ? (
+                          <ReviewWizardLinkedStep1
+                            formConfig={formConfig}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                          />
+                        ) : null}
+                        {currentStep === 2 ? (
+                          <ReviewWizardLinkedStep2
+                            formConfig={formConfig}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                          />
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {currentStep === 1 ? (
+                          <ReviewWizardUnlinkedStep1
+                            formConfig={formConfig}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                            selectedTags={selectedTags}
+                            setSelectedTags={setSelectedTags}
+                            rememberWho={rememberWho}
+                            setRememberWho={setRememberWho}
+                            rememberWhoChipNames={rememberWhoChipNames}
+                            applyRememberWhoChip={applyRememberWhoChip}
+                          />
+                        ) : null}
+                        {currentStep === 2 ? (
+                          <ReviewWizardUnlinkedStep2
+                            formConfig={formConfig}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                          />
+                        ) : null}
+                      </>
+                    )}
+
+                    {currentStep === 3 ? (
+                      <ReviewWizardNoteStep
+                        formConfig={formConfig}
+                        founderNoteQuestion={founderNoteQuestion}
+                        answers={answers}
+                        setAnswer={setAnswer}
+                        showFounderNote={showFounderNote}
+                        anonymous={anonymous}
+                        setAnonymous={setAnonymous}
+                      />
+                    ) : null}
+                  </ReviewWizardBody>
+
+                  <ReviewWizardFooter
+                    step={currentStep}
+                    canGoNext={canGoNext}
+                    canSubmit={canSubmit}
+                    submitting={submitting}
+                    onBack={onWizardBack}
+                    onNext={onWizardNext}
+                    onSubmit={handleSubmit}
+                    onCancel={handleClose}
+                  />
+                </div>
               )}
             </motion.div>
           </div>

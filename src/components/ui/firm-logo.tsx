@@ -148,8 +148,8 @@ function computeInitialTier(logoUrl?: string | null, domain?: string | null): Ti
 /**
  * 4-tier logo fallback:
  *  1. logo_url from database (explicit, highest fidelity)
- *  2. Clearbit logo API — brand logos, not CMS-platform favicons
- *  3. Google gstatic faviconV2 — smarter fallback
+ *  2. Google gstatic faviconV2 — high-quality favicons
+ *  3. Google s2/favicons — secondary fallback
  *  4. Styled initial letter placeholder
  *
  * Domain resolution order:
@@ -168,20 +168,20 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
 
   const sizeClass = SIZE_MAP[size];
 
-  // Tier 2: Clearbit — brand logo, not a site favicon
-  const clearbitUrl = domain ? `https://logo.clearbit.com/${domain}` : null;
-  // Tier 3: gstatic faviconV2 — more reliable than s2/favicons
+  // Tier 2: gstatic faviconV2 — high-quality favicons (Clearbit was deprecated)
   const gstaticUrl = domain
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`
     : null;
+  // Tier 3: Google s2 favicons — secondary fallback
+  const s2Url = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
 
   const handleError = useCallback(() => {
     setTier((prev) => {
-      if (prev === 1) return clearbitUrl ? 2 : gstaticUrl ? 3 : 4;
-      if (prev === 2) return gstaticUrl ? 3 : 4;
+      if (prev === 1) return gstaticUrl ? 2 : s2Url ? 3 : 4;
+      if (prev === 2) return s2Url ? 3 : 4;
       return 4;
     });
-  }, [clearbitUrl, gstaticUrl]);
+  }, [gstaticUrl, s2Url]);
 
   const initial = firmName?.charAt(0).toUpperCase() || "?";
 
@@ -191,8 +191,8 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
 
   const currentSrc =
     tier === 1 ? logoUrl :
-    tier === 2 ? clearbitUrl :
-    tier === 3 ? gstaticUrl :
+    tier === 2 ? gstaticUrl :
+    tier === 3 ? s2Url :
     null;
 
   return (

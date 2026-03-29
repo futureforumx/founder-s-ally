@@ -116,6 +116,7 @@ const App = () => (
           <Routes>
             <Route path="/auth/*" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/intelligence" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
             <Route path="/firms/:id" element={<ProtectedRoute><FirmProfile /></ProtectedRoute>} />

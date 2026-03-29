@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import MuxPlayer, { type MuxCSSProperties } from "@mux/mux-player-react";
 import { Loader2 } from "lucide-react";
@@ -278,7 +278,7 @@ function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
 /**
  * Path-based routes under `/auth/*` — set the same paths in Clerk Dashboard → Paths if prompted.
  */
-export default function Auth() {
+function AuthWithClerk() {
   const { isLoaded, userId } = useClerkAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -293,8 +293,11 @@ export default function Auth() {
   const [heroCopyIndex, setHeroCopyIndex] = useState(0);
   const clerkKey = readClerkPublishableKey();
   const showLocalPreviewFallback =
-    import.meta.env.DEV && clerkKey.startsWith("pk_live_") && !isLoaded;
+    import.meta.env.DEV && Boolean(clerkKey?.trim()) && clerkKey.startsWith("pk_live_") && !isLoaded;
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "this domain";
+  const isVercelHost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "vercel.app" || window.location.hostname.endsWith(".vercel.app"));
 
   useLayoutEffect(() => {
     const html = document.documentElement;
@@ -448,8 +451,19 @@ export default function Auth() {
       <>
         {clerkLoadTimedOut && (
           <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
-            Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
-            add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
+            <p>
+              Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
+              add this domain in Clerk → <span className="font-semibold">Domains</span>, allow the URL in{" "}
+              <span className="font-semibold">Redirect URLs</span> (for Google/GitHub), disable blockers, and hard-refresh.
+            </p>
+            {isVercelHost ? (
+              <p className="mt-2 border-t border-amber-200/80 pt-2 text-amber-950/90">
+                <span className="font-semibold">Vercel preview:</span> in Vercel → Project → Settings → Environment Variables, ensure{" "}
+                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
+                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_*</code> secrets) are enabled for{" "}
+                <span className="font-semibold">Preview</span>, not only Production—then redeploy.
+              </p>
+            ) : null}
           </div>
         )}
         {!isSignUpVerifyEmailRoute && (
@@ -475,8 +489,19 @@ export default function Auth() {
       <>
         {clerkLoadTimedOut && (
           <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
-            Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
-            add this domain in Clerk → Domains, disable blockers for this site, and hard-refresh.
+            <p>
+              Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
+              add this domain in Clerk → <span className="font-semibold">Domains</span>, allow the URL in{" "}
+              <span className="font-semibold">Redirect URLs</span> (for Google/GitHub), disable blockers, and hard-refresh.
+            </p>
+            {isVercelHost ? (
+              <p className="mt-2 border-t border-amber-200/80 pt-2 text-amber-950/90">
+                <span className="font-semibold">Vercel preview:</span> in Vercel → Project → Settings → Environment Variables, ensure{" "}
+                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
+                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_*</code> secrets) are enabled for{" "}
+                <span className="font-semibold">Preview</span>, not only Production—then redeploy.
+              </p>
+            ) : null}
           </div>
         )}
         <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
@@ -496,4 +521,13 @@ export default function Auth() {
     isSignUpRoute,
     heroCopyIndex
   );
+}
+
+/** When VITE_DEMO_MODE is true and no publishable key, `main.tsx` omits ClerkProvider — redirect home. */
+export default function Auth() {
+  const demoNoClerk = import.meta.env.VITE_DEMO_MODE === "true" && !readClerkPublishableKey().trim();
+  if (demoNoClerk) {
+    return <Navigate to="/" replace />;
+  }
+  return <AuthWithClerk />;
 }

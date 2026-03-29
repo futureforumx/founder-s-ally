@@ -20,11 +20,13 @@ import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
+import { useSearchParams, useLocation } from "react-router-dom";
 
 type ViewType =
   | "company"
@@ -92,8 +94,17 @@ function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: Analysis
 const Index = () => {
   const { user: authUser } = useAuth();
   const capTable = useCapTable();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   // Read post-onboarding-view on first Index mount (not module load) so /onboarding can set it first.
   const [activeView, setActiveView] = useState<ViewType>(() => {
+    try {
+      if (typeof window !== "undefined" && window.location.pathname === "/intelligence") {
+        return "market-intelligence";
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       const post = localStorage.getItem("post-onboarding-view");
       if (post === "settings") {
@@ -107,6 +118,7 @@ const Index = () => {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
+      if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
     } catch {
       /* ignore */
     }
@@ -115,6 +127,22 @@ const Index = () => {
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
+
+  useEffect(() => {
+    if (location.pathname === "/intelligence") {
+      setActiveView("market-intelligence");
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const v = searchParams.get("view");
+    if (v === "intelligence" || v === "market-intelligence") {
+      setActiveView("market-intelligence");
+    }
+    if (v === "settings") {
+      setActiveView("settings");
+    }
+  }, [searchParams]);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -538,6 +566,16 @@ const Index = () => {
             <DeckAuditView />
           ) : activeView === "settings" ? (
             <SettingsPage />
+          ) : activeView === "market-intelligence" ? (
+            <IntelligencePage variant="all" />
+          ) : activeView === "market-investors" ? (
+            <IntelligencePage variant="investors" />
+          ) : activeView === "market-market" ? (
+            <IntelligencePage variant="market" />
+          ) : activeView === "market-tech" ? (
+            <IntelligencePage variant="tech" />
+          ) : activeView === "market-network" ? (
+            <IntelligencePage variant="network" />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

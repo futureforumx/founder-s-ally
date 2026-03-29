@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles, TrendingUp, Network, Shield } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles, TrendingUp, Network } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -50,11 +49,31 @@ const communityItems = [
   { id: "groups" as const, label: "Groups", icon: UsersRound },
   { id: "events" as const, label: "Events", icon: MapPin }];
 
+function isMarketIntelView(v: ViewType) {
+  return (
+    v === "market-intelligence" ||
+    v === "market-investors" ||
+    v === "market-market" ||
+    v === "market-tech" ||
+    v === "market-network"
+  );
+}
+
 export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useProfile();
   const { user, signOut } = useAuth();
-  const { isAppAdmin, loading: appAdminLoading } = useAppAdmin();
+
+  const goView = (view: ViewType) => {
+    if (isMarketIntelView(view)) {
+      if (location.pathname !== "/intelligence") navigate("/intelligence");
+      onViewChange(view);
+      return;
+    }
+    if (location.pathname === "/intelligence") navigate("/");
+    onViewChange(view);
+  };
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
@@ -82,7 +101,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
           {topItems.map((item) =>
           <button
             key={item.id}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => goView(item.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
               item.id === "dashboard" ? missionControlActive && "border" : activeView === item.id && "border"
@@ -103,20 +122,42 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               {item.label}
             </button>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Open Intelligence — live structured events for investors, market, tech, and network"
+                onClick={() => goView("market-intelligence")}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground border border-transparent",
+                  (activeView === "market-intelligence" ||
+                    activeView === "market-investors" ||
+                    activeView === "market-market" ||
+                    activeView === "market-tech" ||
+                    activeView === "market-network") &&
+                    "border",
+                )}
+                style={(activeView === "market-intelligence" ||
+                  activeView === "market-investors" ||
+                  activeView === "market-market" ||
+                  activeView === "market-tech" ||
+                  activeView === "market-network") ? {
+                  backgroundColor: "#d1d5db",
+                  borderColor: "#4b5563",
+                  color: "#1f2937",
+                  boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+                } : {}}>
+                <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                Intelligence
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[220px] text-xs">
+              Live intel feed: ranked events, not raw news. Or open{" "}
+              <span className="font-mono text-[10px]">/intelligence</span>
+            </TooltipContent>
+          </Tooltip>
           <button
-            onClick={() => onViewChange("market-intelligence")}
-            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "market-intelligence" && "border")}
-            style={activeView === "market-intelligence" ? {
-              backgroundColor: "#d1d5db",
-              borderColor: "#4b5563",
-              color: "#1f2937",
-              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
-            } : {}}>
-            <TrendingUp className="h-4 w-4 flex-shrink-0" />
-            Market Intelligence
-          </button>
-          <button
-            onClick={() => onViewChange("investors")}
+            onClick={() => goView("investors")}
             className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "investors" || activeView === "investor-search" || activeView === "connections") && "border")}
             style={(activeView === "investors" || activeView === "investor-search" || activeView === "connections") ? {
               backgroundColor: "#d1d5db",
@@ -128,7 +169,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             Investors
           </button>
           <button
-            onClick={() => onViewChange("directory")}
+            onClick={() => goView("directory")}
             className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors mt-2 whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", (activeView === "directory" || activeView === "groups" || activeView === "events") && "border")}
             style={(activeView === "directory" || activeView === "groups" || activeView === "events") ? {
               backgroundColor: "#d1d5db",
@@ -140,7 +181,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             Network
           </button>
           <button
-            onClick={() => onViewChange("data-room")}
+            onClick={() => goView("data-room")}
             className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
             style={activeView === "data-room" ? {
               backgroundColor: "#d1d5db",
@@ -152,22 +193,6 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             Data Room
           </button>
         </nav>
-
-        {!appAdminLoading && isAppAdmin && (
-          <div className="px-3 pb-2">
-            <button
-              type="button"
-              onClick={() => navigate("/admin/intelligence")}
-              className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap",
-                "text-amber-600/90 hover:bg-amber-500/10 hover:text-amber-600"
-              )}
-            >
-              <Shield className="h-4 w-4 shrink-0" />
-              Admin
-            </button>
-          </div>
-        )}
 
         <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
           <TooltipProvider delayDuration={200}>
