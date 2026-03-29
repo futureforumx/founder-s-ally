@@ -146,6 +146,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     reviewVcFirmId,
     null,
     ratingRefresh,
+    displayName,
   );
   const myFirmRateDisplay = useMemo(
     () => formatMyReviewRateButton(myFirmRatingJson),
@@ -301,9 +302,15 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
             >
               {/* Header */}
-              <div className="shrink-0 border-b border-border/40">
+              <div className="shrink-0 border-b border-border/40 relative overflow-hidden">
+                {/* Mesh gradient substrate — gives glass tiles something to bleed through */}
+                <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+                  <div className="absolute -top-16 -left-16 w-72 h-72 rounded-full bg-violet-500/[0.07] blur-3xl" />
+                  <div className="absolute -top-8 left-1/3 w-56 h-56 rounded-full bg-sky-500/[0.07] blur-3xl" />
+                  <div className="absolute -top-8 right-0 w-64 h-64 rounded-full bg-emerald-500/[0.06] blur-3xl" />
+                </div>
                 {/* Identity + Actions row */}
-                <div className="flex items-start justify-between gap-8 px-8 pt-6 pb-5">
+                <div className="relative z-10 flex items-start justify-between gap-8 px-8 pt-6 pb-5">
 
                   {/* Left: Identity block */}
                   <div className="flex items-start gap-3.5 min-w-0">
@@ -385,12 +392,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       {myFirmRateDisplay ? (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                          onClick={(e) => { e.stopPropagation(); setActiveTab("Feedback"); }}
                           className={cn(
                             "inline-flex flex-col items-center justify-center rounded-xl px-3 py-1.5 leading-none transition-colors",
                             myFirmRateDisplay.className,
                           )}
-                          aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to update.`}
+                          aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
                         >
                           <span className="text-[9px] font-semibold opacity-50 mb-0.5 uppercase tracking-widest">Your rating</span>
                           <span className="text-[13px] font-bold">{myFirmRateDisplay.label}</span>
@@ -427,7 +434,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                 </div>
 
                 {/* Score strip */}
-                <div className="px-8 pb-5">
+                <div className="relative z-10 px-8 pb-5">
                   <ScoreTilesRow
                     matchScore={matchScore}
                     firmName={heroName}
@@ -519,7 +526,9 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <FeedbackTab
                           investorName={effectiveInvestor.name}
                           vcFirmId={reviewVcFirmId}
+                          userId={session?.user?.id}
                           onLogInteraction={() => setReviewOpen(true)}
+                          onEditReview={() => setReviewOpen(true)}
                         />
                       </motion.div>
                     )}

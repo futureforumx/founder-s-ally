@@ -375,50 +375,52 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "group relative overflow-hidden rounded-2xl px-4 py-2.5 min-w-[104px]",
-                "flex flex-col items-start gap-0",
-                "backdrop-blur-md border transition-all duration-200 select-none cursor-pointer",
+                "group relative overflow-hidden rounded-2xl px-4 py-3 min-w-[108px]",
+                "flex flex-col items-start",
+                "backdrop-blur-[28px] border transition-all duration-200 select-none cursor-pointer",
                 isActive
-                  ? `${colors.activeTintBg} ${colors.activeBorder}`
-                  : "bg-white/[0.06] dark:bg-white/[0.04] border-white/[0.12] hover:bg-white/[0.10] hover:border-white/[0.18] hover:-translate-y-0.5 shadow-[0_2px_12px_rgba(0,0,0,0.08)]",
+                  ? `${colors.activeTintBg} ${colors.activeBorder} shadow-lg`
+                  : "bg-white/50 dark:bg-white/[0.07] border-white/25 dark:border-white/[0.12] hover:bg-white/60 dark:hover:bg-white/[0.11] hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]",
               ].join(" ")}
             >
-              {/* Glass inner highlight */}
-              {!isActive && (
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-              )}
+              {/* Top specular highlight — simulates glass edge catching light */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
 
-              {/* Label */}
-              <span className="text-[10px] tracking-wide font-medium text-muted-foreground/60 leading-none mb-1.5">
-                {tile.shortLabel}
-              </span>
+              {/* Label row with colored accent dot */}
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className={["w-1.5 h-1.5 rounded-full shrink-0", colors.barCls].join(" ")} />
+                <span className="text-[10px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
+                  {tile.shortLabel}
+                </span>
+              </div>
 
-              {/* Score + glow */}
+              {/* Score — neutral color, weight carries the hierarchy */}
               <div className="relative mb-1">
-                <span className={["text-[28px] font-semibold leading-none tabular-nums", colors.valueCls].join(" ")}>
+                <span className="text-[30px] font-bold leading-none tabular-nums text-foreground">
                   {tile.value}
                 </span>
-                <div className={["absolute inset-0 blur-2xl opacity-30 rounded-full scale-150", colors.barCls].join(" ")} />
+                {/* Soft color bloom behind number */}
+                <div className={["absolute inset-0 blur-2xl opacity-25 rounded-full scale-[2]", colors.barCls].join(" ")} />
               </div>
 
               {/* Caption */}
-              <span className="text-[11px] text-muted-foreground/50 leading-none">
+              <span className="text-[11px] text-foreground/40 leading-none mb-2.5">
                 {caption}
               </span>
 
-              {/* Progress bar */}
-              <div className="mt-2 h-[3px] w-full rounded-full bg-white/10">
+              {/* Colored progress pill */}
+              <div className="h-[3px] w-full rounded-full bg-black/[0.06] dark:bg-white/10">
                 <motion.div
-                  className={`h-[3px] rounded-full ${colors.barCls} opacity-70`}
+                  className={`h-[3px] rounded-full ${colors.barCls} opacity-75`}
                   initial={{ width: 0 }}
                   animate={{ width: `${tile.value}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
                 />
               </div>
 
-              {/* Shimmer line */}
-              <div className={["absolute bottom-0 left-0 h-[2px] w-full overflow-hidden", colors.barCls + "/15"].join(" ")}>
-                <div className={["h-full w-1/3 animate-shimmer", colors.barCls + "/50"].join(" ")} />
+              {/* Shimmer sweep */}
+              <div className="absolute bottom-0 left-0 h-[2px] w-full overflow-hidden">
+                <div className={["h-full w-1/3 animate-shimmer opacity-50", colors.barCls].join(" ")} />
               </div>
             </button>
           );
