@@ -52,6 +52,7 @@ type ViewType =
   | "groups"
   | "data-room"
   | "resources"
+  | "workspace"
   | "settings";
 
 /** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
@@ -565,6 +566,8 @@ const Index = () => {
             <DeckAuditView />
           ) : activeView === "resources" ? (
             <HelpCenter />
+          ) : activeView === "workspace" ? (
+            <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
           ) : activeView === "settings" ? (
             <SettingsPage />
           ) : activeView === "market-intelligence" ? (

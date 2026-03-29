@@ -1,10 +1,31 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { isAppAdminEmailDomain } from "../_shared/app-admin-email.ts";
+import {
+  autoPermissionForEmail,
+  clampGodModeToDesignatedEmail,
+  hasAdminConsoleAccess,
+  type AppPermission,
+} from "../_shared/app-admin-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function asPermission(v: unknown): AppPermission | null {
+  const p = String(v ?? "").toLowerCase();
+  if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
+  return null;
+}
+
+function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
+  const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
+  let best: AppPermission = "user";
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (rank[candidate] > rank[best]) best = candidate;
+  }
+  return best;
+}
 
 export type RecordUpdateKind =
   | "vc_firm"
@@ -136,12 +157,15 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .maybeSingle();
 
-    const isAdmin =
-      roleData?.permission === "admin" ||
-      roleData?.permission === "god" ||
-      caller.user_metadata?.role === "admin" ||
-      isAppAdminEmailDomain(caller.email);
-    if (!isAdmin) throw new Error("Admin access required");
+    const callerPermission = clampGodModeToDesignatedEmail(
+      highestPermission(
+        asPermission(roleData?.permission),
+        asPermission(caller.user_metadata?.role),
+        autoPermissionForEmail(caller.email),
+      ),
+      caller.email,
+    );
+    if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 
     const perSource = 250;
 

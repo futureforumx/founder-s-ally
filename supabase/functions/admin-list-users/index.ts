@@ -1,10 +1,31 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { isAppAdminEmailDomain } from "../_shared/app-admin-email.ts";
+import {
+  autoPermissionForEmail,
+  clampGodModeToDesignatedEmail,
+  hasAdminConsoleAccess,
+  type AppPermission,
+} from "../_shared/app-admin-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function asPermission(v: unknown): AppPermission | null {
+  const p = String(v ?? "").toLowerCase();
+  if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
+  return null;
+}
+
+function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
+  const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
+  let best: AppPermission = "user";
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (rank[candidate] > rank[best]) best = candidate;
+  }
+  return best;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -34,12 +55,16 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .maybeSingle();
 
-    const isAdmin =
-      roleData?.permission === "admin" ||
-      roleData?.permission === "god" ||
-      caller.user_metadata?.role === "admin" ||
-      isAppAdminEmailDomain(caller.email);
-    if (!isAdmin) throw new Error("Admin access required");
+    const callerPermission = clampGodModeToDesignatedEmail(
+      highestPermission(
+        asPermission(roleData?.permission),
+        asPermission(caller.user_metadata?.role),
+        autoPermissionForEmail(caller.email),
+      ),
+      caller.email,
+    );
+
+    if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 
     // Clerk (third-party) users are not in auth.users — listUsers is often empty. Use profiles as source of truth.
     const { data: profiles } = await adminClient
@@ -88,7 +113,14 @@ Deno.serve(async (req) => {
         linkedin_url: profile?.linkedin_url ?? null,
         twitter_url: profile?.twitter_url ?? null,
         location: profile?.location ?? null,
-        permission: roleMap.get(id) || "user",
+        permission: clampGodModeToDesignatedEmail(
+          highestPermission(
+            asPermission(roleMap.get(id)),
+            asPermission(u?.user_metadata?.role),
+            autoPermissionForEmail(u?.email),
+          ),
+          u?.email,
+        ),
         total_time_seconds: act?.total_time_seconds ?? 0,
         api_calls_count: act?.api_calls_count ?? 0,
         last_active_at: act?.last_active_at ?? null,

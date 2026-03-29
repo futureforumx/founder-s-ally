@@ -4,6 +4,7 @@ import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, L
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -31,6 +32,7 @@ type ViewType =
   | "groups"
   | "data-room"
   | "resources"
+  | "workspace"
   | "settings";
 
 interface AppSidebarProps {
@@ -65,6 +67,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
   const location = useLocation();
   const { profile } = useProfile();
   const { user, signOut } = useAuth();
+  const { isAppAdmin } = useAppAdmin();
 
   const goView = (view: ViewType) => {
     if (isMarketIntelView(view)) {
@@ -205,6 +208,28 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             <BookOpen className="h-4 w-4" />
             Resources
           </button>
+          <button
+            onClick={() => goView("workspace")}
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "workspace" && "border")}
+            style={activeView === "workspace" ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+            <Layers className="h-4 w-4" />
+            Workspace
+          </button>
+          {isAppAdmin && (
+            <button
+              type="button"
+              onClick={() => navigate("/admin/intelligence")}
+              className="mt-2 flex w-full items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-500/20"
+            >
+              <UserCog className="h-4 w-4" />
+              Admin Console
+            </button>
+          )}
         </nav>
 
         <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
