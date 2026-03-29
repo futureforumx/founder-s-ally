@@ -10,7 +10,6 @@ import {
   buildReviewFormConfig,
   deriveNonInvestorScores,
   deriveInvestorScores,
-  shouldShowFollowUpAfterEventQuestion,
 } from "@/lib/buildReviewFormConfig";
 import {
   canAdvanceWizardStep,
@@ -21,6 +20,7 @@ import {
   formatUnlinkedEvaluationSummary,
   type ReviewWizardStep,
 } from "@/lib/reviewModalWizard";
+import { cn } from "@/lib/utils";
 import {
   ReviewWizardBody,
   ReviewWizardFooter,
@@ -32,7 +32,8 @@ import {
   ReviewWizardLinkedStep2,
   ReviewWizardNoteStep,
   ReviewWizardUnlinkedStep1,
-  ReviewWizardUnlinkedStep2,
+  ReviewWizardUnlinkedStep3,
+  ReviewWizardUnlinkedStep4,
 } from "./review-modal/ReviewWizardStepPanels";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export function ReviewSubmissionModal({
   const [rememberWho, setRememberWho] = useState("");
   const [firmPartnerNames, setFirmPartnerNames] = useState<string[]>([]);
   const [anonymous, setAnonymous] = useState(true);
+  const [reviewRecordId, setReviewRecordId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<ReviewWizardStep>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -278,6 +280,74 @@ export function ReviewSubmissionModal({
     };
   }, [open, vcFirmId, logoUrlFromProp, firmName]);
 
+  useEffect(() => {
+    if (!open || !user) {
+      setReviewRecordId(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
+        if (!resolvedFirmId || cancelled) return;
+
+        const pid = personId?.trim() || null;
+        let query = (supabase as unknown as { from: (t: string) => any })
+          .from("vc_ratings")
+          .select("id, anonymous, comment, star_ratings, created_at")
+          .eq("author_user_id", user.id)
+          .eq("vc_firm_id", resolvedFirmId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        query = pid ? query.eq("vc_person_id", pid) : query.is("vc_person_id", null);
+
+        const { data, error } = await query;
+        if (cancelled || error) return;
+
+        const row = data?.[0] as {
+          id?: string;
+          anonymous?: boolean;
+          comment?: string | null;
+          star_ratings?: {
+            answers?: Record<string, string | string[]>;
+            tags?: string[];
+            remember_who?: string;
+          } | null;
+        } | undefined;
+
+        if (!row?.id) {
+          if (!cancelled) setReviewRecordId(null);
+          return;
+        }
+
+        const sr = row.star_ratings ?? null;
+        const loadedAnswers =
+          sr && sr.answers && typeof sr.answers === "object" ? { ...sr.answers } : {};
+
+        if (!loadedAnswers.founder_note && typeof row.comment === "string" && row.comment.trim()) {
+          loadedAnswers.founder_note = row.comment.trim();
+        }
+
+        if (!cancelled) {
+          setReviewRecordId(row.id);
+          setAnswers(loadedAnswers);
+          setSelectedTags(Array.isArray(sr?.tags) ? sr.tags.filter((t) => typeof t === "string") : []);
+          setRememberWho(typeof sr?.remember_who === "string" ? sr.remember_who : "");
+          setAnonymous(typeof row.anonymous === "boolean" ? row.anonymous : true);
+        }
+      } catch {
+        if (!cancelled) setReviewRecordId(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user, firmName, vcFirmId, personId]);
+
   const headerLogoUrlResolved = logoUrlFromProp ?? fetchedHeaderFirm?.logo ?? null;
   const headerWebsiteResolved =
     (firmWebsiteUrl && firmWebsiteUrl.trim()) || fetchedHeaderFirm?.website || undefined;
@@ -287,9 +357,33 @@ export function ReviewSubmissionModal({
   const setAnswer = useCallback((id: string, value: string | string[]) => {
     setAnswers((prev) => {
       const next: Record<string, string | string[]> = { ...prev, [id]: value };
-      if (id === "interaction_type" && prev.interaction_type !== value) {
-        delete next.follow_up_after_event;
+
+      // When relationship origin changes, clear related conditional fields
+      if (id === "interaction_intro") {
+        delete next.interaction_intro_other;
+        delete next.interaction_warm_intro_who;
+        delete next.interaction_cold_inbound_discovery;
+        delete next.interaction_cold_inbound_social_platform;
+        delete next.interaction_cold_inbound_social_other;
+        delete next.interaction_event_type;
+        delete next.interaction_event_type_other;
+        delete next.interaction_event_followup;
+        delete next.interaction_event_followup_first;
+
+        const intro = typeof value === "string" ? value : "";
+        const how = next.interaction_how;
+        const howArr = Array.isArray(how) ? [...how] : [];
+        if (intro === "Cold inbound" || intro === "Cold outbound") {
+          if (!howArr.includes("Email")) {
+            next.interaction_how = [...howArr, "Email"];
+          }
+        } else if (intro === "Event") {
+          if (!howArr.includes("In-Person")) {
+            next.interaction_how = [...howArr, "In-Person"];
+          }
+        }
       }
+
       return next;
     });
   }, []);
@@ -299,6 +393,7 @@ export function ReviewSubmissionModal({
     setAnswers({});
     setSelectedTags([]);
     setRememberWho("");
+    setReviewRecordId(null);
     setFirmPartnerNames([]);
     setFetchedHeaderFirm(null);
     setAnonymous(true);
@@ -330,9 +425,13 @@ export function ReviewSubmissionModal({
     [formConfig.questions],
   );
 
+  const wizardTotalSteps = investorIsMappedToProfile ? 3 : 4;
+
   const onWizardNext = useCallback(() => {
-    setCurrentStep((s) => (s < 3 ? ((s + 1) as ReviewWizardStep) : s));
-  }, []);
+    setCurrentStep((s) =>
+      s < wizardTotalSteps ? ((s + 1) as ReviewWizardStep) : s,
+    );
+  }, [wizardTotalSteps]);
 
   const onWizardBack = useCallback(() => {
     setCurrentStep((s) => (s > 1 ? ((s - 1) as ReviewWizardStep) : s));
@@ -341,7 +440,7 @@ export function ReviewSubmissionModal({
   // ── Validation ────────────────────────────────────────────────────────────
   const canSubmit = useMemo(() => {
     if (investorIsMappedToProfile) {
-      // Investor form: Q1 + Q2 required
+      // Investor form: work_with_them_rating + take_money_again required
       return (
         typeof answers.work_with_them_rating === "string" &&
         answers.work_with_them_rating.length > 0 &&
@@ -349,23 +448,22 @@ export function ReviewSubmissionModal({
         answers.take_money_again.length > 0
       );
     } else {
-      const followUpVisible = shouldShowFollowUpAfterEventQuestion(answers);
-      const followUpOk =
-        !followUpVisible ||
-        (typeof answers.follow_up_after_event === "string" &&
-          answers.follow_up_after_event.length > 0);
-      // Non-investor form: interaction type + follow-up (when shown) + Q3–Q5 required
-      return (
-        typeof answers.interaction_type === "string" &&
-        answers.interaction_type.length > 0 &&
-        followUpOk &&
+      // Non-investor form: context (intro + how + depth) + evaluation (overall + engage) required
+      const contextOk =
+        typeof answers.interaction_intro === "string" &&
+        answers.interaction_intro.length > 0 &&
+        Array.isArray(answers.interaction_how) &&
+        answers.interaction_how.length > 0 &&
+        typeof answers.interaction_meeting_depth === "string" &&
+        answers.interaction_meeting_depth.length > 0;
+
+      const evalOk =
         typeof answers.overall_interaction === "string" &&
         answers.overall_interaction.length > 0 &&
-        typeof answers.response_time === "string" &&
-        answers.response_time.length > 0 &&
         typeof answers.would_engage_again === "string" &&
-        answers.would_engage_again.length > 0
-      );
+        answers.would_engage_again.length > 0;
+
+      return contextOk && evalOk;
     }
   }, [answers, investorIsMappedToProfile]);
 
@@ -441,10 +539,13 @@ export function ReviewSubmissionModal({
         ? deriveInvestorScores(answers)
         : deriveNonInvestorScores(answers);
 
-      // interaction_type column: map the display answer to a key
+      // interaction_type column: map the full context to a key
       const interactionTypeValue = investorIsMappedToProfile
         ? "investor_relationship"
-        : deriveInteractionTypeKey(answers.interaction_type as string);
+        : deriveInteractionTypeKey(
+            answers.interaction_intro as string | undefined,
+            (answers.interaction_how as string[]) || [],
+          );
 
       const payload = {
         author_user_id: user.id,
@@ -460,14 +561,36 @@ export function ReviewSubmissionModal({
         star_ratings: structuredAnswers,
       };
 
-      const { error } = await supabase.from("vc_ratings").insert(payload);
-      if (error) throw error;
+      let savedAsRevision = false;
+      if (reviewRecordId) {
+        const { error: updateError } = await supabase
+          .from("vc_ratings")
+          .update(payload)
+          .eq("id", reviewRecordId)
+          .eq("author_user_id", user.id);
+
+        // Fallback: if update is blocked (often RLS), persist edit as a new revision.
+        if (updateError) {
+          const { error: insertError } = await supabase.from("vc_ratings").insert(payload);
+          if (insertError) throw insertError;
+          savedAsRevision = true;
+        }
+      } else {
+        const { error } = await supabase.from("vc_ratings").insert(payload);
+        if (error) throw error;
+      }
 
       setSubmitted(true);
       toast.success(
-        anonymous
-          ? "Thanks — your rating was submitted anonymously."
-          : "Thanks — your rating was submitted.",
+        reviewRecordId
+          ? savedAsRevision
+            ? "Your edit was saved as a new review revision."
+            : anonymous
+              ? "Your review was updated (anonymous)."
+              : "Your review was updated."
+          : anonymous
+            ? "Thanks — your rating was submitted anonymously."
+            : "Thanks — your rating was submitted.",
       );
 
       setTimeout(() => handleClose(), 1800);
@@ -492,14 +615,14 @@ export function ReviewSubmissionModal({
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-[310] flex items-start justify-center overflow-y-auto p-4 pt-8 sm:pt-10 pointer-events-none">
+          <div className="fixed inset-0 z-[310] flex max-h-[100dvh] items-start justify-center overflow-x-hidden overflow-y-auto p-3 pb-2 pt-4 sm:p-4 sm:pt-6 pointer-events-none [scrollbar-gutter:stable]">
             <motion.div
               data-vekta-review-modal="true"
               className="pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
               style={{
                 // Definite height so nested flex-1 / min-h-0 scroll regions work (max-h-only flex parents collapse).
-                height: "min(90dvh, calc(100dvh - 2.5rem))",
-                maxHeight: "min(90dvh, calc(100dvh - 2.5rem))",
+                height: "min(92dvh, calc(100dvh - 3.25rem))",
+                maxHeight: "min(92dvh, calc(100dvh - 3.25rem))",
               }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -508,7 +631,12 @@ export function ReviewSubmissionModal({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex shrink-0 items-center justify-between border-b border-border bg-secondary/20 px-5 py-4">
+              <div
+                className={cn(
+                  "flex shrink-0 items-center justify-between border-b border-border bg-secondary/20",
+                  !submitted && currentStep === 2 ? "px-4 py-2.5" : "px-5 py-4",
+                )}
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <FirmLogo
                     firmName={headerFirmDisplayName}
@@ -534,11 +662,27 @@ export function ReviewSubmissionModal({
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <div className="shrink-0 border-b border-border/60 bg-secondary/10 px-5 pb-3 pt-1">
-                    <ReviewWizardProgressBar step={currentStep} />
+                  <div
+                    className={cn(
+                      "shrink-0 border-b border-border/60 bg-secondary/10",
+                      currentStep === 2 ? "px-4 pb-2 pt-0.5" : "px-5 pb-3 pt-1",
+                    )}
+                  >
+                    <ReviewWizardProgressBar
+                      step={currentStep}
+                      totalSteps={wizardTotalSteps}
+                      investorIsMappedToProfile={investorIsMappedToProfile}
+                      compact={currentStep === 2}
+                    />
                   </div>
 
-                  <ReviewWizardBody step={currentStep} summary={summaryAside}>
+                  <ReviewWizardBody
+                    step={currentStep}
+                    summary={summaryAside}
+                    compactMainColumn={currentStep === 2}
+                    hideMobileSummary={currentStep === 2}
+                    omitDesktopSummary={currentStep === 2}
+                  >
                     {investorIsMappedToProfile ? (
                       <>
                         {currentStep === 1 ? (
@@ -563,6 +707,20 @@ export function ReviewSubmissionModal({
                             formConfig={formConfig}
                             answers={answers}
                             setAnswer={setAnswer}
+                            firmDisplayName={headerFirmDisplayName}
+                          />
+                        ) : null}
+                        {currentStep === 2 ? (
+                          <ReviewWizardUnlinkedStep3
+                            formConfig={formConfig}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                          />
+                        ) : null}
+                        {currentStep === 3 ? (
+                          <ReviewWizardUnlinkedStep4
+                            formConfig={formConfig}
+                            answers={answers}
                             selectedTags={selectedTags}
                             setSelectedTags={setSelectedTags}
                             rememberWho={rememberWho}
@@ -571,17 +729,11 @@ export function ReviewSubmissionModal({
                             applyRememberWhoChip={applyRememberWhoChip}
                           />
                         ) : null}
-                        {currentStep === 2 ? (
-                          <ReviewWizardUnlinkedStep2
-                            formConfig={formConfig}
-                            answers={answers}
-                            setAnswer={setAnswer}
-                          />
-                        ) : null}
                       </>
                     )}
 
-                    {currentStep === 3 ? (
+                    {((investorIsMappedToProfile && currentStep === 3) ||
+                      (!investorIsMappedToProfile && currentStep === 4)) ? (
                       <ReviewWizardNoteStep
                         formConfig={formConfig}
                         founderNoteQuestion={founderNoteQuestion}
@@ -596,6 +748,7 @@ export function ReviewSubmissionModal({
 
                   <ReviewWizardFooter
                     step={currentStep}
+                    totalSteps={wizardTotalSteps}
                     canGoNext={canGoNext}
                     canSubmit={canSubmit}
                     submitting={submitting}
@@ -603,6 +756,7 @@ export function ReviewSubmissionModal({
                     onNext={onWizardNext}
                     onSubmit={handleSubmit}
                     onCancel={handleClose}
+                    compact={currentStep === 2}
                   />
                 </div>
               )}
@@ -643,18 +797,31 @@ function SuccessState() {
 // Utility: map display label → interaction_type DB key
 // ─────────────────────────────────────────────────────────────────────────────
 
-function deriveInteractionTypeKey(label: string | undefined): string {
-  switch (label) {
-    case "Took meeting/call":
-      return "meeting";
-    case "Sent email/warm intro":
-      return "email";
-    case "Got intro":
-      return "intro";
-    case "Passed after meeting":
-      return "passed";
-    case "Ongoing conversation":
-      return "ongoing";
+function deriveInteractionTypeKey(
+  relationshipOrigin: string | undefined,
+  channels: string[],
+): string {
+  if (!relationshipOrigin) return "other";
+
+  // Very simple mapping: derive from origin and presence of meeting channels
+  const hasInPersonOrVideo = channels.some((c) =>
+    ["In-Person", "Video"].includes(c),
+  );
+  const hasEmailOnly = channels.length === 1 && channels[0] === "Email";
+
+  switch (relationshipOrigin) {
+    case "Warm intro":
+      return hasEmailOnly ? "email" : "meeting";
+    case "Cold inbound":
+      return hasEmailOnly ? "email" : "intro";
+    case "Cold outbound":
+      return hasEmailOnly ? "email" : "intro";
+    case "Event":
+      return hasInPersonOrVideo ? "meeting" : "ongoing";
+    case "Community":
+      return hasInPersonOrVideo ? "meeting" : "ongoing";
+    case "Existing relationship":
+      return hasEmailOnly ? "email" : "ongoing";
     default:
       return "other";
   }

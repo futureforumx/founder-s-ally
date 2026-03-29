@@ -220,9 +220,8 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
           </div>
           <button
             type="button"
-            onClick={onLogInteraction}
-            className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors disabled:opacity-50"
-            disabled={!onLogInteraction}
+            onClick={() => onLogInteraction?.()}
+            className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors"
           >
             Log Interaction
           </button>

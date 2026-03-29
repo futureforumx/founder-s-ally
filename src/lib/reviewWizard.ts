@@ -6,19 +6,19 @@
 import {
   countRememberedNames,
   getRememberedRoleKeysFromAnswers,
-  rememberWhoSubsectionSatisfied,
   PARTICIPANT_ROLE_LABEL_BY_VALUE,
   type ParticipantRoleKey,
 } from "@/lib/reviewParticipantMemory";
 import { EVENT_TYPE_DISPLAY_LABELS } from "@/lib/reviewFormContent";
 
-export type ReviewStep = 1 | 2 | 3;
+export type ReviewStep = 1 | 2 | 3 | 4 | 5;
 
 export type ReviewDraftRelationshipOrigin = 
   | "warm_intro" 
   | "cold_inbound" 
   | "cold_outbound" 
   | "event" 
+  | "community"
   | "existing_relationship" 
   | "other" 
   | null;
@@ -43,10 +43,19 @@ export type ReviewDraftInteractionChannel =
   | "social"
   | "phone";
 
-export type ReviewDraftMeetingDepth = "email_only" | "single_meeting" | "multiple_meetings" | null;
+export type ReviewDraftMeetingDepth =
+  | "once"
+  | "few_times"
+  | "several_times"
+  | "many"
+  /** Legacy stored answers before four-tier engagement options */
+  | "email_only"
+  | "single_meeting"
+  | "multiple_meetings"
+  | null;
 
 export type ReviewDraft = {
-  /** How the relationship started */
+  /** Relationship origin (Characterize your interaction) */
   relationshipOrigin: ReviewDraftRelationshipOrigin;
 
   /** Only if origin = event */
@@ -116,7 +125,7 @@ export function relationshipOriginFollowupsComplete(
       return Boolean(warmIntroWhoValue);
     case "Cold inbound":
       if (!coldInboundDiscoveryValue) return false;
-      if (coldInboundDiscoveryValue === "social") {
+      if (coldInboundDiscoveryValue.toLowerCase() === "social") {
         if (!coldInboundSocialPlatformValue) return false;
         if (
           coldInboundSocialPlatformValue === "other" &&
@@ -161,7 +170,12 @@ export function isContextStepValidUnlinked(answers: Record<string, string | stri
   if (!introFollowupsCompleteFromAnswers(answers)) return false;
   const howOk = Array.isArray(answers.interaction_how) && answers.interaction_how.length > 0;
   if (!howOk) return false;
-  return rememberWhoSubsectionSatisfied(answers);
+  const depthOk =
+    typeof answers.interaction_meeting_depth === "string" && answers.interaction_meeting_depth.length > 0;
+  if (!depthOk) return false;
+  // “Remember who?” in the wizard is optional free text + chips (separate `remember_who` on save), not
+  // `interaction_remembered_who_*` in answers — do not block step 1 on participant-memory fields.
+  return true;
 }
 
 export function overallInteractionScoreValid(v: unknown): boolean {
@@ -176,6 +190,11 @@ export function isEvaluationStepValidUnlinked(answers: Record<string, string | s
     typeof answers.would_engage_again === "string" &&
     answers.would_engage_again.length > 0
   );
+}
+
+/** Step 2 of unlinked wizard (after experience + context on step 1). */
+export function isWouldEngageStepValidUnlinked(answers: Record<string, string | string[]>): boolean {
+  return typeof answers.would_engage_again === "string" && answers.would_engage_again.length > 0;
 }
 
 export function isEvaluationStepValidLinked(answers: Record<string, string | string[]>): boolean {
@@ -201,8 +220,18 @@ export function canAdvanceStep(
     if (step === 2) return true;
     return isNoteStepValid({} as ReviewDraft);
   }
-  if (step === 1) return isContextStepValidUnlinked(answers);
-  if (step === 2) return isEvaluationStepValidUnlinked(answers);
+  if (step === 1) {
+    return overallInteractionScoreValid(answers.overall_interaction);
+  }
+  if (step === 2) {
+    return isWouldEngageStepValidUnlinked(answers);
+  }
+  if (step === 3) {
+    return isContextStepValidUnlinked(answers);
+  }
+  if (step === 4) {
+    return true;
+  }
   return isNoteStepValid({} as ReviewDraft);
 }
 
@@ -249,6 +278,8 @@ export function deriveReviewDraftFromAnswers(
       const firstByRaw = (answers.interaction_event_followup_first as string | undefined)?.trim();
       eventFollowUpFirstBy = firstByRaw === "founder" ? "founder" : firstByRaw === "investor" ? "investor" : null;
     }
+  } else if (introRaw === "Community") {
+    relationshipOrigin = "community";
   } else if (introRaw === "Existing relationship") {
     relationshipOrigin = "existing_relationship";
   } else if (introRaw === "Other") {
@@ -283,7 +314,15 @@ export function deriveReviewDraftFromAnswers(
   // ── Meeting depth ──────────────────────────────────────────────────────
   let meetingDepth: ReviewDraftMeetingDepth = null;
   const depthRaw = (answers.interaction_meeting_depth as string | undefined)?.trim();
-  if (depthRaw === "Email only") {
+  if (depthRaw === "Once") {
+    meetingDepth = "once";
+  } else if (depthRaw === "A few times") {
+    meetingDepth = "few_times";
+  } else if (depthRaw === "Several times") {
+    meetingDepth = "several_times";
+  } else if (depthRaw === "Many") {
+    meetingDepth = "many";
+  } else if (depthRaw === "Email only") {
     meetingDepth = "email_only";
   } else if (depthRaw === "Single meeting") {
     meetingDepth = "single_meeting";
@@ -434,6 +473,7 @@ export function formatContextSectionUnlinked(
     : draft.relationshipOrigin === "cold_inbound" ? "Cold inbound"
     : draft.relationshipOrigin === "cold_outbound" ? "Cold outbound"
     : draft.relationshipOrigin === "event" ? "Event"
+    : draft.relationshipOrigin === "community" ? "Community"
     : draft.relationshipOrigin === "existing_relationship" ? "Existing relationship"
     : draft.relationshipOrigin === "other" ? (answers.interaction_intro_other as string | undefined)?.trim() || "Other"
     : null;
@@ -464,10 +504,22 @@ export function formatContextSectionUnlinked(
 
   // ── Meeting depth ─────────────────────────────────────────────────────
   if (draft.meetingDepth) {
-    const depthLabel = draft.meetingDepth === "email_only" ? "Email only"
-      : draft.meetingDepth === "single_meeting" ? "Single meeting"
-      : draft.meetingDepth === "multiple_meetings" ? "Multiple meetings"
-      : null;
+    const depthLabel =
+      draft.meetingDepth === "once"
+        ? "Once"
+        : draft.meetingDepth === "few_times"
+          ? "A few times"
+          : draft.meetingDepth === "several_times"
+            ? "Several times"
+            : draft.meetingDepth === "many"
+              ? "Many"
+              : draft.meetingDepth === "email_only"
+                ? "Email only"
+                : draft.meetingDepth === "single_meeting"
+                  ? "Single meeting"
+                  : draft.meetingDepth === "multiple_meetings"
+                    ? "Multiple meetings"
+                    : null;
     if (depthLabel) bits.push(depthLabel);
   }
 

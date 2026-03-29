@@ -1,6 +1,22 @@
 import { useState, useMemo, useEffect } from "react";
 import { HealthGauge } from "./HealthGauge";
-import { TrendingUp, TrendingDown, Minus, Pencil, Check, X, Shield, ShieldAlert, ShieldQuestion, Info, ExternalLink } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Pencil,
+  Check,
+  X,
+  Shield,
+  ShieldAlert,
+  ShieldQuestion,
+  Info,
+  ExternalLink,
+} from "lucide-react";
+import {
+  HealthScoreDropdownTrigger,
+  HealthScoreTrendDropdown,
+} from "@/components/health/HealthScoreTrendDropdown";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -215,15 +231,24 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit, l
   const overallScore = analysisResult?.healthScore ?? null;
   const contextLabel = stage && sector ? `${stage} · ${sector}` : stage || sector || null;
 
+  const healthTrendSeed = useMemo(
+    () => `${overallScore ?? 0}-${stage ?? ""}-${sector ?? ""}`,
+    [overallScore, stage, sector],
+  );
+
   return (
     <div className="space-y-6">
       {overallScore !== null && (
-        <div className="surface-card p-6 space-y-5">
-          <div className="flex items-start justify-between">
+        <div className="surface-card space-y-5 p-6">
+          <div className="flex items-start justify-between gap-2">
             <h2 className="text-sm font-normal tracking-tight text-foreground">Health Score</h2>
             <Popover>
               <PopoverTrigger asChild>
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                <button
+                  type="button"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="How health score is calculated"
+                >
                   <Info className="h-4 w-4" />
                 </button>
               </PopoverTrigger>
@@ -293,13 +318,17 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit, l
           )}
 
           <div className="flex items-start justify-between gap-6">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold tracking-tight text-foreground">{overallScore}%</span>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5 text-success" />
-                <span className="text-sm font-medium text-success">+8%</span>
-              </div>
-            </div>
+            <HealthScoreTrendDropdown currentScore={overallScore} seedKey={healthTrendSeed}>
+              <HealthScoreDropdownTrigger
+                score={overallScore}
+                trendLabel={
+                  <>
+                    <TrendingUp className="h-3.5 w-3.5 text-success" />
+                    <span className="text-sm font-medium text-success">+8%</span>
+                  </>
+                }
+              />
+            </HealthScoreTrendDropdown>
             <div className="text-right">
               <span className="text-xs text-muted-foreground">{Math.round((overallScore / 100) * 100)}% to target</span>
             </div>

@@ -11,13 +11,21 @@ import {
   deriveReviewDraftFromAnswers,
   formatContextSectionUnlinked,
   formatEvaluationSectionLinked,
-  formatEvaluationSectionUnlinked,
   formatNoteStatus,
+  formatRating,
   formatTags,
   isContextStepValidUnlinked,
   isEvaluationStepValidLinked,
-  isEvaluationStepValidUnlinked,
+  isWouldEngageStepValidUnlinked,
+  overallInteractionScoreValid,
 } from "@/lib/reviewWizard";
+import {
+  reviewWizardChipFocus,
+  reviewWizardChipIdle,
+  reviewWizardChipSelected,
+  reviewWizardOptionRow,
+  reviewWizardOptionRowBtn,
+} from "@/components/investor-match/review-modal/reviewWizardUi";
 
 const OVERALL_GRADIENT_STYLE: CSSProperties = {
   background:
@@ -33,8 +41,14 @@ const OVERALL_SCALE_TIERS: Record<number, { label: string; description: string }
     label: "Great / Above expectations",
     description: "Very strong interaction with clear thinking and minimal friction.",
   },
-  8: { label: "Strong", description: "Solid, useful, and better than most." },
-  7: { label: "Good", description: "Worked well overall, with only minor rough edges." },
+  8: {
+    label: "Strong",
+    description: "Solid, useful, and better than most.",
+  },
+  7: {
+    label: "Good",
+    description: "Worked well overall, with only minor rough edges.",
+  },
   6: {
     label: "Mixed / Okay",
     description: "Some useful parts, some friction, nothing especially memorable.",
@@ -47,12 +61,43 @@ const OVERALL_SCALE_TIERS: Record<number, { label: string; description: string }
     label: "Weak",
     description: "More frustrating than helpful; expectations weren't fully met.",
   },
-  3: { label: "Poor", description: "Low-signal interaction with noticeable issues." },
-  2: { label: "Rough", description: "Hard to work with, unclear, or disappointing." },
-  1: { label: "Toxic / Terrible", description: "A bad experience; would actively warn other founders." },
+  3: {
+    label: "Poor",
+    description: "Low-signal interaction with noticeable issues.",
+  },
+  2: {
+    label: "Rough",
+    description: "Hard to work with, unclear, or disappointing.",
+  },
+  1: {
+    label: "Toxic / Terrible",
+    description: "A bad experience; would actively warn other founders.",
+  },
 };
 
 const OVERALL_SCALE_NUMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+/** Light fill + border keyed to selected 1–10 (matches scale gradient: low red → high green). */
+function scoreMeaningPanelClass(n: number | null): string {
+  if (n == null) {
+    return cn(
+      "border-border/45 bg-muted/25 text-foreground dark:border-border/60 dark:bg-muted/15",
+    );
+  }
+  if (n <= 2) {
+    return "border-red-200/40 bg-red-50/45 dark:border-red-900/30 dark:bg-red-950/20";
+  }
+  if (n <= 4) {
+    return "border-orange-200/40 bg-orange-50/40 dark:border-orange-900/28 dark:bg-orange-950/18";
+  }
+  if (n <= 6) {
+    return "border-amber-200/40 bg-amber-50/40 dark:border-amber-900/28 dark:bg-amber-950/18";
+  }
+  if (n <= 8) {
+    return "border-lime-200/35 bg-lime-50/35 dark:border-lime-900/25 dark:bg-lime-950/16";
+  }
+  return "border-emerald-200/40 bg-emerald-50/40 dark:border-emerald-900/28 dark:bg-emerald-950/18";
+}
 
 export function SegmentedPillRow({
   options,
@@ -97,27 +142,127 @@ export function SegmentedPillRow({
   );
 }
 
+/** Sentiment strip: positive (left) → negative (right), gradient track + compact chips. */
+const ENGAGE_TRACK_GRADIENT: CSSProperties = {
+  background:
+    "linear-gradient(90deg, rgb(22 163 74 / 0.14) 0%, rgb(163 163 163 / 0.12) 50%, rgb(220 38 38 / 0.14) 100%)",
+};
+
+const ENGAGE_RAIL_GRADIENT: CSSProperties = {
+  background:
+    "linear-gradient(90deg, rgb(16 185 129) 0%, rgb(163 163 163) 50%, rgb(239 68 68) 100%)",
+};
+
+/** Bottom accent for selected chip by index (0 = most positive … 4 = most negative). */
+const ENGAGE_SELECTED_RAIL: readonly string[] = [
+  "shadow-[inset_0_-3px_0_0_rgb(16,185,129)]",
+  "shadow-[inset_0_-3px_0_0_rgb(132,204,22)]",
+  "shadow-[inset_0_-3px_0_0_rgb(161,161,170)]",
+  "shadow-[inset_0_-3px_0_0_rgb(249,115,22)]",
+  "shadow-[inset_0_-3px_0_0_rgb(239,68,68)]",
+];
+
+export function EngageSentimentScale({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  /** Order: most positive first (left) → most negative (right). */
+  options: string[];
+  value: string | null;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-[8px] border border-border/60 p-1",
+          "shadow-sm dark:border-border/80",
+        )}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 dark:opacity-[0.22]"
+          style={ENGAGE_TRACK_GRADIENT}
+          aria-hidden
+        />
+        {/* Thin sentiment rail under the row */}
+        <div
+          className="pointer-events-none absolute bottom-1 left-1 right-1 h-px rounded-full opacity-35 dark:opacity-45"
+          style={ENGAGE_RAIL_GRADIENT}
+          aria-hidden
+        />
+        <div
+          role="radiogroup"
+          aria-label={ariaLabel}
+          className="relative z-[1] flex w-full flex-nowrap gap-1"
+        >
+          {options.map((opt, i) => {
+            const selected = value === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                title={opt}
+                onClick={() => onChange(opt)}
+                className={cn(
+                  "min-h-9 min-w-0 flex-1 rounded-[8px] border px-1.5 py-1.5 text-center text-[10px] font-medium leading-snug tracking-wide transition-all duration-150 sm:min-h-[2.35rem] sm:text-[11px]",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  selected
+                    ? cn(
+                        "z-[2] border-transparent bg-foreground text-background",
+                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_8px_rgba(0,0,0,0.14)]",
+                        "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_2px_10px_rgba(0,0,0,0.35)]",
+                        ENGAGE_SELECTED_RAIL[i] ?? ENGAGE_SELECTED_RAIL[2],
+                      )
+                    : cn(
+                        "border-neutral-200 bg-white text-muted-foreground",
+                        "hover:border-neutral-300 hover:text-foreground",
+                        "dark:border-border dark:bg-background dark:hover:border-muted-foreground/30",
+                      ),
+                )}
+              >
+                <span className="block hyphens-none">{opt}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <p className="text-[10px] leading-snug text-muted-foreground px-0.5">
+        Choose the option that best reflects your experience.
+      </p>
+    </div>
+  );
+}
+
 export function SingleSelect({
   options,
   value,
   onChange,
+  ariaLabel,
 }: {
   options: string[];
   value: string | null;
   onChange: (v: string) => void;
+  ariaLabel?: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={reviewWizardOptionRow} role="listbox" aria-label={ariaLabel ?? "Choose one"}>
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
+          role="option"
+          aria-selected={value === opt}
+          title={opt}
           onClick={() => onChange(opt)}
           className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            value === opt
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
+            reviewWizardOptionRowBtn,
+            reviewWizardChipFocus,
+            value === opt ? reviewWizardChipSelected : reviewWizardChipIdle,
           )}
         >
           {opt}
@@ -131,10 +276,12 @@ export function MultiSelect({
   options,
   selected,
   onChange,
+  ariaLabel,
 }: {
   options: string[];
   selected: string[];
   onChange: (v: string[]) => void;
+  ariaLabel?: string;
 }) {
   const toggle = (opt: string) => {
     onChange(
@@ -143,17 +290,18 @@ export function MultiSelect({
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={reviewWizardOptionRow} role="group" aria-label={ariaLabel ?? "Select any"}>
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
+          aria-pressed={selected.includes(opt)}
+          title={opt}
           onClick={() => toggle(opt)}
           className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            selected.includes(opt)
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
+            reviewWizardOptionRowBtn,
+            reviewWizardChipFocus,
+            selected.includes(opt) ? reviewWizardChipSelected : reviewWizardChipIdle,
           )}
         >
           {opt}
@@ -163,19 +311,18 @@ export function MultiSelect({
   );
 }
 
-function OverallInteractionScale({
+export function OverallInteractionScale({
   value,
   onChange,
 }: {
   value: string | null;
   onChange: (v: string) => void;
 }) {
-  const [hovered, setHovered] = useState<number | null>(null);
   const selectedN = value != null ? parseInt(value, 10) : NaN;
   const hasSelection = Number.isFinite(selectedN) && selectedN >= 1 && selectedN <= 10;
-  const previewN =
-    hovered != null ? hovered : hasSelection ? selectedN : null;
-  const tier = previewN != null ? OVERALL_SCALE_TIERS[previewN] : null;
+  /** Score meaning panel: selected value only (not hover preview). */
+  const meaningN = hasSelection ? selectedN : null;
+  const meaningTier = meaningN != null ? OVERALL_SCALE_TIERS[meaningN] : null;
 
   return (
     <div className="space-y-3">
@@ -210,10 +357,6 @@ function OverallInteractionScale({
                 <button
                   key={n}
                   type="button"
-                  onMouseEnter={() => setHovered(n)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(n)}
-                  onBlur={() => setHovered(null)}
                   onClick={() => onChange(String(n))}
                   aria-label={`${n} — ${OVERALL_SCALE_TIERS[n].label}`}
                   aria-pressed={active}
@@ -236,7 +379,7 @@ function OverallInteractionScale({
               );
             })}
           </div>
-          <div className="mt-1 flex justify-between px-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="mt-1 flex justify-between px-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Terrible</span>
             <span>Mixed</span>
             <span>Exceptional</span>
@@ -244,29 +387,30 @@ function OverallInteractionScale({
         </div>
       </div>
 
-      {tier ? (
+      <div>
         <div
+          role="region"
+          aria-label="Score meaning"
+          aria-live="polite"
           className={cn(
-            "rounded-lg border px-2.5 py-1.5 transition-colors",
-            previewN != null && previewN <= 3
-              ? "border-rose-500/25 bg-rose-500/5"
-              : previewN != null && previewN <= 6
-                ? "border-amber-500/20 bg-amber-500/5"
-                : "border-emerald-500/25 bg-emerald-500/5",
+            "min-h-[3.25rem] rounded-xl border px-3 py-2.5 shadow-sm transition-colors duration-200",
+            scoreMeaningPanelClass(meaningN),
           )}
         >
-          <p
-            className="line-clamp-2 text-[11px] leading-snug text-foreground"
-            title={`${previewN} — ${tier.label} — ${tier.description}`}
-          >
-            <span className="font-semibold tabular-nums">{previewN}</span>
-            <span className="font-normal text-muted-foreground"> — </span>
-            <span className="font-semibold">{tier.label}</span>
-            <span className="font-normal text-muted-foreground"> — </span>
-            <span className="font-normal text-muted-foreground">{tier.description}</span>
-          </p>
+          {meaningTier && meaningN != null ? (
+            <div className="leading-snug">
+              <p className="text-[12px] font-semibold text-foreground">
+                {meaningN} — {meaningTier.label}
+              </p>
+              <p className="mt-1 text-[11px] font-normal text-muted-foreground">{meaningTier.description}</p>
+            </div>
+          ) : (
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Choose a score on the scale above to see what it means.
+            </p>
+          )}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -305,17 +449,20 @@ function UnlinkedTagPicker({
     <section className="space-y-2">
       <p className="text-xs font-bold text-foreground">Tags</p>
       <p className="text-[10px] text-muted-foreground">Optional — pick any that fit.</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 [scrollbar-gutter:stable] sm:gap-1.5">
         {visible.map((tag) => (
           <button
             key={tag}
             type="button"
+            aria-pressed={selected.includes(tag)}
+            title={tag}
             onClick={() => toggle(tag)}
             className={cn(
-              "px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all duration-150",
+              "shrink-0 max-w-[6rem] rounded-lg border px-2 py-2 text-center text-[9px] font-medium leading-tight transition-all duration-150 [text-wrap:balance] sm:max-w-[7rem] sm:px-2.5 sm:text-[10px] sm:leading-snug",
+              reviewWizardChipFocus,
               selected.includes(tag)
-                ? "border-warning/60 bg-warning/10 text-warning-foreground"
-                : "border-border bg-secondary/30 text-muted-foreground hover:border-warning/30 hover:bg-secondary/60",
+                ? reviewWizardChipSelected
+                : reviewWizardChipIdle,
             )}
           >
             {tag}
@@ -485,24 +632,32 @@ export function ReviewSummaryPanel({
 }) {
   const draft = deriveReviewDraftFromAnswers(answers, selectedTags, investorIsMappedToProfile);
 
-  const contextLine = investorIsMappedToProfile
-    ? "Cap table investor"
-    : formatContextSectionUnlinked(answers, draft);
+  const experienceDone = investorIsMappedToProfile
+    ? true
+    : overallInteractionScoreValid(answers.overall_interaction);
 
-  const evalLine = investorIsMappedToProfile
+  const experienceLine = investorIsMappedToProfile
+    ? "Cap table investor"
+    : experienceDone
+      ? formatRating(answers.overall_interaction as string, false)
+      : "Not completed";
+
+  const detailsDone = investorIsMappedToProfile
+    ? isEvaluationStepValidLinked(answers)
+    : isContextStepValidUnlinked(answers) && isWouldEngageStepValidUnlinked(answers);
+
+  const detailsLine = investorIsMappedToProfile
     ? formatEvaluationSectionLinked(answers) +
       (Array.isArray(answers.standout_tags) && (answers.standout_tags as string[]).length
         ? ` · ${formatTags(answers.standout_tags as string[])}`
         : "")
-    : formatEvaluationSectionUnlinked(answers) +
-      (selectedTags.length ? ` · ${formatTags(selectedTags)}` : "");
+    : detailsDone
+      ? `${formatContextSectionUnlinked(answers, draft)} · ${answers.would_engage_again as string}${
+          selectedTags.length ? ` · ${formatTags(selectedTags)}` : ""
+        }`
+      : "Not completed";
 
   const noteLine = formatNoteStatus(draft.note);
-
-  const ctxDone = investorIsMappedToProfile ? true : isContextStepValidUnlinked(answers);
-  const evalDone = investorIsMappedToProfile
-    ? isEvaluationStepValidLinked(answers)
-    : isEvaluationStepValidUnlinked(answers);
 
   return (
     <aside className="rounded-xl border border-border/70 bg-secondary/15 p-4 space-y-4 text-left">
@@ -512,16 +667,18 @@ export function ReviewSummaryPanel({
       <div className="space-y-3 text-[11px] leading-snug">
         <div>
           <p className="font-semibold text-foreground mb-0.5">
-            {investorIsMappedToProfile ? "Relationship" : "Context"}
+            {investorIsMappedToProfile ? "Relationship" : "Experience"}
           </p>
-          <p className={cn("text-muted-foreground", !ctxDone && "italic")}>
-            {ctxDone ? contextLine : "Not completed"}
+          <p className={cn("text-muted-foreground", !experienceDone && "italic")}>
+            {experienceLine}
           </p>
         </div>
         <div>
-          <p className="font-semibold text-foreground mb-0.5">Evaluation</p>
-          <p className={cn("text-muted-foreground", !evalDone && "italic")}>
-            {evalDone ? evalLine : "Not completed"}
+          <p className="font-semibold text-foreground mb-0.5">
+            {investorIsMappedToProfile ? "Evaluation" : "Context & engagement"}
+          </p>
+          <p className={cn("text-muted-foreground", !detailsDone && "italic")}>
+            {detailsLine}
           </p>
         </div>
         <div>
@@ -561,9 +718,10 @@ export function ReviewStepEvaluationUnlinked({
 
   return (
     <div className="space-y-6">
-      <section className="space-y-2">
-        <p className="text-xs font-bold text-foreground">
-          How was your experience with {firmName.trim() || "this firm"}?
+      <section className="space-y-3">
+        <p className="text-sm font-bold leading-snug text-foreground">
+          <span className="text-muted-foreground">1.</span> How was your experience with{" "}
+          {firmName.trim() || "this firm"}?
         </p>
         <OverallInteractionScale
           value={(answers.overall_interaction as string) ?? null}
@@ -572,7 +730,7 @@ export function ReviewStepEvaluationUnlinked({
       </section>
       <section className="space-y-2">
         <p className="text-xs font-bold text-foreground">Would you engage with this investor again?</p>
-        <SegmentedPillRow
+        <EngageSentimentScale
           ariaLabel="Engage again"
           options={[...engageOptions]}
           value={(answers.would_engage_again as string) ?? null}
@@ -623,6 +781,7 @@ export function ReviewStepLinkedRatings({
           options={workOpts}
           value={(answers.work_with_them_rating as string) ?? null}
           onChange={(v) => setAnswer("work_with_them_rating", v)}
+          ariaLabel="How has this investor been to work with"
         />
       </section>
       <section className="space-y-2">
@@ -631,6 +790,7 @@ export function ReviewStepLinkedRatings({
           options={moneyOpts}
           value={(answers.take_money_again as string) ?? null}
           onChange={(v) => setAnswer("take_money_again", v)}
+          ariaLabel="Would you take money from them again"
         />
       </section>
     </div>
@@ -656,6 +816,7 @@ export function ReviewStepLinkedTags({
           options={[...LINKED_TAG_OPTIONS]}
           selected={selected}
           onChange={(v) => setAnswer("standout_tags", v)}
+          ariaLabel="Standout tags"
         />
       </section>
     </div>

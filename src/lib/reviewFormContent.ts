@@ -14,7 +14,7 @@
  * - `interaction_participant_memory_mode` — computed at save: names_only | roles_only | names_and_roles | unknown
  */
 
-/** Unlinked Q1 — `interaction_intro` (+ follow-ups), `interaction_how` (multi). `interaction_how` excludes In-Person when intro is Event. */
+/** Unlinked step 3 — “Characterize your interaction”: `interaction_intro` as Relationship origin (+ follow-ups), `interaction_how` (multi). `interaction_how` excludes In-Person when intro is Event. */
 export const CHARACTERIZE_INTERACTION_HOW = [
   "In-Person",
   "Video",
@@ -25,13 +25,37 @@ export const CHARACTERIZE_INTERACTION_HOW = [
   "Phone",
 ] as const;
 
+/** `interaction_meeting_depth` — “How much have you engaged with {firm}?” (label built in `buildReviewFormConfig`). */
+export const CHARACTERIZE_MEETING_DEPTH_OPTIONS = [
+  "Once",
+  "A few times",
+  "Several times",
+  "Many",
+] as const;
+
 export const CHARACTERIZE_INTRO_OPTIONS = [
   "Warm intro",
   "Cold inbound",
   "Cold outbound",
   "Event",
+  "Community",
   "Existing relationship",
   "Other",
+] as const;
+
+/**
+ * Shown in a combobox when origin is "Other" — users can pick one or type freely
+ * (`answers.interaction_intro_other`).
+ */
+export const RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS = [
+  "Podcast or interview",
+  "Newsletter or content",
+  "Accelerator or incubator",
+  "Portfolio company connection",
+  "Advisor or mentor",
+  "Family office or syndicate",
+  "Press or media",
+  "Recruiting or talent",
 ] as const;
 
 /** Shown when relationship origin is "Warm intro" — stored as `answers.interaction_warm_intro_who`. */
@@ -41,16 +65,16 @@ export const CHARACTERIZE_WARM_INTRO_WHO_INITIATED = [
   "Mutual / unclear",
 ] as const;
 
-/** Shown when relationship origin is "Cold inbound" — stored as `answers.interaction_cold_inbound_discovery`. */
+/** Shown when relationship origin is "Cold inbound" ("How did they reach out?") — `answers.interaction_cold_inbound_discovery`. */
 export const CHARACTERIZE_COLD_INBOUND_DISCOVERY = [
-  "inbound email",
-  "website",
-  "referral chain",
-  "social",
-  "unknown",
+  "Inbound email",
+  "Website",
+  "Referral chain",
+  "Social",
+  "Unknown",
 ] as const;
 
-/** When cold inbound discovery is "social" — `answers.interaction_cold_inbound_social_platform` (+ `interaction_cold_inbound_social_other` if "other"). */
+/** When cold inbound discovery is "Social" — `answers.interaction_cold_inbound_social_platform` (+ `interaction_cold_inbound_social_other` if "other"). */
 export const CHARACTERIZE_COLD_INBOUND_SOCIAL_PLATFORMS = [
   "X",
   "LinkedIn",
@@ -254,7 +278,7 @@ export const reviewFormCopy = {
     questions: [
       {
         id: "overall_interaction",
-        label: "How was your experience with this firm?",
+        label: "How was your experience with this firm?", // UI uses firm name + “1.” in ReviewWizardParts
         type: "single_select" as const,
         /** Stored as string digits; UI renders 1–10 scale with tier copy (see ReviewSubmissionModal). */
         options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
