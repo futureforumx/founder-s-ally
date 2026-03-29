@@ -131,8 +131,16 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
       ? investor.investorDatabaseId.trim()
       : null;
-  const databaseFirmId = liveProfile?.id ?? investorDbIdFromEntry ?? resolvedFirmId ?? null;
-  const reviewVcFirmId = databaseFirmId ?? vcFirm?.id ?? null;
+  /** `liveProfile.id` is only a Supabase `investor_database` row when `source === "live"`. JSON fallback uses MDM domain ids — do not let those override an explicit DB id from Matches. */
+  const databaseFirmId =
+    liveProfile?.source === "live"
+      ? liveProfile.id
+      : investorDbIdFromEntry ?? resolvedFirmId ?? null;
+  const reviewVcFirmId =
+    databaseFirmId ??
+    vcFirm?.id ??
+    (liveProfile?.source === "json-fallback" ? liveProfile?.id ?? null : null) ??
+    null;
   const { starRatings: myFirmRatingJson } = useLatestMyVcRating(
     session?.user?.id,
     reviewVcFirmId,

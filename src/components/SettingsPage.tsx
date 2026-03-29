@@ -2163,13 +2163,13 @@ function SubscriptionTab() {
 
         {/* ── Billing Cycle Toggle ── */}
         <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 p-1">
+          <div className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_30px_-24px_rgba(15,23,42,0.3)] backdrop-blur">
             <button
               onClick={() => setBillingCycle("monthly")}
               className={cn(
-                "rounded-full px-5 py-1.5 text-[11px] font-normal uppercase tracking-[0.14em] transition-all",
+                "rounded-full px-4 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition-all",
                 billingCycle === "monthly"
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-foreground text-background shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -2178,14 +2178,14 @@ function SubscriptionTab() {
             <button
               onClick={() => setBillingCycle("annually")}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-5 py-1.5 text-[11px] font-normal uppercase tracking-[0.14em] transition-all",
+                "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition-all",
                 billingCycle === "annually"
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-foreground text-background shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
               Year
-              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-500">
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-semibold tracking-[0.12em] text-emerald-600">
                 SAVE 20%
               </span>
             </button>
@@ -2195,7 +2195,7 @@ function SubscriptionTab() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {POLAR_PLANS.map((plan) => {
             const isCurrent = currentProductId === plan.productId;
             const price = billingCycle === "annually" ? plan.priceAnnually : plan.priceMonthly;
@@ -2205,15 +2205,16 @@ function SubscriptionTab() {
               <div
                 key={plan.name}
                 className={cn(
-                  "relative flex min-h-[27rem] flex-col overflow-hidden rounded-[22px] border transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_24px_60px_-28px_rgba(15,23,42,0.22)]",
+                  "relative flex min-h-[25.5rem] flex-col overflow-hidden rounded-[20px] border transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_20px_45px_-30px_rgba(15,23,42,0.28)]",
                   plan.highlighted
-                    ? "border-primary/25 bg-gradient-to-b from-white via-slate-50 to-primary/5 shadow-[0_18px_48px_-24px_rgba(15,23,42,0.28)]"
-                    : "border-border/70 bg-white/90 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.16)]"
+                    ? "border-foreground/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_100%)] shadow-[0_18px_50px_-34px_rgba(15,23,42,0.38)]"
+                    : "border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(250,250,252,0.92)_100%)] shadow-[0_12px_36px_-30px_rgba(15,23,42,0.24)]"
                 )}
               >
+                <div className={cn("absolute inset-x-0 top-0 h-px", plan.highlighted ? "bg-foreground/20" : "bg-border/80")} />
                 {plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
-                    <span className="inline-flex whitespace-nowrap rounded-full border border-primary/20 bg-primary px-3.5 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-primary-foreground shadow-[0_10px_24px_-10px_rgba(15,23,42,0.45)]">
+                    <span className="inline-flex whitespace-nowrap rounded-full border border-foreground/10 bg-foreground px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-background shadow-[0_10px_24px_-10px_rgba(15,23,42,0.42)]">
                       Most Popular
                     </span>
                   </div>
@@ -2223,39 +2224,39 @@ function SubscriptionTab() {
                   {/* Header */}
                   <div className="flex items-center gap-2.5">
                     <div className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm",
+                      "flex h-9 w-9 items-center justify-center rounded-xl border",
                       plan.highlighted
-                        ? "border-primary/15 bg-primary/10 text-primary"
-                        : "border-border/60 bg-muted/40 text-muted-foreground"
+                        ? "border-foreground/10 bg-foreground/[0.04] text-foreground"
+                        : "border-border/70 bg-muted/30 text-muted-foreground"
                     )}>
                       <PlanIcon className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold tracking-tight text-foreground">{plan.name}</p>
+                      <p className="text-[15px] font-semibold tracking-[-0.02em] text-foreground">{plan.name}</p>
                       <p className={cn(
-                        "mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]",
-                        plan.tier === "PREMIERE" ? "text-emerald-500" : plan.tier === "PRO" ? "text-primary" : "text-muted-foreground"
+                        "mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em]",
+                        plan.tier === "PREMIERE" ? "text-emerald-600" : plan.tier === "PRO" ? "text-foreground" : "text-muted-foreground"
                       )}>
                         {plan.tier}
                       </p>
                     </div>
                   </div>
 
-                  <p className="max-w-[22ch] text-sm leading-7 text-muted-foreground/90">{plan.description}</p>
+                  <p className="max-w-[22ch] text-[13px] leading-6 text-muted-foreground">{plan.description}</p>
 
                   {/* Price */}
                   <div className="space-y-1">
                     <div className="flex items-end gap-1.5">
-                      <span className="text-4xl font-semibold leading-none tracking-tight text-foreground">${price}</span>
-                      <span className="pb-1 text-base font-normal text-muted-foreground">/mo</span>
+                      <span className="text-[3rem] font-semibold leading-none tracking-[-0.04em] text-foreground">${price}</span>
+                      <span className="pb-1 text-[15px] font-normal text-muted-foreground">/mo</span>
                     </div>
                     {billingCycle === "annually" && price > 0 && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         ${price * 12} billed annually · <span className="line-through opacity-50">${plan.priceMonthly * 12}</span>
                       </p>
                     )}
                     {price === 0 && (
-                      <p className="text-xs leading-6 text-muted-foreground">Free forever · no credit card needed</p>
+                      <p className="text-[11px] leading-5 text-muted-foreground">Free forever · no credit card needed</p>
                     )}
                   </div>
 
@@ -2263,8 +2264,10 @@ function SubscriptionTab() {
                   <Button
                     variant={plan.highlighted ? "default" : "outline"}
                     className={cn(
-                      "mt-auto h-11 w-full rounded-xl text-sm font-semibold shadow-sm transition-all",
-                      !plan.highlighted && "border-border/70 bg-background/80 hover:bg-background",
+                      "mt-auto h-11 w-full rounded-xl text-sm font-medium transition-all",
+                      plan.highlighted
+                        ? "bg-foreground text-background hover:bg-foreground/92"
+                        : "border-border/70 bg-background/70 text-foreground hover:bg-background",
                       isCurrent && "opacity-60 cursor-default"
                     )}
                     disabled={loading || isCurrent || price === 0}
@@ -2277,13 +2280,13 @@ function SubscriptionTab() {
                 <Separator className="bg-border/70" />
 
                 {/* Features */}
-                <div className="flex flex-col gap-2 bg-muted/20 p-5">
+                <div className="flex flex-col gap-2 bg-black/[0.015] p-5">
                   {plan.features.map((f) => (
                     <div key={f} className="flex items-start gap-2.5">
                       <div className={cn(
                         "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-1",
                         plan.highlighted
-                          ? "bg-primary/12 text-primary ring-primary/15"
+                          ? "bg-foreground/[0.05] text-foreground ring-foreground/10"
                           : "bg-background text-muted-foreground ring-border/70"
                       )}>
                         <Check className="h-2.5 w-2.5" />

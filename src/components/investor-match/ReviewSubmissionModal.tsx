@@ -256,7 +256,7 @@ async function resolveVcFirmId(
 
     const { data: invRow, error: invErr } = await supabase
       .from("investor_database")
-      .select("firm_name, legal_name, prisma_firm_id")
+      .select("firm_name, legal_name, prisma_firm_id, website_url")
       .eq("id", trimmed)
       .maybeSingle();
 
@@ -268,6 +268,16 @@ async function resolveVcFirmId(
       if (prismaId) {
         const linked = await verifyVcFirmId(prismaId);
         if (linked) return linked;
+      }
+
+      const invWeb =
+        typeof (invRow as { website_url?: string }).website_url === "string"
+          ? (invRow as { website_url: string }).website_url.trim()
+          : "";
+      const invHost = parseWebsiteHost(invWeb);
+      if (invHost) {
+        const byInvUrl = await resolveByWebsiteHost(invHost);
+        if (byInvUrl) return byInvUrl;
       }
 
       const fn = typeof (invRow as { firm_name?: string }).firm_name === "string" ? (invRow as { firm_name: string }).firm_name.trim() : "";
