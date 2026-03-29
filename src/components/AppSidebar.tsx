@@ -30,6 +30,7 @@ type ViewType =
   | "sector"
   | "groups"
   | "data-room"
+  | "resources"
   | "settings";
 
 interface AppSidebarProps {
@@ -191,6 +192,18 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             } : {}}>
             <FileText className="h-4 w-4" />
             Data Room
+          </button>
+          <button
+            onClick={() => goView("resources")}
+            className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "resources" && "border")}
+            style={activeView === "resources" ? {
+              backgroundColor: "#d1d5db",
+              borderColor: "#4b5563",
+              color: "#1f2937",
+              boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
+            } : {}}>
+            <BookOpen className="h-4 w-4" />
+            Resources
           </button>
         </nav>
 

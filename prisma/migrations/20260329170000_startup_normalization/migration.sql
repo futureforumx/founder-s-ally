@@ -66,7 +66,9 @@ SET "round_type_new" = CASE
 END;
 
 ALTER TABLE "vc_investments"
-    DROP COLUMN "round_type",
+    DROP COLUMN "round_type";
+
+ALTER TABLE "vc_investments"
     RENAME COLUMN "round_type_new" TO "round_type";
 
 ALTER TABLE "vc_investments"

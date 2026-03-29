@@ -372,9 +372,28 @@ WHERE "full_name" IS NULL
 -- POPULATE: slug from full_name (lowercase, hyphenated)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-UPDATE "vc_people"
-SET "slug" = LOWER(REGEXP_REPLACE(TRIM("full_name"), '\s+', '-', 'g'))
-WHERE "slug" IS NULL AND "full_name" IS NOT NULL;
+WITH ranked AS (
+  SELECT
+    id,
+    CASE
+      WHEN ROW_NUMBER() OVER (
+        PARTITION BY LOWER(REGEXP_REPLACE(TRIM("full_name"), '\s+', '-', 'g'))
+        ORDER BY id
+      ) = 1
+      THEN LOWER(REGEXP_REPLACE(TRIM("full_name"), '\s+', '-', 'g'))
+      ELSE LOWER(REGEXP_REPLACE(TRIM("full_name"), '\s+', '-', 'g'))
+        || '-' || ROW_NUMBER() OVER (
+          PARTITION BY LOWER(REGEXP_REPLACE(TRIM("full_name"), '\s+', '-', 'g'))
+          ORDER BY id
+        )::text
+    END AS new_slug
+  FROM "vc_people"
+  WHERE "slug" IS NULL AND "full_name" IS NOT NULL
+)
+UPDATE "vc_people" p
+SET "slug" = r.new_slug
+FROM ranked r
+WHERE p.id = r.id AND p.slug IS NULL;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- POPULATE: profile_image_url from existing avatar_url

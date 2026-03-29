@@ -4,6 +4,7 @@ import { ConnectionsPage } from "@/components/ConnectionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { GroupsView } from "@/components/community/GroupsView";
 import { EventsView } from "@/components/community/EventsView";
+import { HelpCenter } from "@/components/HelpCenter";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
@@ -50,6 +51,7 @@ type ViewType =
   | "sector"
   | "groups"
   | "data-room"
+  | "resources"
   | "settings";
 
 /** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
@@ -564,6 +566,8 @@ const Index = () => {
             <EventsView />
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
+          ) : activeView === "resources" ? (
+            <HelpCenter />
           ) : activeView === "settings" ? (
             <SettingsPage />
           ) : activeView === "market-intelligence" ? (

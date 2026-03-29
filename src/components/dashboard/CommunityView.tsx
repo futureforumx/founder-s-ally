@@ -336,7 +336,8 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
 
           {/* Upper right: deploying status + scores */}
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {founder._isActivelyDeploying !== false && (
+            {/* Deploying badge — always occupies space; invisible when not deploying */}
+            <div className={founder._isActivelyDeploying !== false ? undefined : "invisible pointer-events-none"}>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -364,7 +365,7 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
+            </div>
             <div className="flex items-center gap-2">
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
@@ -385,27 +386,28 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              {sentimentScore != null && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex flex-col items-center cursor-help">
-                        <span className={`text-sm font-black leading-none ${sentimentColor}`}>{sentimentScore}%</span>
-                        <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
-                      <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
-                      </p>
-                      <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
-                        {"= avg(NPS) \u00D7 response_rate \u00D7 recency_weight"}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Reputation score — always occupies space; dims to — when no data */}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-col items-center cursor-help">
+                      <span className={`text-sm font-black leading-none ${sentimentScore != null ? sentimentColor : "text-muted-foreground/40"}`}>
+                        {sentimentScore != null ? `${sentimentScore}%` : "—"}
+                      </span>
+                      <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
+                    <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
+                    </p>
+                    <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
+                      {"= avg(NPS) \u00D7 response_rate \u00D7 recency_weight"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>

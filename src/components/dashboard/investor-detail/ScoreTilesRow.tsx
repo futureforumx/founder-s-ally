@@ -143,7 +143,7 @@ export function ScoreTilesRow({
   lastUpdated,
   confidenceScore = 87,
 }: ScoreTilesRowProps) {
-  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+  const [activeTile, setActiveTile] = useState<TileId | null>("match");
 
   // Shared with the big Match pill — sessionStorage caches so no duplicate calls.
   const { items: matchItems } = useMatchBreakdown(
@@ -244,10 +244,9 @@ export function ScoreTilesRow({
     : null;
 
   return (
-    // w-fit keeps the panel the same width as the tile strip — no full-bleed sprawl.
-    <div className="w-fit">
+    <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 w-fit">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
           const colors = colorTokens(tile.value);
@@ -323,19 +322,19 @@ export function ScoreTilesRow({
             {(() => {
               const colors = colorTokens(activeTileConfig.value);
               return (
-                <div className="mt-2 rounded-[10px] bg-secondary/30 dark:bg-secondary/20 border border-border/50 px-4 pt-3.5 pb-3 w-full">
+                <div className="mt-2 rounded-[10px] bg-secondary/30 dark:bg-secondary/20 border border-border/50 px-4 pt-3 pb-2.5 w-full">
                   {/* Panel header */}
-                  <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/60 mb-2.5">
+                  <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/60 mb-2">
                     {activeTileConfig.displayLabel} — score breakdown
                   </p>
 
                   {/* Definition */}
-                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed mb-3.5">
+                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed mb-3">
                     {activeTileConfig.definition}
                   </p>
 
                   {/* Subscores — all bars share the panel's color family */}
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {activeTileConfig.subscores.map((sub) => (
                       <SubscoreRow
                         key={sub.label}
@@ -346,7 +345,7 @@ export function ScoreTilesRow({
                   </div>
 
                   {/* Footer */}
-                  <p className="mt-3.5 text-[9px] text-muted-foreground/35 border-t border-border/20 pt-2">
+                  <p className="mt-3 text-[9px] text-muted-foreground/35 border-t border-border/20 pt-1.5">
                     Updated {formattedDate} · Confidence {confidenceScore}%
                   </p>
                 </div>
