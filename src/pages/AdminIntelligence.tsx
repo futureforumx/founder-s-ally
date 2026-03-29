@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History } from "lucide-react";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, X } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
@@ -22,8 +22,9 @@ const NAV_ITEMS = [
 type AdminView = (typeof NAV_ITEMS)[number]["key"];
 
 export default function AdminIntelligence() {
+  const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { isAppAdmin, loading: adminLoading } = useAppAdmin();
+  const { isAppAdmin, isGodMode, loading: adminLoading } = useAppAdmin();
   const [activeView, setActiveView] = useState<AdminView>("overview");
 
   if (loading || adminLoading) {
@@ -48,7 +49,14 @@ export default function AdminIntelligence() {
           <span className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: "#39FF14" }}>
             admin console
           </span>
-          <h2 className="mt-1 text-sm font-semibold text-white/80">Intelligence</h2>
+          <div className="mt-1 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-white/80">Intelligence</h2>
+            {isGodMode && (
+              <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ borderColor: "rgba(245,158,11,0.45)", color: "#f59e0b", background: "rgba(245,158,11,0.12)" }}>
+                GOD MODE
+              </span>
+            )}
+          </div>
         </div>
 
         <nav className="flex flex-col gap-1">
@@ -84,7 +92,21 @@ export default function AdminIntelligence() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="relative flex-1 overflow-y-auto p-8">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          aria-label="Close admin and return to app"
+          className="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
+          style={{
+            borderColor: "rgba(255,255,255,0.14)",
+            color: "rgba(255,255,255,0.65)",
+            background: "rgba(255,255,255,0.03)",
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+          Close
+        </button>
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
         {activeView === "record-updates" && <AdminRecordUpdates />}

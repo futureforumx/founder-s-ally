@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
@@ -105,6 +106,25 @@ function MixpanelPageViewTracker() {
   return null;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const { isAppAdmin, loading: adminLoading } = useAppAdmin();
+
+  if (authLoading || adminLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!user || !isAppAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -118,7 +138,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/intelligence" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-            <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
+            <Route path="/admin/intelligence" element={<ProtectedRoute><AdminRoute><AdminIntelligence /></AdminRoute></ProtectedRoute>} />
             <Route path="/firms/:id" element={<ProtectedRoute><FirmProfile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

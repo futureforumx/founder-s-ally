@@ -4,9 +4,9 @@ import { format, parseISO } from "date-fns";
 import { motion } from "framer-motion";
 import {
   Star, TrendingUp, MessageCircle, Sparkles,
-  Newspaper, MessagesSquare, Share2, ThumbsUp, ThumbsDown,
+  Newspaper, MessagesSquare, Share2, ThumbsUp, ThumbsDown, Pencil,
 } from "lucide-react";
-import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import {
   aggregateVcRatings,
   INTERACTION_DISPLAY,
@@ -50,7 +50,11 @@ interface FeedbackTabProps {
   investorName: string;
   /** `vc_firms.id` — loads `vc_ratings` for this firm */
   vcFirmId?: string | null;
+  /** Current user's id — used to pin their own reviews at the top */
+  userId?: string | null;
   onLogInteraction?: () => void;
+  /** Called when the user clicks Edit on one of their own reviews */
+  onEditReview?: () => void;
 }
 
 function formatRatingWhen(row: VcRatingRow): string {
@@ -63,7 +67,7 @@ function formatRatingWhen(row: VcRatingRow): string {
   }
 }
 
-export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: FeedbackTabProps) {
+export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, onEditReview }: FeedbackTabProps) {
   const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
   const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
 
@@ -89,6 +93,44 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
     });
     return copy;
   }, [rows, reviewSort]);
+
+  // Separate authenticated query for the current user's own reviews.
+  // Uses firm-name fallback so it works even when vcFirmId is an investor_database id
+  // that doesn't match the vc_firms id stored on the rating row.
+  const myRatingsQuery = useQuery({
+    queryKey: ["vc-ratings-mine", userId, vcFirmId, investorName],
+    queryFn: async () => {
+      const SELECT = "id, author_user_id, interaction_type, interaction_date, nps, comment, anonymous, created_at, star_ratings";
+      // 1. Try by firm id
+      if (vcFirmId) {
+        const { data } = await supabase
+          .from("vc_ratings")
+          .select(SELECT)
+          .eq("author_user_id", userId!)
+          .eq("vc_firm_id", vcFirmId)
+          .eq("is_draft", false)
+          .order("created_at", { ascending: false });
+        if (data?.length) return data as typeof rows;
+      }
+      // 2. Fall back: scan recent ratings and match by firm_name in star_ratings JSONB
+      const name = investorName.trim().toLowerCase();
+      const { data: recent } = await supabase
+        .from("vc_ratings")
+        .select(SELECT)
+        .eq("author_user_id", userId!)
+        .eq("is_draft", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return ((recent ?? []) as typeof rows).filter((row) => {
+        const sr = (row as unknown as { star_ratings?: Record<string, unknown> }).star_ratings;
+        const fn = (sr?.firm_name as string | undefined)?.trim().toLowerCase();
+        return fn === name;
+      });
+    },
+    enabled: Boolean(userId && isSupabaseConfigured),
+  });
+
+  const myReviews = myRatingsQuery.data ?? [];
 
   const overallDisplay = useLive && agg.overallStars != null ? agg.overallStars.toFixed(1) : "4.8";
   const npsDisplay = useLive ? String(agg.nps) : "72";
@@ -191,6 +233,58 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
           </div>
         </div>
       </div>
+
+      {/* ── My Reviews ───────────────────────────────────────────────── */}
+      {myReviews.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[9px] font-mono uppercase tracking-wider text-primary/70 font-semibold">Your Review{myReviews.length > 1 ? "s" : ""}</p>
+            <button
+              type="button"
+              onClick={() => onEditReview?.()}
+              className="inline-flex items-center gap-1 text-[9px] font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              <Pencil className="h-2.5 w-2.5" />
+              Edit
+            </button>
+          </div>
+          {myReviews.map((review) => {
+            const npsScore = review.nps ?? 0;
+            const when = formatRatingWhen(review);
+            const label = INTERACTION_DISPLAY[review.interaction_type] ?? review.interaction_type;
+            const snippet = review.comment?.trim() || review.interaction_detail?.trim() || null;
+            return (
+              <div
+                key={review.id}
+                className="bg-primary/5 border border-primary/20 px-3 py-2 rounded-lg flex items-center gap-3"
+              >
+                <div
+                  className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
+                    npsScore >= 8
+                      ? "border-success/30 bg-success/10 text-success"
+                      : npsScore >= 5
+                        ? "border-warning/30 bg-warning/10 text-warning"
+                        : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {npsScore || "—"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[10px] text-foreground">{when} · {label}</span>
+                    {review.anonymous && (
+                      <span className="text-[8px] uppercase font-bold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">Anon</span>
+                    )}
+                  </div>
+                  {snippet && (
+                    <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">{snippet}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-2">
