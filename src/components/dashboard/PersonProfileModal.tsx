@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
@@ -9,7 +9,7 @@ import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useVCDirectory, type VCPerson, type VCFirm } from "@/hooks/useVCDirectory";
+import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
 
 interface PersonProfileModalProps {
   person: VCPerson | null;
@@ -18,15 +18,77 @@ interface PersonProfileModalProps {
   onNavigateToFirm: (firmId: string) => void;
 }
 
+/* ── Firm favicon component ── */
+function FirmFavicon({ websiteUrl, logoUrl, name }: { websiteUrl: string | null; logoUrl: string | null; name: string }) {
+  const domain = (() => {
+    try {
+      if (websiteUrl) return new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`).hostname.replace(/^www\./, "");
+      return null;
+    } catch { return null; }
+  })();
+  const [src, setSrc] = useState<string | null>(
+    logoUrl || (domain ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32` : null)
+  );
+  const [failed, setFailed] = useState(false);
+
+  if (failed || !src) {
+    return <span className="text-[10px] font-bold text-muted-foreground/60 bg-secondary rounded px-1">{name.charAt(0).toUpperCase()}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-3.5 w-3.5 rounded-sm object-contain"
+      onError={() => {
+        if (src.includes("gstatic") && domain) {
+          setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=32`);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
+
 /* ── Mock data for personal intelligence ── */
 const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
 
 const MOCK_DEALS = [
-  { company: "Ramp", round: "Series A", logo: "R", source: "ramp.com", url: "https://ramp.com/blog/series-a" },
-  { company: "Vanta", round: "Seed", logo: "V", source: "techcrunch.com", url: "https://techcrunch.com/2020/02/vanta-seed-round" },
-  { company: "Lattice", round: "Series A", logo: "L", source: "prnewswire.com", url: "https://www.prnewswire.com/news-releases/lattice-series-a.html" },
-  { company: "Notion", round: "Seed", logo: "N", source: "notion.so", url: "https://notion.so/blog/seed-announcement" },
+  { company: "Ramp", round: "Series A", domain: "ramp.com", source: "ramp.com", url: "https://ramp.com/blog/series-a" },
+  { company: "Vanta", round: "Seed", domain: "vanta.com", source: "techcrunch.com", url: "https://techcrunch.com/2020/02/vanta-seed-round" },
+  { company: "Lattice", round: "Series A", domain: "lattice.com", source: "prnewswire.com", url: "https://www.prnewswire.com/news-releases/lattice-series-a.html" },
+  { company: "Notion", round: "Seed", domain: "notion.so", source: "notion.so", url: "https://notion.so/blog/seed-announcement" },
 ];
+
+/* ── Inline logo component for deal rows ── */
+function DealLogo({ domain, name }: { domain: string; name: string }) {
+  const [src, setSrc] = useState(`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`);
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
+        {name.charAt(0)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      className="h-8 w-8 rounded-lg border border-border object-contain bg-background p-1 shrink-0"
+      onError={() => {
+        if (src.includes("gstatic")) {
+          setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
 
 const MOCK_STAGES = ["Pre-Seed", "Seed", "Series A"];
 const MOCK_SECTORS = ["B2B SaaS", "Fintech", "Developer Tools", "Vertical Software"];
@@ -48,21 +110,10 @@ const SOCIALS = [
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const { getPartnersForFirm } = useVCDirectory();
-
-  const reviewCardContactOptions = useMemo(() => {
-    if (!firm?.id) return [];
-    return getPartnersForFirm(firm.id).map((p) => ({
-      id: p.id,
-      label: p.full_name,
-      subtitle: p.title?.trim() || null,
-    }));
-  }, [firm?.id, getPartnersForFirm]);
 
   const {
     isMapped: investorIsMappedToProfile,
     mappingRecordId,
-    loading: investorMappingLoading,
   } = useInvestorMapping(firm?.name ?? null);
 
   const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
@@ -123,18 +174,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         <MapPin className="w-3 h-3" /> San Francisco, CA
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {firm && (
                         <button
                           onClick={() => onNavigateToFirm(firm.id)}
-                          className="bg-accent/10 text-accent hover:bg-accent/20 px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          🏛️ {firm.name}
+                          <FirmFavicon websiteUrl={firm.website_url} logoUrl={firm.logo_url} name={firm.name} />
+                          {firm.name}
                         </button>
                       )}
-                      <span className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-default">
-                        👔 {person.title || "Investor"}
-                      </span>
+                      {(person.title) && (
+                        <span className="text-xs text-muted-foreground">
+                          {person.title}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -213,9 +267,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                               i < MOCK_DEALS.length - 1 ? "border-b border-border" : ""
                             }`}
                           >
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
-                              {deal.logo}
-                            </div>
+                            <DealLogo domain={deal.domain} name={deal.company} />
                             <div className="flex-1 min-w-0">
                               <span className="text-sm font-semibold text-foreground block">{deal.company}</span>
                               <span className="text-[10px] text-muted-foreground">{deal.source}</span>
@@ -305,13 +357,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               open={reviewOpen}
               onClose={() => setReviewOpen(false)}
               firmName={firm.name}
+              firmLogoUrl={firm.logo_url ?? null}
+              firmWebsiteUrl={firm.website_url ?? null}
               vcFirmId={firm.id}
-              cardLinkedContactOptions={reviewCardContactOptions}
               personId={person.id}
               personName={person.full_name}
               investorIsMappedToProfile={investorIsMappedToProfile}
               mappingRecordId={mappingRecordId}
-              investorMappingLoading={investorMappingLoading}
             />
           )}
         </>

@@ -17,7 +17,13 @@ export default defineConfig(async ({ mode }) => {
     }
   }
 
+  const vercelEnv = process.env.VERCEL_ENV ?? "";
+
   return {
+    /** Clerk preview deploys: expose Vercel’s deployment kind at build time (production | preview | development). */
+    define: {
+      "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(vercelEnv),
+    },
     server: {
       // true = listen on 0.0.0.0 — works with http://localhost and http://127.0.0.1 (host "::" often breaks on macOS).
       host: true,

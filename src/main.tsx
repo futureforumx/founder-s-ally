@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { clerkLocalization } from "@/lib/clerkLocalization";
-import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
+import { resolveClerkPublishableKey } from "@/lib/clerkPublishableKey";
 import { initMixpanel } from "@/lib/mixpanel";
 
 initMixpanel();
@@ -24,8 +24,34 @@ Sentry.init({
 });
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
-const clerkKey = readClerkPublishableKey();
+const { key: clerkKey, source: clerkKeySource } = resolveClerkPublishableKey();
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
+
+// #region agent log
+{
+  const pk = clerkKey;
+  const keyKind = !pk ? "empty" : pk.startsWith("pk_live_") ? "live" : pk.startsWith("pk_test_") ? "test" : "other";
+  fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "4b2f23" },
+    body: JSON.stringify({
+      sessionId: "4b2f23",
+      location: "main.tsx:clerk",
+      message: "clerk key resolution",
+      data: {
+        source: clerkKeySource,
+        hasKey: Boolean(pk),
+        keyKind,
+        vercelEnv: String(import.meta.env.VITE_VERCEL_ENV ?? ""),
+        prod: import.meta.env.PROD,
+      },
+      timestamp: Date.now(),
+      hypothesisId: "H-PREVIEW-KEY",
+      runId: "key-resolution",
+    }),
+  }).catch(() => {});
+}
+// #endregion
 
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
@@ -33,43 +59,66 @@ if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   );
 }
 
-// Always mount the app when a key exists so /auth can show Preview Mode (pk_live + localhost) instead of a blank gate.
+/** Demo mode without a publishable key: skip ClerkProvider; Auth route redirects home (see Auth.tsx). */
+const demoWithoutClerk = DEMO_MODE && !clerkKey;
 const shouldMountClerk = Boolean(clerkKey);
 
-const appTree = shouldMountClerk ? (
+const appShell = (inner: ReactNode) => (
   <div className="flex min-h-screen flex-col">
-    <div className="min-h-0 flex-1">
-      <ClerkProvider publishableKey={clerkKey} localization={clerkLocalization}>
-        <App />
-      </ClerkProvider>
-    </div>
-  </div>
-) : (
-  <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
-    <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
-    <p className="max-w-md text-sm text-zinc-600">
-      {import.meta.env.DEV ? (
-        <>
-          Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for local dev,{" "}
-          <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
-          (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
-          <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
-        </>
-      ) : (
-        <>
-          This build has no <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code>. In{" "}
-          <strong className="font-medium">Vercel</strong> (or your host) open{" "}
-          <strong className="font-medium">Project → Settings → Environment Variables</strong>, add it for{" "}
-          <strong className="font-medium">Production</strong> (and Preview if you use previews), then redeploy.
-        </>
-      )}
-    </p>
+    <div className="min-h-0 flex-1">{inner}</div>
   </div>
 );
 
-if (import.meta.env.DEV && !clerkKey) {
+const appTree = demoWithoutClerk
+  ? appShell(<App />)
+  : shouldMountClerk
+    ? appShell(
+        <ClerkProvider publishableKey={clerkKey} localization={clerkLocalization}>
+          <App />
+        </ClerkProvider>,
+      )
+    : (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-zinc-100 px-6 text-center">
+          <p className="text-sm font-medium text-zinc-900">Clerk publishable key missing</p>
+          <p className="max-w-md text-sm text-zinc-600">
+            {import.meta.env.DEV ? (
+              <>
+                Add <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code> or, for local dev,{" "}
+                <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}
+                (<code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) in{" "}
+                <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">.env.local</code> and restart Vite.
+              </>
+            ) : (
+              <>
+                This build has no <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY</code>
+                {import.meta.env.VITE_VERCEL_ENV === "preview" ? (
+                  <>
+                    . For Vercel Preview you can either set that variable for the <strong className="font-medium">Preview</strong> environment, or set{" "}
+                    <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_PREVIEW</code> (e.g.{" "}
+                    <code className="rounded bg-zinc-200/80 px-1.5 py-0.5 font-mono text-xs">pk_test_…</code>) while Production keeps the live key—then redeploy.
+                  </>
+                ) : (
+                  <>
+                    . In <strong className="font-medium">Vercel</strong> (or your host) open{" "}
+                    <strong className="font-medium">Project → Settings → Environment Variables</strong>, add it for{" "}
+                    <strong className="font-medium">Preview</strong> as well as Production (preview deploys do not inherit Production-only vars), then redeploy.
+                  </>
+                )}
+              </>
+            )}
+          </p>
+          {import.meta.env.DEV && (
+            <p className="max-w-md text-xs text-zinc-500">
+              Or set <code className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono">VITE_DEMO_MODE=true</code> in{" "}
+              <code className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono">.env.local</code> to run with a local demo user (no Clerk) until you add a key.
+            </p>
+          )}
+        </div>
+      );
+
+if (import.meta.env.DEV && !clerkKey && !DEMO_MODE) {
   console.warn(
-    "[Clerk] Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_… and/or VITE_CLERK_PUBLISHABLE_KEY in .env.local (see .env.example)."
+    "[Clerk] Set VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_… and/or VITE_CLERK_PUBLISHABLE_KEY in .env.local (see .env.example), or VITE_DEMO_MODE=true for a local demo user."
   );
 }
 

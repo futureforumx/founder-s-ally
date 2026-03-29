@@ -91,11 +91,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   // ── Investor mapping — determines which review form to show ──
   const investorName = investor?.name || vcFirm?.name || null;
-  const {
-    isMapped: investorIsMappedToProfile,
-    mappingRecordId,
-    loading: investorMappingLoading,
-  } = useInvestorMapping(investorName);
+  const { isMapped: investorIsMappedToProfile, mappingRecordId } = useInvestorMapping(investorName);
 
   // ── Live data hook ──
   const liveQuery = useInvestorProfileByName(
@@ -161,16 +157,6 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   const partnerNamesLower = useMemo(
     () => new Set(mergedPartners.map((p) => p.full_name.toLowerCase().trim())),
-    [mergedPartners]
-  );
-
-  const reviewCardContactOptions = useMemo(
-    () =>
-      mergedPartners.map((p) => ({
-        id: p.id,
-        label: p.full_name,
-        subtitle: p.title?.trim() || null,
-      })),
     [mergedPartners]
   );
 
@@ -471,11 +457,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         firmName={heroName}
+        firmLogoUrl={heroLogo}
+        firmWebsiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
         vcFirmId={databaseFirmId ?? vcFirm?.id ?? null}
-        cardLinkedContactOptions={reviewCardContactOptions}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
-        investorMappingLoading={investorMappingLoading}
       />
     </AnimatePresence>
   );
