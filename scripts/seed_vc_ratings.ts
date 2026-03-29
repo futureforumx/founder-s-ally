@@ -130,6 +130,8 @@ async function main() {
       comment: pick(pool),
       anonymous: Math.random() > 0.25,
       verified: i === 0,
+      isDraft: false,
+      starRatings: {},
     };
   });
 

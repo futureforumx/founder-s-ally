@@ -19,6 +19,10 @@ interface SmartComboboxProps {
   verified?: boolean;
   className?: string;
   highlightSync?: boolean;
+  /** Marks the control as required for accessibility / constraint validation. */
+  required?: boolean;
+  /** Highlights the field as invalid (e.g. after a failed submit). */
+  invalid?: boolean;
 }
 
 export function SmartCombobox({
@@ -30,6 +34,8 @@ export function SmartCombobox({
   verified = false,
   className,
   highlightSync = false,
+  required = false,
+  invalid = false,
 }: SmartComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -123,12 +129,17 @@ export function SmartCombobox({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          required={required}
+          aria-invalid={invalid || undefined}
+          aria-required={required || undefined}
           className={cn(
             "flex w-full rounded-lg border bg-background px-3 py-1.5 text-sm h-9",
             "ring-offset-background placeholder:text-muted-foreground",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             "border-input",
-            highlightSync && "ring-2 ring-accent ring-offset-2 ring-offset-background",
+            highlightSync && !invalid && "ring-2 ring-accent ring-offset-2 ring-offset-background",
+            invalid &&
+              "border-amber-500 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background focus-visible:ring-amber-500/50 dark:border-amber-400 dark:ring-amber-400/35",
             verified ? "pr-16" : "pr-8"
           )}
         />

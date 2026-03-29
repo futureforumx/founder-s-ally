@@ -719,12 +719,14 @@ export type Database = {
           interaction_date: string | null
           interaction_detail: string | null
           interaction_type: string
-          nps: number
+          is_draft: boolean
+          nps: number | null
           score_feedback: number | null
           score_follow_thru: number | null
           score_resp: number | null
           score_respect: number | null
           score_value_add: number | null
+          star_ratings: Record<string, unknown>
           vc_firm_id: string | null
           vc_person_id: string | null
           verified: boolean
@@ -738,12 +740,14 @@ export type Database = {
           interaction_date?: string | null
           interaction_detail?: string | null
           interaction_type: string
-          nps: number
+          is_draft?: boolean
+          nps?: number | null
           score_feedback?: number | null
           score_follow_thru?: number | null
           score_resp?: number | null
           score_respect?: number | null
           score_value_add?: number | null
+          star_ratings?: Record<string, unknown>
           vc_firm_id?: string | null
           vc_person_id?: string | null
           verified?: boolean
@@ -757,12 +761,14 @@ export type Database = {
           interaction_date?: string | null
           interaction_detail?: string | null
           interaction_type?: string
-          nps?: number
+          is_draft?: boolean
+          nps?: number | null
           score_feedback?: number | null
           score_follow_thru?: number | null
           score_resp?: number | null
           score_respect?: number | null
           score_value_add?: number | null
+          star_ratings?: Record<string, unknown>
           vc_firm_id?: string | null
           vc_person_id?: string | null
           verified?: boolean

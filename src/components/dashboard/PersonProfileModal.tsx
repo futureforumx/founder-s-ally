@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
   BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star,
 } from "lucide-react";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
+import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
+import { useVCDirectory, type VCPerson, type VCFirm } from "@/hooks/useVCDirectory";
 
 interface PersonProfileModalProps {
   person: VCPerson | null;
@@ -47,6 +48,22 @@ const SOCIALS = [
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const { getPartnersForFirm } = useVCDirectory();
+
+  const reviewCardContactOptions = useMemo(() => {
+    if (!firm?.id) return [];
+    return getPartnersForFirm(firm.id).map((p) => ({
+      id: p.id,
+      label: p.full_name,
+      subtitle: p.title?.trim() || null,
+    }));
+  }, [firm?.id, getPartnersForFirm]);
+
+  const {
+    isMapped: investorIsMappedToProfile,
+    mappingRecordId,
+    loading: investorMappingLoading,
+  } = useInvestorMapping(firm?.name ?? null);
 
   const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
 
@@ -289,8 +306,12 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               onClose={() => setReviewOpen(false)}
               firmName={firm.name}
               vcFirmId={firm.id}
+              cardLinkedContactOptions={reviewCardContactOptions}
               personId={person.id}
               personName={person.full_name}
+              investorIsMappedToProfile={investorIsMappedToProfile}
+              mappingRecordId={mappingRecordId}
+              investorMappingLoading={investorMappingLoading}
             />
           )}
         </>

@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2, SlidersHorizontal, LogOut
+  User, Settings2, SlidersHorizontal, LogOut, Shield
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -20,6 +22,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FirmLogo } from "@/components/ui/firm-logo";
+import { InvestorPersonAvatar, investorPersonImageUrl } from "@/components/ui/investor-person-avatar";
+import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
 
 type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "settings";
 
@@ -34,6 +39,12 @@ interface GlobalTopNavProps {
   activeView?: ViewType;
   onViewChange?: (view: ViewType) => void;
   onOpenCommandPalette?: () => void;
+  /** Wired from Index → CommunityView: chip filter for investor directory */
+  investorSearchChip?: string;
+  onInvestorSearchChipChange?: (chip: string) => void;
+  investorSearchQuery?: string;
+  onInvestorSearchQueryChange?: (query: string) => void;
+  onInvestorSuggestionSelect?: (suggestion: string) => void;
   userSector?: string | null;
   userStage?: string | null;
   profileCompletion?: number;
@@ -170,6 +181,14 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
 }
 
 // ── Filter chips config ──
+const DIRECTORY_SEARCH_MIN = 2;
+const DIRECTORY_SEARCH_MAX = 6;
+
+type NavDirectoryPick =
+  | { kind: "firm"; name: string; logoUrl: string | null; websiteUrl: string | null }
+  | { kind: "person"; name: string; profileImageUrl: string | null }
+  | null;
+
 const FILTER_CHIPS = [
   { id: "all", label: "All", icon: ListFilter },
   { id: "matches", label: "Matches", icon: Zap },
@@ -208,6 +227,11 @@ export function GlobalTopNav({
   activeView = "dashboard",
   onViewChange,
   onOpenCommandPalette,
+  investorSearchChip,
+  onInvestorSearchChipChange,
+  investorSearchQuery,
+  onInvestorSearchQueryChange,
+  onInvestorSuggestionSelect,
   userSector,
   userStage,
   profileCompletion = 0,
@@ -215,13 +239,22 @@ export function GlobalTopNav({
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [activeChip, setActiveChip] = useState("all");
+  const [fallbackChip, setFallbackChip] = useState("all");
+  const activeChip = investorSearchChip ?? fallbackChip;
   const [highlightIdx, setHighlightIdx] = useState(0);
+  const [logoImgError, setLogoImgError] = useState(false);
+  const [navDirectoryPick, setNavDirectoryPick] = useState<NavDirectoryPick>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const pulse = useRotatingPulse();
+  const { firms: vcFirms, people: vcPeople, firmMap: vcFirmMap, loading: vcDirectoryLoading } =
+    useVCDirectory();
+
+  // Reset error state whenever the URL changes so a new URL gets a fresh attempt
+  useEffect(() => { setLogoImgError(false); }, [logoUrl]);
 
   const autosaveStatus = useAutosaveStatus();
   const { signOut } = useAuth();
+  const { isAppAdmin, loading: appAdminLoading } = useAppAdmin();
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -260,31 +293,73 @@ export function GlobalTopNav({
     return () => document.removeEventListener("keydown", handler);
   }, [onOpenCommandPalette]);
 
-  // Keyboard navigation for search dropdown (Esc, Enter, Arrow keys)
+  // Keyboard navigation for AI suggestions — do not hijack keys while typing in the search input
   useEffect(() => {
     if (!searchOpen) return;
     const handler = (e: KeyboardEvent) => {
       const sug = getContextSuggestions(activeView, userSector, userStage);
+      const target = e.target;
+      const typingInField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
       if (e.key === "Escape") {
         e.preventDefault();
         setSearchOpen(false);
         setHighlightIdx(0);
-      } else if (e.key === "ArrowDown") {
+        return;
+      }
+
+      if (typingInField && (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp")) {
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHighlightIdx(i => (i < sug.length - 1 ? i + 1 : 0));
+        setHighlightIdx((i) => (i < sug.length - 1 ? i + 1 : 0));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setHighlightIdx(i => (i > 0 ? i - 1 : sug.length - 1));
+        setHighlightIdx((i) => (i > 0 ? i - 1 : sug.length - 1));
       } else if (e.key === "Enter") {
         e.preventDefault();
         setSearchOpen(false);
+        const pick = sug[highlightIdx];
         setHighlightIdx(0);
-        onOpenCommandPalette?.();
+        if (onInvestorSuggestionSelect && pick) {
+          onInvestorSuggestionSelect(pick);
+        } else {
+          onOpenCommandPalette?.();
+        }
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [searchOpen, activeView, userSector, userStage, onOpenCommandPalette]);
+  }, [searchOpen, activeView, userSector, userStage, onOpenCommandPalette, onInvestorSuggestionSelect, highlightIdx]);
+
+  const navSearchQ = investorSearchQuery ?? "";
+  const navSearchQLower = navSearchQ.trim().toLowerCase();
+
+  const { directoryFirms, directoryPeople } = useMemo(() => {
+    if (navSearchQLower.length < DIRECTORY_SEARCH_MIN) {
+      return { directoryFirms: [] as VCFirm[], directoryPeople: [] as VCPerson[] };
+    }
+    const df = vcFirms
+      .filter((f) => f.name.toLowerCase().includes(navSearchQLower))
+      .slice(0, DIRECTORY_SEARCH_MAX);
+    const dp = vcPeople
+      .filter((p) => (p.full_name ?? "").toLowerCase().includes(navSearchQLower))
+      .slice(0, DIRECTORY_SEARCH_MAX);
+    return { directoryFirms: df, directoryPeople: dp };
+  }, [navSearchQLower, vcFirms, vcPeople]);
+
+  const showNavDirectoryPick =
+    navDirectoryPick != null &&
+    navSearchQ.trim().toLowerCase() === navDirectoryPick.name.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!navSearchQ.trim()) setNavDirectoryPick(null);
+  }, [navSearchQ]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
@@ -298,8 +373,13 @@ export function GlobalTopNav({
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setSearchOpen(false);
+    setHighlightIdx(0);
+    if (onInvestorSuggestionSelect) {
+      onInvestorSuggestionSelect(suggestion);
+      return;
+    }
     onOpenCommandPalette?.();
-  }, [onOpenCommandPalette]);
+  }, [onInvestorSuggestionSelect, onOpenCommandPalette]);
 
   return (
     <div
@@ -344,12 +424,36 @@ export function GlobalTopNav({
                 : "w-9 border-border/50 hover:border-border justify-center"
             )}
           >
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
+            {onInvestorSearchQueryChange && showNavDirectoryPick && navDirectoryPick ? (
+              navDirectoryPick.kind === "firm" ? (
+                <FirmLogo
+                  firmName={navDirectoryPick.name}
+                  logoUrl={navDirectoryPick.logoUrl}
+                  websiteUrl={navDirectoryPick.websiteUrl}
+                  size="sm"
+                  className={cn("shrink-0", searchOpen ? "!h-7 !w-7" : "!h-6 !w-6")}
+                />
+              ) : (
+                <InvestorPersonAvatar
+                  imageUrl={navDirectoryPick.profileImageUrl}
+                  className={cn("shrink-0", searchOpen ? "!h-7 !w-7" : "!h-6 !w-6")}
+                  size="sm"
+                />
+              )
+            ) : (
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
+            )}
             {searchOpen && (
               <>
-                <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
-                  Search...
-                </span>
+                {onInvestorSearchQueryChange ? (
+                  <span className="min-w-0 flex-1 truncate text-left text-[13px] text-muted-foreground/50">
+                    {investorSearchQuery?.trim() ? investorSearchQuery : "Search investors…"}
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-left text-[13px] text-muted-foreground/40">
+                    Search...
+                  </span>
+                )}
                 <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
                   ⌘K
                 </kbd>
@@ -359,6 +463,133 @@ export function GlobalTopNav({
 
           {searchOpen && (
             <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-xl border border-border/60 bg-popover/95 shadow-xl backdrop-blur-2xl">
+              {onInvestorSearchQueryChange && (
+                <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
+                  <label
+                    htmlFor="global-nav-investor-search"
+                    className="flex h-8 w-8 shrink-0 cursor-text items-center justify-center"
+                  >
+                    {showNavDirectoryPick ? (
+                      navDirectoryPick.kind === "firm" ? (
+                        <FirmLogo
+                          firmName={navDirectoryPick.name}
+                          logoUrl={navDirectoryPick.logoUrl}
+                          websiteUrl={navDirectoryPick.websiteUrl}
+                          size="sm"
+                          className="shrink-0"
+                        />
+                      ) : (
+                        <InvestorPersonAvatar imageUrl={navDirectoryPick.profileImageUrl} />
+                      )
+                    ) : (
+                      <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
+                    )}
+                  </label>
+                  <input
+                    id="global-nav-investor-search"
+                    type="search"
+                    value={investorSearchQuery ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      onInvestorSearchQueryChange(v);
+                      if (
+                        !navDirectoryPick ||
+                        v.trim().toLowerCase() !== navDirectoryPick.name.trim().toLowerCase()
+                      ) {
+                        setNavDirectoryPick(null);
+                      }
+                    }}
+                    placeholder="Name, sector, stage…"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-0"
+                    autoComplete="off"
+                  />
+                </div>
+              )}
+              {onInvestorSearchQueryChange &&
+                navSearchQLower.length >= DIRECTORY_SEARCH_MIN &&
+                (directoryFirms.length > 0 || directoryPeople.length > 0 || vcDirectoryLoading) && (
+                  <div className="max-h-52 overflow-y-auto border-b border-border/40">
+                    <div className="px-3 pt-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                      Directory
+                    </div>
+                    {vcDirectoryLoading ? (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">Loading investors…</p>
+                    ) : (
+                      <>
+                        {directoryFirms.map((f) => (
+                          <button
+                            key={`dir-f-${f.id}`}
+                            type="button"
+                            onClick={() => {
+                              onInvestorSearchQueryChange(f.name);
+                              setNavDirectoryPick({
+                                kind: "firm",
+                                name: f.name,
+                                logoUrl: f.logo_url,
+                                websiteUrl: f.website_url,
+                              });
+                              setSearchOpen(false);
+                            }}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                          >
+                            <FirmLogo
+                              firmName={f.name}
+                              logoUrl={f.logo_url}
+                              websiteUrl={f.website_url}
+                              size="sm"
+                              className="shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-foreground">{f.name}</p>
+                              <p className="truncate text-[11px] text-muted-foreground">
+                                {[f.stages?.slice(0, 2).join(", "), f.aum].filter(Boolean).join(" · ") ||
+                                  "Firm"}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                        {directoryPeople.map((p) => {
+                          const firm = vcFirmMap.get(p.firm_id);
+                          return (
+                            <button
+                              key={`dir-p-${p.id}`}
+                              type="button"
+                              onClick={() => {
+                                onInvestorSearchQueryChange(p.full_name);
+                                setNavDirectoryPick({
+                                  kind: "person",
+                                  name: p.full_name,
+                                  profileImageUrl: investorPersonImageUrl(
+                                    p.profile_image_url,
+                                    p.avatar_url,
+                                  ),
+                                });
+                                setSearchOpen(false);
+                              }}
+                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                            >
+                              <InvestorPersonAvatar
+                                imageUrl={investorPersonImageUrl(
+                                  p.profile_image_url,
+                                  p.avatar_url,
+                                )}
+                                className="shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {p.full_name}
+                                </p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  {[p.title, firm?.name].filter(Boolean).join(" at ")}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                )}
               <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
                 <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
                 {FILTER_CHIPS.map(chip => {
@@ -367,7 +598,10 @@ export function GlobalTopNav({
                   return (
                     <button
                       key={chip.id}
-                      onClick={() => setActiveChip(chip.id)}
+                      onClick={() => {
+                        if (onInvestorSearchChipChange) onInvestorSearchChipChange(chip.id);
+                        else setFallbackChip(chip.id);
+                      }}
                       className={cn(
                         "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all",
                         isActive
@@ -878,8 +1112,8 @@ export function GlobalTopNav({
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
             <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-              {logoUrl ? (
-                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
+              {logoUrl && !logoImgError ? (
+                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
               ) : hasProfile ? (
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {companyName?.charAt(0).toUpperCase() || "?"}
@@ -894,8 +1128,8 @@ export function GlobalTopNav({
             {/* Active Workspace Header */}
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="relative w-9 h-9 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" />
+                {logoUrl && !logoImgError ? (
+                  <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
                 ) : hasProfile ? (
                   <span className="text-xs font-bold text-muted-foreground">
                     {companyName?.charAt(0).toUpperCase() || "?"}
@@ -975,6 +1209,20 @@ export function GlobalTopNav({
                   {item.label}
                 </DropdownMenuItem>
               ))}
+              {!appAdminLoading && isAppAdmin && (
+                <>
+                  <div className="border-t border-border/50 my-1" />
+                  <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
+                    <Link
+                      to="/admin/intelligence"
+                      className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer text-foreground"
+                    >
+                      <Shield className="h-3.5 w-3.5 text-muted-foreground/70" />
+                      Admin console
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <div className="border-t border-border/50 my-1" />
               <DropdownMenuItem
                 onClick={() => signOut()}

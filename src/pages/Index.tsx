@@ -112,6 +112,9 @@ const Index = () => {
     }
     return "dashboard";
   });
+  /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
+  const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
+  const [investorListQuery, setInvestorListQuery] = useState("");
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -333,7 +336,7 @@ const Index = () => {
           } catch { return null; }
         })();
         if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+          const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -365,6 +368,34 @@ const Index = () => {
     setTimeout(() => setSyncFlash(false), 1500);
   };
 
+  const isInvestorNavArea =
+    activeView === "investors" || activeView === "investor-search" || activeView === "connections";
+
+  const handleInvestorNavChip = useCallback((chip: string) => {
+    setInvestorDirectoryTab(chip);
+    setInvestorListQuery("");
+    setActiveView("investor-search");
+  }, []);
+
+  const handleInvestorSuggestion = useCallback(
+    (suggestion: string) => {
+      const s = companyData?.sector || "Technology";
+      const st = companyData?.stage || "Seed";
+      if (suggestion === `Lead ${s} investors`) setInvestorDirectoryTab("sector");
+      else if (suggestion === `Top ${s} funds actively deploying`) setInvestorDirectoryTab("matches");
+      else if (suggestion === `Investors writing ${st} checks`) setInvestorDirectoryTab("stage");
+      else setInvestorDirectoryTab("all");
+      setInvestorListQuery("");
+      setActiveView("investor-search");
+    },
+    [companyData?.sector, companyData?.stage]
+  );
+
+  const handleInvestorSearchQuery = useCallback((q: string) => {
+    setInvestorListQuery(q);
+    if (q.trim()) setActiveView("investor-search");
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {showOnboarding && !profileComplete && (
@@ -393,6 +424,11 @@ const Index = () => {
           onNavigateProfile={() => setActiveView("company")}
           activeView={activeView}
           onViewChange={setActiveView}
+          investorSearchChip={isInvestorNavArea ? investorDirectoryTab : undefined}
+          onInvestorSearchChipChange={isInvestorNavArea ? handleInvestorNavChip : undefined}
+          investorSearchQuery={isInvestorNavArea ? investorListQuery : undefined}
+          onInvestorSearchQueryChange={isInvestorNavArea ? handleInvestorSearchQuery : undefined}
+          onInvestorSuggestionSelect={isInvestorNavArea ? handleInvestorSuggestion : undefined}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
@@ -478,7 +514,14 @@ const Index = () => {
               />
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView companyData={companyData} analysisResult={analysisResult} onNavigateProfile={() => setActiveView("company")} variant={activeView === "investor-search" ? "investor-search" : "directory"} />
+            <CommunityView
+              companyData={companyData}
+              analysisResult={analysisResult}
+              onNavigateProfile={() => setActiveView("company")}
+              variant={activeView === "investor-search" ? "investor-search" : "directory"}
+              investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
+              investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
+            />
           ) : activeView === "connections" ? (
             <div className="space-y-4">
               <div>

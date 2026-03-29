@@ -481,10 +481,13 @@ model VCRating {
   scoreFeedback     Int?      @map("score_feedback")
   scoreFollowThru   Int?      @map("score_follow_thru")
   scoreValueAdd     Int?      @map("score_value_add")
-  nps               Int       @map("nps")
+  nps               Int?      @map("nps")
   comment           String?   @db.Text
   anonymous         Boolean   @default(true) @map("anonymous")
   verified          Boolean   @default(false) @map("verified")
+  isDraft           Boolean   @default(false) @map("is_draft")
+  /// Structured review payload: v2 answers include participant memory (`interaction_remembered_who_*`, `interaction_participant_memory_mode`). See `src/lib/reviewParticipantMemory.ts`.
+  starRatings       Json      @default("{}") @map("star_ratings") @db.JsonB
   createdAt         DateTime  @default(now()) @map("created_at")
 
   vcPerson VCPerson? @relation(fields: [vcPersonId], references: [id], onDelete: Cascade)

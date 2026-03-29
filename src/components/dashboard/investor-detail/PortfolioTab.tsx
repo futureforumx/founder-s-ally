@@ -7,10 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import type { FirmDeal } from "@/hooks/useInvestorProfile";
 
 interface PortfolioTabProps {
   companySector?: string;
   onInvestorClick?: (partnerName: string) => void;
+  /** When set (including `[]`), list uses `firm_recent_deals` for this firm instead of demo data */
+  firmDeals?: FirmDeal[] | null;
+  portfolioLoading?: boolean;
+  leadPartnerName?: string | null;
+  /** Partner names on the firm card (JSON + DB) — used to link deal rows to people */
+  partnerNamesLower?: Set<string>;
 }
 
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
@@ -23,6 +30,50 @@ const RECENT_INVESTMENTS = [
   { name: "FinLedger", stage: "Seed", sector: "Fintech", amount: "$3M", date: "May 2025", website: "finledger.io", description: "Real-time reconciliation engine for digital asset custodians.", partner: "James Park", role: "LEAD" as const, partnerInDb: true },
   { name: "MedScope AI", stage: "Series A", sector: "HealthTech", amount: "$10M", date: "Mar 2025", website: "medscope.ai", description: "Clinical decision support powered by multimodal medical imaging.", partner: "Sarah Chen", role: "CO-LED" as const, partnerInDb: false },
 ];
+
+type InvestmentRow = {
+  key: string;
+  name: string;
+  stage: string;
+  sector: string;
+  amount: string;
+  date: string;
+  website: string;
+  description: string;
+  partner: string;
+  role: "LEAD" | "CO-LED" | "PARTICIPATED";
+  partnerInDb: boolean;
+};
+
+function formatDealDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+function guessPortfolioWebsite(companyName: string): string {
+  const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 48);
+  return slug ? `${slug}.com` : "company.com";
+}
+
+const MOCK_INVESTMENT_ROWS: InvestmentRow[] = RECENT_INVESTMENTS.map((co) => ({
+  key: co.name,
+  name: co.name,
+  stage: co.stage,
+  sector: co.sector,
+  amount: co.amount,
+  date: co.date,
+  website: co.website,
+  description: co.description,
+  partner: co.partner,
+  role: co.role,
+  partnerInDb: co.partnerInDb,
+}));
 
 const NOTABLE_EXITS = ["Stripe", "Figma"];
 const TOP_UNICORNS = [
@@ -328,7 +379,14 @@ function MissingProfileModal({
   );
 }
 
-export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabProps) {
+export function PortfolioTab({
+  companySector,
+  onInvestorClick,
+  firmDeals,
+  portfolioLoading,
+  leadPartnerName,
+  partnerNamesLower,
+}: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -338,45 +396,79 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const allSectors = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.sector))], []);
-  const allStages = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.stage))], []);
-  const allPartners = useMemo(() => [...new Set(RECENT_INVESTMENTS.map((i) => i.partner))], []);
+  const isLivePortfolio = firmDeals !== undefined;
 
-  // Smart suggestions grouped by category
+  const investmentRows = useMemo((): InvestmentRow[] => {
+    if (!isLivePortfolio) return MOCK_INVESTMENT_ROWS;
+    const lead = (leadPartnerName || "").trim();
+    const partnerNorm = (n: string) => n.toLowerCase().trim();
+    return (firmDeals ?? []).map((d) => {
+      const partnerLabel = lead || "—";
+      const inDb =
+        !!lead &&
+        (partnerNamesLower?.has(partnerNorm(lead)) ?? false);
+      return {
+        key: d.id,
+        name: d.company_name,
+        stage: d.stage?.trim() || "—",
+        sector: "—",
+        amount: d.amount?.trim() || "—",
+        date: formatDealDate(d.date_announced),
+        website: guessPortfolioWebsite(d.company_name),
+        description: `Portfolio company — ${d.company_name}.`,
+        partner: partnerLabel,
+        role: "LEAD",
+        partnerInDb: inDb,
+      };
+    });
+  }, [isLivePortfolio, firmDeals, leadPartnerName, partnerNamesLower]);
+
+  const allSectors = useMemo(
+    () => [...new Set(investmentRows.map((i) => i.sector).filter((s) => s !== "—"))],
+    [investmentRows]
+  );
+  const allStages = useMemo(() => [...new Set(investmentRows.map((i) => i.stage))], [investmentRows]);
+  const allPartners = useMemo(
+    () => [...new Set(investmentRows.map((i) => i.partner).filter((p) => p !== "—"))],
+    [investmentRows]
+  );
+
   const suggestions = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return [];
     type Suggestion = { label: string; category: string; icon: typeof Building2; value: string };
     const results: Suggestion[] = [];
-    
-    RECENT_INVESTMENTS.forEach(co => {
-      if (co.name.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Company"))
+
+    investmentRows.forEach((co) => {
+      if (co.name.toLowerCase().includes(q) && !results.some((r) => r.value === co.name && r.category === "Company"))
         results.push({ label: co.name, category: "Company", icon: Building2, value: co.name });
     });
-    allPartners.forEach(p => {
-      if (p.toLowerCase().includes(q) && !results.some(r => r.value === p && r.category === "Investor"))
+    allPartners.forEach((p) => {
+      if (p.toLowerCase().includes(q) && !results.some((r) => r.value === p && r.category === "Investor"))
         results.push({ label: p, category: "Investor", icon: User, value: p });
     });
-    allSectors.forEach(s => {
-      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Sector"))
+    allSectors.forEach((s) => {
+      if (s.toLowerCase().includes(q) && !results.some((r) => r.value === s && r.category === "Sector"))
         results.push({ label: s, category: "Sector", icon: Tag, value: s });
     });
-    allStages.forEach(s => {
-      if (s.toLowerCase().includes(q) && !results.some(r => r.value === s && r.category === "Stage"))
+    allStages.forEach((s) => {
+      if (s.toLowerCase().includes(q) && !results.some((r) => r.value === s && r.category === "Stage"))
         results.push({ label: s, category: "Stage", icon: Layers, value: s });
     });
-    RECENT_INVESTMENTS.forEach(co => {
-      if (co.date.toLowerCase().includes(q) && !results.some(r => r.value === co.date && r.category === "Date"))
+    investmentRows.forEach((co) => {
+      if (co.date.toLowerCase().includes(q) && !results.some((r) => r.value === co.date && r.category === "Date"))
         results.push({ label: co.date, category: "Date", icon: Calendar, value: co.date });
     });
-    RECENT_INVESTMENTS.forEach(co => {
-      if (co.description.toLowerCase().includes(q) && !results.some(r => r.value === co.name && r.category === "Keyword Match"))
+    investmentRows.forEach((co) => {
+      if (
+        co.description.toLowerCase().includes(q) &&
+        !results.some((r) => r.value === co.name && r.category === "Keyword Match")
+      )
         results.push({ label: co.name, category: "Keyword Match", icon: Sparkles, value: co.name });
     });
     return results.slice(0, 8);
-  }, [searchQuery, allSectors, allStages, allPartners]);
+  }, [searchQuery, allSectors, allStages, allPartners, investmentRows]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
@@ -393,31 +485,53 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showDropdown || suggestions.length === 0) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, suggestions.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
-    else if (e.key === "Enter" && selectedIdx >= 0) { e.preventDefault(); handleSelectSuggestion(suggestions[selectedIdx].value); }
-    else if (e.key === "Escape") { setShowDropdown(false); }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIdx((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && selectedIdx >= 0) {
+      e.preventDefault();
+      handleSelectSuggestion(suggestions[selectedIdx].value);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+    }
   };
 
   const filteredInvestments = useMemo(() => {
-    return RECENT_INVESTMENTS.filter((co) => {
+    return investmentRows.filter((co) => {
       const q = searchQuery.toLowerCase();
-      const matchesSearch = !q || [
-        co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website
-      ].some(field => field.toLowerCase().includes(q));
+      const matchesSearch =
+        !q ||
+        [co.name, co.description, co.sector, co.stage, co.date, co.partner, co.amount, co.role, co.website].some(
+          (field) => field.toLowerCase().includes(q)
+        );
       const matchesSector = sectorFilter === "all" || co.sector === sectorFilter;
       const matchesStage = stageFilter === "all" || co.stage === stageFilter;
       return matchesSearch && matchesSector && matchesStage;
     });
-  }, [searchQuery, sectorFilter, stageFilter]);
+  }, [investmentRows, searchQuery, sectorFilter, stageFilter]);
 
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
     if (!companySector) return "unknown";
-    const hasMatch = RECENT_INVESTMENTS.some(
-      (inv) => inv.sector.toLowerCase().includes(companySector.toLowerCase())
+    const hasMatch = investmentRows.some((inv) =>
+      inv.sector !== "—" ? inv.sector.toLowerCase().includes(companySector.toLowerCase()) : false
     );
+    if (isLivePortfolio && !hasMatch) return "unknown";
     return hasMatch ? "conflict" : "compatible";
-  }, [companySector]);
+  }, [companySector, investmentRows, isLivePortfolio]);
+
+  const activePortfolioCount = isLivePortfolio ? investmentRows.length : 142;
+
+  if (portfolioLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm">Loading portfolio data…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -437,11 +551,17 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Active Portfolio
             </p>
-            <CountUpNumber target={142} label="Active Portfolio" />
-            <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full w-max mx-auto">
-              <TrendingUp className="w-3 h-3" /> +14 this year
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5">Top Sector: <span className="font-semibold text-foreground">SaaS (32%)</span></p>
+            <CountUpNumber target={activePortfolioCount} label="Active Portfolio" />
+            {!isLivePortfolio ? (
+              <>
+                <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full w-max mx-auto">
+                  <TrendingUp className="w-3 h-3" /> +14 this year
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">Top Sector: <span className="font-semibold text-foreground">SaaS (32%)</span></p>
+              </>
+            ) : (
+              <p className="text-[10px] text-muted-foreground mt-1.5">From firm record · recent deals</p>
+            )}
           </div>
 
           {/* Exits */}
@@ -449,12 +569,18 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Exits
             </p>
-            <CountUpNumber target={38} label="Exits" />
-            <p className="text-[10px] text-muted-foreground mt-2">
-              Notable: {NOTABLE_EXITS.map((name, i) => (
-                <span key={name}><strong className="text-foreground">{name}</strong>{i < NOTABLE_EXITS.length - 1 ? ", " : ""}</span>
-              ))}
-            </p>
+            {isLivePortfolio ? (
+              <p className="text-lg font-semibold text-muted-foreground">—</p>
+            ) : (
+              <>
+                <CountUpNumber target={38} label="Exits" />
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Notable: {NOTABLE_EXITS.map((name, i) => (
+                    <span key={name}><strong className="text-foreground">{name}</strong>{i < NOTABLE_EXITS.length - 1 ? ", " : ""}</span>
+                  ))}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Unicorns */}
@@ -462,13 +588,19 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Unicorns
             </p>
-            <CountUpNumber target={12} label="Unicorns" />
-            <div className="flex items-center justify-center mt-2 -space-x-2">
-              {TOP_UNICORNS.map((u) => (
-                <CompanyLogo key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
-              ))}
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
+            {isLivePortfolio ? (
+              <p className="text-lg font-semibold text-muted-foreground">—</p>
+            ) : (
+              <>
+                <CountUpNumber target={12} label="Unicorns" />
+                <div className="flex items-center justify-center mt-2 -space-x-2">
+                  {TOP_UNICORNS.map((u) => (
+                    <CompanyLogo key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -552,7 +684,7 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Sectors</SelectItem>
-                {allSectors.map((s) => (
+                {(allSectors.length ? allSectors : []).map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -573,10 +705,13 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
           <TooltipProvider delayDuration={300}>
             {filteredInvestments.map((co) => {
-              const isSectorMatch = companySector && co.sector.toLowerCase().includes(companySector.toLowerCase());
+              const isSectorMatch =
+                companySector &&
+                co.sector !== "—" &&
+                co.sector.toLowerCase().includes(companySector.toLowerCase());
               return (
                 <div
-                  key={co.name}
+                  key={co.key}
                   className={`group grid grid-cols-12 gap-3 items-center px-4 py-3 border-b border-border hover:bg-secondary/40 transition-colors cursor-pointer ${
                     isSectorMatch ? "bg-primary/5 border-l-4 border-l-primary" : ""
                   }`}
@@ -624,7 +759,7 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
 
                   {/* Col 6: Investor (2 cols) — Conditional Routing */}
                   <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
-                    {co.partnerInDb ? (
+                    {co.partner !== "—" && co.partnerInDb ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
                         className="flex items-center gap-2 text-muted-foreground hover:text-primary cursor-pointer transition-colors group/investor"
@@ -635,7 +770,7 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
                         <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap transition-colors">{co.partner}</span>
                         <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/investor:opacity-100 transition-opacity shrink-0" />
                       </button>
-                    ) : (
+                    ) : co.partner !== "—" ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); setMissingProfilePartner(co.partner); }}
                         className="flex items-center gap-2 text-muted-foreground cursor-pointer group/missing"
@@ -646,6 +781,8 @@ export function PortfolioTab({ companySector, onInvestorClick }: PortfolioTabPro
                         <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap border-b border-dashed border-muted-foreground/40 group-hover/missing:border-foreground/60 group-hover/missing:text-foreground transition-colors">{co.partner}</span>
                         <Plus className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/missing:opacity-100 transition-opacity shrink-0" />
                       </button>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">—</span>
                     )}
                   </div>
                 </div>

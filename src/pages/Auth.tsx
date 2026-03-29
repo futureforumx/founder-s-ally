@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
-import MuxPlayer from "@mux/mux-player-react";
+import MuxPlayer, { type MuxCSSProperties } from "@mux/mux-player-react";
 import { Loader2 } from "lucide-react";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
@@ -129,10 +129,10 @@ function authHeroPlayback(isSignUp: boolean): AuthHeroPlayback {
   return { mode: "none" };
 }
 
-const muxPlayerHeroStyle = {
-  ["--media-object-fit" as string]: "cover",
-  ["--media-object-position" as string]: "center",
-} as CSSProperties;
+const muxPlayerHeroStyle: MuxCSSProperties = {
+  "--media-object-fit": "cover",
+  "--media-object-position": "center",
+};
 
 /** Native hero background video: fill parent; dimensions forced in CSS with !important. */
 const authHeroNativeVideoClass =
@@ -219,7 +219,7 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 
   return (
     <>
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-8 md:p-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4 md:p-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/20 px-3 py-1.5 backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
@@ -230,13 +230,17 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
           </span>
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/25 to-transparent px-8 pb-10 pt-32 md:px-10 md:pb-12">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">{activeMessage.label}</p>
-        <h2 className="mt-3 max-w-xl text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/25 to-transparent px-5 pb-5 pt-14 max-md:pt-10 md:px-10 md:pb-12 md:pt-32">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55 md:text-[11px]">
+          {activeMessage.label}
+        </p>
+        <h2 className="mt-1.5 max-w-xl text-lg font-semibold leading-snug tracking-tight text-white max-md:line-clamp-2 md:mt-3 md:text-2xl md:leading-tight lg:text-3xl md:line-clamp-none">
           {activeMessage.headline}
         </h2>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/75">{activeMessage.body}</p>
-        <div className="mt-5 flex items-center gap-2">
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-white/75 max-md:line-clamp-2 md:mt-3 md:text-sm md:line-clamp-none">
+          {activeMessage.body}
+        </p>
+        <div className="mt-3 flex items-center gap-2 md:mt-5">
           {AUTH_HERO_MARKETING_COPY.map((_, i) => (
             <span
               key={i}
@@ -256,12 +260,13 @@ function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
   return (
     <div className="fixed inset-0 z-[100] flex h-dvh max-h-dvh min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
       <div
-        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-10`}
+        className={`order-2 min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:order-1 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-8 md:py-10`}
       >
         <div className="mx-auto w-full max-w-[440px]">{children}</div>
       </div>
-      <div className="relative hidden h-full min-h-0 self-stretch md:block md:overflow-hidden">
-        <div className="relative h-full min-h-0 w-full self-stretch overflow-hidden rounded-l-[28px] border-y border-l border-zinc-800/80 bg-black shadow-2xl">
+      <div className="relative order-1 h-[min(42vh,280px)] min-h-[200px] w-full shrink-0 overflow-hidden border-b border-zinc-800/80 bg-black md:order-2 md:h-full md:max-h-full md:min-h-0 md:self-stretch md:border-y md:border-l md:border-b-0">
+        {/* h-full + min-height: absolute children do not contribute to flex intrinsic height; pin box to parent */}
+        <div className="relative h-full min-h-[200px] w-full overflow-hidden shadow-2xl md:min-h-0 md:rounded-l-[28px]">
           <AuthHeroMedia isSignUp={isSignUp} />
           <AuthHeroCopy copyIndex={heroCopyIndex} />
         </div>
@@ -414,17 +419,17 @@ export default function Auth() {
   }, [isSignUpRoute, location.pathname]);
 
   if (showLocalPreviewFallback) {
-    return (
-      <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-y-contain bg-zinc-100 px-4 py-10 sm:py-14">
-        <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm sm:p-10">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Preview mode</h1>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
-            This localhost build is using a production Clerk key, so sign-in cannot load here. Add{" "}
-            <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_…</code> in{" "}
-            <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">.env.local</code>.
-          </p>
-        </div>
-      </div>
+    return shell(
+      <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm sm:p-8">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Preview mode</h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          This localhost build is using a production Clerk key, so sign-in cannot load here. Add{" "}
+          <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_…</code> in{" "}
+          <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">.env.local</code>.
+        </p>
+      </div>,
+      isSignUpRoute,
+      heroCopyIndex,
     );
   }
 

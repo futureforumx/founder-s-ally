@@ -1,17 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Activity, Wifi, ScrollText, Brain, Users } from "lucide-react";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger } from "@/components/admin/AdminAiDebugger";
 import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
+import { AdminRecordUpdates } from "@/components/admin/AdminRecordUpdates";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
   { key: "users", label: "Users", icon: Users },
+  { key: "record-updates", label: "Record updates", icon: History },
   { key: "api-health", label: "API Health", icon: Wifi },
   { key: "sync-logs", label: "Sync Logs", icon: ScrollText },
   { key: "ai-debugger", label: "AI Debugger", icon: Brain },
@@ -21,27 +23,10 @@ type AdminView = (typeof NAV_ITEMS)[number]["key"];
 
 export default function AdminIntelligence() {
   const { user, loading } = useAuth();
+  const { isAppAdmin, loading: adminLoading } = useAppAdmin();
   const [activeView, setActiveView] = useState<AdminView>("overview");
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    if (loading) return;
-    if (!user) { setAuthorized(false); return; }
-    const legacyAdmin = user.user_metadata?.role === "admin";
-    if (legacyAdmin) { setAuthorized(true); return; }
-    
-    supabase
-      .from("user_roles")
-      .select("permission")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        const perm = (data as any)?.permission;
-        setAuthorized(perm === "admin" || perm === "god");
-      });
-  }, [user, loading]);
-
-  if (loading || authorized === null) {
+  if (loading || adminLoading) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
         <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
@@ -49,7 +34,7 @@ export default function AdminIntelligence() {
     );
   }
 
-  if (!user || !authorized) {
+  if (!user || !isAppAdmin) {
     return <Navigate to="/" replace />;
   }
 
@@ -102,6 +87,7 @@ export default function AdminIntelligence() {
       <main className="flex-1 overflow-y-auto p-8">
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
+        {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
         {activeView === "ai-debugger" && <AdminAiDebugger />}

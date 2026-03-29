@@ -205,7 +205,7 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
           onError={handleError}
         />
       ) : (
-        <span className="font-bold text-muted-foreground">{initial}</span>
+        <span className="font-bold text-foreground/70">{initial}</span>
       )}
     </div>
   );

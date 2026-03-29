@@ -84,8 +84,8 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
       const db = new Date(b.created_at).getTime();
       if (reviewSort === "latest") return db - da;
       if (reviewSort === "earliest") return da - db;
-      if (reviewSort === "highest") return b.nps - a.nps;
-      return a.nps - b.nps;
+      if (reviewSort === "highest") return (b.nps ?? -1) - (a.nps ?? -1);
+      return (a.nps ?? -1) - (b.nps ?? -1);
     });
     return copy;
   }, [rows, reviewSort]);
@@ -241,6 +241,7 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
                 const vote = votes[origIdx] ?? null;
                 const label = INTERACTION_DISPLAY[review.interaction_type] ?? review.interaction_type;
                 const when = formatRatingWhen(review);
+                const npsScore = review.nps ?? 0;
                 const snippet =
                   review.comment?.trim() ||
                   review.interaction_detail?.trim() ||
@@ -252,14 +253,14 @@ export function FeedbackTab({ investorName, vcFirmId, onLogInteraction }: Feedba
                   >
                     <div
                       className={`flex items-center justify-center h-7 w-7 rounded-lg border text-[11px] font-black shrink-0 ${
-                        review.nps >= 8
+                        npsScore >= 8
                           ? "border-success/30 bg-success/10 text-success"
-                          : review.nps >= 5
+                          : npsScore >= 5
                             ? "border-warning/30 bg-warning/10 text-warning"
                             : "border-destructive/30 bg-destructive/10 text-destructive"
                       }`}
                     >
-                      {review.nps}
+                      {npsScore}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

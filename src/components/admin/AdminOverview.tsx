@@ -1,4 +1,4 @@
-import { Activity, Wifi, ScrollText, Brain, ArrowRight } from "lucide-react";
+import { Wifi, ScrollText, Brain, ArrowRight, History } from "lucide-react";
 
 const STATS = [
   { label: "Active Integrations", value: "7/7", color: "#39FF14" },
@@ -7,7 +7,7 @@ const STATS = [
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
 
-type AdminView = "overview" | "api-health" | "sync-logs" | "ai-debugger";
+type AdminView = "overview" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
 
 interface AdminOverviewProps {
   onNavigate: (view: AdminView) => void;
@@ -42,8 +42,9 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
+          { key: "record-updates", icon: History, title: "Record updates", desc: "Latest changes across firms, investors, companies, users" },
           { key: "api-health", icon: Wifi, title: "API Health", desc: "Monitor 7 integration endpoints" },
           { key: "sync-logs", icon: ScrollText, title: "Sync Logs", desc: "Search the sync black box" },
           { key: "ai-debugger", icon: Brain, title: "AI Debugger", desc: "Inspect semantic intelligence" },

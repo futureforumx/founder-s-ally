@@ -9,18 +9,24 @@ export type VcRatingRow = {
   score_feedback: number | null;
   score_follow_thru: number | null;
   score_value_add: number | null;
-  nps: number;
+  nps: number | null;
   comment: string | null;
   anonymous: boolean;
   verified: boolean;
+  is_draft?: boolean;
   created_at: string;
 };
 
 export const INTERACTION_DISPLAY: Record<string, string> = {
-  meeting: "Meeting/Call",
-  email: "Email",
+  meeting: "Meeting / event",
+  email: "Email / outbound",
   intro: "Intro",
+  passed: "Passed",
+  ongoing: "Ongoing",
   other: "Other",
+  investor_relationship: "Investor relationship",
+  review_draft: "Draft review",
+  review_draft_investor: "Draft review",
 };
 
 export function rowDimensionalAvg(row: VcRatingRow): number | null {
@@ -44,16 +50,19 @@ export function npsIndex(npsScores: number[]): number {
 }
 
 export function aggregateVcRatings(rows: VcRatingRow[]) {
+  const published = rows.filter((r) => !r.is_draft);
   const byType = new Map<string, VcRatingRow[]>();
-  for (const r of rows) {
+  for (const r of published) {
     const k = r.interaction_type || "other";
     const arr = byType.get(k) ?? [];
     arr.push(r);
     byType.set(k, arr);
   }
-  const avgs = rows.map(rowDimensionalAvg).filter((x): x is number => x != null);
+  const avgs = published.map(rowDimensionalAvg).filter((x): x is number => x != null);
   const overallStars = avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
-  const npsScores = rows.map((r) => r.nps);
+  const npsScores = published
+    .filter((r) => typeof r.nps === "number")
+    .map((r) => r.nps as number);
   const breakdown = [...byType.entries()]
     .map(([interactionType, list]) => {
       const das = list.map(rowDimensionalAvg).filter((x): x is number => x != null);
@@ -62,7 +71,7 @@ export function aggregateVcRatings(rows: VcRatingRow[]) {
     })
     .sort((a, b) => b.count - a.count);
   return {
-    count: rows.length,
+    count: published.length,
     overallStars,
     nps: npsIndex(npsScores),
     breakdown,

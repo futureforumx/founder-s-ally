@@ -19,7 +19,8 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
-import { useInvestorProfileByName } from "@/hooks/useInvestorProfile";
+import { useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
+import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +49,31 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
+function investorPartnerToVCPerson(p: InvestorPartner, firmId: string): VCPerson {
+  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  return {
+    id: p.id,
+    full_name: p.full_name,
+    title: p.title,
+    firm_id: firmId,
+    first_name: parts[0] ?? null,
+    last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
+    is_active: p.is_active,
+  } as VCPerson;
+}
+
+function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
+  return {
+    id: p.id,
+    full_name: p.full_name,
+    title: p.title ?? null,
+    firm_id: firmId,
+    first_name: p.first_name ?? null,
+    last_name: p.last_name ?? null,
+    is_active: p.is_active ?? true,
+  } as VCPerson;
+}
+
 export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm, initialTab }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -65,8 +91,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
   // ── Investor mapping — determines which review form to show ──
   const investorName = investor?.name || vcFirm?.name || null;
-  const { isMapped: investorIsMappedToProfile, mappingRecordId } =
-    useInvestorMapping(investorName);
+  const {
+    isMapped: investorIsMappedToProfile,
+    mappingRecordId,
+    loading: investorMappingLoading,
+  } = useInvestorMapping(investorName);
 
   // ── Live data hook ──
   const liveQuery = useInvestorProfileByName(
@@ -96,6 +125,54 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
   const displayName = effectiveInvestor?.name || "";
+
+  const databaseFirmId = liveProfile?.id ?? resolvedFirmId ?? null;
+
+  const mergedPartners = useMemo((): VCPerson[] => {
+    const firmKey = databaseFirmId ?? vcFirm?.id ?? "";
+    const byName = new Map<string, VCPerson>();
+
+    for (const p of liveProfile?.partners ?? []) {
+      byName.set(
+        p.full_name.toLowerCase().trim(),
+        investorPartnerToVCPerson(p, firmKey || p.id)
+      );
+    }
+    for (const p of vcPartners) {
+      const k = p.full_name.toLowerCase().trim();
+      if (!byName.has(k)) byName.set(k, p);
+    }
+    if (byName.size === 0 && effectiveInvestor?.name) {
+      for (const p of getPartnersForFirm(effectiveInvestor.name)) {
+        const k = p.full_name.toLowerCase().trim();
+        if (!byName.has(k)) byName.set(k, partnerPersonToVCPerson(p, firmKey || vcFirm?.id || p.id));
+      }
+    }
+    return Array.from(byName.values());
+  }, [
+    liveProfile?.partners,
+    liveProfile?.id,
+    vcPartners,
+    databaseFirmId,
+    vcFirm?.id,
+    effectiveInvestor?.name,
+    resolvedFirmId,
+  ]);
+
+  const partnerNamesLower = useMemo(
+    () => new Set(mergedPartners.map((p) => p.full_name.toLowerCase().trim())),
+    [mergedPartners]
+  );
+
+  const reviewCardContactOptions = useMemo(
+    () =>
+      mergedPartners.map((p) => ({
+        id: p.id,
+        label: p.full_name,
+        subtitle: p.title?.trim() || null,
+      })),
+    [mergedPartners]
+  );
 
   useEffect(() => {
     if (!displayName) { setEnrichedData(null); return; }
@@ -165,9 +242,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
   const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
-  const heroPartnerCount = liveProfile?.partners?.length ?? (vcPartners.length > 0 ? vcPartners.length : null);
+  const heroPartnerCount = mergedPartners.length > 0 ? mergedPartners.length : null;
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
-  const heroLastSynced = liveProfile?.last_enriched_at ? new Date(liveProfile.last_enriched_at) : enrichedData ? new Date(enrichedData.profile.lastVerified) : null;
+  const heroLastSynced = liveProfile?.last_enriched_at
+    ? new Date(liveProfile.last_enriched_at)
+    : enrichedData?.profile?.lastVerified
+      ? new Date(enrichedData.profile.lastVerified)
+      : null;
 
   const metaFacts = [
     { label: "AUM", value: heroAum },
@@ -307,7 +388,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={effectiveInvestor.name} firmId={resolvedFirmId || vcFirm?.id} />
+                        <InvestorActivity firmName={effectiveInvestor.name} firmId={databaseFirmId ?? vcFirm?.id ?? undefined} />
                       </motion.div>
                     )}
 
@@ -330,16 +411,30 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
 
                     {activeTab === "Portfolio" && (
                       <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <PortfolioTab companySector={effectiveInvestor.sector} onInvestorClick={(name) => {
-                          const match = vcPartners.find(p => p.full_name.toLowerCase() === name.toLowerCase());
-                          if (match && onSelectPerson) onSelectPerson(match);
-                        }} />
+                        <PortfolioTab
+                          companySector={companyData?.sector || effectiveInvestor.sector}
+                          firmDeals={liveProfile?.source === "live" ? liveProfile.deals : undefined}
+                          portfolioLoading={liveLoading && !liveProfile}
+                          leadPartnerName={liveProfile?.lead_partner}
+                          partnerNamesLower={partnerNamesLower}
+                          onInvestorClick={(name) => {
+                            const match = mergedPartners.find(
+                              (p) => p.full_name.toLowerCase() === name.toLowerCase()
+                            );
+                            if (match && onSelectPerson) onSelectPerson(match);
+                          }}
+                        />
                       </motion.div>
                     )}
 
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <InvestorPartnersTab firmId={vcFirm?.id || ""} firmName={effectiveInvestor.name} partners={vcPartners} onSelectPerson={onSelectPerson} />
+                        <InvestorPartnersTab
+                          firmId={databaseFirmId ?? vcFirm?.id ?? ""}
+                          firmName={effectiveInvestor.name}
+                          partners={mergedPartners}
+                          onSelectPerson={onSelectPerson}
+                        />
                       </motion.div>
                     )}
 
@@ -347,7 +442,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       <motion.div key="feedback" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <FeedbackTab
                           investorName={effectiveInvestor.name}
-                          vcFirmId={vcFirm?.id ?? null}
+                          vcFirmId={databaseFirmId ?? vcFirm?.id ?? null}
                           onLogInteraction={() => setReviewOpen(true)}
                         />
                       </motion.div>
@@ -358,7 +453,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <ConnectionsTab
                           investorName={effectiveInvestor.name}
                           currentUserId={session?.user?.id}
-                          investorId={resolvedFirmId || liveProfile?.id || null}
+                          investorId={databaseFirmId || null}
                           isAdmin={isAdmin}
                           location={heroLocation || null}
                         />
@@ -376,9 +471,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         firmName={heroName}
-        vcFirmId={vcFirm?.id ?? null}
+        vcFirmId={databaseFirmId ?? vcFirm?.id ?? null}
+        cardLinkedContactOptions={reviewCardContactOptions}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
+        investorMappingLoading={investorMappingLoading}
       />
     </AnimatePresence>
   );
