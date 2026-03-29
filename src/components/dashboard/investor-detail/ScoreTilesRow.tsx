@@ -363,7 +363,7 @@ export function ScoreTilesRow({
   return (
     <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-2 w-fit">
+      <div className="flex gap-3 w-fit">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
           const colors = colorTokens(tile.value);
@@ -375,51 +375,46 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "relative w-[90px] h-[62px] overflow-hidden",
-                "flex flex-col items-center justify-center gap-0",
-                "rounded-xl transition-all duration-200 select-none cursor-pointer",
+                "group relative overflow-hidden rounded-2xl p-4 min-w-[104px]",
+                "flex flex-col items-start gap-0",
+                "transition-all duration-200 select-none cursor-pointer",
                 isActive
                   ? `${colors.activeTintBg} ${colors.activeBorder} border`
-                  : "bg-secondary/50 hover:bg-secondary/70",
+                  : "bg-muted/40 hover:bg-muted/60 hover:-translate-y-0.5",
               ].join(" ")}
             >
-              {/* Label — above number */}
-              <span className="text-[9px] tracking-widest uppercase font-semibold text-muted-foreground/50 leading-none mb-1.5">
+              {/* Label */}
+              <span className="text-[10px] tracking-wide font-medium text-muted-foreground/70 leading-none mb-1.5">
                 {tile.shortLabel}
               </span>
 
-              {/* Score */}
-              <span
-                className={[
-                  "text-[21px] font-bold leading-none tabular-nums",
-                  isActive ? colors.valueCls : colors.subtleCls,
-                ].join(" ")}
-              >
-                {tile.value}
-              </span>
+              {/* Score + glow */}
+              <div className="relative mb-1">
+                <span className={["text-4xl font-semibold leading-none tabular-nums", colors.valueCls].join(" ")}>
+                  {tile.value}
+                </span>
+                <div className={["absolute inset-0 blur-xl opacity-20 rounded-full", colors.barCls].join(" ")} />
+              </div>
 
               {/* Caption */}
-              <span className="text-[9.5px] text-muted-foreground/40 leading-none mt-1.5">
+              <span className="text-[11px] text-muted-foreground/60 leading-none">
                 {caption}
               </span>
 
-              {/* Bottom progress bar */}
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-border/10 overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-500 ${colors.barCls} ${isActive ? "opacity-100" : "opacity-35"}`}
-                  style={{ width: `${tile.value}%` }}
+              {/* Progress bar */}
+              <div className="mt-3 h-1 w-full rounded-full bg-muted/60">
+                <motion.div
+                  className={`h-1 rounded-full ${colors.barCls}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${tile.value}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
                 />
               </div>
 
-              {/* Chevron — bottom-right */}
-              <ChevronDown
-                className={[
-                  "absolute bottom-[10px] right-1.5 w-2.5 h-2.5 transition-all duration-200",
-                  isActive
-                    ? "text-muted-foreground/50 rotate-0"
-                    : "text-muted-foreground/25 -rotate-90",
-                ].join(" ")}
-              />
+              {/* Shimmer line */}
+              <div className={["absolute bottom-0 left-0 h-[2px] w-full overflow-hidden", colors.barCls + "/20"].join(" ")}>
+                <div className={["h-full w-1/3 animate-shimmer", colors.barCls + "/60"].join(" ")} />
+              </div>
             </button>
           );
         })}

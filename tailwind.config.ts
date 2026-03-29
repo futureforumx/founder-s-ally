@@ -264,6 +264,10 @@ export default {
           "75%": { transform: "translateX(-2px)" },
           "90%": { transform: "translateX(2px)" },
         },
+        "shimmer": {
+          "0%": { transform: "translateX(-150%)" },
+          "100%": { transform: "translateX(400%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -279,6 +283,7 @@ export default {
         "slide-in-from-right": "slide-in-from-right 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
         "drop-in": "drop-in 0.3s ease-out forwards",
         "shake": "shake 0.4s ease-in-out",
+        "shimmer": "shimmer 2.5s linear infinite",
       },
     },
   },
