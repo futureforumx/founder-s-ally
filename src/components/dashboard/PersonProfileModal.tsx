@@ -17,6 +17,39 @@ interface PersonProfileModalProps {
   onNavigateToFirm: (firmId: string) => void;
 }
 
+/* ── Firm favicon component ── */
+function FirmFavicon({ websiteUrl, logoUrl, name }: { websiteUrl: string | null; logoUrl: string | null; name: string }) {
+  const domain = (() => {
+    try {
+      if (websiteUrl) return new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`).hostname.replace(/^www\./, "");
+      return null;
+    } catch { return null; }
+  })();
+  const [src, setSrc] = useState<string | null>(
+    logoUrl || (domain ? `https://logo.clearbit.com/${domain}` : null)
+  );
+  const [failed, setFailed] = useState(false);
+
+  if (failed || !src) {
+    return <span className="text-[10px] font-bold text-muted-foreground/60 bg-secondary rounded px-1">{name.charAt(0).toUpperCase()}</span>;
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-3.5 w-3.5 rounded-sm object-contain"
+      onError={() => {
+        if (src.includes("clearbit") && domain) {
+          setSrc(`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+}
+
 /* ── Mock data for personal intelligence ── */
 const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
 
@@ -106,18 +139,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         <MapPin className="w-3 h-3" /> San Francisco, CA
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {firm && (
                         <button
                           onClick={() => onNavigateToFirm(firm.id)}
-                          className="bg-accent/10 text-accent hover:bg-accent/20 px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          🏛️ {firm.name}
+                          <FirmFavicon websiteUrl={firm.website_url} logoUrl={firm.logo_url} name={firm.name} />
+                          {firm.name}
                         </button>
                       )}
-                      <span className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-default">
-                        👔 {person.title || "Investor"}
-                      </span>
+                      {person.title && (
+                        <span className="text-xs text-muted-foreground">
+                          {person.title}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
