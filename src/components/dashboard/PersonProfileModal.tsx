@@ -111,10 +111,18 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
 
+  const reviewFirmDisplayName =
+    firm?.name?.trim() ||
+    person?.primary_firm_name?.trim() ||
+    person?.affiliations?.find((a) => a.is_primary)?.firm_name?.trim() ||
+    person?.affiliations?.[0]?.firm_name?.trim() ||
+    "";
+  const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+
   const {
     isMapped: investorIsMappedToProfile,
     mappingRecordId,
-  } = useInvestorMapping(firm?.name ?? null);
+  } = useInvestorMapping(reviewFirmDisplayName || null);
 
   const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
 
@@ -195,15 +203,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
                 {/* ── Quick-Contact Bar ── */}
                 <div className="flex flex-wrap gap-3 mb-6">
-                  {firm?.id && (
-                    <button
-                      type="button"
-                      onClick={() => setReviewOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-4 py-2 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
-                    >
-                      <Star className="h-4 w-4" /> Rate
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setReviewOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border-2 border-warning/30 px-4 py-2 text-sm font-semibold text-warning hover:bg-warning/5 transition-colors"
+                  >
+                    <Star className="h-4 w-4" /> Rate
+                  </button>
                   {person.email ? (
                     emailRevealed ? (
                       <a
@@ -352,20 +358,18 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
             </motion.div>
           </div>
 
-          {firm && (
-            <ReviewSubmissionModal
-              open={reviewOpen}
-              onClose={() => setReviewOpen(false)}
-              firmName={firm.name}
-              firmLogoUrl={firm.logo_url ?? null}
-              firmWebsiteUrl={firm.website_url ?? null}
-              vcFirmId={firm.id}
-              personId={person.id}
-              personName={person.full_name}
-              investorIsMappedToProfile={investorIsMappedToProfile}
-              mappingRecordId={mappingRecordId}
-            />
-          )}
+          <ReviewSubmissionModal
+            open={reviewOpen}
+            onClose={() => setReviewOpen(false)}
+            firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
+            firmLogoUrl={firm?.logo_url ?? null}
+            firmWebsiteUrl={firm?.website_url ?? null}
+            vcFirmId={reviewVcFirmId}
+            personId={person?.id ?? ""}
+            personName={person?.full_name}
+            investorIsMappedToProfile={investorIsMappedToProfile}
+            mappingRecordId={mappingRecordId}
+          />
         </>
       )}
     </AnimatePresence>

@@ -23,6 +23,7 @@ interface SmartComboboxProps {
   required?: boolean;
   /** Highlights the field as invalid (e.g. after a failed submit). */
   invalid?: boolean;
+  maxLength?: number;
 }
 
 export function SmartCombobox({
@@ -36,6 +37,7 @@ export function SmartCombobox({
   highlightSync = false,
   required = false,
   invalid = false,
+  maxLength,
 }: SmartComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -129,6 +131,7 @@ export function SmartCombobox({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          maxLength={maxLength}
           required={required}
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}

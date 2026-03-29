@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2, Lock, X } from "lucide-react";
+import { Search, UserPlus, Loader2, Sparkles, ChevronDown, Check, CheckCircle2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -240,33 +240,22 @@ export function MissionControlInvestors({
 
   const allBackers = backers.map(b => ({ ...b, ...overrides[b.id] }));
 
-  const isLocked = !previousSectionApproved;
-
   return (
     <Collapsible
-      open={isLocked ? false : isOpen}
-      onOpenChange={v => !isLocked && setIsOpen(v)}
-      className={`rounded-xl border transition-all duration-300 ${
-        isLocked
-          ? "border-border/50 bg-card/50 opacity-60"
-          : "border-border bg-card"
-      }`}
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="rounded-xl border border-border bg-card transition-all duration-300"
     >
-      <CollapsibleTrigger asChild disabled={isLocked}>
+      <CollapsibleTrigger asChild>
         <button
-          className={`w-full flex items-center justify-between p-6 text-left transition-all ${
-            isLocked ? "cursor-not-allowed" : "cursor-pointer"
-          }`}
+          type="button"
+          className="w-full flex items-center justify-between p-6 text-left transition-all cursor-pointer"
         >
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
             <PhosphorHandshake className="h-3.5 w-3.5 text-accent" /> Investors
             {renderStatusDot()}
           </h3>
-          {isLocked ? (
-            <Lock className="h-4 w-4 text-muted-foreground/40" />
-          ) : (
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-          )}
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
         </button>
       </CollapsibleTrigger>
 

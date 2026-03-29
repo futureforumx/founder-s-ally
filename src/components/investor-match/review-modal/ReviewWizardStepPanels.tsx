@@ -1,36 +1,238 @@
 import type { ReactNode } from "react";
+import {
+  CalendarDays,
+  Check,
+  Handshake,
+  Inbox,
+  Link2,
+  Mail,
+  MapPin,
+  MessageSquare,
+  MoreHorizontal,
+  Phone,
+  Send,
+  Share2,
+  Users,
+  UsersRound,
+  Video,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import type { FormQuestion, ReviewFormConfig } from "@/lib/buildReviewFormConfig";
 import {
-  shouldShowFollowUpAfterEventQuestion,
-  shouldShowRememberWhoSection,
-} from "@/lib/buildReviewFormConfig";
+  EngageSentimentScale,
+  OverallInteractionScale,
+} from "@/components/investor-match/review-modal/ReviewWizardParts";
+// Imports removed for unused functions (replaced with direct logic)
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS } from "@/lib/reviewFormContent";
 import { cn } from "@/lib/utils";
+import {
+  reviewWizardChipFocus,
+  reviewWizardChipIdle,
+  reviewWizardChipSelected,
+  reviewWizardOptionRow,
+  reviewWizardOptionRowBtn,
+  reviewWizardOptionRowBtnCompact,
+  reviewWizardOptionRowCompact,
+  reviewWizardQuestionLabelClass,
+} from "@/components/investor-match/review-modal/reviewWizardUi";
+
+const UNLINKED_CONTEXT_TEXT_IDS = new Set([
+  "interaction_intro_other",
+  "interaction_cold_inbound_social_other",
+  "interaction_event_type_other",
+]);
+
+const RELATIONSHIP_ORIGIN_OTHER_COMBO_OPTIONS: ComboboxOption[] =
+  RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS.map((s) => ({ value: s, label: s }));
+
+function RelationshipOriginOtherField({
+  value,
+  onChange,
+  compact,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <SmartCombobox
+      value={value}
+      onChange={onChange}
+      options={RELATIONSHIP_ORIGIN_OTHER_COMBO_OPTIONS}
+      placeholder="Select a suggestion or type your own"
+      required
+      maxLength={200}
+      className={cn(
+        "w-full max-w-md",
+        compact && "[&_input]:h-8 [&_input]:py-1 [&_input]:text-xs",
+      )}
+    />
+  );
+}
+
+const RELATIONSHIP_ORIGIN_ICONS: Record<string, LucideIcon> = {
+  "Warm intro": Handshake,
+  "Cold inbound": Inbox,
+  "Cold outbound": Send,
+  Event: CalendarDays,
+  Community: UsersRound,
+  "Existing relationship": Link2,
+  Other: MoreHorizontal,
+};
+
+function RelationshipOriginSelect({
+  options,
+  value,
+  onChange,
+  compact,
+}: {
+  options: string[];
+  value: string | null;
+  onChange: (v: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={cn("flex flex-wrap", compact ? "gap-1.5" : "gap-2")}
+      role="listbox"
+      aria-label="Relationship origin"
+    >
+      {options.map((opt) => {
+        const Icon = RELATIONSHIP_ORIGIN_ICONS[opt];
+        const selected = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            onClick={() => onChange(opt)}
+            className={cn(
+              "inline-flex items-center rounded-full border font-medium transition-all duration-150",
+              compact
+                ? "gap-1.5 px-2 py-1 text-[11px] leading-tight"
+                : "gap-2 px-2.5 py-1.5 text-xs",
+              reviewWizardChipFocus,
+              selected ? reviewWizardChipSelected : reviewWizardChipIdle,
+            )}
+          >
+            {Icon ? (
+              <Icon
+                className={cn("shrink-0 opacity-90", compact ? "h-3 w-3" : "h-3.5 w-3.5")}
+                aria-hidden
+              />
+            ) : null}
+            <span>{opt}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Yes / No with check and × for event follow-up question. */
+function EventFollowUpYesNoSelect({
+  options,
+  value,
+  onChange,
+  compact,
+}: {
+  options: string[];
+  value: string | null;
+  onChange: (v: string) => void;
+  compact?: boolean;
+}) {
+  const iconFor = (opt: string): LucideIcon | null => {
+    if (opt === "Yes") return Check;
+    if (opt === "No") return X;
+    return null;
+  };
+
+  return (
+    <div
+      className={compact ? reviewWizardOptionRowCompact : reviewWizardOptionRow}
+      role="listbox"
+      aria-label="Follow-up after the event"
+    >
+      {options.map((opt) => {
+        const Icon = iconFor(opt);
+        const selected = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            aria-label={opt}
+            onClick={() => onChange(opt)}
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150",
+              compact
+                ? "min-h-9 gap-0.5 py-1 sm:min-h-9"
+                : "min-h-[2.75rem] gap-1 py-2 sm:min-h-11",
+              reviewWizardChipFocus,
+              selected ? reviewWizardChipSelected : reviewWizardChipIdle,
+            )}
+          >
+            {Icon ? (
+              <Icon
+                className={cn("shrink-0 opacity-90", compact ? "h-3 w-3" : "h-3.5 w-3.5")}
+                aria-hidden
+              />
+            ) : null}
+            <span
+              className={cn(
+                "font-medium leading-none",
+                compact ? "text-[10px] sm:text-[11px]" : "text-[11px] sm:text-xs",
+              )}
+            >
+              {opt}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function SingleSelect({
   options,
   value,
   onChange,
+  ariaLabel,
+  compact,
 }: {
   options: string[];
   value: string | null;
   onChange: (v: string) => void;
+  /** Falls back to first option context. */
+  ariaLabel?: string;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div
+      className={compact ? reviewWizardOptionRowCompact : reviewWizardOptionRow}
+      role="listbox"
+      aria-label={ariaLabel ?? "Choose one"}
+    >
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
+          role="option"
+          aria-selected={value === opt}
+          title={opt}
           onClick={() => onChange(opt)}
           className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            value === opt
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
+            compact ? reviewWizardOptionRowBtnCompact : reviewWizardOptionRowBtn,
+            reviewWizardChipFocus,
+            value === opt ? reviewWizardChipSelected : reviewWizardChipIdle,
           )}
         >
           {opt}
@@ -40,14 +242,26 @@ function SingleSelect({
   );
 }
 
-function MultiSelect({
+const INTERACTION_HOW_ICONS: Record<string, LucideIcon> = {
+  "In-Person": MapPin,
+  Video,
+  Group: Users,
+  "1:1": MessageSquare,
+  Email: Mail,
+  Social: Share2,
+  Phone,
+};
+
+function InteractionHowMultiSelect({
   options,
   selected,
   onChange,
+  compact,
 }: {
   options: string[];
   selected: string[];
   onChange: (v: string[]) => void;
+  compact?: boolean;
 }) {
   const toggle = (opt: string) => {
     onChange(
@@ -56,17 +270,91 @@ function MultiSelect({
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div
+      className={compact ? reviewWizardOptionRowCompact : reviewWizardOptionRow}
+      role="group"
+      aria-label="How did you interact"
+    >
+      {options.map((opt) => {
+        const Icon = INTERACTION_HOW_ICONS[opt];
+        const isOn = selected.includes(opt);
+        return (
+          <button
+            key={opt}
+            type="button"
+            aria-pressed={isOn}
+            aria-label={opt}
+            title={opt}
+            onClick={() => toggle(opt)}
+            className={cn(
+              "flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg border text-center transition-all duration-150",
+              compact
+                ? "min-h-10 gap-0 px-0.5 py-1 sm:min-h-10 sm:py-1"
+                : "min-h-[3.25rem] gap-0.5 px-0.5 py-1.5 sm:min-h-[3.5rem] sm:gap-1 sm:px-1",
+              reviewWizardChipFocus,
+              isOn ? reviewWizardChipSelected : reviewWizardChipIdle,
+            )}
+          >
+            {Icon ? (
+              <Icon
+                className={cn(
+                  "shrink-0 opacity-90",
+                  compact ? "h-2.5 w-2.5 sm:h-3 sm:w-3" : "h-3 w-3 sm:h-3.5 sm:w-3.5",
+                )}
+                aria-hidden
+              />
+            ) : null}
+            <span
+              className={cn(
+                "font-medium leading-tight",
+                compact ? "text-[8px] sm:text-[9px]" : "text-[9px] sm:text-[10px]",
+              )}
+            >
+              {opt}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  ariaLabel,
+  compact,
+}: {
+  options: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+  ariaLabel?: string;
+  compact?: boolean;
+}) {
+  const toggle = (opt: string) => {
+    onChange(
+      selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt],
+    );
+  };
+
+  return (
+    <div
+      className={compact ? reviewWizardOptionRowCompact : reviewWizardOptionRow}
+      role="group"
+      aria-label={ariaLabel ?? "Select any"}
+    >
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
+          aria-pressed={selected.includes(opt)}
+          title={opt}
           onClick={() => toggle(opt)}
           className={cn(
-            "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-            selected.includes(opt)
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40 hover:bg-secondary/70",
+            compact ? reviewWizardOptionRowBtnCompact : reviewWizardOptionRowBtn,
+            reviewWizardChipFocus,
+            selected.includes(opt) ? reviewWizardChipSelected : reviewWizardChipIdle,
           )}
         >
           {opt}
@@ -81,21 +369,42 @@ function QuestionBlock({
   label,
   optional,
   children,
+  showIndex = true,
+  compact,
 }: {
   index: number;
   label: string;
   optional?: boolean;
   children: ReactNode;
+  /** When false, only the label row is shown (e.g. sub-prompts under a numbered section). */
+  showIndex?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <section className="space-y-2">
-      <p className="text-xs font-bold text-foreground flex items-start gap-1.5">
-        <span className="text-base leading-none shrink-0">{index}.</span>
-        <span>
-          {label}
-          {optional && (
-            <span className="font-normal text-muted-foreground ml-1">(optional)</span>
+    <section className={compact ? "space-y-1" : "space-y-2"}>
+      <p className={cn("flex items-start", compact ? "gap-1" : "gap-1.5")}>
+        {showIndex ? (
+          <span
+            className={cn(
+              "font-bold leading-none shrink-0 tabular-nums text-muted-foreground",
+              compact ? "text-[10px] pt-0" : "text-[11px] pt-0.5",
+            )}
+          >
+            {index}.
+          </span>
+        ) : null}
+        <span
+          className={cn(
+            reviewWizardQuestionLabelClass,
+            compact && "text-[9px] leading-tight tracking-[0.06em]",
           )}
+        >
+          <span className="uppercase">{label}</span>
+          {optional ? (
+            <span className="ml-1.5 font-normal normal-case tracking-normal text-[9px] text-muted-foreground">
+              (optional)
+            </span>
+          ) : null}
         </span>
       </p>
       {children}
@@ -108,21 +417,73 @@ function renderNonTextQuestion(
   displayIndex: number,
   answers: Record<string, string | string[]>,
   setAnswer: (id: string, value: string | string[]) => void,
+  opts?: { showQuestionNumber?: boolean; compact?: boolean },
 ) {
+  const showQuestionNumber = opts?.showQuestionNumber !== false;
+  const compact = opts?.compact === true;
   return (
-    <QuestionBlock key={q.id} index={displayIndex} label={q.label} optional={q.optional}>
-      {q.type === "single_select" && (
-        <SingleSelect
-          options={q.options ?? []}
-          value={(answers[q.id] as string) ?? null}
-          onChange={(v) => setAnswer(q.id, v)}
+    <QuestionBlock
+      key={q.id}
+      index={displayIndex}
+      label={q.label}
+      optional={q.optional}
+      showIndex={showQuestionNumber}
+      compact={compact}
+    >
+      {q.type === "single_select" &&
+        (q.id === "interaction_intro" ? (
+          <RelationshipOriginSelect
+            options={q.options ?? []}
+            value={(answers[q.id] as string) ?? null}
+            onChange={(v) => setAnswer(q.id, v)}
+            compact={compact}
+          />
+        ) : q.id === "interaction_event_followup" ? (
+          <EventFollowUpYesNoSelect
+            options={q.options ?? []}
+            value={(answers[q.id] as string) ?? null}
+            onChange={(v) => setAnswer(q.id, v)}
+            compact={compact}
+          />
+        ) : (
+          <SingleSelect
+            options={q.options ?? []}
+            value={(answers[q.id] as string) ?? null}
+            onChange={(v) => setAnswer(q.id, v)}
+            ariaLabel={q.label}
+            compact={compact}
+          />
+        ))}
+      {q.type === "multi_select" &&
+        (q.id === "interaction_how" ? (
+          <InteractionHowMultiSelect
+            options={q.options ?? []}
+            selected={(answers[q.id] as string[]) ?? []}
+            onChange={(v) => setAnswer(q.id, v)}
+            compact={compact}
+          />
+        ) : (
+          <MultiSelect
+            options={q.options ?? []}
+            selected={(answers[q.id] as string[]) ?? []}
+            onChange={(v) => setAnswer(q.id, v)}
+            ariaLabel={q.label}
+            compact={compact}
+          />
+        ))}
+      {q.type === "text" && q.id === "interaction_intro_other" && (
+        <RelationshipOriginOtherField
+          value={(answers.interaction_intro_other as string) ?? ""}
+          onChange={(v) => setAnswer("interaction_intro_other", v)}
+          compact={compact}
         />
       )}
-      {q.type === "multi_select" && (
-        <MultiSelect
-          options={q.options ?? []}
-          selected={(answers[q.id] as string[]) ?? []}
-          onChange={(v) => setAnswer(q.id, v)}
+      {q.type === "text" && q.id !== "interaction_intro_other" && (
+        <Input
+          value={(answers[q.id] as string) ?? ""}
+          onChange={(e) => setAnswer(q.id, e.target.value)}
+          className={cn("text-sm max-w-md", compact ? "h-8 text-xs" : "h-9")}
+          maxLength={200}
         />
       )}
     </QuestionBlock>
@@ -146,22 +507,23 @@ function TagSelector({
   return (
     <section className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-        <p className="text-xs font-bold text-foreground leading-none">How did you interact?</p>
-        <span className="text-[10px] font-medium text-muted-foreground leading-none">
+        <p className={cn(reviewWizardQuestionLabelClass, "leading-none")}>Interaction tags</p>
+        <span className="text-[9px] font-medium normal-case tracking-normal text-muted-foreground leading-none">
           Select all that apply
         </span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 [scrollbar-gutter:stable] sm:gap-1.5">
         {tags.map((tag) => (
           <button
             key={tag}
             type="button"
+            aria-pressed={selected.includes(tag)}
+            title={tag}
             onClick={() => toggle(tag)}
             className={cn(
-              "px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all duration-150",
-              selected.includes(tag)
-                ? "border-warning/60 bg-warning/10 text-warning-foreground"
-                : "border-border bg-secondary/30 text-muted-foreground hover:border-warning/30 hover:bg-secondary/60",
+              "shrink-0 max-w-[6rem] rounded-lg border px-2 py-2 text-center text-[9px] font-medium leading-tight transition-all duration-150 [text-wrap:balance] sm:max-w-[7rem] sm:px-2.5 sm:text-[10px] sm:leading-snug",
+              reviewWizardChipFocus,
+              selected.includes(tag) ? reviewWizardChipSelected : reviewWizardChipIdle,
             )}
           >
             {tag}
@@ -183,16 +545,17 @@ function RememberWhoSmartChips({
   return (
     <div className="mt-2 space-y-1.5">
       <p className="text-[10px] font-medium text-muted-foreground">Popular investors</p>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex w-full max-w-full flex-nowrap gap-1 overflow-x-auto py-0.5 sm:gap-1.5">
         {names.map((name) => (
           <button
             key={name}
             type="button"
+            title={name}
             onClick={() => onPick(name)}
             className={cn(
-              "rounded-full border border-dashed px-2.5 py-1 text-[11px] font-medium transition-colors",
+              "shrink-0 rounded-lg border border-dashed px-2.5 py-1.5 text-[10px] font-medium transition-colors",
               "border-muted-foreground/40 bg-transparent text-muted-foreground",
-              "hover:border-accent/55 hover:bg-accent/5 hover:text-foreground",
+              "hover:border-primary/35 hover:bg-primary/5 hover:text-foreground",
             )}
           >
             {name}
@@ -233,10 +596,12 @@ export function ReviewWizardLinkedStep2({
   setAnswer: (id: string, value: string | string[]) => void;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {formConfig.questions
         .filter((q) => q.id === "standout_tags")
-        .map((q) => renderNonTextQuestion(q, 1, answers, setAnswer))}
+        .map((q) =>
+          renderNonTextQuestion(q, 1, answers, setAnswer, { compact: true }),
+        )}
     </div>
   );
 }
@@ -245,6 +610,130 @@ export function ReviewWizardUnlinkedStep1({
   formConfig,
   answers,
   setAnswer,
+  firmDisplayName,
+}: {
+  formConfig: ReviewFormConfig;
+  answers: Record<string, string | string[]>;
+  setAnswer: (id: string, value: string | string[]) => void;
+  /** Resolved firm name for the first question (matches modal header when possible). */
+  firmDisplayName: string;
+}) {
+  const name = firmDisplayName.trim() || "this firm";
+  const engageQuestion = formConfig.questions.find((q) => q.id === "would_engage_again");
+  const engageOptions = engageQuestion?.options ?? [
+    "Definitely yes",
+    "Likely yes",
+    "Maybe",
+    "Probably not",
+    "Definitely not",
+  ];
+
+  return (
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <p className="text-sm font-bold leading-snug text-foreground">
+          <span className="text-muted-foreground">1.</span> How was your experience with {name}?
+        </p>
+        <OverallInteractionScale
+          value={(answers.overall_interaction as string) ?? null}
+          onChange={(v) => setAnswer("overall_interaction", v)}
+        />
+      </section>
+      <section className="space-y-3">
+        <p className="text-sm font-bold leading-snug text-foreground">
+          <span className="text-muted-foreground">2.</span> Would you engage with this investor again?
+        </p>
+        <EngageSentimentScale
+          options={engageOptions}
+          value={(answers.would_engage_again as string) ?? null}
+          onChange={(v) => setAnswer("would_engage_again", v)}
+          ariaLabel="Would you engage with this investor again?"
+        />
+      </section>
+    </div>
+  );
+}
+
+function unlinkedContextQuestions(
+  formConfig: ReviewFormConfig,
+  answers: Record<string, string | string[]>,
+): FormQuestion[] {
+  return formConfig.questions.filter((q) => {
+    if (q.type === "text" && q.id !== "founder_note" && !UNLINKED_CONTEXT_TEXT_IDS.has(q.id))
+      return false;
+    if (
+      ["overall_interaction", "would_engage_again", "work_with_them_rating", "take_money_again", "standout_tags"].includes(
+        q.id,
+      )
+    ) {
+      return false;
+    }
+
+    const intro = answers.interaction_intro as string | undefined;
+
+    if (["interaction_intro"].includes(q.id)) return true;
+    if (q.id === "interaction_intro_other" && intro === "Other") return true;
+
+    if (q.id === "interaction_warm_intro_who" && intro === "Warm intro") return true;
+    if (q.id === "interaction_cold_inbound_discovery" && intro === "Cold inbound") return true;
+    if (
+      q.id === "interaction_cold_inbound_social_platform" &&
+      ((answers.interaction_cold_inbound_discovery as string) ?? "").toLowerCase() === "social"
+    )
+      return true;
+    if (q.id === "interaction_cold_inbound_social_other" && (answers.interaction_cold_inbound_social_platform as string) === "other")
+      return true;
+
+    if (q.id === "interaction_event_type" && intro === "Event") return true;
+    if (q.id === "interaction_event_type_other" && (answers.interaction_event_type as string) === "other") return true;
+    if (q.id === "interaction_event_followup" && intro === "Event") return true;
+    if (
+      q.id === "interaction_event_followup_first" &&
+      intro === "Event" &&
+      (answers.interaction_event_followup as string) === "Yes"
+    ) {
+      return true;
+    }
+
+    if (["interaction_how", "interaction_meeting_depth"].includes(q.id)) return true;
+
+    return false;
+  });
+}
+
+export function ReviewWizardUnlinkedStep3({
+  formConfig,
+  answers,
+  setAnswer,
+}: {
+  formConfig: ReviewFormConfig;
+  answers: Record<string, string | string[]>;
+  setAnswer: (id: string, value: string | string[]) => void;
+}) {
+  const stepQuestions = unlinkedContextQuestions(formConfig, answers);
+
+  return (
+    <div className="space-y-1.5 sm:space-y-2">
+      <section className="space-y-1.5 sm:space-y-2">
+        <p className="text-xs font-bold leading-tight text-foreground sm:text-sm sm:leading-snug">
+          <span className="text-muted-foreground">2.</span> Characterize your interaction.
+        </p>
+        <div className="flex flex-col gap-1.5 sm:gap-2">
+          {stepQuestions.map((q, i) =>
+            renderNonTextQuestion(q, i + 1, answers, setAnswer, {
+              showQuestionNumber: false,
+              compact: true,
+            }),
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function ReviewWizardUnlinkedStep4({
+  formConfig,
+  answers,
   selectedTags,
   setSelectedTags,
   rememberWho,
@@ -254,9 +743,8 @@ export function ReviewWizardUnlinkedStep1({
 }: {
   formConfig: ReviewFormConfig;
   answers: Record<string, string | string[]>;
-  setAnswer: (id: string, value: string | string[]) => void;
   selectedTags: string[];
-  setSelectedTags: (v: string[]) => void;
+  setSelectedTags: (tags: string[]) => void;
   rememberWho: string;
   setRememberWho: (v: string) => void;
   rememberWhoChipNames: string[];
@@ -264,17 +752,11 @@ export function ReviewWizardUnlinkedStep1({
 }) {
   return (
     <div className="space-y-6">
-      {formConfig.questions
-        .filter((q) => q.type !== "text")
-        .filter(
-          (q) =>
-            q.id === "interaction_type" ||
-            (q.id === "follow_up_after_event" && shouldShowFollowUpAfterEventQuestion(answers)),
-        )
-        .map((q, i) => renderNonTextQuestion(q, i + 1, answers, setAnswer))}
-      <TagSelector tags={formConfig.tags} selected={selectedTags} onChange={setSelectedTags} />
-      {shouldShowRememberWhoSection(selectedTags) ? (
-        <section className="space-y-2">
+      <p className="text-sm font-bold leading-snug text-foreground">
+        <span className="text-muted-foreground">3.</span> People &amp; tags
+      </p>
+      {Array.isArray(answers.interaction_how) && answers.interaction_how.length > 0 ? (
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <p className="text-xs font-bold text-foreground leading-none">Remember who?</p>
             <span className="text-[10px] font-medium text-muted-foreground leading-none">
@@ -289,26 +771,10 @@ export function ReviewWizardUnlinkedStep1({
             maxLength={200}
           />
           <RememberWhoSmartChips names={rememberWhoChipNames} onPick={applyRememberWhoChip} />
-        </section>
+        </div>
       ) : null}
-    </div>
-  );
-}
 
-export function ReviewWizardUnlinkedStep2({
-  formConfig,
-  answers,
-  setAnswer,
-}: {
-  formConfig: ReviewFormConfig;
-  answers: Record<string, string | string[]>;
-  setAnswer: (id: string, value: string | string[]) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      {formConfig.questions
-        .filter((q) => ["overall_interaction", "response_time", "would_engage_again"].includes(q.id))
-        .map((q, i) => renderNonTextQuestion(q, i + 1, answers, setAnswer))}
+      <TagSelector tags={formConfig.tags} selected={selectedTags} onChange={setSelectedTags} />
     </div>
   );
 }

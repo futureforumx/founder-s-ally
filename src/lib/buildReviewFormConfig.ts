@@ -1,3 +1,16 @@
+import {
+  CHARACTERIZE_INTERACTION_HOW,
+  CHARACTERIZE_MEETING_DEPTH_OPTIONS,
+  CHARACTERIZE_INTRO_OPTIONS,
+  CHARACTERIZE_WARM_INTRO_WHO_INITIATED,
+  CHARACTERIZE_COLD_INBOUND_DISCOVERY,
+  CHARACTERIZE_COLD_INBOUND_SOCIAL_PLATFORMS,
+  CHARACTERIZE_EVENT_TYPES,
+  CHARACTERIZE_EVENT_FOLLOWUP,
+  CHARACTERIZE_EVENT_FOLLOWUP_FIRST,
+  NON_INVESTOR_SCORE_TAG_TIERS,
+} from "@/lib/reviewFormContent";
+
 // ---------------------------------------------------------------------------
 // buildReviewFormConfig.ts
 // Builds the full review form JSON config for a given investor/firm context.
@@ -55,54 +68,37 @@ export interface BuildReviewFormParams {
 }
 
 // ---------------------------------------------------------------------------
-// Non-investor interaction tags
+// Show conditions for conditional fields
 // ---------------------------------------------------------------------------
-export const NON_INVESTOR_TAGS = [
-  "Responsive",
-  "Helpful",
-  "Clear thesis",
-  "Fast pass",
-  "No follow-up",
-  "Hard to read",
-  "Strong feedback",
-] as const;
 
-// ---------------------------------------------------------------------------
-// Investor relationship tags (also used as multi_select options for Q3)
-// ---------------------------------------------------------------------------
-export const INVESTOR_TAGS = [
-  "Responsive",
-  "Transparent",
-  "Founder-friendly",
-  "Strategic",
-  "Strong network",
-  "Helpful operator",
-  "Deep domain expertise",
-  "Follows through",
-  "Helpful in hard times",
-  "Hard to reach",
-  "Low follow-through",
-  "Limited value-add",
-] as const;
+/** Show origin-specific follow-up questions based on interaction_intro value */
+export function shouldShowOriginFollowUps(
+  introValue: string | undefined,
+): boolean {
+  return introValue !== undefined && introValue !== "" &&
+    introValue !== "Existing relationship";
+}
 
-// ---------------------------------------------------------------------------
-// Main builder
-// ---------------------------------------------------------------------------
-/** Shown only after the user picks an interaction type (non-investor flow). */
+/** Show follow-up after event question only when origin = Event */
 export function shouldShowFollowUpAfterEventQuestion(
   answers: Record<string, string | string[] | undefined>,
 ): boolean {
-  const t = answers.interaction_type;
-  return typeof t === "string" && t.length > 0;
+  const intro = answers.interaction_intro;
+  return typeof intro === "string" && intro === "Event";
 }
 
-/** After at least one "How did you interact?" tag chip is selected (non-investor flow). */
-export function shouldShowRememberWhoSection(selectedTags: string[]): boolean {
-  return selectedTags.length > 0;
+/** Show remember-who section after at least one channel is selected */
+export function shouldShowRememberWhoSection(selectedChannels: string[]): boolean {
+  return selectedChannels.length > 0;
 }
+
+// ---------------------------------------------------------------------------
+// Non-investor interaction review
+// ---------------------------------------------------------------------------
 
 export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewFormConfig {
   const { firm_id, company_id, mapping_record_id, investor_is_mapped_to_profile, firm_name } = params;
+  const firmEngagementLabel = `How much have you engaged with ${firm_name.trim() || "this firm"}?`;
 
   // ── A: Non-investor interaction review ───────────────────────────────────
   if (!investor_is_mapped_to_profile) {
@@ -112,46 +108,104 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
       mapping_record_id,
       investor_is_mapped_to_profile: false,
       review_type: "non_investor_interaction_review",
-      title: "",
+      title: "How was your interaction?",
       subtitle: firm_name,
       questions: [
         {
-          id: "interaction_type",
-          label: "What type of interaction did you have?",
+          id: "interaction_intro",
+          label: "Relationship origin:",
           type: "single_select",
-          options: [
-            "Took meeting/call",
-            "Sent email/warm intro",
-            "Got intro",
-            "Passed after meeting",
-            "Ongoing conversation",
-            "Other",
-          ],
+          options: [...CHARACTERIZE_INTRO_OPTIONS],
         },
         {
-          id: "follow_up_after_event",
+          id: "interaction_intro_other",
+          label: "How did you connect?",
+          type: "text",
+        },
+        // Warm intro follow-up
+        {
+          id: "interaction_warm_intro_who",
+          label: "Who initiated?",
+          type: "single_select",
+          options: [...CHARACTERIZE_WARM_INTRO_WHO_INITIATED],
+        },
+        // Cold inbound follow-ups
+        {
+          id: "interaction_cold_inbound_discovery",
+          label: "How did they reach out?",
+          type: "single_select",
+          options: [...CHARACTERIZE_COLD_INBOUND_DISCOVERY],
+        },
+        {
+          id: "interaction_cold_inbound_social_platform",
+          label: "Which platform?",
+          type: "single_select",
+          options: [...CHARACTERIZE_COLD_INBOUND_SOCIAL_PLATFORMS],
+        },
+        {
+          id: "interaction_cold_inbound_social_other",
+          label: "Other platform",
+          type: "text",
+          optional: true,
+        },
+        // Event follow-ups
+        {
+          id: "interaction_event_type",
+          label: "What type of event?",
+          type: "single_select",
+          options: [...CHARACTERIZE_EVENT_TYPES],
+        },
+        {
+          id: "interaction_event_type_other",
+          label: "Please specify",
+          type: "text",
+          optional: true,
+        },
+        {
+          id: "interaction_event_followup",
           label: "Was there follow-up after the event?",
           type: "single_select",
-          options: ["Yes", "Somewhat", "No", "N/A"],
+          options: [...CHARACTERIZE_EVENT_FOLLOWUP],
         },
+        {
+          id: "interaction_event_followup_first",
+          label: "Who followed up first?",
+          type: "single_select",
+          options: [...CHARACTERIZE_EVENT_FOLLOWUP_FIRST],
+        },
+        // Core context questions
+        {
+          id: "interaction_how",
+          label: "How did you interact?",
+          type: "multi_select",
+          options: [...CHARACTERIZE_INTERACTION_HOW],
+        },
+        {
+          id: "interaction_meeting_depth",
+          label: firmEngagementLabel,
+          type: "single_select",
+          options: [...CHARACTERIZE_MEETING_DEPTH_OPTIONS],
+        },
+        // Evaluation questions  
         {
           id: "overall_interaction",
-          label: "How was the interaction overall?",
+          label: "Overall experience (1–10)",
           type: "single_select",
-          options: ["Great", "Good", "Mixed", "Poor"],
-        },
-        {
-          id: "response_time",
-          label: "Did they respond in a reasonable time?",
-          type: "single_select",
-          options: ["Yes", "Somewhat", "No"],
+          options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
         },
         {
           id: "would_engage_again",
-          label: "Would you engage again?",
+          label: "Would you engage with this investor again?",
           type: "single_select",
-          options: ["Yes", "No", "Not sure"],
+          options: [
+            "Definitely yes",
+            "Likely yes",
+            "Maybe",
+            "Probably not",
+            "Definitely not",
+          ],
         },
+        // Note
         {
           id: "founder_note",
           label: "Anything another founder should know?",
@@ -159,22 +213,26 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
           optional: true,
         },
       ],
-      tags: [...NON_INVESTOR_TAGS],
+      tags: [
+        ...Object.values(NON_INVESTOR_SCORE_TAG_TIERS)
+          .flat()
+          .filter((tag, i, arr) => arr.indexOf(tag) === i), // dedup
+      ],
       category_mapping: {
         responsiveness: {
-          source_fields: ["response_time", "Responsive", "No follow-up"],
+          source_fields: ["Responsive", "overall_interaction"],
           confidence: "high",
         },
         transparency: {
-          source_fields: ["overall_interaction", "Clear thesis", "Fast pass", "Hard to read"],
+          source_fields: ["Clear thesis", "Hard to read", "overall_interaction"],
           confidence: "high",
         },
         founder_friendliness: {
-          source_fields: ["overall_interaction", "would_engage_again", "Helpful", "Fast pass"],
+          source_fields: ["overall_interaction", "would_engage_again", "Helpful"],
           confidence: "medium",
         },
         strategic_value: {
-          source_fields: ["Helpful", "Strong feedback", "overall_interaction"],
+          source_fields: ["Helpful", "Strong feedback"],
           confidence: "low",
         },
         operational_value_add_credibility: {
@@ -182,25 +240,19 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
           confidence: "low",
         },
         network_quality: {
-          source_fields: ["interaction_type", "founder_note"],
+          source_fields: ["interaction_how", "founder_note"],
           confidence: "low",
         },
         follow_through: {
-          source_fields: [
-            "response_time",
-            "follow_up_after_event",
-            "Responsive",
-            "No follow-up",
-            "Fast pass",
-          ],
+          source_fields: ["Responsive", "No follow-up", "overall_interaction"],
           confidence: "high",
         },
         domain_industry_expertise: {
-          source_fields: ["Strong feedback", "Clear thesis", "founder_note"],
+          source_fields: ["Strong feedback", "Clear thesis"],
           confidence: "low",
         },
         trustworthiness: {
-          source_fields: ["would_engage_again", "Clear thesis", "No follow-up", "Hard to read", "Fast pass"],
+          source_fields: ["would_engage_again", "overall_interaction"],
           confidence: "medium",
         },
       },
@@ -214,7 +266,7 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
     mapping_record_id,
     investor_is_mapped_to_profile: true,
     review_type: "investor_relationship_review",
-    title: "",
+    title: "How has this partnership been?",
     subtitle: firm_name,
     questions: [
       {
@@ -231,9 +283,22 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
       },
       {
         id: "standout_tags",
-        label: "What stood out most?",
+        label: "What stood out most? (optional)",
         type: "multi_select",
-        options: [...INVESTOR_TAGS],
+        options: [
+          "Responsive",
+          "Transparent",
+          "Founder-friendly",
+          "Strategic",
+          "Strong network",
+          "Helpful operator",
+          "Deep domain expertise",
+          "Follows through",
+          "Helpful in hard times",
+          "Hard to reach",
+          "Low follow-through",
+          "Limited value-add",
+        ],
       },
       {
         id: "founder_note",
@@ -242,7 +307,20 @@ export function buildReviewFormConfig(params: BuildReviewFormParams): ReviewForm
         optional: true,
       },
     ],
-    tags: [...INVESTOR_TAGS],
+    tags: [
+      "Responsive",
+      "Transparent",
+      "Founder-friendly",
+      "Strategic",
+      "Strong network",
+      "Helpful operator",
+      "Deep domain expertise",
+      "Follows through",
+      "Helpful in hard times",
+      "Hard to reach",
+      "Low follow-through",
+      "Limited value-add",
+    ],
     category_mapping: {
       responsiveness: {
         source_fields: ["Responsive", "Hard to reach"],
@@ -302,34 +380,24 @@ const RATING_SCORE: Record<string, number> = {
   Poor: 1,
 };
 
-const RESPONSE_SCORE: Record<string, number> = {
-  Yes: 5,
-  Somewhat: 3,
-  No: 1,
-};
-
 const ENGAGE_NPS: Record<string, number> = {
+  "Definitely yes": 10,
+  "Likely yes": 8,
+  Maybe: 5,
+  "Probably not": 2,
+  "Definitely not": 0,
+  // Legacy stored answers
   Yes: 10,
   "Not sure": 6,
   No: 0,
 };
 
-const FOLLOW_UP_SCORE: Record<string, number> = {
-  Yes: 5,
-  Somewhat: 3,
-  No: 1,
-};
-
 export function deriveNonInvestorScores(answers: Record<string, string | string[]>) {
-  const followRaw = answers.follow_up_after_event as string | undefined;
-  const scoreFollow =
-    followRaw && followRaw !== "N/A" ? FOLLOW_UP_SCORE[followRaw] ?? null : null;
-
   return {
-    score_resp: RESPONSE_SCORE[answers.response_time as string] ?? null,
+    score_resp: null,
     score_respect: RATING_SCORE[answers.overall_interaction as string] ?? null,
     score_feedback: null,
-    score_follow_thru: scoreFollow,
+    score_follow_thru: null,
     score_value_add: null,
     nps: ENGAGE_NPS[answers.would_engage_again as string] ?? null,
   };
