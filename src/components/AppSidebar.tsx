@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles, TrendingUp, Network } from "lucide-react";
+import { FileText, Settings, BarChart3, Handshake, Building2, Gauge, BookOpen, Link2, MapPin, Swords, Layers, Search, ChevronDown, Users, UsersRound, LogOut, UserCog, Sparkles, TrendingUp, Network, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -49,8 +51,10 @@ const communityItems = [
   { id: "events" as const, label: "Events", icon: MapPin }];
 
 export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSidebarProps) {
+  const navigate = useNavigate();
   const { profile } = useProfile();
   const { user, signOut } = useAuth();
+  const { isAppAdmin, loading: appAdminLoading } = useAppAdmin();
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
@@ -148,6 +152,22 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             Data Room
           </button>
         </nav>
+
+        {!appAdminLoading && isAppAdmin && (
+          <div className="px-3 pb-2">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/intelligence")}
+              className={cn(
+                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap",
+                "text-amber-600/90 hover:bg-amber-500/10 hover:text-amber-600"
+              )}
+            >
+              <Shield className="h-4 w-4 shrink-0" />
+              Admin
+            </button>
+          </div>
+        )}
 
         <div className="border-t border-sidebar-border/30 px-3 py-4 mt-auto">
           <TooltipProvider delayDuration={200}>

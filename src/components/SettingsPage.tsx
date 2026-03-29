@@ -390,6 +390,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
   const [xVerified, setXVerified] = useState(false);
   const [xSyncing, setXSyncing] = useState(false);
+  const [personalValidateAttempt, setPersonalValidateAttempt] = useState(false);
+  const dismissPersonalErrors = useCallback(() => setPersonalValidateAttempt(false), []);
   // ── Autosave ──
   const persistProfile = useCallback(async (updates: Record<string, any>) => {
     // Map field names to DB column names
@@ -421,6 +423,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const { save: autosave, saveImmediate } = useAutosave(persistProfile);
 
   const fullName = useMemo(() => joinFullName(firstName, lastName), [firstName, lastName]);
+
+  const showPersonalErrors = personalValidateAttempt;
+  const invalidFirst = showPersonalErrors && !firstName.trim();
+  const invalidLast = showPersonalErrors && !lastName.trim();
+  const invalidTitle = showPersonalErrors && !title.trim();
+  const invalidLocation = showPersonalErrors && !location.trim();
+  const invalidBio = showPersonalErrors && !bio.trim();
+  const invalidEmail = showPersonalErrors && !displayEmail.trim();
 
   useEffect(() => {
     if (profile) {
@@ -889,7 +899,9 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
               return (
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-border/40">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">I am a</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">
+                      I am a<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                    </span>
                     <div className="flex items-center gap-1.5 rounded-md bg-accent/10 px-2.5 py-1">
                       <ActiveIcon className="h-3 w-3 text-accent" />
                       <span className="text-[11px] font-semibold text-foreground">{activeType.label}</span>
@@ -939,9 +951,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">{fullName.trim() || displayName}</p>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                   <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
-                  <Badge className="bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold shrink-0">Verified</Badge>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" aria-hidden />
+                  <span className="sr-only">Email verified</span>
                 </div>
               </div>
             </div>
@@ -954,62 +967,109 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
               data-field="full_name"
             >
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">First Name</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  First Name<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                </label>
                 <Input
                   value={firstName}
                   onChange={(e) => {
+                    dismissPersonalErrors();
                     const v = e.target.value;
                     setFirstName(v);
                     autosave({ name: joinFullName(v, lastName) });
                   }}
-                  className="rounded-lg h-9 text-sm"
+                  className={cn(
+                    "rounded-lg h-9 text-sm",
+                    invalidFirst &&
+                      "border-amber-500 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background focus-visible:ring-amber-500/50 dark:border-amber-400 dark:ring-amber-400/35",
+                  )}
                   autoComplete="given-name"
+                  required
+                  aria-invalid={invalidFirst}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Last Name</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Last Name<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                </label>
                 <Input
                   value={lastName}
                   onChange={(e) => {
+                    dismissPersonalErrors();
                     const v = e.target.value;
                     setLastName(v);
                     autosave({ name: joinFullName(firstName, v) });
                   }}
-                  className="rounded-lg h-9 text-sm"
+                  className={cn(
+                    "rounded-lg h-9 text-sm",
+                    invalidLast &&
+                      "border-amber-500 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background focus-visible:ring-amber-500/50 dark:border-amber-400 dark:ring-amber-400/35",
+                  )}
                   autoComplete="family-name"
+                  required
+                  aria-invalid={invalidLast}
                 />
               </div>
             </div>
-            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Title / Role</label>
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("title") && !invalidTitle && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="title">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Title / Role<span className="text-destructive ml-0.5" aria-hidden>*</span>
+              </label>
               <SmartCombobox
                 value={title}
-                onChange={setTitle}
+                onChange={(v) => {
+                  dismissPersonalErrors();
+                  setTitle(v);
+                }}
                 onBlur={() => handleFieldBlur("title", title)}
                 options={ROLE_OPTIONS}
                 placeholder="e.g. CEO & Co-Founder"
                 verified={syncedKeys.has("title")}
                 highlightSync={syncedKeys.has("title")}
+                required
+                invalid={invalidTitle}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Email<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                </label>
                 <div className="relative">
-                  <Input value={displayEmail} disabled className="rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-20" />
-                  <Badge className="absolute right-2 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-[8px] uppercase font-bold">Verified</Badge>
+                  <Input
+                    value={displayEmail}
+                    disabled
+                    required
+                    aria-invalid={invalidEmail}
+                    className={cn(
+                      "rounded-lg h-9 text-sm bg-muted/30 text-muted-foreground pr-9",
+                      invalidEmail &&
+                        "border-amber-500 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background dark:border-amber-400 dark:ring-amber-400/35",
+                    )}
+                  />
+                  <CheckCircle2
+                    className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-success"
+                    aria-hidden
+                  />
                 </div>
               </div>
-              <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Location</label>
+              <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("location") && !invalidLocation && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="location">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Location<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                </label>
                 <SmartCombobox
                   value={location}
-                  onChange={setLocation}
+                  onChange={(v) => {
+                    dismissPersonalErrors();
+                    setLocation(v);
+                  }}
                   onBlur={() => handleFieldBlur("location", location)}
                   options={LOCATION_OPTIONS}
                   placeholder="San Francisco, CA"
                   verified={syncedKeys.has("location")}
                   highlightSync={syncedKeys.has("location")}
+                  required
+                  invalid={invalidLocation}
                 />
               </div>
             </div>
@@ -1028,25 +1088,59 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 Go to Account → Security
               </button>
             </p>
-            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
+            <div className={cn("space-y-1 rounded-lg transition-all", syncedKeys.has("bio") && !invalidBio && "ring-2 ring-accent ring-offset-2 ring-offset-background animate-shake")} data-field="bio">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Bio</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Bio<span className="text-destructive ml-0.5" aria-hidden>*</span>
+                </label>
                 <span className={cn("text-[10px] font-mono", bio.length > 160 ? "text-destructive" : "text-muted-foreground")}>{bio.length}/160</span>
               </div>
-              <textarea value={bio} onChange={(e) => { const v = e.target.value.slice(0, 160); setBio(v); autosave({ bio: v }); }} placeholder="Brief description of what you're building..." rows={2} className="flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+              <textarea
+                value={bio}
+                onChange={(e) => {
+                  dismissPersonalErrors();
+                  const v = e.target.value.slice(0, 160);
+                  setBio(v);
+                  autosave({ bio: v });
+                }}
+                placeholder="Brief description of what you're building..."
+                rows={2}
+                required
+                aria-invalid={invalidBio}
+                className={cn(
+                  "flex w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  invalidBio &&
+                    "border-amber-500 ring-2 ring-amber-500/40 ring-offset-2 ring-offset-background focus-visible:ring-amber-500/50 dark:border-amber-400 dark:ring-amber-400/35",
+                )}
+              />
             </div>
             <Separator className="my-2" />
             <div className="flex justify-end">
               <Button
                 variant="outline"
                 onClick={() => {
-                  const f = firstName.trim();
-                  const l = lastName.trim();
-                  if (!f || !l) {
-                    toast.error("Please enter your first and last name");
+                  const missing: string[] = [];
+                  if (!firstName.trim()) missing.push("first name");
+                  if (!lastName.trim()) missing.push("last name");
+                  if (!title.trim()) missing.push("title / role");
+                  if (!location.trim()) missing.push("location");
+                  if (!bio.trim()) missing.push("bio");
+                  if (!displayEmail.trim()) missing.push("email");
+                  if (!userType?.trim()) missing.push("I am a");
+                  if (missing.length) {
+                    setPersonalValidateAttempt(true);
+                    toast.error("Please complete all required fields", {
+                      description: `Missing: ${missing.join(", ")}.`,
+                    });
                     return;
                   }
-                  saveImmediate({ name: joinFullName(firstName, lastName) });
+                  setPersonalValidateAttempt(false);
+                  saveImmediate({
+                    name: joinFullName(firstName, lastName),
+                    title: title.trim(),
+                    location: location.trim(),
+                    bio: bio.trim(),
+                  });
                   toast.success("Profile details confirmed");
                 }}
                 className="rounded-full px-5 h-9 text-sm font-medium gap-2 border-border"

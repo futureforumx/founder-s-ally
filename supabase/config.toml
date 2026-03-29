@@ -65,3 +65,37 @@ verify_jwt = false
 
 [functions.complete-founder-onboarding]
 verify_jwt = false
+
+# Clerk third-party JWTs are not verified by the Edge gateway — functions enforce auth in code.
+[functions.admin-list-users]
+verify_jwt = false
+
+[functions.admin-record-updates]
+verify_jwt = false
+
+[functions.admin-update-permission]
+verify_jwt = false
+
+[functions.export-csv]
+verify_jwt = false
+
+[functions.investor-compatibility]
+verify_jwt = false
+
+[functions.manage-competitors]
+verify_jwt = false
+
+[functions.polar-checkout]
+verify_jwt = false
+
+[functions.search-companies]
+verify_jwt = false
+
+[functions.sync-company-linkedin]
+verify_jwt = false
+
+[functions.sync-linkedin-profile]
+verify_jwt = false
+
+[functions.sync-x-profile]
+verify_jwt = false

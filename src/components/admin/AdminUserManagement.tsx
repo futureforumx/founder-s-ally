@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { Crown, Search, Shield, UserCog, Loader2, Clock, Zap, Mail, MapPin, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +62,7 @@ export function AdminUserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-list-users");
+      const { data, error } = await invokeEdgeFunction("admin-list-users");
       if (error) throw error;
       setUsers(data.users || []);
     } catch (e: any) {
@@ -74,7 +74,7 @@ export function AdminUserManagement() {
   const handlePermissionChange = async (userId: string, permission: string) => {
     setUpdatingId(userId);
     try {
-      const { error } = await supabase.functions.invoke("admin-update-permission", {
+      const { error } = await invokeEdgeFunction("admin-update-permission", {
         body: { target_user_id: userId, permission },
       });
       if (error) throw error;
@@ -87,7 +87,8 @@ export function AdminUserManagement() {
   };
 
   const filtered = users.filter((u) => {
-    const matchSearch = (u.full_name || u.email || "").toLowerCase().includes(search.toLowerCase());
+    const searchHaystack = [u.full_name, u.email, u.id].filter(Boolean).join(" ").toLowerCase();
+    const matchSearch = searchHaystack.includes(search.toLowerCase());
     const matchType = filterType === "all" || u.user_type === filterType;
     const matchPerm = filterPermission === "all" || u.permission === filterPermission;
     return matchSearch && matchType && matchPerm;
@@ -194,7 +195,13 @@ export function AdminUserManagement() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <Mail className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
-                    <span className="text-[11px] text-white/60 truncate">{user.email}</span>
+                    <span className="text-[11px] text-white/60 truncate" title={user.id}>
+                      {user.email || (
+                        <span style={{ color: "rgba(255,255,255,0.35)" }} className="font-mono">
+                          {user.id.length > 24 ? `${user.id.slice(0, 22)}…` : user.id}
+                        </span>
+                      )}
+                    </span>
                   </div>
                   {user.location && (
                     <div className="flex items-center gap-1.5 mt-0.5">

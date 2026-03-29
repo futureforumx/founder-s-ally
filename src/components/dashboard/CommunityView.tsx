@@ -31,6 +31,10 @@ interface CommunityViewProps {
   analysisResult?: AnalysisResult | null;
   onNavigateProfile?: () => void;
   variant?: "directory" | "investor-search";
+  /** When set (e.g. from GlobalTopNav), grid filter tracks this tab */
+  investorTab?: string;
+  /** Narrows investor grid by free text (from nav search) */
+  investorListSearchQuery?: string;
 }
 
 // ── Types ──
@@ -532,10 +536,17 @@ function CarouselCard({ founder, trending, onClick, onDeployingClick }: {founder
 }
 
 
-export function CommunityView({ companyData, analysisResult, onNavigateProfile, variant = "directory" }: CommunityViewProps) {
+export function CommunityView({
+  companyData,
+  analysisResult,
+  onNavigateProfile,
+  variant = "directory",
+  investorTab,
+  investorListSearchQuery,
+}: CommunityViewProps) {
   const isInvestorSearch = variant === "investor-search";
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [activeInvestorTab, setActiveInvestorTab] = useState<string>("all");
+  const activeInvestorTab = investorTab ?? "all";
   const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -544,7 +555,6 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -583,6 +593,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   const vcFirmMap = useMemo(() => {
     const m = new Map<string, VCFirm>();
     for (const firm of vcFirms) {
+      if (!firm?.name?.trim()) continue;
       const normalized = normalizeFirmName(firm.name);
       for (const key of getAliasKeys(normalized)) m.set(key, firm);
     }
@@ -602,21 +613,25 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
   const vcEntries = useMemo(() => {
-    const seedNames = new Set(ALL_ENTRIES.filter(e => e.category === "investor").map(e => e.name.toLowerCase()));
+    const seedNames = new Set(
+      ALL_ENTRIES.filter((e) => e.category === "investor").map((e) => e.name.toLowerCase()),
+    );
     return vcFirms
-      .filter(f => !seedNames.has(f.name.toLowerCase()))
-      .map(f => {
-        const dbMatch = getDbMatch(f.name);
+      .filter((f) => typeof f.name === "string" && f.name.trim().length > 0)
+      .filter((f) => !seedNames.has(f.name.toLowerCase()))
+      .map((f) => {
+        const displayName = f.name.trim();
+        const dbMatch = getDbMatch(displayName);
         const fallbackWebsite = f.website_url || deriveWebsiteUrlFromFirmId(f.id);
 
         return {
-          name: f.name,
+          name: displayName,
           sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
           stage: f.stages?.join(", ") || "Multi-stage",
-          description: f.description || `${f.name} is an active investment firm.`,
+          description: f.description || `${displayName} is an active investment firm.`,
           location: dbMatch?.location || "",
           model: f.sweet_spot || f.aum || "",
-          initial: f.name.charAt(0).toUpperCase(),
+          initial: displayName.charAt(0).toUpperCase(),
           matchReason: null,
           category: "investor" as const,
           _sectors: f.sectors || [] as string[],
@@ -721,17 +736,17 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Reset pagination on filter/scope change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab]);
+  }, [activeFilter, activeScope, activeInvestorTab, investorListSearchQuery]);
 
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
   const filteredAll = scopedAll.filter((f) => {
     const filterQ = activeFilter?.toLowerCase() || "";
-    const matchesFilter = !filterQ ||
-    f.stage.toLowerCase().includes(filterQ) ||
-    f.sector.toLowerCase().includes(filterQ) ||
-    f.model.toLowerCase().includes(filterQ);
-    return matchesFilter;
+    if (!filterQ) return true;
+    const stage = (f.stage ?? "").toString().toLowerCase();
+    const sector = (f.sector ?? "").toString().toLowerCase();
+    const model = (f.model ?? "").toString().toLowerCase();
+    return stage.includes(filterQ) || sector.includes(filterQ) || model.includes(filterQ);
   });
 
   // ── Investor tab filtering & sorting ──
@@ -746,13 +761,12 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
 
     switch (activeInvestorTab) {
       case "matches": {
-        // Show investors that have a matchReason (simulates AI match scores)
-        const matched = investors.filter((e) => e.matchReason);
-        // Sort by a pseudo match score: entries with matchReason first, then alphabetically
+        const matched = investors.filter(
+          (e) => e.matchReason || e._isActivelyDeploying !== false
+        );
         return matched.sort((a, b) => {
-          // Priority: sector match > stage match > generic
-          const scoreA = a.matchReason?.toLowerCase().includes("sector") ? 3 : a.matchReason?.toLowerCase().includes("stage") ? 2 : 1;
-          const scoreB = b.matchReason?.toLowerCase().includes("sector") ? 3 : b.matchReason?.toLowerCase().includes("stage") ? 2 : 1;
+          const scoreA = a.matchReason?.toLowerCase().includes("sector") ? 3 : a.matchReason?.toLowerCase().includes("stage") ? 2 : a.matchReason ? 1 : 0;
+          const scoreB = b.matchReason?.toLowerCase().includes("sector") ? 3 : b.matchReason?.toLowerCase().includes("stage") ? 2 : b.matchReason ? 1 : 0;
           return scoreB - scoreA;
         });
       }
@@ -765,8 +779,11 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
           }
           // Fallback for mock entries
           const stageNorm = userStage.toLowerCase();
-          return e.stage.toLowerCase().includes(stageNorm) ||
-            e.stage.toLowerCase().split("–").some((s) => s.trim().toLowerCase().includes(stageNorm));
+          const entryStage = (e.stage ?? "").toString().toLowerCase();
+          return (
+            entryStage.includes(stageNorm) ||
+            entryStage.split("–").some((s) => s.trim().toLowerCase().includes(stageNorm))
+          );
         });
       }
       case "sector": {
@@ -779,12 +796,13 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
         return investors.filter((e) => {
           // Exact match against structured _sectors array when available
           if (e._sectors && e._sectors.length > 0) {
-            return e._sectors.some(s => userSectors.includes(s));
+            return e._sectors.some((s) => userSectors.includes(s));
           }
           // Fallback for mock entries
           const sectorNorm = userSector.toLowerCase();
-          return e.sector.toLowerCase().includes(sectorNorm) ||
-            e.description.toLowerCase().includes(sectorNorm);
+          const entrySector = (e.sector ?? "").toString().toLowerCase();
+          const entryDesc = (e.description ?? "").toString().toLowerCase();
+          return entrySector.includes(sectorNorm) || entryDesc.includes(sectorNorm);
         });
       }
       case "trending":
@@ -801,8 +819,27 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
   // Use tab-filtered list for investor-search, otherwise the standard filteredAll
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
 
-  const hasMore = visibleCount < displayEntries.length;
-  const visibleFounders = displayEntries.slice(0, visibleCount);
+  const textFilteredEntries = useMemo(() => {
+    const q = investorListSearchQuery?.trim().toLowerCase();
+    if (!isInvestorSearch || !q) return displayEntries;
+    return displayEntries.filter((e) => {
+      const name = (e.name ?? "").toString().toLowerCase();
+      const sector = (e.sector ?? "").toString().toLowerCase();
+      const stage = (e.stage ?? "").toString().toLowerCase();
+      const desc = (e.description ?? "").toString().toLowerCase();
+      const model = (e.model ?? "").toString().toLowerCase();
+      return (
+        name.includes(q) ||
+        sector.includes(q) ||
+        stage.includes(q) ||
+        desc.includes(q) ||
+        model.includes(q)
+      );
+    });
+  }, [displayEntries, investorListSearchQuery, isInvestorSearch]);
+
+  const hasMore = visibleCount < textFilteredEntries.length;
+  const visibleFounders = textFilteredEntries.slice(0, visibleCount);
 
   // Dynamic header for investor tabs
   const investorTabHeader = useMemo(() => {
@@ -866,10 +903,10 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
     setIsLoadingMore(true);
     // Simulate network delay for smooth UX
     setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, displayEntries.length));
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, textFilteredEntries.length));
       setIsLoadingMore(false);
     }, 400);
-  }, [hasMore, isLoadingMore, displayEntries.length]);
+  }, [hasMore, isLoadingMore, textFilteredEntries.length]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -1067,7 +1104,7 @@ export function CommunityView({ companyData, analysisResult, onNavigateProfile, 
               )}
             </div>
             <span className="text-[10px] text-muted-foreground font-mono">
-              {`${visibleFounders.length} of ${displayEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
+              {`${visibleFounders.length} of ${textFilteredEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
             </span>
           </div>
 

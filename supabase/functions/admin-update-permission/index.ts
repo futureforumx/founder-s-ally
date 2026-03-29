@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isAppAdminEmailDomain } from "../_shared/app-admin-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,7 +34,11 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .maybeSingle();
 
-    const isAdmin = callerRole?.permission === "admin" || callerRole?.permission === "god" || caller.user_metadata?.role === "admin";
+    const isAdmin =
+      callerRole?.permission === "admin" ||
+      callerRole?.permission === "god" ||
+      caller.user_metadata?.role === "admin" ||
+      isAppAdminEmailDomain(caller.email);
     if (!isAdmin) throw new Error("Admin access required");
 
     const { target_user_id, permission } = await req.json();

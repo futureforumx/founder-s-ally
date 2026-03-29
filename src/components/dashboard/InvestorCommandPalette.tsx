@@ -7,6 +7,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
+import { InvestorPersonAvatar, investorPersonImageUrl } from "@/components/ui/investor-person-avatar";
 import Fuse from "fuse.js";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import type { LiveInvestorEntry } from "@/hooks/useInvestorDirectory";
@@ -390,9 +391,14 @@ export function InvestorCommandPalette({
                         onSelect={() => handleSelectPerson(person)}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-zinc-100 group"
                       >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700 shrink-0">
-                          <User className="h-3.5 w-3.5 text-zinc-400" />
-                        </div>
+                        <InvestorPersonAvatar
+                          imageUrl={investorPersonImageUrl(
+                            person.profile_image_url,
+                            person.avatar_url,
+                          )}
+                          className="shrink-0 border border-zinc-600 bg-zinc-800"
+                          iconClassName="text-zinc-200"
+                        />
                         <div className="min-w-0 flex-1">
                           <span className="text-sm font-medium text-zinc-100 truncate block">{person.full_name}</span>
                           <span className="text-[11px] text-zinc-500 truncate block">

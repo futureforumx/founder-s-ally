@@ -1,339 +1,500 @@
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
-  CircleDollarSign, RefreshCw, Newspaper, ArrowUpRight, Loader2,
-  Bookmark, Eye, UserPlus, MessageSquare, AtSign, Heart, Repeat2,
-  TrendingUp, TrendingDown, Minus,
+  ArrowUpRight,
+  Building2,
+  Calendar,
+  FileText,
+  Loader2,
+  Newspaper,
+  Radar,
+  RefreshCw,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 // ── Types ──
 
-interface NewsItem {
+type InvestorUpdateFilter =
+  | "all"
+  | "posts"
+  | "investments"
+  | "fund_news"
+  | "team"
+  | "other";
+
+interface BlogPost {
+  id: string;
   title: string;
-  source: string;
-  type: "funding" | "article" | "hire" | "investment" | "thought_leadership";
-  time: string;
+  publishedAt: string;
+  excerpt: string;
+  publication: string;
   url: string;
 }
 
-interface TweetItem {
-  handle: string;
-  text: string;
-  time: string;
-  likes: number;
-  retweets: number;
+type OtherUpdateKind = "investment" | "fund_news" | "team" | "thesis" | "other";
+
+interface OtherUpdate {
+  id: string;
+  kind: OtherUpdateKind;
+  headline: string;
+  summary: string;
+  at: string;
+  url?: string;
 }
 
-interface CommunityItem {
-  action: "saved" | "viewed" | "added_to_cap_table" | "requested_intro";
-  actor: string;
-  time: string;
+// ── Seeded mock data (deterministic per firm name) ──
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-// ── Mock data ──
+function pick<T>(arr: T[], seed: number, i: number): T {
+  return arr[(seed + i * 17) % arr.length];
+}
 
-function getNewsItems(firmName: string): NewsItem[] {
-  return [
-    { title: `${firmName} closes $1.5B Fund III`, source: "TechCrunch", type: "funding", time: "6h", url: `https://techcrunch.com/search/${encodeURIComponent(firmName)}` },
-    { title: `GP publishes thesis on vertical AI infra`, source: "Substack", type: "thought_leadership", time: "2d", url: `https://substack.com/search/${encodeURIComponent(firmName)}` },
-    { title: `${firmName} leads $12M Series A in Synthara Bio`, source: "Crunchbase", type: "investment", time: "3d", url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firmName)}` },
-    { title: `${firmName} hires new Partner from Tiger Global`, source: "Bloomberg", type: "hire", time: "5d", url: `https://www.bloomberg.com/search?query=${encodeURIComponent(firmName)}` },
-    { title: `Mentioned in Forbes investor roundup`, source: "Forbes", type: "article", time: "1w", url: `https://www.forbes.com/search/?q=${encodeURIComponent(firmName)}` },
+function formatDisplayDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function relativeOrShort(iso: string): string {
+  const d = new Date(iso).getTime();
+  const now = Date.now();
+  const diff = now - d;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 14) return `${days}d ago`;
+  return formatDisplayDate(iso);
+}
+
+function buildMockPosts(firm: string, seed: number): BlogPost[] {
+  const slug = firm.replace(/\s+/g, "-").toLowerCase();
+  const templates: Omit<BlogPost, "id" | "publishedAt">[] = [
+    {
+      title: `Why ${firm} is doubling down on vertical AI workflows`,
+      excerpt:
+        "Enterprise buyers want agents that ship inside existing compliance boundaries—not generic chat. Here is how we evaluate founders building in regulated stacks.",
+      publication: `${firm} Insights`,
+      url: `https://example.com/blog/${slug}/vertical-ai`,
+    },
+    {
+      title: "The bar for Series A efficiency just moved again",
+      excerpt:
+        "Runway discipline, clear ICP expansion, and a path to profitable growth are table stakes. We share the metrics we track across our portfolio.",
+      publication: "Medium",
+      url: `https://medium.com/search?q=${encodeURIComponent(firm)}`,
+    },
+    {
+      title: `Inside ${firm}'s diligence process for climate infrastructure`,
+      excerpt:
+        "From grid software to novel materials, we outline what convinces us a team can survive long sales cycles and policy shifts.",
+      publication: pick(["Substack", "Firm blog", "LinkedIn"], seed, 0),
+      url: `https://example.com/blog/${slug}/climate`,
+    },
+    {
+      title: "What founders get wrong about enterprise pilot design",
+      excerpt:
+        "Pilots that never convert usually fail on success criteria and executive sponsorship. A practical framework we use with founders post-seed.",
+      publication: `${firm} Insights`,
+      url: `https://example.com/blog/${slug}/pilots`,
+    },
+    {
+      title: "Notes from the road: healthcare AI that clinicians actually use",
+      excerpt:
+        "Workflow fit beats model benchmarks. We reflect on patterns from recent investments in clinical copilots and back-office automation.",
+      publication: pick(["Substack", "TechCrunch", `${firm} Insights`], seed, 1),
+      url: `https://techcrunch.com/search/${encodeURIComponent(firm)}`,
+    },
   ];
-}
 
-function getTweets(firmName: string): TweetItem[] {
-  return [
-    { handle: `@${firmName.replace(/\s/g, "").toLowerCase()}`, text: `Excited to announce our latest investment in AI-native developer tools.`, time: "3h", likes: 142, retweets: 38 },
-    { handle: "@foundersclub", text: `Just got intro to ${firmName} — their thesis on vertical SaaS is incredibly sharp.`, time: "1d", likes: 67, retweets: 12 },
-    { handle: "@techcrunch", text: `${firmName} reportedly in talks to lead a $20M round in stealth climate startup.`, time: "2d", likes: 234, retweets: 89 },
-    { handle: `@${firmName.replace(/\s/g, "").toLowerCase()}`, text: `Our latest blog: why we believe agentic AI in healthcare will create the next wave of $1B+ outcomes.`, time: "4d", likes: 98, retweets: 31 },
-  ];
-}
-
-const NEWS_TYPE_CONFIG: Record<NewsItem["type"], { label: string; cls: string }> = {
-  funding: { label: "Funding", cls: "bg-success/10 text-success border-success/20" },
-  article: { label: "Article", cls: "bg-muted text-muted-foreground border-border" },
-  hire: { label: "Hire", cls: "bg-primary/10 text-primary border-primary/20" },
-  investment: { label: "Deal", cls: "bg-accent/10 text-accent border-accent/20" },
-  thought_leadership: { label: "Thought", cls: "bg-warning/10 text-warning border-warning/20" },
-};
-
-const COMMUNITY_ICONS: Record<CommunityItem["action"], typeof Bookmark> = {
-  saved: Bookmark,
-  viewed: Eye,
-  added_to_cap_table: CircleDollarSign,
-  requested_intro: MessageSquare,
-};
-
-const COMMUNITY_LABELS: Record<CommunityItem["action"], string> = {
-  saved: "Saved this investor",
-  viewed: "Viewed profile",
-  added_to_cap_table: "Added to cap table",
-  requested_intro: "Requested intro",
-};
-
-// ── Animated Number ──
-function AnimatedNumber({ target, duration = 800 }: { target: number; duration?: number }) {
-  const [display, setDisplay] = useState(0);
-  const frameRef = useRef<number>(0);
-
-  useEffect(() => {
-    const start = performance.now();
-    const from = 0;
-    const animate = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      setDisplay(Math.round(from + (target - from) * eased));
-      if (progress < 1) frameRef.current = requestAnimationFrame(animate);
+  const dayOffsets = [1, 4, 9, 16, 22];
+  return templates.slice(0, 4).map((t, i) => {
+    const daysAgo = pick(dayOffsets, seed, i);
+    const published = new Date();
+    published.setDate(published.getDate() - daysAgo);
+    published.setHours(10 + (seed % 6), (seed * 7 + i * 11) % 60, 0, 0);
+    return {
+      id: `post-${seed}-${i}`,
+      ...t,
+      publishedAt: published.toISOString(),
     };
-    frameRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [target, duration]);
-
-  return <>{display}</>;
+  });
 }
 
-// ── Analytics Square Card ──
-function StatCard({ value, label, trend }: { value: number; label: string; trend?: "up" | "down" | "flat" }) {
-  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
-  const trendColor = trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground";
+function buildMockOtherUpdates(firm: string, seed: number): OtherUpdate[] {
+  const items: OtherUpdate[] = [
+    {
+      id: `inv-${seed}-0`,
+      kind: "investment",
+      headline: `${firm} co-led $28M Series A in LatticeMind`,
+      summary: "Applied LLM stack for industrial quality control; strategic angels from Fortune 500 manufacturers.",
+      at: daysAgoIso(seed, 2, 14),
+      url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firm)}`,
+    },
+    {
+      id: `fund-${seed}-1`,
+      kind: "fund_news",
+      headline: "Fund IV first close oversubscribed",
+      summary: "Targeting early-stage B2B and fintech; same core partnership, expanded analyst bench.",
+      at: daysAgoIso(seed, 3, 9),
+    },
+    {
+      id: `team-${seed}-2`,
+      kind: "team",
+      headline: "Priya Nair promoted to Partner",
+      summary: "Previously principal covering enterprise infrastructure; led two breakout seed deals.",
+      at: daysAgoIso(seed, 5, 11),
+    },
+    {
+      id: `thesis-${seed}-3`,
+      kind: "thesis",
+      headline: "Updated focus: AI ops & compliance tooling",
+      summary: "Public mandate shift toward GRC and data lineage; seed checks up to $4M in US and EU.",
+      at: daysAgoIso(seed, 7, 16),
+    },
+    {
+      id: `inv-${seed}-4`,
+      kind: "investment",
+      headline: `Seed round in HarborStack (${firm} lead)`,
+      summary: "Developer platform for maritime logistics APIs; repeat founder team from Stripe alum network.",
+      at: daysAgoIso(seed, 8, 10),
+      url: `https://www.crunchbase.com/textsearch?q=HarborStack`,
+    },
+    {
+      id: `other-${seed}-5`,
+      kind: "other",
+      headline: "Featured on Invest Like the Best",
+      summary: "45-minute conversation on portfolio construction and avoiding hype cycles in AI infra.",
+      at: daysAgoIso(seed, 11, 15),
+    },
+    {
+      id: `fund-${seed}-6`,
+      kind: "fund_news",
+      headline: "Strategic LP additions from global endowments",
+      summary: "Three new institutional LPs with deep Asia distribution networks.",
+      at: daysAgoIso(seed, 14, 13),
+    },
+    {
+      id: `team-${seed}-7`,
+      kind: "team",
+      headline: "Operating partner hire: former VP Sales at Datadog",
+      summary: "Will run GTM playbooks for portfolio companies scaling past $10M ARR.",
+      at: daysAgoIso(seed, 18, 8),
+    },
+    {
+      id: `thesis-${seed}-8`,
+      kind: "thesis",
+      headline: "Published annual letter to founders",
+      summary: "Themes: capital efficiency, AI copilots with measurable ROI, and vertical SaaS resilience.",
+      at: daysAgoIso(seed, 21, 12),
+    },
+    {
+      id: `other-${seed}-9`,
+      kind: "other",
+      headline: "Keynote at SaaStr Annual: pacing in 2026",
+      summary: "Discussed how top decile firms are reserving follow-on for winners vs. spraying pro-rata.",
+      at: daysAgoIso(seed, 26, 17),
+    },
+  ];
+  return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+
+function daysAgoIso(seed: number, baseDays: number, hourJitter: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - baseDays - (seed % 3));
+  d.setHours(9 + (hourJitter % 8), (seed + hourJitter) % 55, 0, 0);
+  return d.toISOString();
+}
+
+const FILTER_CHIPS: { key: InvestorUpdateFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "posts", label: "Posts" },
+  { key: "investments", label: "Investments" },
+  { key: "fund_news", label: "Fund News" },
+  { key: "team", label: "Team Updates" },
+  { key: "other", label: "Other" },
+];
+
+const OTHER_KIND_META: Record<
+  OtherUpdateKind,
+  { label: string; chip: Exclude<InvestorUpdateFilter, "all" | "posts">; icon: typeof Building2; badgeClass: string }
+> = {
+  investment: {
+    label: "Investment",
+    chip: "investments",
+    icon: Sparkles,
+    badgeClass: "bg-accent/15 text-accent border-accent/25",
+  },
+  fund_news: {
+    label: "Fund",
+    chip: "fund_news",
+    icon: Building2,
+    badgeClass: "bg-primary/10 text-primary border-primary/20",
+  },
+  team: {
+    label: "Team",
+    chip: "team",
+    icon: Users,
+    badgeClass: "bg-success/10 text-success border-success/25",
+  },
+  thesis: {
+    label: "Thesis",
+    chip: "other",
+    icon: Radar,
+    badgeClass: "bg-warning/10 text-warning border-warning/25",
+  },
+  other: {
+    label: "Update",
+    chip: "other",
+    icon: FileText,
+    badgeClass: "bg-muted text-muted-foreground border-border",
+  },
+};
+
+function matchesFilter(filter: InvestorUpdateFilter, kind: OtherUpdateKind): boolean {
+  if (filter === "all") return true;
+  if (filter === "posts") return false;
+  const meta = OTHER_KIND_META[kind];
+  if (filter === "other") return meta.chip === "other";
+  return meta.chip === filter;
+}
+
+function UpdatesEmptyState({ filter }: { filter: InvestorUpdateFilter }) {
+  const copy =
+    filter === "posts"
+      ? {
+          title: "No posts in this view",
+          body: "Try All to see the full intelligence feed, or check back as new thought leadership is indexed.",
+        }
+      : filter === "investments"
+        ? {
+            title: "No investment activity",
+            body: "Switch to All or Posts to explore recent content and signals for this investor.",
+          }
+        : {
+            title: "Nothing here yet",
+            body: "Adjust the filter above or view All to see blog posts and secondary signals together.",
+          };
+
   return (
-    <div className="flex flex-col items-center justify-center w-[52px] h-[52px] rounded-lg bg-secondary/60 border border-border/50 p-1">
-      <div className="flex items-center gap-0.5">
-        <span className="text-sm font-bold text-foreground leading-none"><AnimatedNumber target={value} /></span>
-        {trend && <TrendIcon className={`h-2.5 w-2.5 ${trendColor}`} />}
+    <div className="rounded-xl border border-dashed border-border/80 bg-secondary/20 px-6 py-10 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-card border border-border shadow-sm">
+        <Newspaper className="h-5 w-5 text-muted-foreground" />
       </div>
-      <span className="text-[7px] text-muted-foreground leading-none mt-0.5 text-center">{label}</span>
+      <p className="mt-4 text-sm font-semibold text-foreground">{copy.title}</p>
+      <p className="mt-1.5 text-xs text-muted-foreground max-w-[280px] mx-auto leading-relaxed">{copy.body}</p>
     </div>
   );
 }
 
-// ── Live Community Data Hook ──
-function useCommunityStats(firmId?: string) {
-  const [stats, setStats] = useState({ views: 0, saves: 0, intros: 0 });
-  const [items, setItems] = useState<CommunityItem[]>([]);
-
-  useEffect(() => {
-    if (!firmId) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("founder_vc_interactions")
-        .select("action_type, created_at")
-        .eq("firm_id", firmId)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error || !data) return;
-
-      const views = data.filter(r => r.action_type === "viewed").length;
-      const saves = data.filter(r => r.action_type === "saved").length;
-      const intros = data.filter(r => r.action_type === "requested_intro").length;
-      const capTable = data.filter(r => r.action_type === "added_to_cap_table").length;
-      setStats({ views, saves, intros });
-
-      // Build timeline from real data
-      const actionMap: Record<string, CommunityItem["action"]> = {
-        saved: "saved",
-        viewed: "viewed",
-        added_to_cap_table: "added_to_cap_table",
-        requested_intro: "requested_intro",
-      };
-
-      const grouped: Record<string, { count: number; latest: Date }> = {};
-      for (const r of data) {
-        const action = actionMap[r.action_type];
-        if (!action) continue;
-        if (!grouped[action]) grouped[action] = { count: 0, latest: new Date(r.created_at) };
-        grouped[action].count++;
-        const d = new Date(r.created_at);
-        if (d > grouped[action].latest) grouped[action].latest = d;
-      }
-
-      const now = Date.now();
-      const timeAgo = (d: Date) => {
-        const diff = now - d.getTime();
-        const mins = Math.floor(diff / 60000);
-        if (mins < 60) return `${mins}m`;
-        const hrs = Math.floor(mins / 60);
-        if (hrs < 24) return `${hrs}h`;
-        const days = Math.floor(hrs / 24);
-        return `${days}d`;
-      };
-
-      const timeline: CommunityItem[] = Object.entries(grouped)
-        .sort(([, a], [, b]) => b.latest.getTime() - a.latest.getTime())
-        .slice(0, 4)
-        .map(([action, info]) => ({
-          action: action as CommunityItem["action"],
-          actor: `${info.count} founder${info.count !== 1 ? "s" : ""}`,
-          time: timeAgo(info.latest),
-        }));
-
-      setItems(timeline.length > 0 ? timeline : getDefaultCommunity());
-    })();
-  }, [firmId]);
-
-  return { stats, items };
-}
-
-function getDefaultCommunity(): CommunityItem[] {
-  return [
-    { action: "saved", actor: "3 founders", time: "2h" },
-    { action: "viewed", actor: "12 founders", time: "today" },
-    { action: "added_to_cap_table", actor: "1 company", time: "1d" },
-    { action: "requested_intro", actor: "2 founders", time: "3d" },
-  ];
-}
+// ── Component ──
 
 export function InvestorActivity({ firmName, firmId }: { firmName: string; firmId?: string }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
+  const [filter, setFilter] = useState<InvestorUpdateFilter>("all");
 
   useEffect(() => {
     const interval = setInterval(() => setLastRefreshed(new Date()), 60_000);
     return () => clearInterval(interval);
   }, []);
 
-  const news = getNewsItems(firmName);
-  const tweets = getTweets(firmName);
-  const { stats: communityStats, items: communityItems } = useCommunityStats(firmId);
+  const { posts, otherUpdates } = useMemo(() => {
+    const seed = hashString(`${firmName || "Unknown"}|${firmId ?? ""}`);
+    return {
+      posts: buildMockPosts(firmName || "This firm", seed),
+      otherUpdates: buildMockOtherUpdates(firmName || "This firm", seed),
+    };
+  }, [firmName, firmId]);
+
+  const visiblePosts = useMemo(() => {
+    if (filter === "all" || filter === "posts") return [...posts].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    return [];
+  }, [posts, filter]);
+
+  const visibleOther = useMemo(() => {
+    if (filter === "posts") return [];
+    if (filter === "all") return otherUpdates;
+    return otherUpdates.filter((u) => matchesFilter(filter, u.kind));
+  }, [otherUpdates, filter]);
+
+  const showLatestPostsBlock = visiblePosts.length > 0 && (filter === "all" || filter === "posts");
+  const showSecondaryBlock =
+    (filter === "all" && visibleOther.length > 0) ||
+    (filter !== "all" && filter !== "posts" && visibleOther.length > 0);
+
+  const secondaryTitle =
+    filter === "all"
+      ? "Deals, funds & team"
+      : filter === "investments"
+        ? "Investments"
+        : filter === "fund_news"
+          ? "Fund news"
+          : filter === "team"
+            ? "Team updates"
+            : "Thesis & notable updates";
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => { setLastRefreshed(new Date()); setIsRefreshing(false); }, 1200);
+    setTimeout(() => {
+      setLastRefreshed(new Date());
+      setIsRefreshing(false);
+    }, 900);
   };
 
-  const totalEngagement = tweets.reduce((s, t) => s + t.likes + t.retweets, 0);
+  const isEmpty = !showLatestPostsBlock && !showSecondaryBlock;
 
   return (
-    <div className="space-y-2">
-      {/* Refresh bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-          <span className="text-[10px] text-muted-foreground font-medium">
-            Live · {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+          </span>
+          <span className="text-[10px] text-muted-foreground font-medium truncate">
+            Live panel · updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
         <button
+          type="button"
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
         >
           {isRefreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           Refresh
         </button>
       </div>
 
-      {/* 3-Column Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* ── COL 1: NEWS ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Newspaper className="h-3 w-3" /> News
-            </h4>
-          </div>
-          <div className="flex gap-1.5">
-            <StatCard value={news.length} label="mentions" trend="up" />
-            <StatCard value={3} label="sources" trend="flat" />
-            <StatCard value={2} label="this week" trend="up" />
-          </div>
-          <div className="space-y-0">
-            {news.map((item, i) => {
-              const cfg = NEWS_TYPE_CONFIG[item.type];
-              return (
-                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-start gap-1.5 py-1 border-b border-border/40 last:border-0 group cursor-pointer no-underline">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium text-foreground leading-tight line-clamp-1 group-hover:text-accent transition-colors">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <Badge className={`text-[7px] px-1 py-0 leading-tight ${cfg.cls}`}>{cfg.label}</Badge>
-                      <span className="text-[8px] text-muted-foreground">{item.source}</span>
-                      <span className="text-[8px] text-muted-foreground/50">·</span>
-                      <span className="text-[8px] text-muted-foreground">{item.time}</span>
-                    </div>
-                  </div>
-                  <ArrowUpRight className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-accent transition-colors" />
-                </a>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── COL 2: SOCIAL ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <AtSign className="h-3 w-3" /> Social
-            </h4>
-          </div>
-          <div className="flex gap-1.5">
-            <StatCard value={totalEngagement} label="engagements" trend="up" />
-            <StatCard value={tweets.length} label="posts" trend="flat" />
-          </div>
-          <div className="space-y-0">
-            {tweets.map((tweet, i) => (
-              <div key={i} className="py-1 border-b border-border/40 last:border-0">
-                <div className="flex items-center gap-1 mb-0.5">
-                  <span className="text-[9px] font-semibold text-accent">{tweet.handle}</span>
-                  <span className="text-[8px] text-muted-foreground/50">·</span>
-                  <span className="text-[8px] text-muted-foreground">{tweet.time}</span>
-                </div>
-                <p className="text-[10px] text-foreground/80 leading-tight line-clamp-1">{tweet.text}</p>
-                <div className="flex items-center gap-2.5 mt-0.5">
-                  <span className="flex items-center gap-0.5 text-[8px] text-muted-foreground">
-                    <Heart className="h-2 w-2" /> {tweet.likes}
-                  </span>
-                  <span className="flex items-center gap-0.5 text-[8px] text-muted-foreground">
-                    <Repeat2 className="h-2 w-2" /> {tweet.retweets}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── COL 3: COMMUNITY ── */}
-        <div className="rounded-xl border border-border bg-card p-3 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <UserPlus className="h-3 w-3" /> Community
-            </h4>
-          </div>
-          <div className="flex gap-1.5">
-            <StatCard value={communityStats.views} label="views" trend="up" />
-            <StatCard value={communityStats.saves} label="saves" trend="up" />
-            <StatCard value={communityStats.intros} label="intros" trend="flat" />
-          </div>
-          <div className="space-y-0">
-            {communityItems.map((item, i) => {
-              const Icon = COMMUNITY_ICONS[item.action];
-              return (
-                <div key={i} className="flex items-center gap-1.5 py-1 relative">
-                  {i < communityItems.length - 1 && (
-                    <div className="absolute left-[7px] top-5 bottom-0 w-px bg-border" />
-                  )}
-                  <div className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full bg-secondary border border-border z-10">
-                    <Icon className="h-2 w-2 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-foreground leading-tight">
-                      <span className="font-semibold">{item.actor}</span>{" "}
-                      <span className="text-muted-foreground">{COMMUNITY_LABELS[item.action].toLowerCase()}</span>
-                      <span className="text-muted-foreground/50 ml-1">· {item.time}</span>
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-1.5">
+        {FILTER_CHIPS.map(({ key, label }) => {
+          const active = filter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={cn(
+                "rounded-full px-3 py-1 text-[11px] font-semibold transition-all border",
+                active
+                  ? "bg-foreground text-background border-foreground shadow-sm"
+                  : "bg-secondary/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-secondary",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
+
+      {isEmpty ? (
+        <UpdatesEmptyState filter={filter} />
+      ) : (
+        <div className="space-y-6">
+          {showLatestPostsBlock && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Newspaper className="h-3.5 w-3.5 text-accent" />
+                <h3 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Latest posts</h3>
+              </div>
+              <div className="space-y-3">
+                {visiblePosts.map((post) => (
+                  <Card
+                    key={post.id}
+                    className="overflow-hidden border-border/80 shadow-sm border-l-[3px] border-l-accent/90 bg-card/95"
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3 shrink-0 opacity-70" />
+                            {formatDisplayDate(post.publishedAt)}
+                          </span>
+                          <span className="text-border">·</span>
+                          <span className="font-medium text-foreground/80">{post.publication}</span>
+                        </p>
+                        <h4 className="mt-2 text-base font-semibold text-foreground leading-snug tracking-tight">
+                          {post.title}
+                        </h4>
+                        <p className="mt-2 text-sm text-muted-foreground leading-relaxed line-clamp-3">{post.excerpt}</p>
+                      </div>
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline underline-offset-4"
+                      >
+                        Read more
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </a>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {showSecondaryBlock && (
+            <section className="space-y-2.5">
+              <div className="flex items-center gap-2 pt-1 border-t border-border/60">
+                <Radar className="h-3.5 w-3.5 text-muted-foreground" />
+                <h3 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{secondaryTitle}</h3>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-secondary/25 divide-y divide-border/50 overflow-hidden">
+                {visibleOther.map((item) => {
+                  const meta = OTHER_KIND_META[item.kind];
+                  const Icon = meta.icon;
+                  const Row = item.url ? "a" : "div";
+                  const rowProps = item.url
+                    ? { href: item.url, target: "_blank" as const, rel: "noopener noreferrer" as const }
+                    : {};
+                  return (
+                    <Row
+                      key={item.id}
+                      {...rowProps}
+                      className={cn(
+                        "flex gap-3 px-3.5 py-2.5 transition-colors",
+                        item.url && "cursor-pointer hover:bg-card/80 no-underline",
+                      )}
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card border border-border/60">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5 gap-y-1">
+                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-semibold", meta.badgeClass)}>
+                            {meta.label}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">{relativeOrShort(item.at)}</span>
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-foreground leading-snug">{item.headline}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">{item.summary}</p>
+                      </div>
+                      {item.url && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50 mt-1" />}
+                    </Row>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
     </div>
   );
 }

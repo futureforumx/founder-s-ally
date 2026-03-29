@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2, Globe, MapPin, Layers, TrendingUp,
@@ -76,6 +76,19 @@ function extractDomain(url: string | null): string | null {
 function emailMatchesDomain(email: string, domain: string): boolean {
   const emailDomain = email.split("@")[1]?.toLowerCase();
   return emailDomain === domain.toLowerCase();
+}
+
+/** True when `company-profile` in localStorage has a non-empty name (same signal as nav / Index). */
+function readPersistedCompanyProfileName(): string | null {
+  try {
+    const raw = localStorage.getItem("company-profile");
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    const n = typeof p?.name === "string" ? p.name.trim() : "";
+    return n.length > 0 ? n : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Main Component ──
@@ -210,6 +223,21 @@ export function CompanyTab() {
       .limit(1)
       .maybeSingle();
 
+    // #region agent log
+    fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+      body: JSON.stringify({
+        sessionId: "35fbb4",
+        hypothesisId: "H1",
+        location: "CompanyTab.tsx:bootstrap:after-members-query",
+        message: "membership row + local seed",
+        data: { hasMem: !!mem, localSeedName: localSeed?.name ?? null, userIdLen: user!.id?.length ?? 0 },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     if (!mem && localSeed) {
       const ensured = await ensureCompanyWorkspace(user!.id, {
         name: localSeed.name,
@@ -312,7 +340,54 @@ export function CompanyTab() {
         typeof storedWorkspaceId === "string" &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storedWorkspaceId.trim());
 
+      let lsProfileName: string | null = null;
+      try {
+        const raw = localStorage.getItem("company-profile");
+        if (raw) {
+          const p = JSON.parse(raw);
+          const n = typeof p?.name === "string" ? p.name.trim() : "";
+          lsProfileName = n || null;
+        }
+      } catch {
+        lsProfileName = null;
+      }
+
+      // #region agent log
+      fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+        body: JSON.stringify({
+          sessionId: "35fbb4",
+          hypothesisId: "H2",
+          location: "CompanyTab.tsx:bootstrap:no-mem-branch",
+          message: "profile + storage gates",
+          data: {
+            profileCompanyId: profileCompanyId ?? null,
+            uuidOk,
+            localSeedName: localSeed?.name ?? null,
+            lsProfileName,
+            bootstrapGen: gen,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+
       if (profileCompanyId) {
+        // #region agent log
+        fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+          body: JSON.stringify({
+            sessionId: "35fbb4",
+            hypothesisId: "H4",
+            location: "CompanyTab.tsx:bootstrap:profile-company-id",
+            message: "linked via profiles.company_id",
+            data: { hasProfileCompanyId: true },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         setMembership({ id: "", company_id: profileCompanyId, role: "manager" });
         setState("linked");
         if (!membershipFallbackRetryScheduledRef.current) {
@@ -345,9 +420,37 @@ export function CompanyTab() {
             /* ignore */
           }
         } else if (!isStale()) {
+          // #region agent log
+          fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+            body: JSON.stringify({
+              sessionId: "35fbb4",
+              hypothesisId: "H3",
+              location: "CompanyTab.tsx:bootstrap:ensure-failed",
+              message: "last-resort ensureCompanyWorkspace did not link",
+              data: { lastOk: last.ok, stale: isStale(), localSeedName: localSeed.name },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
           setState("search");
         }
       } else {
+        // #region agent log
+        fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+          body: JSON.stringify({
+            sessionId: "35fbb4",
+            hypothesisId: "H5",
+            location: "CompanyTab.tsx:bootstrap:search-no-local-seed",
+            message: "fallthrough setState(search)",
+            data: { hadLocalSeed: !!localSeed?.name },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
         setState("search");
       }
     }
@@ -744,8 +847,38 @@ export function CompanyTab() {
     });
   };
 
+  // When ensureCompanyWorkspace / DB membership fails (logs: H3), user can still have a real company in localStorage — match nav behavior and do not block the editor.
+  const hasLocalCompanyProfile = useMemo(() => {
+    const fromState = typeof companyData?.name === "string" && companyData.name.trim().length > 0;
+    if (fromState) return true;
+    return readPersistedCompanyProfileName() != null;
+  }, [companyData?.name]);
+
+  // #region agent log
+  useEffect(() => {
+    if (!loading && state === "search" && hasLocalCompanyProfile) {
+      fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
+        body: JSON.stringify({
+          sessionId: "35fbb4",
+          runId: "post-fix",
+          hypothesisId: "VFY",
+          location: "CompanyTab.tsx:local-profile-ui",
+          message: "showing company editor despite search state (local profile bypass)",
+          data: { hasLocalCompanyProfile },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+  }, [loading, state, hasLocalCompanyProfile]);
+  // #endregion
+
+  const showWorkspaceEditor =
+    !loading && (state === "linked" || (state === "search" && hasLocalCompanyProfile));
+
   // Determine if we need the overlay modal (not linked)
-  const needsLinking = state === "search" || state === "pending";
+  const needsLinking = state === "pending" || (state === "search" && !hasLocalCompanyProfile);
 
   return (
     <motion.div
@@ -829,8 +962,8 @@ export function CompanyTab() {
         )}
       </AnimatePresence>
 
-      {/* ── Linked: Full Company Profile Editor ── */}
-      {state === "linked" && !loading && (
+      {/* ── Linked (or local company profile): Full Company Profile Editor ── */}
+      {showWorkspaceEditor && (
         <div className="space-y-6">
           {/* ═══ Full-Width Stacked Layout ═══ */}
           <div className="flex flex-col gap-6">
@@ -904,18 +1037,22 @@ export function CompanyTab() {
               />
             </div>
 
-            {/* ── Danger Zone: Unlink ── */}
-            <Separator />
-            <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Unlink Company</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Remove this company from your account. This won't delete any data.</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleUnlink} className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive">
-                <Unlink className="h-3.5 w-3.5 mr-1.5" />
-                Unlink
-              </Button>
-            </div>
+            {/* ── Danger Zone: Unlink (only when a server workspace id exists) ── */}
+            {membership?.company_id ? (
+              <>
+                <Separator />
+                <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Unlink Company</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Remove this company from your account. This won't delete any data.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleUnlink} className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive">
+                    <Unlink className="h-3.5 w-3.5 mr-1.5" />
+                    Unlink
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       )}

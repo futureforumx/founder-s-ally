@@ -123,6 +123,15 @@ class MockSupabaseClient {
       if (name === "complete-founder-onboarding") {
         return { data: { success: true }, error: null };
       }
+      if (name === "admin-list-users") {
+        return { data: { users: [] }, error: null };
+      }
+      if (name === "admin-record-updates") {
+        return { data: { updates: [] }, error: null };
+      }
+      if (name === "admin-update-permission") {
+        return { data: { success: true }, error: null };
+      }
       return { data: { success: true }, error: null };
     }
   };

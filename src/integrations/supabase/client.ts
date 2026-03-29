@@ -64,7 +64,15 @@ export const supabase = hasSupabaseConfig
       global: {
         fetch: (...args) => fetch(...args),
       },
-      accessToken: async () => accessTokenGetter(),
+      // Never throw: a rejected accessToken aborts fetchWithAuth and surfaces as "Failed to send" on Edge Functions.
+      accessToken: async () => {
+        try {
+          return await accessTokenGetter();
+        } catch (e) {
+          console.warn("[Supabase] accessToken failed", e);
+          return null;
+        }
+      },
       ...sharedAuthOptions,
     })
   : mockSupabase;
