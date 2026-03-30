@@ -51,23 +51,40 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (DEMO_MODE) return;
     if (!user) { setOnboardingChecked(true); return; }
+
+    let cancelled = false;
     setOnboardingChecked(false);
-    supabase
-      .from("profiles")
-      .select("id, has_completed_onboarding")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          setNeedsOnboarding(false);
+
+    // Retry on null-data: right after sign-in the Clerk JWT may not be available
+    // yet, causing the query to run as anon (RLS blocks it → null). Retrying a
+    // couple of times avoids incorrectly redirecting already-onboarded users to
+    // the onboarding flow.
+    const attemptCheck = (retriesLeft: number) => {
+      supabase
+        .from("profiles")
+        .select("id, has_completed_onboarding")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            setNeedsOnboarding(false);
+            setOnboardingChecked(true);
+            return;
+          }
+          if (data === null && retriesLeft > 0) {
+            setTimeout(() => { if (!cancelled) attemptCheck(retriesLeft - 1); }, 500);
+            return;
+          }
+          const completed = (data as any)?.has_completed_onboarding === true;
+          setNeedsOnboarding(!data || !completed);
           setOnboardingChecked(true);
-          return;
-        }
-        const completed = (data as any)?.has_completed_onboarding === true;
-        setNeedsOnboarding(!data || !completed);
-        setOnboardingChecked(true);
-      });
-  }, [user, location.pathname]);
+        });
+    };
+
+    attemptCheck(2);
+    return () => { cancelled = true; };
+  }, [user]); // location.pathname intentionally omitted — render logic already handles /onboarding redirects
 
   if (loading && authTimedOut) {
     return <Navigate to="/auth?timeout=1" replace />;
