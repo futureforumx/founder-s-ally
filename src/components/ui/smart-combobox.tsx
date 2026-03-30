@@ -13,7 +13,7 @@ export interface ComboboxOption {
 interface SmartComboboxProps {
   value: string;
   onChange: (value: string) => void;
-  onBlur?: () => void;
+  onBlur?: (value: string) => void;
   options: ComboboxOption[];
   placeholder?: string;
   verified?: boolean;
@@ -74,7 +74,7 @@ export function SmartCombobox({
       onChange(val);
       setSearch("");
       setOpen(false);
-      onBlur?.();
+      onBlur?.(val);
     },
     [onChange, onBlur]
   );
@@ -95,9 +95,10 @@ export function SmartCombobox({
     // Delay to allow click on option
     setTimeout(() => {
       if (!containerRef.current?.contains(document.activeElement)) {
+        const currentValue = search || value;
         setOpen(false);
         setSearch("");
-        onBlur?.();
+        onBlur?.(currentValue);
       }
     }, 150);
   };
@@ -113,9 +114,10 @@ export function SmartCombobox({
       if (filtered.length === 1) {
         handleSelect(filtered[0].value);
       } else {
+        const currentValue = search || value;
         setOpen(false);
         setSearch("");
-        onBlur?.();
+        onBlur?.(currentValue);
       }
     }
   };

@@ -90,6 +90,10 @@ function matchLocations(query: string, limit = 8): string[] {
   return results;
 }
 
+function topLocations(limit = 8): string[] {
+  return LOCATIONS.slice(0, limit);
+}
+
 // ── Highlight helper ──
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
@@ -139,10 +143,11 @@ export function LocationAutocomplete({ value, onChange, placeholder = "San Franc
   const search = useCallback((q: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      const r = matchLocations(q);
+      const trimmed = q.trim();
+      const r = trimmed ? matchLocations(trimmed) : topLocations();
       setResults(r);
       setActiveIdx(-1);
-      setOpen(r.length > 0 && q.trim().length > 0);
+      setOpen(r.length > 0);
     }, 150);
   }, []);
 
@@ -184,7 +189,7 @@ export function LocationAutocomplete({ value, onChange, placeholder = "San Franc
           type="text"
           value={query}
           onChange={handleChange}
-          onFocus={() => { if (query.trim()) search(query); }}
+          onFocus={() => { search(query); }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           maxLength={100}
