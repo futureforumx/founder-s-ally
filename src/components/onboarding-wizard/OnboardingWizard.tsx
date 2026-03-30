@@ -290,7 +290,7 @@ export function OnboardingWizard() {
       });
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-      navigate({ pathname: "/", search: "?tab=company&tour=true" });
+      navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
