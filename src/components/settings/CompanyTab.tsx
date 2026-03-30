@@ -1005,6 +1005,9 @@ export function CompanyTab() {
                   // Auto-apply logo if available from sync
                   if (incoming.logo_url) {
                     try {
+                      const savedProfile = localStorage.getItem("company-profile");
+                      const currentProfile = savedProfile ? JSON.parse(savedProfile) : {};
+                      localStorage.setItem("company-profile", JSON.stringify({ ...currentProfile, logo_url: incoming.logo_url }));
                       localStorage.setItem("company-logo-url", incoming.logo_url);
                       window.dispatchEvent(new Event("company-logo-changed"));
                     } catch {}

@@ -86,6 +86,29 @@ function parseXHandle(xUrl?: string | null): string | null {
   }
 }
 
+function isRealLinkedInProfile(linkedinUrl?: string | null): boolean {
+  const raw = trimOrNull(linkedinUrl);
+  if (!raw) return false;
+  try {
+    const u = raw.includes("://") ? new URL(raw) : new URL(`https://${raw}`);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (host !== "linkedin.com") return false;
+    const path = u.pathname.toLowerCase();
+    return path.startsWith("/in/") || path.startsWith("/pub/");
+  } catch {
+    return false;
+  }
+}
+
+function isPartnerLevelProfile(title?: string | null, role?: string | null): boolean {
+  const haystack = [trimOrNull(title), trimOrNull(role)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (!haystack) return false;
+  return /(general partner|managing partner|venture partner|partner|principal|associate|analyst|scout|investor|advisor)/.test(haystack);
+}
+
 function gstaticFaviconUrl(host: string, size: number = 128): string {
   return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${host}&size=${size}`;
 }
@@ -104,6 +127,12 @@ function uniqueCandidates(candidates: Candidate[]): Candidate[] {
     out.push({ ...candidate, url });
   }
   return out;
+}
+
+function isReplaceablePlaceholderAvatar(url?: string | null): boolean {
+  const normalized = trimOrNull(url)?.toLowerCase();
+  if (!normalized) return false;
+  return normalized.includes("dicebear.com/");
 }
 
 function isLikelyImageContentType(contentType: string | null): boolean {
@@ -145,6 +174,8 @@ async function probeImage(url: string, timeoutMs: number): Promise<boolean> {
 
 function buildCandidates(input: {
   fullName: string;
+  title?: string | null;
+  role?: string | null;
   email?: string | null;
   avatarUrl?: string | null;
   gravatarProfilePhotoUrl?: string | null;
@@ -159,8 +190,22 @@ function buildCandidates(input: {
   const websiteHost = parseHost(input.websiteUrl);
   const linkedinHost = parseHost(input.linkedinUrl);
   const firmHost = parseHost(input.firmWebsiteUrl);
+  const preferLinkedInOverFirm = isRealLinkedInProfile(input.linkedinUrl) && isPartnerLevelProfile(input.title, input.role);
 
   const candidates: Candidate[] = [];
+
+  const firmCandidates: Candidate[] = firmHost
+    ? [
+        { source: "favicon_firm_gstatic", url: gstaticFaviconUrl(firmHost, 128) },
+        { source: "favicon_firm_s2", url: googleS2FaviconUrl(firmHost, 128) },
+      ]
+    : [];
+  const linkedInCandidates: Candidate[] = linkedinHost
+    ? [{ source: "favicon_linkedin_gstatic", url: gstaticFaviconUrl(linkedinHost, 128) }]
+    : [];
+
+  candidates.push(...(preferLinkedInOverFirm ? linkedInCandidates : firmCandidates));
+  candidates.push(...(preferLinkedInOverFirm ? firmCandidates : linkedInCandidates));
 
   const gravatarProfilePhotoUrl = trimOrNull(input.gravatarProfilePhotoUrl);
   const gravatar = gravatarAvatarUrl(email);
@@ -175,7 +220,9 @@ function buildCandidates(input: {
   }
 
   const existing = trimOrNull(input.avatarUrl);
-  if (existing) candidates.push({ source: "existing_avatar", url: existing });
+  if (existing && !isReplaceablePlaceholderAvatar(existing)) {
+    candidates.push({ source: "existing_avatar", url: existing });
+  }
 
   if (email) candidates.push({ source: "unavatar_email", url: `https://unavatar.io/${encodeURIComponent(email)}` });
   if (xHandle) candidates.push({ source: "unavatar_x", url: `https://unavatar.io/x/${encodeURIComponent(xHandle)}` });
@@ -187,17 +234,9 @@ function buildCandidates(input: {
     candidates.push({ source: "favicon_website_gstatic", url: gstaticFaviconUrl(websiteHost, 128) });
     candidates.push({ source: "favicon_website_s2", url: googleS2FaviconUrl(websiteHost, 128) });
   }
-  if (linkedinHost) {
-    candidates.push({ source: "favicon_linkedin_gstatic", url: gstaticFaviconUrl(linkedinHost, 128) });
-  }
-  if (firmHost) {
-    candidates.push({ source: "favicon_firm_gstatic", url: gstaticFaviconUrl(firmHost, 128) });
-    candidates.push({ source: "favicon_firm_s2", url: googleS2FaviconUrl(firmHost, 128) });
-  }
 
   const fullNameQuery = encodeURIComponent(input.fullName);
   candidates.push({ source: "unavatar_name", url: `https://unavatar.io/${fullNameQuery}` });
-  candidates.push({ source: "dicebear_initials", url: `https://api.dicebear.com/9.x/initials/svg?seed=${fullNameQuery}` });
 
   return uniqueCandidates(candidates);
 }
@@ -244,6 +283,7 @@ async function main() {
     attempted: 0,
     updated: 0,
     unchanged: 0,
+    clearedPlaceholders: 0,
     unresolved: 0,
   };
 
@@ -260,6 +300,8 @@ async function main() {
     const gravatarProfile = await fetchGravatarProfile(person.email, cfg.timeoutMs);
     const candidates = buildCandidates({
       fullName,
+      title: person.title,
+      role: person.role,
       email: person.email,
       avatarUrl: person.avatar_url,
       gravatarProfilePhotoUrl: gravatarProfile?.avatarUrl ?? gravatarProfile?.thumbnailUrl ?? null,
@@ -279,7 +321,19 @@ async function main() {
     const resolved = await resolveBestCandidate(candidates, cfg.timeoutMs);
 
     if (!resolved) {
-      stats.unresolved += 1;
+      const current = trimOrNull(person.avatar_url);
+      if (cfg.force && current && isReplaceablePlaceholderAvatar(current)) {
+        if (!cfg.dryRun) {
+          await prisma.vCPerson.update({
+            where: { id: person.id },
+            data: { avatar_url: null },
+          });
+        }
+        stats.updated += 1;
+        stats.clearedPlaceholders += 1;
+      } else {
+        stats.unresolved += 1;
+      }
       if (cfg.delayMs > 0) await sleep(cfg.delayMs);
       continue;
     }
@@ -301,7 +355,7 @@ async function main() {
 
     if ((i + 1) % 100 === 0 || i === people.length - 1) {
       console.log(
-        `[photo-sync] ${i + 1}/${people.length} attempted=${stats.attempted} updated=${stats.updated} unresolved=${stats.unresolved}`,
+        `[photo-sync] ${i + 1}/${people.length} attempted=${stats.attempted} updated=${stats.updated} clearedPlaceholders=${stats.clearedPlaceholders} unresolved=${stats.unresolved}`,
       );
     }
 
@@ -310,7 +364,7 @@ async function main() {
 
   console.log("\n[photo-sync] Done");
   console.log(
-    `[photo-sync] scanned=${stats.scanned} attempted=${stats.attempted} updated=${stats.updated} unchanged=${stats.unchanged} unresolved=${stats.unresolved}`,
+    `[photo-sync] scanned=${stats.scanned} attempted=${stats.attempted} updated=${stats.updated} unchanged=${stats.unchanged} clearedPlaceholders=${stats.clearedPlaceholders} unresolved=${stats.unresolved}`,
   );
   if (bySource.size > 0) {
     console.log("[photo-sync] source breakdown:");

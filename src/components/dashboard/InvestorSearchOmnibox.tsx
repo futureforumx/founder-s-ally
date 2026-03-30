@@ -86,6 +86,10 @@ export function InvestorSearchOmnibox({
           profileImageUrls: investorPersonImageCandidates({
             profile_image_url: p.profile_image_url,
             avatar_url: p.avatar_url,
+            firmWebsiteUrl: firm?.website_url ?? null,
+            title: p.title,
+            role: p.role,
+            investorType: p.investor_type,
             email: p.email,
             website_url: p.website_url,
             linkedin_url: p.linkedin_url,

@@ -98,6 +98,7 @@ export function TopNavCompanyHealth({
   const [activeTab, setActiveTab] = useState<HealthTab>("overview");
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
+  const [scoreLineProgress, setScoreLineProgress] = useState(0);
   const trackedHoverOpenRef = useRef(false);
   const openTriggerRef = useRef<"hover" | "tap" | null>(null);
   const trackedModalOpenRef = useRef(false);
@@ -180,6 +181,26 @@ export function TopNavCompanyHealth({
   const status = companyHealthStatus(derived.score);
   const topDrivers = derived.drivers.slice(0, 3);
   const canHover = typeof window !== "undefined" && window.matchMedia?.("(hover: hover)")?.matches;
+  const familyImpact = useMemo(() => {
+    const totals = {
+      market: { sum: 0, count: 0 },
+      financial: { sum: 0, count: 0 },
+      gtm: { sum: 0, count: 0 },
+      defensibility: { sum: 0, count: 0 },
+    };
+
+    for (const driver of derived.drivers) {
+      totals[driver.family].sum += driver.impact;
+      totals[driver.family].count += 1;
+    }
+
+    return {
+      market: totals.market.count ? totals.market.sum / totals.market.count : 0,
+      financial: totals.financial.count ? totals.financial.sum / totals.financial.count : 0,
+      gtm: totals.gtm.count ? totals.gtm.sum / totals.gtm.count : 0,
+      defensibility: totals.defensibility.count ? totals.defensibility.sum / totals.defensibility.count : 0,
+    };
+  }, [derived.drivers]);
 
   useEffect(() => {
     if (hoverOpen && !trackedHoverOpenRef.current) {
@@ -201,6 +222,21 @@ export function TopNavCompanyHealth({
       trackedModalOpenRef.current = false;
     }
   }, [activeTab, modalOpen, trackInteraction]);
+
+  useEffect(() => {
+    if (!modalOpen) {
+      setScoreLineProgress(0);
+      return;
+    }
+
+    const raf = window.requestAnimationFrame(() => {
+      setScoreLineProgress(1);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [modalOpen]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -358,49 +394,143 @@ export function TopNavCompanyHealth({
             <div className="border-b border-border/60 px-5 py-4">
               <div className="flex flex-wrap items-end justify-between gap-3 pr-8">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Always-on intelligence</p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">Company Health</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Score {derived.score} · {derived.trendPct >= 0 ? "+" : ""}
-                    {derived.trendPct}% · {status.label}
+                  <p className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground/90">Always-on intelligence</p>
+                  <h2 className="mt-1 text-[1.38rem] font-bold tracking-tight text-foreground">Company Health</h2>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>
+                      Score <span className="text-[1.05rem] font-extrabold tabular-nums text-foreground">{derived.score}</span>
+                    </span>
+                    <span className="tabular-nums">
+                      {derived.trendPct >= 0 ? "+" : ""}
+                      {derived.trendPct}%
+                    </span>
+                    <span className="inline-flex items-center rounded-md border border-amber-500/45 bg-amber-500/5 px-1.5 py-px text-[10px] font-medium leading-none text-amber-700/85">
+                      {status.label}
+                    </span>
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
-                    <p className="mt-1 font-semibold tabular-nums text-foreground">{derived.marketPosition}</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className="font-semibold tabular-nums text-sky-600">{derived.marketPosition}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          familyImpact.market > 0
+                            ? "bg-emerald-500/10 text-emerald-700/85"
+                            : familyImpact.market < 0
+                              ? "bg-rose-500/10 text-rose-700/85"
+                              : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {familyImpact.market > 0 ? "+" : ""}
+                        {familyImpact.market.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-sky-500/70 via-sky-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
                   </div>
-                  <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial</p>
-                    <p className="mt-1 font-semibold tabular-nums text-foreground">{derived.financialHealth}</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className="font-semibold tabular-nums text-violet-600">{derived.financialHealth}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          familyImpact.financial > 0
+                            ? "bg-emerald-500/10 text-emerald-700/85"
+                            : familyImpact.financial < 0
+                              ? "bg-rose-500/10 text-rose-700/85"
+                              : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {familyImpact.financial > 0 ? "+" : ""}
+                        {familyImpact.financial.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-violet-500/70 via-violet-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
                   </div>
-                  <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">GTM</p>
-                    <p className="mt-1 font-semibold tabular-nums text-foreground">{derived.gtmStrength}</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className="font-semibold tabular-nums text-orange-500">{derived.gtmStrength}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          familyImpact.gtm > 0
+                            ? "bg-emerald-500/10 text-emerald-700/85"
+                            : familyImpact.gtm < 0
+                              ? "bg-rose-500/10 text-rose-700/85"
+                              : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {familyImpact.gtm > 0 ? "+" : ""}
+                        {familyImpact.gtm.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-orange-500/70 via-orange-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
                   </div>
-                  <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensibility</p>
-                    <p className="mt-1 font-semibold tabular-nums text-foreground">{derived.defensibility}</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className="font-semibold tabular-nums text-amber-500">{derived.defensibility}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          familyImpact.defensibility > 0
+                            ? "bg-emerald-500/10 text-emerald-700/85"
+                            : familyImpact.defensibility < 0
+                              ? "bg-rose-500/10 text-rose-700/85"
+                              : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {familyImpact.defensibility > 0 ? "+" : ""}
+                        {familyImpact.defensibility.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-1 rounded-xl bg-muted/35 p-1">
+              <div className="mt-4 border-t border-border/60 bg-muted/15 pt-3">
+                <div className="flex flex-wrap gap-1 rounded-xl bg-muted/35 p-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                       activeTab === tab.id
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "bg-background/95 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-background/40 hover:text-foreground/90",
                     )}
                   >
                     {tab.label}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 

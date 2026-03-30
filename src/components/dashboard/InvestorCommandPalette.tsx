@@ -395,6 +395,10 @@ export function InvestorCommandPalette({
                           imageUrls={investorPersonImageCandidates({
                             profile_image_url: person.profile_image_url,
                             avatar_url: person.avatar_url,
+                            firmWebsiteUrl: firm?.website_url ?? null,
+                            title: person.title,
+                            role: person.role,
+                            investorType: person.investor_type,
                             email: person.email,
                             website_url: person.website_url,
                             linkedin_url: person.linkedin_url,

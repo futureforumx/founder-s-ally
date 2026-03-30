@@ -407,9 +407,21 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     }
     setFaviconLoaded(false);
     const img = new Image();
-    img.onload = () => setFaviconLoaded(true);
-    img.onerror = () => setFaviconLoaded(true);
+    let didResolve = false;
+    const resolveLoaded = () => {
+      if (didResolve) return;
+      didResolve = true;
+      setFaviconLoaded(true);
+    };
+    const timeoutId = window.setTimeout(resolveLoaded, 1000);
+    img.crossOrigin = "anonymous";
+    img.onload = resolveLoaded;
+    img.onerror = resolveLoaded;
     img.src = faviconUrl;
+    return () => {
+      didResolve = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [faviconUrl]);
 
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
@@ -439,7 +451,11 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [revealPhase, setRevealPhase] = useState<number>(-1); // -1 = not revealing, 0+ = staggered section index
   const [showOverrideWarning, setShowOverrideWarning] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(() => {
-    try { return localStorage.getItem("company-logo-url"); } catch { return null; }
+    try {
+      return localStorage.getItem("company-logo-url") || form.logo_url || null;
+    } catch {
+      return form.logo_url || null;
+    }
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [suggestedLogoUrl, setSuggestedLogoUrl] = useState<string | null>(null);
@@ -607,6 +623,27 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   }, [logoUrl]);
 
   useEffect(() => {
+    const normalizedLogoUrl = logoUrl ?? "";
+    setForm((prev) => (prev.logo_url ?? "") === normalizedLogoUrl ? prev : { ...prev, logo_url: normalizedLogoUrl });
+  }, [logoUrl]);
+
+  useEffect(() => {
+    const syncLogoFromStorage = () => {
+      try {
+        const storedLogoUrl = localStorage.getItem("company-logo-url") || null;
+        setLogoUrl((prev) => prev === storedLogoUrl ? prev : storedLogoUrl);
+      } catch {}
+    };
+
+    window.addEventListener("company-logo-changed", syncLogoFromStorage);
+    window.addEventListener("storage", syncLogoFromStorage);
+    return () => {
+      window.removeEventListener("company-logo-changed", syncLogoFromStorage);
+      window.removeEventListener("storage", syncLogoFromStorage);
+    };
+  }, []);
+
+  useEffect(() => {
     try { localStorage.setItem("company-profile-confirmed", String(confirmed)); } catch {}
   }, [confirmed]);
 
@@ -694,7 +731,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const { field } = (e as CustomEvent).detail || {};
       if (!field) return;
       const fieldSectionMap: Record<string, string> = {
-        "pitch-deck": "data-sources", "website-url": "data-sources", "sector-tags": "overview",
+        "pitch-deck": "overview", "website-url": "overview", "sector-tags": "overview",
         "ltv-cac": "metrics", "mrr": "metrics", "executive-summary": "overview",
         ...Object.fromEntries(Object.entries(fieldToSection)),
       };
@@ -1633,7 +1670,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Staggered section reveal after overlay closes
   const handleOverlayComplete = useCallback(() => {
     setShowAnalysisOverlay(false);
-    // Start staggered reveal: phase 0 = data sources visible, 1-4 = each card
+    // Start staggered reveal: phase 1-4 = each generated profile card
     setRevealPhase(0);
     const REVEAL_SECTIONS = ["overview", "positioning", "metrics", "social"];
     REVEAL_SECTIONS.forEach((_, i) => {
@@ -1649,315 +1686,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         onComplete={handleOverlayComplete}
         companyName={form.name || undefined}
       />
-      {/* ═══════════════════════════════════════════════
-          DATA SOURCES
-          ═══════════════════════════════════════════════ */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* ── Left: Website URL + AI Insight ── */}
-            <div className="flex flex-col gap-2.5">
-              {/* WEBSITE URL */}
-              <div className="space-y-1" data-field="website-url">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                    {faviconUrl && faviconLoaded ? (
-                      <img src={faviconUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
-                    ) : (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <input type="url" value={form.website} disabled={isAnalyzing}
-                    onChange={e => {
-                      const url = e.target.value.toLowerCase();
-                      update("website", url);
-                      setSourceVerified(false);
-                      try { localStorage.removeItem("company-source-verified"); } catch {}
-                      if (analysisComplete) setHasNewInputs(true);
-                      if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
-                      faviconDebounceRef.current = setTimeout(() => {
-                        const domain = extractDomain(url);
-                        if (!domain) {
-                          setFaviconUrl(null);
-                          setFaviconLoaded(false);
-                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
-                          return;
-                        }
-                        const primary = faviconSrc(domain);
-                        setFaviconUrl(primary);
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = () => {
-                          setLogoUrl((prev) =>
-                            isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(domain),
-                          );
-                        };
-                        img.onerror = () => {
-                          const fallback = s2FaviconSrc(domain, 32);
-                          const img2 = new Image();
-                          img2.crossOrigin = 'anonymous';
-                          img2.onload = () => {
-                            setFaviconUrl(fallback);
-                            setLogoUrl((prev) =>
-                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
-                            );
-                          };
-                          img2.onerror = () => {
-                            setFaviconUrl(fallback);
-                            setLogoUrl((prev) =>
-                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
-                            );
-                          };
-                          img2.src = fallback;
-                        };
-                        // Set a timeout fallback in case CORS or network issues prevent load/error events
-                        setTimeout(() => {
-                          setLogoUrl((prev) => {
-                            if (!prev || isCustomUploadedLogo(prev)) return prev;
-                            return hdFaviconSrc(domain);
-                          });
-                        }, 1000);
-                        img.src = primary;
-                        if (!form.name.trim() && !userTouched.has("name")) {
-                          const cleaned = cleanDomainToName(domain);
-                          if (cleaned) setForm((prev) => ({ ...prev, name: cleaned }));
-                        }
-                      }, 300);
-                    }}
-                    onBlur={() => {
-                      const domain = extractDomain(form.website);
-                      if (!domain) return;
-                      const hdLogoUrl = hdFaviconSrc(domain);
-                      const testImg = new Image();
-                      testImg.crossOrigin = 'anonymous';
-                      testImg.onload = () => {
-                        setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
-                        setSuggestedLogoUrl(null);
-                      };
-                      testImg.onerror = () => {
-                        const s2 = s2FaviconSrc(domain, 128);
-                        const test2 = new Image();
-                        test2.crossOrigin = 'anonymous';
-                        test2.onload = () => {
-                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
-                          setSuggestedLogoUrl(null);
-                        };
-                        test2.onerror = () => {};
-                        test2.src = s2;
-                      };
-                      // Set a timeout fallback in case CORS or network issues prevent load/error events
-                      setTimeout(() => {
-                        setLogoUrl((prev) => {
-                          if (!prev || isCustomUploadedLogo(prev)) return prev;
-                          return hdLogoUrl;
-                        });
-                      }, 500);
-                      testImg.src = hdLogoUrl;
-                    }}
-                    placeholder="https://acme.com" maxLength={255}
-                    className={`${inputCls("website")} pl-10 pr-24`}
-                  />
-                  {/* End adornment: Sync button + Verification indicator */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
-                    {sourceVerified ? (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger asChild>
-                          <motion.span
-                            key="verified"
-                            initial={sourceVerifiedAnim ? { scale: 0 } : { scale: 1 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                            onAnimationComplete={() => setSourceVerifiedAnim(false)}
-                            className="inline-flex"
-                          >
-                            <CheckCircle2
-                              className="h-4 w-4 text-green-500"
-                              style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
-                            />
-                          </motion.span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Source Verified via Apify Intelligence</TooltipContent>
-                      </Tooltip>
-                    ) : form.website.trim() ? (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default">
-                            <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                    {onSyncCompany && form.website.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSyncCompany(form.website.trim());
-                        }}
-                        disabled={companySyncing}
-                        className={cn(
-                          "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
-                          companySyncing
-                            ? "text-accent animate-pulse"
-                            : "text-accent/70 hover:text-accent hover:bg-accent/10"
-                        )}
-                      >
-                        {companySyncing ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3 w-3" />
-                        )}
-                        {companySyncing ? "Syncing" : "Sync"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
-                {/* Logo suggestion banner */}
-                {suggestedLogoUrl && (
-                  <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
-                    <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
-                    <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
-                    <button
-                      onClick={() => {
-                        setLogoUrl(suggestedLogoUrl);
-                        try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
-                        setSuggestedLogoUrl(null);
-                        setLogoSyncBadge(true);
-                        setTimeout(() => setLogoSyncBadge(false), 3000);
-                      }}
-                      className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-                    >
-                      Apply
-                    </button>
-                    <button
-                      onClick={() => setSuggestedLogoUrl(null)}
-                      className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* AI Insight — condensed tip style, pushed to bottom */}
-              {parentCompanyData && (
-                <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5 mt-auto">
-                  <p className="text-[9px] font-bold text-accent uppercase tracking-wider flex items-center gap-1 mb-0.5">
-                    <Sparkles className="h-2.5 w-2.5" /> Insight
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
-                    Founders in <span className="font-semibold text-foreground">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify metrics see <span className="font-bold text-accent">3× higher</span> response rates from {parentCompanyData?.stage || "Seed"} investors.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Right: Pitch Deck dropzone / Active Deck Card ── */}
-            <div className="flex flex-col gap-1" data-field="pitch-deck">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Pitch Deck (PDF)
-              </label>
-              {activeDeck && !showReplaceDeck ? (
-                <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[120px]">
-                  <div className="flex items-center gap-3.5 overflow-hidden w-full">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                        <span>Active</span>
-                        {activeDeck.file_size_bytes && (
-                          <>
-                            <span className="text-border">•</span>
-                            <span>{activeDeck.file_size_bytes >= 1024 * 1024
-                              ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
-                              : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
-                            }</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowReplaceDeck(true)}
-                    className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Replace
-                  </button>
-                </div>
-              ) : (
-                <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
-                    scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
-                  }`}>
-                  {scanningMetrics ? (
-                    <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
-                  ) : (
-                    <Upload className="h-5 w-5 text-muted-foreground mb-2" />
-                  )}
-                  <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                    {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
-                  </span>
-                  {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
-                  <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
-                  {showReplaceDeck && activeDeck && (
-                    <button onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive mt-3">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
-            </div>
-          )}
-
-          
-
-          {/* Smart Analysis Button */}
-          <div className="mt-3 space-y-1.5">
-            {(() => {
-              const isUpToDate = analysisComplete && !dataSourcesChanged;
-              const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
-              const hasDataPresent = !!(form.website.trim() || deckText);
-              return (
-                <>
-                  <button onClick={handleAnalyzeClick} disabled={isDisabled}
-                    className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-lg border-0 px-5 py-2.5 text-[13px] font-medium transition-all duration-300 disabled:cursor-not-allowed",
-                      isAnalyzing ? "bg-primary text-primary-foreground"
-                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
-                      : hasDataPresent
-                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--success)/0.35)]"
-                        : "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
-                    )}>
-                    {isAnalyzing ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>
-                    ) : isUpToDate ? (
-                      <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
-                    ) : (
-                      <><Sparkles className="h-3.5 w-3.5" /> {analysisComplete ? "Sync & Re-Analyze" : "Sync & Run AI Analysis"}</>
-                    )}
-                  </button>
-                  <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      </div>
-
       {/* ═══════════════════════════════════════════════
           GENERATED PROFILE — scrollable
           ═══════════════════════════════════════════════ */}
@@ -1983,107 +1711,336 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
 
-        {/* Pre-analysis placeholder */}
-        {!analysisComplete && !isAnalyzing && (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card py-16">
-            <Lock className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Run analysis to auto-populate your company profile</span>
-          </div>
-        )}
+        <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 1 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 1 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
+          <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
+            <div ref={el => { sectionRefs.current.overview = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between p-6 text-left">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <PhosphorBriefcase className="h-3.5 w-3.5 text-accent" /> Company Overview
+                    {renderStatusDot("overview")}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                        <PhosphorSparkle className="h-2.5 w-2.5" /> AI Categorized
+                      </span>
+                    )}
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.overview ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-6 pb-6 space-y-6">
+                  <div className="space-y-1" data-field="company-name">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
+                    <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                      placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+                  </div>
 
-        {/* ═══ Cards only shown after analysis or when data exists ═══ */}
-        {(analysisComplete || form.hqLocation || form.sector) && !showAnalysisOverlay && (
-          <>
-            {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
-            <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 1 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 1 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
-            <Collapsible open={openSections.overview} onOpenChange={v => handleManualToggle("overview", v)}>
-              <div ref={el => { sectionRefs.current.overview = el; }} className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 ${isInReviewMode && activeReviewSection === "overview" ? "border-accent/40 ring-1 ring-accent/20" : "border-border"}`}>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between p-6 text-left">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      <PhosphorBriefcase className="h-3.5 w-3.5 text-accent" /> Company Overview
-                      {renderStatusDot("overview")}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {analysisComplete && (aiUpdatedFields.has("stage") || aiUpdatedFields.has("sector") || aiUpdatedFields.has("businessModel") || aiUpdatedFields.has("targetCustomer") || aiUpdatedFields.has("hqLocation")) && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 border border-accent/20 px-2 py-0.5 text-[9px] font-semibold text-accent">
-                          <PhosphorSparkle className="h-2.5 w-2.5" /> AI Categorized
-                        </span>
-                      )}
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${openSections.overview ? 'rotate-180' : ''}`} />
+                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Data Sources</h4>
+                      <span className="text-[10px] text-muted-foreground">Website + Deck drive analysis</span>
                     </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-6 pb-6 space-y-6">
-                    {/* ── Company Name ── */}
-                    <div className="space-y-1" data-field="company-name">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
-                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                        placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
-                    </div>
-                    {/* ── Company Logo + Stage row ── */}
-                    <div className="flex items-center gap-6">
-                      {/* Logo Upload Slot */}
-                      <div className="relative group shrink-0">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          id="overview-logo-upload"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
-                        />
-                        <label
-                          htmlFor="overview-logo-upload"
-                          className={cn(
-                            "flex items-center justify-center h-20 w-20 rounded-xl border-2 border-dashed cursor-pointer transition-all overflow-hidden",
-                            "bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
-                            logoUrl ? "border-border shadow-sm" : "border-border/60",
-                            uploadingLogo && "opacity-60 pointer-events-none"
-                          )}
-                        >
-                          {uploadingLogo ? (
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          ) : logoUrl ? (
-                            <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain p-1.5" />
-                          ) : (
-                            (() => {
-                              const domain = extractDomain(form.website);
-                              const fallbackUrl = domain ? faviconSrc(domain) : null;
-                              return fallbackUrl ? (
-                                <img src={fallbackUrl} alt="Favicon" className="h-full w-full object-contain p-2 opacity-50 group-hover:opacity-70 transition-opacity" />
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+                      <div className="flex flex-col gap-2.5">
+                        <div className="space-y-1" data-field="website-url">
+                          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
+                          <div className="relative">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                              {faviconUrl && faviconLoaded ? (
+                                <img src={faviconUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
                               ) : (
-                                <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
-                                  <Building2 className="h-6 w-6" />
-                                  <span className="text-[8px] font-medium uppercase tracking-wide">Logo</span>
-                                </div>
-                              );
-                            })()
-                          )}
-                          {/* Hover edit overlay */}
-                          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Camera className="h-4 w-4 text-white" />
-                          </div>
-                        </label>
-                        {logoUrl && (
-                          <>
-                            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-success border-2 border-card flex items-center justify-center">
-                              <Check className="h-2.5 w-2.5 text-white" />
+                                <Globe className="h-4 w-4 text-muted-foreground" />
+                              )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setLogoUrl(null); }}
-                              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-destructive border-2 border-card flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
-                              title="Remove logo"
-                            >
-                              <X className="h-2.5 w-2.5 text-white" />
-                            </button>
-                          </>
+                            <input type="url" value={form.website} disabled={isAnalyzing}
+                              onChange={e => {
+                                const url = e.target.value.toLowerCase();
+                                update("website", url);
+                                setSourceVerified(false);
+                                try { localStorage.removeItem("company-source-verified"); } catch {}
+                                if (analysisComplete) setHasNewInputs(true);
+                                if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
+                                faviconDebounceRef.current = setTimeout(() => {
+                                  const domain = extractDomain(url);
+                                  if (!domain) {
+                                    setFaviconUrl(null);
+                                    setFaviconLoaded(false);
+                                    setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
+                                    return;
+                                  }
+                                  const primary = faviconSrc(domain);
+                                  setFaviconUrl(primary);
+                                  const img = new Image();
+                                  img.crossOrigin = 'anonymous';
+                                  img.onload = () => {
+                                    setLogoUrl((prev) =>
+                                      isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(domain),
+                                    );
+                                  };
+                                  img.onerror = () => {
+                                    const fallback = s2FaviconSrc(domain, 32);
+                                    const img2 = new Image();
+                                    img2.crossOrigin = 'anonymous';
+                                    img2.onload = () => {
+                                      setFaviconUrl(fallback);
+                                      setLogoUrl((prev) =>
+                                        isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
+                                      );
+                                    };
+                                    img2.onerror = () => {
+                                      setFaviconUrl(fallback);
+                                      setLogoUrl((prev) =>
+                                        isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
+                                      );
+                                    };
+                                    img2.src = fallback;
+                                  };
+                                  window.setTimeout(() => {
+                                    setLogoUrl((prev) => {
+                                      if (isCustomUploadedLogo(prev)) return prev;
+                                      return hdFaviconSrc(domain);
+                                    });
+                                  }, 1000);
+                                  img.src = primary;
+                                  if (!form.name.trim() && !userTouched.has("name")) {
+                                    const cleaned = cleanDomainToName(domain);
+                                    if (cleaned) setForm((prev) => ({ ...prev, name: cleaned }));
+                                  }
+                                }, 300);
+                              }}
+                              onBlur={() => {
+                                const domain = extractDomain(form.website);
+                                if (!domain) return;
+                                const hdLogoUrl = hdFaviconSrc(domain);
+                                const testImg = new Image();
+                                testImg.crossOrigin = 'anonymous';
+                                testImg.onload = () => {
+                                  setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
+                                  setSuggestedLogoUrl(null);
+                                };
+                                testImg.onerror = () => {
+                                  const s2 = s2FaviconSrc(domain, 128);
+                                  const test2 = new Image();
+                                  test2.crossOrigin = 'anonymous';
+                                  test2.onload = () => {
+                                    setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
+                                    setSuggestedLogoUrl(null);
+                                  };
+                                  test2.onerror = () => {};
+                                  test2.src = s2;
+                                };
+                                window.setTimeout(() => {
+                                  setLogoUrl((prev) => {
+                                    if (isCustomUploadedLogo(prev)) return prev;
+                                    return hdLogoUrl;
+                                  });
+                                }, 500);
+                                testImg.src = hdLogoUrl;
+                              }}
+                              placeholder="https://acme.com" maxLength={255}
+                              className={`${inputCls("website")} pl-10 pr-24`}
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
+                              {sourceVerified ? (
+                                <Tooltip delayDuration={100}>
+                                  <TooltipTrigger asChild>
+                                    <motion.span
+                                      key="verified"
+                                      initial={sourceVerifiedAnim ? { scale: 0 } : { scale: 1 }}
+                                      animate={{ scale: 1 }}
+                                      transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                                      onAnimationComplete={() => setSourceVerifiedAnim(false)}
+                                      className="inline-flex"
+                                    >
+                                      <CheckCircle2
+                                        className="h-4 w-4 text-green-500"
+                                        style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
+                                      />
+                                    </motion.span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">Source Verified via Apify Intelligence</TooltipContent>
+                                </Tooltip>
+                              ) : form.website.trim() ? (
+                                <Tooltip delayDuration={100}>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex cursor-default">
+                                      <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">Favicon is auto-detected from website</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
+                          {suggestedLogoUrl && (
+                            <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
+                              <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
+                              <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
+                              <button
+                                onClick={() => {
+                                  setLogoUrl(suggestedLogoUrl);
+                                  try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
+                                  setSuggestedLogoUrl(null);
+                                  setLogoSyncBadge(true);
+                                  setTimeout(() => setLogoSyncBadge(false), 3000);
+                                }}
+                                className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
+                              >
+                                Apply
+                              </button>
+                              <button
+                                onClick={() => setSuggestedLogoUrl(null)}
+                                className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Dismiss
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {parentCompanyData && (
+                          <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5 mt-auto">
+                            <p className="text-[9px] font-bold text-accent uppercase tracking-wider flex items-center gap-1 mb-0.5">
+                              <Sparkles className="h-2.5 w-2.5" /> Insight
+                            </p>
+                            <p className="text-[11px] text-muted-foreground leading-snug">
+                              Founders in <span className="font-semibold text-foreground">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify metrics see <span className="font-bold text-accent">3× higher</span> response rates from {parentCompanyData?.stage || "Seed"} investors.
+                            </p>
+                          </div>
                         )}
                       </div>
 
-                      {/* Stage field next to logo */}
-                      <div className="space-y-1 flex-1">
+                      <div className="flex flex-col gap-1" data-field="pitch-deck">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <FileText className="h-3 w-3" /> Pitch Deck (PDF)
+                        </label>
+                        {activeDeck && !showReplaceDeck ? (
+                          <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[120px]">
+                            <div className="flex items-center gap-3.5 overflow-hidden w-full">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
+                                <FileText className="h-5 w-5" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
+                                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                                  <span>Active</span>
+                                  {activeDeck.file_size_bytes && (
+                                    <>
+                                      <span className="text-border">•</span>
+                                      <span>{activeDeck.file_size_bytes >= 1024 * 1024
+                                        ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
+                                        : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
+                                      }</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setShowReplaceDeck(true)}
+                              className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" /> Replace
+                            </button>
+                          </div>
+                        ) : (
+                          <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
+                              scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
+                            }`}>
+                            {scanningMetrics ? (
+                              <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
+                            ) : (
+                              <Upload className="h-5 w-5 text-muted-foreground mb-2" />
+                            )}
+                            <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                              {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
+                            </span>
+                            {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
+                            <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
+                            <button onClick={() => fileInputRef.current?.click()}
+                              className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+                            {showReplaceDeck && activeDeck && (
+                              <button onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-muted-foreground text-center">Favicon pulls automatically from website URL.</p>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="relative group shrink-0">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id="overview-logo-upload"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }}
+                      />
+                      <label
+                        htmlFor="overview-logo-upload"
+                        className={cn(
+                          "flex items-center justify-center h-20 w-20 rounded-xl border-2 border-dashed cursor-pointer transition-all overflow-hidden",
+                          "bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                          logoUrl ? "border-border shadow-sm" : "border-border/60",
+                          uploadingLogo && "opacity-60 pointer-events-none"
+                        )}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        ) : logoUrl ? (
+                          <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain p-1.5" />
+                        ) : (
+                          (() => {
+                            const domain = extractDomain(form.website);
+                            const fallbackUrl = domain ? faviconSrc(domain) : null;
+                            return fallbackUrl ? (
+                              <img src={fallbackUrl} alt="Favicon" className="h-full w-full object-contain p-2 opacity-50 group-hover:opacity-70 transition-opacity" />
+                            ) : (
+                              <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
+                                <Building2 className="h-6 w-6" />
+                                <span className="text-[8px] font-medium uppercase tracking-wide">Logo</span>
+                              </div>
+                            );
+                          })()
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Camera className="h-4 w-4 text-white" />
+                        </div>
+                      </label>
+                      {logoUrl && (
+                        <>
+                          <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-success border-2 border-card flex items-center justify-center">
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setLogoUrl(null); }}
+                            className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-destructive border-2 border-card flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+                            title="Remove logo"
+                          >
+                            <X className="h-2.5 w-2.5 text-white" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 flex-1">
                       <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                         Stage {renderFieldBadge("stage")}
                       </label>
@@ -2097,72 +2054,81 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         isAiApproved={!!sectionConfirmed.overview}
                       />
                     </div>
-                    </div>{/* end logo + stage row */}
+                  </div>
 
-                    <div className="space-y-2" data-field="sector-tags">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        Sector {renderFieldBadge("sector")}
-                      </label>
-                      <SectorChipGrid
-                        value={{
-                          primary_sector: form.sector || null,
-                          secondary_sectors: form.subsectors || [],
-                        }}
-                        onChange={(sel: SectorChipSelection) => {
-                          update("sector", sel.primary_sector || "");
-                          setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
-                        }}
-                        businessModel={form.businessModel}
-                        onBusinessModelChange={(val) => update("businessModel", val)}
-                        targetCustomer={form.targetCustomer}
-                        onTargetCustomerChange={(val) => update("targetCustomer", val)}
-                        aiSuggestedSectors={
-                          aiUpdatedFields.has("sector")
-                            ? [form.sector, ...(form.subsectors || [])].filter(Boolean)
-                            : []
-                        }
-                        aiSuggestedModels={aiUpdatedFields.has("businessModel") ? form.businessModel : []}
-                        aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
-                        approved={!!sectionConfirmed.overview}
-                      />
-                    </div>
+                  <div className="space-y-2" data-field="sector-tags">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      Sector {renderFieldBadge("sector")}
+                    </label>
+                    <SectorChipGrid
+                      value={{
+                        primary_sector: form.sector || null,
+                        secondary_sectors: form.subsectors || [],
+                      }}
+                      onChange={(sel: SectorChipSelection) => {
+                        update("sector", sel.primary_sector || "");
+                        setForm(prev => ({ ...prev, subsectors: sel.secondary_sectors }));
+                      }}
+                      businessModel={form.businessModel}
+                      onBusinessModelChange={(val) => update("businessModel", val)}
+                      targetCustomer={form.targetCustomer}
+                      onTargetCustomerChange={(val) => update("targetCustomer", val)}
+                      aiSuggestedSectors={
+                        aiUpdatedFields.has("sector")
+                          ? [form.sector, ...(form.subsectors || [])].filter(Boolean)
+                          : []
+                      }
+                      aiSuggestedModels={aiUpdatedFields.has("businessModel") ? form.businessModel : []}
+                      aiSuggestedCustomers={aiUpdatedFields.has("targetCustomer") ? form.targetCustomer : []}
+                      approved={!!sectionConfirmed.overview}
+                    />
+                  </div>
 
-                    {/* Row 3: HQ Location (full width) */}
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        HQ Location {renderFieldBadge("hqLocation")}
-                      </label>
-                      <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
-                        className={`h-9 ${inputCls("hqLocation")}`} />
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      HQ Location {renderFieldBadge("hqLocation")}
+                    </label>
+                    <LocationAutocomplete value={form.hqLocation} onChange={v => update("hqLocation", v)}
+                      className={`h-9 ${inputCls("hqLocation")}`} />
+                  </div>
 
-              {/* Approve button */}
-              {analysisComplete && !confirmed && (
-                <div className="pt-2 border-t border-border/50 flex justify-end">
-                  {sectionConfirmed.overview ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
-                  ) : (
-                    <button onClick={() => confirmSection("overview")}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-[11px] font-medium transition-colors ${
-                        overviewApproveLabel
-                          ? "border-destructive/30 bg-destructive/5 text-destructive cursor-not-allowed"
-                          : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-                      }`}>
-                      {overviewApproveLabel ? (
-                        <><AlertCircle className="h-3.5 w-3.5" /> {overviewApproveLabel}</>
+                  {analysisComplete && !confirmed && (
+                    <div className="pt-2 border-t border-border/50 flex justify-end">
+                      {sectionConfirmed.overview ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Approved</span>
                       ) : (
-                        <><Check className="h-3.5 w-3.5" /> Approve Company Overview</>
+                        <button onClick={() => confirmSection("overview")}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-[11px] font-medium transition-colors ${
+                            overviewApproveLabel
+                              ? "border-destructive/30 bg-destructive/5 text-destructive cursor-not-allowed"
+                              : "border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                          }`}>
+                          {overviewApproveLabel ? (
+                            <><AlertCircle className="h-3.5 w-3.5" /> {overviewApproveLabel}</>
+                          ) : (
+                            <><Check className="h-3.5 w-3.5" /> Approve Company Overview</>
+                          )}
+                        </button>
                       )}
-                    </button>
+                    </div>
                   )}
                 </div>
-              )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
+              </CollapsibleContent>
             </div>
+          </Collapsible>
+        </div>
 
+        {/* Pre-analysis placeholder */}
+        {!analysisComplete && !isAnalyzing && (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card py-16">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Run analysis to auto-populate your company profile</span>
+          </div>
+        )}
+
+        {/* ═══ Cards only shown after analysis or when data exists ═══ */}
+        {(analysisComplete || form.hqLocation || form.sector) && !showAnalysisOverlay && (
+          <>
             {/* ─── CARD 2: Positioning & Links ─── */}
             <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 2 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 2 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>

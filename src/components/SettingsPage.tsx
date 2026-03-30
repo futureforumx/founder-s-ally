@@ -1628,6 +1628,35 @@ interface ConnectionItem {
 
 type ConnFilter = "all" | "investor" | "founder" | "operator";
 
+function extractFirmNameFromStarRatings(starRatings: unknown): string | null {
+  const parseObj = (input: unknown): Record<string, unknown> | null => {
+    if (!input) return null;
+    if (typeof input === "string") {
+      const t = input.trim();
+      if (!t) return null;
+      try {
+        const parsed = JSON.parse(t);
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    }
+    return typeof input === "object" ? (input as Record<string, unknown>) : null;
+  };
+
+  const root = parseObj(starRatings);
+  if (!root) return null;
+
+  const firmNameRaw =
+    root.firm_name ??
+    parseObj(root.star_ratings)?.firm_name ??
+    parseObj(root.payload)?.firm_name;
+
+  return typeof firmNameRaw === "string" && firmNameRaw.trim().length > 0
+    ? firmNameRaw.trim()
+    : null;
+}
+
 function ActivityTab() {
   const { user } = useAuth();
   const [activityReviews, setActivityReviews] = useState<ActivityReviewRow[]>([]);
@@ -1695,7 +1724,7 @@ function ActivityTab() {
           }
           const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
 
-          let prismaMap: Record<string, string> = {};
+          const prismaMap: Record<string, string> = {};
           if (firmIds.length > 0) {
             const { data: invMatch } = await supabase.from("investor_database").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
             for (const row of invMatch || []) {
@@ -1707,8 +1736,8 @@ function ActivityTab() {
 
           for (const r of ratings) {
             const fid = r.vc_firm_id;
-            if (!fid) continue;
-            const vf = vfMap[fid];
+            const vf = fid ? vfMap[fid] : null;
+            const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
             const ten = parseOverallTenFromStarRatings(r.star_ratings);
             const work = parseWorkWithThemFromStarRatings(r.star_ratings);
             const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
@@ -1717,15 +1746,15 @@ function ActivityTab() {
               id: `vc-${r.id}`,
               ratingId: r.id,
               created_at: r.created_at,
-              firmName: vf?.firm_name ?? "Investor",
+              firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
               logo_url: vf?.logo_url ?? null,
               interaction_type: r.interaction_type || "review",
               comment: r.comment,
               scoreLabel,
               scoreTen: ten,
-              vcFirmId: fid,
+              vcFirmId: fid || "",
               vcPersonId: r.vc_person_id,
-              investorDatabaseId: prismaMap[fid] ?? null,
+              investorDatabaseId: fid ? prismaMap[fid] ?? null : null,
             });
           }
         }
@@ -1905,11 +1934,14 @@ function ActivityTab() {
           <div className="space-y-2">
             {activityReviews.map((item) =>
               item.kind === "vc_directory" ? (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => openVcReviewFromActivity(item)}
-                  className="w-full rounded-xl border border-border bg-muted/10 p-4 space-y-2 text-left hover:bg-muted/25 hover:border-accent/25 transition-colors group"
+                  className={cn(
+                    "w-full rounded-xl border border-border bg-muted/10 p-4 space-y-2 text-left group",
+                    item.vcFirmId
+                      ? "hover:bg-muted/25 hover:border-accent/25 transition-colors"
+                      : "opacity-95",
+                  )}
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1949,13 +1981,22 @@ function ActivityTab() {
                           year: "numeric",
                         })}
                       </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity" />
+                      {item.vcFirmId ? (
+                        <button
+                          type="button"
+                          onClick={() => openVcReviewFromActivity(item)}
+                          className="inline-flex items-center"
+                          aria-label={`Open review for ${item.firmName}`}
+                        >
+                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   {item.comment && (
                     <p className="text-xs text-muted-foreground leading-relaxed pl-9 line-clamp-2">{item.comment}</p>
                   )}
-                </button>
+                </div>
               ) : (
                 <div
                   key={item.id}

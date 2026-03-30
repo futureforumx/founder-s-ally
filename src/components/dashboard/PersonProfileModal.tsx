@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, startTransition } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
@@ -116,6 +116,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  const handleClose = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      startTransition(() => {
+        onClose();
+      });
+    });
+  }, [onClose]);
 
   const reviewFirmDisplayName =
     firm?.name?.trim() ||
@@ -151,7 +158,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={onClose}
+            onClick={handleClose}
           />
 
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
@@ -174,7 +181,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   </button>
                 )}
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary/60 transition-colors ml-auto"
                 >
                   <X className="h-4 w-4 text-muted-foreground" />
@@ -189,6 +196,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                     imageUrls={investorPersonImageCandidates({
                       profile_image_url: person.profile_image_url,
                       avatar_url: person.avatar_url,
+                      firmWebsiteUrl: firm?.website_url ?? null,
+                      title: person.title,
+                      role: person.role,
+                      investorType: person.investor_type,
                       email: person.email,
                       website_url: person.website_url,
                       linkedin_url: person.linkedin_url,

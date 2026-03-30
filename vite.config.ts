@@ -44,6 +44,27 @@ export default defineConfig(async ({ mode }) => {
       open: false,
     },
     plugins,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return;
+
+            if (id.includes("pdfjs-dist")) return "pdf";
+            if (id.includes("@react-three/drei")) return "three-drei";
+            if (id.includes("@react-three/fiber")) return "three-fiber";
+            if (id.match(/\/node_modules\/three\//)) return "three-core";
+            if (id.includes("react-dom") || id.includes("react-router") || id.includes("react/jsx-runtime") || id.match(/\/node_modules\/react\//)) {
+              return "react-vendor";
+            }
+            if (id.includes("framer-motion")) return "framer-motion";
+            if (id.includes("@radix-ui/")) return "radix";
+            if (id.includes("@supabase/") || id.includes("@clerk/") || id.includes("@auth0/")) return "auth-data";
+            if (id.includes("@tanstack/react-query")) return "query";
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
