@@ -332,6 +332,11 @@ const Index = () => {
       console.warn("[onboarding] profile/workspace sync:", e);
     }
 
+    // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
+    try {
+      localStorage.setItem("company-profile-verified", "true");
+    } catch {}
+
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);
     }
