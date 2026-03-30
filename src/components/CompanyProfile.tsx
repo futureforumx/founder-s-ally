@@ -1688,6 +1688,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         const primary = faviconSrc(domain);
                         setFaviconUrl(primary);
                         const img = new Image();
+                        img.crossOrigin = 'anonymous';
                         img.onload = () => {
                           setLogoUrl((prev) =>
                             isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(domain),
@@ -1696,6 +1697,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         img.onerror = () => {
                           const fallback = s2FaviconSrc(domain, 32);
                           const img2 = new Image();
+                          img2.crossOrigin = 'anonymous';
                           img2.onload = () => {
                             setFaviconUrl(fallback);
                             setLogoUrl((prev) =>
@@ -1710,6 +1712,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           };
                           img2.src = fallback;
                         };
+                        // Set a timeout fallback in case CORS or network issues prevent load/error events
+                        setTimeout(() => {
+                          setLogoUrl((prev) => {
+                            if (!prev || isCustomUploadedLogo(prev)) return prev;
+                            return hdFaviconSrc(domain);
+                          });
+                        }, 1000);
                         img.src = primary;
                         if (!form.name.trim() && !userTouched.has("name")) {
                           const cleaned = cleanDomainToName(domain);
@@ -1722,6 +1731,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       if (!domain) return;
                       const hdLogoUrl = hdFaviconSrc(domain);
                       const testImg = new Image();
+                      testImg.crossOrigin = 'anonymous';
                       testImg.onload = () => {
                         setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
                         setSuggestedLogoUrl(null);
@@ -1729,6 +1739,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       testImg.onerror = () => {
                         const s2 = s2FaviconSrc(domain, 128);
                         const test2 = new Image();
+                        test2.crossOrigin = 'anonymous';
                         test2.onload = () => {
                           setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
                           setSuggestedLogoUrl(null);
@@ -1736,6 +1747,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         test2.onerror = () => {};
                         test2.src = s2;
                       };
+                      // Set a timeout fallback in case CORS or network issues prevent load/error events
+                      setTimeout(() => {
+                        setLogoUrl((prev) => {
+                          if (!prev || isCustomUploadedLogo(prev)) return prev;
+                          return hdLogoUrl;
+                        });
+                      }, 500);
                       testImg.src = hdLogoUrl;
                     }}
                     placeholder="https://acme.com" maxLength={255}

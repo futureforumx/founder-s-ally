@@ -979,6 +979,14 @@ export function CommunityView({
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
 
+  const handleViewAll = useCallback(() => {
+    // Scroll to the all grid section
+    const allGridSection = document.querySelector('[data-section="all-grid"]');
+    if (allGridSection) {
+      allGridSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
   const loadMore = useCallback(() => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
@@ -1206,7 +1214,7 @@ export function CommunityView({
       {/* ═══════ Carousel: Suggested ═══════ */}
       {scopedSuggested.length > 0 &&
       <div className="pt-4">
-          <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile">
+          <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile" onViewAll={handleViewAll}>
             {scopedSuggested.map((entry, i) =>
           <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
@@ -1217,7 +1225,7 @@ export function CommunityView({
       {/* ═══════ Carousel: Trending ═══════ */}
       {scopedTrending.length > 0 &&
       <div className="pt-4">
-          <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week">
+          <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week" onViewAll={handleViewAll}>
             {scopedTrending.map((entry, i) =>
           <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
@@ -1226,7 +1234,7 @@ export function CommunityView({
       }
 
       {/* ═══════ All Grid ═══════ */}
-      <div className="space-y-3 pt-4">
+      <div className="space-y-3 pt-4" data-section="all-grid">
           {/* Dynamic header for investor tabs */}
           <div className="flex items-center justify-between">
             <div>
