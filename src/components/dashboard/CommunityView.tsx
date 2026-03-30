@@ -942,7 +942,7 @@ export function CommunityView({
       case "recent":
         return { title: "Recently Added", subtitle: "Newest additions to the directory" };
       default:
-        return { title: "Complete Network", subtitle: "The complete ecosystem network" };
+        return { title: "INVESTORS", subtitle: "Browse the full investor directory" };
     }
   }, [activeInvestorTab, userStage, userSector]);
 

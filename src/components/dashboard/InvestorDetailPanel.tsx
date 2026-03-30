@@ -49,6 +49,13 @@ interface InvestorDetailPanelProps {
   onSelectPerson?: (person: VCPerson) => void;
   onCloseVCFirm?: () => void;
   initialTab?: InvestorTab;
+  /** Canonical `vc_firms.id` for ratings (e.g. deep link from Settings → Activity). */
+  vcDirectoryFirmIdHint?: string | null;
+  /** `vc_people.id` when opening a partner-level review from Activity. */
+  reviewPersonIdHint?: string | null;
+  /** After panel opens with an investor, open the review modal once (deep link). */
+  openReviewModalOnMount?: boolean;
+  onReviewBootstrapConsumed?: () => void;
 }
 
 export type { InvestorEntry };
@@ -60,9 +67,18 @@ function investorPartnerToVCPerson(p: InvestorPartner, firmId: string): VCPerson
     full_name: p.full_name,
     title: p.title,
     firm_id: firmId,
-    first_name: parts[0] ?? null,
-    last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
+    first_name: p.first_name ?? parts[0] ?? null,
+    last_name: p.last_name ?? (parts.length > 1 ? parts.slice(1).join(" ") : null),
     is_active: p.is_active,
+    avatar_url: p.avatar_url ?? null,
+    email: p.email ?? null,
+    linkedin_url: p.linkedin_url ?? null,
+    x_url: p.x_url ?? null,
+    website_url: p.website_url ?? null,
+    bio: p.bio ?? null,
+    city: p.city ?? null,
+    state: p.state ?? null,
+    country: p.country ?? null,
   } as VCPerson;
 }
 
@@ -75,18 +91,48 @@ function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
     first_name: p.first_name ?? null,
     last_name: p.last_name ?? null,
     is_active: p.is_active ?? true,
+    profile_image_url: p.profile_image_url ?? null,
+    avatar_url: p.avatar_url ?? null,
+    email: p.email ?? null,
+    linkedin_url: p.linkedin_url ?? null,
+    x_url: p.x_url ?? null,
+    website_url: p.website_url ?? null,
+    bio: p.bio ?? null,
+    city: p.city ?? null,
+    state: p.state ?? null,
+    country: p.country ?? null,
   } as VCPerson;
 }
 
-export function InvestorDetailPanel({ investor, companyName, companyData, onClose, vcFirm, vcPartners = [], onSelectPerson, onCloseVCFirm, initialTab }: InvestorDetailPanelProps) {
+export function InvestorDetailPanel({
+  investor,
+  companyName,
+  companyData,
+  onClose,
+  vcFirm,
+  vcPartners = [],
+  onSelectPerson,
+  onCloseVCFirm,
+  initialTab,
+  vcDirectoryFirmIdHint,
+  reviewPersonIdHint,
+  openReviewModalOnMount,
+  onReviewBootstrapConsumed,
+}: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  const bootstrapReviewOpenedRef = useRef(false);
 
   // Reset tab when initialTab or investor changes
   useEffect(() => {
     setActiveTab(initialTab || "Updates");
   }, [initialTab, investor?.name]);
+
+  useEffect(() => {
+    if (!investor) bootstrapReviewOpenedRef.current = false;
+  }, [investor]);
+
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
@@ -123,6 +169,14 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     };
   }, [investor, vcFirm]);
 
+  useEffect(() => {
+    if (!openReviewModalOnMount || !effectiveInvestor) return;
+    if (bootstrapReviewOpenedRef.current) return;
+    bootstrapReviewOpenedRef.current = true;
+    setReviewOpen(true);
+    onReviewBootstrapConsumed?.();
+  }, [openReviewModalOnMount, effectiveInvestor, onReviewBootstrapConsumed]);
+
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
   const displayName = effectiveInvestor?.name || "";
@@ -136,15 +190,24 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     liveProfile?.source === "live"
       ? liveProfile.id
       : investorDbIdFromEntry ?? resolvedFirmId ?? null;
+  const explicitVcDirId =
+    typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
+      ? vcDirectoryFirmIdHint.trim()
+      : null;
   const reviewVcFirmId =
+    explicitVcDirId ??
     databaseFirmId ??
     vcFirm?.id ??
     (liveProfile?.source === "json-fallback" ? liveProfile?.id ?? null : null) ??
     null;
-  const { starRatings: myFirmRatingJson } = useLatestMyVcRating(
+  const reviewVcPersonId =
+    typeof reviewPersonIdHint === "string" && reviewPersonIdHint.trim()
+      ? reviewPersonIdHint.trim()
+      : null;
+  const { starRatings: myFirmRatingJson, createdAt: myFirmRatingCreatedAt } = useLatestMyVcRating(
     session?.user?.id,
     reviewVcFirmId,
-    null,
+    reviewVcPersonId,
     ratingRefresh,
     displayName,
   );
@@ -154,7 +217,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
   );
 
   const mergedPartners = useMemo((): VCPerson[] => {
-    const firmKey = databaseFirmId ?? vcFirm?.id ?? "";
+    const firmKey = databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? "";
     const byName = new Map<string, VCPerson>();
 
     for (const p of liveProfile?.partners ?? []) {
@@ -179,6 +242,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     liveProfile?.id,
     vcPartners,
     databaseFirmId,
+    explicitVcDirId,
     vcFirm?.id,
     effectiveInvestor?.name,
     resolvedFirmId,
@@ -264,6 +328,13 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
     : enrichedData?.profile?.lastVerified
       ? new Date(enrichedData.profile.lastVerified)
       : null;
+  const heroEmail = liveProfile?.email ?? null;
+  const heroInvestmentClassification = liveProfile?.firm_type ?? liveProfile?.lead_or_follow ?? null;
+  const heroStageRange =
+    liveProfile?.preferred_stage ??
+    (vcFirm?.stages?.length ? vcFirm.stages.join(", ") : null) ??
+    effectiveInvestor?.stage ??
+    null;
 
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
 
@@ -310,7 +381,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <div className="absolute -top-8 right-0 w-64 h-64 rounded-full bg-emerald-500/[0.06] blur-3xl" />
                 </div>
                 {/* Identity + Actions row */}
-                <div className="relative z-10 flex items-start justify-between gap-8 px-8 pt-6 pb-5">
+                <div className="relative z-10 flex items-start justify-between gap-8 px-8 pt-6 pb-3">
 
                   {/* Left: Identity block */}
                   <div className="flex items-start gap-3.5 min-w-0">
@@ -392,15 +463,12 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                       {myFirmRateDisplay ? (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setActiveTab("Feedback"); }}
-                          className={cn(
-                            "inline-flex flex-col items-center justify-center rounded-xl px-3 py-1.5 leading-none transition-colors",
-                            myFirmRateDisplay.className,
-                          )}
+                          onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+                          className="inline-flex items-center gap-1 rounded-xl border border-border/50 bg-transparent px-2.5 py-[9px] leading-none transition-colors hover:bg-secondary/40"
                           aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
                         >
-                          <span className="text-[9px] font-semibold opacity-50 mb-0.5 uppercase tracking-widest">Your rating</span>
-                          <span className="text-[13px] font-bold">{myFirmRateDisplay.label}</span>
+                          <Star className={cn("h-3 w-3 shrink-0 fill-current animate-pulse", myFirmRateDisplay.colorClass)} />
+                          <span className={cn("text-[13px] font-bold animate-pulse", myFirmRateDisplay.colorClass)}>{myFirmRateDisplay.label}</span>
                         </button>
                       ) : (
                         <button
@@ -426,21 +494,28 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <X className="h-[14px] w-[14px]" />
                       </button>
                     </div>
-                    <DataProvenanceBadge
-                      dataSource={heroDataSource}
-                      lastSynced={heroLastSynced}
-                    />
                   </div>
                 </div>
 
                 {/* Score strip */}
-                <div className="relative z-10 px-8 pb-5">
-                  <ScoreTilesRow
-                    matchScore={matchScore}
-                    firmName={heroName}
-                    companyContext={companyData}
-                    investorContext={investorContext}
-                  />
+                <div className="relative z-10 px-8 pb-2">
+                  <div className="flex items-start justify-between gap-6">
+                    <ScoreTilesRow
+                      matchScore={matchScore}
+                      firmName={heroName}
+                      companyContext={companyData}
+                      investorContext={investorContext}
+                    />
+                    <div className="shrink-0 pt-1">
+                      <DataProvenanceBadge
+                        dataSource={heroDataSource}
+                        lastSynced={heroLastSynced}
+                        emailAddress={heroEmail}
+                        investmentClassification={heroInvestmentClassification}
+                        stageRange={heroStageRange}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -471,7 +546,10 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                   <AnimatePresence mode="wait">
                     {activeTab === "Updates" && (
                       <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
-                        <InvestorActivity firmName={effectiveInvestor.name} firmId={databaseFirmId ?? vcFirm?.id ?? undefined} />
+                        <InvestorActivity
+                          firmName={effectiveInvestor.name}
+                          firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? undefined}
+                        />
                       </motion.div>
                     )}
 
@@ -513,7 +591,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <InvestorPartnersTab
-                          firmId={databaseFirmId ?? vcFirm?.id ?? ""}
+                          firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? ""}
                           firmName={effectiveInvestor.name}
                           partners={mergedPartners}
                           onSelectPerson={onSelectPerson}
@@ -564,8 +642,11 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
           liveProfile?.website_url ?? vcFirm?.website_url ?? investor?.websiteUrl ?? null
         }
         vcFirmId={reviewVcFirmId}
+        personId={reviewVcPersonId ?? ""}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
+        initialStarRatings={myFirmRatingJson}
+        initialCreatedAt={myFirmRatingCreatedAt}
       />
     </AnimatePresence>
   );

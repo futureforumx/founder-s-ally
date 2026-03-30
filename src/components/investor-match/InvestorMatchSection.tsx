@@ -93,7 +93,7 @@ function VerificationBanner({ isVerified, onNavigateToProfile }: VerificationBan
 
 const TABS = [
   { id: "updates", label: "Updates" },
-  { id: "matches", label: "Matches" },
+  { id: "matches", label: "ALL" },
   { id: "activity", label: "Activity" },
   { id: "my-investors", label: "My Investors" },
 ] as const;

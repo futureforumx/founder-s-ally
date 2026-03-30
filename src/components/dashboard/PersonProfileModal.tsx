@@ -11,7 +11,7 @@ import {
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
 
@@ -141,8 +141,6 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     mappingRecordId,
   } = useInvestorMapping(reviewFirmDisplayName || null);
 
-  const initials = person?.full_name?.split(" ").map(n => n[0]).join("") || "?";
-
   return (
     <AnimatePresence>
       {person && (
@@ -187,11 +185,20 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               <div className="flex-1 overflow-y-auto px-8 py-6">
                 {/* ── Hero Header ── */}
                 <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
-                  <Avatar className="h-20 w-20 rounded-2xl border-2 border-border shadow-sm shrink-0">
-                    <AvatarFallback className="rounded-2xl text-2xl font-bold bg-secondary text-muted-foreground">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                  <InvestorPersonAvatar
+                    imageUrls={investorPersonImageCandidates({
+                      profile_image_url: person.profile_image_url,
+                      avatar_url: person.avatar_url,
+                      email: person.email,
+                      website_url: person.website_url,
+                      linkedin_url: person.linkedin_url,
+                      x_url: person.x_url,
+                      personal_website_url: person.personal_website_url,
+                      full_name: person.full_name,
+                    })}
+                    size="md"
+                    className="h-20 w-20 rounded-2xl border-2 border-border shadow-sm shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>

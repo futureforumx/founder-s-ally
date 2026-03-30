@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2 } from "lucide-react";
+import { X, CheckCircle2, Pencil, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
@@ -69,6 +69,10 @@ export interface ReviewSubmissionModalProps {
   mappingRecordId: string | null;
   /** Founder's company id — stored in star_ratings JSONB for traceability */
   companyId?: string;
+  /** Pre-fetched star_ratings from the parent — shows summary view immediately when set */
+  initialStarRatings?: unknown;
+  /** ISO timestamp of the existing review — used to enforce 48-hour edit window */
+  initialCreatedAt?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -477,6 +481,8 @@ export function ReviewSubmissionModal({
   investorIsMappedToProfile,
   mappingRecordId,
   companyId = "",
+  initialStarRatings,
+  initialCreatedAt,
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
   const { firms, firmMap, getPartnersForFirm } = useVCDirectory();
@@ -506,6 +512,20 @@ export function ReviewSubmissionModal({
   const [currentStep, setCurrentStep] = useState<ReviewWizardStep>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [reviewCreatedAt, setReviewCreatedAt] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
+
+  // When the modal opens and the parent already has rating data, show the summary immediately.
+  useEffect(() => {
+    if (open && initialStarRatings != null) {
+      setReviewCreatedAt(initialCreatedAt ?? null);
+      setShowSummary(true);
+    } else if (!open) {
+      setShowSummary(false);
+      setReviewCreatedAt(null);
+    }
+  }, [open, initialStarRatings, initialCreatedAt]);
+
   const [fetchedHeaderFirm, setFetchedHeaderFirm] = useState<{
     logo: string | null;
     website: string | null;
@@ -740,6 +760,7 @@ export function ReviewSubmissionModal({
           id?: string;
           anonymous?: boolean;
           comment?: string | null;
+          created_at?: string | null;
           star_ratings?: {
             answers?: Record<string, string | string[]>;
             tags?: string[];
@@ -776,6 +797,8 @@ export function ReviewSubmissionModal({
             : [];
           setRememberWhoPersonIds(ids);
           setAnonymous(typeof row.anonymous === "boolean" ? row.anonymous : true);
+          setReviewCreatedAt(typeof row.created_at === "string" ? row.created_at : null);
+          setShowSummary(true);
         }
       } catch {
         if (!cancelled) setReviewRecordId(null);
@@ -833,6 +856,8 @@ export function ReviewSubmissionModal({
     setAnonymous(true);
     setCurrentStep(1);
     setSubmitted(false);
+    setReviewCreatedAt(null);
+    setShowSummary(false);
   }, []);
 
   useEffect(() => {
@@ -1106,6 +1131,16 @@ export function ReviewSubmissionModal({
                 <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
                   <SuccessState />
                 </div>
+              ) : showSummary ? (
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+                  <ReviewSummaryView
+                    answers={answers}
+                    tags={selectedTags}
+                    createdAt={reviewCreatedAt}
+                    investorIsMappedToProfile={investorIsMappedToProfile}
+                    onEdit={() => setShowSummary(false)}
+                  />
+                </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                   <div
@@ -1242,6 +1277,139 @@ function SuccessState() {
         Your feedback helps founders choose the right investors.
       </p>
     </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Review summary view (shown when opening modal with an existing review)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ReviewSummaryView({
+  answers,
+  tags,
+  createdAt,
+  investorIsMappedToProfile,
+  onEdit,
+}: {
+  answers: Record<string, string | string[]>;
+  tags: string[];
+  createdAt: string | null;
+  investorIsMappedToProfile: boolean;
+  onEdit: () => void;
+}) {
+  const workRating =
+    typeof answers.work_with_them_rating === "string" ? answers.work_with_them_rating : null;
+  const overallRaw =
+    typeof answers.overall_interaction === "string" ? answers.overall_interaction : null;
+  const overallN = overallRaw ? parseInt(overallRaw, 10) : NaN;
+  const takeMoneyAgain =
+    typeof answers.take_money_again === "string" ? answers.take_money_again : null;
+  const founderNote =
+    typeof answers.founder_note === "string" ? answers.founder_note.trim() : "";
+
+  const within48h = createdAt
+    ? Date.now() - new Date(createdAt).getTime() < 48 * 60 * 60 * 1000
+    : false;
+
+  const formattedDate = createdAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date(createdAt))
+    : null;
+
+  const workRatingColor =
+    workRating === "Great"
+      ? "text-emerald-500 dark:text-emerald-400"
+      : workRating === "Good"
+      ? "text-lime-500 dark:text-lime-400"
+      : workRating === "Mixed"
+      ? "text-amber-500 dark:text-amber-400"
+      : workRating === "Poor"
+      ? "text-red-500 dark:text-red-400"
+      : "text-muted-foreground";
+
+  const overallColor = !isNaN(overallN)
+    ? overallN >= 9
+      ? "text-emerald-500 dark:text-emerald-400"
+      : overallN >= 7
+      ? "text-lime-500 dark:text-lime-400"
+      : overallN >= 5
+      ? "text-amber-500 dark:text-amber-400"
+      : "text-red-500 dark:text-red-400"
+    : "text-muted-foreground";
+
+  const primaryScore = investorIsMappedToProfile
+    ? workRating
+    : !isNaN(overallN)
+    ? `${overallN} / 10`
+    : null;
+
+  const primaryColor = investorIsMappedToProfile ? workRatingColor : overallColor;
+
+  const takeAgainLabel =
+    takeMoneyAgain === "Yes"
+      ? "Would work with again"
+      : takeMoneyAgain === "Maybe"
+      ? "Might work with again"
+      : takeMoneyAgain === "No"
+      ? "Would not work with again"
+      : null;
+
+  return (
+    <div className="flex flex-col gap-5 px-6 py-5">
+      {primaryScore && (
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span className={cn("text-3xl font-bold tracking-tight", primaryColor)}>
+            {primaryScore}
+          </span>
+          {takeAgainLabel && (
+            <span className="text-sm text-muted-foreground">· {takeAgainLabel}</span>
+          )}
+        </div>
+      )}
+
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.slice(0, 6).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-border bg-secondary/60 px-2.5 py-0.5 text-xs text-foreground/70"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {founderNote && (
+        <blockquote className="border-l-2 border-border pl-3 text-sm text-foreground/70 leading-relaxed line-clamp-4 italic">
+          &ldquo;{founderNote}&rdquo;
+        </blockquote>
+      )}
+
+      <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-1">
+        <span className="text-xs text-muted-foreground">
+          {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
+        </span>
+        {within48h ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit review
+          </button>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            Editing closed
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
