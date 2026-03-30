@@ -1016,7 +1016,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                   dismissPersonalErrors();
                   setTitle(v);
                 }}
-                onBlur={() => handleFieldBlur("title", title)}
+                onBlur={(v) => handleFieldBlur("title", v)}
                 options={ROLE_OPTIONS}
                 placeholder="e.g. CEO & Co-Founder"
                 verified={syncedKeys.has("title")}
@@ -1058,7 +1058,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     dismissPersonalErrors();
                     setLocation(v);
                   }}
-                  onBlur={() => handleFieldBlur("location", location)}
+                  onBlur={(v) => handleFieldBlur("location", v)}
                   options={LOCATION_OPTIONS}
                   placeholder="San Francisco, CA"
                   verified={syncedKeys.has("location")}

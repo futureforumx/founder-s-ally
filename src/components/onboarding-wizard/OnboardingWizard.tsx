@@ -277,6 +277,11 @@ export function OnboardingWizard() {
         }));
       } catch {}
 
+      // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
+      try {
+        localStorage.setItem("company-profile-verified", "true");
+      } catch {}
+
       toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
       trackMixpanelEvent("Conversion", {
         "Conversion Type": "onboarding_complete",
