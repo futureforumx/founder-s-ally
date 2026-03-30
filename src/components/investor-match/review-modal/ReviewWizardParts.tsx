@@ -1,4 +1,4 @@
-import { useState, useRef, type CSSProperties, type ReactNode } from "react";
+import { memo, useState, useRef, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { X, Star, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,7 +99,7 @@ function scoreMeaningPanelClass(n: number | null): string {
   return "border-emerald-200/40 bg-emerald-50/40 dark:border-emerald-900/28 dark:bg-emerald-950/18";
 }
 
-export function SegmentedPillRow({
+export const SegmentedPillRow = memo(function SegmentedPillRow({
   options,
   value,
   onChange,
@@ -140,7 +140,7 @@ export function SegmentedPillRow({
       })}
     </div>
   );
-}
+});
 
 /** Sentiment strip: positive (left) → negative (right), gradient track + compact chips. */
 const ENGAGE_TRACK_GRADIENT: CSSProperties = {
@@ -162,7 +162,7 @@ const ENGAGE_SELECTED_RAIL: readonly string[] = [
   "shadow-[inset_0_-3px_0_0_rgb(239,68,68)]",
 ];
 
-export function EngageSentimentScale({
+export const EngageSentimentScale = memo(function EngageSentimentScale({
   options,
   value,
   onChange,
@@ -209,7 +209,7 @@ export function EngageSentimentScale({
                 title={opt}
                 onClick={() => onChange(opt)}
                 className={cn(
-                  "min-h-9 min-w-0 flex-1 rounded-[8px] border px-1.5 py-1.5 text-center text-[10px] font-medium leading-snug tracking-wide transition-all duration-150 sm:min-h-[2.35rem] sm:text-[11px]",
+                  "min-h-9 min-w-0 flex-1 rounded-[8px] border px-1.5 py-1.5 text-center text-[10px] font-medium leading-snug tracking-wide transition-colors duration-150 sm:min-h-[2.35rem] sm:text-[11px]",
                   "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   selected
                     ? cn(
@@ -236,7 +236,7 @@ export function EngageSentimentScale({
       </p>
     </div>
   );
-}
+});
 
 export function SingleSelect({
   options,
