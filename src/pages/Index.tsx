@@ -28,6 +28,7 @@ import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
+import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
 
 type ViewType =
   | "company"
@@ -43,6 +44,7 @@ type ViewType =
   | "market-network"
   | "investors"
   | "investor-search"
+  | "network"
   | "directory"
   | "connections"
   | "messages"
@@ -130,6 +132,7 @@ const Index = () => {
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
+  const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
 
   useEffect(() => {
     if (location.pathname === "/intelligence") {
@@ -146,6 +149,17 @@ const Index = () => {
       setActiveView("settings");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<VcReviewOpenDetail>).detail;
+      if (!d?.vcFirmId?.trim() || !d?.firmName?.trim() || !d?.ratingId?.trim()) return;
+      setVcReviewBootstrap(d);
+      setActiveView("investors");
+    };
+    window.addEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
+    return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
+  }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -461,6 +475,7 @@ const Index = () => {
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
           personalCompletion={personalCompletion}
+          analysisResult={analysisResult}
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "dashboard" ? (
@@ -527,7 +542,16 @@ const Index = () => {
               }
             }} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
+            <InvestorMatch
+              companyData={companyData}
+              analysisResult={analysisResult}
+              sectorClassification={sectorClassification}
+              isLocked={!isProfileVerified}
+              externalBackers={capTable.backers}
+              externalTotalRaised={capTable.totalRaised}
+              vcReviewBootstrap={vcReviewBootstrap}
+              onVcReviewBootstrapConsumed={() => setVcReviewBootstrap(null)}
+            />
           ) : activeView === "sector" ? (
             <div className="space-y-6">
               <div>
@@ -540,6 +564,12 @@ const Index = () => {
                 onNavigateBenchmarks={() => setActiveView("benchmarks")}
                 onNavigateProfile={() => setActiveView("company")}
               />
+            </div>
+          ) : activeView === "network" ? (
+            <div className="flex min-h-[50vh] items-center justify-center px-6">
+              <p className="text-center text-sm text-muted-foreground">
+                First NETWORK view — swap this panel when you wire the hub.
+              </p>
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView

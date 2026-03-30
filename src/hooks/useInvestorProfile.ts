@@ -5,8 +5,19 @@ import { supabase } from "@/integrations/supabase/client";
 export interface InvestorPartner {
   id: string;
   full_name: string;
+  first_name: string | null;
+  last_name: string | null;
   title: string | null;
   is_active: boolean;
+  avatar_url: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  bio: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
 }
 
 export interface FirmDeal {
@@ -20,6 +31,9 @@ export interface FirmDeal {
 export interface InvestorProfile {
   id: string;
   firm_name: string;
+  description: string | null;
+  email: string | null;
+  firm_type: string | null;
   aum: string | null;
   location: string | null;
   logo_url: string | null;
@@ -55,6 +69,9 @@ function mapJsonFirm(firm: any): InvestorProfile {
   return {
     id: firm.id,
     firm_name: firm.name,
+    description: firm.description ?? null,
+    email: null,
+    firm_type: null,
     aum: firm.aum ?? null,
     location: null,
     logo_url: firm.logo_url ?? null,
@@ -87,7 +104,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
         .maybeSingle(),
       supabase
         .from("investor_partners")
-        .select("id, full_name, title, is_active")
+        .select("id, full_name, first_name, last_name, title, is_active, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
         .eq("firm_id", firmId)
         .order("full_name"),
       supabase
@@ -104,6 +121,9 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     return {
       id: firm.id,
       firm_name: firm.firm_name,
+      description: firm.sentiment_detail,
+      email: firm.email,
+      firm_type: firm.firm_type,
       aum: firm.aum,
       location: firm.location,
       logo_url: firm.logo_url,

@@ -17,13 +17,15 @@ export function useLatestMyVcRating(
   vcPersonId: string | null | undefined,
   refreshKey: number,
   firmName?: string | null,
-): { starRatings: unknown; loading: boolean } {
+): { starRatings: unknown; createdAt: string | null; loading: boolean } {
   const [starRatings, setStarRatings] = useState<unknown>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!userId) {
       setStarRatings(null);
+      setCreatedAt(null);
       setLoading(false);
       return;
     }
@@ -33,6 +35,7 @@ export function useLatestMyVcRating(
 
     if (!firm && !name) {
       setStarRatings(null);
+      setCreatedAt(null);
       setLoading(false);
       return;
     }
@@ -45,7 +48,7 @@ export function useLatestMyVcRating(
       if (firm) {
         let q = supabase
           .from("vc_ratings")
-          .select("star_ratings")
+          .select("star_ratings, created_at")
           .eq("author_user_id", userId)
           .eq("vc_firm_id", firm)
           .eq("is_draft", false);
@@ -58,8 +61,10 @@ export function useLatestMyVcRating(
         if (cancelled) return;
 
         if (data?.[0]) {
+          const row0 = data[0] as { star_ratings?: unknown; created_at?: string | null };
           setLoading(false);
-          setStarRatings((data[0] as { star_ratings?: unknown }).star_ratings ?? null);
+          setStarRatings(row0.star_ratings ?? null);
+          setCreatedAt(typeof row0.created_at === "string" ? row0.created_at : null);
           return;
         }
       }
@@ -68,7 +73,7 @@ export function useLatestMyVcRating(
       if (name) {
         const { data: recent } = await supabase
           .from("vc_ratings")
-          .select("star_ratings")
+          .select("star_ratings, created_at")
           .eq("author_user_id", userId)
           .eq("is_draft", false)
           .order("created_at", { ascending: false })
@@ -84,13 +89,21 @@ export function useLatestMyVcRating(
         });
 
         setLoading(false);
-        setStarRatings(match ? (match as { star_ratings?: unknown }).star_ratings ?? null : null);
+        if (match) {
+          const m = match as { star_ratings?: unknown; created_at?: string | null };
+          setStarRatings(m.star_ratings ?? null);
+          setCreatedAt(typeof m.created_at === "string" ? m.created_at : null);
+        } else {
+          setStarRatings(null);
+          setCreatedAt(null);
+        }
         return;
       }
 
       if (!cancelled) {
         setLoading(false);
         setStarRatings(null);
+        setCreatedAt(null);
       }
     })();
 
@@ -99,5 +112,5 @@ export function useLatestMyVcRating(
     };
   }, [userId, vcFirmId, vcPersonId, refreshKey, firmName]);
 
-  return { starRatings, loading };
+  return { starRatings, createdAt, loading };
 }

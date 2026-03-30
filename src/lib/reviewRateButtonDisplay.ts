@@ -93,9 +93,29 @@ export function linkedWorkRatingButtonClass(label: string): string {
 export type MyReviewRateButtonDisplay = {
   label: string;
   className: string;
+  /** Text-only color class for the star + number (no bg or border). */
+  colorClass: string;
   /** Short tier label for aria (e.g. "Strong") */
   ariaDetail: string;
 };
+
+export function overallTenRateColorClass(n: number): string {
+  if (n <= 2) return "text-red-600 dark:text-red-400";
+  if (n <= 4) return "text-orange-600 dark:text-orange-400";
+  if (n <= 6) return "text-amber-600 dark:text-amber-400";
+  if (n <= 8) return "text-lime-600 dark:text-lime-500";
+  return "text-emerald-600 dark:text-emerald-400";
+}
+
+export function linkedWorkRatingColorClass(label: string): string {
+  switch (label) {
+    case "Great": return "text-emerald-600 dark:text-emerald-400";
+    case "Good":  return "text-lime-600 dark:text-lime-500";
+    case "Mixed": return "text-amber-600 dark:text-amber-400";
+    case "Poor":  return "text-red-600 dark:text-red-400";
+    default:      return "text-warning dark:text-warning";
+  }
+}
 
 const OVERALL_TIER_ARIA: Record<number, string> = {
   10: "Exceptional",
@@ -115,8 +135,9 @@ export function formatMyReviewRateButton(starRatings: unknown): MyReviewRateButt
   const ten = parseOverallTenFromStarRatings(starRatings);
   if (ten != null) {
     return {
-      label: `${ten} / 10`,
+      label: `${ten}`,
       className: overallTenRateButtonClass(ten),
+      colorClass: overallTenRateColorClass(ten),
       ariaDetail: OVERALL_TIER_ARIA[ten] ?? "Rated",
     };
   }
@@ -125,6 +146,7 @@ export function formatMyReviewRateButton(starRatings: unknown): MyReviewRateButt
     return {
       label: linked,
       className: linkedWorkRatingButtonClass(linked),
+      colorClass: linkedWorkRatingColorClass(linked),
       ariaDetail: linked,
     };
   }

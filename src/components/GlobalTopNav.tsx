@@ -21,8 +21,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
+import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
+import type { AnalysisResult } from "@/components/company-profile/types";
+import {
+  COMPANY_HEALTH_SIGNAL_EVENT,
+  getCachedCompanyHealthSignals,
+  type CompanyHealthSnapshot,
+} from "@/lib/companyHealthSignals";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
 
-type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
+type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -44,6 +53,7 @@ interface GlobalTopNavProps {
   investorSearchQuery?: string;
   onInvestorSearchQueryChange?: (query: string) => void;
   onInvestorSuggestionSelect?: (suggestion: string) => void;
+  analysisResult?: AnalysisResult | null;
 }
 
 // ── View metadata for breadcrumbs ──
@@ -51,6 +61,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   dashboard: { section: "Mission Control", label: "Company" },
   industry: { section: "Mission Control", label: "Industry" },
   competitive: { section: "Mission Control", label: "Competitive" },
+  "data-room": { section: "Mission Control", label: "Data Room" },
   company: { section: "My Company", label: "Company Settings", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
@@ -86,33 +97,30 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  investors: { section: "Investors", label: "Matches", siblings: [
-    { id: "investors", label: "Matches" },
-    { id: "investor-search", label: "Search" },
-    { id: "connections", label: "Connections" },
+  investors: { section: "Investors", label: "ALL", siblings: [
+    { id: "investors", label: "ALL" },
+    { id: "investor-search", label: "INVESTORS" },
+    { id: "directory", label: "OPERATORS" },
   ]},
-  "investor-search": { section: "Investors", label: "Search", siblings: [
-    { id: "investors", label: "Matches" },
-    { id: "investor-search", label: "Search" },
-    { id: "connections", label: "Connections" },
+  "investor-search": { section: "Investors", label: "INVESTORS", siblings: [
+    { id: "investors", label: "ALL" },
+    { id: "investor-search", label: "INVESTORS" },
+    { id: "directory", label: "OPERATORS" },
   ]},
-  connections: { section: "Investors", label: "Connections", siblings: [
-    { id: "investors", label: "Matches" },
-    { id: "investor-search", label: "Search" },
-    { id: "connections", label: "Connections" },
+  directory: { section: "Investors", label: "OPERATORS", siblings: [
+    { id: "investors", label: "ALL" },
+    { id: "investor-search", label: "INVESTORS" },
+    { id: "directory", label: "OPERATORS" },
   ]},
-  directory: { section: "Community", label: "Directory", siblings: [
-    { id: "directory", label: "Directory" },
-    { id: "groups", label: "Groups" },
-    { id: "events", label: "Events" },
-  ]},
+  connections: { section: "Nodes", label: "Connections" },
+  network: { section: "Network", label: "Overview" },
   groups: { section: "Community", label: "Groups", siblings: [
-    { id: "directory", label: "Directory" },
+    { id: "directory", label: "OPERATORS" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   events: { section: "Community", label: "Events", siblings: [
-    { id: "directory", label: "Directory" },
+    { id: "directory", label: "OPERATORS" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
@@ -122,7 +130,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   "market-market": { section: "Market Intelligence", label: "Market" },
   "market-tech": { section: "Market Intelligence", label: "Tech" },
   "market-network": { section: "Market Intelligence", label: "Network" },
-  "data-room": { section: "Data Room", label: "Deck Audit" },
+
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
 };
@@ -134,6 +142,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
   switch (view) {
     case "investor-search":
     case "investors":
+    case "directory":
       return [
         `Lead ${s} investors`,
         `Top ${s} funds actively deploying`,
@@ -145,7 +154,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         `${s} investors in my network`,
         "Recently connected funds",
       ];
-    case "directory":
+    case "network":
       return [
         `${s} founders near me`,
         "Second-time founders raising now",
@@ -188,7 +197,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
 
 // ── Filter chips config ──
 const FILTER_CHIPS = [
-  { id: "all", label: "All", icon: ListFilter },
+  { id: "all", label: "INVESTORS", icon: ListFilter },
   { id: "matches", label: "Matches", icon: Zap },
   { id: "sector", label: "Sector", icon: Building2 },
   { id: "stage", label: "Stage", icon: TrendingUp },
@@ -234,12 +243,14 @@ export function GlobalTopNav({
   investorSearchQuery,
   onInvestorSearchQueryChange,
   onInvestorSuggestionSelect,
+  analysisResult,
 }: GlobalTopNavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeChip, setActiveChip] = useState("all");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [logoImgError, setLogoImgError] = useState(false);
+  const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
 
   // Reset error state whenever the URL changes so a new URL gets a fresh attempt
   useEffect(() => { setLogoImgError(false); }, [logoUrl]);
@@ -265,6 +276,7 @@ export function GlobalTopNav({
         navigate("/");
       }
       onViewChange?.(v);
+      if (v === "investors") dispatchInvestorsAllFocus();
     },
     [location.pathname, navigate, onViewChange]
   );
@@ -275,6 +287,26 @@ export function GlobalTopNav({
     const handler = () => setScrolled(main.scrollTop > 12);
     main.addEventListener("scroll", handler, { passive: true });
     return () => main.removeEventListener("scroll", handler);
+  }, []);
+
+  useEffect(() => {
+    const syncFromCache = () => {
+      const cached = getCachedCompanyHealthSignals();
+      if (cached) setHealthSnapshot(cached);
+    };
+
+    const onSignalUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<CompanyHealthSnapshot>).detail;
+      if (detail?.score != null) setHealthSnapshot(detail);
+    };
+
+    syncFromCache();
+    window.addEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
+    window.addEventListener("storage", syncFromCache);
+    return () => {
+      window.removeEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
+      window.removeEventListener("storage", syncFromCache);
+    };
   }, []);
 
   // Close on outside click
@@ -355,10 +387,11 @@ export function GlobalTopNav({
   ]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
-  const isInvestorArea = ["investors", "investor-search", "connections"].includes(activeView);
-  const isCommunityArea = ["directory", "groups", "events"].includes(activeView);
+  const isInvestorArea = ["investors", "investor-search", "directory"].includes(activeView);
+  const isCommunityArea = ["network", "groups", "events"].includes(activeView);
   const PulseIcon = pulse.icon;
   const suggestions = getContextSuggestions(activeView, userSector, userStage);
+  const topHealthDriver = healthSnapshot?.drivers?.[0]?.label;
 
   const handleSearchClick = useCallback(() => {
     setSearchOpen(true);
@@ -388,13 +421,40 @@ export function GlobalTopNav({
         {/* ── Left: Pulse ── */}
         <div className="flex min-w-0 shrink-0 items-center gap-2.5">
           {(isInvestorArea || isCommunityArea) ? (
-            <div key={pulse.text} className="flex items-center gap-1.5 text-[11px] font-medium animate-fade-in">
-              <span className="relative flex h-1.5 w-1.5 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              </span>
-              <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
-              <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
+            <div key={pulse.text} className="flex items-center gap-2 text-[11px] font-medium animate-fade-in">
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
+                <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
+              </div>
+
+              {healthSnapshot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackMixpanelEvent("Company Health Interaction", {
+                      action: "pulse_health_chip_clicked",
+                      activeView,
+                      score: healthSnapshot.score,
+                      trendPct: healthSnapshot.trendPct,
+                      topDriver: topHealthDriver,
+                    });
+                  }}
+                  className={cn(
+                    "hidden rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors xl:inline-flex",
+                    healthSnapshot.trendPct >= 0
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-600",
+                  )}
+                  title={topHealthDriver || "Health delta"}
+                >
+                  Health {healthSnapshot.trendPct >= 0 ? "+" : ""}
+                  {healthSnapshot.trendPct}%
+                </button>
+              )}
             </div>
           ) : lastSyncedAt ? (
             <div className="flex items-center gap-1.5 text-[11px] font-medium">
@@ -516,27 +576,27 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Investor Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["investors", "investor-search", "connections"].includes(activeView) && (
+        {!searchOpen && ["investors", "investor-search", "directory"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {[
-                { id: "matches", label: "Matches" },
-                { id: "search", label: "All" },
-                { id: "connections", label: "Connections" }
+                { id: "matches", label: "ALL" },
+                { id: "search", label: "INVESTORS" },
+                { id: "operators", label: "OPERATORS" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => {
                     if (tab.id === "matches") routeView("investors");
                     else if (tab.id === "search") routeView("investor-search");
-                    else if (tab.id === "connections") routeView("connections");
+                    else if (tab.id === "operators") routeView("directory");
                   }}
                   className={cn(
                     "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
                     activeView === "investors" && tab.id === "matches" ||
                     activeView === "investor-search" && tab.id === "search" ||
-                    activeView === "connections" && tab.id === "connections"
+                    activeView === "directory" && tab.id === "operators"
                       ? "text-accent bg-accent/10"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
@@ -554,94 +614,30 @@ export function GlobalTopNav({
                     "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
                     "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}>
-                    <span className="truncate max-w-[80px]">
-                      {activeView === "investors" ? "Matches" : activeView === "investor-search" ? "All" : "Connections"}
+                    <span className="truncate max-w-[100px]">
+                      {activeView === "investors" ? "ALL" : activeView === "investor-search" ? "INVESTORS" : "OPERATORS"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-32">
+                <DropdownMenuContent align="start" className="w-36">
                   <DropdownMenuItem
                     onClick={() => routeView("investors")}
                     className={cn(activeView === "investors" && "bg-accent/10 text-accent")}
                   >
-                    Matches
+                    ALL
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => routeView("investor-search")}
                     className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
                   >
-                    Search
+                    INVESTORS
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("connections")}
-                    className={cn(activeView === "connections" && "bg-accent/10 text-accent")}
-                  >
-                    Connections
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
-        )}
-
-        {/* ── Network Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["directory", "groups", "events"].includes(activeView) && (
-          <>
-            {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "directory", label: "Directory" },
-                { id: "groups", label: "Groups" },
-                { id: "events", label: "Events" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => routeView(tab.id as ViewType)}
-                  className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                    activeView === tab.id
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2 mr-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
-                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}>
-                    <span className="truncate max-w-[80px]">
-                      {activeView === "directory" ? "Directory" : activeView === "groups" ? "Groups" : "Events"}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-32">
                   <DropdownMenuItem
                     onClick={() => routeView("directory")}
                     className={cn(activeView === "directory" && "bg-accent/10 text-accent")}
                   >
-                    Directory
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("groups")}
-                    className={cn(activeView === "groups" && "bg-accent/10 text-accent")}
-                  >
-                    Groups
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("events")}
-                    className={cn(activeView === "events" && "bg-accent/10 text-accent")}
-                  >
-                    Events
+                    OPERATORS
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -649,55 +645,7 @@ export function GlobalTopNav({
           </>
         )}
 
-        {/* ── Data Room Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && activeView === "data-room" && (
-          <>
-            {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "audit", label: "Deck Audit" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.id === "audit") routeView("data-room");
-                  }}
-                  className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                    activeView === "data-room" && tab.id === "audit"
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
 
-            {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2 mr-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
-                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}>
-                    <span className="truncate max-w-[80px]">Deck Audit</span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-32">
-                  <DropdownMenuItem
-                    onClick={() => routeView("data-room")}
-                    className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
-                  >
-                    Deck Audit
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
-        )}
 
         {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
         {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
@@ -789,7 +737,7 @@ export function GlobalTopNav({
 
         {/* ── Mission Control section tabs (visible when search collapsed) — not Intelligence */}
         {!searchOpen &&
-          ["dashboard", "industry", "competitive", "competitors", "sector"].includes(activeView) && (
+          ["dashboard", "industry", "competitive", "competitors", "sector", "data-room"].includes(activeView) && (
           <>
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {(
@@ -799,6 +747,7 @@ export function GlobalTopNav({
                   { nav: "competitive" as const, label: "Competitive" },
                   { nav: "competitors" as const, label: "Competitors" },
                   { nav: "sector" as const, label: "Sector" },
+                  { nav: "data-room" as const, label: "Data Room" },
                 ] as const
               ).map((tab) => {
                 const tabActive = activeView === tab.nav;
@@ -835,7 +784,9 @@ export function GlobalTopNav({
                             ? "Competitive"
                             : activeView === "competitors"
                               ? "Competitors"
-                              : "Sector"}
+                              : activeView === "sector"
+                                ? "Sector"
+                                : "Data Room"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
@@ -871,6 +822,12 @@ export function GlobalTopNav({
                   >
                     Sector
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("data-room")}
+                    className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
+                  >
+                    Data Room
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -884,7 +841,7 @@ export function GlobalTopNav({
         <TooltipProvider delayDuration={200}>
           <div className="hidden md:flex shrink-0 items-center gap-4">
             {(() => {
-              const locked = profileCompletion < 100;
+              const locked = profileCompletion < 100 || personalCompletion < 100;
               const views = 12;
               const searches = 85;
               return (
@@ -901,7 +858,7 @@ export function GlobalTopNav({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {locked ? "Complete your profile to unlock Investor Views" : `${views} Total Investor Views this week`}
+                      {locked ? "Complete your personal and company profiles to unlock Investor Views" : `${views} Total Investor Views this week`}
                     </TooltipContent>
                   </Tooltip>
 
@@ -917,7 +874,7 @@ export function GlobalTopNav({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {locked ? "Complete your profile to unlock Search Appearances" : `${searches} Search Appearances this week`}
+                      {locked ? "Complete your personal and company profiles to unlock Search Appearances" : `${searches} Search Appearances this week`}
                     </TooltipContent>
                   </Tooltip>
                 </>
@@ -962,6 +919,14 @@ export function GlobalTopNav({
         )}
 
         <div className="h-4 w-px shrink-0 bg-border/40" />
+
+        <TopNavCompanyHealth
+          score={analysisResult?.healthScore}
+          stage={userStage}
+          sector={userSector}
+          activeView={activeView}
+          analysisResult={analysisResult}
+        />
 
         {/* ── Right: Help + Persona Switcher ── */}
         <div className="flex shrink-0 items-center gap-4">

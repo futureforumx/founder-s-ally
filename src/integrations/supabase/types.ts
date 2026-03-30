@@ -513,139 +513,385 @@ export type Database = {
       }
       investor_database: {
         Row: {
+          address: string | null
+          angellist_url: string | null
           aum: string | null
+          beehiiv_url: string | null
           ca_sb54_compliant: boolean | null
+          cb_insights_url: string | null
           community_rating: number | null
           created_at: string
+          crunchbase_url: string | null
+          data_confidence_score: number | null
+          deleted_at: string | null
+          description: string | null
+          elevator_pitch: string | null
           email: string | null
           email_source: string | null
+          facebook_url: string | null
           firm_name: string
           firm_type: string | null
+          founded_year: number | null
           founder_reputation_score: number | null
+          general_partner_count: number | null
+          general_partner_names: string[] | null
           headcount: string | null
+          hq_city: string | null
+          hq_country: string | null
+          hq_state: string | null
           id: string
+          industry_reputation: number | null
+          instagram_url: string | null
           is_actively_deploying: boolean | null
           is_popular: boolean | null
           is_recent: boolean | null
           is_trending: boolean | null
           last_enriched_at: string | null
+          last_verified_at: string | null
           lead_or_follow: string | null
           lead_partner: string | null
+          legal_name: string | null
+          linkedin_url: string | null
           location: string | null
+          locations: Record<string, unknown> | null
           logo_url: string | null
           market_sentiment: string | null
+          match_score: number | null
           max_check_size: number | null
+          medium_url: string | null
           min_check_size: number | null
+          network_strength: number | null
           news_sentiment_score: number | null
+          next_update_scheduled_at: string | null
+          openvc_url: string | null
+          partner_names: string[] | null
+          phone: string | null
           preferred_stage: string | null
+          prisma_firm_id: string | null
           recent_deals: string[] | null
           reputation_score: number | null
           reputation_updated_at: string | null
+          responsiveness_score: number | null
           sector_embedding: string | null
           sentiment_detail: string | null
+          signal_nfx_url: string | null
+          slug: string | null
           social_sentiment_score: number | null
+          status: string | null
+          substack_url: string | null
           thesis_verticals: string[]
+          tiktok_url: string | null
+          total_headcount: number | null
+          total_investors: number | null
+          total_partners: number | null
+          trustfinta_url: string | null
+          updated_at: string | null
+          value_add_score: number | null
+          vcsheet_url: string | null
+          verification_status: string | null
+          volatility_score: number | null
           website_url: string | null
+          x_url: string | null
+          youtube_url: string | null
         }
         Insert: {
+          address?: string | null
+          angellist_url?: string | null
           aum?: string | null
+          beehiiv_url?: string | null
           ca_sb54_compliant?: boolean | null
+          cb_insights_url?: string | null
           community_rating?: number | null
           created_at?: string
+          crunchbase_url?: string | null
+          data_confidence_score?: number | null
+          deleted_at?: string | null
+          description?: string | null
+          elevator_pitch?: string | null
           email?: string | null
           email_source?: string | null
+          facebook_url?: string | null
           firm_name: string
           firm_type?: string | null
+          founded_year?: number | null
           founder_reputation_score?: number | null
+          general_partner_count?: number | null
+          general_partner_names?: string[] | null
           headcount?: string | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_state?: string | null
           id?: string
+          industry_reputation?: number | null
+          instagram_url?: string | null
           is_actively_deploying?: boolean | null
           is_popular?: boolean | null
           is_recent?: boolean | null
           is_trending?: boolean | null
           last_enriched_at?: string | null
+          last_verified_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
+          legal_name?: string | null
+          linkedin_url?: string | null
           location?: string | null
+          locations?: Record<string, unknown> | null
           logo_url?: string | null
           market_sentiment?: string | null
+          match_score?: number | null
           max_check_size?: number | null
+          medium_url?: string | null
           min_check_size?: number | null
+          network_strength?: number | null
           news_sentiment_score?: number | null
+          next_update_scheduled_at?: string | null
+          openvc_url?: string | null
+          partner_names?: string[] | null
+          phone?: string | null
           preferred_stage?: string | null
+          prisma_firm_id?: string | null
           recent_deals?: string[] | null
           reputation_score?: number | null
           reputation_updated_at?: string | null
+          responsiveness_score?: number | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          signal_nfx_url?: string | null
+          slug?: string | null
           social_sentiment_score?: number | null
+          status?: string | null
+          substack_url?: string | null
           thesis_verticals?: string[]
+          tiktok_url?: string | null
+          total_headcount?: number | null
+          total_investors?: number | null
+          total_partners?: number | null
+          trustfinta_url?: string | null
+          updated_at?: string | null
+          value_add_score?: number | null
+          vcsheet_url?: string | null
+          verification_status?: string | null
+          volatility_score?: number | null
           website_url?: string | null
+          x_url?: string | null
+          youtube_url?: string | null
         }
         Update: {
+          address?: string | null
+          angellist_url?: string | null
           aum?: string | null
+          beehiiv_url?: string | null
           ca_sb54_compliant?: boolean | null
+          cb_insights_url?: string | null
           community_rating?: number | null
           created_at?: string
+          crunchbase_url?: string | null
+          data_confidence_score?: number | null
+          deleted_at?: string | null
+          description?: string | null
+          elevator_pitch?: string | null
           email?: string | null
           email_source?: string | null
+          facebook_url?: string | null
           firm_name?: string
           firm_type?: string | null
+          founded_year?: number | null
           founder_reputation_score?: number | null
+          general_partner_count?: number | null
+          general_partner_names?: string[] | null
           headcount?: string | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_state?: string | null
           id?: string
+          industry_reputation?: number | null
+          instagram_url?: string | null
           is_actively_deploying?: boolean | null
           is_popular?: boolean | null
           is_recent?: boolean | null
           is_trending?: boolean | null
           last_enriched_at?: string | null
+          last_verified_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
+          legal_name?: string | null
+          linkedin_url?: string | null
           location?: string | null
+          locations?: Record<string, unknown> | null
           logo_url?: string | null
           market_sentiment?: string | null
+          match_score?: number | null
           max_check_size?: number | null
+          medium_url?: string | null
           min_check_size?: number | null
+          network_strength?: number | null
           news_sentiment_score?: number | null
+          next_update_scheduled_at?: string | null
+          openvc_url?: string | null
+          partner_names?: string[] | null
+          phone?: string | null
           preferred_stage?: string | null
+          prisma_firm_id?: string | null
           recent_deals?: string[] | null
           reputation_score?: number | null
           reputation_updated_at?: string | null
+          responsiveness_score?: number | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          signal_nfx_url?: string | null
+          slug?: string | null
           social_sentiment_score?: number | null
+          status?: string | null
+          substack_url?: string | null
           thesis_verticals?: string[]
+          tiktok_url?: string | null
+          total_headcount?: number | null
+          total_investors?: number | null
+          total_partners?: number | null
+          trustfinta_url?: string | null
+          updated_at?: string | null
+          value_add_score?: number | null
+          vcsheet_url?: string | null
+          verification_status?: string | null
+          volatility_score?: number | null
           website_url?: string | null
+          x_url?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
       investor_partners: {
         Row: {
+          avatar_url: string | null
+          background_summary: string | null
+          bio: string | null
+          check_size_max: number | null
+          check_size_min: number | null
+          city: string | null
+          cold_outreach_ok: boolean
+          country: string | null
           created_at: string
+          deleted_at: string | null
+          education_summary: string | null
+          email: string | null
           firm_id: string
+          first_name: string | null
           full_name: string
           id: string
+          investment_style: string | null
           is_active: boolean
+          is_actively_investing: boolean
+          last_active_date: string | null
+          linkedin_url: string | null
+          match_score: number | null
+          network_strength: number | null
+          personal_thesis_tags: string[] | null
+          phone: string | null
+          preferred_name: string | null
+          prior_firms: string[] | null
+          prisma_person_id: string | null
+          recent_deal_count: number | null
+          reputation_score: number | null
+          responsiveness_score: number | null
+          sector_focus: string[] | null
+          stage_focus: string[] | null
+          state: string | null
+          timezone: string | null
           title: string | null
           updated_at: string
+          value_add_score: number | null
+          warm_intro_preferred: boolean
+          website_url: string | null
+          x_url: string | null
+          last_name: string | null
         }
         Insert: {
+          avatar_url?: string | null
+          background_summary?: string | null
+          bio?: string | null
+          check_size_max?: number | null
+          check_size_min?: number | null
+          city?: string | null
+          cold_outreach_ok?: boolean
+          country?: string | null
           created_at?: string
+          deleted_at?: string | null
+          education_summary?: string | null
+          email?: string | null
           firm_id: string
+          first_name?: string | null
           full_name: string
           id?: string
+          investment_style?: string | null
           is_active?: boolean
+          is_actively_investing?: boolean
+          last_active_date?: string | null
+          linkedin_url?: string | null
+          match_score?: number | null
+          network_strength?: number | null
+          personal_thesis_tags?: string[] | null
+          phone?: string | null
+          preferred_name?: string | null
+          prior_firms?: string[] | null
+          prisma_person_id?: string | null
+          recent_deal_count?: number | null
+          reputation_score?: number | null
+          responsiveness_score?: number | null
+          sector_focus?: string[] | null
+          stage_focus?: string[] | null
+          state?: string | null
+          timezone?: string | null
           title?: string | null
           updated_at?: string
+          value_add_score?: number | null
+          warm_intro_preferred?: boolean
+          website_url?: string | null
+          x_url?: string | null
+          last_name?: string | null
         }
         Update: {
+          avatar_url?: string | null
+          background_summary?: string | null
+          bio?: string | null
+          check_size_max?: number | null
+          check_size_min?: number | null
+          city?: string | null
+          cold_outreach_ok?: boolean
+          country?: string | null
           created_at?: string
+          deleted_at?: string | null
+          education_summary?: string | null
+          email?: string | null
           firm_id?: string
+          first_name?: string | null
           full_name?: string
           id?: string
+          investment_style?: string | null
           is_active?: boolean
+          is_actively_investing?: boolean
+          last_active_date?: string | null
+          linkedin_url?: string | null
+          match_score?: number | null
+          network_strength?: number | null
+          personal_thesis_tags?: string[] | null
+          phone?: string | null
+          preferred_name?: string | null
+          prior_firms?: string[] | null
+          prisma_person_id?: string | null
+          recent_deal_count?: number | null
+          reputation_score?: number | null
+          responsiveness_score?: number | null
+          sector_focus?: string[] | null
+          stage_focus?: string[] | null
+          state?: string | null
+          timezone?: string | null
           title?: string | null
           updated_at?: string
+          value_add_score?: number | null
+          warm_intro_preferred?: boolean
+          website_url?: string | null
+          x_url?: string | null
+          last_name?: string | null
         }
         Relationships: [
           {
@@ -1434,73 +1680,190 @@ export type Database = {
     Views: {
       investor_directory_safe: {
         Row: {
+          angellist_url: string | null
           aum: string | null
           ca_sb54_compliant: boolean | null
+          community_rating: number | null
           created_at: string | null
+          crunchbase_url: string | null
+          data_confidence_score: number | null
+          description: string | null
+          elevator_pitch: string | null
           email: string | null
           email_source: string | null
           firm_name: string | null
+          firm_type: string | null
+          founded_year: number | null
+          founder_sentiment_score: number | null
+          general_partner_count: number | null
+          general_partner_names: string[] | null
+          headcount: string | null
+          hq_city: string | null
+          hq_country: string | null
+          hq_state: string | null
           id: string | null
+          industry_reputation: number | null
+          is_actively_deploying: boolean | null
           last_enriched_at: string | null
+          last_verified_at: string | null
           lead_or_follow: string | null
           lead_partner: string | null
+          legal_name: string | null
+          linkedin_url: string | null
           location: string | null
           logo_url: string | null
           market_sentiment: string | null
+          match_score: number | null
           max_check_size: number | null
           min_check_size: number | null
+          network_strength: number | null
+          news_sentiment_score: number | null
+          next_update_scheduled_at: string | null
+          partner_names: string[] | null
           preferred_stage: string | null
+          prisma_firm_id: string | null
           recent_deals: string[] | null
+          reputation_score: number | null
+          responsiveness_score: number | null
           sector_embedding: string | null
           sentiment_detail: string | null
+          slug: string | null
+          social_sentiment_score: number | null
+          status: string | null
           thesis_verticals: string[] | null
+          total_headcount: number | null
+          total_investors: number | null
+          total_partners: number | null
+          updated_at: string | null
+          value_add_score: number | null
+          verification_status: string | null
+          volatility_score: number | null
           website_url: string | null
+          x_url: string | null
         }
         Insert: {
+          angellist_url?: string | null
           aum?: string | null
           ca_sb54_compliant?: boolean | null
+          community_rating?: number | null
           created_at?: string | null
+          crunchbase_url?: string | null
+          data_confidence_score?: number | null
+          description?: string | null
+          elevator_pitch?: string | null
           email?: never
           email_source?: never
           firm_name?: string | null
+          firm_type?: string | null
+          founded_year?: number | null
+          founder_sentiment_score?: number | null
+          general_partner_count?: number | null
+          general_partner_names?: string[] | null
+          headcount?: string | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_state?: string | null
           id?: string | null
+          industry_reputation?: number | null
+          is_actively_deploying?: boolean | null
           last_enriched_at?: string | null
+          last_verified_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
+          legal_name?: string | null
+          linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
           market_sentiment?: string | null
+          match_score?: number | null
           max_check_size?: number | null
           min_check_size?: number | null
+          network_strength?: number | null
+          news_sentiment_score?: number | null
+          next_update_scheduled_at?: string | null
+          partner_names?: string[] | null
           preferred_stage?: string | null
+          prisma_firm_id?: string | null
           recent_deals?: string[] | null
+          reputation_score?: number | null
+          responsiveness_score?: number | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          slug?: string | null
+          social_sentiment_score?: number | null
+          status?: string | null
           thesis_verticals?: string[] | null
+          total_headcount?: number | null
+          total_investors?: number | null
+          total_partners?: number | null
+          updated_at?: string | null
+          value_add_score?: number | null
+          verification_status?: number | null
+          volatility_score?: number | null
           website_url?: string | null
+          x_url?: string | null
         }
         Update: {
+          angellist_url?: string | null
           aum?: string | null
           ca_sb54_compliant?: boolean | null
+          community_rating?: number | null
           created_at?: string | null
+          crunchbase_url?: string | null
+          data_confidence_score?: number | null
+          description?: string | null
+          elevator_pitch?: string | null
           email?: never
           email_source?: never
           firm_name?: string | null
+          firm_type?: string | null
+          founded_year?: number | null
+          founder_sentiment_score?: number | null
+          general_partner_count?: number | null
+          general_partner_names?: string[] | null
+          headcount?: string | null
+          hq_city?: string | null
+          hq_country?: string | null
+          hq_state?: string | null
           id?: string | null
+          industry_reputation?: number | null
+          is_actively_deploying?: boolean | null
           last_enriched_at?: string | null
+          last_verified_at?: string | null
           lead_or_follow?: string | null
           lead_partner?: string | null
+          legal_name?: string | null
+          linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
           market_sentiment?: string | null
+          match_score?: number | null
           max_check_size?: number | null
           min_check_size?: number | null
+          network_strength?: number | null
+          news_sentiment_score?: number | null
+          next_update_scheduled_at?: string | null
+          partner_names?: string[] | null
           preferred_stage?: string | null
+          prisma_firm_id?: string | null
           recent_deals?: string[] | null
+          reputation_score?: number | null
+          responsiveness_score?: number | null
           sector_embedding?: string | null
           sentiment_detail?: string | null
+          slug?: string | null
+          social_sentiment_score?: number | null
+          status?: string | null
           thesis_verticals?: string[] | null
+          total_headcount?: number | null
+          total_investors?: number | null
+          total_partners?: number | null
+          updated_at?: string | null
+          value_add_score?: number | null
+          verification_status?: string | null
+          volatility_score?: number | null
           website_url?: string | null
+          x_url?: string | null
         }
         Relationships: []
       }

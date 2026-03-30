@@ -144,6 +144,7 @@ export function CompanyTab() {
   // Company Magic Sync state
   const [companySyncUrl, setCompanySyncUrl] = useState("");
   const [companySyncing, setCompanySyncing] = useState(false);
+  const [companySyncSuccessToken, setCompanySyncSuccessToken] = useState(0);
   const [companySyncReviewOpen, setCompanySyncReviewOpen] = useState(false);
   const [companySyncFields, setCompanySyncFields] = useState<SyncField[]>([]);
   const [companySyncApplying, setCompanySyncApplying] = useState(false);
@@ -1011,6 +1012,7 @@ export function CompanyTab() {
 
                   setCompanySyncFields(fields);
                   setCompanySyncReviewOpen(true);
+                  setCompanySyncSuccessToken((current) => current + 1);
                 } catch (err: any) {
                   toast.error("Sync failed: " + (err.message || "Unknown error"));
                 } finally {
@@ -1018,6 +1020,7 @@ export function CompanyTab() {
                 }
               }}
               companySyncing={companySyncing}
+              companySyncSuccessToken={companySyncSuccessToken}
               sectionConfirmedState={sectionConfirmed}
               companyData={companyData}
             />
@@ -1080,7 +1083,9 @@ export function CompanyTab() {
             const current = saved ? JSON.parse(saved) : {};
             for (const key of selectedKeys) {
               const val = fieldMap[key];
-              if (val) current[key] = val;
+              if (val !== null && val !== undefined && String(val).trim() !== "") {
+                current[key] = val;
+              }
             }
             localStorage.setItem("company-profile", JSON.stringify(current));
             setCompanyData(current);

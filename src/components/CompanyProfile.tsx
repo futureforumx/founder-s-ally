@@ -64,6 +64,20 @@ function faviconSrc(domain: string): string {
   return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
 }
 
+function hdFaviconSrc(domain: string): string {
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+}
+
+function s2FaviconSrc(domain: string, size: number): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+}
+
+/** Supabase bucket uploads — do not replace with auto-favicon when website changes. */
+function isCustomUploadedLogo(url: string | null): boolean {
+  if (!url) return false;
+  return url.includes("company-logos");
+}
+
 function cleanDomainToName(domain: string): string {
   let name = domain.replace(/^www\./, "");
   for (const tld of TLDS) {
@@ -233,8 +247,26 @@ interface CompanyProfileProps {
   onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
   onSyncCompany?: (url: string) => void;
   companySyncing?: boolean;
+  companySyncSuccessToken?: number;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
+}
+
+interface CompanySyncPayload {
+  company_name?: string | null;
+  description?: string | null;
+  sector?: string | null;
+  website_url?: string | null;
+  logo_url?: string | null;
+  hq_location?: string | null;
+  employee_count?: string | number | null;
+}
+
+function readCompanySyncPayload(payload: unknown): CompanySyncPayload | null {
+  if (!payload || typeof payload !== "object") return null;
+  const nested = "data" in payload ? (payload as { data?: unknown }).data : payload;
+  if (!nested || typeof nested !== "object") return null;
+  return nested as CompanySyncPayload;
 }
 
 export interface CompanyProfileHandle {
@@ -321,7 +353,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, companySyncSuccessToken = 0, sectionConfirmedState, companyData: parentCompanyData }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -367,15 +399,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Preload favicon on mount for saved website
+  // Track when the current favicon URL has finished loading (re-run when URL changes)
   useEffect(() => {
-    if (faviconUrl && !faviconLoaded) {
-      const img = new Image();
-      img.onload = () => setFaviconLoaded(true);
-      img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
-      img.src = faviconUrl;
+    if (!faviconUrl) {
+      setFaviconLoaded(false);
+      return;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    setFaviconLoaded(false);
+    const img = new Image();
+    img.onload = () => setFaviconLoaded(true);
+    img.onerror = () => setFaviconLoaded(true);
+    img.src = faviconUrl;
+  }, [faviconUrl]);
 
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
@@ -415,7 +450,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { return localStorage.getItem("company-source-verified") === "true"; } catch { return false; }
   });
   const [sourceVerifiedAnim, setSourceVerifiedAnim] = useState(false);
-  const prevCompanySyncingRef = useRef(companySyncing);
+  const prevCompanySyncSuccessTokenRef = useRef(companySyncSuccessToken);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
@@ -579,15 +614,15 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { localStorage.setItem("company-data-source", dataSource); } catch {}
   }, [dataSource]);
 
-  // Track companySyncing transition to mark source as verified
+  // Track successful company sync completions to mark source as verified.
   useEffect(() => {
-    if (prevCompanySyncingRef.current && !companySyncing) {
+    if (companySyncSuccessToken > prevCompanySyncSuccessTokenRef.current) {
       setSourceVerified(true);
       setSourceVerifiedAnim(true);
       try { localStorage.setItem("company-source-verified", "true"); } catch {}
     }
-    prevCompanySyncingRef.current = companySyncing;
-  }, [companySyncing]);
+    prevCompanySyncSuccessTokenRef.current = companySyncSuccessToken;
+  }, [companySyncSuccessToken]);
 
   useEffect(() => {
     if (form.name) {
@@ -761,10 +796,16 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           body: { companyUrl: url },
         });
         if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
-        if (data?.description && !form.description) update("description", data.description);
-        if (data?.location && !form.hqLocation) update("hqLocation", data.location);
-        if (data?.website && !form.website) update("website", data.website);
-        if (data?.headcount && !form.totalHeadcount) update("totalHeadcount", data.headcount);
+        const incoming = readCompanySyncPayload(data);
+        if (!incoming) throw new Error("Invalid company sync response");
+        if (incoming.company_name && !form.name) update("name", incoming.company_name);
+        if (incoming.description && !form.description) update("description", incoming.description);
+        if (incoming.sector && !form.sector) update("sector", incoming.sector);
+        if (incoming.hq_location && !form.hqLocation) update("hqLocation", incoming.hq_location);
+        if (incoming.website_url && !form.website) update("website", incoming.website_url);
+        if (incoming.employee_count != null && !form.totalHeadcount) {
+          update("totalHeadcount", String(incoming.employee_count));
+        }
         toast({ title: "LinkedIn enriched", description: "Available fields populated." });
       }
       setSocialEnrichState(prev => ({ ...prev, [platform]: "verified" }));
@@ -1638,29 +1679,63 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                       if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
                       faviconDebounceRef.current = setTimeout(() => {
                         const domain = extractDomain(url);
-                        if (domain) {
-                          const fav = faviconSrc(domain);
-                          setFaviconUrl(fav); setFaviconLoaded(false);
-                          const img = new Image();
-                          img.onload = () => setFaviconLoaded(true);
-                          img.onerror = () => { setFaviconUrl(null); setFaviconLoaded(false); };
-                          img.src = fav;
-                          if (!form.name.trim() && !userTouched.has("name")) {
-                            const cleaned = cleanDomainToName(domain);
-                            if (cleaned) setForm(prev => ({ ...prev, name: cleaned }));
-                          }
-                        } else { setFaviconUrl(null); setFaviconLoaded(false); }
+                        if (!domain) {
+                          setFaviconUrl(null);
+                          setFaviconLoaded(false);
+                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
+                          return;
+                        }
+                        const primary = faviconSrc(domain);
+                        setFaviconUrl(primary);
+                        const img = new Image();
+                        img.onload = () => {
+                          setLogoUrl((prev) =>
+                            isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(domain),
+                          );
+                        };
+                        img.onerror = () => {
+                          const fallback = s2FaviconSrc(domain, 32);
+                          const img2 = new Image();
+                          img2.onload = () => {
+                            setFaviconUrl(fallback);
+                            setLogoUrl((prev) =>
+                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
+                            );
+                          };
+                          img2.onerror = () => {
+                            setFaviconUrl(fallback);
+                            setLogoUrl((prev) =>
+                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
+                            );
+                          };
+                          img2.src = fallback;
+                        };
+                        img.src = primary;
+                        if (!form.name.trim() && !userTouched.has("name")) {
+                          const cleaned = cleanDomainToName(domain);
+                          if (cleaned) setForm((prev) => ({ ...prev, name: cleaned }));
+                        }
                       }, 300);
                     }}
                     onBlur={() => {
                       const domain = extractDomain(form.website);
                       if (!domain) return;
-                      const hdLogoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+                      const hdLogoUrl = hdFaviconSrc(domain);
                       const testImg = new Image();
                       testImg.onload = () => {
-                        if (logoUrl !== hdLogoUrl) setSuggestedLogoUrl(hdLogoUrl);
+                        setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
+                        setSuggestedLogoUrl(null);
                       };
-                      testImg.onerror = () => {};
+                      testImg.onerror = () => {
+                        const s2 = s2FaviconSrc(domain, 128);
+                        const test2 = new Image();
+                        test2.onload = () => {
+                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
+                          setSuggestedLogoUrl(null);
+                        };
+                        test2.onerror = () => {};
+                        test2.src = s2;
+                      };
                       testImg.src = hdLogoUrl;
                     }}
                     placeholder="https://acme.com" maxLength={255}

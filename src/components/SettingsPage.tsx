@@ -8,7 +8,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
-  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronRight,
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -17,7 +17,9 @@ import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { parseOverallTenFromStarRatings, parseWorkWithThemFromStarRatings } from "@/lib/reviewRateButtonDisplay";
+import { VEKTA_OPEN_VC_REVIEW_EVENT } from "@/lib/vcReviewNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -1584,16 +1586,34 @@ function ThemeTab() {
 }
 
 // ── Activity Tab ──
-interface FeedbackItem {
-  id: string;
-  nps_score: number;
-  interaction_type: string;
-  comment: string | null;
-  created_at: string;
-  did_respond: boolean;
-  firm_id: string;
-  firm: { firm_name: string; logo_url?: string | null };
-}
+type ActivityReviewRow =
+  | {
+      kind: "vc_directory";
+      id: string;
+      ratingId: string;
+      created_at: string;
+      firmName: string;
+      logo_url: string | null;
+      interaction_type: string;
+      comment: string | null;
+      scoreLabel: string;
+      /** 1–10 overall when present (unlinked form). */
+      scoreTen: number | null;
+      vcFirmId: string;
+      vcPersonId: string | null;
+      investorDatabaseId: string | null;
+    }
+  | {
+      kind: "legacy";
+      id: string;
+      created_at: string;
+      firmName: string;
+      logo_url: string | null;
+      nps_score: number;
+      interaction_type: string;
+      comment: string | null;
+      firm_id: string;
+    };
 
 interface ConnectionItem {
   id: string;
@@ -1610,42 +1630,120 @@ type ConnFilter = "all" | "investor" | "founder" | "operator";
 
 function ActivityTab() {
   const { user } = useAuth();
-  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [activityReviews, setActivityReviews] = useState<ActivityReviewRow[]>([]);
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [loadingConns, setLoadingConns] = useState(true);
   const [connFilter, setConnFilter] = useState<ConnFilter>("all");
 
-  // Fetch investor feedback (reviews left by this user)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoadingFeedback(false);
+      return;
+    }
     let cancelled = false;
-    async function fetchFeedback() {
-      const { data, error } = await supabase
+
+    async function loadReviews() {
+      const legacyRows: ActivityReviewRow[] = [];
+      const vcRows: ActivityReviewRow[] = [];
+
+      const { data: legacyData, error: legacyErr } = await supabase
         .from("investor_reviews")
         .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
         .eq("founder_id", user!.id)
         .order("created_at", { ascending: false });
-      if (!cancelled && !error && data && data.length > 0) {
-        const firmIds = [...new Set(data.map((r) => r.firm_id))];
+
+      if (!cancelled && !legacyErr && legacyData && legacyData.length > 0) {
+        const firmIds = [...new Set(legacyData.map((r) => r.firm_id))];
         const { data: firms } = await supabase
           .from("investor_database")
           .select("id, firm_name, logo_url")
           .in("id", firmIds);
         const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
-        if (!cancelled) {
-          setFeedback(
-            data.map((r) => ({
-              ...r,
-              firm: firmMap[r.firm_id] || { firm_name: "Unknown Firm" },
-            }))
-          );
+        for (const r of legacyData) {
+          const f = firmMap[r.firm_id] || { firm_name: "Unknown Firm", logo_url: null as string | null };
+          legacyRows.push({
+            kind: "legacy",
+            id: `legacy-${r.id}`,
+            created_at: r.created_at,
+            firmName: f.firm_name,
+            logo_url: f.logo_url ?? null,
+            nps_score: r.nps_score,
+            interaction_type: r.interaction_type,
+            comment: r.comment,
+            firm_id: r.firm_id,
+          });
         }
       }
-      if (!cancelled) setLoadingFeedback(false);
+
+      if (isSupabaseConfigured) {
+        const { data: ratings, error: vcErr } = await supabase
+          .from("vc_ratings")
+          .select("id, vc_firm_id, vc_person_id, interaction_type, comment, created_at, star_ratings, is_draft")
+          .eq("author_user_id", user!.id)
+          .eq("is_draft", false)
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (!cancelled && !vcErr && ratings?.length) {
+          const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
+          const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+          let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
+          if (firmIds.length > 0) {
+            const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+            vfData = (res.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
+          }
+          const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
+
+          let prismaMap: Record<string, string> = {};
+          if (firmIds.length > 0) {
+            const { data: invMatch } = await supabase.from("investor_database").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
+            for (const row of invMatch || []) {
+              const pid = (row as { prisma_firm_id?: string; id?: string }).prisma_firm_id;
+              const iid = (row as { id?: string }).id;
+              if (pid && iid) prismaMap[pid] = iid;
+            }
+          }
+
+          for (const r of ratings) {
+            const fid = r.vc_firm_id;
+            if (!fid) continue;
+            const vf = vfMap[fid];
+            const ten = parseOverallTenFromStarRatings(r.star_ratings);
+            const work = parseWorkWithThemFromStarRatings(r.star_ratings);
+            const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
+            vcRows.push({
+              kind: "vc_directory",
+              id: `vc-${r.id}`,
+              ratingId: r.id,
+              created_at: r.created_at,
+              firmName: vf?.firm_name ?? "Investor",
+              logo_url: vf?.logo_url ?? null,
+              interaction_type: r.interaction_type || "review",
+              comment: r.comment,
+              scoreLabel,
+              scoreTen: ten,
+              vcFirmId: fid,
+              vcPersonId: r.vc_person_id,
+              investorDatabaseId: prismaMap[fid] ?? null,
+            });
+          }
+        }
+      }
+
+      if (!cancelled) {
+        const merged = [...vcRows, ...legacyRows].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        setActivityReviews(merged);
+        setLoadingFeedback(false);
+      }
     }
-    fetchFeedback();
-    return () => { cancelled = true; };
+
+    loadReviews();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   // Fetch connections (investors from cap_table + founders/operators from community)
@@ -1734,6 +1832,27 @@ function ActivityTab() {
     return "bg-destructive/10 text-destructive border-destructive/20";
   }
 
+  function scoreTenBadgeClass(ten: number) {
+    if (ten >= 9) return "bg-success/10 text-success border-success/20";
+    if (ten >= 7) return "bg-accent/10 text-accent border-accent/20";
+    if (ten >= 5) return "bg-warning/10 text-warning border-warning/20";
+    return "bg-muted text-muted-foreground border-border";
+  }
+
+  function openVcReviewFromActivity(row: Extract<ActivityReviewRow, { kind: "vc_directory" }>) {
+    window.dispatchEvent(
+      new CustomEvent(VEKTA_OPEN_VC_REVIEW_EVENT, {
+        detail: {
+          vcFirmId: row.vcFirmId,
+          firmName: row.firmName,
+          vcPersonId: row.vcPersonId,
+          ratingId: row.ratingId,
+          investorDatabaseId: row.investorDatabaseId,
+        },
+      }),
+    );
+  }
+
   function typeColor(type: ConnectionItem["type"]) {
     if (type === "investor") return "bg-accent/10 text-accent";
     if (type === "operator") return "bg-warning/10 text-warning";
@@ -1778,52 +1897,109 @@ function ActivityTab() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
-        ) : feedback.length === 0 ? (
+        ) : activityReviews.length === 0 ? (
           <div className="rounded-xl border border-border bg-muted/20 p-5 text-center text-sm text-muted-foreground">
             No feedback submitted yet.
           </div>
         ) : (
           <div className="space-y-2">
-            {feedback.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-border bg-muted/10 p-4 space-y-2 hover:bg-muted/20 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
-                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{item.firm.firm_name}</span>
-                    {item.interaction_type && (
-                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {item.interaction_type}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                        npsColor(item.nps_score)
+            {activityReviews.map((item) =>
+              item.kind === "vc_directory" ? (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openVcReviewFromActivity(item)}
+                  className="w-full rounded-xl border border-border bg-muted/10 p-4 space-y-2 text-left hover:bg-muted/25 hover:border-accent/25 transition-colors group"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0 overflow-hidden">
+                        {item.logo_url ? (
+                          <img src={item.logo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-foreground truncate">{item.firmName}</span>
+                      {item.interaction_type && (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">
+                          {item.interaction_type}
+                        </span>
                       )}
-                    >
-                      NPS {item.nps_score}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.scoreTen != null ? (
+                        <span
+                          className={cn(
+                            "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                            scoreTenBadgeClass(item.scoreTen),
+                          )}
+                        >
+                          {item.scoreLabel}
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {item.scoreLabel}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
+                  {item.comment && (
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-9 line-clamp-2">{item.comment}</p>
+                  )}
+                </button>
+              ) : (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-border bg-muted/10 p-4 space-y-2 opacity-90"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                      <span className="text-sm font-medium text-foreground">{item.firmName}</span>
+                      <span className="rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[9px] text-muted-foreground uppercase tracking-wide">
+                        Legacy
+                      </span>
+                      {item.interaction_type && (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {item.interaction_type}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                          npsColor(item.nps_score),
+                        )}
+                      >
+                        NPS {item.nps_score}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  {item.comment && (
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-9">{item.comment}</p>
+                  )}
                 </div>
-                {item.comment && (
-                  <p className="text-xs text-muted-foreground leading-relaxed pl-9">{item.comment}</p>
-                )}
-              </div>
-            ))}
+              ),
+            )}
           </div>
         )}
       </div>

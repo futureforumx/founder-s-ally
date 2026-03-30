@@ -1,7 +1,6 @@
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ArrowUpRight, User } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
+import { CheckCircle2, ArrowUpRight } from "lucide-react";
+import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
+import type { VCPerson } from "@/hooks/useVCDirectory";
 
 interface InvestorPartnersTabProps {
   firmId: string;
@@ -10,7 +9,7 @@ interface InvestorPartnersTabProps {
   onSelectPerson?: (person: VCPerson) => void;
 }
 
-export function InvestorPartnersTab({ firmId, firmName, partners, onSelectPerson }: InvestorPartnersTabProps) {
+export function InvestorPartnersTab({ firmId: _firmId, firmName, partners, onSelectPerson }: InvestorPartnersTabProps) {
   const displayPartners = partners.length > 0 ? partners : [];
 
   if (displayPartners.length === 0) {
@@ -34,11 +33,20 @@ export function InvestorPartnersTab({ firmId, firmName, partners, onSelectPerson
               onClick={() => onSelectPerson?.(p)}
               className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-accent/40 hover:shadow-sm transition-all group"
             >
-              <Avatar className="h-12 w-12 border border-border shrink-0">
-                <AvatarFallback className="text-sm font-bold bg-secondary text-muted-foreground">
-                  {p.full_name.split(" ").map(n => n[0]).join("")}
-                </AvatarFallback>
-              </Avatar>
+              <InvestorPersonAvatar
+                imageUrls={investorPersonImageCandidates({
+                  profile_image_url: p.profile_image_url,
+                  avatar_url: p.avatar_url,
+                  email: p.email,
+                  website_url: p.website_url,
+                  linkedin_url: p.linkedin_url,
+                  x_url: p.x_url,
+                  personal_website_url: p.personal_website_url,
+                  full_name: p.full_name,
+                })}
+                size="md"
+                className="h-12 w-12 border border-border shrink-0"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-semibold text-foreground group-hover:text-accent transition-colors truncate">
