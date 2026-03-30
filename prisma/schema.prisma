@@ -426,10 +426,20 @@ model VCPerson {
   cold_outreach_ok     Boolean @default(false)
 
   personal_thesis_tags String[] @default([])
+  investment_themes    String[] @default([])
   investment_style     String?
   background_summary   String?  @db.Text
   prior_firms          String[] @default([])
   education_summary    String?  @db.Text
+
+  medium_url   String?
+  substack_url String?
+
+  /// Thought leadership articles: [{title, url, published_at, platform, summary}]
+  articles Json?
+
+  /// Timestamp of last successful team-page scrape for this person
+  team_page_scraped_at DateTime? @db.Timestamptz(6)
 
   responsiveness_score  Int?
   recent_deal_count     Int?

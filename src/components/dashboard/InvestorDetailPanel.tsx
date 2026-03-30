@@ -474,10 +474,10 @@ export function InvestorDetailPanel({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-[9px] text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-warning/35 bg-warning/10 px-3 py-[9px] text-[13px] font-medium text-foreground hover:bg-warning/15 transition-colors"
                           aria-label="Rate this firm"
                         >
-                          <Star className="h-3.5 w-3.5 shrink-0" />
+                          <Star className="h-3.5 w-3.5 shrink-0 fill-warning text-warning animate-pulse [animation-duration:2.6s] [animation-timing-function:ease-in-out]" />
                           Rate
                         </button>
                       )}

@@ -176,6 +176,33 @@ function parseXPathHandle(xUrl?: string | null): string | null {
   }
 }
 
+function isRealLinkedInProfile(linkedinUrl?: string | null): boolean {
+  const raw = linkedinUrl?.trim();
+  if (!raw) return false;
+  try {
+    const url = raw.includes("://") ? new URL(raw) : new URL(`https://${raw}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (host !== "linkedin.com") return false;
+    const path = url.pathname.toLowerCase();
+    return path.startsWith("/in/") || path.startsWith("/pub/");
+  } catch {
+    return false;
+  }
+}
+
+function isPartnerLevelProfile(input: {
+  title?: string | null;
+  role?: string | null;
+  investorType?: string | null;
+}): boolean {
+  const haystack = [input.title, input.role, input.investorType]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (!haystack) return false;
+  return /(general partner|managing partner|venture partner|partner|principal|associate|analyst|scout|investor|advisor)/.test(haystack);
+}
+
 function unavatarFrom(value?: string | null): string | null {
   const raw = value?.trim();
   if (!raw) return null;
@@ -215,6 +242,10 @@ function gravatarUrl(email?: string | null, size: number = 160): string | null {
 export function investorPersonImageCandidates({
   profile_image_url,
   avatar_url,
+  firmWebsiteUrl,
+  title,
+  role,
+  investorType,
   email,
   website_url,
   linkedin_url,
@@ -224,6 +255,10 @@ export function investorPersonImageCandidates({
 }: {
   profile_image_url?: string | null;
   avatar_url?: string | null;
+  firmWebsiteUrl?: string | null;
+  title?: string | null;
+  role?: string | null;
+  investorType?: string | null;
   email?: string | null;
   website_url?: string | null;
   linkedin_url?: string | null;
@@ -233,23 +268,35 @@ export function investorPersonImageCandidates({
 }): string[] {
   const normalizedEmail = trimOrNull(email)?.toLowerCase() ?? null;
   const xHandle = parseXPathHandle(x_url);
+  const firmWebsiteHost = parseHost(firmWebsiteUrl);
   const websiteHost = parseHost(website_url);
   const personalWebsiteHost = parseHost(personal_website_url);
   const linkedinHost = parseHost(linkedin_url);
   const xHost = parseHost(x_url);
+  const preferLinkedInOverFirm = isRealLinkedInProfile(linkedin_url) && isPartnerLevelProfile({ title, role, investorType });
+  const prioritizedFirmSources = [
+    firmWebsiteUrl ? getFaviconUrl(firmWebsiteUrl, 128) : null,
+    firmWebsiteHost ? getFaviconUrl(firmWebsiteHost, 128) : null,
+  ];
+  const prioritizedLinkedInSources = [
+    linkedin_url ? getFaviconUrl(linkedin_url, 128) : null,
+    linkedinHost ? getFaviconUrl(linkedinHost, 128) : null,
+  ];
 
   const sources = [
     // Direct uploads / stored headshots first (fastest, most reliable)
     trimOrNull(profile_image_url),
     trimOrNull(avatar_url),
-    // Then external resolution services
+    ...(preferLinkedInOverFirm ? prioritizedLinkedInSources : prioritizedFirmSources),
+    ...(preferLinkedInOverFirm ? prioritizedFirmSources : prioritizedLinkedInSources),
     gravatarUrl(normalizedEmail),
+    gravatarUrl(email),
+    // Then external resolution services
     unavatarFrom(normalizedEmail),
     unavatarFromXHandle(xHandle),
     unavatarFrom(linkedin_url),
     unavatarFrom(websiteHost),
     unavatarFrom(personalWebsiteHost),
-    gravatarUrl(email),
     optionalResolverAvatar({
       full_name,
       email: normalizedEmail,
@@ -259,9 +306,7 @@ export function investorPersonImageCandidates({
     }),
     website_url ? getFaviconUrl(website_url, 128) : null,
     personal_website_url ? getFaviconUrl(personal_website_url, 128) : null,
-    linkedin_url ? getFaviconUrl(linkedin_url, 128) : null,
     xHost ? getFaviconUrl(xHost, 128) : null,
-    linkedinHost ? getFaviconUrl(linkedinHost, 128) : null,
   ].filter((value): value is string => Boolean(value));
 
   return Array.from(new Set(sources));
@@ -270,6 +315,10 @@ export function investorPersonImageCandidates({
 export function investorPersonImageUrl(
   profile_image_url?: string | null,
   avatar_url?: string | null,
+  firmWebsiteUrl?: string | null,
+  title?: string | null,
+  role?: string | null,
+  investorType?: string | null,
   email?: string | null,
   website_url?: string | null,
   linkedin_url?: string | null,
@@ -281,6 +330,10 @@ export function investorPersonImageUrl(
     investorPersonImageCandidates({
       profile_image_url,
       avatar_url,
+      firmWebsiteUrl,
+      title,
+      role,
+      investorType,
       email,
       website_url,
       linkedin_url,

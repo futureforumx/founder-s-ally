@@ -1,4 +1,4 @@
-import { memo, useState, useRef, type CSSProperties, type ReactNode } from "react";
+import { memo, useState, useRef, startTransition, useCallback, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { X, Star, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -499,6 +499,14 @@ export function ReviewModalShell({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const handleClose = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      startTransition(() => {
+        onClose();
+      });
+    });
+  }, [onClose]);
+
   return (
     <motion.div
       className="pointer-events-auto w-full max-w-4xl max-h-[min(90vh,880px)] flex flex-col min-h-0 bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
@@ -520,7 +528,7 @@ export function ReviewModalShell({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors shrink-0"
         >
           <X className="h-4 w-4 text-muted-foreground" />

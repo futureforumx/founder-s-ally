@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, startTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { motion } from "framer-motion";
@@ -294,7 +294,7 @@ export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, 
               <button
                 key={s}
                 type="button"
-                onClick={() => setReviewSort(s)}
+                onClick={() => startTransition(() => setReviewSort(s))}
                 className={`text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
                   reviewSort === s
                     ? "bg-primary/10 text-primary"

@@ -1,18 +1,32 @@
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Building2, ExternalLink, Globe, MapPin } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, Globe, Linkedin, Mail, MapPin, RefreshCw, Twitter, BookOpen, FileText, Sparkles } from "lucide-react";
 
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { fetchVCFirmDetail, type VCFirmDetail, type VcFundRow } from "@/lib/vcFirmDetail";
 import { fetchVcRatingsForFirm } from "@/lib/vcRatingsQueries";
 import { aggregateVcRatings, INTERACTION_DISPLAY, type VcRatingRow } from "@/lib/vcRatingsAggregate";
+import { useEnrichFirmTeam } from "@/hooks/useEnrichFirmTeam";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+// ---------------------------------------------------------------------------
+// Article type (matches vc_people.articles JSONB schema)
+// ---------------------------------------------------------------------------
+type PersonArticle = {
+  title: string;
+  url: string;
+  published_at?: string;
+  platform?: "medium" | "substack" | "linkedin" | "twitter" | "company_blog" | "other";
+  summary?: string;
+};
 
 function fmtUsd(n: unknown): string {
   if (n == null || typeof n !== "number") return "—";
@@ -53,6 +67,7 @@ function fmtVcRatingWhen(row: VcRatingRow): string {
 
 const FirmProfile = () => {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["vc-firm-detail", id],
@@ -65,6 +80,14 @@ const FirmProfile = () => {
     queryFn: () => fetchVcRatingsForFirm(id!),
     enabled: Boolean(id && isSupabaseConfigured),
   });
+
+  const { enrich, isLoading: isEnriching, result: enrichResult, error: enrichError } = useEnrichFirmTeam(id);
+
+  async function handleEnrich() {
+    await enrich();
+    // Refresh firm detail to show updated people
+    await queryClient.invalidateQueries({ queryKey: ["vc-firm-detail", id] });
+  }
 
   if (!isSupabaseConfigured) {
     return (
@@ -399,30 +422,198 @@ const FirmProfile = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="people" className="space-y-3">
-            {people.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No people.</p>
-            ) : (
-              people.map((p) => (
-                <Card key={p.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      {String(p.preferred_name || `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Partner")}
-                    </CardTitle>
-                    <CardDescription>
-                      {[p.title, p.role].filter(Boolean).join(" · ") || "—"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    {p.email ? <span>{String(p.email)}</span> : null}
-                    {p.linkedin_url ? (
-                      <a href={String(p.linkedin_url)} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                        LinkedIn
-                      </a>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              ))
+          <TabsContent value="people" className="space-y-4">
+            {/* Enrichment toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                {people.length === 0
+                  ? "No team members yet — click Sync Team to pull from the firm's website."
+                  : `${people.length} team member${people.length === 1 ? "" : "s"}`}
+              </p>
+              <div className="flex items-center gap-2">
+                {enrichResult ? (
+                  <span className="text-xs text-muted-foreground">
+                    +{enrichResult.added} added · ~{enrichResult.updated} updated · {enrichResult.signalsAdded} articles
+                  </span>
+                ) : enrichError ? (
+                  <span className="text-xs text-destructive">{enrichError}</span>
+                ) : null}
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleEnrich}
+                        disabled={isEnriching}
+                        className="gap-1.5"
+                      >
+                        {isEnriching ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {isEnriching ? "Syncing…" : "Sync Team"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-56 text-xs">
+                      Scrapes the firm's website team page to pull investor bios, social profiles, and thought-leadership articles.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+
+            {people.length === 0 ? null : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {people.map((p) => {
+                  const fullName = String(
+                    p.preferred_name || `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Partner"
+                  );
+                  const initials = fullName
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase();
+
+                  const articles: PersonArticle[] = Array.isArray((p as Record<string, unknown>).articles)
+                    ? (p as Record<string, unknown>).articles as PersonArticle[]
+                    : [];
+
+                  const investmentThemes: string[] = Array.isArray((p as Record<string, unknown>).investment_themes)
+                    ? (p as Record<string, unknown>).investment_themes as string[]
+                    : (p as Record<string, unknown>).personal_thesis_tags as string[] ?? [];
+
+                  const mediumUrl = (p as Record<string, unknown>).medium_url as string | null | undefined;
+                  const substackUrl = (p as Record<string, unknown>).substack_url as string | null | undefined;
+
+                  return (
+                    <Card key={p.id} className="flex flex-col">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-11 w-11 shrink-0 border">
+                            {p.avatar_url ? (
+                              <AvatarImage src={String(p.avatar_url)} alt={fullName} />
+                            ) : null}
+                            <AvatarFallback className="text-xs font-medium">{initials}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <CardTitle className="truncate text-sm font-semibold">{fullName}</CardTitle>
+                            <CardDescription className="truncate text-xs">
+                              {[p.title, p.role].filter(Boolean).join(" · ") || "Partner"}
+                            </CardDescription>
+                            {/* Social links row */}
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                              {p.linkedin_url ? (
+                                <a
+                                  href={String(p.linkedin_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  aria-label="LinkedIn"
+                                >
+                                  <Linkedin className="h-3.5 w-3.5" />
+                                </a>
+                              ) : null}
+                              {p.x_url ? (
+                                <a
+                                  href={String(p.x_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  aria-label="X / Twitter"
+                                >
+                                  <Twitter className="h-3.5 w-3.5" />
+                                </a>
+                              ) : null}
+                              {mediumUrl ? (
+                                <a
+                                  href={String(mediumUrl)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-muted-foreground hover:text-foreground font-medium"
+                                  aria-label="Medium"
+                                >
+                                  M
+                                </a>
+                              ) : null}
+                              {substackUrl ? (
+                                <a
+                                  href={String(substackUrl)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  aria-label="Substack"
+                                >
+                                  <BookOpen className="h-3.5 w-3.5" />
+                                </a>
+                              ) : null}
+                              {p.email ? (
+                                <a
+                                  href={`mailto:${String(p.email)}`}
+                                  className="text-muted-foreground hover:text-foreground"
+                                  aria-label={`Email ${fullName}`}
+                                >
+                                  <Mail className="h-3.5 w-3.5" />
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="flex flex-col gap-2 pt-0 text-xs text-muted-foreground">
+                        {/* Bio */}
+                        {p.bio ? (
+                          <p className="line-clamp-3 leading-relaxed">{String(p.bio)}</p>
+                        ) : null}
+
+                        {/* Investment themes */}
+                        {investmentThemes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {investmentThemes.slice(0, 6).map((theme) => (
+                              <Badge key={theme} variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">
+                                {theme}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {/* Thought leadership articles */}
+                        {articles.length > 0 ? (
+                          <div className="mt-1 space-y-1 border-t pt-2">
+                            <p className="flex items-center gap-1 font-medium text-foreground">
+                              <FileText className="h-3 w-3" />
+                              Thought leadership ({articles.length})
+                            </p>
+                            <ul className="space-y-0.5 pl-0">
+                              {articles.slice(0, 3).map((article) => (
+                                <li key={article.url} className="truncate">
+                                  <a
+                                    href={article.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:text-foreground hover:underline truncate"
+                                  >
+                                    {article.title}
+                                    {article.platform ? (
+                                      <span className="ml-1 opacity-60">· {article.platform}</span>
+                                    ) : null}
+                                  </a>
+                                </li>
+                              ))}
+                              {articles.length > 3 ? (
+                                <li className="text-muted-foreground/60">+{articles.length - 3} more</li>
+                              ) : null}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 

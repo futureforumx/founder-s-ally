@@ -102,6 +102,7 @@ export function ReviewWizardSummaryPanel({
   return (
     <aside
       className={cn(
+        "w-full",
         "rounded-lg border border-border/70 bg-secondary/20 text-left sm:rounded-xl",
         "p-2 space-y-1.5 sm:p-3 sm:space-y-2 lg:p-3.5 lg:space-y-3",
         "text-[10px] leading-tight sm:text-[11px] sm:leading-snug",
