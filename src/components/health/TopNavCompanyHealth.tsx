@@ -99,6 +99,10 @@ export function TopNavCompanyHealth({
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
   const trackedHoverOpenRef = useRef(false);
+  const openTriggerRef = useRef<"hover" | "tap" | null>(null);
+  const trackedModalOpenRef = useRef(false);
+  const tabBurstTimerRef = useRef<number | null>(null);
+  const actionTsRef = useRef<Record<string, number>>({});
 
   const derived = useMemo(
     () => deriveCompanyHealthSignals({ score, stage, sector, activeView, tick, summary, analysisResult }),
@@ -118,6 +122,17 @@ export function TopNavCompanyHealth({
       });
     },
     [activeView, derived.score, derived.trendPct, sector, stage],
+  );
+
+  const trackInteractionThrottled = useCallback(
+    (action: string, throttleMs: number, props?: Record<string, unknown>) => {
+      const now = Date.now();
+      const last = actionTsRef.current[action] ?? 0;
+      if (now - last < throttleMs) return;
+      actionTsRef.current[action] = now;
+      trackInteraction(action, props);
+    },
+    [trackInteraction],
   );
 
   useEffect(() => {
@@ -169,15 +184,37 @@ export function TopNavCompanyHealth({
   useEffect(() => {
     if (hoverOpen && !trackedHoverOpenRef.current) {
       trackedHoverOpenRef.current = true;
-      trackInteraction("expand_opened", { trigger: "hover_or_tap" });
+      trackInteraction("expand_opened", { trigger: openTriggerRef.current ?? "hover" });
     }
-    if (!hoverOpen) trackedHoverOpenRef.current = false;
+    if (!hoverOpen) {
+      trackedHoverOpenRef.current = false;
+      openTriggerRef.current = null;
+    }
   }, [hoverOpen, trackInteraction]);
 
   useEffect(() => {
-    if (modalOpen) {
+    if (modalOpen && !trackedModalOpenRef.current) {
+      trackedModalOpenRef.current = true;
       trackInteraction("modal_opened", { tab: activeTab });
     }
+    if (!modalOpen) {
+      trackedModalOpenRef.current = false;
+    }
+  }, [activeTab, modalOpen, trackInteraction]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    if (tabBurstTimerRef.current != null) window.clearTimeout(tabBurstTimerRef.current);
+    tabBurstTimerRef.current = window.setTimeout(() => {
+      trackInteraction("modal_tab_selected", { tab: activeTab, mode: "debounced_burst" });
+      tabBurstTimerRef.current = null;
+    }, 550);
+
+    return () => {
+      if (tabBurstTimerRef.current != null) {
+        window.clearTimeout(tabBurstTimerRef.current);
+      }
+    };
   }, [activeTab, modalOpen, trackInteraction]);
 
   const trendIcon =
@@ -197,15 +234,14 @@ export function TopNavCompanyHealth({
         open={hoverOpen}
         onOpenChange={(open) => {
           setHoverOpen(open);
-          if (!open) return;
-          if (!canHover) {
-            trackInteraction("expand_opened", { trigger: "tap" });
-          }
         }}
       >
         <div
           onMouseEnter={() => {
-            if (canHover) setHoverOpen(true);
+            if (canHover) {
+              openTriggerRef.current = "hover";
+              setHoverOpen(true);
+            }
           }}
           onMouseLeave={() => {
             if (canHover) setHoverOpen(false);
@@ -219,10 +255,11 @@ export function TopNavCompanyHealth({
                 if (canHover) {
                   setModalOpen(true);
                   setHoverOpen(false);
-                  trackInteraction("chip_clicked", { opens: "modal" });
+                  trackInteractionThrottled("chip_clicked", 1000, { opens: "modal" });
                 } else {
+                  openTriggerRef.current = "tap";
                   setHoverOpen((v) => !v);
-                  trackInteraction("chip_tapped", { opens: "expand" });
+                  trackInteractionThrottled("chip_tapped", 1000, { opens: "expand" });
                 }
               }}
               className={cn(
@@ -298,7 +335,7 @@ export function TopNavCompanyHealth({
                 onClick={() => {
                   setModalOpen(true);
                   setHoverOpen(false);
-                  trackInteraction("expand_cta_clicked", { opens: "modal" });
+                  trackInteractionThrottled("expand_cta_clicked", 1000, { opens: "modal" });
                 }}
                 className="w-full rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
               >
@@ -353,10 +390,7 @@ export function TopNavCompanyHealth({
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      trackInteraction("modal_tab_selected", { tab: tab.id });
-                    }}
+                    onClick={() => setActiveTab(tab.id)}
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                       activeTab === tab.id

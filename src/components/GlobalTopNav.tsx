@@ -251,6 +251,7 @@ export function GlobalTopNav({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [logoImgError, setLogoImgError] = useState(false);
   const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
+  const pulseHealthTrackTsRef = useRef(0);
 
   // Reset error state whenever the URL changes so a new URL gets a fresh attempt
   useEffect(() => { setLogoImgError(false); }, [logoUrl]);
@@ -393,6 +394,20 @@ export function GlobalTopNav({
   const suggestions = getContextSuggestions(activeView, userSector, userStage);
   const topHealthDriver = healthSnapshot?.drivers?.[0]?.label;
 
+  const handlePulseHealthChipClick = useCallback(() => {
+    if (!healthSnapshot) return;
+    const now = Date.now();
+    if (now - pulseHealthTrackTsRef.current < 1200) return;
+    pulseHealthTrackTsRef.current = now;
+    trackMixpanelEvent("Company Health Interaction", {
+      action: "pulse_health_chip_clicked",
+      activeView,
+      score: healthSnapshot.score,
+      trendPct: healthSnapshot.trendPct,
+      topDriver: topHealthDriver,
+    });
+  }, [activeView, healthSnapshot, topHealthDriver]);
+
   const handleSearchClick = useCallback(() => {
     setSearchOpen(true);
   }, []);
@@ -434,15 +449,7 @@ export function GlobalTopNav({
               {healthSnapshot && (
                 <button
                   type="button"
-                  onClick={() => {
-                    trackMixpanelEvent("Company Health Interaction", {
-                      action: "pulse_health_chip_clicked",
-                      activeView,
-                      score: healthSnapshot.score,
-                      trendPct: healthSnapshot.trendPct,
-                      topDriver: topHealthDriver,
-                    });
-                  }}
+                  onClick={handlePulseHealthChipClick}
                   className={cn(
                     "hidden rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors xl:inline-flex",
                     healthSnapshot.trendPct >= 0
