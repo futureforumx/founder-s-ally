@@ -14,6 +14,7 @@ export interface OnboardingState {
   location: string;
   // Step 2: Company DNA
   companyName: string;
+  existingCompanyId: string; // set when user selects an existing (in-network) company to join
   websiteUrl: string;
   deckText: string;
   deckFileName: string;
@@ -50,6 +51,7 @@ export const defaultOnboardingState: OnboardingState = {
   avatarUrl: "",
   location: "",
   companyName: "",
+  existingCompanyId: "",
   websiteUrl: "",
   deckText: "",
   deckFileName: "",

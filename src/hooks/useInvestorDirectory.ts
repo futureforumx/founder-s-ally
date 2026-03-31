@@ -61,7 +61,7 @@ export function useInvestorDirectory() {
     queryKey: ["investor-directory"],
     queryFn: async (): Promise<LiveInvestorEntry[]> => {
       const { data, error } = await supabase
-        .from("investor_database")
+        .from("firm_records")
         .select("*")
         .order("firm_name");
 

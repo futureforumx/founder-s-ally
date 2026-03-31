@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { supabaseVcDirectory } from "@/integrations/supabase/client";
 
 // ── JSON Schema Types ──
 export interface VCFirm {
@@ -6,6 +7,8 @@ export interface VCFirm {
   name: string;
   description: string | null;
   aum: string | null;
+  /** Prisma `AumBand` when present on `vc_firms`. */
+  aum_band: string | null;
   sweet_spot: string | null;
   stages: string[] | null;
   sectors: string[] | null;
@@ -306,6 +309,14 @@ interface VCData {
   people: VCPerson[];
 }
 
+type DirectoryClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      is: (column: string, value: null) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
+    };
+  };
+};
+
 // ── Singleton Cache ──
 let cachedData: VCData | null = null;
 let loadingPromise: Promise<VCData> | null = null;
@@ -317,29 +328,174 @@ function deriveWebsiteUrlFromFirmId(id: string | null | undefined): string | nul
   return `https://${normalized}`;
 }
 
+function toStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
+  const id = typeof row.id === "string" ? row.id : null;
+  const name =
+    typeof row.firm_name === "string"
+      ? row.firm_name
+      : typeof row.name === "string"
+        ? row.name
+        : null;
+  if (!id || !name) return null;
+
+  const websiteRaw =
+    typeof row.website_url === "string"
+      ? row.website_url
+      : typeof row.website === "string"
+        ? row.website
+        : null;
+
+  return {
+    id,
+    name,
+    description:
+      typeof row.description === "string"
+        ? row.description
+        : typeof row.sentiment_detail === "string"
+          ? row.sentiment_detail
+          : null,
+    aum:
+      typeof row.aum === "string"
+        ? row.aum
+        : typeof row.aum_usd === "number"
+          ? `$${Math.round(row.aum_usd).toLocaleString()}`
+          : null,
+    aum_band: typeof row.aum_band === "string" ? row.aum_band : null,
+    sweet_spot: typeof row.sweet_spot === "string" ? row.sweet_spot : null,
+    stages:
+      toStringArray(row.stages) ??
+      toStringArray(row.stage_focus) ??
+      (typeof row.preferred_stage === "string" && row.preferred_stage.trim()
+        ? [row.preferred_stage.trim()]
+        : null),
+    sectors:
+      toStringArray(row.sectors) ??
+      toStringArray(row.sector_focus) ??
+      toStringArray(row.thesis_verticals) ??
+      null,
+    logo_url: typeof row.logo_url === "string" ? row.logo_url : null,
+    website_url: websiteRaw || deriveWebsiteUrlFromFirmId(id),
+  };
+}
+
+function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
+  const id = typeof row.id === "string" ? row.id : null;
+  if (!id) return null;
+
+  const firstName = typeof row.first_name === "string" ? row.first_name : null;
+  const lastName = typeof row.last_name === "string" ? row.last_name : null;
+  const fullNameRaw = typeof row.full_name === "string" ? row.full_name.trim() : "";
+  const fullName = fullNameRaw || `${firstName ?? ""} ${lastName ?? ""}`.trim();
+  if (!fullName) return null;
+
+  const firmId =
+    typeof row.firm_id === "string"
+      ? row.firm_id
+      : typeof row.vc_firm_id === "string"
+        ? row.vc_firm_id
+        : "";
+  if (!firmId) return null;
+
+  return {
+    ...(row as VCPerson),
+    id,
+    firm_id: firmId,
+    first_name: firstName,
+    last_name: lastName,
+    full_name: fullName,
+    profile_image_url:
+      typeof row.profile_image_url === "string"
+        ? row.profile_image_url
+        : typeof row.avatar_url === "string"
+          ? row.avatar_url
+          : null,
+    avatar_url: typeof row.avatar_url === "string" ? row.avatar_url : null,
+    is_active: typeof row.is_active === "boolean" ? row.is_active : true,
+    verification_status:
+      row.verification_status === "VERIFIED" ||
+      row.verification_status === "UNVERIFIED" ||
+      row.verification_status === "STALE" ||
+      row.verification_status === "DISPUTED"
+        ? row.verification_status
+        : "UNVERIFIED",
+    investor_type:
+      typeof row.investor_type === "string" && row.investor_type.trim().length > 0
+        ? (row.investor_type as VCPerson["investor_type"])
+        : "OTHER",
+    contactability_status:
+      row.contactability_status === "OPEN" ||
+      row.contactability_status === "WARM_INTRO_ONLY" ||
+      row.contactability_status === "CLOSED" ||
+      row.contactability_status === "UNKNOWN"
+        ? row.contactability_status
+        : "UNKNOWN",
+    warm_intro_preferred: typeof row.warm_intro_preferred === "boolean" ? row.warm_intro_preferred : true,
+    cold_outreach_ok: typeof row.cold_outreach_ok === "boolean" ? row.cold_outreach_ok : false,
+    notable_credentials: toStringArray(row.notable_credentials) ?? [],
+    personal_qualities: toStringArray(row.personal_qualities) ?? [],
+    geography_focus: toStringArray(row.geography_focus) ?? [],
+    business_models: toStringArray(row.business_models) ?? [],
+    investment_criteria_qualities: toStringArray(row.investment_criteria_qualities) ?? [],
+    personal_thesis_tags: toStringArray(row.personal_thesis_tags) ?? [],
+  };
+}
+
+async function loadStaticVCData(): Promise<VCData> {
+  const res = await fetch("/data/vc_mdm_output.json");
+  if (!res.ok) throw new Error(`VC data HTTP ${res.status}`);
+  const d = (await res.json()) as VCData;
+  const firms = (d.firms || [])
+    .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
+    .map((firm) => ({
+      ...firm,
+      website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
+    }));
+  return { firms, people: d.people || [] };
+}
+
 async function loadVCData(): Promise<VCData> {
   if (cachedData) return cachedData;
   if (loadingPromise) return loadingPromise;
-  loadingPromise = fetch("/data/vc_mdm_output.json")
-    .then((r) => {
-      if (!r.ok) throw new Error(`VC data HTTP ${r.status}`);
-      return r.json();
-    })
-    .then((d: VCData) => {
-      const firms = (d.firms || [])
-        .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
-        .map((firm) => ({
-          ...firm,
-          website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
-        }));
-      cachedData = { firms, people: d.people || [] };
+  loadingPromise = (async () => {
+    const directory = supabaseVcDirectory as unknown as DirectoryClient;
+    try {
+      const [firmRes, peopleRes] = await Promise.all([
+        directory.from("vc_firms").select("*").is("deleted_at", null),
+        directory.from("vc_people").select("*").is("deleted_at", null),
+      ]);
+
+      if (firmRes.error) throw new Error(firmRes.error.message);
+      if (peopleRes.error) throw new Error(peopleRes.error.message);
+
+      const firms = (firmRes.data || [])
+        .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCFirm => Boolean(row));
+
+      const people = (peopleRes.data || [])
+        .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCPerson => Boolean(row));
+
+      cachedData = { firms, people };
       return cachedData;
-    })
-    .catch((err) => {
-      console.error("[useVCDirectory] Failed to load vc_mdm_output.json:", err);
-      loadingPromise = null;
-      return { firms: [], people: [] };
-    });
+    } catch (err) {
+      console.error("[useVCDirectory] Failed live vc_* load, falling back to static JSON:", err);
+      try {
+        const fallback = await loadStaticVCData();
+        cachedData = fallback;
+        return fallback;
+      } catch (fallbackErr) {
+        console.error("[useVCDirectory] Failed static fallback load:", fallbackErr);
+        return { firms: [], people: [] };
+      }
+    }
+  })();
   return loadingPromise;
 }
 

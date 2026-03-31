@@ -1,12 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { FirmStrategyClassification } from "@/lib/firmStrategyClassifications";
 
 // ── Types ──
 export interface InvestorPartner {
   id: string;
   full_name: string;
+  first_name: string | null;
+  last_name: string | null;
   title: string | null;
   is_active: boolean;
+  avatar_url: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  bio: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
 }
 
 export interface FirmDeal {
@@ -20,6 +32,14 @@ export interface FirmDeal {
 export interface InvestorProfile {
   id: string;
   firm_name: string;
+  description: string | null;
+  email: string | null;
+  address: string | null;
+  hq_city: string | null;
+  hq_state: string | null;
+  hq_zip_code: string | null;
+  hq_country: string | null;
+  firm_type: string | null;
   aum: string | null;
   location: string | null;
   logo_url: string | null;
@@ -28,6 +48,8 @@ export interface InvestorProfile {
   lead_or_follow: string | null;
   preferred_stage: string | null;
   thesis_verticals: string[];
+  /** Multi-tag strategy taxonomy (`firm_records.strategy_classifications`). */
+  strategy_classifications: FirmStrategyClassification[];
   min_check_size: number | null;
   max_check_size: number | null;
   market_sentiment: string | null;
@@ -55,6 +77,14 @@ function mapJsonFirm(firm: any): InvestorProfile {
   return {
     id: firm.id,
     firm_name: firm.name,
+    description: firm.description ?? null,
+    email: null,
+    address: null,
+    hq_city: null,
+    hq_state: null,
+    hq_zip_code: null,
+    hq_country: null,
+    firm_type: null,
     aum: firm.aum ?? null,
     location: null,
     logo_url: firm.logo_url ?? null,
@@ -63,6 +93,7 @@ function mapJsonFirm(firm: any): InvestorProfile {
     lead_or_follow: null,
     preferred_stage: firm.stages?.[0] ?? null,
     thesis_verticals: firm.sectors ?? [],
+    strategy_classifications: [],
     min_check_size: null,
     max_check_size: null,
     market_sentiment: null,
@@ -81,13 +112,13 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     // Parallel fetch: firm + partners + deals
     const [firmRes, partnersRes, dealsRes] = await Promise.all([
       supabase
-        .from("investor_database")
+        .from("firm_records")
         .select("*")
         .eq("id", firmId)
         .maybeSingle(),
       supabase
-        .from("investor_partners")
-        .select("id, full_name, title, is_active")
+        .from("firm_investors")
+        .select("id, full_name, first_name, last_name, title, is_active, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
         .eq("firm_id", firmId)
         .order("full_name"),
       supabase
@@ -104,6 +135,14 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     return {
       id: firm.id,
       firm_name: firm.firm_name,
+      description: firm.sentiment_detail,
+      email: firm.email,
+      address: firm.address,
+      hq_city: firm.hq_city,
+      hq_state: firm.hq_state,
+      hq_zip_code: firm.hq_zip_code,
+      hq_country: firm.hq_country,
+      firm_type: firm.firm_type,
       aum: firm.aum,
       location: firm.location,
       logo_url: firm.logo_url,
@@ -112,6 +151,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       lead_or_follow: firm.lead_or_follow,
       preferred_stage: firm.preferred_stage,
       thesis_verticals: firm.thesis_verticals ?? [],
+      strategy_classifications: (firm.strategy_classifications ?? []) as FirmStrategyClassification[],
       min_check_size: firm.min_check_size,
       max_check_size: firm.max_check_size,
       market_sentiment: firm.market_sentiment,
@@ -135,7 +175,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
 async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
   try {
     const { data, error } = await supabase
-      .from("investor_database")
+      .from("firm_records")
       .select("id")
       .ilike("firm_name", firmName.trim())
       .limit(1);

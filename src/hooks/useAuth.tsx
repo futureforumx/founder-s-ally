@@ -173,14 +173,15 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
-      // PostgREST needs a JWT Supabase accepts as `authenticated` (Third-party Clerk in Supabase dashboard).
-      // Current Clerk + Supabase: session JWT with `role: "authenticated"` (Clerk Dashboard → Supabase integration).
-      // Legacy: JWT template named exactly "supabase" (deprecated per Supabase, but still supported).
+      // Prefer the Clerk "supabase" JWT template (legacy, but still tried first for explicit opt-in setups).
+      // Fall back to the plain Clerk session token — accepted by Supabase when Clerk is configured as
+      // third-party auth (Supabase Dashboard → Authentication → Third-party auth → Clerk).
+      // This covers both PostgREST (direct DB with RLS) and the direct DB fallback path if edge functions fail.
       try {
         const templateJwt = await gt({ template: "supabase" });
         if (templateJwt) return templateJwt;
       } catch {
-        /* template missing */
+        /* template not configured — fall through to session JWT */
       }
       try {
         const s = clerkSessionRef.current;
@@ -190,7 +191,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
         /* no session token */
       }
       console.warn(
-        "[Supabase + Clerk] No usable JWT for PostgREST. Enable Clerk's Supabase integration (session `role: authenticated`) or add JWT template `supabase`. Supabase dashboard → Authentication → Third-party → Clerk. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
+        "[Supabase + Clerk] No Supabase-compatible JWT. Configure Clerk as third-party auth in Supabase Dashboard → Authentication → Third-party auth. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
       );
       return null;
     });

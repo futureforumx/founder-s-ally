@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, startTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Swords, Globe, ExternalLink, Sparkles, Zap, Shield, Target, ChevronRight, X, TrendingUp, AlertTriangle, BarChart3, DollarSign, Megaphone, Rocket, UserPlus, Newspaper, Clock, Plus, Search, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +147,13 @@ function statusColorVariant(status: string): "destructive" | "warning" | "muted"
 function BattlecardModal({ name, onClose }: { name: string; onClose: () => void }) {
   const intel = getIntel(name);
   const domain = domainFromName(name);
+  const handleClose = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      startTransition(() => {
+        onClose();
+      });
+    });
+  }, [onClose]);
 
   return (
     <>
@@ -157,7 +164,7 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Centered Modal */}
@@ -180,7 +187,7 @@ function BattlecardModal({ name, onClose }: { name: string; onClose: () => void 
 
             {/* Close Button */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-card/50 hover:bg-card/80 transition-colors backdrop-blur-sm"
             >
               <X className="h-4 w-4 text-muted-foreground" />
@@ -578,6 +585,21 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     return "Direct Competitor";
   }, [dbCompetitors]);
 
+  const resetAddModalForm = useCallback(() => {
+    setNewCompName("");
+    setNewCompWebsite("");
+    setNewCompType("Direct");
+    setNewCompIntent("Threat");
+    setSearchResults([]);
+  }, []);
+
+  const closeAddModal = useCallback(() => {
+    setShowAddModal(false);
+    startTransition(() => {
+      resetAddModalForm();
+    });
+  }, [resetAddModalForm]);
+
   const handleAddCompetitor = useCallback(async (nameInput: string) => {
     // If input looks like a domain, clean the name
     let name = nameInput.trim();
@@ -595,13 +617,8 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
     
     await dbAddCompetitor(name, newCompIntent, `type:${newCompType}`, website || undefined);
     onAddCompetitor?.(name);
-    setNewCompName("");
-    setNewCompWebsite("");
-    setNewCompType("Direct");
-    setNewCompIntent("Threat");
-    setShowAddModal(false);
-    setSearchResults([]);
-  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType, newCompWebsite]);
+    closeAddModal();
+  }, [dbAddCompetitor, onAddCompetitor, newCompIntent, newCompType, newCompWebsite, closeAddModal]);
 
   const avgOverlap = useMemo(() => {
     if (competitors.length === 0) return 0;
@@ -869,7 +886,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
+              onClick={closeAddModal}
             />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
               <motion.div
@@ -886,7 +903,7 @@ export function CompetitorsView({ companyData, onNavigateProfile, onAddCompetito
                     <p className="text-xs text-muted-foreground mt-0.5">Track a new competitor for AI-powered intelligence</p>
                   </div>
                   <button
-                    onClick={() => { setShowAddModal(false); setNewCompName(""); setNewCompWebsite(""); setNewCompType("Direct"); setNewCompIntent("Threat"); }}
+                    onClick={closeAddModal}
                     className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-secondary transition-colors"
                   >
                     <X className="h-4 w-4 text-muted-foreground" />

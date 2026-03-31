@@ -55,11 +55,21 @@ function looksLikeHttpError(err: unknown): err is { context: Response; message?:
 
 export type SubmitVcRatingEdgeResult =
   | { ok: true; savedAsRevision: boolean }
-  | { ok: false; fallbackToDirect: true; cause: "no_token" | "network" };
+  /** PostgREST direct writes need a Supabase-verifiable JWT; Clerk session tokens often fail with PGRST301. */
+  | { ok: false; fallbackToDirect: true; cause: "network" }
+  | { ok: false; fallbackToDirect: false; cause: "no_token" };
+
+/** True when the edge call failed before an HTTP 4xx/5xx body (unreachable function, CORS, timeout, etc.). */
+export function isSubmitReviewNetworkFailure(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
+}
 
 /**
- * Persists a review via Edge Function (service role). Only falls back to PostgREST when there is
- * no JWT or a pure network failure — not when the function returns 4xx/5xx (those must surface).
+ * Persists a review via Edge Function (service role). Optional PostgREST fallback **only** on network
+ * relay failures — never when the function returns 4xx/5xx (those must surface), and not when there
+ * is no Clerk token (direct path would hit PGRST301 with a session JWT).
  */
 export async function submitVcRatingViaEdge(opts: {
   supabaseClient: SupabaseClient;
@@ -68,12 +78,12 @@ export async function submitVcRatingViaEdge(opts: {
   payload: Record<string, unknown>;
 }): Promise<SubmitVcRatingEdgeResult> {
   if (!isSupabaseConfigured) {
-    return { ok: false, fallbackToDirect: true, cause: "no_token" };
+    return { ok: false, fallbackToDirect: false, cause: "no_token" };
   }
 
   const edgeToken = await getClerkTokenForReviewSubmit();
   if (!edgeToken) {
-    return { ok: false, fallbackToDirect: true, cause: "no_token" };
+    return { ok: false, fallbackToDirect: false, cause: "no_token" };
   }
 
   let bodyPayload: Record<string, unknown>;

@@ -3,6 +3,11 @@ import { Users, TrendingUp, Newspaper, Loader2, ExternalLink } from "lucide-reac
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  COMPANY_HEALTH_SIGNAL_EVENT,
+  getCachedCompanyHealthSignals,
+  type CompanyHealthSnapshot,
+} from "@/lib/companyHealthSignals";
 
 const communityUpdates = [
   { text: "3 founders just closed Seed rounds this week", time: "2h ago", type: "milestone" as const },
@@ -34,6 +39,27 @@ export function PulseCards({ sector }: PulseCardsProps) {
   const [headlines, setHeadlines] = useState<MarketHeadline[]>([]);
   const [loadingHeadlines, setLoadingHeadlines] = useState(false);
   const [headlineError, setHeadlineError] = useState<string | null>(null);
+  const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
+
+  useEffect(() => {
+    const syncFromCache = () => {
+      const cached = getCachedCompanyHealthSignals();
+      if (cached) setHealthSnapshot(cached);
+    };
+
+    const onSignalUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<CompanyHealthSnapshot>).detail;
+      if (detail?.score != null) setHealthSnapshot(detail);
+    };
+
+    syncFromCache();
+    window.addEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
+    window.addEventListener("storage", syncFromCache);
+    return () => {
+      window.removeEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
+      window.removeEventListener("storage", syncFromCache);
+    };
+  }, []);
 
   useEffect(() => {
     if (!sector) return;
@@ -74,9 +100,28 @@ export function PulseCards({ sector }: PulseCardsProps) {
               <Users className="h-3.5 w-3.5 text-accent" />
             </div>
             Network Pulse
+            {healthSnapshot && (
+              <span
+                className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums ${
+                  healthSnapshot.trendPct >= 0
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                    : "border-rose-500/30 bg-rose-500/10 text-rose-600"
+                }`}
+                title={healthSnapshot.drivers[0]?.label || "Health delta"}
+              >
+                {healthSnapshot.trendPct >= 0 ? "+" : ""}
+                {healthSnapshot.trendPct}% health
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2.5">
+          {healthSnapshot?.drivers?.[0] && (
+            <div className="rounded-lg border border-border/60 bg-muted/35 px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health Driver</p>
+              <p className="mt-1 text-xs text-foreground">{healthSnapshot.drivers[0].label}</p>
+            </div>
+          )}
           {communityUpdates.map((update, i) => (
             <div key={i} className="flex items-start gap-2.5">
               <div className={`mt-0.5 h-1.5 w-1.5 rounded-full shrink-0 ${

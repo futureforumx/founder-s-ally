@@ -6,9 +6,9 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, Star, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
-  Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
+  Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase, Share2,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
-  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronRight,
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -17,7 +17,10 @@ import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { parseOverallTenFromStarRatings, parseWorkWithThemFromStarRatings } from "@/lib/reviewRateButtonDisplay";
+import { VEKTA_OPEN_VC_REVIEW_EVENT } from "@/lib/vcReviewNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -381,8 +384,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncFields, setSyncFields] = useState<SyncField[]>([]);
   const [syncApplying, setSyncApplying] = useState(false);
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
-  const [xVerified, setXVerified] = useState(false);
-  const [xSyncing, setXSyncing] = useState(false);
   const [personalValidateAttempt, setPersonalValidateAttempt] = useState(false);
   const dismissPersonalErrors = useCallback(() => setPersonalValidateAttempt(false), []);
   // ── Autosave ──
@@ -670,7 +671,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   };
 
   const enrichXProfile = async (url: string) => {
-    setXSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("sync-x-profile", {
         body: { twitterUrl: url },
@@ -710,173 +710,16 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         await saveImmediate(updates);
       }
 
-      setXVerified(true);
       toast.success("X profile enriched successfully");
     } catch (err: any) {
       console.warn("X enrichment failed:", err);
       toast("X enrichment skipped", { description: "Please fill bio manually." });
-    } finally {
-      setXSyncing(false);
     }
   };
-
-  const hasSynced = syncedKeys.has("__linkedin_verified") || !!(fullName && fullName !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
 
   return (
     <TabWrapper>
       <div className="space-y-4">
-        {/* ── Data Sources ── */}
-        <div className="space-y-3" data-tour-section="data-sources">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
-              {/* Left column: URL inputs + AI Insight */}
-              <div className="flex flex-col gap-2.5">
-                {/* LinkedIn URL */}
-                <MorphingUrlInput
-                  platform="linkedin"
-                  label="LinkedIn URL"
-                  value={linkedinUrl}
-                  onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
-                  onBlur={(v) => {
-                    const formatted = formatSocialUrl("linkedin_personal", v);
-                    if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
-                  }}
-                  verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
-                  onVerify={handleSyncProfile}
-                  verifyLabel="Sync"
-                />
-
-                {/* X / Twitter URL */}
-                <MorphingUrlInput
-                  platform="x"
-                  label="X / Twitter URL"
-                  value={twitterUrl}
-                  onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
-                  onBlur={(v) => {
-                    const formatted = formatSocialUrl("x", v);
-                    if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
-                  }}
-                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                  onVerify={() => enrichXProfile(twitterUrl)}
-                  verifyLabel="Enrich"
-                />
-
-                {/* AI Insight Banner */}
-                <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5 mt-auto">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
-                    <Sparkles className="h-3 w-3 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
-                      Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right column: Resume PDF Dropzone */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Resume (PDF)</label>
-                <input
-                  ref={resumeInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
-                />
-                {resumeUrl ? (
-                  <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-success/30 bg-success/5 p-4 min-h-[140px]">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 mb-2">
-                      <FileText className="h-5 w-5 text-success" />
-                    </div>
-                    <p className="text-xs font-medium text-foreground truncate max-w-full">{resumeFileName || "Resume.pdf"}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <button onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
-                      <button onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => resumeInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
-                    onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
-                      const f = e.dataTransfer.files?.[0];
-                      if (f) handleResumeUpload(f);
-                    }}
-                    disabled={resumeUploading}
-                    className={cn(
-                      "flex-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all min-h-[140px]",
-                      "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
-                      resumeUploading && "opacity-60 pointer-events-none"
-                    )}
-                  >
-                    {resumeUploading ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    ) : (
-                      <>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
-                          <Upload className="h-5 w-5 text-muted-foreground/60" />
-                        </div>
-                        <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
-                        <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Primary CTA */}
-            <div className="mt-4">
-             {(() => {
-                const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
-                const hasDataPresent = !!(linkedinUrl.trim() || twitterUrl.trim() || resumeUrl || hasSynced);
-                return (
-                  <Button
-                    onClick={handleSyncProfile}
-                    disabled={syncing || isIdentityVerified}
-                    variant="default"
-                    className={cn(
-                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300 bg-primary text-primary-foreground",
-                      isIdentityVerified && "opacity-60 cursor-not-allowed",
-                      !isIdentityVerified && !syncing && (
-                        hasDataPresent
-                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)]"
-                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
-                      )
-                    )}
-                  >
-                    {syncing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Verifying Data…
-                      </>
-                    ) : isIdentityVerified ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">✓ Data Verified</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Verify Data
-                      </>
-                    )}
-                  </Button>
-                );
-              })()}
-              <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide mt-2">
-                Triple-source triangulation: Resume + LinkedIn + X
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* ── Personal Information (single card: role + identity + fields — no separate Profile section) ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
           <div className="px-5 pt-4 pb-3 border-b border-border/60">
@@ -1107,6 +950,61 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 )}
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Resume (PDF)</label>
+              <input
+                ref={resumeInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
+              />
+              {resumeUrl ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 shrink-0">
+                      <FileText className="h-5 w-5 text-success" />
+                    </div>
+                    <p className="text-xs font-medium text-foreground truncate">{resumeFileName || "Resume.pdf"}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button type="button" onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
+                    <button type="button" onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => resumeInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
+                  onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
+                    const f = e.dataTransfer.files?.[0];
+                    if (f) handleResumeUpload(f);
+                  }}
+                  disabled={resumeUploading}
+                  className={cn(
+                    "flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all py-8",
+                    "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                    resumeUploading && "opacity-60 pointer-events-none"
+                  )}
+                >
+                  {resumeUploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : (
+                    <>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
+                        <Upload className="h-5 w-5 text-muted-foreground/60" />
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
+                      <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             <Separator className="my-2" />
             <div className="flex justify-end">
               <Button
@@ -1142,6 +1040,41 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 Confirm Details
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* ── Social ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="social">
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+              <Share2 className="h-3.5 w-3.5" />
+              Social
+            </h3>
+          </div>
+          <div className="p-5 space-y-4">
+            <MorphingUrlInput
+              platform="linkedin"
+              label="LinkedIn URL"
+              value={linkedinUrl}
+              onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
+              onBlur={(v) => {
+                const formatted = formatSocialUrl("linkedin_personal", v);
+                if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
+              }}
+              verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
+              onVerify={handleSyncProfile}
+              verifyLabel="Sync"
+            />
+            <MorphingUrlInput
+              platform="x"
+              label="X / Twitter URL"
+              value={twitterUrl}
+              onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
+              onBlur={(v) => {
+                const formatted = formatSocialUrl("x", v);
+                if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
+              }}
+            />
           </div>
         </div>
 
@@ -1584,16 +1517,34 @@ function ThemeTab() {
 }
 
 // ── Activity Tab ──
-interface FeedbackItem {
-  id: string;
-  nps_score: number;
-  interaction_type: string;
-  comment: string | null;
-  created_at: string;
-  did_respond: boolean;
-  firm_id: string;
-  firm: { firm_name: string; logo_url?: string | null };
-}
+type ActivityReviewRow =
+  | {
+      kind: "vc_directory";
+      id: string;
+      ratingId: string;
+      created_at: string;
+      firmName: string;
+      logo_url: string | null;
+      interaction_type: string;
+      comment: string | null;
+      scoreLabel: string;
+      /** 1–10 overall when present (unlinked form). */
+      scoreTen: number | null;
+      vcFirmId: string;
+      vcPersonId: string | null;
+      investorDatabaseId: string | null;
+    }
+  | {
+      kind: "legacy";
+      id: string;
+      created_at: string;
+      firmName: string;
+      logo_url: string | null;
+      nps_score: number;
+      interaction_type: string;
+      comment: string | null;
+      firm_id: string;
+    };
 
 interface ConnectionItem {
   id: string;
@@ -1608,44 +1559,239 @@ interface ConnectionItem {
 
 type ConnFilter = "all" | "investor" | "founder" | "operator";
 
+function extractFirmNameFromStarRatings(starRatings: unknown): string | null {
+  const parseObj = (input: unknown): Record<string, unknown> | null => {
+    if (!input) return null;
+    if (typeof input === "string") {
+      const t = input.trim();
+      if (!t) return null;
+      try {
+        const parsed = JSON.parse(t);
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    }
+    return typeof input === "object" ? (input as Record<string, unknown>) : null;
+  };
+
+  const root = parseObj(starRatings);
+  if (!root) return null;
+
+  const firmNameRaw =
+    root.firm_name ??
+    parseObj(root.star_ratings)?.firm_name ??
+    parseObj(root.payload)?.firm_name;
+
+  return typeof firmNameRaw === "string" && firmNameRaw.trim().length > 0
+    ? firmNameRaw.trim()
+    : null;
+}
+
 function ActivityTab() {
   const { user } = useAuth();
-  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [activityReviews, setActivityReviews] = useState<ActivityReviewRow[]>([]);
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [loadingConns, setLoadingConns] = useState(true);
   const [connFilter, setConnFilter] = useState<ConnFilter>("all");
 
-  // Fetch investor feedback (reviews left by this user)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoadingFeedback(false);
+      return;
+    }
     let cancelled = false;
-    async function fetchFeedback() {
-      const { data, error } = await supabase
-        .from("investor_reviews")
-        .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
-        .eq("founder_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (!cancelled && !error && data && data.length > 0) {
-        const firmIds = [...new Set(data.map((r) => r.firm_id))];
-        const { data: firms } = await supabase
-          .from("investor_database")
-          .select("id, firm_name, logo_url")
-          .in("id", firmIds);
-        const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
-        if (!cancelled) {
-          setFeedback(
-            data.map((r) => ({
-              ...r,
-              firm: firmMap[r.firm_id] || { firm_name: "Unknown Firm" },
-            }))
-          );
+
+    async function loadReviews() {
+      const legacyRows: ActivityReviewRow[] = [];
+      const vcRows: ActivityReviewRow[] = [];
+
+      // Try edge function first (bypasses Supabase JWT auth requirements)
+      let edgeFetched = false;
+      if (isSupabaseConfigured) {
+        try {
+          const token = await getEdgeFunctionAuthToken();
+          const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim().replace(/\/$/, "") ?? "";
+          if (baseUrl && token) {
+            const res = await fetch(`${baseUrl}/functions/v1/get-my-reviews`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+                apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ?? "",
+              },
+              body: JSON.stringify({ userId: user!.id }),
+            });
+            if (res.ok) {
+              const json = await res.json() as {
+                vcRatings: Array<{ id: string; vc_firm_id: string | null; vc_person_id: string | null; interaction_type: string | null; comment: string | null; created_at: string; star_ratings: unknown; is_draft: boolean }>;
+                legacyReviews: Array<{ id: string; nps_score: number; interaction_type: string; comment: string | null; created_at: string; did_respond: boolean; firm_id: string; star_ratings: unknown }>;
+              };
+              if (cancelled) return;
+              edgeFetched = true;
+
+              // Process vc_ratings from edge function
+              const ratings = json.vcRatings ?? [];
+              if (ratings.length > 0) {
+                const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
+                const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+                let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
+                if (firmIds.length > 0) {
+                  const vfRes = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+                  vfData = (vfRes.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
+                }
+                const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
+                for (const r of ratings) {
+                  const fid = r.vc_firm_id;
+                  const vf = fid ? vfMap[fid] : null;
+                  const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+                  const ten = parseOverallTenFromStarRatings(r.star_ratings);
+                  const work = parseWorkWithThemFromStarRatings(r.star_ratings);
+                  const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
+                  vcRows.push({
+                    kind: "vc_directory",
+                    id: `vc-${r.id}`,
+                    ratingId: r.id,
+                    created_at: r.created_at,
+                    firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
+                    logo_url: vf?.logo_url ?? null,
+                    interaction_type: r.interaction_type || "review",
+                    comment: r.comment,
+                    scoreLabel,
+                    scoreTen: ten,
+                    vcFirmId: fid || "",
+                    vcPersonId: r.vc_person_id,
+                    investorDatabaseId: null,
+                  });
+                }
+              }
+
+              // Process legacy investor_reviews from edge function
+              const legacyData = json.legacyReviews ?? [];
+              if (legacyData.length > 0) {
+                for (const r of legacyData) {
+                  const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+                  legacyRows.push({
+                    kind: "legacy",
+                    id: `legacy-${r.id}`,
+                    created_at: r.created_at,
+                    firmName: payloadFirmName ?? r.firm_id ?? "Unknown Firm",
+                    logo_url: null,
+                    nps_score: r.nps_score,
+                    interaction_type: r.interaction_type,
+                    comment: r.comment,
+                    firm_id: r.firm_id,
+                  });
+                }
+              }
+            }
+          }
+        } catch {
+          /* fall through to direct queries */
         }
       }
-      if (!cancelled) setLoadingFeedback(false);
+
+      // Fallback: direct PostgREST queries (works when Supabase third-party auth is configured)
+      if (!edgeFetched) {
+        const { data: legacyData, error: legacyErr } = await supabase
+          .from("investor_reviews")
+          .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
+          .eq("founder_id", user!.id)
+          .order("created_at", { ascending: false });
+
+        if (!cancelled && !legacyErr && legacyData && legacyData.length > 0) {
+          const firmIds = [...new Set(legacyData.map((r) => r.firm_id))];
+          const { data: firms } = await supabase
+            .from("firm_records")
+            .select("id, firm_name, logo_url")
+            .in("id", firmIds);
+          const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
+          for (const r of legacyData) {
+            const f = firmMap[r.firm_id] || { firm_name: "Unknown Firm", logo_url: null as string | null };
+            legacyRows.push({
+              kind: "legacy",
+              id: `legacy-${r.id}`,
+              created_at: r.created_at,
+              firmName: f.firm_name,
+              logo_url: f.logo_url ?? null,
+              nps_score: r.nps_score,
+              interaction_type: r.interaction_type,
+              comment: r.comment,
+              firm_id: r.firm_id,
+            });
+          }
+        }
+
+        if (isSupabaseConfigured) {
+          const { data: ratings, error: vcErr } = await supabase
+            .from("vc_ratings")
+            .select("id, vc_firm_id, vc_person_id, interaction_type, comment, created_at, star_ratings, is_draft")
+            .eq("author_user_id", user!.id)
+            .eq("is_draft", false)
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          if (!cancelled && !vcErr && ratings?.length) {
+            const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
+            const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+            let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
+            if (firmIds.length > 0) {
+              const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+              vfData = (res.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
+            }
+            const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
+
+            const prismaMap: Record<string, string> = {};
+            if (firmIds.length > 0) {
+              const { data: invMatch } = await supabase.from("firm_records").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
+              for (const row of invMatch || []) {
+                const pid = (row as { prisma_firm_id?: string; id?: string }).prisma_firm_id;
+                const iid = (row as { id?: string }).id;
+                if (pid && iid) prismaMap[pid] = iid;
+              }
+            }
+
+            for (const r of ratings) {
+              const fid = r.vc_firm_id;
+              const vf = fid ? vfMap[fid] : null;
+              const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+              const ten = parseOverallTenFromStarRatings(r.star_ratings);
+              const work = parseWorkWithThemFromStarRatings(r.star_ratings);
+              const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
+              vcRows.push({
+                kind: "vc_directory",
+                id: `vc-${r.id}`,
+                ratingId: r.id,
+                created_at: r.created_at,
+                firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
+                logo_url: vf?.logo_url ?? null,
+                interaction_type: r.interaction_type || "review",
+                comment: r.comment,
+                scoreLabel,
+                scoreTen: ten,
+                vcFirmId: fid || "",
+                vcPersonId: r.vc_person_id,
+                investorDatabaseId: fid ? prismaMap[fid] ?? null : null,
+              });
+            }
+          }
+        }
+      }
+
+      if (!cancelled) {
+        const merged = [...vcRows, ...legacyRows].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        setActivityReviews(merged);
+        setLoadingFeedback(false);
+      }
     }
-    fetchFeedback();
-    return () => { cancelled = true; };
+
+    loadReviews();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   // Fetch connections (investors from cap_table + founders/operators from community)
@@ -1734,6 +1880,27 @@ function ActivityTab() {
     return "bg-destructive/10 text-destructive border-destructive/20";
   }
 
+  function scoreTenBadgeClass(ten: number) {
+    if (ten >= 9) return "bg-success/10 text-success border-success/20";
+    if (ten >= 7) return "bg-accent/10 text-accent border-accent/20";
+    if (ten >= 5) return "bg-warning/10 text-warning border-warning/20";
+    return "bg-muted text-muted-foreground border-border";
+  }
+
+  function openVcReviewFromActivity(row: Extract<ActivityReviewRow, { kind: "vc_directory" }>) {
+    window.dispatchEvent(
+      new CustomEvent(VEKTA_OPEN_VC_REVIEW_EVENT, {
+        detail: {
+          vcFirmId: row.vcFirmId,
+          firmName: row.firmName,
+          vcPersonId: row.vcPersonId,
+          ratingId: row.ratingId,
+          investorDatabaseId: row.investorDatabaseId,
+        },
+      }),
+    );
+  }
+
   function typeColor(type: ConnectionItem["type"]) {
     if (type === "investor") return "bg-accent/10 text-accent";
     if (type === "operator") return "bg-warning/10 text-warning";
@@ -1778,52 +1945,121 @@ function ActivityTab() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
-        ) : feedback.length === 0 ? (
+        ) : activityReviews.length === 0 ? (
           <div className="rounded-xl border border-border bg-muted/20 p-5 text-center text-sm text-muted-foreground">
             No feedback submitted yet.
           </div>
         ) : (
           <div className="space-y-2">
-            {feedback.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-border bg-muted/10 p-4 space-y-2 hover:bg-muted/20 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
-                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{item.firm.firm_name}</span>
-                    {item.interaction_type && (
-                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        {item.interaction_type}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                        npsColor(item.nps_score)
+            {activityReviews.map((item) =>
+              item.kind === "vc_directory" ? (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "w-full rounded-xl border border-border bg-muted/10 p-4 space-y-2 text-left group",
+                    item.vcFirmId
+                      ? "hover:bg-muted/25 hover:border-accent/25 transition-colors"
+                      : "opacity-95",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0 overflow-hidden">
+                        {item.logo_url ? (
+                          <img src={item.logo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-foreground truncate">{item.firmName}</span>
+                      {item.interaction_type && (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground shrink-0">
+                          {item.interaction_type}
+                        </span>
                       )}
-                    >
-                      NPS {item.nps_score}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.scoreTen != null ? (
+                        <span
+                          className={cn(
+                            "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                            scoreTenBadgeClass(item.scoreTen),
+                          )}
+                        >
+                          {item.scoreLabel}
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          {item.scoreLabel}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                      {item.vcFirmId ? (
+                        <button
+                          type="button"
+                          onClick={() => openVcReviewFromActivity(item)}
+                          className="inline-flex items-center"
+                          aria-label={`Open review for ${item.firmName}`}
+                        >
+                          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
+                  {item.comment && (
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-9 line-clamp-2">{item.comment}</p>
+                  )}
                 </div>
-                {item.comment && (
-                  <p className="text-xs text-muted-foreground leading-relaxed pl-9">{item.comment}</p>
-                )}
-              </div>
-            ))}
+              ) : (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-border bg-muted/10 p-4 space-y-2 opacity-90"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted shrink-0">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                      <span className="text-sm font-medium text-foreground">{item.firmName}</span>
+                      <span className="rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[9px] text-muted-foreground uppercase tracking-wide">
+                        Legacy
+                      </span>
+                      {item.interaction_type && (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
+                          {item.interaction_type}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                          npsColor(item.nps_score),
+                        )}
+                      >
+                        NPS {item.nps_score}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  {item.comment && (
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-9">{item.comment}</p>
+                  )}
+                </div>
+              ),
+            )}
           </div>
         )}
       </div>

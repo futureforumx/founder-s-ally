@@ -1,0 +1,6 @@
+-- New FirmType enum labels must commit before use (see follow-up migration for column default).
+ALTER TYPE "FirmType" ADD VALUE IF NOT EXISTS 'INSTITUTIONAL';
+ALTER TYPE "FirmType" ADD VALUE IF NOT EXISTS 'SOLO_GP';
+ALTER TYPE "FirmType" ADD VALUE IF NOT EXISTS 'MICRO_VC';
+ALTER TYPE "FirmType" ADD VALUE IF NOT EXISTS 'PUBLIC';
+ALTER TYPE "FirmType" ADD VALUE IF NOT EXISTS 'VENTURE_STUDIO';

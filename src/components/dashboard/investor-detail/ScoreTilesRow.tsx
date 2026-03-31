@@ -13,6 +13,8 @@ interface Subscore {
 
 type TileId = "match" | "founderSentiment" | "founderReputation" | "industryReputation";
 
+export type { TileId };
+
 interface TileConfig {
   id: TileId;
   shortLabel: string;
@@ -52,6 +54,10 @@ export interface ScoreTilesRowProps {
   industryReputationScore?: number;
   lastUpdated?: string;
   confidenceScore?: number;
+  activeTileId?: TileId | null;
+  onActiveTileChange?: (tileId: TileId | null) => void;
+  showTiles?: boolean;
+  showBreakdown?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -205,9 +211,10 @@ function colorTokens(score: number) {
 
 // ─── Subscore row ─────────────────────────────────────────────────────────────
 // Layout: Label | bar track | score | note
-// All bars share the same color (keyed to the panel's overall score range).
+// Each bar color is keyed to its own value, matching major score color logic.
 
-function SubscoreRow({ sub, barCls }: { sub: Subscore; barCls: string }) {
+function SubscoreRow({ sub }: { sub: Subscore }) {
+  const barCls = colorTokens(sub.value).barCls;
   return (
     <div className="flex items-center gap-3">
       {/* Label */}
@@ -254,8 +261,21 @@ export function ScoreTilesRow({
   industryReputationScore = 81,
   lastUpdated,
   confidenceScore = 87,
+  activeTileId,
+  onActiveTileChange,
+  showTiles = true,
+  showBreakdown = true,
 }: ScoreTilesRowProps) {
-  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+  const [internalActiveTile, setInternalActiveTile] = useState<TileId | null>(null);
+  const activeTile = activeTileId !== undefined ? activeTileId : internalActiveTile;
+
+  const setActiveTile = (next: TileId | null) => {
+    if (onActiveTileChange) {
+      onActiveTileChange(next);
+      return;
+    }
+    setInternalActiveTile(next);
+  };
 
   useEffect(() => {
     setActiveTile(null);
@@ -362,7 +382,7 @@ export function ScoreTilesRow({
   return (
     <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-2 w-fit">
+      {showTiles && <div className="flex w-fit max-w-full gap-2">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
           const colors = colorTokens(tile.value);
@@ -374,58 +394,60 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                // Fixed size so 4 tiles stay compact
-                "relative w-24 h-[64px]",
-                "flex flex-col items-center justify-center gap-0.5 px-2",
-                "rounded-[8px] border transition-all duration-200 select-none",
+                "group relative overflow-hidden rounded-xl px-2.5 py-2 min-w-[82px]",
+                "flex flex-col items-start",
+                "backdrop-blur-[28px] border transition-all duration-200 select-none cursor-pointer",
                 isActive
-                  ? `${colors.activeTintBg} ${colors.activeBorder}`
-                  : "bg-white dark:bg-card border-[#E5E7EB] dark:border-border hover:shadow-md hover:border-border",
+                  ? `${colors.activeTintBg} ${colors.activeBorder} shadow-lg`
+                  : "bg-white/50 dark:bg-white/[0.07] border-white/25 dark:border-white/[0.12] hover:bg-white/60 dark:hover:bg-white/[0.11] hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]",
               ].join(" ")}
             >
-              {/* Label */}
-              <span
-                className={[
-                  "text-[10px] tracking-wider uppercase leading-none",
-                  isActive
-                    ? "font-bold text-foreground/75"
-                    : "font-medium text-muted-foreground/60",
-                ].join(" ")}
-              >
-                {tile.shortLabel}
-              </span>
+              {/* Top specular highlight — simulates glass edge catching light */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
 
-              {/* Score value — lighter than big pill when inactive */}
-              <span
-                className={[
-                  "text-[20px] font-bold leading-tight",
-                  isActive ? colors.valueCls : colors.subtleCls,
-                ].join(" ")}
-              >
-                {tile.value}
-              </span>
+              {/* Label row with colored accent dot */}
+              <div className="flex items-center gap-1 mb-1.5">
+                <span className={["w-1.5 h-1.5 rounded-full shrink-0", colors.barCls].join(" ")} />
+                <span className="text-[8px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
+                  {tile.shortLabel}
+                </span>
+              </div>
+
+              {/* Score — neutral color, weight carries the hierarchy */}
+              <div className="relative mb-0.5">
+                <span className="text-[23px] font-bold leading-none tabular-nums text-foreground">
+                  {tile.value}
+                </span>
+                {/* Soft color bloom behind number */}
+                <div className={["absolute inset-0 blur-2xl opacity-25 rounded-full scale-[2]", colors.barCls].join(" ")} />
+              </div>
 
               {/* Caption */}
-              <span className="text-[10px] text-muted-foreground/50 leading-none">
+              <span className="text-[9px] text-foreground/40 leading-none mb-1.5">
                 {caption}
               </span>
 
-              {/* Chevron — bottom-right corner, rotates on active */}
-              <ChevronDown
-                className={[
-                  "absolute bottom-1.5 right-1.5 w-3 h-3 transition-all duration-200",
-                  isActive
-                    ? "text-muted-foreground/60 rotate-0"
-                    : "text-muted-foreground/30 -rotate-90",
-                ].join(" ")}
-              />
+              {/* Colored progress pill */}
+              <div className="h-0.5 w-full rounded-full bg-black/[0.06] dark:bg-white/10">
+                <motion.div
+                  className={`h-0.5 rounded-full ${colors.barCls} opacity-75`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${tile.value}%` }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
+                />
+              </div>
+
+              {/* Shimmer sweep */}
+              <div className="absolute bottom-0 left-0 h-[2px] w-full overflow-hidden">
+                <div className={["h-full w-1/3 animate-shimmer opacity-50", colors.barCls].join(" ")} />
+              </div>
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* ── Breakdown panel ────────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
+      {showBreakdown && <AnimatePresence mode="wait">
         {activeTileConfig && (
           <motion.div
             key={activeTileConfig.id}
@@ -449,14 +471,10 @@ export function ScoreTilesRow({
                     {activeTileConfig.definition}
                   </p>
 
-                  {/* Subscores — all bars share the panel's color family */}
+                  {/* Subscores — each bar uses value-based color tiers */}
                   <div className="space-y-2.5">
                     {activeTileConfig.subscores.map((sub) => (
-                      <SubscoreRow
-                        key={sub.label}
-                        sub={sub}
-                        barCls={colors.barCls}
-                      />
+                      <SubscoreRow key={sub.label} sub={sub} />
                     ))}
                   </div>
 
@@ -469,7 +487,7 @@ export function ScoreTilesRow({
             })()}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
     </div>
   );
 }

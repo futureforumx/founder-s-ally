@@ -32,6 +32,18 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * `Authorization` value for Edge Functions: Clerk `supabase` template JWT when set, else publishable key.
+ * Both are Supabase-valid JWTs; a default Clerk session token alone is rejected with 401 Invalid JWT.
+ */
+export async function getSupabaseBearerForFunctions(): Promise<string | null> {
+  const user = (await getSupabaseAccessToken())?.trim();
+  const anon =
+    typeof SUPABASE_PUBLISHABLE_KEY === "string" ? SUPABASE_PUBLISHABLE_KEY.trim() : "";
+  const t = user || anon;
+  return t || null;
+}
+
 const sharedAuthOptions = {
   auth: {
     persistSession: false,

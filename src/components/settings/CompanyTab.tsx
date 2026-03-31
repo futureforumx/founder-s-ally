@@ -7,8 +7,8 @@ import {
   ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight, Loader2, Linkedin
 } from "lucide-react";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
-import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
@@ -144,6 +144,7 @@ export function CompanyTab() {
   // Company Magic Sync state
   const [companySyncUrl, setCompanySyncUrl] = useState("");
   const [companySyncing, setCompanySyncing] = useState(false);
+  const [companySyncSuccessToken, setCompanySyncSuccessToken] = useState(0);
   const [companySyncReviewOpen, setCompanySyncReviewOpen] = useState(false);
   const [companySyncFields, setCompanySyncFields] = useState<SyncField[]>([]);
   const [companySyncApplying, setCompanySyncApplying] = useState(false);
@@ -607,11 +608,18 @@ export function CompanyTab() {
     };
 
     if (isSupabaseConfigured) {
-      const jwt = await getEdgeFunctionAuthToken();
-      if (jwt) {
+      const userJwt = (await getSupabaseAccessToken())?.trim() ?? "";
+      if (userJwt) {
+        const anonKey =
+          typeof import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY === "string"
+            ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
+            : "";
         const { data, error } = await supabase.functions.invoke("claim-company-workspace", {
           body: { companyId: comp.id, userId: user.id },
-          headers: { Authorization: `Bearer ${jwt}` },
+          headers: {
+            Authorization: `Bearer ${userJwt}`,
+            ...(anonKey ? { apikey: anonKey } : {}),
+          },
         });
         const payload = (data || {}) as {
           success?: boolean;
@@ -985,10 +993,14 @@ export function CompanyTab() {
               onSyncCompany={async (url: string) => {
                 setCompanySyncing(true);
                 try {
-                  const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+                  const { data, error } = await invokeEdgeFunction("sync-company-linkedin", {
                     body: { companyUrl: url },
+                    timeout: 120_000,
                   });
-                  if (error) throw error;
+                  if (error) {
+                    const detail = await readFunctionsHttpErrorMessage(error);
+                    throw new Error(detail || error.message || "Edge function error");
+                  }
                   if (!data?.success) throw new Error(data?.error || "Sync failed");
 
                   const incoming = data.data;
@@ -1011,6 +1023,7 @@ export function CompanyTab() {
 
                   setCompanySyncFields(fields);
                   setCompanySyncReviewOpen(true);
+                  setCompanySyncSuccessToken((current) => current + 1);
                 } catch (err: any) {
                   toast.error("Sync failed: " + (err.message || "Unknown error"));
                 } finally {
@@ -1018,6 +1031,7 @@ export function CompanyTab() {
                 }
               }}
               companySyncing={companySyncing}
+              companySyncSuccessToken={companySyncSuccessToken}
               sectionConfirmedState={sectionConfirmed}
               companyData={companyData}
             />
@@ -1080,7 +1094,9 @@ export function CompanyTab() {
             const current = saved ? JSON.parse(saved) : {};
             for (const key of selectedKeys) {
               const val = fieldMap[key];
-              if (val) current[key] = val;
+              if (val !== null && val !== undefined && String(val).trim() !== "") {
+                current[key] = val;
+              }
             }
             localStorage.setItem("company-profile", JSON.stringify(current));
             setCompanyData(current);

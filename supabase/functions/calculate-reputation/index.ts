@@ -224,7 +224,7 @@ serve(async (req) => {
     }
 
     // Fetch firms to process
-    let query = supabase.from("investor_database").select("id, firm_name, community_rating, founder_reputation_score");
+    let query = supabase.from("firm_records").select("id, firm_name, community_rating, founder_reputation_score");
     if (firmIds.length > 0) {
       query = query.in("id", firmIds);
     } else {
@@ -266,9 +266,9 @@ serve(async (req) => {
         // 4. Calculate weighted reputation
         const { score, weights } = calculateReputation(communityRating, socialSentiment.score, newsSentiment.score);
 
-        // 5. Update investor_database
+        // 5. Update firm_records
         await supabase
-          .from("investor_database")
+          .from("firm_records")
           .update({
             news_sentiment_score: newsSentiment.score,
             social_sentiment_score: socialSentiment.score,

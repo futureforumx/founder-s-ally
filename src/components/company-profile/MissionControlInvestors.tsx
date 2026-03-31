@@ -88,7 +88,7 @@ export function MissionControlInvestors({
     prevApprovedRef.current = previousSectionApproved;
   }, [previousSectionApproved]);
 
-  // Recommended investors from investor_database
+  // Recommended investors from firm_records
   const [recommendations, setRecommendations] = useState<{ firm_name: string; location: string | null; preferred_stage: string | null; thesis_verticals: string[] }[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
 
@@ -100,7 +100,7 @@ export function MissionControlInvestors({
       try {
         const sectorKeywords = [companyData.sector || ""];
         const { data, error } = await supabase
-          .from("investor_database")
+          .from("firm_records")
           .select("firm_name, location, preferred_stage, thesis_verticals")
           .overlaps("thesis_verticals", sectorKeywords)
           .limit(5);

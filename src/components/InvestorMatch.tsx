@@ -15,6 +15,8 @@ import { useInvestorEnrich, EnrichResult } from "@/hooks/useInvestorEnrich";
 import { TimeRangeControl, TimeRange } from "@/components/investor-match/TimeRangeControl";
 import { useVCInteractions } from "@/hooks/useVCInteractions";
 import { InvestorDetailPanel, type InvestorEntry } from "@/components/dashboard/InvestorDetailPanel";
+import type { VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
+import { VEKTA_INVESTORS_ALL_FOCUS_EVENT } from "@/lib/investorMatchNavigation";
 
 // ── Types ──
 
@@ -58,9 +60,9 @@ interface CapBacker {
 
 type TabKey = "updates" | "matches" | "activity" | "manage";
 
-const TABS: { key: TabKey; label: string }[] = [
+/** Sticky sub-nav only; “ALL” matches live in GlobalTopNav + default matches panel. */
+const TABS: { key: Exclude<TabKey, "matches">; label: string }[] = [
   { key: "updates", label: "Updates" },
-  { key: "matches", label: "Matches" },
   { key: "activity", label: "Activity" },
   { key: "manage", label: "My Investors" },
 ];
@@ -176,14 +178,26 @@ interface InvestorMatchProps {
   isLocked?: boolean;
   externalBackers?: CapBacker[];
   externalTotalRaised?: number;
+  /** Open a firm from Settings → Activity with the review modal (consumed once). */
+  vcReviewBootstrap?: VcReviewOpenDetail | null;
+  onVcReviewBootstrapConsumed?: () => void;
 }
 
-export function InvestorMatch({ companyData, analysisResult, sectorClassification, isLocked, externalBackers, externalTotalRaised }: InvestorMatchProps) {
+export function InvestorMatch({
+  companyData,
+  analysisResult,
+  sectorClassification,
+  isLocked,
+  externalBackers,
+  externalTotalRaised,
+  vcReviewBootstrap,
+  onVcReviewBootstrapConsumed,
+}: InvestorMatchProps) {
   const { user } = useAuth();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalBackers, setInternalBackers] = useState<CapBacker[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("updates");
+  const [activeTab, setActiveTab] = useState<TabKey>("matches");
   const [timeRange, setTimeRange] = useState<TimeRange>("ytd");
   
   const { enrich, cache: enrichCache } = useInvestorEnrich();
@@ -191,6 +205,9 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
   const [enrichingKeys, setEnrichingKeys] = useState<Set<string>>(new Set());
   const userId = user?.id;
   const [selectedInvestor, setSelectedInvestor] = useState<InvestorEntry | null>(null);
+  const [pendingVcReviewContext, setPendingVcReviewContext] = useState<VcReviewOpenDetail | null>(null);
+  const [openReviewFromBootstrap, setOpenReviewFromBootstrap] = useState(false);
+  const bootstrapHandledRef = useRef<string | null>(null);
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [weights, setWeights] = useState<WeightConfig>({ fit: 50, sentiment: 50, responsiveness: 50, activity: 50 });
 
@@ -218,11 +235,51 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
     : "Complete your company profile and cap table to unlock AI-driven investor matching.";
 
   useEffect(() => {
+    const focusMatches = () => setActiveTab("matches");
+    window.addEventListener(VEKTA_INVESTORS_ALL_FOCUS_EVENT, focusMatches);
+    return () => window.removeEventListener(VEKTA_INVESTORS_ALL_FOCUS_EVENT, focusMatches);
+  }, []);
+
+  useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("investor_database").select("*");
+      const { data, error } = await supabase.from("firm_records").select("*");
       if (!error && data) setInvestors(data as unknown as Investor[]);
       setLoading(false);
     })();
+  }, []);
+
+  useEffect(() => {
+    if (!vcReviewBootstrap) {
+      bootstrapHandledRef.current = null;
+      return;
+    }
+    const key = vcReviewBootstrap.ratingId;
+    if (bootstrapHandledRef.current === key) return;
+    bootstrapHandledRef.current = key;
+
+    setPendingVcReviewContext(vcReviewBootstrap);
+    setSelectedInvestor({
+      name: vcReviewBootstrap.firmName,
+      sector: "Multi-stage",
+      stage: "Multi-stage",
+      description: "",
+      location: "",
+      model: "",
+      initial: vcReviewBootstrap.firmName.charAt(0).toUpperCase(),
+      matchReason: null,
+      category: "investor" as const,
+      investorDatabaseId: vcReviewBootstrap.investorDatabaseId ?? null,
+      websiteUrl: null,
+    });
+    setOpenReviewFromBootstrap(true);
+    setActiveTab("matches");
+    onVcReviewBootstrapConsumed?.();
+  }, [vcReviewBootstrap, onVcReviewBootstrapConsumed]);
+
+  const handleCloseInvestorPanel = useCallback(() => {
+    setSelectedInvestor(null);
+    setPendingVcReviewContext(null);
+    setOpenReviewFromBootstrap(false);
   }, []);
 
   // Only fetch internally if no external backers provided
@@ -409,7 +466,11 @@ export function InvestorMatch({ companyData, analysisResult, sectorClassificatio
         investor={selectedInvestor}
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
-        onClose={() => setSelectedInvestor(null)}
+        onClose={handleCloseInvestorPanel}
+        vcDirectoryFirmIdHint={pendingVcReviewContext?.vcFirmId ?? null}
+        reviewPersonIdHint={pendingVcReviewContext?.vcPersonId ?? null}
+        openReviewModalOnMount={openReviewFromBootstrap}
+        onReviewBootstrapConsumed={() => setOpenReviewFromBootstrap(false)}
       />
 
       <PersonalizeWeightsSidebar

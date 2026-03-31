@@ -7,6 +7,33 @@ import type { CapBacker } from "@/components/investor-match/CapTableRow";
 const fmt = (n: number) =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `$${(n / 1_000).toFixed(0)}K` : n > 0 ? `$${n}` : "$0";
 
+type CapTableRow = {
+  id: string;
+  investor_name: string;
+  amount: number;
+  instrument: string;
+  date: string | null;
+  created_at: string;
+  entity_type?: string | null;
+  notes?: string | null;
+  ownership_pct?: number | null;
+};
+
+function rowToBacker(row: CapTableRow): CapBacker {
+  return {
+    id: row.id,
+    name: row.investor_name,
+    amount: row.amount,
+    amountLabel: fmt(row.amount),
+    instrument: row.instrument,
+    logoLetter: row.investor_name.charAt(0).toUpperCase(),
+    date: row.date || row.created_at,
+    entityType: row.entity_type ?? undefined,
+    notes: row.notes ?? undefined,
+    ownershipPct: row.ownership_pct ?? 0,
+  };
+}
+
 export function useCapTable() {
   const { user } = useAuth();
   const [backers, setBackers] = useState<CapBacker[]>([]);
@@ -20,18 +47,7 @@ export function useCapTable() {
         console.warn("Failed to fetch cap table:", error);
         setBackers([]);
       } else if (data) {
-        setBackers(
-          data.map(row => ({
-            id: row.id,
-            name: row.investor_name,
-            amount: row.amount,
-            amountLabel: fmt(row.amount),
-            instrument: row.instrument,
-            logoLetter: row.investor_name.charAt(0).toUpperCase(),
-            date: row.date || row.created_at,
-            ownershipPct: (row as any).ownership_pct ?? 0,
-          }))
-        );
+        setBackers(data.map((row) => rowToBacker(row as CapTableRow)));
       }
     } catch (err) {
       console.warn("Error fetching cap table:", err);
@@ -71,6 +87,11 @@ export function useCapTable() {
 
   const addInvestor = useCallback(async (name: string, opts?: { entityType?: string; instrument?: string; amount?: number; date?: string }) => {
     if (!user) { toast.error("Please sign in."); return null; }
+    const investorName = name.trim();
+    if (!investorName) {
+      toast.error("Investor name is required.");
+      return null;
+    }
     try {
       const now = new Date();
       const dateLabel = opts?.date || now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
@@ -78,7 +99,7 @@ export function useCapTable() {
         .from("cap_table")
         .insert({
           user_id: user.id,
-          investor_name: name,
+          investor_name: investorName,
           amount: opts?.amount ?? 0,
           instrument: opts?.instrument ?? "SAFE (Post-money)",
           entity_type: opts?.entityType ?? "Angel",
@@ -88,10 +109,15 @@ export function useCapTable() {
         .single();
       if (error) {
         console.warn("Failed to add investor:", error);
-        toast.error("Failed to add investor.");
+        toast.error(error.message || "Failed to add investor.");
         return null;
       }
-      return data;
+      const nextBacker = rowToBacker(data as CapTableRow);
+      setBackers((prev) => {
+        if (prev.some((b) => b.id === nextBacker.id)) return prev;
+        return [nextBacker, ...prev];
+      });
+      return nextBacker;
     } catch (err) {
       console.warn("Error adding investor:", err);
       toast.error("Failed to add investor.");

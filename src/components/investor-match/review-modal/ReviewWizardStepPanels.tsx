@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Check,
@@ -151,7 +151,7 @@ const RELATIONSHIP_ORIGIN_ICONS: Record<string, LucideIcon> = {
   Other: MoreHorizontal,
 };
 
-function RelationshipOriginSelect({
+const RelationshipOriginSelect = memo(function RelationshipOriginSelect({
   options,
   value,
   onChange,
@@ -183,7 +183,7 @@ function RelationshipOriginSelect({
             title={opt}
             onClick={() => onChange(opt)}
             className={cn(
-              "flex min-h-0 min-w-0 w-full flex-col items-center justify-center rounded-xl border text-center font-medium transition-all duration-150",
+              "flex min-h-0 min-w-0 w-full flex-col items-center justify-center rounded-xl border text-center font-medium transition-colors duration-150",
               compact
                 ? "gap-0.5 px-1 py-1.5 text-[9px] leading-tight sm:text-[10px]"
                 : "gap-1 px-1.5 py-2 text-[10px] leading-tight sm:px-2 sm:py-2 sm:text-[11px]",
@@ -203,10 +203,10 @@ function RelationshipOriginSelect({
       })}
     </div>
   );
-}
+});
 
 /** Yes / No with check and × for event follow-up question. */
-function EventFollowUpYesNoSelect({
+const EventFollowUpYesNoSelect = memo(function EventFollowUpYesNoSelect({
   options,
   value,
   onChange,
@@ -241,7 +241,7 @@ function EventFollowUpYesNoSelect({
             aria-label={opt}
             onClick={() => onChange(opt)}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150",
+              "flex flex-1 flex-col items-center justify-center rounded-lg border px-1 transition-colors duration-150",
               compact
                 ? "min-h-9 gap-0.5 py-1 sm:min-h-9"
                 : "min-h-[2.75rem] gap-1 py-2 sm:min-h-11",
@@ -268,9 +268,9 @@ function EventFollowUpYesNoSelect({
       })}
     </div>
   );
-}
+});
 
-function SingleSelect({
+const SingleSelect = memo(function SingleSelect({
   options,
   value,
   onChange,
@@ -309,7 +309,7 @@ function SingleSelect({
       ))}
     </div>
   );
-}
+});
 
 const INTERACTION_HOW_ICONS: Record<string, LucideIcon> = {
   "In-Person": MapPin,
@@ -321,7 +321,7 @@ const INTERACTION_HOW_ICONS: Record<string, LucideIcon> = {
   Phone,
 };
 
-function InteractionHowMultiSelect({
+const InteractionHowMultiSelect = memo(function InteractionHowMultiSelect({
   options,
   selected,
   onChange,
@@ -356,7 +356,7 @@ function InteractionHowMultiSelect({
             title={opt}
             onClick={() => toggle(opt)}
             className={cn(
-              "flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg border text-center transition-all duration-150",
+              "flex min-w-0 flex-1 flex-col items-center justify-center rounded-lg border text-center transition-colors duration-150",
               compact
                 ? "min-h-10 gap-0 px-0.5 py-1 sm:min-h-10 sm:py-1"
                 : "min-h-[3.25rem] gap-0.5 px-0.5 py-1.5 sm:min-h-[3.5rem] sm:gap-1 sm:px-1",
@@ -386,9 +386,9 @@ function InteractionHowMultiSelect({
       })}
     </div>
   );
-}
+});
 
-function MultiSelect({
+const MultiSelect = memo(function MultiSelect({
   options,
   selected,
   onChange,
@@ -431,7 +431,7 @@ function MultiSelect({
       ))}
     </div>
   );
-}
+});
 
 function QuestionBlock({
   index,
@@ -598,7 +598,7 @@ function TagSelector({
             title={tag}
             onClick={() => toggle(tag)}
             className={cn(
-              "flex h-full min-h-[2.5rem] w-full min-w-0 items-center justify-center rounded-lg border px-1 py-2 text-center text-[9px] font-medium leading-tight transition-all duration-150 [text-wrap:balance] sm:min-h-[2.75rem] sm:px-1.5 sm:text-[10px] sm:leading-snug",
+              "flex h-full min-h-[2.5rem] w-full min-w-0 items-center justify-center rounded-lg border px-1 py-2 text-center text-[9px] font-medium leading-tight transition-colors duration-150 [text-wrap:balance] sm:min-h-[2.75rem] sm:px-1.5 sm:text-[10px] sm:leading-snug",
               reviewWizardChipFocus,
               selected.includes(tag) ? reviewWizardChipSelected : reviewWizardChipIdle,
             )}

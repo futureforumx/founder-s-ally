@@ -257,7 +257,7 @@ async function tier3LocalDB(investorName: string): Promise<EnrichedInvestor | nu
 
   try {
     const dbResp = await fetch(
-      `${SUPABASE_URL}/rest/v1/investor_database?firm_name=ilike.*${encodeURIComponent(investorName)}*&select=*&limit=1`,
+      `${SUPABASE_URL}/rest/v1/firm_records?firm_name=ilike.*${encodeURIComponent(investorName)}*&select=*&limit=1`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,

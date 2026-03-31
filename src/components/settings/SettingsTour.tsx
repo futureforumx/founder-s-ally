@@ -24,29 +24,11 @@ export interface TourStep {
 }
 
 const TOUR_STEPS: TourStep[] = [
-  // ── Intro: Data Sources ──
-  {
-    selector: '[data-tour-section="data-sources"]',
-    title: "Data Sources",
-    description: "First, let's connect your identity sources — LinkedIn, X, and your resume. This powers your AI profile.",
-    sectionId: "personal",
-    placement: "bottom",
-    isIntro: true,
-    expandSection: "data-sources",
-  },
-  {
-    selector: '[data-tour-section="data-sources"]',
-    title: "Verify Your Data",
-    description: "Add your LinkedIn and X URLs, then click 'Verify Data' to auto-fill your profile with AI-extracted information.",
-    sectionId: "personal",
-    placement: "bottom",
-    expandSection: "data-sources",
-  },
-  // ── Intro: Profile ──
+  // ── Personal information ──
   {
     selector: '[data-tour-section="profile"]',
     title: "Personal information",
-    description: "Next up: your personal identity. Confirm your full name and details so investors know who you are.",
+    description: "Start with your identity: name, role, location, bio, and optional resume so investors know who you are.",
     sectionId: "personal",
     placement: "bottom",
     isIntro: true,
@@ -59,6 +41,24 @@ const TOUR_STEPS: TourStep[] = [
     sectionId: "personal",
     placement: "bottom",
     expandSection: "profile",
+  },
+  // ── Social ──
+  {
+    selector: '[data-tour-section="social"]',
+    title: "Social",
+    description: "Add your LinkedIn and X URLs. You can use Sync on LinkedIn to pull details into your profile when you're ready.",
+    sectionId: "personal",
+    placement: "bottom",
+    isIntro: true,
+    expandSection: "social",
+  },
+  {
+    selector: '[data-tour-section="social"]',
+    title: "LinkedIn & X",
+    description: "These links power enrichment and matching. You can update them anytime.",
+    sectionId: "personal",
+    placement: "bottom",
+    expandSection: "social",
   },
   // ── Intro: Company ──
   {
