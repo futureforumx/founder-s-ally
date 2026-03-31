@@ -65,6 +65,18 @@ type AiExtractedPerson = {
   investment_sectors?: string[];
 };
 
+type AiEnvelope = {
+  investors?: AiExtractedPerson[];
+  people?: AiExtractedPerson[];
+  team?: AiExtractedPerson[];
+  members?: AiExtractedPerson[];
+};
+
+type AiLoosePerson = Partial<AiExtractedPerson> & {
+  name?: string;
+  full_name?: string;
+};
+
 type Config = {
   maxFirms: number;
   delayMs: number;
@@ -301,17 +313,101 @@ Return JSON:
       "substack_url": "string or null",
       "investment_themes": ["string"],
       "articles": [{ "title": "string", "url": "string", "published_at": "YYYY-MM-DD or null", "platform": "medium|substack|linkedin|twitter|company_blog|other", "summary": "string or null" }],
-      "portfolio_companies": ["string"]
-      },
-        "location": "City, State or City, Country — null if unknown",
-        "investment_stages": ["Pre-Seed|Seed|Series A|Series B|Series C|Growth|Late Stage|IPO"],
-        "investment_sectors": ["Fintech|Enterprise SaaS|AI|Health Tech|Biotech|Consumer|Climate|Mobility|Industrial|Cybersecurity|Media|Web3|EdTech|GovTech|Hardware|Robotics|Marketplace|AgriTech|PropTech"]
-      }
+      "portfolio_companies": ["string"],
+      "location": "City, State or City, Country — null if unknown",
+      "investment_stages": ["Pre-Seed|Seed|Series A|Series B|Series C|Growth|Late Stage|IPO"],
+      "investment_sectors": ["Fintech|Enterprise SaaS|AI|Health Tech|Biotech|Consumer|Climate|Mobility|Industrial|Cybersecurity|Media|Web3|EdTech|GovTech|Hardware|Robotics|Marketplace|AgriTech|PropTech"]
+    }
   ]
 }
 
 --- PAGE CONTENT (truncated) ---
 ${markdown.slice(0, 60_000)}`;
+
+function splitAiName(name?: string): { first: string; last: string } | null {
+  const cleaned = (name || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  const parts = cleaned.split(" ").filter(Boolean);
+  if (parts.length < 2) return null;
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function normalizeAiPerson(input: AiLoosePerson): AiExtractedPerson | null {
+  const first = typeof input.first_name === "string" ? input.first_name.trim() : "";
+  const last = typeof input.last_name === "string" ? input.last_name.trim() : "";
+  if (first && last) {
+    return {
+      first_name: first,
+      last_name: last,
+      title: input.title,
+      bio: input.bio,
+      avatar_url: input.avatar_url,
+      email: input.email,
+      linkedin_url: input.linkedin_url,
+      x_url: input.x_url,
+      medium_url: input.medium_url,
+      substack_url: input.substack_url,
+      investment_themes: input.investment_themes,
+      articles: input.articles,
+      portfolio_companies: input.portfolio_companies,
+      location: input.location,
+      investment_stages: input.investment_stages,
+      investment_sectors: input.investment_sectors,
+    };
+  }
+
+  const fromName = splitAiName(input.full_name || input.name);
+  if (!fromName) return null;
+
+  return {
+    first_name: fromName.first,
+    last_name: fromName.last,
+    title: input.title,
+    bio: input.bio,
+    avatar_url: input.avatar_url,
+    email: input.email,
+    linkedin_url: input.linkedin_url,
+    x_url: input.x_url,
+    medium_url: input.medium_url,
+    substack_url: input.substack_url,
+    investment_themes: input.investment_themes,
+    articles: input.articles,
+    portfolio_companies: input.portfolio_companies,
+    location: input.location,
+    investment_stages: input.investment_stages,
+    investment_sectors: input.investment_sectors,
+  };
+}
+
+function parseAiInvestors(raw: string): AiExtractedPerson[] {
+  if (!raw?.trim()) return [];
+
+  const candidates: string[] = [raw.trim()];
+  const fencedMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch?.[1]) candidates.push(fencedMatch[1].trim());
+
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(raw.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as AiEnvelope;
+      const investors = parsed.investors ?? parsed.people ?? parsed.team ?? parsed.members ?? [];
+      if (Array.isArray(investors)) {
+        return investors
+          .map((p) => normalizeAiPerson(p as AiLoosePerson))
+          .filter((p): p is AiExtractedPerson => Boolean(p));
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [];
+}
 
 /** Tier 1: Lovable AI gateway (OpenAI-compatible) */
 async function aiExtractViaLovable(prompt: string): Promise<AiExtractedPerson[]> {
@@ -330,11 +426,11 @@ async function aiExtractViaLovable(prompt: string): Promise<AiExtractedPerson[]>
     signal: AbortSignal.timeout(60_000),
   });
 
-  if (!r.ok) return [];
+  if (!r.ok) throw new Error(`lovable status=${r.status}`);
   const data = await r.json() as Record<string, unknown>;
   const choices = data.choices as Array<{ message: { content: string } }>;
   const raw = choices?.[0]?.message?.content ?? "{}";
-  return (JSON.parse(raw) as { investors?: AiExtractedPerson[] }).investors ?? [];
+  return parseAiInvestors(raw);
 }
 
 /** Tier 2b: Groq (OpenAI-compatible, very fast) */
@@ -362,14 +458,10 @@ async function aiExtractViaGroq(prompt: string): Promise<AiExtractedPerson[]> {
     signal: AbortSignal.timeout(60_000),
   });
 
-  if (!r.ok) return [];
+  if (!r.ok) throw new Error(`groq status=${r.status}`);
   const data = (await r.json()) as { choices?: Array<{ message: { content: string } }> };
   const raw = data.choices?.[0]?.message?.content ?? "{}";
-  try {
-    return (JSON.parse(raw) as { investors?: AiExtractedPerson[] }).investors ?? [];
-  } catch {
-    return [];
-  }
+  return parseAiInvestors(raw);
 }
 
 /** Tier 3: Google Gemini direct REST API */
@@ -391,11 +483,60 @@ async function aiExtractViaGemini(prompt: string): Promise<AiExtractedPerson[]> 
     }
   );
 
-  if (!r.ok) return [];
+  if (!r.ok) throw new Error(`gemini status=${r.status}`);
   const data = await r.json() as Record<string, unknown>;
   const candidates = data.candidates as Array<{ content: { parts: Array<{ text: string }> } }>;
   const raw = candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-  return (JSON.parse(raw) as { investors?: AiExtractedPerson[] }).investors ?? [];
+  return parseAiInvestors(raw);
+}
+
+type AiProvider = "lovable" | "groq" | "gemini";
+
+function getAiProviderOrder(): AiProvider[] {
+  const raw = (process.env.INVESTOR_TEAM_AI_PROVIDER || "auto").trim().toLowerCase();
+  if (raw === "lovable" || raw === "groq" || raw === "gemini") return [raw as AiProvider];
+  return ["lovable", "groq", "gemini"];
+}
+
+function isRetryableAiError(error: unknown): boolean {
+  const msg = String((error as Error)?.message || error || "").toLowerCase();
+  if (isRateLimitError(error)) return true;
+  if (/status=5\d\d/.test(msg)) return true;
+  return /(timeout|timed out|network|econn|socket|temporar|overloaded|unavailable)/.test(msg);
+}
+
+async function extractWithAiProviderRetry(
+  provider: AiProvider,
+  run: () => Promise<AiExtractedPerson[]>,
+  providerLogs: string[],
+): Promise<AiExtractedPerson[]> {
+  const maxRetries = Math.max(0, envInt("INVESTOR_TEAM_AI_MAX_RETRIES", 2));
+  const baseDelayMs = Math.max(250, envInt("INVESTOR_TEAM_AI_BACKOFF_BASE_MS", 1200));
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      const errMsg = String((error as Error)?.message || error);
+      if (isRateLimitError(error)) {
+        markAiProviderRateLimited(provider);
+      }
+
+      const retryable = isRetryableAiError(error);
+      providerLogs.push(`${provider}:error=${errMsg}`);
+
+      if (!retryable || attempt >= maxRetries) {
+        throw error;
+      }
+
+      const jitterMs = Math.floor(Math.random() * Math.max(150, Math.floor(baseDelayMs * 0.35)));
+      const waitMs = Math.min(20_000, baseDelayMs * (2 ** attempt) + jitterMs);
+      providerLogs.push(`${provider}:retryInMs=${waitMs}`);
+      await sleep(waitMs);
+    }
+  }
+
+  return [];
 }
 
 async function aiExtractPeople(
@@ -406,30 +547,68 @@ async function aiExtractPeople(
   if (!markdown.trim()) return [];
 
   const prompt = AI_PROMPT_TEMPLATE(firmName, teamPageUrl, markdown);
+  const debugAi = envBool("INVESTOR_TEAM_DEBUG_AI", false);
+  const providerLogs: string[] = [];
 
-  try {
-    // Tier 1: Lovable gateway
-    if (process.env.LOVABLE_API_KEY) {
-      const people = await aiExtractViaLovable(prompt);
-      if (people.length > 0) return people;
+  const order = getAiProviderOrder();
+  for (const provider of order) {
+    const hasKey =
+      (provider === "lovable" && Boolean(process.env.LOVABLE_API_KEY)) ||
+      (provider === "groq" && Boolean(process.env.GROQ_API_KEY)) ||
+      (provider === "gemini" && Boolean(process.env.GEMINI_API_KEY));
+    if (!hasKey) continue;
+
+    if (isAiProviderCoolingDown(provider)) {
+      providerLogs.push(`${provider}:cooldown`);
+      continue;
     }
 
-    // Tier 2: Groq (fast, generous free tier)
-    if (process.env.GROQ_API_KEY) {
-      const people = await aiExtractViaGroq(prompt);
-      if (people.length > 0) return people;
+    try {
+      const people = await extractWithAiProviderRetry(
+        provider,
+        () => {
+          if (provider === "lovable") return aiExtractViaLovable(prompt);
+          if (provider === "groq") return aiExtractViaGroq(prompt);
+          return aiExtractViaGemini(prompt);
+        },
+        providerLogs,
+      );
+      providerLogs.push(`${provider}=${people.length}`);
+      if (people.length > 0) {
+        if (debugAi) console.log(`[team-sync][ai] ${firmName} ${teamPageUrl} ${providerLogs.join(" ")}`);
+        return people;
+      }
+    } catch {
+      // Keep trying next providers; details already recorded in providerLogs.
     }
+  }
 
-    // Tier 3: Direct Gemini API
-    if (process.env.GEMINI_API_KEY) {
-      const people = await aiExtractViaGemini(prompt);
-      if (people.length > 0) return people;
-    }
-  } catch {
-    // fall through to heuristic extraction
+  if (debugAi) {
+    const summary = providerLogs.length ? providerLogs.join(" ") : "no-ai-providers-configured";
+    console.log(`[team-sync][ai] ${firmName} ${teamPageUrl} ${summary}`);
   }
 
   return [];
+}
+
+const AI_RATE_LIMIT_COOLDOWN_MS = 90_000;
+const aiProviderCooldownUntil: Record<"lovable" | "groq" | "gemini", number> = {
+  lovable: 0,
+  groq: 0,
+  gemini: 0,
+};
+
+function isAiProviderCoolingDown(provider: "lovable" | "groq" | "gemini"): boolean {
+  return Date.now() < aiProviderCooldownUntil[provider];
+}
+
+function markAiProviderRateLimited(provider: "lovable" | "groq" | "gemini"): void {
+  aiProviderCooldownUntil[provider] = Date.now() + AI_RATE_LIMIT_COOLDOWN_MS;
+}
+
+function isRateLimitError(error: unknown): boolean {
+  const msg = String((error as Error)?.message || error || "").toLowerCase();
+  return msg.includes("status=429") || msg.includes("rate limit");
 }
 
 // ---------------------------------------------------------------------------
@@ -1554,7 +1733,6 @@ async function main() {
       deleted_at: null,
       website_url: { not: null },
       ...(cfg.firmSlug ? { slug: cfg.firmSlug } : {}),
-      people: { some: { deleted_at: null } },
     },
     select: {
       id: true,
@@ -1637,24 +1815,54 @@ async function main() {
 
       // --- AI extraction (primary when available) ---
       let aiPeople: AiExtractedPerson[] = [];
-      const preferredAiSource = aiMarkdownCandidates.find((p) => p.url.includes("#")) ?? aiMarkdownCandidates[0];
-      const primaryMarkdown = preferredAiSource
-        ? selectAiMarkdownWindow(preferredAiSource.markdown)
-        : undefined;
-      const aiSourceUrl = preferredAiSource?.url ?? candidatePages[0] ?? website;
+      const aiSourcesDeduped: Array<{ url: string; markdown: string }> = [];
+      const seenAiMarkdown = new Set<string>();
+      for (const source of [
+        ...aiMarkdownCandidates.filter((p) => p.url.includes("#")),
+        ...aiMarkdownCandidates.filter((p) => !p.url.includes("#")),
+      ]) {
+        const fingerprint = `${source.markdown.length}:${source.markdown.slice(0, 1200)}`;
+        if (seenAiMarkdown.has(fingerprint)) continue;
+        seenAiMarkdown.add(fingerprint);
+        aiSourcesDeduped.push(source);
+      }
+      const aiMaxSources = Math.max(1, envInt("INVESTOR_TEAM_AI_MAX_SOURCES", 3));
+      const aiSources = aiSourcesDeduped.slice(0, aiMaxSources);
 
-      if (cfg.useAiExtraction && primaryMarkdown) {
-        if (cfg.firmSlug) {
-          console.log(
-            `[team-sync]   AI source ${aiSourceUrl} markdownChars=${preferredAiSource?.markdown.length ?? 0} focusedChars=${primaryMarkdown.length}`,
-          );
+      if (cfg.useAiExtraction && aiSources.length > 0) {
+        for (const source of aiSources) {
+          const focusedMarkdown = selectAiMarkdownWindow(source.markdown);
+          if (cfg.firmSlug) {
+            console.log(
+              `[team-sync]   AI source ${source.url} markdownChars=${source.markdown.length} focusedChars=${focusedMarkdown.length}`,
+            );
+          }
+
+          // Attempt focused team section first.
+          aiPeople = await aiExtractPeople(firm.firm_name, focusedMarkdown, source.url);
+          if (aiPeople.length > 0) break;
+
+          // If focused context misses names, retry with a larger slice.
+          const fullMarkdown = source.markdown.slice(0, 60_000);
+          if (fullMarkdown !== focusedMarkdown) {
+            aiPeople = await aiExtractPeople(firm.firm_name, fullMarkdown, source.url);
+            if (aiPeople.length > 0) {
+              if (cfg.firmSlug) {
+                console.log("[team-sync]   AI recovered results using full markdown fallback");
+              }
+              break;
+            }
+          }
         }
-        aiPeople = await aiExtractPeople(firm.firm_name, primaryMarkdown, aiSourceUrl);
+      } else if (cfg.firmSlug) {
+        console.log("[team-sync]   AI skipped (disabled or no markdown); using heuristic/JSON-LD extraction only");
+      }
 
-        // EXA: per-investor enrichment (social links, articles, themes)
-        if (process.env.EXA_API_KEY && aiPeople.length > 0) {
-          aiPeople = await exaEnrichBatch(aiPeople, firm.firm_name);
-          console.log(`[team-sync]   EXA enrichment applied`);
+      // EXA: per-investor enrichment (social links, articles, themes)
+      if (process.env.EXA_API_KEY && aiPeople.length > 0) {
+        aiPeople = await exaEnrichBatch(aiPeople, firm.firm_name);
+        if (cfg.firmSlug) {
+          console.log("[team-sync]   EXA enrichment applied");
         }
       }
 

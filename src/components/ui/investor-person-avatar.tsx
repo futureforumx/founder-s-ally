@@ -268,30 +268,17 @@ export function investorPersonImageCandidates({
 }): string[] {
   const normalizedEmail = trimOrNull(email)?.toLowerCase() ?? null;
   const xHandle = parseXPathHandle(x_url);
-  const firmWebsiteHost = parseHost(firmWebsiteUrl);
   const websiteHost = parseHost(website_url);
   const personalWebsiteHost = parseHost(personal_website_url);
-  const linkedinHost = parseHost(linkedin_url);
-  const xHost = parseHost(x_url);
-  const preferLinkedInOverFirm = isRealLinkedInProfile(linkedin_url) && isPartnerLevelProfile({ title, role, investorType });
-  const prioritizedFirmSources = [
-    firmWebsiteUrl ? getFaviconUrl(firmWebsiteUrl, 128) : null,
-    firmWebsiteHost ? getFaviconUrl(firmWebsiteHost, 128) : null,
-  ];
-  const prioritizedLinkedInSources = [
-    linkedin_url ? getFaviconUrl(linkedin_url, 128) : null,
-    linkedinHost ? getFaviconUrl(linkedinHost, 128) : null,
-  ];
+  // NOTE: favicons (firm, website, X) are logos, not person headshots — excluded from all sources.
 
   const sources = [
     // Direct uploads / stored headshots first (fastest, most reliable)
     trimOrNull(profile_image_url),
     trimOrNull(avatar_url),
-    ...(preferLinkedInOverFirm ? prioritizedLinkedInSources : prioritizedFirmSources),
-    ...(preferLinkedInOverFirm ? prioritizedFirmSources : prioritizedLinkedInSources),
     gravatarUrl(normalizedEmail),
     gravatarUrl(email),
-    // Then external resolution services
+    // External resolution services that return actual person photos
     unavatarFrom(normalizedEmail),
     unavatarFromXHandle(xHandle),
     unavatarFrom(linkedin_url),
@@ -304,9 +291,6 @@ export function investorPersonImageCandidates({
       linkedin_url,
       x_url,
     }),
-    website_url ? getFaviconUrl(website_url, 128) : null,
-    personal_website_url ? getFaviconUrl(personal_website_url, 128) : null,
-    xHost ? getFaviconUrl(xHost, 128) : null,
   ].filter((value): value is string => Boolean(value));
 
   return Array.from(new Set(sources));

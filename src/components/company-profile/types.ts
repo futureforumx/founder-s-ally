@@ -27,7 +27,6 @@ export interface CompanyData {
   subsectors: string[];
   description: string;
   website: string;
-  logo_url?: string;
   teamSize: string;
   // Expanded fields
   businessModel: string[];
@@ -143,7 +142,7 @@ export interface AnalysisResult {
 }
 
 export const EMPTY_FORM: CompanyData = {
-  name: "", stage: "", sector: "", subsectors: [], description: "", website: "", logo_url: "", teamSize: "",
+  name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
   businessModel: [], targetCustomer: [], hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", momGrowth: "", totalHeadcount: "",
   socialTwitter: "", socialLinkedin: "", socialInstagram: "",
