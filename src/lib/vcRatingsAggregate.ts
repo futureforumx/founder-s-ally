@@ -1,6 +1,7 @@
 /** Row shape from `public.vc_ratings` (PostgREST / Prisma @@map). */
 export type VcRatingRow = {
   id: string;
+  author_user_id: string | null;
   interaction_type: string;
   interaction_date: string | null;
   interaction_detail: string | null;

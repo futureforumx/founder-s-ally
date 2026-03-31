@@ -180,18 +180,32 @@ function representativeLocation(row: CsvRow): string | null {
 }
 
 function mapFirmType(normalized: string | undefined): FirmType {
-  const u = (normalized || "OTHER").toUpperCase().trim();
+  const raw = (normalized || "").trim();
+  if (!raw) return "OTHER";
+  const u = raw.toUpperCase();
   const allowed: FirmType[] = [
     "VC",
     "CVC",
     "ANGEL_NETWORK",
     "MICRO_FUND",
+    "MICRO_VC",
     "FAMILY_OFFICE",
     "PE",
     "ACCELERATOR",
     "OTHER",
+    "INSTITUTIONAL",
+    "SOLO_GP",
+    "PUBLIC",
+    "VENTURE_STUDIO",
   ];
-  return (allowed.includes(u as FirmType) ? u : "OTHER") as FirmType;
+  if (allowed.includes(u as FirmType)) return u as FirmType;
+  const l = raw.toLowerCase();
+  if (l.includes("venture studio")) return "VENTURE_STUDIO";
+  if (l.includes("solo gp") || /\bsolo\b/.test(l)) return "SOLO_GP";
+  if (l.includes("micro vc") || l.includes("micro-vc")) return "MICRO_VC";
+  if (l.includes("institutional")) return "INSTITUTIONAL";
+  if (l.includes("public")) return "PUBLIC";
+  return "OTHER";
 }
 
 function parseStages(raw: string | undefined): StageFocus[] {

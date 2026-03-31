@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, startTransition } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -289,7 +289,11 @@ export function InvestorEditDialog({ backer, open, onOpenChange, onSave, onRemov
   }, [backer]);
 
   const handleClose = useCallback(() => {
-    onOpenChange(false);
+    window.requestAnimationFrame(() => {
+      startTransition(() => {
+        onOpenChange(false);
+      });
+    });
   }, [onOpenChange]);
 
   const handleSave = useCallback(async () => {

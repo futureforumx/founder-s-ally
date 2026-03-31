@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2 } from "lucide-react";
+import { X, CheckCircle2, Pencil, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
-import { submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
+import { isSubmitReviewNetworkFailure, submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -25,6 +25,7 @@ import {
 import { nonInvestorTagsForOverallScore } from "@/lib/reviewFormContent";
 import { isContextStepValidUnlinked, isEvaluationStepValidUnlinked } from "@/lib/reviewWizard";
 import { cn } from "@/lib/utils";
+import { isMissingVcRatingsTableError } from "@/lib/vcRatingsTableErrors";
 import {
   ReviewWizardBody,
   ReviewWizardFooter,
@@ -48,6 +49,8 @@ import {
 export interface ReviewSubmissionModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called immediately after a successful submission with the star_ratings payload — updates UI without waiting for a DB re-fetch. */
+  onRatingSubmitted?: (starRatings: unknown) => void;
   firmName: string;
   /** Firm mark for the header; if omitted and `vcFirmId` is set, logo is loaded from the directory. */
   firmLogoUrl?: string | null;
@@ -69,6 +72,10 @@ export interface ReviewSubmissionModalProps {
   mappingRecordId: string | null;
   /** Founder's company id — stored in star_ratings JSONB for traceability */
   companyId?: string;
+  /** Pre-fetched star_ratings from the parent — shows summary view immediately when set */
+  initialStarRatings?: unknown;
+  /** ISO timestamp of the existing review — used to enforce 48-hour edit window */
+  initialCreatedAt?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,7 +123,7 @@ type MdmFirmLite = { id: string; name: string; website_url?: string | null };
 
 /**
  * Returns a `vc_firms.id` suitable for `vc_ratings.vc_firm_id` FK.
- * `hint` may be `vc_firms.id`, `investor_database.id`, an MDM JSON id (often a domain e.g. `406ventures.com`),
+ * `hint` may be `vc_firms.id`, `firm_records.id`, an MDM JSON id (often a domain e.g. `406ventures.com`),
  * or a `vc_firms.slug` — all are normalized here.
  */
 async function resolveVcFirmId(
@@ -255,7 +262,7 @@ async function resolveVcFirmId(
     }
 
     const { data: invRow, error: invErr } = await supabase
-      .from("investor_database")
+      .from("firm_records")
       .select("firm_name, legal_name, prisma_firm_id, website_url")
       .eq("id", trimmed)
       .maybeSingle();
@@ -361,8 +368,11 @@ function sanitizeHydratedUnlinkedAnswers(
 }
 
 function formatReviewSubmitError(err: unknown): string {
+  if (isMissingVcRatingsTableError(err)) {
+    return "Your Supabase project is missing public.vc_ratings (PostgREST schema cache). Apply pending migrations: run `supabase db push` / deploy SQL migrations, or `npx prisma migrate deploy`, then reload the app.";
+  }
   const rlsHint =
-    "Saving needs a valid Supabase session: enable Clerk’s Supabase third-party integration (or a JWT template named “supabase”) so your user id matches the review author, then sign out and back in.";
+    "Reviews save through the submit-vc-rating API first. If you still see this, PostgREST cannot verify your Clerk JWT: enable Clerk’s Supabase third-party integration (or a JWT template named “supabase”) so Supabase accepts the token, then sign out and back in.";
 
   const fromParts = (message: string, code?: string, details?: string, hint?: string) => {
     const bits = [message];
@@ -371,6 +381,9 @@ function formatReviewSubmitError(err: unknown): string {
     if (code?.trim()) bits.push(`[${code.trim()}]`);
     const text = [...new Set(bits.filter(Boolean))].join(" — ");
     if (/row-level security|rls|42501|permission denied for table|violates row-level security/i.test(text)) {
+      return `${text} ${rlsHint}`;
+    }
+    if (/pgrst301|no suitable key|wrong key type|decode the jwt/i.test(text)) {
       return `${text} ${rlsHint}`;
     }
     return text;
@@ -407,6 +420,18 @@ function isVcPersonFkViolation(err: unknown): boolean {
   );
 }
 
+/** Persist to investor_reviews when vc_ratings is absent or rows cannot reference vc_firms / vc_people. */
+function isVcRatingsWriteFallbackEligible(err: unknown): boolean {
+  if (isMissingVcRatingsTableError(err)) return true;
+  if (!err || typeof err !== "object") return false;
+  const o = err as { code?: string; message?: string; details?: string };
+  const blob = `${o.code ?? ""} ${o.message ?? ""} ${o.details ?? ""}`.toLowerCase();
+  // FK / check failures on vc_ratings → use legacy table (text firm_id, no directory FKs).
+  if (o.code === "23503" && blob.includes("vc_ratings")) return true;
+  if (o.code === "23514" && blob.includes("vc_ratings")) return true;
+  return false;
+}
+
 type VcRatingInsertPayload = Record<string, unknown>;
 
 async function upsertVcRatingRow(opts: {
@@ -416,14 +441,90 @@ async function upsertVcRatingRow(opts: {
   payload: VcRatingInsertPayload;
 }): Promise<{ savedAsRevision: boolean }> {
   const { supabaseClient, reviewRecordId, userId, payload } = opts;
+  const db = supabaseClient as unknown as { from: (t: string) => any };
+
+  /**
+   * Never fall back to `supabaseVcDirectory` (anon) for writes: RLS requires an authenticated JWT
+   * with `sub` = founder_id / author_user_id. Retrying as anon surfaces misleading RLS errors.
+   */
+  const upsertInvestorReviewFallback = async (): Promise<{ savedAsRevision: boolean }> => {
+    const starRatings =
+      payload.star_ratings && typeof payload.star_ratings === "object"
+        ? (payload.star_ratings as Record<string, unknown>)
+        : {};
+
+    const firmNameFromPayload =
+      typeof starRatings.firm_name === "string" && starRatings.firm_name.trim().length > 0
+        ? starRatings.firm_name.trim()
+        : "";
+    const derivedFirmId =
+      typeof payload.vc_firm_id === "string" && payload.vc_firm_id.trim().length > 0
+        ? payload.vc_firm_id.trim()
+        : firmNameFromPayload || "unknown-firm";
+
+    const npsRaw = payload.nps;
+    const npsScore =
+      typeof npsRaw === "number" && Number.isFinite(npsRaw) ? npsRaw : 0;
+
+    const personKey =
+      typeof payload.vc_person_id === "string" && payload.vc_person_id.trim().length > 0
+        ? payload.vc_person_id.trim()
+        : "";
+
+    const investorPayload = {
+      founder_id: userId,
+      firm_id: derivedFirmId,
+      person_id: personKey,
+      interaction_type:
+        typeof payload.interaction_type === "string" && payload.interaction_type.trim()
+          ? payload.interaction_type
+          : "investor_relationship",
+      nps_score: npsScore,
+      did_respond: false,
+      comment: typeof payload.comment === "string" ? payload.comment : null,
+      star_ratings: starRatings,
+      is_anonymous: typeof payload.anonymous === "boolean" ? payload.anonymous : true,
+    };
+
+    const { data: existing, error: selectErr } = await db
+      .from("investor_reviews")
+      .select("id")
+      .eq("founder_id", userId)
+      .eq("firm_id", derivedFirmId)
+      .eq("person_id", personKey)
+      .maybeSingle();
+
+    throwIfSupabaseError(selectErr, "Could not save your review.");
+
+    const updatePatch = {
+      interaction_type: investorPayload.interaction_type,
+      nps_score: investorPayload.nps_score,
+      did_respond: investorPayload.did_respond,
+      comment: investorPayload.comment,
+      star_ratings: investorPayload.star_ratings,
+      is_anonymous: investorPayload.is_anonymous,
+    };
+
+    if (existing?.id) {
+      const { error: updateError } = await db
+        .from("investor_reviews")
+        .update(updatePatch)
+        .eq("id", existing.id)
+        .eq("founder_id", userId);
+      throwIfSupabaseError(updateError, "Could not save your review.");
+      return { savedAsRevision: false };
+    }
+
+    const { error: insertError } = await db.from("investor_reviews").insert(investorPayload);
+    throwIfSupabaseError(insertError, "Could not save your review.");
+    return { savedAsRevision: false };
+  };
 
   const insertWithPersonFallback = async (p: VcRatingInsertPayload) => {
-    const { error } = await supabaseClient.from("vc_ratings").insert(p);
+    const { error } = await db.from("vc_ratings").insert(p);
     if (!error) return null;
     if (isVcPersonFkViolation(error) && p.vc_person_id) {
-      const { error: e2 } = await supabaseClient
-        .from("vc_ratings")
-        .insert({ ...p, vc_person_id: null });
+      const { error: e2 } = await db.from("vc_ratings").insert({ ...p, vc_person_id: null });
       return e2;
     }
     return error;
@@ -444,19 +545,28 @@ async function upsertVcRatingRow(opts: {
   };
 
   if (reviewRecordId) {
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await db
       .from("vc_ratings")
       .update(payload)
       .eq("id", reviewRecordId)
       .eq("author_user_id", userId);
+    if (isVcRatingsWriteFallbackEligible(updateError)) {
+      return upsertInvestorReviewFallback();
+    }
     if (!updateError) return { savedAsRevision: false };
 
     const insertErr = await insertWithPersonFallback(payload);
+    if (isVcRatingsWriteFallbackEligible(insertErr)) {
+      return upsertInvestorReviewFallback();
+    }
     if (!insertErr) return { savedAsRevision: true };
     throwIfSupabaseError(insertErr, "Could not save your review after update failed.");
   }
 
   const insertErr = await insertWithPersonFallback(payload);
+  if (isVcRatingsWriteFallbackEligible(insertErr)) {
+    return upsertInvestorReviewFallback();
+  }
   if (!insertErr) return { savedAsRevision: false };
   throwIfSupabaseError(insertErr, "Could not save your review.");
 }
@@ -468,6 +578,7 @@ async function upsertVcRatingRow(opts: {
 export function ReviewSubmissionModal({
   open,
   onClose,
+  onRatingSubmitted,
   firmName,
   firmLogoUrl: firmLogoUrlProp,
   firmWebsiteUrl,
@@ -477,6 +588,8 @@ export function ReviewSubmissionModal({
   investorIsMappedToProfile,
   mappingRecordId,
   companyId = "",
+  initialStarRatings,
+  initialCreatedAt,
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
   const { firms, firmMap, getPartnersForFirm } = useVCDirectory();
@@ -506,6 +619,20 @@ export function ReviewSubmissionModal({
   const [currentStep, setCurrentStep] = useState<ReviewWizardStep>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [reviewCreatedAt, setReviewCreatedAt] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
+
+  // When the modal opens and the parent already has rating data, show the summary immediately.
+  useEffect(() => {
+    if (open && initialStarRatings != null) {
+      setReviewCreatedAt(initialCreatedAt ?? null);
+      setShowSummary(true);
+    } else if (!open) {
+      setShowSummary(false);
+      setReviewCreatedAt(null);
+    }
+  }, [open, initialStarRatings, initialCreatedAt]);
+
   const [fetchedHeaderFirm, setFetchedHeaderFirm] = useState<{
     logo: string | null;
     website: string | null;
@@ -734,21 +861,61 @@ export function ReviewSubmissionModal({
         query = pid ? query.eq("vc_person_id", pid) : query.is("vc_person_id", null);
 
         const { data, error } = await query;
-        if (cancelled || error) return;
 
-        const row = data?.[0] as {
+        type HydratedRow = {
           id?: string;
           anonymous?: boolean;
           comment?: string | null;
+          created_at?: string | null;
           star_ratings?: {
             answers?: Record<string, string | string[]>;
             tags?: string[];
             remember_who?: string;
             remember_who_vc_person_ids?: unknown;
           } | null;
-        } | undefined;
+        };
 
-        if (!row?.id) {
+        let row: HydratedRow | undefined;
+        let reviewIdForVcRatings: string | null = null;
+
+        if (!error && data?.length) {
+          row = data[0] as HydratedRow;
+          reviewIdForVcRatings = typeof row?.id === "string" && row.id.trim() ? row.id.trim() : null;
+        } else if (error && isMissingVcRatingsTableError(error) && !cancelled) {
+          const personKey = pid?.trim() ?? "";
+          const { data: invRows, error: invErr } = await supabase
+            .from("investor_reviews")
+            .select("comment, star_ratings, created_at, is_anonymous")
+            .eq("founder_id", user.id)
+            .eq("firm_id", resolvedFirmId)
+            .eq("person_id", personKey)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (cancelled || invErr || !invRows?.length) return;
+          const ir = invRows[0] as {
+            comment?: string | null;
+            created_at?: string | null;
+            is_anonymous?: boolean | null;
+            star_ratings?: unknown;
+          };
+          reviewIdForVcRatings = null;
+          row = {
+            anonymous: typeof ir.is_anonymous === "boolean" ? ir.is_anonymous : true,
+            comment: ir.comment ?? null,
+            created_at: typeof ir.created_at === "string" ? ir.created_at : null,
+            star_ratings:
+              ir.star_ratings && typeof ir.star_ratings === "object" && !Array.isArray(ir.star_ratings)
+                ? (ir.star_ratings as HydratedRow["star_ratings"])
+                : null,
+          };
+        } else if (cancelled || error) {
+          return;
+        } else {
+          if (!cancelled) setReviewRecordId(null);
+          return;
+        }
+
+        if (!row) {
           if (!cancelled) setReviewRecordId(null);
           return;
         }
@@ -766,7 +933,7 @@ export function ReviewSubmissionModal({
           : sanitizeHydratedUnlinkedAnswers(loadedAnswers);
 
         if (!cancelled) {
-          setReviewRecordId(row.id);
+          setReviewRecordId(reviewIdForVcRatings);
           setAnswers(answersToApply);
           setSelectedTags(Array.isArray(sr?.tags) ? sr.tags.filter((t) => typeof t === "string") : []);
           setRememberWho(typeof sr?.remember_who === "string" ? sr.remember_who : "");
@@ -776,6 +943,8 @@ export function ReviewSubmissionModal({
             : [];
           setRememberWhoPersonIds(ids);
           setAnonymous(typeof row.anonymous === "boolean" ? row.anonymous : true);
+          setReviewCreatedAt(typeof row.created_at === "string" ? row.created_at : null);
+          setShowSummary(true);
         }
       } catch {
         if (!cancelled) setReviewRecordId(null);
@@ -833,7 +1002,41 @@ export function ReviewSubmissionModal({
     setAnonymous(true);
     setCurrentStep(1);
     setSubmitted(false);
+    setReviewCreatedAt(null);
+    setShowSummary(false);
   }, []);
+
+  /** Transition from summary view back to the edit form, pre-populated with saved answers. */
+  const handleEditExistingReview = useCallback(() => {
+    const sr = initialStarRatings as {
+      answers?: Record<string, string | string[]>;
+      tags?: string[];
+      remember_who?: string;
+      remember_who_vc_person_ids?: string[];
+    } | null;
+
+    if (sr?.answers && typeof sr.answers === "object") {
+      const restored = investorIsMappedToProfile
+        ? { ...sr.answers }
+        : sanitizeHydratedUnlinkedAnswers({ ...sr.answers });
+      setAnswers(restored);
+    }
+    if (Array.isArray(sr?.tags)) {
+      setSelectedTags(sr!.tags.filter((t) => typeof t === "string"));
+    }
+    if (typeof sr?.remember_who === "string") {
+      setRememberWho(sr.remember_who);
+    }
+    if (Array.isArray(sr?.remember_who_vc_person_ids)) {
+      setRememberWhoPersonIds(
+        sr!.remember_who_vc_person_ids.filter(
+          (x): x is string => typeof x === "string" && x.trim().length > 0,
+        ),
+      );
+    }
+    setCurrentStep(1);
+    setShowSummary(false);
+  }, [initialStarRatings, investorIsMappedToProfile]);
 
   useEffect(() => {
     if (!investorIsMappedToProfile && selectedTags.length === 0) {
@@ -951,11 +1154,10 @@ export function ReviewSubmissionModal({
 
     try {
       const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
-      if (!resolvedFirmId) {
-        throw new Error(
-          "We could not match this firm to the investor directory. Check the firm name, or open the investor from Search so we can link it.",
-        );
-      }
+      const effectiveFirmId =
+        resolvedFirmId ||
+        (vcFirmResolveHint?.trim() || null) ||
+        (firmName.trim() || null);
 
       const pid = personId?.trim() || null;
 
@@ -968,6 +1170,8 @@ export function ReviewSubmissionModal({
         remember_who: rememberWho.trim() || undefined,
         remember_who_vc_person_ids:
           rememberWhoPersonIds.length > 0 ? rememberWhoPersonIds : undefined,
+        // Preserve firm name for linkage even when vc_firm_id could not be resolved
+        firm_name: firmName.trim() || undefined,
       };
 
       // Derive legacy score columns for backward-compat with aggregation
@@ -985,7 +1189,7 @@ export function ReviewSubmissionModal({
 
       const payload = {
         author_user_id: user.id,
-        vc_firm_id: resolvedFirmId,
+        vc_firm_id: effectiveFirmId,
         vc_person_id: pid,
         interaction_type: interactionTypeValue,
         interaction_detail: null,
@@ -1001,22 +1205,48 @@ export function ReviewSubmissionModal({
       let savedAsRevision = false;
 
       if (isSupabaseConfigured) {
-        const edge = await submitVcRatingViaEdge({
-          supabaseClient: supabase,
-          userId: user.id,
-          reviewRecordId,
-          payload,
-        });
-        if (edge.ok) {
-          savedAsRevision = edge.savedAsRevision;
-        } else if (edge.fallbackToDirect) {
-          const result = await upsertVcRatingRow({
+        try {
+          const edge = await submitVcRatingViaEdge({
             supabaseClient: supabase,
-            reviewRecordId,
             userId: user.id,
+            reviewRecordId,
             payload,
           });
-          savedAsRevision = result.savedAsRevision;
+          if (edge.ok) {
+            savedAsRevision = edge.savedAsRevision;
+          } else if (edge.fallbackToDirect && edge.cause === "network") {
+            const result = await upsertVcRatingRow({
+              supabaseClient: supabase,
+              reviewRecordId,
+              userId: user.id,
+              payload,
+            });
+            savedAsRevision = result.savedAsRevision;
+          } else {
+            toast.error("Sign in to submit a review.");
+            return;
+          }
+        } catch (edgeErr) {
+          if (isSubmitReviewNetworkFailure(edgeErr)) {
+            try {
+              const result = await upsertVcRatingRow({
+                supabaseClient: supabase,
+                reviewRecordId,
+                userId: user.id,
+                payload,
+              });
+              savedAsRevision = result.savedAsRevision;
+            } catch (directErr) {
+              console.error(
+                "[ReviewSubmissionModal] edge unreachable and direct save failed",
+                edgeErr,
+                directErr,
+              );
+              throw directErr instanceof Error ? directErr : edgeErr;
+            }
+          } else {
+            throw edgeErr instanceof Error ? edgeErr : new Error(String(edgeErr));
+          }
         }
       } else {
         const result = await upsertVcRatingRow({
@@ -1029,6 +1259,10 @@ export function ReviewSubmissionModal({
       }
 
       setSubmitted(true);
+      // Stamp the submission time so the countdown is accurate the moment the user reopens the modal.
+      if (!reviewRecordId) setReviewCreatedAt(new Date().toISOString());
+      // Notify parent immediately so the button updates without waiting for a DB re-fetch.
+      onRatingSubmitted?.(structuredAnswers);
       toast.success(
         reviewRecordId
           ? savedAsRevision
@@ -1108,6 +1342,16 @@ export function ReviewSubmissionModal({
               {submitted ? (
                 <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
                   <SuccessState />
+                </div>
+              ) : showSummary ? (
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+                  <ReviewSummaryView
+                    answers={answers}
+                    tags={selectedTags}
+                    createdAt={reviewCreatedAt}
+                    investorIsMappedToProfile={investorIsMappedToProfile}
+                    onEdit={handleEditExistingReview}
+                  />
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1245,6 +1489,193 @@ function SuccessState() {
         Your feedback helps founders choose the right investors.
       </p>
     </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Review summary view (shown when opening modal with an existing review)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ReviewSummaryView({
+  answers,
+  tags,
+  createdAt,
+  investorIsMappedToProfile,
+  onEdit,
+}: {
+  answers: Record<string, string | string[]>;
+  tags: string[];
+  createdAt: string | null;
+  investorIsMappedToProfile: boolean;
+  onEdit: () => void;
+}) {
+  const workRating =
+    typeof answers.work_with_them_rating === "string" ? answers.work_with_them_rating : null;
+  const overallRaw =
+    typeof answers.overall_interaction === "string" ? answers.overall_interaction : null;
+  const overallN = overallRaw ? parseInt(overallRaw, 10) : NaN;
+  const takeMoneyAgain =
+    typeof answers.take_money_again === "string" ? answers.take_money_again : null;
+  const founderNote =
+    typeof answers.founder_note === "string" ? answers.founder_note.trim() : "";
+
+  const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+  const submittedAt = createdAt ? new Date(createdAt) : null;
+  const deadlineAt = submittedAt ? new Date(submittedAt.getTime() + EDIT_WINDOW_MS) : null;
+
+  const deadlineMs = deadlineAt?.getTime() ?? 0;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!deadlineMs) return;
+    const remaining = deadlineMs - Date.now();
+    if (remaining <= 0) return;
+    // Tick every second under 1 hour, otherwise every minute
+    const interval = remaining < 60 * 60 * 1000 ? 1000 : 60_000;
+    const id = setInterval(() => setNow(Date.now()), interval);
+    return () => clearInterval(id);
+  }, [deadlineMs]);
+
+  const msRemaining = deadlineAt ? Math.max(0, deadlineAt.getTime() - now) : 0;
+  const within48h = msRemaining > 0;
+
+  function formatCountdown(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remHours = hours % 24;
+      return `${days}d ${remHours}h`;
+    }
+    if (hours >= 1) return `${hours}h ${minutes}m`;
+    if (minutes >= 1) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  }
+
+  const formattedDate = submittedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(submittedAt)
+    : null;
+
+  const formattedDeadline = deadlineAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(deadlineAt)
+    : null;
+
+  const workRatingColor =
+    workRating === "Great"
+      ? "text-emerald-500 dark:text-emerald-400"
+      : workRating === "Good"
+      ? "text-lime-500 dark:text-lime-400"
+      : workRating === "Mixed"
+      ? "text-amber-500 dark:text-amber-400"
+      : workRating === "Poor"
+      ? "text-red-500 dark:text-red-400"
+      : "text-muted-foreground";
+
+  const overallColor = !isNaN(overallN)
+    ? overallN >= 9
+      ? "text-emerald-500 dark:text-emerald-400"
+      : overallN >= 7
+      ? "text-lime-500 dark:text-lime-400"
+      : overallN >= 5
+      ? "text-amber-500 dark:text-amber-400"
+      : "text-red-500 dark:text-red-400"
+    : "text-muted-foreground";
+
+  const primaryScore = investorIsMappedToProfile
+    ? workRating
+    : !isNaN(overallN)
+    ? `${overallN} / 10`
+    : null;
+
+  const primaryColor = investorIsMappedToProfile ? workRatingColor : overallColor;
+
+  const takeAgainLabel =
+    takeMoneyAgain === "Yes"
+      ? "Would work with again"
+      : takeMoneyAgain === "Maybe"
+      ? "Might work with again"
+      : takeMoneyAgain === "No"
+      ? "Would not work with again"
+      : null;
+
+  return (
+    <div className="flex flex-col gap-5 px-6 py-5">
+      {primaryScore && (
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span className={cn("text-3xl font-bold tracking-tight", primaryColor)}>
+            {primaryScore}
+          </span>
+          {takeAgainLabel && (
+            <span className="text-sm text-muted-foreground">· {takeAgainLabel}</span>
+          )}
+        </div>
+      )}
+
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {tags.slice(0, 6).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-border bg-secondary/60 px-2.5 py-0.5 text-xs text-foreground/70"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {founderNote && (
+        <blockquote className="border-l-2 border-border pl-3 text-sm text-foreground/70 leading-relaxed line-clamp-4 italic">
+          &ldquo;{founderNote}&rdquo;
+        </blockquote>
+      )}
+
+      <div className="flex flex-col gap-2 pt-2 border-t border-border/40 mt-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
+          </span>
+          {within48h ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit review
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              Editing closed
+            </span>
+          )}
+        </div>
+        {within48h && formattedDeadline && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground/70">
+              Editable until {formattedDeadline}
+            </span>
+            <span className="text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+              {formatCountdown(msRemaining)} left
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

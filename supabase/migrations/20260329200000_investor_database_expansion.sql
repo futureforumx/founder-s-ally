@@ -212,7 +212,7 @@ SELECT
   value_add_score,
   network_strength,
   industry_reputation,
-  founder_sentiment_score,
+  founder_reputation_score,
   news_sentiment_score,
   social_sentiment_score,
   community_rating,

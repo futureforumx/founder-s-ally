@@ -24,8 +24,8 @@ export const reviewWizardOptionRowCompact =
   "flex w-full max-w-full flex-nowrap gap-0.5 sm:gap-1";
 
 export const reviewWizardOptionRowBtn =
-  "min-h-[2.5rem] min-w-0 flex-1 rounded-lg border px-0.5 py-2 text-center text-[10px] font-medium leading-snug transition-all duration-150 sm:min-h-11 sm:px-1 sm:text-[11px]";
+  "min-h-[2.5rem] min-w-0 flex-1 rounded-lg border px-0.5 py-2 text-center text-[10px] font-medium leading-snug transition-colors duration-150 sm:min-h-11 sm:px-1 sm:text-[11px]";
 
 /** Denser row buttons for characterize / tags steps (fit without scrolling). */
 export const reviewWizardOptionRowBtnCompact =
-  "min-h-8 min-w-0 flex-1 rounded-lg border px-0.5 py-0.5 text-center text-[8px] font-medium leading-tight transition-all duration-150 sm:min-h-8 sm:px-0.5 sm:text-[9px] sm:leading-snug";
+  "min-h-8 min-w-0 flex-1 rounded-lg border px-0.5 py-0.5 text-center text-[8px] font-medium leading-tight transition-colors duration-150 sm:min-h-8 sm:px-0.5 sm:text-[9px] sm:leading-snug";

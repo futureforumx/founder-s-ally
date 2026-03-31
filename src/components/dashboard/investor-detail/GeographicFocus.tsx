@@ -275,7 +275,7 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
     // Fetch firms with locations and deals in parallel
     Promise.all([
       supabase
-        .from("investor_database")
+        .from("firm_records")
         .select("id, location, created_at, firm_name, website_url")
         .not("location", "is", null),
       supabase

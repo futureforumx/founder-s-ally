@@ -1,4 +1,4 @@
-import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { supabase, getSupabaseBearerForFunctions, isSupabaseConfigured } from "@/integrations/supabase/client";
 
 type InvokeOptions = NonNullable<Parameters<typeof supabase.functions.invoke>[1]>;
 
@@ -10,10 +10,13 @@ function headersToRecord(h: InvokeOptions["headers"]): Record<string, string> {
   return { ...(h as Record<string, string>) };
 }
 
+function publishableKey(): string {
+  const k = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  return typeof k === "string" ? k.trim() : "";
+}
+
 /**
- * Invoke a Supabase Edge Function with Clerk JWT explicitly attached and a generous timeout.
- * Helps avoid flaky "Failed to send a request to the Edge Function" when the gateway or relay is slow.
- * Deploy with `[functions.<name>] verify_jwt = false` when using Clerk (see supabase/config.toml).
+ * Invoke a Supabase Edge Function with headers the **gateway** accepts (see getSupabaseBearerForFunctions).
  */
 export async function invokeEdgeFunction(
   name: string,
@@ -22,10 +25,12 @@ export async function invokeEdgeFunction(
   if (!isSupabaseConfigured) {
     return supabase.functions.invoke(name, options);
   }
-  const token = await getSupabaseAccessToken();
+  const bearer = await getSupabaseBearerForFunctions();
+  const anonKey = publishableKey();
   const base = options ?? {};
   const mergedHeaders = headersToRecord(base.headers);
-  if (token) mergedHeaders.Authorization = `Bearer ${token}`;
+  if (bearer) mergedHeaders.Authorization = `Bearer ${bearer}`;
+  if (anonKey && mergedHeaders.apikey == null) mergedHeaders.apikey = anonKey;
   return supabase.functions.invoke(name, {
     ...base,
     headers: mergedHeaders,

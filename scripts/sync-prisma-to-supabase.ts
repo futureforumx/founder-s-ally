@@ -1,12 +1,12 @@
 /**
  * sync-prisma-to-supabase.ts
  *
- * Syncs vc_firms (Prisma/Postgres) → investor_database (Supabase)
- * and vc_people (Prisma) → investor_partners (Supabase).
+ * Syncs vc_firms (Prisma/Postgres) → firm_records (Supabase)
+ * and vc_people (Prisma) → firm_investors (Supabase).
  *
  * Matching strategy:
- *   - investor_database rows with prisma_firm_id set → update by ID
- *   - investor_database rows without prisma_firm_id → fuzzy match on firm_name, then link
+ *   - firm_records rows with prisma_firm_id set → update by ID
+ *   - firm_records rows without prisma_firm_id → fuzzy match on firm_name, then link
  *   - No match → insert as new row
  *
  * Usage:
@@ -86,17 +86,17 @@ async function sleep(ms: number) {
 }
 
 // ---------------------------------------------------------------------------
-// FIRMS: vc_firms (Prisma) → investor_database (Supabase)
+// FIRMS: vc_firms (Prisma) → firm_records (Supabase)
 // ---------------------------------------------------------------------------
 
 async function syncFirms() {
-  console.log("\n── Syncing vc_firms → investor_database ──");
+  console.log("\n── Syncing vc_firms → firm_records ──");
 
-  // Load all existing investor_database rows (id + prisma_firm_id + firm_name)
+  // Load all existing firm_records rows (id + prisma_firm_id + firm_name)
   const { data: existing, error: loadErr } = await supabase
-    .from("investor_database")
+    .from("firm_records")
     .select("id, prisma_firm_id, firm_name");
-  if (loadErr) throw new Error(`Failed to load investor_database: ${loadErr.message}`);
+  if (loadErr) throw new Error(`Failed to load firm_records: ${loadErr.message}`);
 
   const byPrismaId = new Map<string, string>(); // prisma_firm_id → supabase_id
   const byName = new Map<string, string>(); // normalized_name → supabase_id
@@ -180,7 +180,7 @@ async function syncFirms() {
         value_add_score: firm.value_add_score ?? null,
         network_strength: firm.network_strength ?? null,
         industry_reputation: firm.industry_reputation ?? null,
-        founder_sentiment_score: firm.founder_sentiment ?? null,
+        founder_reputation_score: firm.founder_sentiment ?? null,
         volatility_score: firm.volatility_score,
         last_verified_at: firm.last_verified_at.toISOString(),
         next_update_scheduled_at: firm.next_update_scheduled_at.toISOString(),
@@ -190,7 +190,7 @@ async function syncFirms() {
       try {
         if (existingId) {
           const { error } = await supabase
-            .from("investor_database")
+            .from("firm_records")
             .update(payload)
             .eq("id", existingId);
           if (error) throw error;
@@ -199,7 +199,7 @@ async function syncFirms() {
           updated++;
         } else {
           const { data: inserted_row, error } = await supabase
-            .from("investor_database")
+            .from("firm_records")
             .insert(payload)
             .select("id")
             .single();
@@ -229,17 +229,17 @@ async function syncFirms() {
 }
 
 // ---------------------------------------------------------------------------
-// PEOPLE: vc_people (Prisma) → investor_partners (Supabase)
+// PEOPLE: vc_people (Prisma) → firm_investors (Supabase)
 // ---------------------------------------------------------------------------
 
 async function syncPeople(byPrismaId: Map<string, string>) {
-  console.log("\n── Syncing vc_people → investor_partners ──");
+  console.log("\n── Syncing vc_people → firm_investors ──");
 
-  // Load existing investor_partners (id + prisma_person_id + firm_id + full_name)
+  // Load existing firm_investors (id + prisma_person_id + firm_id + full_name)
   const { data: existing, error: loadErr } = await supabase
-    .from("investor_partners")
+    .from("firm_investors")
     .select("id, prisma_person_id, firm_id, full_name");
-  if (loadErr) throw new Error(`Failed to load investor_partners: ${loadErr.message}`);
+  if (loadErr) throw new Error(`Failed to load firm_investors: ${loadErr.message}`);
 
   const byPersonId = new Map<string, string>(); // prisma_person_id → supabase_id
   const byFirmName = new Map<string, string>(); // `${firm_supabase_id}::${normalized_name}` → supabase_id
@@ -270,7 +270,7 @@ async function syncPeople(byPrismaId: Map<string, string>) {
       if (processed >= MAX) break;
       processed++;
 
-      // Find the corresponding Supabase investor_database row
+      // Find the corresponding Supabase firm_records row
       const supabaseFirmId = byPrismaId.get(person.firm_id);
       if (!supabaseFirmId) {
         skipped++;
@@ -330,7 +330,7 @@ async function syncPeople(byPrismaId: Map<string, string>) {
       try {
         if (existingId) {
           const { error } = await supabase
-            .from("investor_partners")
+            .from("firm_investors")
             .update(payload)
             .eq("id", existingId);
           if (error) throw error;
@@ -338,7 +338,7 @@ async function syncPeople(byPrismaId: Map<string, string>) {
           updated++;
         } else {
           const { data: newRow, error } = await supabase
-            .from("investor_partners")
+            .from("firm_investors")
             .insert(payload)
             .select("id")
             .single();
@@ -384,7 +384,7 @@ async function main() {
       if (!byPrismaId.size) {
         // Load firm map if we skipped the firms step
         const { data } = await supabase
-          .from("investor_database")
+          .from("firm_records")
           .select("id, prisma_firm_id");
         for (const row of data ?? []) {
           if (row.prisma_firm_id) byPrismaId.set(row.prisma_firm_id, row.id);

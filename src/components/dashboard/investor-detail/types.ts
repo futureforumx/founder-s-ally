@@ -24,6 +24,7 @@ export interface PartnerPerson {
   // ── Profile image ──
   profile_image_url?: string | null;
   avatar_url?: string | null;             // legacy alias → profile_image_url
+  bio?: string | null;
 
   // ── Affiliation ──
   firm_id?: string;
@@ -38,6 +39,9 @@ export interface PartnerPerson {
   linkedin_url?: string | null;
   x_url?: string | null;
   website_url?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
   contactability_status?: "OPEN" | "WARM_INTRO_ONLY" | "CLOSED" | "UNKNOWN";
   warm_intro_preferred?: boolean;
   cold_outreach_ok?: boolean;
@@ -102,7 +106,7 @@ export interface InvestorEntry {
   category: "investor";
   partners?: PartnerPerson[];
   logo_url?: string | null;
-  /** `investor_database.id` when the row came from Supabase (not an MDM domain id). */
+  /** `firm_records.id` when the row came from Supabase (not an MDM domain id). */
   investorDatabaseId?: string | null;
   websiteUrl?: string | null;
 }

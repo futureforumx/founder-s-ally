@@ -1,23 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  type NewsRawArticle as RawArticle,
+  dedupeNewsArticles,
+  fetchExternalNewsForFirm,
+} from "../_shared/investor-news-apis.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-// ── Types ──
-
-interface RawArticle {
-  title: string;
-  url: string;
-  source_name: string;
-  published_at: string;
-  content_snippet: string;
-  tags: string[];
-  og_image_url: string | null;
-}
 
 interface UpdateCard {
   type: "Fund news" | "Investment" | "Team update" | "Thesis / Insight" | "Product update" | "Press / Media" | "Other";
@@ -164,15 +157,37 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // ── 1. Resolve firm ID if only name was given ──
-    let resolvedFirmId = firmId;
-    if (!resolvedFirmId && firmName) {
+    // ── 1. Resolve firm ID + context for firm-specific news search ──
+    let resolvedFirmId: string | null =
+      firmId != null && String(firmId).trim() !== "" ? String(firmId).trim() : null;
+    let resolvedFirmName = typeof firmName === "string" ? firmName.trim() : "";
+    let resolvedWebsite: string | null = null;
+
+    if (!resolvedFirmId && resolvedFirmName) {
       const { data: firmRows } = await admin
-        .from("investor_database")
-        .select("id")
-        .ilike("firm_name", firmName.trim())
+        .from("firm_records")
+        .select("id, firm_name, website_url")
+        .ilike("firm_name", resolvedFirmName)
         .limit(1);
-      resolvedFirmId = firmRows?.[0]?.id ?? null;
+      const row = firmRows?.[0] as { id?: string; firm_name?: string; website_url?: string | null } | undefined;
+      resolvedFirmId = row?.id ?? null;
+      if (row?.firm_name) resolvedFirmName = row.firm_name;
+      if (row?.website_url) resolvedWebsite = row.website_url;
+    } else if (resolvedFirmId && !resolvedFirmName) {
+      const { data: fr } = await admin
+        .from("firm_records")
+        .select("firm_name, website_url")
+        .eq("id", resolvedFirmId)
+        .maybeSingle();
+      if (fr?.firm_name) resolvedFirmName = String(fr.firm_name);
+      if (fr?.website_url) resolvedWebsite = String(fr.website_url);
+    } else if (resolvedFirmId && resolvedFirmName) {
+      const { data: fr } = await admin
+        .from("firm_records")
+        .select("website_url")
+        .eq("id", resolvedFirmId)
+        .maybeSingle();
+      if (fr?.website_url) resolvedWebsite = String(fr.website_url);
     }
 
     // ── 2. Query signals (vc_signals) for this firm ──
@@ -206,7 +221,23 @@ serve(async (req) => {
       }
     }
 
-    // ── 3. Return empty if no signals found ──
+    // ── 3. Merge live news (NewsAPI, Mediastack, GNews, The News API — any configured secrets) ──
+    if (resolvedFirmName) {
+      const fromApis = await fetchExternalNewsForFirm({
+        firmName: resolvedFirmName,
+        websiteDomain: resolvedWebsite,
+      });
+      if (fromApis.length > 0) {
+        rawArticles = dedupeNewsArticles([...rawArticles, ...fromApis]);
+        rawArticles.sort(
+          (a, b) =>
+            new Date(b.published_at).getTime() - new Date(a.published_at).getTime(),
+        );
+        rawArticles = rawArticles.slice(0, 25);
+      }
+    }
+
+    // ── 4. Nothing to show ──
     if (rawArticles.length === 0) {
       return new Response(
         JSON.stringify({ cards: [], source: "empty" }),
@@ -214,7 +245,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 4. Enrich via AI ──
+    // ── 5. Enrich via AI ──
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -269,7 +300,7 @@ serve(async (req) => {
       cards = buildFallbackCards(rawArticles);
     }
 
-    // ── 5. Validate & sanitize cards ──
+    // ── 6. Validate & sanitize cards ──
     const validTypes = ["Fund news", "Investment", "Team update", "Thesis / Insight", "Product update", "Press / Media", "Other"];
     const validImpact = ["high", "medium", "low"];
 

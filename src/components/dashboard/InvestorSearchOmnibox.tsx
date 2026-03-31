@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, X, Loader2, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { InvestorPersonAvatar, investorPersonImageUrl } from "@/components/ui/investor-person-avatar";
+import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 export interface InvestorTypeaheadResult {
@@ -14,6 +14,7 @@ export interface InvestorTypeaheadResult {
   websiteUrl?: string | null;
   /** Partners & angels — `profile_image_url` / `avatar_url` */
   profileImageUrl?: string | null;
+  profileImageUrls?: string[];
 }
 
 interface InvestorSearchOmniboxProps {
@@ -32,7 +33,7 @@ const MAX_RESULTS_PER_GROUP = 5;
 
 type SearchSelectionLead =
   | { kind: "firm"; name: string; logoUrl: string | null; websiteUrl: string | null }
-  | { kind: "person"; name: string; profileImageUrl: string | null }
+  | { kind: "person"; name: string; profileImageUrl: string | null; profileImageUrls?: string[] }
   | null;
 
 export function InvestorSearchOmnibox({
@@ -82,7 +83,21 @@ export function InvestorSearchOmnibox({
           name: p.full_name,
           subtitle: [p.title, firm?.name].filter(Boolean).join(" at "),
           type: "person" as const,
-          profileImageUrl: investorPersonImageUrl(p.profile_image_url, p.avatar_url),
+          profileImageUrls: investorPersonImageCandidates({
+            profile_image_url: p.profile_image_url,
+            avatar_url: p.avatar_url,
+            firmWebsiteUrl: firm?.website_url ?? null,
+            title: p.title,
+            role: p.role,
+            investorType: p.investor_type,
+            email: p.email,
+            website_url: p.website_url,
+            linkedin_url: p.linkedin_url,
+            x_url: p.x_url,
+            personal_website_url: p.personal_website_url,
+            full_name: p.full_name,
+          }),
+          profileImageUrl: null,
         };
       });
 
@@ -124,6 +139,7 @@ export function InvestorSearchOmnibox({
         kind: "person",
         name: result.name,
         profileImageUrl: result.profileImageUrl ?? null,
+        profileImageUrls: result.profileImageUrls,
       });
     }
     setOpen(false);
@@ -189,7 +205,10 @@ export function InvestorSearchOmnibox({
                 className="shrink-0"
               />
             ) : (
-              <InvestorPersonAvatar imageUrl={selectionLead.profileImageUrl} />
+              <InvestorPersonAvatar
+                imageUrl={selectionLead.profileImageUrl}
+                imageUrls={selectionLead.profileImageUrls}
+              />
             )
           ) : (
             <Search className="h-5 w-5 text-muted-foreground/70" aria-hidden />
@@ -299,7 +318,11 @@ export function InvestorSearchOmnibox({
                           highlightIdx === globalIdx ? "bg-muted" : "hover:bg-muted/50"
                         }`}
                       >
-                        <InvestorPersonAvatar imageUrl={result.profileImageUrl} className="shrink-0" />
+                        <InvestorPersonAvatar
+                          imageUrl={result.profileImageUrl}
+                          imageUrls={result.profileImageUrls}
+                          className="shrink-0"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground truncate">{result.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>

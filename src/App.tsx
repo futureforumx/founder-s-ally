@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
@@ -6,16 +6,17 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { supabase } from "@/integrations/supabase/client";
-import Index from "./pages/Index.tsx";
-import Auth from "./pages/Auth.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import AdminIntelligence from "./pages/AdminIntelligence.tsx";
-import Onboarding from "./pages/Onboarding.tsx";
-import SsoCallback from "./pages/SsoCallback.tsx";
-import FirmProfile from "./pages/FirmProfile.tsx";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const Index = lazy(() => import("./pages/Index.tsx"));
+const Auth = lazy(() => import("./pages/Auth.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
+const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
+const FirmProfile = lazy(() => import("./pages/FirmProfile.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +30,14 @@ const queryClient = new QueryClient({
 });
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
+function RouteLoader() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <Loader2 className="h-6 w-6 animate-spin text-accent" />
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -90,11 +99,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (loading || !onboardingChecked) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-      </div>
-    );
+    return <RouteLoader />;
   }
   if (!user) return <Navigate to="/auth" replace />;
   if (needsOnboarding && location.pathname !== "/onboarding") {
@@ -122,6 +127,21 @@ function MixpanelPageViewTracker() {
   return null;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const { isAppAdmin, loading: adminLoading } = useAppAdmin();
+
+  if (authLoading || adminLoading) {
+    return <RouteLoader />;
+  }
+
+  if (!user || !isAppAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -131,13 +151,13 @@ const App = () => (
         <AuthProvider>
           <MixpanelPageViewTracker />
           <Routes>
-            <Route path="/auth/*" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/intelligence" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-            <Route path="/admin/intelligence" element={<ProtectedRoute><AdminIntelligence /></ProtectedRoute>} />
-            <Route path="/firms/:id" element={<ProtectedRoute><FirmProfile /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+            <Route path="/" element={<ProtectedRoute><Suspense fallback={<RouteLoader />}><Index /></Suspense></ProtectedRoute>} />
+            <Route path="/intelligence" element={<ProtectedRoute><Suspense fallback={<RouteLoader />}><Index /></Suspense></ProtectedRoute>} />
+            <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<RouteLoader />}><Onboarding /></Suspense></ProtectedRoute>} />
+            <Route path="/admin/intelligence" element={<ProtectedRoute><AdminRoute><Suspense fallback={<RouteLoader />}><AdminIntelligence /></Suspense></AdminRoute></ProtectedRoute>} />
+            <Route path="/firms/:id" element={<ProtectedRoute><Suspense fallback={<RouteLoader />}><FirmProfile /></Suspense></ProtectedRoute>} />
+            <Route path="*" element={<Suspense fallback={<RouteLoader />}><NotFound /></Suspense>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

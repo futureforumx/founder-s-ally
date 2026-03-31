@@ -7,7 +7,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { InvestorPersonAvatar, investorPersonImageUrl } from "@/components/ui/investor-person-avatar";
+import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import Fuse from "fuse.js";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import type { LiveInvestorEntry } from "@/hooks/useInvestorDirectory";
@@ -33,7 +33,7 @@ interface InvestorCommandPaletteProps {
 
 // ── Filter chip config ──
 const FILTER_CHIPS: { id: FilterChip; label: string; icon: typeof Search }[] = [
-  { id: "all", label: "All", icon: ListFilter },
+  { id: "all", label: "INVESTORS", icon: ListFilter },
   { id: "matches", label: "Matches", icon: Zap },
   { id: "sector", label: "Sector", icon: Building2 },
   { id: "stage", label: "Stage", icon: TrendingUp },
@@ -392,10 +392,20 @@ export function InvestorCommandPalette({
                         className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-zinc-100 group"
                       >
                         <InvestorPersonAvatar
-                          imageUrl={investorPersonImageUrl(
-                            person.profile_image_url,
-                            person.avatar_url,
-                          )}
+                          imageUrls={investorPersonImageCandidates({
+                            profile_image_url: person.profile_image_url,
+                            avatar_url: person.avatar_url,
+                            firmWebsiteUrl: firm?.website_url ?? null,
+                            title: person.title,
+                            role: person.role,
+                            investorType: person.investor_type,
+                            email: person.email,
+                            website_url: person.website_url,
+                            linkedin_url: person.linkedin_url,
+                            x_url: person.x_url,
+                            personal_website_url: person.personal_website_url,
+                            full_name: person.full_name,
+                          })}
                           className="shrink-0 border border-zinc-600 bg-zinc-800"
                           iconClassName="text-zinc-200"
                         />

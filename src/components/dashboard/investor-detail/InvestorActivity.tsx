@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 
 // ── Types ──
 
@@ -493,8 +493,9 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
     if (!firmName && !firmId) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("investor-updates", {
+      const { data, error } = await invokeEdgeFunction("investor-updates", {
         body: { firmId: firmId ?? null, firmName: firmName ?? null },
+        timeout: 120_000,
       });
       if (error) throw error;
       if (data?.cards && data.cards.length > 0) {

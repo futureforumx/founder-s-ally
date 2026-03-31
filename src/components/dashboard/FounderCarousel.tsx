@@ -5,9 +5,10 @@ interface FounderCarouselProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  onViewAll?: () => void;
 }
 
-export function FounderCarousel({ title, subtitle, children }: FounderCarouselProps) {
+export function FounderCarousel({ title, subtitle, children, onViewAll }: FounderCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -45,7 +46,9 @@ export function FounderCarousel({ title, subtitle, children }: FounderCarouselPr
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
         </div>
-        <button className="text-xs text-muted-foreground hover:text-accent font-medium transition-colors inline-flex items-center gap-1">
+        <button 
+          onClick={onViewAll}
+          className="text-xs text-muted-foreground hover:text-accent font-medium transition-colors inline-flex items-center gap-1">
           View All <ChevronRight className="h-3 w-3" />
         </button>
       </div>

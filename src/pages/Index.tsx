@@ -28,6 +28,7 @@ import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
+import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
 
 type ViewType =
   | "company"
@@ -41,8 +42,10 @@ type ViewType =
   | "market-market"
   | "market-tech"
   | "market-network"
+  | "market-data-room"
   | "investors"
   | "investor-search"
+  | "network"
   | "directory"
   | "connections"
   | "messages"
@@ -52,7 +55,34 @@ type ViewType =
   | "groups"
   | "data-room"
   | "resources"
+  | "workspace"
   | "settings";
+
+const INTEL_VIEWS: ViewType[] = [
+  "market-intelligence",
+  "market-investors",
+  "market-market",
+  "market-tech",
+  "market-network",
+  "market-data-room",
+];
+
+function getStoredCompanyLogoUrl(): string | null {
+  try {
+    const explicitLogoUrl = localStorage.getItem("company-logo-url");
+    if (explicitLogoUrl) return explicitLogoUrl;
+
+    const savedProfile = localStorage.getItem("company-profile");
+    if (!savedProfile) return null;
+
+    const parsedProfile = JSON.parse(savedProfile);
+    return typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
+      ? parsedProfile.logo_url.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
 function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: AnalysisResult): Record<string, unknown> {
@@ -129,22 +159,43 @@ const Index = () => {
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
+  const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
 
   useEffect(() => {
-    if (location.pathname === "/intelligence") {
-      setActiveView("market-intelligence");
-    }
+    if (location.pathname !== "/intelligence") return;
+    setActiveView((prev) =>
+      INTEL_VIEWS.includes(prev) ? prev : "market-intelligence",
+    );
   }, [location.pathname]);
 
   useEffect(() => {
     const v = searchParams.get("view");
-    if (v === "intelligence" || v === "market-intelligence") {
-      setActiveView("market-intelligence");
+    if (
+      v === "market-investors" ||
+      v === "market-market" ||
+      v === "market-tech" ||
+      v === "market-network" ||
+      v === "market-data-room" ||
+      v === "market-intelligence" ||
+      v === "intelligence"
+    ) {
+      setActiveView(v === "intelligence" ? "market-intelligence" : (v as ViewType));
     }
     if (v === "settings") {
       setActiveView("settings");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<VcReviewOpenDetail>).detail;
+      if (!d?.vcFirmId?.trim() || !d?.firmName?.trim() || !d?.ratingId?.trim()) return;
+      setVcReviewBootstrap(d);
+      setActiveView("investors");
+    };
+    window.addEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
+    return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
+  }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
@@ -153,15 +204,11 @@ const Index = () => {
     return null;
   });
 
-  const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => {
-    try { return localStorage.getItem("company-logo-url"); } catch { return null; }
-  });
+  const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => getStoredCompanyLogoUrl());
   useEffect(() => {
     const sync = () => {
-      try {
-        const url = localStorage.getItem("company-logo-url");
-        setNavLogoUrl(prev => url !== prev ? url : prev);
-      } catch {}
+      const url = getStoredCompanyLogoUrl();
+      setNavLogoUrl(prev => url !== prev ? url : prev);
     };
     window.addEventListener("storage", sync);
     window.addEventListener("company-logo-changed", sync);
@@ -371,7 +418,7 @@ const Index = () => {
           } catch { return null; }
         })();
         if (domain) {
-          const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+          const logoUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -531,7 +578,16 @@ const Index = () => {
               }
             }} />
           ) : activeView === "investors" ? (
-            <InvestorMatch companyData={companyData} analysisResult={analysisResult} sectorClassification={sectorClassification} isLocked={!isProfileVerified} externalBackers={capTable.backers} externalTotalRaised={capTable.totalRaised} />
+            <InvestorMatch
+              companyData={companyData}
+              analysisResult={analysisResult}
+              sectorClassification={sectorClassification}
+              isLocked={!isProfileVerified}
+              externalBackers={capTable.backers}
+              externalTotalRaised={capTable.totalRaised}
+              vcReviewBootstrap={vcReviewBootstrap}
+              onVcReviewBootstrapConsumed={() => setVcReviewBootstrap(null)}
+            />
           ) : activeView === "sector" ? (
             <div className="space-y-6">
               <div>
@@ -544,6 +600,12 @@ const Index = () => {
                 onNavigateBenchmarks={() => setActiveView("benchmarks")}
                 onNavigateProfile={() => setActiveView("company")}
               />
+            </div>
+          ) : activeView === "network" ? (
+            <div className="flex min-h-[50vh] items-center justify-center px-6">
+              <p className="text-center text-sm text-muted-foreground">
+                First NETWORK view — swap this panel when you wire the hub.
+              </p>
             </div>
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView
@@ -566,16 +628,20 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
+          ) : activeView === "market-data-room" ? (
+            <DeckAuditView />
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "resources" ? (
             <HelpCenter />
+          ) : activeView === "workspace" ? (
+            <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
           ) : activeView === "settings" ? (
             <SettingsPage />
           ) : activeView === "market-intelligence" ? (
             <IntelligencePage variant="all" />
           ) : activeView === "market-investors" ? (
-            <IntelligencePage variant="investors" />
+            <div className="h-full" />
           ) : activeView === "market-market" ? (
             <IntelligencePage variant="market" />
           ) : activeView === "market-tech" ? (

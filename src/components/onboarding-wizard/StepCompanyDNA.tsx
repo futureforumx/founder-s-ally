@@ -20,7 +20,7 @@ import type { OnboardingState } from "./types";
 interface StepCompanyDNAProps {
   state: OnboardingState;
   update: (p: Partial<OnboardingState>) => void;
-  onNext: (companyName?: string) => void;
+  onNext: (companyName?: string, existingCompanyId?: string) => void;
   onBack: () => void;
 }
 
@@ -115,9 +115,10 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     setSearchQuery(val);
     update({ companyName: val });
 
-    // Clear selected company when typing
+    // Clear selected company (and its stored id) when typing
     if (selectedCompany) {
       setSelectedCompany(null);
+      update({ existingCompanyId: "" });
     }
 
     // Debounce search
@@ -133,6 +134,8 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     update({
       companyName: company.name,
       websiteUrl: pulledWebsite,
+      // Store the real DB id when joining an existing company; clear for new ones
+      existingCompanyId: company.inDatabase ? company.id : "",
     });
 
     // Immediately save to localStorage so it's available for OnboardingStepper
@@ -154,7 +157,7 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     setSelectedCompany(null);
     setSearchQuery("");
     setIsWebsiteSuggested(false);
-    update({ companyName: "", websiteUrl: "" });
+    update({ companyName: "", websiteUrl: "", existingCompanyId: "" });
     // Clear the seed when company is cleared
     try {
       localStorage.removeItem("pending-company-seed");
@@ -172,28 +175,24 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     if (isJoinMode) {
       setShowJoinModal(true);
     } else {
-      // Pass name directly so handleFinish gets it even before React state settles
-      onNext(nameToCommit || state.companyName);
+      // Pass name directly so handleFinish gets it even before React state settles.
+      // Clear existingCompanyId — this is a brand-new company.
+      onNext(nameToCommit || state.companyName, "");
     }
   };
 
   const handleNewCompanyConfirm = () => {
     setShowNewCompanyModal(false);
-    onNext(selectedCompany?.name || searchQuery.trim() || state.companyName);
+    onNext(selectedCompany?.name || searchQuery.trim() || state.companyName, "");
   };
 
   const handleJoinConfirm = async () => {
     const companyName = selectedCompany?.name || searchQuery.trim() || state.companyName;
-    // If valid approval code was entered, auto-approve by adding as member
-    if (codeStatus === "valid" && selectedCompany) {
-      // The code was already validated — proceed directly
-      setShowJoinModal(false);
-      onNext(companyName);
-      return;
-    }
-    // Otherwise proceed as a pending request
+    // Pass the existing company's real DB id so handleFinish links the user to it
+    // instead of creating a new company_analyses row with the same name.
+    const existingId = selectedCompany?.inDatabase ? selectedCompany.id : "";
     setShowJoinModal(false);
-    onNext(companyName);
+    onNext(companyName, existingId);
   };
 
   const validateApprovalCode = useCallback(async (code: string) => {
@@ -406,7 +405,11 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
 
       <div className="flex justify-between pt-2">
         <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
-        <Button size="sm" onClick={handleContinue} disabled={!state.companyName.trim()}>
+        <Button
+          size="sm"
+          onClick={handleContinue}
+          disabled={!(searchQuery.trim() || state.companyName.trim())}
+        >
           {isJoinMode ? (
             <><UserPlus className="h-3.5 w-3.5 mr-1" /> Join Company</>
           ) : (
