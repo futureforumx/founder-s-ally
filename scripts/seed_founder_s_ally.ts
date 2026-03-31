@@ -163,12 +163,19 @@ function normalizeLinkedIn(raw: string | null): string | null {
 }
 
 function mapFirmTypeFromLabel(label: string | null): FirmType {
-  if (!label) return "VC";
+  if (!label) return "INSTITUTIONAL";
   const l = label.toLowerCase();
+  if (l.includes("venture studio")) return "VENTURE_STUDIO";
+  if (l.includes("solo gp") || /\bsolo\b/.test(l)) return "SOLO_GP";
+  if (l.includes("micro vc") || l.includes("micro-vc")) return "MICRO_VC";
+  if (l.includes("institutional")) return "INSTITUTIONAL";
+  if (l.includes("public") || l.includes("listed")) return "PUBLIC";
   if (l.includes("accelerator")) return "ACCELERATOR";
   if (l.includes("angel")) return "ANGEL_NETWORK";
   if (l.includes("family office")) return "FAMILY_OFFICE";
   if (l.includes("corporate") || l.includes("cvc")) return "CVC";
+  if (l.includes("micro fund")) return "MICRO_FUND";
+  if (l.includes("private equity") || /\bpe\b/.test(l)) return "PE";
   return "VC";
 }
 

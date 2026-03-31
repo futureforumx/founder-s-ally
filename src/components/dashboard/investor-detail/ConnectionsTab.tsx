@@ -23,6 +23,7 @@ interface ConnectionsTabProps {
   investorId?: string | null;
   isAdmin?: boolean;
   location?: string | null;
+  email?: string | null;
 }
 
 const WARM_PATHS = [
@@ -31,7 +32,7 @@ const WARM_PATHS = [
   { name: "Marcus Chen", company: "BuildStack", badge: "1st Degree", context: "Co-led their Pre-Seed in Mar 2024.", avatar: "MC" },
 ];
 
-export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmin, location }: ConnectionsTabProps) {
+export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmin, location, email }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,9 +81,21 @@ export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmi
       className="space-y-5"
     >
       {/* Contact Details */}
-      {(investorId || location) ? (
+      {(investorId || email || location) ? (
         <div className="rounded-2xl border border-border bg-card px-5 py-4 space-y-3">
-          {investorId && (
+          {email ? (
+            <div className="flex items-center gap-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
+                <Mail className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <a
+                href={`mailto:${email}`}
+                className="text-sm font-medium text-foreground hover:text-accent transition-colors"
+              >
+                {email}
+              </a>
+            </div>
+          ) : investorId ? (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <Mail className="w-3.5 h-3.5 text-accent" />
@@ -94,7 +107,7 @@ export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmi
                 autoReveal
               />
             </div>
-          )}
+          ) : null}
           {location && (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">

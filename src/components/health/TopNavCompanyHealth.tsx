@@ -79,7 +79,7 @@ function Sparkline({ values, className }: { values: number[]; className?: string
 }
 
 function viewContextNote(view: TopNavView) {
-  if (["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(view)) {
+  if (["market-intelligence", "market-investors", "market-market", "market-tech", "market-network", "market-data-room"].includes(view)) {
     return "Markets context: relative position and competitor pressure are folded into this score.";
   }
   if (["investors", "investor-search", "directory", "connections", "network"].includes(view)) {
@@ -439,8 +439,8 @@ export function TopNavCompanyHealth({
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
           <div className="flex h-full flex-col bg-background">
             <div className="border-b border-border/60 px-5 pt-1 pb-1">
-              <div className="flex items-start justify-between gap-2 pr-8">
-                <div>
+              <div className="flex items-center justify-between gap-2 pr-8">
+                <div className="space-y-3">
                   <p className="m-0 inline-flex items-center gap-1.5 text-[10px] font-mono uppercase leading-none tracking-wide text-success/80">
                     <span
                       className="h-2 w-2 rounded-full bg-success animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
@@ -448,7 +448,7 @@ export function TopNavCompanyHealth({
                     />
                     Always On Intelligence
                   </p>
-                  <div className="mt-0 flex items-center gap-4">
+                  <div className="flex items-center gap-4">
                     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
                       {logoUrl && !logoImgError ? (
                         <img
@@ -477,7 +477,7 @@ export function TopNavCompanyHealth({
                   <div
                     className={cn(
                       "relative col-span-2 overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem] sm:col-span-1 sm:row-span-2",
-                      "flex flex-col justify-between",
+                      "flex flex-col",
                       derived.score >= 70
                         ? "bg-emerald-500/[0.03]"
                         : derived.score >= 40
@@ -486,21 +486,25 @@ export function TopNavCompanyHealth({
                     )}
                   >
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
-                    <div className="mt-2 flex items-end justify-between gap-1.5">
-                      <p className={cn("text-[1.75rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          derived.trendPct > 0
-                            ? "bg-emerald-500/10 text-emerald-700/85"
-                            : derived.trendPct < 0
-                              ? "bg-rose-500/10 text-rose-700/85"
-                              : "bg-muted/70 text-muted-foreground",
-                        )}
-                      >
-                        {derived.trendPct > 0 ? "+" : ""}
-                        {derived.trendPct}%
-                      </span>
+                    <div className="relative mt-2 flex-1">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <p className={cn("align-middle text-[1.9rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-sm px-1 py-px text-left text-[9px] font-medium leading-none tabular-nums",
+                            derived.trendPct > 0
+                              ? "bg-emerald-500/10 text-emerald-700/85"
+                              : derived.trendPct < 0
+                                ? "bg-rose-500/10 text-rose-700/85"
+                                : "bg-muted/70 text-muted-foreground",
+                          )}
+                        >
+                          {derived.trendPct > 0 ? "+" : ""}
+                          {derived.trendPct}%
+                        </span>
+                      </div>
                     </div>
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
                       <span

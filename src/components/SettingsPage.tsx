@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClerk } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
 import { parseOverallTenFromStarRatings, parseWorkWithThemFromStarRatings } from "@/lib/reviewRateButtonDisplay";
 import { VEKTA_OPEN_VC_REVIEW_EVENT } from "@/lib/vcReviewNavigation";
 import { Button } from "@/components/ui/button";
@@ -1606,86 +1607,174 @@ function ActivityTab() {
       const legacyRows: ActivityReviewRow[] = [];
       const vcRows: ActivityReviewRow[] = [];
 
-      const { data: legacyData, error: legacyErr } = await supabase
-        .from("investor_reviews")
-        .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
-        .eq("founder_id", user!.id)
-        .order("created_at", { ascending: false });
+      // Try edge function first (bypasses Supabase JWT auth requirements)
+      let edgeFetched = false;
+      if (isSupabaseConfigured) {
+        try {
+          const token = await getEdgeFunctionAuthToken();
+          const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim().replace(/\/$/, "") ?? "";
+          if (baseUrl && token) {
+            const res = await fetch(`${baseUrl}/functions/v1/get-my-reviews`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+                apikey: (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ?? "",
+              },
+              body: JSON.stringify({ userId: user!.id }),
+            });
+            if (res.ok) {
+              const json = await res.json() as {
+                vcRatings: Array<{ id: string; vc_firm_id: string | null; vc_person_id: string | null; interaction_type: string | null; comment: string | null; created_at: string; star_ratings: unknown; is_draft: boolean }>;
+                legacyReviews: Array<{ id: string; nps_score: number; interaction_type: string; comment: string | null; created_at: string; did_respond: boolean; firm_id: string; star_ratings: unknown }>;
+              };
+              if (cancelled) return;
+              edgeFetched = true;
 
-      if (!cancelled && !legacyErr && legacyData && legacyData.length > 0) {
-        const firmIds = [...new Set(legacyData.map((r) => r.firm_id))];
-        const { data: firms } = await supabase
-          .from("firm_records")
-          .select("id, firm_name, logo_url")
-          .in("id", firmIds);
-        const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
-        for (const r of legacyData) {
-          const f = firmMap[r.firm_id] || { firm_name: "Unknown Firm", logo_url: null as string | null };
-          legacyRows.push({
-            kind: "legacy",
-            id: `legacy-${r.id}`,
-            created_at: r.created_at,
-            firmName: f.firm_name,
-            logo_url: f.logo_url ?? null,
-            nps_score: r.nps_score,
-            interaction_type: r.interaction_type,
-            comment: r.comment,
-            firm_id: r.firm_id,
-          });
+              // Process vc_ratings from edge function
+              const ratings = json.vcRatings ?? [];
+              if (ratings.length > 0) {
+                const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
+                const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+                let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
+                if (firmIds.length > 0) {
+                  const vfRes = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+                  vfData = (vfRes.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
+                }
+                const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
+                for (const r of ratings) {
+                  const fid = r.vc_firm_id;
+                  const vf = fid ? vfMap[fid] : null;
+                  const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+                  const ten = parseOverallTenFromStarRatings(r.star_ratings);
+                  const work = parseWorkWithThemFromStarRatings(r.star_ratings);
+                  const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
+                  vcRows.push({
+                    kind: "vc_directory",
+                    id: `vc-${r.id}`,
+                    ratingId: r.id,
+                    created_at: r.created_at,
+                    firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
+                    logo_url: vf?.logo_url ?? null,
+                    interaction_type: r.interaction_type || "review",
+                    comment: r.comment,
+                    scoreLabel,
+                    scoreTen: ten,
+                    vcFirmId: fid || "",
+                    vcPersonId: r.vc_person_id,
+                    investorDatabaseId: null,
+                  });
+                }
+              }
+
+              // Process legacy investor_reviews from edge function
+              const legacyData = json.legacyReviews ?? [];
+              if (legacyData.length > 0) {
+                for (const r of legacyData) {
+                  const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+                  legacyRows.push({
+                    kind: "legacy",
+                    id: `legacy-${r.id}`,
+                    created_at: r.created_at,
+                    firmName: payloadFirmName ?? r.firm_id ?? "Unknown Firm",
+                    logo_url: null,
+                    nps_score: r.nps_score,
+                    interaction_type: r.interaction_type,
+                    comment: r.comment,
+                    firm_id: r.firm_id,
+                  });
+                }
+              }
+            }
+          }
+        } catch {
+          /* fall through to direct queries */
         }
       }
 
-      if (isSupabaseConfigured) {
-        const { data: ratings, error: vcErr } = await supabase
-          .from("vc_ratings")
-          .select("id, vc_firm_id, vc_person_id, interaction_type, comment, created_at, star_ratings, is_draft")
-          .eq("author_user_id", user!.id)
-          .eq("is_draft", false)
-          .order("created_at", { ascending: false })
-          .limit(100);
+      // Fallback: direct PostgREST queries (works when Supabase third-party auth is configured)
+      if (!edgeFetched) {
+        const { data: legacyData, error: legacyErr } = await supabase
+          .from("investor_reviews")
+          .select("id, nps_score, interaction_type, comment, created_at, did_respond, firm_id")
+          .eq("founder_id", user!.id)
+          .order("created_at", { ascending: false });
 
-        if (!cancelled && !vcErr && ratings?.length) {
-          const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
-          const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
-          let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
-          if (firmIds.length > 0) {
-            const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
-            vfData = (res.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
-          }
-          const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
-
-          const prismaMap: Record<string, string> = {};
-          if (firmIds.length > 0) {
-            const { data: invMatch } = await supabase.from("firm_records").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
-            for (const row of invMatch || []) {
-              const pid = (row as { prisma_firm_id?: string; id?: string }).prisma_firm_id;
-              const iid = (row as { id?: string }).id;
-              if (pid && iid) prismaMap[pid] = iid;
-            }
-          }
-
-          for (const r of ratings) {
-            const fid = r.vc_firm_id;
-            const vf = fid ? vfMap[fid] : null;
-            const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
-            const ten = parseOverallTenFromStarRatings(r.star_ratings);
-            const work = parseWorkWithThemFromStarRatings(r.star_ratings);
-            const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
-            vcRows.push({
-              kind: "vc_directory",
-              id: `vc-${r.id}`,
-              ratingId: r.id,
+        if (!cancelled && !legacyErr && legacyData && legacyData.length > 0) {
+          const firmIds = [...new Set(legacyData.map((r) => r.firm_id))];
+          const { data: firms } = await supabase
+            .from("firm_records")
+            .select("id, firm_name, logo_url")
+            .in("id", firmIds);
+          const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
+          for (const r of legacyData) {
+            const f = firmMap[r.firm_id] || { firm_name: "Unknown Firm", logo_url: null as string | null };
+            legacyRows.push({
+              kind: "legacy",
+              id: `legacy-${r.id}`,
               created_at: r.created_at,
-              firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
-              logo_url: vf?.logo_url ?? null,
-              interaction_type: r.interaction_type || "review",
+              firmName: f.firm_name,
+              logo_url: f.logo_url ?? null,
+              nps_score: r.nps_score,
+              interaction_type: r.interaction_type,
               comment: r.comment,
-              scoreLabel,
-              scoreTen: ten,
-              vcFirmId: fid || "",
-              vcPersonId: r.vc_person_id,
-              investorDatabaseId: fid ? prismaMap[fid] ?? null : null,
+              firm_id: r.firm_id,
             });
+          }
+        }
+
+        if (isSupabaseConfigured) {
+          const { data: ratings, error: vcErr } = await supabase
+            .from("vc_ratings")
+            .select("id, vc_firm_id, vc_person_id, interaction_type, comment, created_at, star_ratings, is_draft")
+            .eq("author_user_id", user!.id)
+            .eq("is_draft", false)
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          if (!cancelled && !vcErr && ratings?.length) {
+            const firmIds = [...new Set(ratings.map((row) => row.vc_firm_id).filter(Boolean))] as string[];
+            const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
+            let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
+            if (firmIds.length > 0) {
+              const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+              vfData = (res.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
+            }
+            const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
+
+            const prismaMap: Record<string, string> = {};
+            if (firmIds.length > 0) {
+              const { data: invMatch } = await supabase.from("firm_records").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
+              for (const row of invMatch || []) {
+                const pid = (row as { prisma_firm_id?: string; id?: string }).prisma_firm_id;
+                const iid = (row as { id?: string }).id;
+                if (pid && iid) prismaMap[pid] = iid;
+              }
+            }
+
+            for (const r of ratings) {
+              const fid = r.vc_firm_id;
+              const vf = fid ? vfMap[fid] : null;
+              const payloadFirmName = extractFirmNameFromStarRatings(r.star_ratings);
+              const ten = parseOverallTenFromStarRatings(r.star_ratings);
+              const work = parseWorkWithThemFromStarRatings(r.star_ratings);
+              const scoreLabel = ten != null ? `Score ${ten}/10` : work ? `Work with: ${work}` : "Review";
+              vcRows.push({
+                kind: "vc_directory",
+                id: `vc-${r.id}`,
+                ratingId: r.id,
+                created_at: r.created_at,
+                firmName: vf?.firm_name ?? payloadFirmName ?? "Investor",
+                logo_url: vf?.logo_url ?? null,
+                interaction_type: r.interaction_type || "review",
+                comment: r.comment,
+                scoreLabel,
+                scoreTen: ten,
+                vcFirmId: fid || "",
+                vcPersonId: r.vc_person_id,
+                investorDatabaseId: fid ? prismaMap[fid] ?? null : null,
+              });
+            }
           }
         }
       }

@@ -1,13 +1,16 @@
 -- VC directory tables (Prisma / vc_*): RLS for Clerk-authenticated app users.
 -- Read-only for signed-in users; soft-deleted rows hidden. Service role bypasses RLS.
 
-ALTER TABLE public.vc_firms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_funds ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_people ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_investments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_source_links ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY;
+-- Enable RLS only for tables that exist (some may not be created in all environments)
+DO $$ BEGIN
+  IF to_regclass('public.vc_firms') IS NOT NULL THEN ALTER TABLE public.vc_firms ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_funds') IS NOT NULL THEN ALTER TABLE public.vc_funds ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_people') IS NOT NULL THEN ALTER TABLE public.vc_people ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_investments') IS NOT NULL THEN ALTER TABLE public.vc_investments ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_source_links') IS NOT NULL THEN ALTER TABLE public.vc_source_links ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_signals') IS NOT NULL THEN ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY; END IF;
+  IF to_regclass('public.vc_score_snapshots') IS NOT NULL THEN ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY; END IF;
+END $$;
 
 DROP POLICY IF EXISTS "Authenticated read active vc_firms" ON public.vc_firms;
 DROP POLICY IF EXISTS "Authenticated read active vc_funds" ON public.vc_funds;

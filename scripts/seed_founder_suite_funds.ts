@@ -57,9 +57,17 @@ function slugify(s: string): string {
 
 function mapFirmType(raw: string): FirmType {
   const t = raw.trim().toUpperCase();
+  if (t.includes("VENTURE STUDIO")) return "VENTURE_STUDIO";
+  if (t.includes("SOLO GP") || /\bSOLO\b/.test(t)) return "SOLO_GP";
+  if (t.includes("MICRO VC") || t.includes("MICRO-VC")) return "MICRO_VC";
+  if (t.includes("INSTITUTIONAL")) return "INSTITUTIONAL";
+  if (t.includes("PUBLIC") || t.includes("LISTED")) return "PUBLIC";
   if (t === "VC") return "VC";
   if (t.includes("CVC")) return "CVC";
   if (t.includes("ACCELERATOR")) return "ACCELERATOR";
+  if (t.includes("FAMILY OFFICE")) return "FAMILY_OFFICE";
+  if (t.includes("ANGEL")) return "ANGEL_NETWORK";
+  if (t.includes("MICRO FUND")) return "MICRO_FUND";
   // e.g. VC/PE, VC/Fund of Funds — not a single Prisma bucket
   if (/\bVC\b.*\bPE\b|\bPE\b.*\bVC\b|FUND OF FUNDS/i.test(t)) return "OTHER";
   if (t.includes("PE")) return "PE";

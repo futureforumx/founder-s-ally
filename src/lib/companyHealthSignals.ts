@@ -13,6 +13,7 @@ export type TopNavView =
   | "market-market"
   | "market-tech"
   | "market-network"
+  | "market-data-room"
   | "investors"
   | "investor-search"
   | "network"

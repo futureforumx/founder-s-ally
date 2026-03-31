@@ -132,10 +132,15 @@ for (const host of ["api.apollo.io", "api.clay.com", "api.explorium.ai"]) {
   SKIP_PROVIDERS.add(host);
 }
 
-// Tracks providers that have hit quota mid-run — skipped automatically thereafter
+// Tracks providers that have permanently exhausted billing/quota — skipped for entire run
 const QUOTA_EXHAUSTED = new Set<string>();
 // Pre-seed from SKIP_PROVIDERS so the first call is never wasted
 for (const host of SKIP_PROVIDERS) QUOTA_EXHAUSTED.add(host);
+
+// Time-based cooldown for rate-limited providers (429 = temporary, not permanent)
+// Maps hostname → timestamp when it may be retried again
+const RATE_LIMIT_COOLDOWN = new Map<string, number>();
+const RATE_LIMIT_COOLDOWN_MS = 90_000; // 90s cooldown before retrying a 429-limited provider
 
 // ---------------------------------------------------------------------------
 // Supabase REST helpers
@@ -232,16 +237,20 @@ function domainFromUrl(raw: string | null | undefined): string | null {
   }
 }
 
-async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T | null> {
-  let apiHost = "";
-  try {
-    apiHost = new URL(url).hostname;
-  } catch {
-    apiHost = url.slice(0, 40);
+async function jsonFetch<T>(url: string, options: RequestInit = {}, trackingHost?: string): Promise<T | null> {
+  let apiHost = trackingHost || "";
+  if (!apiHost) {
+    try {
+      apiHost = new URL(url).hostname;
+    } catch {
+      apiHost = url.slice(0, 40);
+    }
   }
 
-  // Skip if this provider already hit quota
+  // Skip if this provider already hit quota or is in cooldown
   if (QUOTA_EXHAUSTED.has(apiHost)) return null;
+  const coolUntil = RATE_LIMIT_COOLDOWN.get(apiHost);
+  if (coolUntil && Date.now() < coolUntil) return null;
 
   try {
     const res = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) });
@@ -249,14 +258,15 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T |
       const body = await res.text().catch(() => "");
       const msg = body.slice(0, 200).replace(/<[^>]+>/g, "");
 
-      // ── Permanent exhaustion: billing / credits gone ──
-      // 402 = payment required, 422 with credit/billing language = credits exhausted
+      // ── Permanent exhaustion: billing / credits / quota gone ──
+      // 402 = payment required, 422/401 with credit/billing/quota language = exhausted
       const isBillingError =
         res.status === 402 ||
-        (res.status === 422 && /credit|insufficient|billing|upgrade|plan/i.test(msg));
+        (res.status === 422 && /credit|insufficient|billing|upgrade|plan/i.test(msg)) ||
+        (res.status === 401 && /quota|exceeded|billing|plan|credit/i.test(msg));
 
       if (isBillingError) {
-        console.warn(`    ⊘ ${apiHost} → credits exhausted (HTTP ${res.status}) — disabled for this run`);
+        console.warn(`    ⊘ ${apiHost} → credits/quota exhausted (HTTP ${res.status}) — disabled for this run`);
         QUOTA_EXHAUSTED.add(apiHost);
         return null;
       }
@@ -268,12 +278,13 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T |
         return null;
       }
 
-      // ── Temporary rate limit (429): pause briefly, keep provider alive ──
+      // ── Temporary rate limit (429): put in cooldown, skip for now, auto-retry next firm ──
       if (res.status === 429) {
-        const retryAfter = parseInt(res.headers.get("retry-after") || "5", 10);
-        const wait = Math.min(retryAfter, 15) * 1000;
-        console.warn(`    ⚠ ${apiHost} → rate limited — waiting ${wait / 1000}s`);
-        await new Promise((r) => setTimeout(r, wait));
+        const retryAfterSec = parseInt(res.headers.get("retry-after") || "0", 10);
+        // Honour retry-after if given, otherwise use default cooldown
+        const coolMs = retryAfterSec > 0 ? retryAfterSec * 1000 : RATE_LIMIT_COOLDOWN_MS;
+        RATE_LIMIT_COOLDOWN.set(apiHost, Date.now() + coolMs);
+        console.warn(`    ⚠ ${apiHost} → rate limited — cooling down for ${Math.round(coolMs / 1000)}s`);
         return null;
       }
 
@@ -288,7 +299,10 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T |
 }
 
 function isAvailable(host: string): boolean {
-  return !QUOTA_EXHAUSTED.has(host) && !SKIP_PROVIDERS.has(host);
+  if (QUOTA_EXHAUSTED.has(host) || SKIP_PROVIDERS.has(host)) return false;
+  const coolUntil = RATE_LIMIT_COOLDOWN.get(host);
+  if (coolUntil && Date.now() < coolUntil) return false;
+  return true;
 }
 
 // Valid enum values (must match Supabase schema exactly)
@@ -490,7 +504,10 @@ async function extractFirmDataWithAI(
   // Core identity
   if (!firm.description) emptyFields.push("description (2-3 sentence summary of what this firm invests in)");
   if (!firm.elevator_pitch) emptyFields.push("elevator_pitch (1 concise sentence)");
-  if (!firm.firm_type) emptyFields.push(`firm_type (one of: VC, CVC, Angel Network, Micro Fund, Family Office, PE, Accelerator)`);
+  if (!firm.firm_type)
+    emptyFields.push(
+      `firm_type (e.g. Institutional, Corporate/CVC, Solo GP, Micro VC, Family office, Public, Accelerator, Venture studio — plus legacy: VC, Angel network, Micro fund, PE, Other)`,
+    );
   if (!firm.entity_type) emptyFields.push(`entity_type (one of: ${VALID_ENTITY_TYPE.join(", ")})`);
 
   // Contact / web presence
@@ -611,24 +628,29 @@ STRICT RULES:
 - For stage_focus: only use exact values from the allowed list
 
 Sources:
-${combined.slice(0, 20_000)}`;
+${combined.slice(0, 12_000)}`;
 
-  // Try Groq → DeepSeek → Gemini (skip any that hit quota)
-  if (GROQ_KEY && isAvailable("api.groq.com")) {
+  // Helper: call Groq with a specific model tracked under its own virtual host key
+  async function tryGroq(model: string, trackHost: string): Promise<EnrichPatch | null> {
+    if (!GROQ_KEY || !isAvailable(trackHost)) return null;
     try {
-      const data = await jsonFetch<any>("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GROQ_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "You extract structured data about VC firms. Return only valid JSON with the requested fields. Use null for unknown values." },
-            { role: "user", content: prompt },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.1,
-        }),
-      });
+      const data = await jsonFetch<any>(
+        `https://api.groq.com/openai/v1/chat/completions`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: "You extract structured data about VC firms. Return only valid JSON with the requested fields. Use null for unknown values." },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.1,
+          }),
+        },
+        trackHost, // use per-model tracking key so 70b and 8b cool down independently
+      );
       const content = data?.choices?.[0]?.message?.content;
       if (content) {
         const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -636,8 +658,19 @@ ${combined.slice(0, 20_000)}`;
         return sanitizePatch(parsed);
       }
     } catch (e) {
-      console.warn(`    ⚠ Groq extraction failed: ${e instanceof Error ? e.message : e}`);
+      console.warn(`    ⚠ Groq(${model}) extraction failed: ${e instanceof Error ? e.message : e}`);
     }
+    return null;
+  }
+
+  // Try Groq 70b → Groq 8b → DeepSeek → Gemini (each tracked separately for independent cooldowns)
+  {
+    const result = await tryGroq("llama-3.3-70b-versatile", "api.groq.com/70b");
+    if (result) return result;
+  }
+  {
+    const result = await tryGroq("llama-3.1-8b-instant", "api.groq.com/8b");
+    if (result) return result;
   }
 
   if (DEEPSEEK_KEY && isAvailable("api.deepseek.com")) {
@@ -922,8 +955,8 @@ async function formatWithAI(
   exaText: string
 ): Promise<{ aum: string | null; current_partners: string[]; recent_deals: { company: string; amount: string | null; sector: string | null }[] } | null> {
   const combined = [
-    perplexityText ? `=== PERPLEXITY RESEARCH ===\n${perplexityText}` : "",
-    exaText ? `=== EXA DEAL SCOUTING ===\n${exaText}` : "",
+    perplexityText ? `=== RESEARCH ===\n${perplexityText}` : "",
+    exaText ? `=== DEAL SCOUTING ===\n${exaText}` : "",
   ].filter(Boolean).join("\n\n");
 
   if (!combined) return null;
@@ -997,8 +1030,8 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
   console.log("║  PHASE 2: Tri-Force Pipeline (AUM / Deals / Partners)    ║");
   console.log("╚══════════════════════════════════════════════════════════╝\n");
 
-  if (!PERPLEXITY_KEY && !EXA_KEY) {
-    console.log("  ⚠ No PERPLEXITY_API_KEY or EXA_API_KEY set — skipping Phase 2\n");
+  if (!PERPLEXITY_KEY && !EXA_KEY && !LINKUP_KEY && !JINA_KEY) {
+    console.log("  ⚠ No search API keys available (Perplexity/Exa/Linkup/Jina) — skipping Phase 2\n");
     return { enriched: 0, errors: 0 };
   }
 
@@ -1026,18 +1059,37 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
     try {
       const domain = domainFromUrl(firm.website_url);
 
-      // Step 1: Perplexity research
-      const perplexityText = await perplexityResearch(firm.firm_name, domain);
-      if (perplexityText) console.log("    Perplexity ✓");
-      await sleep(1500);
+      // Step 1: Perplexity research (primary)
+      let researchText = await perplexityResearch(firm.firm_name, domain);
+      if (researchText) console.log("    Perplexity ✓");
+      await sleep(500);
 
-      // Step 2: Exa deal discovery
-      const exaText = await exaDealDiscovery(firm.firm_name);
+      // Step 2: Exa deal discovery (primary)
+      let exaText = await exaDealDiscovery(firm.firm_name);
       if (exaText) console.log("    Exa ✓");
+      await sleep(500);
+
+      // Fallback: Linkup + Jina when both Perplexity and Exa are unavailable
+      if (!researchText && !exaText) {
+        if (LINKUP_KEY && isAvailable("api.linkup.so")) {
+          researchText = await enrichFirmWithLinkup(firm.firm_name);
+          if (researchText) console.log(`    Linkup → ${researchText.length} chars`);
+          await sleep(500);
+        }
+        if (!researchText && firm.website_url && JINA_KEY && isAvailable("r.jina.ai")) {
+          const jinaText = await scrapeWebsiteWithJina(firm.website_url);
+          if (jinaText) {
+            researchText = jinaText;
+            console.log(`    Jina → ${jinaText.length} chars`);
+          }
+          await sleep(500);
+        }
+      }
+
       await sleep(DELAY_MS);
 
       // Step 3: AI formatting
-      const result = await formatWithAI(firm.firm_name, perplexityText, exaText);
+      const result = await formatWithAI(firm.firm_name, researchText, exaText);
       if (!result) {
         console.log("    — No structured data extracted");
         continue;

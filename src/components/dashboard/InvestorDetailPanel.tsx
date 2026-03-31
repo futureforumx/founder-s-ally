@@ -29,6 +29,13 @@ import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
+import {
+  isFirmStrategyClassification,
+  STRATEGY_CLASSIFICATION_DEFINITIONS,
+  STRATEGY_CLASSIFICATION_LABELS,
+  formatStrategyClassificationLabel,
+} from "@/lib/firmStrategyClassifications";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CompanyContext {
   name?: string;
@@ -122,6 +129,11 @@ export function InvestorDetailPanel({
   const [activeScoreTile, setActiveScoreTile] = useState<TileId | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  // Locally-submitted star_ratings — set immediately on submission so the button updates
+  // without waiting for the async DB re-fetch to complete.
+  const [localStarRatings, setLocalStarRatings] = useState<unknown>(null);
+  // ISO timestamp of the local submission — used for the 48h countdown without needing a DB re-fetch.
+  const [localRatingCreatedAt, setLocalRatingCreatedAt] = useState<string | null>(null);
   const bootstrapReviewOpenedRef = useRef(false);
 
   // Reset tab when initialTab or investor changes
@@ -135,6 +147,7 @@ export function InvestorDetailPanel({
 
   useEffect(() => {
     setActiveScoreTile(null);
+    setLocalStarRatings(null);
   }, [investor?.name, vcFirm?.id]);
 
   const { session } = useAuth();
@@ -215,9 +228,11 @@ export function InvestorDetailPanel({
     ratingRefresh,
     displayName,
   );
+  // Prefer the locally-submitted value (instant) over the async DB re-fetch result.
+  const effectiveStarRatings = localStarRatings ?? myFirmRatingJson;
   const myFirmRateDisplay = useMemo(
-    () => formatMyReviewRateButton(myFirmRatingJson),
-    [myFirmRatingJson],
+    () => formatMyReviewRateButton(effectiveStarRatings),
+    [effectiveStarRatings],
   );
 
   const mergedPartners = useMemo((): VCPerson[] => {
@@ -345,6 +360,16 @@ export function InvestorDetailPanel({
     "-";
 
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
+  const connectLocation = (() => {
+    const street = liveProfile?.address?.trim() || null;
+    const city = liveProfile?.hq_city?.trim() || null;
+    const state = liveProfile?.hq_state?.trim() || null;
+    const zip = liveProfile?.hq_zip_code?.trim() || null;
+    const country = liveProfile?.hq_country?.trim() || null;
+    const cityStateZip = [city, state, zip].filter(Boolean).join(" ");
+    const fullAddress = [street, cityStateZip || null, country].filter(Boolean).join(", ");
+    return fullAddress || heroLocation || null;
+  })();
 
   const metaFacts = [
     { label: "AUM", value: heroAum },
@@ -460,6 +485,40 @@ export function InvestorDetailPanel({
                             )}
                           </div>
 
+                          {(() => {
+                            const strategies = liveProfile?.strategy_classifications ?? [];
+                            if (strategies.length === 0) return null;
+                            return (
+                              <TooltipProvider delayDuration={200}>
+                                <div className="flex flex-wrap gap-1.5 mt-2.5 max-w-lg">
+                                  {strategies.map((key) => {
+                                    const label = isFirmStrategyClassification(key)
+                                      ? STRATEGY_CLASSIFICATION_LABELS[key]
+                                      : formatStrategyClassificationLabel(key);
+                                    const definition = isFirmStrategyClassification(key)
+                                      ? STRATEGY_CLASSIFICATION_DEFINITIONS[key]
+                                      : "Strategy classification.";
+                                    return (
+                                      <Tooltip key={key}>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] font-medium px-2 py-0 h-5 border-border/60 text-foreground/80 cursor-default"
+                                          >
+                                            {label}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="max-w-sm text-xs leading-snug">
+                                          {definition}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </div>
+                              </TooltipProvider>
+                            );
+                          })()}
+
                         </>
                       )}
                     </div>
@@ -486,11 +545,14 @@ export function InvestorDetailPanel({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                          className="inline-flex items-center gap-1 rounded-xl border border-border/50 bg-transparent px-2.5 py-[9px] leading-none transition-colors hover:bg-secondary/40"
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-xl px-3 py-[9px] text-[13px] font-semibold leading-none transition-colors",
+                            myFirmRateDisplay.className,
+                          )}
                           aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
                         >
-                          <Star className={cn("h-3 w-3 shrink-0 fill-current animate-pulse", myFirmRateDisplay.colorClass)} />
-                          <span className={cn("text-[13px] font-bold animate-pulse", myFirmRateDisplay.colorClass)}>{myFirmRateDisplay.label}</span>
+                          <span>{myFirmRateDisplay.label}</span>
+                          <Star className="h-3.5 w-3.5 shrink-0 fill-current" />
                         </button>
                       ) : (
                         <button
@@ -641,7 +703,8 @@ export function InvestorDetailPanel({
                           currentUserId={session?.user?.id}
                           investorId={databaseFirmId || null}
                           isAdmin={isAdmin}
-                          location={heroLocation || null}
+                          location={connectLocation}
+                          email={liveProfile?.email ?? null}
                         />
                       </motion.div>
                     )}
@@ -659,6 +722,10 @@ export function InvestorDetailPanel({
           setReviewOpen(false);
           setRatingRefresh((n) => n + 1);
         }}
+        onRatingSubmitted={(sr) => {
+          setLocalStarRatings(sr);
+          setLocalRatingCreatedAt(new Date().toISOString());
+        }}
         firmName={heroName}
         firmLogoUrl={heroLogo}
         firmWebsiteUrl={
@@ -668,8 +735,8 @@ export function InvestorDetailPanel({
         personId={reviewVcPersonId ?? ""}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
-        initialStarRatings={myFirmRatingJson}
-        initialCreatedAt={myFirmRatingCreatedAt}
+        initialStarRatings={effectiveStarRatings}
+        initialCreatedAt={localRatingCreatedAt ?? myFirmRatingCreatedAt}
       />
     </AnimatePresence>
   );

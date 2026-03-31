@@ -17,10 +17,25 @@ enum FirmType {
   CVC
   ANGEL_NETWORK
   MICRO_FUND
+  MICRO_VC
   FAMILY_OFFICE
   PE
   ACCELERATOR
   OTHER
+  INSTITUTIONAL
+  SOLO_GP
+  PUBLIC
+  VENTURE_STUDIO
+}
+
+// AUM tier from flagship / fund vehicle size (USD). Bounds documented in src/lib/aumBand.ts.
+enum AumBand {
+  NANO
+  MICRO
+  SMALL
+  MID_SIZE
+  LARGE
+  MEGA_FUND
 }
 
 enum FundStatus {
@@ -198,7 +213,9 @@ model VCFirm {
   partner_names         String[] @default([])
   general_partner_names String[] @default([])
 
-  firm_type             FirmType @default(VC)
+  firm_type             FirmType @default(INSTITUTIONAL)
+  /// Derived from largest fund vehicle (max of AUM / size per fund); optional manual override path via workers.
+  aum_band              AumBand?
   founded_year          Int?
   status                String?
   verification_status   String?
@@ -237,6 +254,7 @@ model VCFirm {
 
   @@index([firm_name])
   @@index([firm_type])
+  @@index([aum_band])
   @@index([hq_country, hq_state, hq_city])
   @@index([match_score])
   @@index([reputation_score])
@@ -326,6 +344,8 @@ model VCFund {
 
   size_usd          Float?
   aum_usd           Float?
+  /// Tier from `aum_usd` / `size_usd` on this vehicle (see `AumBand`).
+  aum_band          AumBand?
   committed_capital Float?
   gp_commit_usd     Float?
 
@@ -382,6 +402,7 @@ model VCFund {
   @@index([vintage_year])
   @@index([size_usd])
   @@index([aum_usd])
+  @@index([aum_band])
   @@index([lead_follow])
   @@index([fund_match_score])
   @@index([deleted_at])
