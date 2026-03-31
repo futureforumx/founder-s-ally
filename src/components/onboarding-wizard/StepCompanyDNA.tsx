@@ -406,7 +406,11 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
 
       <div className="flex justify-between pt-2">
         <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
-        <Button size="sm" onClick={handleContinue} disabled={!state.companyName.trim()}>
+        <Button
+          size="sm"
+          onClick={handleContinue}
+          disabled={!(searchQuery.trim() || state.companyName.trim())}
+        >
           {isJoinMode ? (
             <><UserPlus className="h-3.5 w-3.5 mr-1" /> Join Company</>
           ) : (

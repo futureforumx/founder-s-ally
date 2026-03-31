@@ -608,11 +608,18 @@ export function CompanyTab() {
     };
 
     if (isSupabaseConfigured) {
-      const jwt = await getSupabaseAccessToken();
-      if (jwt) {
+      const userJwt = (await getSupabaseAccessToken())?.trim() ?? "";
+      if (userJwt) {
+        const anonKey =
+          typeof import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY === "string"
+            ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
+            : "";
         const { data, error } = await supabase.functions.invoke("claim-company-workspace", {
           body: { companyId: comp.id, userId: user.id },
-          headers: { Authorization: `Bearer ${jwt}` },
+          headers: {
+            Authorization: `Bearer ${userJwt}`,
+            ...(anonKey ? { apikey: anonKey } : {}),
+          },
         });
         const payload = (data || {}) as {
           success?: boolean;

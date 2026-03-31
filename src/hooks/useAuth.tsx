@@ -173,24 +173,25 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
-      // PostgREST needs a JWT Supabase accepts as `authenticated` (Third-party Clerk in Supabase dashboard).
-      // Current Clerk + Supabase: session JWT with `role: "authenticated"` (Clerk Dashboard → Supabase integration).
-      // Legacy: JWT template named exactly "supabase" (deprecated per Supabase, but still supported).
+      // Only JWTs Supabase's gateway accepts (Edge Functions return 401 "Invalid JWT" for a plain Clerk session token).
+      // Prefer the Clerk template named "supabase" or third-party Clerk in the Supabase dashboard.
       try {
         const templateJwt = await gt({ template: "supabase" });
         if (templateJwt) return templateJwt;
       } catch {
         /* template missing */
       }
-      try {
-        const s = clerkSessionRef.current;
-        const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
-        if (sessionJwt) return sessionJwt;
-      } catch {
-        /* no session token */
+      if (import.meta.env.VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE === "true") {
+        try {
+          const s = clerkSessionRef.current;
+          const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
+          if (sessionJwt) return sessionJwt;
+        } catch {
+          /* no session token */
+        }
       }
       console.warn(
-        "[Supabase + Clerk] No usable JWT for PostgREST. Enable Clerk's Supabase integration (session `role: authenticated`) or add JWT template `supabase`. Supabase dashboard → Authentication → Third-party → Clerk. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
+        "[Supabase + Clerk] No Supabase-compatible JWT. Add Clerk JWT template `supabase` or enable Supabase third-party Clerk. Optional: VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true if your session token is verified by Supabase. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
       );
       return null;
     });
