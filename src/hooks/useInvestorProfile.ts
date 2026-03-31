@@ -98,12 +98,12 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     // Parallel fetch: firm + partners + deals
     const [firmRes, partnersRes, dealsRes] = await Promise.all([
       supabase
-        .from("investor_database")
+        .from("firm_records")
         .select("*")
         .eq("id", firmId)
         .maybeSingle(),
       supabase
-        .from("investor_partners")
+        .from("firm_investors")
         .select("id, full_name, first_name, last_name, title, is_active, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
         .eq("firm_id", firmId)
         .order("full_name"),
@@ -155,7 +155,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
 async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
   try {
     const { data, error } = await supabase
-      .from("investor_database")
+      .from("firm_records")
       .select("id")
       .ilike("firm_name", firmName.trim())
       .limit(1);

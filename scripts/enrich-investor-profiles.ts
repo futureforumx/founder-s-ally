@@ -1,7 +1,7 @@
 /**
  * enrich-investor-profiles.ts
  *
- * Enriches investor_database records using Apollo, Hunter, Clay, Explorium, and HubSpot.
+ * Enriches firm_records records using Apollo, Hunter, Clay, Explorium, and HubSpot.
  *
  * Provider responsibilities:
  *   Apollo     — firm description, linkedin_url, x_url, headcount, founded_year, location
@@ -496,13 +496,13 @@ function mergePatches(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log(`\n── Enriching investor_database (max: ${MAX}, stale: ${STALE_DAYS}d) ──`);
+  console.log(`\n── Enriching firm_records (max: ${MAX}, stale: ${STALE_DAYS}d) ──`);
   console.log(`   Providers: ${[...PROVIDERS].join(", ")}`);
 
   const staleDate = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: firms, error: loadErr } = await supabase
-    .from("investor_database")
+    .from("firm_records")
     .select(
       "id, firm_name, website_url, email, linkedin_url, x_url, description, " +
       "founded_year, total_headcount, hq_city, hq_state, hq_country, " +
@@ -585,9 +585,9 @@ async function main() {
       const merged = mergePatches({}, ...patches);
       merged.last_enriched_at = new Date().toISOString();
 
-      // ----- Update investor_database -----
+      // ----- Update firm_records -----
       const { error: updateErr } = await supabase
-        .from("investor_database")
+        .from("firm_records")
         .update(merged)
         .eq("id", firm.id);
       if (updateErr) throw updateErr;
@@ -595,7 +595,7 @@ async function main() {
       // ----- Hunter: enrich partner emails -----
       if (PROVIDERS.has("hunter") && hunterKey) {
         const { data: partners } = await supabase
-          .from("investor_partners")
+          .from("firm_investors")
           .select("id, full_name, first_name, last_name, email")
           .eq("firm_id", firm.id)
           .is("email", null);
@@ -604,7 +604,7 @@ async function main() {
           const emailMap = await enrichPartnersWithHunter(domain, partners, hunterKey);
           for (const [partnerId, email] of emailMap) {
             await supabase
-              .from("investor_partners")
+              .from("firm_investors")
               .update({ email })
               .eq("id", partnerId);
             console.log(`    Hunter: partner email → ${email}`);

@@ -185,7 +185,7 @@ export function InvestorDetailPanel({
     typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
       ? investor.investorDatabaseId.trim()
       : null;
-  /** `liveProfile.id` is only a Supabase `investor_database` row when `source === "live"`. JSON fallback uses MDM domain ids — do not let those override an explicit DB id from Matches. */
+  /** `liveProfile.id` is only a Supabase `firm_records` row when `source === "live"`. JSON fallback uses MDM domain ids — do not let those override an explicit DB id from Matches. */
   const databaseFirmId =
     liveProfile?.source === "live"
       ? liveProfile.id
@@ -275,7 +275,7 @@ export function InvestorDetailPanel({
       let firmId = liveProfile?.id;
       if (!firmId) {
         const { data: firms } = await supabase
-          .from("investor_database")
+          .from("firm_records")
           .select("id")
           .ilike("firm_name", displayName.trim())
           .limit(1);

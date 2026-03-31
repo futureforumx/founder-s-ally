@@ -185,7 +185,7 @@ async function upsertResults(
   if (result.aum) updateBody.aum = result.aum;
 
   await fetch(
-    `${supabaseUrl}/rest/v1/investor_database?id=eq.${firmId}`,
+    `${supabaseUrl}/rest/v1/firm_records?id=eq.${firmId}`,
     {
       method: "PATCH",
       headers,
@@ -218,7 +218,7 @@ async function upsertResults(
   // 4c: Reconcile partners
   if (result.current_partners.length > 0) {
     const existingResp = await fetch(
-      `${supabaseUrl}/rest/v1/investor_partners?firm_id=eq.${firmId}&select=id,full_name`,
+      `${supabaseUrl}/rest/v1/firm_investors?firm_id=eq.${firmId}&select=id,full_name`,
       { headers }
     );
     const existing: { id: string; full_name: string }[] =
@@ -234,7 +234,7 @@ async function upsertResults(
     );
     for (const p of toDeactivate) {
       await fetch(
-        `${supabaseUrl}/rest/v1/investor_partners?id=eq.${p.id}`,
+        `${supabaseUrl}/rest/v1/firm_investors?id=eq.${p.id}`,
         {
           method: "PATCH",
           headers,
@@ -248,7 +248,7 @@ async function upsertResults(
 
     // Upsert current partners
     for (const name of result.current_partners) {
-      await fetch(`${supabaseUrl}/rest/v1/investor_partners`, {
+      await fetch(`${supabaseUrl}/rest/v1/firm_investors`, {
         method: "POST",
         headers: {
           ...headers,
@@ -297,10 +297,10 @@ Deno.serve(async (req) => {
     // Query stale firms (30-day window)
     let queryUrl: string;
     if (firmId) {
-      queryUrl = `${SUPABASE_URL}/rest/v1/investor_database?id=eq.${firmId}&select=id,firm_name,website_url&limit=1`;
+      queryUrl = `${SUPABASE_URL}/rest/v1/firm_records?id=eq.${firmId}&select=id,firm_name,website_url&limit=1`;
     } else {
       const staleDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      queryUrl = `${SUPABASE_URL}/rest/v1/investor_database?select=id,firm_name,website_url&or=(last_enriched_at.is.null,last_enriched_at.lt.${staleDate})&order=last_enriched_at.asc.nullsfirst&limit=${batchSize}`;
+      queryUrl = `${SUPABASE_URL}/rest/v1/firm_records?select=id,firm_name,website_url&or=(last_enriched_at.is.null,last_enriched_at.lt.${staleDate})&order=last_enriched_at.asc.nullsfirst&limit=${batchSize}`;
     }
 
     const firmsResp = await fetch(queryUrl, {
@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
           results.push({ firm: firm.firm_name, status: "no_data", deals: 0, partners: 0 });
           // Mark enriched to avoid re-processing
           await fetch(
-            `${SUPABASE_URL}/rest/v1/investor_database?id=eq.${firm.id}`,
+            `${SUPABASE_URL}/rest/v1/firm_records?id=eq.${firm.id}`,
             {
               method: "PATCH",
               headers: {

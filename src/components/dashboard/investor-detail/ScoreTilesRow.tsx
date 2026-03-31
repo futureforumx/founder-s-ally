@@ -363,7 +363,7 @@ export function ScoreTilesRow({
   return (
     <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-3 w-fit">
+      <div className="flex gap-2.5 w-fit">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
           const colors = colorTokens(tile.value);
@@ -375,7 +375,7 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "group relative overflow-hidden rounded-2xl px-4 py-3 min-w-[108px]",
+                "group relative overflow-hidden rounded-xl px-3 py-2.5 min-w-[96px]",
                 "flex flex-col items-start",
                 "backdrop-blur-[28px] border transition-all duration-200 select-none cursor-pointer",
                 isActive
@@ -387,16 +387,16 @@ export function ScoreTilesRow({
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
 
               {/* Label row with colored accent dot */}
-              <div className="flex items-center gap-1.5 mb-2">
+              <div className="flex items-center gap-1 mb-1.5">
                 <span className={["w-1.5 h-1.5 rounded-full shrink-0", colors.barCls].join(" ")} />
-                <span className="text-[10px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
+                <span className="text-[9px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
                   {tile.shortLabel}
                 </span>
               </div>
 
               {/* Score — neutral color, weight carries the hierarchy */}
-              <div className="relative mb-1">
-                <span className="text-[30px] font-bold leading-none tabular-nums text-foreground">
+              <div className="relative mb-0.5">
+                <span className="text-[26px] font-bold leading-none tabular-nums text-foreground">
                   {tile.value}
                 </span>
                 {/* Soft color bloom behind number */}
@@ -404,14 +404,14 @@ export function ScoreTilesRow({
               </div>
 
               {/* Caption */}
-              <span className="text-[11px] text-foreground/40 leading-none mb-2.5">
+              <span className="text-[10px] text-foreground/40 leading-none mb-2">
                 {caption}
               </span>
 
               {/* Colored progress pill */}
-              <div className="h-[3px] w-full rounded-full bg-black/[0.06] dark:bg-white/10">
+              <div className="h-0.5 w-full rounded-full bg-black/[0.06] dark:bg-white/10">
                 <motion.div
-                  className={`h-[3px] rounded-full ${colors.barCls} opacity-75`}
+                  className={`h-0.5 rounded-full ${colors.barCls} opacity-75`}
                   initial={{ width: 0 }}
                   animate={{ width: `${tile.value}%` }}
                   transition={{ duration: 0.55, ease: "easeOut" }}

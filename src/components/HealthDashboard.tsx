@@ -53,15 +53,21 @@ const metricDescriptions: Record<string, string> = {
   Headcount: "Total number of employees on your team"
 };
 
-function buildHealthData(mode: "market" | "community", stage?: string, sector?: string) {
+function buildHealthData(
+  mode: "market" | "community",
+  stage?: string,
+  sector?: string,
+  valueOverride?: { market: number; financial: number; gtm: number; moat: number },
+) {
   const mult = stageMultipliers[stage || ""] ?? 1.0;
   const offsets = sectorOffsets[sector || ""] ?? { financial: 0, gtm: 0, market: 0, moat: 0 };
   const baseBenchmarks = mode === "market"
     ? { market: 65, financial: 70, gtm: 60, moat: 55 }
     : { market: 58, financial: 48, gtm: 53, moat: 60 };
-  const baseValues = mode === "market"
+  const defaultBaseValues = mode === "market"
     ? { market: 72, financial: 45, gtm: 61, moat: 78 }
     : { market: 68, financial: 52, gtm: 55, moat: 82 };
+  const baseValues = valueOverride ?? defaultBaseValues;
   const benchmarks = {
     market: clamp(baseBenchmarks.market * mult + offsets.market),
     financial: clamp(baseBenchmarks.financial * mult + offsets.financial),
@@ -188,11 +194,24 @@ interface HealthDashboardProps {
   sector?: string;
   analysisResult?: AnalysisResult | null;
   onMetricEdit?: (key: string, value: string) => void;
+  familyScores?: {
+    market: number;
+    financial: number;
+    gtm: number;
+    defensibility: number;
+  };
   /** Personal LinkedIn URL (`/in/...`) — loads public profile preview via edge function (RapidAPI when configured). */
   linkedinProfileUrl?: string | null;
 }
 
-export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit, linkedinProfileUrl }: HealthDashboardProps) {
+export function HealthDashboard({
+  stage,
+  sector,
+  analysisResult,
+  onMetricEdit,
+  familyScores,
+  linkedinProfileUrl,
+}: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
   const [liProfile, setLiProfile] = useState<LinkedInPublicProfileRow | null>(null);
@@ -226,7 +245,18 @@ export function HealthDashboard({ stage, sector, analysisResult, onMetricEdit, l
     };
   }, [linkedinProfileUrl]);
 
-  const healthData = useMemo(() => buildHealthData(mode, stage, sector), [mode, stage, sector]);
+  const healthData = useMemo(() => {
+    const marketOverride =
+      mode === "market" && familyScores
+        ? {
+            market: familyScores.market,
+            financial: familyScores.financial,
+            gtm: familyScores.gtm,
+            moat: familyScores.defensibility,
+          }
+        : undefined;
+    return buildHealthData(mode, stage, sector, marketOverride);
+  }, [mode, stage, sector, familyScores]);
 
   const overallScore = analysisResult?.healthScore ?? null;
   const contextLabel = stage && sector ? `${stage} · ${sector}` : stage || sector || null;

@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
  * 1. Try matching by `vc_firm_id` (fast, exact).
  * 2. If nothing found, fall back to matching by `star_ratings.firm_name` (handles the case
  *    where the saved `vc_firm_id` comes from `vc_firms` but the caller only has an
- *    `investor_database` id, or the rating was saved with a null firm id).
+ *    `firm_records` id, or the rating was saved with a null firm id).
  */
 export function useLatestMyVcRating(
   userId: string | undefined,

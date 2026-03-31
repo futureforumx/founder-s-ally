@@ -1,7 +1,7 @@
 /**
  * populate-partner-headshots.ts
  *
- * 1. Creates investor_partners rows from mock data + lead_partner names on firms
+ * 1. Creates firm_investors rows from mock data + lead_partner names on firms
  * 2. Resolves headshots via Unavatar (aggregates Gravatar, LinkedIn, X, etc.)
  * 3. Updates avatar_url on each partner record
  *
@@ -29,7 +29,7 @@ interface PartnerSeed {
   first_name: string;
   last_name: string;
   title: string;
-  firm_name: string; // used to match to investor_database
+  firm_name: string; // used to match to firm_records
   linkedin_url?: string;
   x_url?: string;
   email?: string;
@@ -155,9 +155,9 @@ async function resolveHeadshot(partner: PartnerSeed): Promise<string | null> {
 async function main() {
   console.log("=== Populate Partner Headshots ===\n");
 
-  // 1. Get all firms from investor_database
+  // 1. Get all firms from firm_records
   const { data: firms, error: firmsErr } = await supabase
-    .from("investor_database")
+    .from("firm_records")
     .select("id, firm_name, lead_partner");
 
   if (firmsErr) {
@@ -165,7 +165,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Found ${firms!.length} firms in investor_database\n`);
+  console.log(`Found ${firms!.length} firms in firm_records\n`);
 
   // Build firm name → id lookup (case-insensitive)
   const firmLookup = new Map<string, string>();
@@ -175,7 +175,7 @@ async function main() {
 
   // 2. Check existing partners
   const { data: existing } = await supabase
-    .from("investor_partners")
+    .from("firm_investors")
     .select("id, full_name, firm_id, avatar_url");
 
   const existingNames = new Set(
@@ -209,7 +209,7 @@ async function main() {
       // Update existing partner
       if (avatarUrl && !existingPartner.avatar_url) {
         const { error: upErr } = await supabase
-          .from("investor_partners")
+          .from("firm_investors")
           .update({
             avatar_url: avatarUrl,
             first_name: seed.first_name,
@@ -229,7 +229,7 @@ async function main() {
     } else {
       // Insert new partner
       const { error: insErr } = await supabase
-        .from("investor_partners")
+        .from("firm_investors")
         .insert({
           firm_id: firmId,
           full_name: seed.full_name,
@@ -264,7 +264,7 @@ async function main() {
 
   // Final count
   const { count } = await supabase
-    .from("investor_partners")
+    .from("firm_investors")
     .select("id", { count: "exact", head: true });
   console.log(`Total partners in DB: ${count}`);
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, startTransition } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle2, Pencil, Lock } from "lucide-react";
@@ -120,7 +120,7 @@ type MdmFirmLite = { id: string; name: string; website_url?: string | null };
 
 /**
  * Returns a `vc_firms.id` suitable for `vc_ratings.vc_firm_id` FK.
- * `hint` may be `vc_firms.id`, `investor_database.id`, an MDM JSON id (often a domain e.g. `406ventures.com`),
+ * `hint` may be `vc_firms.id`, `firm_records.id`, an MDM JSON id (often a domain e.g. `406ventures.com`),
  * or a `vc_firms.slug` — all are normalized here.
  */
 async function resolveVcFirmId(
@@ -259,7 +259,7 @@ async function resolveVcFirmId(
     }
 
     const { data: invRow, error: invErr } = await supabase
-      .from("investor_database")
+      .from("firm_records")
       .select("firm_name, legal_name, prisma_firm_id, website_url")
       .eq("id", trimmed)
       .maybeSingle();
@@ -362,109 +362,6 @@ function sanitizeHydratedUnlinkedAnswers(
     next = rest;
   }
   return next;
-}
-
-function parseInitialStarRatings(raw: unknown): {
-  answers: Record<string, string | string[]>;
-  tags: string[];
-  rememberWho: string;
-  rememberWhoPersonIds: string[];
-} {
-  const empty = { answers: {}, tags: [], rememberWho: "", rememberWhoPersonIds: [] };
-
-  const normalizeRaw = (input: unknown): Record<string, unknown> | null => {
-    if (!input) return null;
-    if (typeof input === "string") {
-      const t = input.trim();
-      if (!t) return null;
-      try {
-        const parsed = JSON.parse(t);
-        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
-      } catch {
-        return null;
-      }
-    }
-    return typeof input === "object" ? (input as Record<string, unknown>) : null;
-  };
-
-  const root = normalizeRaw(raw);
-  if (!root) return empty;
-
-  // Some legacy payloads wrap data one level down.
-  const wrapped =
-    normalizeRaw(root.star_ratings) ?? normalizeRaw(root.payload) ?? normalizeRaw(root.payload_star_ratings);
-  const obj = wrapped ?? root;
-  const nestedAnswers = normalizeRaw(obj.answers);
-
-  const normalizeAnswerRecord = (input: Record<string, unknown>): Record<string, string | string[]> => {
-    const out: Record<string, string | string[]> = {};
-    for (const [key, value] of Object.entries(input)) {
-      if (typeof value === "string") {
-        out[key] = value;
-        continue;
-      }
-      if (typeof value === "number" || typeof value === "boolean") {
-        out[key] = String(value);
-        continue;
-      }
-      if (Array.isArray(value)) {
-        const vals = value
-          .map((x) => (typeof x === "string" ? x : typeof x === "number" || typeof x === "boolean" ? String(x) : null))
-          .filter((x): x is string => typeof x === "string");
-        if (vals.length > 0) out[key] = vals;
-      }
-    }
-    return out;
-  };
-
-  const answersFromNested = nestedAnswers ? normalizeAnswerRecord(nestedAnswers) : {};
-
-  const answers =
-    Object.keys(answersFromNested).length > 0
-      ? answersFromNested
-      : normalizeAnswerRecord(
-          Object.fromEntries(
-            Object.entries(obj).filter(([key]) => {
-              return ![
-                "answers",
-                "tags",
-                "remember_who",
-                "remember_who_vc_person_ids",
-                "form_version",
-                "review_type",
-                "firm_name",
-              ].includes(key);
-            }),
-          ),
-        );
-
-  const explicitTags = Array.isArray(obj.tags)
-    ? obj.tags.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
-    : [];
-
-  const answerTags = Array.isArray(answers.standout_tags)
-    ? answers.standout_tags.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
-    : [];
-
-  const tags = explicitTags.length > 0 ? explicitTags : answerTags;
-
-  const rememberWhoCandidates = [obj.remember_who, obj.rememberWho, answers.remember_who];
-  const rememberWho =
-    rememberWhoCandidates.find((v): v is string => typeof v === "string" && v.trim().length > 0) ?? "";
-
-  const rememberWhoIdsRaw = Array.isArray(obj.remember_who_vc_person_ids)
-    ? obj.remember_who_vc_person_ids
-    : Array.isArray(obj.rememberWhoVcPersonIds)
-    ? obj.rememberWhoVcPersonIds
-    : [];
-
-  const rememberWhoPersonIds = Array.isArray(rememberWhoIdsRaw)
-    ? rememberWhoIdsRaw.filter(
-        (x): x is string => typeof x === "string" && x.trim().length > 0,
-      )
-    : [];
-
-  return { answers, tags, rememberWho, rememberWhoPersonIds };
 }
 
 function formatReviewSubmitError(err: unknown): string {
@@ -618,37 +515,16 @@ export function ReviewSubmissionModal({
   const [reviewCreatedAt, setReviewCreatedAt] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
-  const hydrateFromInitialStarRatings = useCallback(() => {
-    if (initialStarRatings == null) return;
-    const parsed = parseInitialStarRatings(initialStarRatings);
-    const answersToApply = investorIsMappedToProfile
-      ? parsed.answers
-      : sanitizeHydratedUnlinkedAnswers(parsed.answers);
-
-    setAnswers(answersToApply);
-    setSelectedTags(parsed.tags);
-    setRememberWho(parsed.rememberWho);
-    setRememberWhoPersonIds(parsed.rememberWhoPersonIds);
-  }, [initialStarRatings, investorIsMappedToProfile]);
-
   // When the modal opens and the parent already has rating data, show the summary immediately.
   useEffect(() => {
     if (open && initialStarRatings != null) {
-      hydrateFromInitialStarRatings();
       setReviewCreatedAt(initialCreatedAt ?? null);
       setShowSummary(true);
     } else if (!open) {
       setShowSummary(false);
       setReviewCreatedAt(null);
     }
-  }, [open, initialStarRatings, initialCreatedAt, hydrateFromInitialStarRatings]);
-
-  const handleEditFromSummary = useCallback(() => {
-    if (initialStarRatings != null) {
-      hydrateFromInitialStarRatings();
-    }
-    setShowSummary(false);
-  }, [initialStarRatings, hydrateFromInitialStarRatings]);
+  }, [open, initialStarRatings, initialCreatedAt]);
 
   const [fetchedHeaderFirm, setFetchedHeaderFirm] = useState<{
     logo: string | null;
@@ -985,14 +861,6 @@ export function ReviewSubmissionModal({
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      startTransition(() => {
-        reset();
-      });
-    }
-  }, [open, reset]);
-
-  useEffect(() => {
     if (!investorIsMappedToProfile && selectedTags.length === 0) {
       setRememberWho("");
       setRememberWhoPersonIds([]);
@@ -1017,13 +885,10 @@ export function ReviewSubmissionModal({
     });
   }, [investorIsMappedToProfile, answers.overall_interaction]);
 
-  const handleClose = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      startTransition(() => {
-        onClose();
-      });
-    });
-  }, [onClose]);
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
   const showFounderNote = investorIsMappedToProfile || selectedTags.length > 0;
 
@@ -1035,17 +900,13 @@ export function ReviewSubmissionModal({
   const wizardTotalSteps = investorIsMappedToProfile ? 3 : 4;
 
   const onWizardNext = useCallback(() => {
-    startTransition(() => {
-      setCurrentStep((s) =>
-        s < wizardTotalSteps ? ((s + 1) as ReviewWizardStep) : s,
-      );
-    });
+    setCurrentStep((s) =>
+      s < wizardTotalSteps ? ((s + 1) as ReviewWizardStep) : s,
+    );
   }, [wizardTotalSteps]);
 
   const onWizardBack = useCallback(() => {
-    startTransition(() => {
-      setCurrentStep((s) => (s > 1 ? ((s - 1) as ReviewWizardStep) : s));
-    });
+    setCurrentStep((s) => (s > 1 ? ((s - 1) as ReviewWizardStep) : s));
   }, []);
 
   // ── Validation ────────────────────────────────────────────────────────────
@@ -1277,7 +1138,7 @@ export function ReviewSubmissionModal({
                     tags={selectedTags}
                     createdAt={reviewCreatedAt}
                     investorIsMappedToProfile={investorIsMappedToProfile}
-                    onEdit={handleEditFromSummary}
+                    onEdit={() => setShowSummary(false)}
                   />
                 </div>
               ) : (
@@ -1445,29 +1306,10 @@ function ReviewSummaryView({
     typeof answers.take_money_again === "string" ? answers.take_money_again : null;
   const founderNote =
     typeof answers.founder_note === "string" ? answers.founder_note.trim() : "";
-  const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const createdAtMs = createdAt ? new Date(createdAt).getTime() : NaN;
-  const lockAtMs = Number.isFinite(createdAtMs) ? createdAtMs + 48 * 60 * 60 * 1000 : null;
-  const timeLeftMs = lockAtMs != null ? Math.max(lockAtMs - nowMs, 0) : 0;
-  const within48h = lockAtMs != null && timeLeftMs > 0;
-
-  useEffect(() => {
-    if (lockAtMs == null || timeLeftMs <= 0) return;
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [lockAtMs, timeLeftMs]);
-
-  const editTimeLabel = useMemo(() => {
-    if (lockAtMs == null) return null;
-    if (timeLeftMs <= 0) return "Editing closed";
-
-    const totalSeconds = Math.floor(timeLeftMs / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `Editing locks in ${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }, [lockAtMs, timeLeftMs]);
+  const within48h = createdAt
+    ? Date.now() - new Date(createdAt).getTime() < 48 * 60 * 60 * 1000
+    : false;
 
   const formattedDate = createdAt
     ? new Intl.DateTimeFormat("en-US", {
@@ -1517,21 +1359,14 @@ function ReviewSummaryView({
 
   return (
     <div className="flex flex-col gap-5 px-6 py-5">
-      {(primaryScore || formattedDate) && (
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-baseline gap-3 flex-wrap">
-            {primaryScore ? (
-              <span className={cn("text-3xl font-bold tracking-tight", primaryColor)}>
-                {primaryScore}
-              </span>
-            ) : null}
-            {takeAgainLabel && (
-              <span className="text-sm text-muted-foreground">· {takeAgainLabel}</span>
-            )}
-          </div>
-          <span className="pt-1 text-xs text-muted-foreground whitespace-nowrap">
-            {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
+      {primaryScore && (
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span className={cn("text-3xl font-bold tracking-tight", primaryColor)}>
+            {primaryScore}
           </span>
+          {takeAgainLabel && (
+            <span className="text-sm text-muted-foreground">· {takeAgainLabel}</span>
+          )}
         </div>
       )}
 
@@ -1554,42 +1389,25 @@ function ReviewSummaryView({
         </blockquote>
       )}
 
-      <div className="border-t border-border/40 pt-2 mt-1 space-y-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <span
-            className={cn(
-              "inline-flex h-8 items-center text-sm font-medium",
-              within48h ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
-            )}
+      <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-1">
+        <span className="text-xs text-muted-foreground">
+          {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
+        </span>
+        {within48h ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
           >
-            {editTimeLabel ?? "Editing window unavailable"}
+            <Pencil className="h-3 w-3" />
+            Edit review
+          </button>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            Editing closed
           </span>
-          {within48h ? (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Pencil className="h-3 w-3" />
-              Edit review
-            </button>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Lock className="h-3 w-3" />
-              Editing closed
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Don't worry, you can add follow up reviews any time. View this review in{" "}
-          <a
-            href="/?view=settings&tab=activity"
-            className="font-medium text-foreground underline decoration-border underline-offset-2 hover:text-primary"
-          >
-            Settings &gt; Activity
-          </a>
-          .
-        </p>
+        )}
       </div>
     </div>
   );

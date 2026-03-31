@@ -1,11 +1,27 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { ConnectionsPage } from "@/components/ConnectionsPage";
+import { SettingsPage } from "@/components/SettingsPage";
+import { GroupsView } from "@/components/community/GroupsView";
+import { EventsView } from "@/components/community/EventsView";
+import { HelpCenter } from "@/components/HelpCenter";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { getCompletionPercent, EMPTY_FORM } from "@/components/company-profile/types";
 import { SectorClassification } from "@/components/SectorTags";
+import { DeckAuditView } from "@/components/DeckAuditView";
+import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
+import { InvestorMatch } from "@/components/InvestorMatch";
+import { CompetitorsView } from "@/components/CompetitorsView";
+import { OnboardingStepper } from "@/components/OnboardingStepper";
+import { AnalysisTerminal } from "@/components/AnalysisTerminal";
+import { CompanyView } from "@/components/dashboard/CompanyView";
+import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
+import { IndustryView } from "@/components/dashboard/IndustryView";
+import { CommunityView } from "@/components/dashboard/CommunityView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
@@ -13,23 +29,6 @@ import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
-
-const ConnectionsPage = lazy(() => import("@/components/ConnectionsPage").then((m) => ({ default: m.ConnectionsPage })));
-const SettingsPage = lazy(() => import("@/components/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const GroupsView = lazy(() => import("@/components/community/GroupsView").then((m) => ({ default: m.GroupsView })));
-const EventsView = lazy(() => import("@/components/community/EventsView").then((m) => ({ default: m.EventsView })));
-const HelpCenter = lazy(() => import("@/components/HelpCenter").then((m) => ({ default: m.HelpCenter })));
-const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((m) => ({ default: m.DeckAuditView })));
-const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((m) => ({ default: m.CompetitiveBenchmarking })));
-const InvestorMatch = lazy(() => import("@/components/InvestorMatch").then((m) => ({ default: m.InvestorMatch })));
-const CompetitorsView = lazy(() => import("@/components/CompetitorsView").then((m) => ({ default: m.CompetitorsView })));
-const OnboardingStepper = lazy(() => import("@/components/OnboardingStepper").then((m) => ({ default: m.OnboardingStepper })));
-const AnalysisTerminal = lazy(() => import("@/components/AnalysisTerminal").then((m) => ({ default: m.AnalysisTerminal })));
-const CompanyView = lazy(() => import("@/components/dashboard/CompanyView").then((m) => ({ default: m.CompanyView })));
-const CompetitiveView = lazy(() => import("@/components/dashboard/CompetitiveView").then((m) => ({ default: m.CompetitiveView })));
-const IndustryView = lazy(() => import("@/components/dashboard/IndustryView").then((m) => ({ default: m.IndustryView })));
-const CommunityView = lazy(() => import("@/components/dashboard/CommunityView").then((m) => ({ default: m.CommunityView })));
-const IntelligencePage = lazy(() => import("@/components/intelligence/IntelligencePage").then((m) => ({ default: m.IntelligencePage })));
 
 type ViewType =
   | "company"
@@ -58,12 +57,21 @@ type ViewType =
   | "workspace"
   | "settings";
 
-function ViewLoader() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center">
-      <div className="text-sm text-muted-foreground">Loading view...</div>
-    </div>
-  );
+function getStoredCompanyLogoUrl(): string | null {
+  try {
+    const explicitLogoUrl = localStorage.getItem("company-logo-url");
+    if (explicitLogoUrl) return explicitLogoUrl;
+
+    const savedProfile = localStorage.getItem("company-profile");
+    if (!savedProfile) return null;
+
+    const parsedProfile = JSON.parse(savedProfile);
+    return typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
+      ? parsedProfile.logo_url.trim()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
@@ -103,27 +111,6 @@ function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: Analysis
     delete patch.health_score;
   }
   return patch;
-}
-
-function readSavedCompanyProfile(): CompanyData | null {
-  try {
-    const saved = localStorage.getItem("company-profile");
-    if (!saved) return null;
-    const parsed = JSON.parse(saved) as CompanyData;
-    return parsed.name ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function readSavedCompanyLogo(): string | null {
-  try {
-    const profileLogo = readSavedCompanyProfile()?.logo_url?.trim();
-    if (profileLogo) return profileLogo;
-    return localStorage.getItem("company-logo-url");
-  } catch {
-    return null;
-  }
 }
 
 const Index = () => {
@@ -191,20 +178,18 @@ const Index = () => {
     return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
   }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
-    return readSavedCompanyProfile();
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
   });
 
-  const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => {
-    return readSavedCompanyLogo();
-  });
+  const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => getStoredCompanyLogoUrl());
   useEffect(() => {
     const sync = () => {
-      try {
-        const profile = readSavedCompanyProfile();
-        const url = readSavedCompanyLogo();
-        setCompanyData(prev => JSON.stringify(prev) === JSON.stringify(profile) ? prev : profile);
-        setNavLogoUrl(prev => url !== prev ? url : prev);
-      } catch {}
+      const url = getStoredCompanyLogoUrl();
+      setNavLogoUrl(prev => url !== prev ? url : prev);
     };
     window.addEventListener("storage", sync);
     window.addEventListener("company-logo-changed", sync);
@@ -375,11 +360,6 @@ const Index = () => {
       console.warn("[onboarding] profile/workspace sync:", e);
     }
 
-    // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
-    try {
-      localStorage.setItem("company-profile-verified", "true");
-    } catch {}
-
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);
     }
@@ -415,12 +395,6 @@ const Index = () => {
         })();
         if (domain) {
           const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
-          try {
-            const savedProfile = readSavedCompanyProfile();
-            if (savedProfile) {
-              localStorage.setItem("company-profile", JSON.stringify({ ...savedProfile, logo_url: logoUrl }));
-            }
-          } catch {}
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -480,21 +454,17 @@ const Index = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       {showOnboarding && !profileComplete && (
-        <Suspense fallback={<ViewLoader />}>
-          <OnboardingStepper
-            onComplete={handleOnboardingComplete}
-            onSkip={() => setShowOnboarding(false)}
-          />
-        </Suspense>
+        <OnboardingStepper
+          onComplete={handleOnboardingComplete}
+          onSkip={() => setShowOnboarding(false)}
+        />
       )}
 
       {showTerminal && (
-        <Suspense fallback={<ViewLoader />}>
-          <AnalysisTerminal
-            companyName={companyData?.name}
-            onComplete={handleTerminalComplete}
-          />
-        </Suspense>
+        <AnalysisTerminal
+          companyName={companyData?.name}
+          onComplete={handleTerminalComplete}
+        />
       )}
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
@@ -518,10 +488,8 @@ const Index = () => {
           userStage={companyData?.stage}
           profileCompletion={profileCompletion}
           personalCompletion={personalCompletion}
-          analysisResult={analysisResult}
         />
         <div className="px-8 pt-16 pb-6">
-          <Suspense fallback={<ViewLoader />}>
           {activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
@@ -657,7 +625,6 @@ const Index = () => {
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}
-          </Suspense>
         </div>
       </main>
     </div>

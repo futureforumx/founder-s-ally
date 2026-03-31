@@ -168,7 +168,7 @@ serve(async (req) => {
     let resolvedFirmId = firmId;
     if (!resolvedFirmId && firmName) {
       const { data: firmRows } = await admin
-        .from("investor_database")
+        .from("firm_records")
         .select("id")
         .ilike("firm_name", firmName.trim())
         .limit(1);

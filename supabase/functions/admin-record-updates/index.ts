@@ -61,20 +61,20 @@ async function fetchFirms(adminClient: SupabaseClient, limit: number): Promise<F
   const attempts = [
     () =>
       adminClient
-        .from("investor_database")
+        .from("firm_records")
         .select("id, firm_name, updated_at, created_at")
         .is("deleted_at", null)
         .order("updated_at", { ascending: false })
         .limit(limit),
     () =>
       adminClient
-        .from("investor_database")
+        .from("firm_records")
         .select("id, firm_name, updated_at, created_at")
         .order("updated_at", { ascending: false })
         .limit(limit),
     () =>
       adminClient
-        .from("investor_database")
+        .from("firm_records")
         .select("id, firm_name, created_at")
         .order("created_at", { ascending: false })
         .limit(limit),
@@ -88,13 +88,13 @@ async function fetchFirms(adminClient: SupabaseClient, limit: number): Promise<F
 
 async function fetchPartners(adminClient: SupabaseClient, limit: number): Promise<PartnerRow[]> {
   const res = await adminClient
-    .from("investor_partners")
+    .from("firm_investors")
     .select("id, full_name, firm_id, updated_at, created_at")
     .order("updated_at", { ascending: false })
     .limit(limit);
   if (!res.error && res.data) return res.data as PartnerRow[];
   const fallback = await adminClient
-    .from("investor_partners")
+    .from("firm_investors")
     .select("id, full_name, firm_id, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       const missingFirmIds = [...new Set(partners.map((p) => p.firm_id))].filter((id) => !firmNameById.has(id));
       if (missingFirmIds.length) {
         const { data: extraFirms } = await adminClient
-          .from("investor_database")
+          .from("firm_records")
           .select("id, firm_name")
           .in("id", missingFirmIds);
         for (const f of extraFirms ?? []) firmNameById.set(f.id, f.firm_name);
