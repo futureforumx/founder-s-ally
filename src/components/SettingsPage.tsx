@@ -383,8 +383,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [syncFields, setSyncFields] = useState<SyncField[]>([]);
   const [syncApplying, setSyncApplying] = useState(false);
   const [syncedKeys, setSyncedKeys] = useState<Set<string>>(new Set());
-  const [xVerified, setXVerified] = useState(false);
-  const [xSyncing, setXSyncing] = useState(false);
   const [personalValidateAttempt, setPersonalValidateAttempt] = useState(false);
   const dismissPersonalErrors = useCallback(() => setPersonalValidateAttempt(false), []);
   // ── Autosave ──
@@ -672,7 +670,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   };
 
   const enrichXProfile = async (url: string) => {
-    setXSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("sync-x-profile", {
         body: { twitterUrl: url },
@@ -712,13 +709,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         await saveImmediate(updates);
       }
 
-      setXVerified(true);
       toast.success("X profile enriched successfully");
     } catch (err: any) {
       console.warn("X enrichment failed:", err);
       toast("X enrichment skipped", { description: "Please fill bio manually." });
-    } finally {
-      setXSyncing(false);
     }
   };
 
@@ -1079,9 +1073,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 const formatted = formatSocialUrl("x", v);
                 if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
               }}
-              verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-              onVerify={() => enrichXProfile(twitterUrl)}
-              verifyLabel="Enrich"
             />
           </div>
         </div>

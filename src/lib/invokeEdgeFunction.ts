@@ -1,5 +1,4 @@
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
-import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
 
 type InvokeOptions = NonNullable<Parameters<typeof supabase.functions.invoke>[1]>;
 
@@ -12,9 +11,9 @@ function headersToRecord(h: InvokeOptions["headers"]): Record<string, string> {
 }
 
 /**
- * Invoke a Supabase Edge Function with the same JWT chain as claim flows (Clerk session → Clerk template → Supabase)
- * and a generous timeout. Helps avoid 401s when only Clerk session JWT is valid and flaky gateway timeouts.
- * Deploy with `[functions.<name>] verify_jwt = false` when using Clerk (see supabase/config.toml).
+ * Invoke a Supabase Edge Function with a JWT the **gateway** accepts (same as PostgREST: Clerk `supabase` template,
+ * then Clerk session per useAuth). Do not use the raw Clerk session token here — Supabase returns 401 Invalid JWT
+ * when `verify_jwt` is enabled on the function. Long timeout avoids flaky gateway timeouts.
  */
 export async function invokeEdgeFunction(
   name: string,
@@ -23,7 +22,7 @@ export async function invokeEdgeFunction(
   if (!isSupabaseConfigured) {
     return supabase.functions.invoke(name, options);
   }
-  const token = await getEdgeFunctionAuthToken();
+  const token = await getSupabaseAccessToken();
   const base = options ?? {};
   const mergedHeaders = headersToRecord(base.headers);
   if (token) mergedHeaders.Authorization = `Bearer ${token}`;

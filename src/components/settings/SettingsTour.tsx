@@ -46,7 +46,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     selector: '[data-tour-section="social"]',
     title: "Social",
-    description: "Add your LinkedIn and X URLs. Use Sync on LinkedIn and Enrich on X to pull details into your profile when you're ready.",
+    description: "Add your LinkedIn and X URLs. You can use Sync on LinkedIn to pull details into your profile when you're ready.",
     sectionId: "personal",
     placement: "bottom",
     isIntro: true,
