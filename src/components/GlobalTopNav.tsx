@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
+  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
   User, Settings2, SlidersHorizontal, LogOut
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -30,8 +29,11 @@ import {
   getCachedCompanyHealthSignals,
   type CompanyHealthSnapshot,
 } from "@/lib/companyHealthSignals";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
+import { useVCDirectory } from "@/hooks/useVCDirectory";
+import { FirmLogo } from "@/components/ui/firm-logo";
 
-type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "market-data-room" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
+type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -52,6 +54,8 @@ interface GlobalTopNavProps {
   onInvestorSearchChipChange?: (chip: string) => void;
   investorSearchQuery?: string;
   onInvestorSearchQueryChange?: (query: string) => void;
+  /** Fires with VC firm id + filter text when a directory row is chosen (firm or partner). */
+  onInvestorDirectoryPick?: (pick: InvestorDirectoryPick) => void;
   onInvestorSuggestionSelect?: (suggestion: string) => void;
   analysisResult?: AnalysisResult | null;
 }
@@ -130,7 +134,6 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   "market-market": { section: "Market Intelligence", label: "Market" },
   "market-tech": { section: "Market Intelligence", label: "Tech" },
   "market-network": { section: "Market Intelligence", label: "Network" },
-  "market-data-room": { section: "Market Intelligence", label: "Data Room" },
 
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
@@ -166,7 +169,6 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
     case "market-market":
     case "market-tech":
     case "market-network":
-    case "market-data-room":
       return [
         "Funds that led rounds in my space this week",
         "Competitor pricing and packaging changes",
@@ -208,6 +210,90 @@ const FILTER_CHIPS = [
   { id: "recent", label: "Recent", icon: Clock },
 ];
 
+type SearchDropdownRow =
+  | { kind: "ai"; suggestion: string }
+  | {
+      kind: "firm";
+      id: string;
+      name: string;
+      subtitle: string;
+      logoUrl?: string | null;
+      websiteUrl?: string | null;
+    }
+  | { kind: "person"; id: string; name: string; subtitle: string; firmId: string };
+
+type InvestorTypeaheadRow = Extract<SearchDropdownRow, { kind: "firm" } | { kind: "person" }>;
+
+/** Passed when user picks a firm or person in investor typeahead so the directory can scroll to the firm card. */
+export type InvestorDirectoryPick = {
+  vcFirmId: string;
+  /** Applied to the investor grid text filter (firm name; for people, their fund name). */
+  filterQuery: string;
+};
+
+function buildInvestorDirectoryPick(
+  row: InvestorTypeaheadRow,
+  firmMap: Map<string, { name: string }>,
+): InvestorDirectoryPick {
+  if (row.kind === "firm") {
+    return { vcFirmId: row.id, filterQuery: row.name };
+  }
+  const firmName = firmMap.get(row.firmId)?.name || row.subtitle || row.name;
+  return { vcFirmId: row.firmId, filterQuery: firmName };
+}
+
+const MOST_RELATED_CAP = 5;
+const MAX_PER_SECTION = 25;
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Higher = better match for ranking “most related”. */
+function nameMatchScore(name: string, qLower: string): number {
+  const n = name.toLowerCase().trim();
+  if (!qLower || !n.includes(qLower)) return -1;
+  if (n === qLower) return 1000;
+  if (n.startsWith(qLower)) return 800;
+  const words = n.split(/\s+/).filter(Boolean);
+  if (words.some((w) => w.startsWith(qLower))) return 650;
+  const idx = n.indexOf(qLower);
+  if (idx === 0) return 800;
+  if (idx > 0 && (n[idx - 1] === " " || n[idx - 1] === "-" || n[idx - 1] === "/")) return 550;
+  return 400;
+}
+
+function personInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
+}
+
+function HighlightedName({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <span className="font-medium text-foreground">{text}</span>;
+  const re = new RegExp(`(${escapeRegExp(q)})`, "gi");
+  const parts = text.split(re);
+  const qLower = q.toLowerCase();
+  return (
+    <span className="font-medium text-foreground">
+      {parts.map((part, i) =>
+        part.toLowerCase() === qLower ? (
+          <mark
+            key={i}
+            className="rounded px-0.5 font-semibold bg-sky-500/15 text-sky-700 dark:bg-sky-400/20 dark:text-sky-200"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
 // ── Live Market Pulse ──
 const PULSE_MESSAGES = [
   { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-400" },
@@ -244,6 +330,7 @@ export function GlobalTopNav({
   onInvestorSearchChipChange,
   investorSearchQuery,
   onInvestorSearchQueryChange,
+  onInvestorDirectoryPick,
   onInvestorSuggestionSelect,
   analysisResult,
 }: GlobalTopNavProps) {
@@ -253,6 +340,7 @@ export function GlobalTopNav({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [logoImgError, setLogoImgError] = useState(false);
   const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
+  const pulseHealthTrackTsRef = useRef(0);
 
   // Reset error state whenever the URL changes so a new URL gets a fresh attempt
   useEffect(() => { setLogoImgError(false); }, [logoUrl]);
@@ -260,11 +348,9 @@ export function GlobalTopNav({
   const pulse = useRotatingPulse();
 
   const autosaveStatus = useAutosaveStatus();
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [weeklyViews, setWeeklyViews] = useState(0);
-  const [weeklySearchAppearances, setWeeklySearchAppearances] = useState(0);
 
   const routeView = useCallback(
     (v: ViewType) => {
@@ -273,8 +359,7 @@ export function GlobalTopNav({
         v === "market-investors" ||
         v === "market-market" ||
         v === "market-tech" ||
-        v === "market-network" ||
-        v === "market-data-room";
+        v === "market-network";
       if (intel) {
         if (location.pathname !== "/intelligence") navigate("/intelligence");
       } else if (location.pathname === "/intelligence") {
@@ -314,45 +399,6 @@ export function GlobalTopNav({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadTopAnalytics = async () => {
-      if (!user?.id) {
-        if (!cancelled) {
-          setWeeklyViews(0);
-          setWeeklySearchAppearances(0);
-        }
-        return;
-      }
-      const since = new Date();
-      since.setDate(since.getDate() - 7);
-      const { data, error } = await supabase
-        .from("founder_vc_interactions")
-        .select("action_type, firm_id")
-        .eq("founder_id", user.id)
-        .gte("created_at", since.toISOString());
-      if (error) {
-        console.warn("Failed to load top-nav analytics:", error.message);
-        return;
-      }
-      if (cancelled) return;
-      const rows = data ?? [];
-      const views = rows.filter((r) => r.action_type === "viewed").length;
-      const uniqueAppearingFirms = new Set(
-        rows
-          .filter((r) => r.action_type === "viewed")
-          .map((r) => r.firm_id)
-          .filter(Boolean),
-      ).size;
-      setWeeklyViews(views);
-      setWeeklySearchAppearances(uniqueAppearingFirms);
-    };
-    void loadTopAnalytics();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
   // Close on outside click
   useEffect(() => {
     if (!searchOpen) return;
@@ -370,6 +416,124 @@ export function GlobalTopNav({
     if (!searchOpen) return;
     if (investorSearchChip) setActiveChip(investorSearchChip);
   }, [searchOpen, investorSearchChip]);
+
+  const isInvestorArea = ["investors", "investor-search", "directory"].includes(activeView);
+  const { firms: vcFirms, people: vcPeople, firmMap } = useVCDirectory();
+
+  const suggestions = useMemo(
+    () => getContextSuggestions(activeView, userSector, userStage),
+    [activeView, userSector, userStage],
+  );
+  const investorSearchTrim = (investorSearchQuery ?? "").trim();
+
+  const investorTypeahead = useMemo(() => {
+    if (!isInvestorArea || !investorSearchTrim) {
+      return {
+        flatRows: suggestions.map((s) => ({ kind: "ai" as const, suggestion: s })) as SearchDropdownRow[],
+        sections: null as { title: string; rows: InvestorTypeaheadRow[] }[] | null,
+      };
+    }
+    const q = investorSearchTrim.toLowerCase();
+
+    type ScoredFirm = {
+      kind: "firm";
+      id: string;
+      name: string;
+      subtitle: string;
+      logoUrl: string | null;
+      websiteUrl: string | null;
+      score: number;
+    };
+    type ScoredPerson = {
+      kind: "person";
+      id: string;
+      name: string;
+      subtitle: string;
+      firmId: string;
+      score: number;
+    };
+
+    const firmsScored: ScoredFirm[] = [];
+    for (const f of vcFirms) {
+      const score = nameMatchScore(f.name, q);
+      if (score < 0) continue;
+      firmsScored.push({
+        kind: "firm",
+        id: f.id,
+        name: f.name,
+        subtitle: [f.stages?.slice(0, 2).join(", "), f.aum].filter(Boolean).join(" · ") || "Investor",
+        logoUrl: f.logo_url ?? null,
+        websiteUrl: f.website_url ?? null,
+        score,
+      });
+    }
+    firmsScored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+    const peopleScored: ScoredPerson[] = [];
+    for (const p of vcPeople) {
+      const score = nameMatchScore(p.full_name, q);
+      if (score < 0) continue;
+      const firm = firmMap.get(p.firm_id);
+      peopleScored.push({
+        kind: "person",
+        id: p.id,
+        name: p.full_name,
+        subtitle: firm?.name ?? "Partner",
+        firmId: p.firm_id,
+        score,
+      });
+    }
+    peopleScored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+    const toRow = (r: ScoredFirm | ScoredPerson): InvestorTypeaheadRow =>
+      r.kind === "firm"
+        ? {
+            kind: "firm",
+            id: r.id,
+            name: r.name,
+            subtitle: r.subtitle,
+            logoUrl: r.logoUrl,
+            websiteUrl: r.websiteUrl,
+          }
+        : { kind: "person", id: r.id, name: r.name, subtitle: r.subtitle, firmId: r.firmId };
+
+    const combined: (ScoredFirm | ScoredPerson)[] = [...firmsScored, ...peopleScored];
+    combined.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+    const picked = new Set<string>();
+    const mostRelated: InvestorTypeaheadRow[] = [];
+    for (const r of combined) {
+      if (mostRelated.length >= MOST_RELATED_CAP) break;
+      const key = `${r.kind}:${r.id}`;
+      if (picked.has(key)) continue;
+      picked.add(key);
+      mostRelated.push(toRow(r));
+    }
+
+    const firmsRest = firmsScored
+      .filter((f) => !picked.has(`firm:${f.id}`))
+      .slice(0, MAX_PER_SECTION)
+      .map(toRow);
+    const peopleRest = peopleScored
+      .filter((p) => !picked.has(`person:${p.id}`))
+      .slice(0, MAX_PER_SECTION)
+      .map(toRow);
+
+    const sections: { title: string; rows: InvestorTypeaheadRow[] }[] = [
+      { title: "Most related", rows: mostRelated },
+      { title: "Firms", rows: firmsRest },
+      { title: "People", rows: peopleRest },
+    ].filter((s) => s.rows.length > 0);
+
+    const flatRows: SearchDropdownRow[] = sections.flatMap((s) => s.rows);
+    return { flatRows, sections };
+  }, [isInvestorArea, investorSearchTrim, suggestions, vcFirms, vcPeople, firmMap]);
+
+  const searchDropdownRows = investorTypeahead.flatRows;
+
+  useEffect(() => {
+    setHighlightIdx(0);
+  }, [investorSearchTrim, searchOpen]);
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -392,24 +556,31 @@ export function GlobalTopNav({
   useEffect(() => {
     if (!searchOpen) return;
     const handler = (e: KeyboardEvent) => {
-      const sug = getContextSuggestions(activeView, userSector, userStage);
+      const len = searchDropdownRows.length;
       if (e.key === "Escape") {
         e.preventDefault();
         setSearchOpen(false);
         setHighlightIdx(0);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHighlightIdx(i => (i < sug.length - 1 ? i + 1 : 0));
+        if (len === 0) return;
+        setHighlightIdx((i) => (i < len - 1 ? i + 1 : 0));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setHighlightIdx(i => (i > 0 ? i - 1 : sug.length - 1));
+        if (len === 0) return;
+        setHighlightIdx((i) => (i > 0 ? i - 1 : len - 1));
       } else if (e.key === "Enter") {
         e.preventDefault();
         const q = (investorSearchQuery || "").trim();
-        if (q) {
+        const row = searchDropdownRows[highlightIdx];
+        if (row?.kind === "ai") {
+          onInvestorSuggestionSelect?.(row.suggestion);
+        } else if (row && (row.kind === "firm" || row.kind === "person")) {
+          const pick = buildInvestorDirectoryPick(row, firmMap);
+          onInvestorSearchQueryChange?.(pick.filterQuery);
+          onInvestorDirectoryPick?.(pick);
+        } else if (q) {
           onInvestorSearchQueryChange?.(investorSearchQuery || "");
-        } else if (sug[highlightIdx]) {
-          onInvestorSuggestionSelect?.(sug[highlightIdx]);
         }
         setSearchOpen(false);
         setHighlightIdx(0);
@@ -420,21 +591,35 @@ export function GlobalTopNav({
     return () => document.removeEventListener("keydown", handler);
   }, [
     searchOpen,
-    activeView,
-    userSector,
-    userStage,
+    searchDropdownRows,
     highlightIdx,
     investorSearchQuery,
     onOpenCommandPalette,
     onInvestorSearchQueryChange,
+    onInvestorDirectoryPick,
+    firmMap,
     onInvestorSuggestionSelect,
   ]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
-  const isInvestorArea = ["investors", "investor-search", "directory"].includes(activeView);
   const isCommunityArea = ["network", "groups", "events"].includes(activeView);
   const PulseIcon = pulse.icon;
-  const suggestions = getContextSuggestions(activeView, userSector, userStage);
+  const topHealthDriver = healthSnapshot?.drivers?.[0]?.label;
+
+  const handlePulseHealthChipClick = useCallback(() => {
+    if (!healthSnapshot) return;
+    const now = Date.now();
+    if (now - pulseHealthTrackTsRef.current < 1200) return;
+    pulseHealthTrackTsRef.current = now;
+    trackMixpanelEvent("Company Health Interaction", {
+      action: "pulse_health_chip_clicked",
+      activeView,
+      score: healthSnapshot.score,
+      trendPct: healthSnapshot.trendPct,
+      topDriver: topHealthDriver,
+    });
+  }, [activeView, healthSnapshot, topHealthDriver]);
+
   const handleSearchClick = useCallback(() => {
     setSearchOpen(true);
   }, []);
@@ -447,6 +632,17 @@ export function GlobalTopNav({
       onOpenCommandPalette?.();
     },
     [onInvestorSuggestionSelect, onOpenCommandPalette]
+  );
+
+  const handleTypeaheadPick = useCallback(
+    (row: InvestorTypeaheadRow) => {
+      setSearchOpen(false);
+      setHighlightIdx(0);
+      const pick = buildInvestorDirectoryPick(row, firmMap);
+      onInvestorSearchQueryChange?.(pick.filterQuery);
+      onInvestorDirectoryPick?.(pick);
+    },
+    [onInvestorSearchQueryChange, onInvestorDirectoryPick, firmMap],
   );
 
   return (
@@ -473,6 +669,22 @@ export function GlobalTopNav({
                 <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
               </div>
 
+              {healthSnapshot && (
+                <button
+                  type="button"
+                  onClick={handlePulseHealthChipClick}
+                  className={cn(
+                    "hidden rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors xl:inline-flex",
+                    healthSnapshot.trendPct >= 0
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-600",
+                  )}
+                  title={topHealthDriver || "Health delta"}
+                >
+                  Health {healthSnapshot.trendPct >= 0 ? "+" : ""}
+                  {healthSnapshot.trendPct}%
+                </button>
+              )}
             </div>
           ) : lastSyncedAt ? (
             <div className="flex items-center gap-1.5 text-[11px] font-medium">
@@ -509,7 +721,7 @@ export function GlobalTopNav({
           </button>
 
           {searchOpen && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-xl border border-border/60 bg-popover/95 shadow-xl backdrop-blur-2xl">
+            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-2xl border border-border/50 bg-popover shadow-2xl backdrop-blur-xl">
               <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
                 <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
                 {FILTER_CHIPS.map(chip => {
@@ -536,46 +748,130 @@ export function GlobalTopNav({
                 })}
               </div>
 
-              <div className="border-b border-border/40 px-4 py-2">
+              <div className="border-b border-border/40 px-4 py-2.5">
                 <input
                   type="text"
-                  placeholder="Type to search..."
+                  placeholder="Search investors, firms…"
                   value={investorSearchQuery || ""}
                   onChange={(e) => onInvestorSearchQueryChange?.(e.target.value)}
-                  className="w-full rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:border-accent/40 focus:bg-muted/50"
+                  className="w-full rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground/45 focus:border-accent/35 focus:bg-background focus:ring-2 focus:ring-accent/10"
                   autoFocus
                 />
               </div>
 
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-1.5 px-1 pb-2">
-                  <Sparkles className="h-3 w-3 text-emerald-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">AI Suggestions</span>
-                </div>
-                {suggestions.map((suggestion, i) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    onMouseEnter={() => setHighlightIdx(i)}
-                    className={cn(
-                      "group/item flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
-                      i === highlightIdx
-                        ? "bg-accent/10 text-foreground"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              <div className="max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain px-2 py-1">
+                {isInvestorArea && investorSearchTrim ? (
+                  <>
+                    {searchDropdownRows.length === 0 ? (
+                      <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                        No investors match &ldquo;{investorSearchTrim}&rdquo;.
+                      </p>
+                    ) : (
+                      (() => {
+                        let rowIndex = 0;
+                        return investorTypeahead.sections?.map((section) => (
+                          <div
+                            key={section.title}
+                            className="border-t border-border/35 pt-3 pb-1 first:border-t-0 first:pt-2"
+                          >
+                            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/75">
+                              {section.title}
+                            </p>
+                            <div className="flex flex-col gap-0.5">
+                              {section.rows.map((row) => {
+                                const i = rowIndex++;
+                                return (
+                                  <button
+                                    key={`${section.title}-${row.kind}-${row.id}`}
+                                    type="button"
+                                    onClick={() => handleTypeaheadPick(row)}
+                                    onMouseEnter={() => setHighlightIdx(i)}
+                                    className={cn(
+                                      "group/item flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+                                      i === highlightIdx
+                                        ? "bg-accent/12 text-foreground"
+                                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                                    )}
+                                  >
+                                    {row.kind === "firm" ? (
+                                      <FirmLogo
+                                        firmName={row.name}
+                                        logoUrl={row.logoUrl}
+                                        websiteUrl={row.websiteUrl}
+                                        size="sm"
+                                        className="h-9 w-9 shrink-0 rounded-full border border-border/50 bg-background"
+                                      />
+                                    ) : (
+                                      <div
+                                        className={cn(
+                                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/50 text-[10px] font-bold",
+                                          i === highlightIdx
+                                            ? "bg-accent/15 text-accent"
+                                            : "bg-muted/80 text-muted-foreground",
+                                        )}
+                                      >
+                                        {personInitials(row.name)}
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block line-clamp-1 text-[13px] leading-snug">
+                                        <HighlightedName text={row.name} query={investorSearchTrim} />
+                                      </span>
+                                      <span className="mt-0.5 block line-clamp-1 text-[11px] leading-snug text-muted-foreground">
+                                        {row.subtitle}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ));
+                      })()
                     )}
-                  >
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                        i === highlightIdx ? "bg-accent/20" : "bg-muted/60"
-                      )}
-                    >
-                      <Sparkles className={cn("h-4 w-4", i === highlightIdx ? "text-accent" : "text-muted-foreground/60")} />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5 px-1 pb-2">
+                      <Sparkles className="h-3 w-3 text-emerald-400" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
+                        AI Suggestions
+                      </span>
                     </div>
-                    <span className="flex-1 text-sm">{suggestion}</span>
-                    <span className="text-[10px] italic text-muted-foreground/40 opacity-0 transition-opacity group-hover/item:opacity-100">try this</span>
-                  </button>
-                ))}
+                    {suggestions.map((suggestion, i) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        onMouseEnter={() => setHighlightIdx(i)}
+                        className={cn(
+                          "group/item flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                          i === highlightIdx
+                            ? "bg-accent/10 text-foreground"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                            i === highlightIdx ? "bg-accent/20" : "bg-muted/60",
+                          )}
+                        >
+                          <Sparkles
+                            className={cn(
+                              "h-4 w-4",
+                              i === highlightIdx ? "text-accent" : "text-muted-foreground/60",
+                            )}
+                          />
+                        </div>
+                        <span className="flex-1 text-sm">{suggestion}</span>
+                        <span className="text-[10px] italic opacity-0 transition-opacity text-muted-foreground/40 group-hover/item:opacity-100">
+                          try this
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
 
               <div className="flex items-center justify-between border-t border-border/40 px-4 py-2">
@@ -587,7 +883,9 @@ export function GlobalTopNav({
                     <kbd className="rounded border border-border/50 bg-muted/50 px-1 py-0.5 font-mono">esc</kbd> Close
                   </span>
                 </div>
-                <span className="text-[9px] font-mono text-muted-foreground/30">Contextual · AI</span>
+                <span className="text-[9px] font-mono text-muted-foreground/30">
+                  {isInvestorArea && investorSearchTrim ? "Directory" : "Contextual · AI"}
+                </span>
               </div>
             </div>
           )}
@@ -666,22 +964,17 @@ export function GlobalTopNav({
 
 
         {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network", "market-data-room"].includes(activeView) && (
+        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {(
-                activeView === "market-investors" || activeView === "market-data-room"
-                  ? [{ id: "market-data-room", label: "Data Room" }]
-                  : [
-                      { id: "market-intelligence", label: "Live" },
-                      { id: "market-investors", label: "Investors" },
-                      { id: "market-market", label: "Market" },
-                      { id: "market-tech", label: "Tech" },
-                      { id: "market-network", label: "Network" },
-                      { id: "market-data-room", label: "Data Room" },
-                    ]
-              ).map((tab) => (
+              {[
+                { id: "market-intelligence", label: "Live" },
+                { id: "market-investors", label: "Investors" },
+                { id: "market-market", label: "Market" },
+                { id: "market-tech", label: "Tech" },
+                { id: "market-network", label: "Network" },
+              ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => routeView(tab.id as ViewType)}
@@ -706,71 +999,52 @@ export function GlobalTopNav({
                     "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}>
                     <span className="truncate max-w-[100px]">
-                      {activeView === "market-investors" || activeView === "market-data-room"
-                        ? "Data Room"
-                        : activeView === "market-intelligence"
-                          ? "Live"
+                      {activeView === "market-intelligence"
+                        ? "Live"
+                        : activeView === "market-investors"
+                          ? "Investors"
                           : activeView === "market-market"
                             ? "Market"
                             : activeView === "market-tech"
                               ? "Tech"
                               : activeView === "market-network"
                                 ? "Network"
-                                : activeView === "market-data-room"
-                                  ? "Data Room"
-                                  : "Intelligence"}
+                                : "Intelligence"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
-                  {activeView === "market-investors" ? (
-                    <DropdownMenuItem
-                      onClick={() => routeView("market-data-room")}
-                      className={cn(activeView === "market-data-room" && "bg-accent/10 text-accent")}
-                    >
-                      Data Room
-                    </DropdownMenuItem>
-                  ) : (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-intelligence")}
-                        className={cn(activeView === "market-intelligence" && "bg-accent/10 text-accent")}
-                      >
-                        Live
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-investors")}
-                        className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
-                      >
-                        Investors
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-market")}
-                        className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
-                      >
-                        Market
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-tech")}
-                        className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
-                      >
-                        Tech
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-network")}
-                        className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
-                      >
-                        Network
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => routeView("market-data-room")}
-                        className={cn(activeView === "market-data-room" && "bg-accent/10 text-accent")}
-                      >
-                        Data Room
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-intelligence")}
+                    className={cn(activeView === "market-intelligence" && "bg-accent/10 text-accent")}
+                  >
+                    Live
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-investors")}
+                    className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
+                  >
+                    Investors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-market")}
+                    className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
+                  >
+                    Market
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-tech")}
+                    className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
+                  >
+                    Tech
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-network")}
+                    className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
+                  >
+                    Network
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -883,17 +1157,24 @@ export function GlobalTopNav({
         <TooltipProvider delayDuration={200}>
           <div className="hidden md:flex shrink-0 items-center gap-4">
             {(() => {
+              const locked = profileCompletion < 100 || personalCompletion < 100;
+              const views = 12;
+              const searches = 85;
               return (
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center gap-1.5">
                         <Eye className="h-4 w-4 text-muted-foreground/60" />
-                        <span className="text-xs font-medium text-foreground">{weeklyViews}</span>
+                        {locked ? (
+                          <Lock className="h-3 w-3 text-muted-foreground/40" />
+                        ) : (
+                          <span className="text-xs font-medium text-foreground">{views}</span>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {`${weeklyViews} Total Investor Views this week`}
+                      {locked ? "Complete your personal and company profiles to unlock Investor Views" : `${views} Total Investor Views this week`}
                     </TooltipContent>
                   </Tooltip>
 
@@ -901,11 +1182,15 @@ export function GlobalTopNav({
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center gap-1.5">
                         <Radar className="h-4 w-4 text-muted-foreground/60" />
-                        <span className="text-xs font-medium text-foreground">{weeklySearchAppearances}</span>
+                        {locked ? (
+                          <Lock className="h-3 w-3 text-muted-foreground/40" />
+                        ) : (
+                          <span className="text-xs font-medium text-foreground">{searches}</span>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {`${weeklySearchAppearances} Search Appearances this week`}
+                      {locked ? "Complete your personal and company profiles to unlock Search Appearances" : `${searches} Search Appearances this week`}
                     </TooltipContent>
                   </Tooltip>
                 </>
@@ -982,7 +1267,7 @@ export function GlobalTopNav({
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
             <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
               {logoUrl && !logoImgError ? (
-                <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
+                <img key={logoUrl} src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
               ) : hasProfile ? (
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {companyName?.charAt(0).toUpperCase() || "?"}
@@ -998,7 +1283,7 @@ export function GlobalTopNav({
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="relative w-9 h-9 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
                 {logoUrl && !logoImgError ? (
-                  <img src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
+                  <img key={logoUrl} src={logoUrl} alt="" className="w-full h-full object-contain rounded-lg" onError={() => setLogoImgError(true)} />
                 ) : hasProfile ? (
                   <span className="text-xs font-bold text-muted-foreground">
                     {companyName?.charAt(0).toUpperCase() || "?"}

@@ -129,11 +129,6 @@ export function InvestorDetailPanel({
   const [activeScoreTile, setActiveScoreTile] = useState<TileId | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
-  // Locally-submitted star_ratings — set immediately on submission so the button updates
-  // without waiting for the async DB re-fetch to complete.
-  const [localStarRatings, setLocalStarRatings] = useState<unknown>(null);
-  // ISO timestamp of the local submission — used for the 48h countdown without needing a DB re-fetch.
-  const [localRatingCreatedAt, setLocalRatingCreatedAt] = useState<string | null>(null);
   const bootstrapReviewOpenedRef = useRef(false);
 
   // Reset tab when initialTab or investor changes
@@ -147,7 +142,6 @@ export function InvestorDetailPanel({
 
   useEffect(() => {
     setActiveScoreTile(null);
-    setLocalStarRatings(null);
   }, [investor?.name, vcFirm?.id]);
 
   const { session } = useAuth();
@@ -228,11 +222,9 @@ export function InvestorDetailPanel({
     ratingRefresh,
     displayName,
   );
-  // Prefer the locally-submitted value (instant) over the async DB re-fetch result.
-  const effectiveStarRatings = localStarRatings ?? myFirmRatingJson;
   const myFirmRateDisplay = useMemo(
-    () => formatMyReviewRateButton(effectiveStarRatings),
-    [effectiveStarRatings],
+    () => formatMyReviewRateButton(myFirmRatingJson),
+    [myFirmRatingJson],
   );
 
   const mergedPartners = useMemo((): VCPerson[] => {
@@ -360,16 +352,6 @@ export function InvestorDetailPanel({
     "-";
 
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
-  const connectLocation = (() => {
-    const street = liveProfile?.address?.trim() || null;
-    const city = liveProfile?.hq_city?.trim() || null;
-    const state = liveProfile?.hq_state?.trim() || null;
-    const zip = liveProfile?.hq_zip_code?.trim() || null;
-    const country = liveProfile?.hq_country?.trim() || null;
-    const cityStateZip = [city, state, zip].filter(Boolean).join(" ");
-    const fullAddress = [street, cityStateZip || null, country].filter(Boolean).join(", ");
-    return fullAddress || heroLocation || null;
-  })();
 
   const metaFacts = [
     { label: "AUM", value: heroAum },
@@ -545,14 +527,11 @@ export function InvestorDetailPanel({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                          className={cn(
-                            "inline-flex items-center gap-1.5 rounded-xl px-3 py-[9px] text-[13px] font-semibold leading-none transition-colors",
-                            myFirmRateDisplay.className,
-                          )}
+                          className="inline-flex items-center gap-1 rounded-xl border border-border/50 bg-transparent px-2.5 py-[9px] leading-none transition-colors hover:bg-secondary/40"
                           aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
                         >
-                          <span>{myFirmRateDisplay.label}</span>
-                          <Star className="h-3.5 w-3.5 shrink-0 fill-current" />
+                          <Star className={cn("h-3 w-3 shrink-0 fill-current animate-pulse", myFirmRateDisplay.colorClass)} />
+                          <span className={cn("text-[13px] font-bold animate-pulse", myFirmRateDisplay.colorClass)}>{myFirmRateDisplay.label}</span>
                         </button>
                       ) : (
                         <button
@@ -703,8 +682,7 @@ export function InvestorDetailPanel({
                           currentUserId={session?.user?.id}
                           investorId={databaseFirmId || null}
                           isAdmin={isAdmin}
-                          location={connectLocation}
-                          email={liveProfile?.email ?? null}
+                          location={heroLocation || null}
                         />
                       </motion.div>
                     )}
@@ -722,10 +700,6 @@ export function InvestorDetailPanel({
           setReviewOpen(false);
           setRatingRefresh((n) => n + 1);
         }}
-        onRatingSubmitted={(sr) => {
-          setLocalStarRatings(sr);
-          setLocalRatingCreatedAt(new Date().toISOString());
-        }}
         firmName={heroName}
         firmLogoUrl={heroLogo}
         firmWebsiteUrl={
@@ -735,8 +709,8 @@ export function InvestorDetailPanel({
         personId={reviewVcPersonId ?? ""}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
-        initialStarRatings={effectiveStarRatings}
-        initialCreatedAt={localRatingCreatedAt ?? myFirmRatingCreatedAt}
+        initialStarRatings={myFirmRatingJson}
+        initialCreatedAt={myFirmRatingCreatedAt}
       />
     </AnimatePresence>
   );

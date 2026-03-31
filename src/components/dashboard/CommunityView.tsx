@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
@@ -35,6 +35,8 @@ interface CommunityViewProps {
   investorTab?: string;
   /** Narrows investor grid by free text (from nav search) */
   investorListSearchQuery?: string;
+  /** When `nonce` changes, scrolls the investor grid to the matching firm card (VC directory id). */
+  investorScrollTo?: { vcFirmId: string; nonce: number } | null;
 }
 
 // ── Types ──
@@ -308,7 +310,20 @@ function FounderCardSkeleton() {
 }
 
 // ── Investor Card ──
-function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry; trending?: boolean; onClick?: () => void; onDeployingClick?: () => void;}) {
+function InvestorCard({
+  founder,
+  trending,
+  onClick,
+  onDeployingClick,
+  anchorVcFirmId,
+}: {
+  founder: DirectoryEntry;
+  trending?: boolean;
+  onClick?: () => void;
+  onDeployingClick?: () => void;
+  /** VC JSON firm id for scroll-to / querySelector anchoring */
+  anchorVcFirmId?: string | null;
+}) {
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore;
@@ -318,6 +333,7 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
 
   return (
     <Card
+      data-vc-firm-id={anchorVcFirmId || undefined}
       onClick={onClick}
       className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
@@ -448,10 +464,30 @@ function InvestorCard({ founder, trending, onClick, onDeployingClick }: {founder
     </Card>);
 }
 
-function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void; onDeployingClick?: () => void;}) {
+function FounderCard({
+  founder,
+  trending,
+  onClick,
+  onDeployingClick,
+  anchorVcFirmId,
+}: {
+  founder: DirectoryEntry;
+  trending?: boolean;
+  onClick?: () => void;
+  onDeployingClick?: () => void;
+  anchorVcFirmId?: string | null;
+}) {
   // Use specialized investor card for investor entries
   if (founder.category === "investor") {
-    return <InvestorCard founder={founder} trending={trending} onClick={onClick} onDeployingClick={onDeployingClick} />;
+    return (
+      <InvestorCard
+        founder={founder}
+        trending={trending}
+        onClick={onClick}
+        onDeployingClick={onDeployingClick}
+        anchorVcFirmId={anchorVcFirmId}
+      />
+    );
   }
 
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
@@ -529,10 +565,28 @@ function FounderCard({ founder, trending, onClick, onDeployingClick }: {founder:
 }
 
 // ── Carousel-ready card wrapper ──
-function CarouselCard({ founder, trending, onClick, onDeployingClick }: {founder: DirectoryEntry;trending?: boolean;onClick?: () => void; onDeployingClick?: () => void;}) {
+function CarouselCard({
+  founder,
+  trending,
+  onClick,
+  onDeployingClick,
+  anchorVcFirmId,
+}: {
+  founder: DirectoryEntry;
+  trending?: boolean;
+  onClick?: () => void;
+  onDeployingClick?: () => void;
+  anchorVcFirmId?: string | null;
+}) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
-      <FounderCard founder={founder} trending={trending} onClick={onClick} onDeployingClick={onDeployingClick} />
+      <FounderCard
+        founder={founder}
+        trending={trending}
+        onClick={onClick}
+        onDeployingClick={onDeployingClick}
+        anchorVcFirmId={anchorVcFirmId}
+      />
     </div>);
 
 }
@@ -545,6 +599,7 @@ export function CommunityView({
   variant = "directory",
   investorTab,
   investorListSearchQuery,
+  investorScrollTo,
 }: CommunityViewProps) {
   const isInvestorSearch = variant === "investor-search";
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -611,6 +666,12 @@ export function CommunityView({
   const getVCFirmMatch = useCallback(
     (name: string) => vcFirmMap.get(normalizeFirmName(name)) ?? null,
     [vcFirmMap]
+  );
+
+  const investorAnchorVcFirmId = useCallback(
+    (e: DirectoryEntry) =>
+      e.category === "investor" ? getVCFirmMatch(e.name)?.id ?? e._firmId ?? null : null,
+    [getVCFirmMatch],
   );
 
   // Merge VC JSON firms into the directory entries for grid display
@@ -814,10 +875,10 @@ export function CommunityView({
     }
   }, []);
 
-  // Reset pagination on filter/scope change
+  // Reset pagination on filter/scope change (not on text search — large indices must stay reachable for scroll-to-pick)
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab, investorListSearchQuery]);
+  }, [activeFilter, activeScope, activeInvestorTab]);
 
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
@@ -921,6 +982,35 @@ export function CommunityView({
 
   const hasMore = visibleCount < textFilteredEntries.length;
   const visibleFounders = textFilteredEntries.slice(0, visibleCount);
+
+  useLayoutEffect(() => {
+    if (!isInvestorSearch || !investorScrollTo?.vcFirmId) return;
+    const { vcFirmId } = investorScrollTo;
+
+    const idx = textFilteredEntries.findIndex((e) => {
+      if (e.category !== "investor") return false;
+      if (e._firmId && e._firmId === vcFirmId) return true;
+      const vc = getVCFirmMatch(e.name);
+      return vc?.id === vcFirmId;
+    });
+    if (idx < 0) return;
+
+    if (idx >= visibleCount) {
+      setVisibleCount((c) => Math.max(c, idx + 1));
+      return;
+    }
+
+    const safeId =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(vcFirmId)
+        : vcFirmId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-vc-firm-id="${safeId}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, [isInvestorSearch, investorScrollTo, textFilteredEntries, visibleCount, getVCFirmMatch]);
 
   // Dynamic header for investor tabs
   const investorTabHeader = useMemo(() => {
@@ -1216,7 +1306,7 @@ export function CommunityView({
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile" onViewAll={handleViewAll}>
             {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
+          <CarouselCard key={`suggested-${i}`} founder={entry} anchorVcFirmId={investorAnchorVcFirmId(entry)} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -1227,7 +1317,7 @@ export function CommunityView({
       <div className="pt-4">
           <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week" onViewAll={handleViewAll}>
             {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
+          <CarouselCard key={`trending-${i}`} founder={entry} trending anchorVcFirmId={investorAnchorVcFirmId(entry)} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
           )}
           </FounderCarousel>
         </div>
@@ -1286,7 +1376,13 @@ export function CommunityView({
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {visibleFounders.map((founder, i) =>
-                    <FounderCard key={`all-${i}`} founder={founder} onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)} onDeployingClick={() => handleDeployingClick(founder)} />
+                    <FounderCard
+                      key={`all-${founder.category === "investor" ? investorAnchorVcFirmId(founder) ?? founder.name : founder._profileId ?? founder.name}-${i}`}
+                      founder={founder}
+                      anchorVcFirmId={investorAnchorVcFirmId(founder)}
+                      onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)}
+                      onDeployingClick={() => handleDeployingClick(founder)}
+                    />
                   )}
                   {isLoadingMore &&
                     Array.from({ length: 3 }).map((_, i) =>
