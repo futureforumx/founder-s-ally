@@ -3,6 +3,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  Building2,
   Minus,
   Shield,
   Target,
@@ -32,6 +33,9 @@ export interface TopNavCompanyHealthProps {
   sector?: string | null;
   activeView: TopNavView;
   analysisResult?: AnalysisResult | null;
+  companyName?: string | null;
+  logoUrl?: string | null;
+  hasProfile?: boolean;
 }
 
 const tabs: Array<{ id: HealthTab; label: string }> = [
@@ -92,6 +96,9 @@ export function TopNavCompanyHealth({
   sector,
   activeView,
   analysisResult,
+  companyName,
+  logoUrl,
+  hasProfile = false,
 }: TopNavCompanyHealthProps) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -99,6 +106,7 @@ export function TopNavCompanyHealth({
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
   const [scoreLineProgress, setScoreLineProgress] = useState(0);
+  const [logoImgError, setLogoImgError] = useState(false);
   const trackedHoverOpenRef = useRef(false);
   const openTriggerRef = useRef<"hover" | "tap" | null>(null);
   const trackedModalOpenRef = useRef(false);
@@ -135,6 +143,10 @@ export function TopNavCompanyHealth({
     },
     [trackInteraction],
   );
+
+  useEffect(() => {
+    setLogoImgError(false);
+  }, [logoUrl]);
 
   useEffect(() => {
     if (score != null) return;
@@ -394,8 +406,38 @@ export function TopNavCompanyHealth({
             <div className="border-b border-border/60 px-5 py-4">
               <div className="flex flex-wrap items-end justify-between gap-3 pr-8">
                 <div>
-                  <p className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted-foreground/90">Always-on intelligence</p>
-                  <h2 className="mt-1 text-[1.38rem] font-bold tracking-tight text-foreground">Company Health</h2>
+                  <p className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-success/80">
+                    <span
+                      className="h-2 w-2 rounded-full bg-success animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+                      aria-hidden
+                    />
+                    Always On Intelligence
+                  </p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
+                      {logoUrl && !logoImgError ? (
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          crossOrigin="anonymous"
+                          className="h-full w-full object-contain rounded-xl"
+                          onError={() => setLogoImgError(true)}
+                        />
+                      ) : hasProfile ? (
+                        <span className="text-sm font-bold text-muted-foreground">
+                          {companyName?.charAt(0).toUpperCase() || "?"}
+                        </span>
+                      ) : (
+                        <Building2 className="h-5 w-5 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-[1.38rem] font-bold tracking-tight text-foreground">
+                        {hasProfile ? companyName || "My Company" : "My Company"}
+                      </h2>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground/80">Company Health</p>
+                    </div>
+                  </div>
                   <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span>
                       Score <span className="text-[1.05rem] font-extrabold tabular-nums text-foreground">{derived.score}</span>

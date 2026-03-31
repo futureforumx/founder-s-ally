@@ -933,6 +933,9 @@ export function GlobalTopNav({
           sector={userSector}
           activeView={activeView}
           analysisResult={analysisResult}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          hasProfile={hasProfile}
         />
 
         {/* ── Right: Help + Persona Switcher ── */}

@@ -180,7 +180,7 @@ async function syncFirms() {
         value_add_score: firm.value_add_score ?? null,
         network_strength: firm.network_strength ?? null,
         industry_reputation: firm.industry_reputation ?? null,
-        founder_sentiment_score: firm.founder_sentiment ?? null,
+        founder_reputation_score: firm.founder_sentiment ?? null,
         volatility_score: firm.volatility_score,
         last_verified_at: firm.last_verified_at.toISOString(),
         next_update_scheduled_at: firm.next_update_scheduled_at.toISOString(),
