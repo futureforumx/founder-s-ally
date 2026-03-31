@@ -465,6 +465,15 @@
   .animate-glow-pulse {
     animation: text-glow-pulse 2.5s ease-in-out infinite;
   }
+
+  @keyframes progress-bar-pulse {
+    0%, 100% { box-shadow: 0 0 4px 1px hsl(217 91% 60% / 0.3); opacity: 1; filter: brightness(1); }
+    50% { box-shadow: 0 0 18px 5px hsl(217 91% 60% / 0.75); opacity: 0.82; filter: brightness(1.25); }
+  }
+
+  .animate-progress-bar-pulse {
+    animation: progress-bar-pulse 2s ease-in-out infinite;
+  }
 }
 
 /* Mux: pierce shadow DOM so internal <video> covers the player box (official + !important). */

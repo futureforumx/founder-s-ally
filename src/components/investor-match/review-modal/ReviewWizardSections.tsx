@@ -17,7 +17,7 @@ export function ReviewWizardProgressBar({ step }: { step: ReviewWizardStep }) {
       </div>
       <div className="h-1 w-full rounded-full bg-border/80 overflow-hidden" aria-hidden>
         <div
-          className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+          className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out animate-progress-bar-pulse"
           style={{ width: `${pct}%` }}
         />
       </div>

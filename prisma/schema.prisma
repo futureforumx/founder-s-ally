@@ -134,6 +134,14 @@ enum ExitType {
   UNKNOWN
 }
 
+/// Investment breadth classification — Generalist writes across many sectors,
+/// Multi-Sector covers 3–6 focused verticals, Specialist is deeply focused on 1–2.
+enum InvestmentClassification {
+  GENERALIST
+  MULTI_SECTOR
+  SPECIALIST
+}
+
 enum InvestmentLifecycleStatus {
   ACTIVE
   EXITED
