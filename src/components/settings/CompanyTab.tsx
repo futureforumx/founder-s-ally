@@ -7,8 +7,7 @@ import {
   ArrowRight, AlertTriangle, Mail, ShieldCheck, Sparkles, ChevronRight, Loader2, Linkedin
 } from "lucide-react";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
-import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { useAuth } from "@/hooks/useAuth";
@@ -609,7 +608,7 @@ export function CompanyTab() {
     };
 
     if (isSupabaseConfigured) {
-      const jwt = await getEdgeFunctionAuthToken();
+      const jwt = await getSupabaseAccessToken();
       if (jwt) {
         const { data, error } = await supabase.functions.invoke("claim-company-workspace", {
           body: { companyId: comp.id, userId: user.id },

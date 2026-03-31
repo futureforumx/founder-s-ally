@@ -17,10 +17,15 @@ function isVcPersonFkViolation(err: { code?: string; message?: string; details?:
   );
 }
 
-function isMissingVcRatingsTableError(err: { message?: string; details?: string; hint?: string } | null): boolean {
+function isMissingVcRatingsTableError(err: { message?: string; details?: string; hint?: string; code?: string } | null): boolean {
   if (!err || typeof err !== "object") return false;
-  const blob = `${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""}`.toLowerCase();
-  return blob.includes("could not find the table") && blob.includes("public.vc_ratings");
+  const blob = `${err.code ?? ""} ${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""}`.toLowerCase();
+  if (err.code === "PGRST205" && blob.includes("vc_ratings")) return true;
+  if (!blob.includes("vc_ratings")) return false;
+  if (blob.includes("schema cache")) return true;
+  if (blob.includes("could not find")) return true;
+  if (blob.includes("does not exist") && (blob.includes("relation") || blob.includes("table"))) return true;
+  return false;
 }
 
 /** When vc_ratings is missing or the row cannot reference directory firms/people, persist to investor_reviews (text firm_id). */

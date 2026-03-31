@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle2, Pencil, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
-import { submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
+import { isSubmitReviewNetworkFailure, submitVcRatingViaEdge } from "@/lib/submitVcRatingEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -25,6 +25,7 @@ import {
 import { nonInvestorTagsForOverallScore } from "@/lib/reviewFormContent";
 import { isContextStepValidUnlinked, isEvaluationStepValidUnlinked } from "@/lib/reviewWizard";
 import { cn } from "@/lib/utils";
+import { isMissingVcRatingsTableError } from "@/lib/vcRatingsTableErrors";
 import {
   ReviewWizardBody,
   ReviewWizardFooter,
@@ -365,8 +366,11 @@ function sanitizeHydratedUnlinkedAnswers(
 }
 
 function formatReviewSubmitError(err: unknown): string {
+  if (isMissingVcRatingsTableError(err)) {
+    return "Your Supabase project is missing public.vc_ratings (PostgREST schema cache). Apply pending migrations: run `supabase db push` / deploy SQL migrations, or `npx prisma migrate deploy`, then reload the app.";
+  }
   const rlsHint =
-    "Saving needs a valid Supabase session: enable Clerk’s Supabase third-party integration (or a JWT template named “supabase”) so your user id matches the review author, then sign out and back in.";
+    "Reviews save through the submit-vc-rating API first. If you still see this, PostgREST cannot verify your Clerk JWT: enable Clerk’s Supabase third-party integration (or a JWT template named “supabase”) so Supabase accepts the token, then sign out and back in.";
 
   const fromParts = (message: string, code?: string, details?: string, hint?: string) => {
     const bits = [message];
@@ -412,13 +416,6 @@ function isVcPersonFkViolation(err: unknown): boolean {
     o.code === "23503" ||
     (blob.includes("vc_person") && (blob.includes("foreign key") || blob.includes("violates")))
   );
-}
-
-function isMissingVcRatingsTableError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const o = err as { message?: string; details?: string; hint?: string };
-  const blob = `${o.message ?? ""} ${o.details ?? ""} ${o.hint ?? ""}`.toLowerCase();
-  return blob.includes("could not find the table") && blob.includes("public.vc_ratings");
 }
 
 /** Persist to investor_reviews when vc_ratings is absent or rows cannot reference vc_firms / vc_people. */
@@ -861,9 +858,8 @@ export function ReviewSubmissionModal({
         query = pid ? query.eq("vc_person_id", pid) : query.is("vc_person_id", null);
 
         const { data, error } = await query;
-        if (cancelled || error) return;
 
-        const row = data?.[0] as {
+        type HydratedRow = {
           id?: string;
           anonymous?: boolean;
           comment?: string | null;
@@ -874,9 +870,49 @@ export function ReviewSubmissionModal({
             remember_who?: string;
             remember_who_vc_person_ids?: unknown;
           } | null;
-        } | undefined;
+        };
 
-        if (!row?.id) {
+        let row: HydratedRow | undefined;
+        let reviewIdForVcRatings: string | null = null;
+
+        if (!error && data?.length) {
+          row = data[0] as HydratedRow;
+          reviewIdForVcRatings = typeof row?.id === "string" && row.id.trim() ? row.id.trim() : null;
+        } else if (error && isMissingVcRatingsTableError(error) && !cancelled) {
+          const personKey = pid?.trim() ?? "";
+          const { data: invRows, error: invErr } = await supabase
+            .from("investor_reviews")
+            .select("comment, star_ratings, created_at, is_anonymous")
+            .eq("founder_id", user.id)
+            .eq("firm_id", resolvedFirmId)
+            .eq("person_id", personKey)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (cancelled || invErr || !invRows?.length) return;
+          const ir = invRows[0] as {
+            comment?: string | null;
+            created_at?: string | null;
+            is_anonymous?: boolean | null;
+            star_ratings?: unknown;
+          };
+          reviewIdForVcRatings = null;
+          row = {
+            anonymous: typeof ir.is_anonymous === "boolean" ? ir.is_anonymous : true,
+            comment: ir.comment ?? null,
+            created_at: typeof ir.created_at === "string" ? ir.created_at : null,
+            star_ratings:
+              ir.star_ratings && typeof ir.star_ratings === "object" && !Array.isArray(ir.star_ratings)
+                ? (ir.star_ratings as HydratedRow["star_ratings"])
+                : null,
+          };
+        } else if (cancelled || error) {
+          return;
+        } else {
+          if (!cancelled) setReviewRecordId(null);
+          return;
+        }
+
+        if (!row) {
           if (!cancelled) setReviewRecordId(null);
           return;
         }
@@ -894,7 +930,7 @@ export function ReviewSubmissionModal({
           : sanitizeHydratedUnlinkedAnswers(loadedAnswers);
 
         if (!cancelled) {
-          setReviewRecordId(row.id);
+          setReviewRecordId(reviewIdForVcRatings);
           setAnswers(answersToApply);
           setSelectedTags(Array.isArray(sr?.tags) ? sr.tags.filter((t) => typeof t === "string") : []);
           setRememberWho(typeof sr?.remember_who === "string" ? sr.remember_who : "");
@@ -1143,7 +1179,7 @@ export function ReviewSubmissionModal({
           });
           if (edge.ok) {
             savedAsRevision = edge.savedAsRevision;
-          } else {
+          } else if (edge.fallbackToDirect && edge.cause === "network") {
             const result = await upsertVcRatingRow({
               supabaseClient: supabase,
               reviewRecordId,
@@ -1151,19 +1187,30 @@ export function ReviewSubmissionModal({
               payload,
             });
             savedAsRevision = result.savedAsRevision;
+          } else {
+            toast.error("Sign in to submit a review.");
+            return;
           }
         } catch (edgeErr) {
-          try {
-            const result = await upsertVcRatingRow({
-              supabaseClient: supabase,
-              reviewRecordId,
-              userId: user.id,
-              payload,
-            });
-            savedAsRevision = result.savedAsRevision;
-          } catch (directErr) {
-            console.error("[ReviewSubmissionModal] edge submit failed, direct path also failed", edgeErr, directErr);
-            throw directErr instanceof Error ? directErr : edgeErr;
+          if (isSubmitReviewNetworkFailure(edgeErr)) {
+            try {
+              const result = await upsertVcRatingRow({
+                supabaseClient: supabase,
+                reviewRecordId,
+                userId: user.id,
+                payload,
+              });
+              savedAsRevision = result.savedAsRevision;
+            } catch (directErr) {
+              console.error(
+                "[ReviewSubmissionModal] edge unreachable and direct save failed",
+                edgeErr,
+                directErr,
+              );
+              throw directErr instanceof Error ? directErr : edgeErr;
+            }
+          } else {
+            throw edgeErr instanceof Error ? edgeErr : new Error(String(edgeErr));
           }
         }
       } else {

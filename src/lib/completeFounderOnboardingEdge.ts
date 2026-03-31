@@ -1,6 +1,5 @@
 import { FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
-import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 
 export type CompleteFounderOnboardingPayload = {
@@ -40,9 +39,9 @@ export async function completeFounderOnboardingEdge(
     return { ok: false, error: "Supabase not configured", fallbackToClient: true };
   }
 
-  const jwt = await getEdgeFunctionAuthToken();
+  const jwt = await getSupabaseAccessToken();
   if (!jwt) {
-    return { ok: false, error: "No session JWT", fallbackToClient: true };
+    return { ok: false, error: "No Clerk→Supabase JWT (add template \"supabase\" or Supabase third-party Clerk)", fallbackToClient: true };
   }
 
   const { data, error } = await supabase.functions.invoke("complete-founder-onboarding", {

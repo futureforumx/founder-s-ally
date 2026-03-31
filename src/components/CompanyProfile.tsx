@@ -61,16 +61,13 @@ function extractDomain(url: string): string | null {
   } catch { return null; }
 }
 
-function faviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`;
-}
-
-function hdFaviconSrc(domain: string): string {
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
-}
-
+/** Google favicon service — use in settings / overview website field + nav logo sync. */
 function s2FaviconSrc(domain: string, size: number): string {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+}
+
+function faviconSrc(domain: string): string {
+  return s2FaviconSrc(domain, 32);
 }
 
 /** Supabase bucket uploads — do not replace with auto-favicon when website changes. */
@@ -399,9 +396,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   });
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const logoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Favicon + nav logo whenever website changes (typing, paste, LinkedIn sync, etc.)
+  // Favicon + nav logo whenever website changes (typing, paste, LinkedIn sync, etc.) — Google s2/favicons API
   useEffect(() => {
     const domain = extractDomain(form.website);
     if (!domain) {
@@ -409,45 +404,17 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
       return;
     }
-    setFaviconUrl(faviconSrc(domain));
+    setFaviconUrl(s2FaviconSrc(domain, 32));
 
     const t = window.setTimeout(() => {
       const d = extractDomain(form.website);
       if (!d) return;
-      const primary = faviconSrc(d);
-      const img = new Image();
-      img.onload = () => {
-        setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(d)));
-      };
-      img.onerror = () => {
-        const fallback = s2FaviconSrc(d, 32);
-        setFaviconUrl(fallback);
-        const img2 = new Image();
-        img2.onload = () => {
-          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
-        };
-        img2.onerror = () => {
-          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
-        };
-        img2.src = fallback;
-      };
-      if (logoFallbackTimerRef.current != null) window.clearTimeout(logoFallbackTimerRef.current);
-      logoFallbackTimerRef.current = window.setTimeout(() => {
-        logoFallbackTimerRef.current = null;
-        setLogoUrl((prev) => {
-          if (!prev || isCustomUploadedLogo(prev)) return prev;
-          return hdFaviconSrc(d);
-        });
-      }, 1000);
-      img.src = primary;
+      setFaviconUrl(s2FaviconSrc(d, 32));
+      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
     }, 300);
 
     return () => {
       window.clearTimeout(t);
-      if (logoFallbackTimerRef.current != null) {
-        window.clearTimeout(logoFallbackTimerRef.current);
-        logoFallbackTimerRef.current = null;
-      }
     };
   }, [form.website]);
 
@@ -1761,16 +1728,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                 src={faviconUrl}
                                 alt=""
                                 className="h-4 w-4 rounded-sm object-contain"
-                                onError={() => {
-                                  const d = extractDomain(form.website);
-                                  if (!d) return;
-                                  setFaviconUrl((prev) => {
-                                    const s2 = s2FaviconSrc(d, 32);
-                                    if (!prev || prev === s2) return null;
-                                    if (prev.includes("gstatic.com")) return s2;
-                                    return null;
-                                  });
-                                }}
+                                onError={() => setFaviconUrl(null)}
                               />
                             ) : (
                               <Globe className="h-4 w-4 text-muted-foreground" />
@@ -1795,29 +1753,9 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             onBlur={() => {
                               const domain = extractDomain(form.website);
                               if (!domain) return;
-                              const hdLogoUrl = hdFaviconSrc(domain);
-                              const testImg = new Image();
-                              testImg.onload = () => {
-                                setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
-                                setSuggestedLogoUrl(null);
-                              };
-                              testImg.onerror = () => {
-                                const s2 = s2FaviconSrc(domain, 128);
-                                const test2 = new Image();
-                                test2.onload = () => {
-                                  setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
-                                  setSuggestedLogoUrl(null);
-                                };
-                                test2.onerror = () => {};
-                                test2.src = s2;
-                              };
-                              setTimeout(() => {
-                                setLogoUrl((prev) => {
-                                  if (!prev || isCustomUploadedLogo(prev)) return prev;
-                                  return hdLogoUrl;
-                                });
-                              }, 500);
-                              testImg.src = hdLogoUrl;
+                              const logoS2 = s2FaviconSrc(domain, 128);
+                              setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : logoS2));
+                              setSuggestedLogoUrl(null);
                             }}
                             placeholder="https://acme.com" maxLength={255}
                             className={cn(inputCls("website"), "min-w-0 pl-10 pr-16 sm:pr-20 lg:pr-24")}

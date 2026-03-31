@@ -1,7 +1,6 @@
 import { FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 import type { CompanyData } from "@/components/CompanyProfile";
-import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
-import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { ensureManagerMembership } from "@/lib/ensureManagerMembership";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 
@@ -41,7 +40,7 @@ export async function ensureCompanyWorkspace(
   const website = company.website?.trim() || "";
 
   if (isSupabaseConfigured) {
-    const jwt = await getEdgeFunctionAuthToken();
+    const jwt = await getSupabaseAccessToken();
     if (jwt) {
       const { data, error } = await supabase.functions.invoke("create-company-workspace", {
         body: { companyName: name, website, userId },
