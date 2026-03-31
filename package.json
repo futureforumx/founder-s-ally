@@ -50,7 +50,10 @@
     "db:generate:curated-investors": "tsx scripts/generate_curated_partners_json.ts",
     "supabase": "supabase",
     "supabase:db:push": "supabase db push",
-    "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh"
+    "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh",
+    "headshots:update": "tsx scripts/update-headshots.ts",
+    "headshots:dry-run": "DRY_RUN=true tsx scripts/update-headshots.ts",
+    "headshots:refresh": "ALLOW_REFRESH=true tsx scripts/update-headshots.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

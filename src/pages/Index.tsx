@@ -20,7 +20,7 @@ import { CompanyView } from "@/components/dashboard/CompanyView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { GlobalTopNav, type InvestorDirectoryPick } from "@/components/GlobalTopNav";
 import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
@@ -159,6 +159,10 @@ const Index = () => {
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
+  const [investorGridScrollTo, setInvestorGridScrollTo] = useState<{
+    vcFirmId: string;
+    nonce: number;
+  } | null>(null);
   const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
 
   useEffect(() => {
@@ -207,8 +211,7 @@ const Index = () => {
   const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => getStoredCompanyLogoUrl());
   useEffect(() => {
     const sync = () => {
-      const url = getStoredCompanyLogoUrl();
-      setNavLogoUrl(prev => url !== prev ? url : prev);
+      setNavLogoUrl(getStoredCompanyLogoUrl());
     };
     window.addEventListener("storage", sync);
     window.addEventListener("company-logo-changed", sync);
@@ -413,7 +416,7 @@ const Index = () => {
           } catch { return null; }
         })();
         if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+          const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -470,6 +473,12 @@ const Index = () => {
     if (q.trim()) setActiveView("investor-search");
   }, []);
 
+  const handleInvestorDirectoryPick = useCallback((pick: InvestorDirectoryPick) => {
+    if (pick.vcFirmId) {
+      setInvestorGridScrollTo({ vcFirmId: pick.vcFirmId, nonce: Date.now() });
+    }
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {showOnboarding && !profileComplete && (
@@ -502,6 +511,7 @@ const Index = () => {
           onInvestorSearchChipChange={handleInvestorNavChip}
           investorSearchQuery={investorListQuery}
           onInvestorSearchQueryChange={handleInvestorSearchQuery}
+          onInvestorDirectoryPick={handleInvestorDirectoryPick}
           onInvestorSuggestionSelect={handleInvestorSuggestion}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
@@ -610,6 +620,7 @@ const Index = () => {
               variant={activeView === "investor-search" ? "investor-search" : "directory"}
               investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
               investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
+              investorScrollTo={activeView === "investor-search" ? investorGridScrollTo : undefined}
             />
           ) : activeView === "connections" ? (
             <div className="space-y-4">

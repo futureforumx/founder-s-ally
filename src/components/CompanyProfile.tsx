@@ -11,7 +11,12 @@ import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { supabase, getSupabaseAccessToken } from "@/integrations/supabase/client";
+import {
+  supabase,
+  supabaseVcDirectory,
+  isSupabaseConfigured,
+  getSupabaseAccessToken,
+} from "@/integrations/supabase/client";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,13 +66,22 @@ function extractDomain(url: string): string | null {
   } catch { return null; }
 }
 
-/** Google favicon service — use in settings / overview website field + nav logo sync. */
-function s2FaviconSrc(domain: string, size: number): string {
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+/**
+ * Google faviconV2 (gstatic) — same primary tier as FirmLogo; reliably returns a visible icon for most domains.
+ */
+function gstaticFaviconSrc(domain: string, size: number, cacheBust?: number): string {
+  const base = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=${size}`;
+  return cacheBust != null ? `${base}&v=${cacheBust}` : base;
+}
+
+/** Legacy s2 endpoint — secondary fallback if gstatic fails (blocked network, etc.). */
+function s2FaviconSrc(domain: string, size: number, cacheBust?: number): string {
+  const base = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+  return cacheBust != null ? `${base}&v=${cacheBust}` : base;
 }
 
 function faviconSrc(domain: string): string {
-  return s2FaviconSrc(domain, 32);
+  return gstaticFaviconSrc(domain, 32);
 }
 
 /** Supabase bucket uploads — do not replace with auto-favicon when website changes. */
@@ -243,9 +257,6 @@ interface CompanyProfileProps {
   onWalkthroughComplete?: () => void;
   onSectionConfirmedChange?: (confirmed: Record<string, boolean>) => void;
   onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
-  onSyncCompany?: (url: string) => void;
-  companySyncing?: boolean;
-  companySyncSuccessToken?: number;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
 }
@@ -351,7 +362,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, onSyncCompany, companySyncing, companySyncSuccessToken = 0, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, sectionConfirmedState, companyData: parentCompanyData }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -396,7 +407,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   });
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Favicon + nav logo whenever website changes (typing, paste, LinkedIn sync, etc.) — Google s2/favicons API
+  // Favicon + nav logo when website changes — gstatic faviconV2 primary, s2 fallback on img error only
   useEffect(() => {
     const domain = extractDomain(form.website);
     if (!domain) {
@@ -404,13 +415,13 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
       return;
     }
-    setFaviconUrl(s2FaviconSrc(domain, 32));
+    setFaviconUrl(gstaticFaviconSrc(domain, 32));
 
     const t = window.setTimeout(() => {
       const d = extractDomain(form.website);
       if (!d) return;
-      setFaviconUrl(s2FaviconSrc(d, 32));
-      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
+      setFaviconUrl(gstaticFaviconSrc(d, 32));
+      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : gstaticFaviconSrc(d, 128)));
     }, 300);
 
     return () => {
@@ -456,7 +467,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { return localStorage.getItem("company-source-verified") === "true"; } catch { return false; }
   });
   const [sourceVerifiedAnim, setSourceVerifiedAnim] = useState(false);
-  const prevCompanySyncSuccessTokenRef = useRef(companySyncSuccessToken);
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
@@ -620,16 +630,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { localStorage.setItem("company-data-source", dataSource); } catch {}
   }, [dataSource]);
 
-  // Track successful company sync completions to mark source as verified.
-  useEffect(() => {
-    if (companySyncSuccessToken > prevCompanySyncSuccessTokenRef.current) {
-      setSourceVerified(true);
-      setSourceVerifiedAnim(true);
-      try { localStorage.setItem("company-source-verified", "true"); } catch {}
-    }
-    prevCompanySyncSuccessTokenRef.current = companySyncSuccessToken;
-  }, [companySyncSuccessToken]);
-
   useEffect(() => {
     if (form.name) {
       onSave?.(form);
@@ -722,9 +722,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try {
       const ext = file.name.split(".").pop() || "png";
       const path = `${crypto.randomUUID()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true });
-      if (uploadErr) throw uploadErr;
-      const { data: { publicUrl } } = supabase.storage.from("company-logos").getPublicUrl(path);
+      let publicUrl: string;
+      if (!isSupabaseConfigured) {
+        publicUrl = URL.createObjectURL(file);
+      } else {
+        // Publishable-key client only (no Clerk JWT). Storage policy allows anon uploads to
+        // `company-logos`; the session-scoped client triggers RS256/CryptoKey errors on upload.
+        const { error: uploadErr } = await supabaseVcDirectory.storage
+          .from("company-logos")
+          .upload(path, file, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        publicUrl = supabaseVcDirectory.storage.from("company-logos").getPublicUrl(path).data.publicUrl;
+      }
       setLogoUrl(publicUrl);
       // Clear logo validation error and revoke section confirmation
       setOverviewValidationErrors(prev => { const n = new Set(prev); n.delete("logo"); return n; });
@@ -780,6 +789,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       }
     }
   };
+
+  /** Website URL “Sync” — public Google favicon only (no edge function / JWT). */
+  const handleSyncWebsiteFavicon = useCallback(() => {
+    const domain = extractDomain(form.website);
+    if (!domain) {
+      toast({
+        variant: "destructive",
+        title: "Invalid URL",
+        description: "Enter a website URL with a valid domain.",
+      });
+      return;
+    }
+    const v = Date.now();
+    const icon32 = gstaticFaviconSrc(domain, 32, v);
+    const icon128 = gstaticFaviconSrc(domain, 128, v);
+    setFaviconUrl(icon32);
+    setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : icon128));
+    toast({
+      title: "Icon updated",
+      description: "Favicon refreshed from Google’s public favicon URL for this domain.",
+    });
+  }, [form.website]);
 
   const handleSocialEnrich = useCallback(async (platform: "x" | "linkedin") => {
     const url = platform === "x" ? form.socialTwitter : form.socialLinkedin;
@@ -1725,16 +1756,29 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
                             {faviconUrl ? (
                               <img
+                                key={faviconUrl}
                                 src={faviconUrl}
                                 alt=""
-                                className="h-4 w-4 rounded-sm object-contain"
-                                onError={() => setFaviconUrl(null)}
+                                className="h-4 w-4 rounded-sm object-contain bg-muted/30"
+                                onError={() => {
+                                  const d = extractDomain(form.website);
+                                  if (!d) {
+                                    setFaviconUrl(null);
+                                    return;
+                                  }
+                                  setFaviconUrl((prev) => {
+                                    if (!prev) return null;
+                                    if (prev.includes("gstatic.com")) return s2FaviconSrc(d, 32);
+                                    if (prev.includes("/s2/favicons")) return null;
+                                    return null;
+                                  });
+                                }}
                               />
                             ) : (
                               <Globe className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
-                          <input type="url" value={form.website} disabled={isAnalyzing}
+                          <input type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" value={form.website} disabled={isAnalyzing}
                             onChange={e => {
                               const url = e.target.value.toLowerCase();
                               update("website", url);
@@ -1753,8 +1797,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             onBlur={() => {
                               const domain = extractDomain(form.website);
                               if (!domain) return;
-                              const logoS2 = s2FaviconSrc(domain, 128);
-                              setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : logoS2));
+                              const logoAuto = gstaticFaviconSrc(domain, 128);
+                              setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : logoAuto));
                               setSuggestedLogoUrl(null);
                             }}
                             placeholder="https://acme.com" maxLength={255}
@@ -1787,31 +1831,24 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                     <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
                                   </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
+                                <TooltipContent side="top" className="text-xs">
+                                  Favicon updates as you type. Sync refreshes it from Google’s free favicon service for this domain.
+                                </TooltipContent>
                               </Tooltip>
                             ) : null}
-                            {onSyncCompany && form.website.trim() && (
+                            {form.website.trim() ? (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  onSyncCompany(form.website.trim());
-                                }}
-                                disabled={companySyncing}
+                                onClick={handleSyncWebsiteFavicon}
                                 className={cn(
                                   "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
-                                  companySyncing
-                                    ? "text-accent animate-pulse"
-                                    : "text-accent/70 hover:text-accent hover:bg-accent/10"
+                                  "text-accent/70 hover:text-accent hover:bg-accent/10"
                                 )}
                               >
-                                {companySyncing ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Sparkles className="h-3 w-3" />
-                                )}
-                                {companySyncing ? "Syncing" : "Sync"}
+                                <Sparkles className="h-3 w-3" />
+                                Sync
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground">{"We'll scrape your site for value prop & pricing"}</p>
@@ -1935,7 +1972,22 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           {uploadingLogo ? (
                             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                           ) : logoUrl ? (
-                            <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain p-1.5" />
+                            <img
+                              key={logoUrl}
+                              src={logoUrl}
+                              alt="Company logo"
+                              className="h-full w-full object-contain p-1.5"
+                              onError={() => {
+                                const d = extractDomain(form.website);
+                                if (!d || isCustomUploadedLogo(logoUrl)) return;
+                                setLogoUrl((prev) => {
+                                  if (!prev) return null;
+                                  if (prev.includes("gstatic.com")) return s2FaviconSrc(d, 128);
+                                  if (prev.includes("/s2/favicons")) return null;
+                                  return null;
+                                });
+                              }}
+                            />
                           ) : (
                             (() => {
                               const domain = extractDomain(form.website);

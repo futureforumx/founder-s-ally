@@ -83,7 +83,7 @@ if (!SERVICE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
 
 const MAX = Math.max(1, parseInt(process.env.ENRICH_ALL_MAX || "100", 10));
 const DELAY_MS = Math.max(0, parseInt(process.env.ENRICH_ALL_DELAY_MS || "3000", 10));
-const STALE_DAYS = Math.max(1, parseInt(process.env.ENRICH_ALL_STALE_DAYS || "30", 10));
+const STALE_DAYS = Math.max(0, parseInt(process.env.ENRICH_ALL_STALE_DAYS || "30", 10));
 const DRY_RUN = ["1", "true", "yes"].includes(
   (process.env.ENRICH_ALL_DRY_RUN || "").toLowerCase()
 );
@@ -109,11 +109,9 @@ const LUSHA_KEY     = process.env.LUSHA_API_KEY?.trim() || "";
 const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY?.trim() || "";
 const SERPWOW_KEY   = process.env.SERPWOW_API_KEY?.trim() || "";
 const LOVABLE_KEY   = process.env.LOVABLE_API_KEY?.trim() || "";
-// Kept for reference but known broken — do not use:
-// APOLLO_KEY  → out of credits (HTTP 422)
 // CLAY_KEY    → deprecated endpoint (HTTP 404)
 // EXPLORIUM_KEY → endpoint not found (HTTP 404)
-const APOLLO_KEY = ""; // disabled
+const APOLLO_KEY = process.env.APOLLO_API_KEY?.trim() || "";
 const CLAY_KEY = "";   // disabled
 
 // ---------------------------------------------------------------------------
@@ -128,7 +126,7 @@ const SKIP_PROVIDERS = new Set(
 );
 
 // Pre-mark known-broken providers so they're never called
-for (const host of ["api.apollo.io", "api.clay.com", "api.explorium.ai"]) {
+for (const host of ["api.clay.com", "api.explorium.ai"]) {
   SKIP_PROVIDERS.add(host);
 }
 
@@ -772,10 +770,13 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
   console.log("╚═══════════════════════════════════════════════════════════════════════╝\n");
 
   const staleDate = new Date(Date.now() - STALE_DAYS * 86400_000).toISOString();
+  const staleFilter = STALE_DAYS === 0
+    ? ""
+    : `&or=(last_enriched_at.is.null,last_enriched_at.lt.${staleDate})`;
 
   const { data: firms, error } = await sbQuery<FirmRow>(
     "firm_records",
-    `select=id,firm_name,website_url,email,phone,linkedin_url,x_url,description,elevator_pitch,founded_year,total_headcount,hq_city,hq_state,hq_country,hq_region,crunchbase_url,angellist_url,aum,min_check_size,max_check_size,logo_url,last_enriched_at,firm_type,entity_type,thesis_verticals,stage_focus,stage_min,stage_max,sector_scope,thesis_orientation,geo_focus,is_actively_deploying&deleted_at=is.null&or=(last_enriched_at.is.null,last_enriched_at.lt.${staleDate})&order=last_enriched_at.asc.nullsfirst&limit=${MAX}`
+    `select=id,firm_name,website_url,email,phone,linkedin_url,x_url,description,elevator_pitch,founded_year,total_headcount,hq_city,hq_state,hq_country,hq_region,crunchbase_url,angellist_url,aum,min_check_size,max_check_size,logo_url,last_enriched_at,firm_type,entity_type,thesis_verticals,stage_focus,stage_min,stage_max,sector_scope,thesis_orientation,geo_focus,is_actively_deploying&deleted_at=is.null${staleFilter}&order=last_enriched_at.asc.nullsfirst&limit=${MAX}`
   );
 
   if (error) {
@@ -877,9 +878,9 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         console.log(`    ✓ Updated ${fieldCount} fields: ${Object.keys(patch).filter(k => k !== "last_enriched_at").join(", ")}`);
         enriched++;
       } else {
-        // All AI providers were rate-limited — back off longer before next firm
-        console.log(`    — No new data extracted (all AI providers rate-limited; waiting 20s before next firm)`);
-        await sbUpdate("firm_records", firm.id, { last_enriched_at: patch.last_enriched_at });
+        // All AI providers were rate-limited — do NOT stamp last_enriched_at so this
+        // firm is retried on the next run rather than being skipped for 30 days.
+        console.log(`    — No new data extracted (all AI providers rate-limited; skipping last_enriched_at stamp so firm retries next run)`);
         await sleep(20_000);
       }
     } catch (e) {
@@ -1036,11 +1037,14 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
   }
 
   const staleDate = new Date(Date.now() - STALE_DAYS * 86400_000).toISOString();
+  const staleFilter2 = STALE_DAYS === 0
+    ? "aum.is.null"
+    : `aum.is.null,last_enriched_at.is.null,last_enriched_at.lt.${staleDate}`;
 
   // Focus on firms missing AUM or with stale data
   const { data: firms } = await sbQuery<FirmRow>(
     "firm_records",
-    `select=id,firm_name,website_url,aum,last_enriched_at&deleted_at=is.null&or=(aum.is.null,last_enriched_at.is.null,last_enriched_at.lt.${staleDate})&order=last_enriched_at.asc.nullsfirst&limit=${MAX}`
+    `select=id,firm_name,website_url,aum,last_enriched_at&deleted_at=is.null&or=(${staleFilter2})&order=last_enriched_at.asc.nullsfirst&limit=${MAX}`
   );
 
   if (!firms.length) {

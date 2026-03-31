@@ -3,7 +3,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
-  Building2,
   Minus,
   Shield,
   Target,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { HealthDashboard, getHealthBenchmarks, getHealthStatus } from "@/components/HealthDashboard";
+import { HealthDashboard } from "@/components/HealthDashboard";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import {
@@ -22,11 +21,11 @@ import {
   publishCompanyHealthSignals,
   type TopNavView,
 } from "@/lib/companyHealthSignals";
+import { CompanyHealthHeader } from "@/components/health/CompanyHealthHeader";
 import { fetchIntelligenceSummary, type IntelligenceSummaryStrip } from "@/lib/intelligenceFeedApi";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
 
 type HealthTab = "overview" | "market" | "financial" | "gtm" | "defensibility";
-type GaugeStatus = "healthy" | "warning" | "critical";
 
 export interface TopNavCompanyHealthProps {
   score?: number | null;
@@ -215,40 +214,6 @@ export function TopNavCompanyHealth({
     };
   }, [derived.drivers]);
 
-  const marketBenchmarks = useMemo(() => getHealthBenchmarks("market", stage ?? undefined, sector ?? undefined), [stage, sector]);
-
-  const tileStatuses = useMemo(
-    () => ({
-      market: getHealthStatus(derived.marketPosition, marketBenchmarks.market),
-      financial: getHealthStatus(derived.financialHealth, marketBenchmarks.financial),
-      gtm: getHealthStatus(derived.gtmStrength, marketBenchmarks.gtm),
-      defensibility: getHealthStatus(derived.defensibility, marketBenchmarks.moat),
-    }),
-    [derived.marketPosition, derived.financialHealth, derived.gtmStrength, derived.defensibility, marketBenchmarks],
-  );
-
-  const tileTone = useCallback((statusLevel: GaugeStatus) => {
-    if (statusLevel === "healthy") {
-      return {
-        bg: "bg-emerald-500/[0.03]",
-        value: "text-emerald-600",
-        badge: "bg-emerald-500/10 text-emerald-700/85",
-      };
-    }
-    if (statusLevel === "warning") {
-      return {
-        bg: "bg-amber-500/[0.03]",
-        value: "text-amber-600",
-        badge: "bg-amber-500/10 text-amber-700/85",
-      };
-    }
-    return {
-      bg: "bg-rose-500/[0.03]",
-      value: "text-rose-600",
-      badge: "bg-rose-500/10 text-rose-700/85",
-    };
-  }, []);
-
   useEffect(() => {
     if (hoverOpen && !trackedHoverOpenRef.current) {
       trackedHoverOpenRef.current = true;
@@ -269,21 +234,6 @@ export function TopNavCompanyHealth({
       trackedModalOpenRef.current = false;
     }
   }, [activeTab, modalOpen, trackInteraction]);
-
-  useEffect(() => {
-    if (!modalOpen) {
-      setScoreLineProgress(0);
-      return;
-    }
-
-    const raf = window.requestAnimationFrame(() => {
-      setScoreLineProgress(1);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(raf);
-    };
-  }, [modalOpen]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -438,194 +388,25 @@ export function TopNavCompanyHealth({
       >
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
           <div className="flex h-full flex-col bg-background">
-            <div className="border-b border-border/60 px-5 pt-1 pb-1">
-              <div className="flex items-center justify-between gap-2 pr-8">
-                <div className="space-y-3">
-                  <p className="m-0 inline-flex items-center gap-1.5 text-[10px] font-mono uppercase leading-none tracking-wide text-success/80">
-                    <span
-                      className="h-2 w-2 rounded-full bg-success animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
-                      aria-hidden
-                    />
-                    Always On Intelligence
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
-                      {logoUrl && !logoImgError ? (
-                        <img
-                          src={logoUrl}
-                          alt=""
-                          className="h-full w-full object-contain rounded-xl"
-                          onError={() => setLogoImgError(true)}
-                        />
-                      ) : hasProfile ? (
-                        <span className="text-base font-bold text-muted-foreground">
-                          {companyName?.charAt(0).toUpperCase() || "?"}
-                        </span>
-                      ) : (
-                        <Building2 className="h-6 w-6 text-muted-foreground/40" />
-                      )}
-                    </div>
-                    <div className="space-y-1.5 py-0.5">
-                      <h2 className="text-[1.5rem] font-bold leading-tight tracking-tight text-foreground">
-                        {hasProfile ? companyName || "My Company" : "My Company"}
-                      </h2>
-                      <p className="text-xs uppercase leading-snug tracking-[0.08em] text-muted-foreground/80">Company Health</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 sm:auto-rows-fr">
-                  <div
-                    className={cn(
-                      "relative col-span-2 overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem] sm:col-span-1 sm:row-span-2",
-                      "flex flex-col",
-                      derived.score >= 70
-                        ? "bg-emerald-500/[0.03]"
-                        : derived.score >= 40
-                          ? "bg-amber-500/[0.03]"
-                          : "bg-rose-500/[0.03]",
-                    )}
-                  >
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
-                    <div className="relative mt-2 flex-1">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <p className={cn("align-middle text-[1.9rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 flex justify-center">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-sm px-1 py-px text-left text-[9px] font-medium leading-none tabular-nums",
-                            derived.trendPct > 0
-                              ? "bg-emerald-500/10 text-emerald-700/85"
-                              : derived.trendPct < 0
-                                ? "bg-rose-500/10 text-rose-700/85"
-                                : "bg-muted/70 text-muted-foreground",
-                          )}
-                        >
-                          {derived.trendPct > 0 ? "+" : ""}
-                          {derived.trendPct}%
-                        </span>
-                      </div>
-                    </div>
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
-                      <span
-                        className={cn(
-                          "block h-full origin-left animate-pulse transition-transform duration-700 ease-out",
-                          derived.score >= 70
-                            ? "bg-gradient-to-r from-emerald-500/70 via-emerald-400/45 to-transparent"
-                            : derived.score >= 40
-                              ? "bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent"
-                              : "bg-gradient-to-r from-rose-500/70 via-rose-400/45 to-transparent",
-                        )}
-                        style={{ transform: `scaleX(${scoreLineProgress})` }}
-                      />
-                    </span>
-                  </div>
-                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.market).bg)}>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
-                    <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.market).value)}>{derived.marketPosition}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          tileTone(tileStatuses.market).badge,
-                        )}
-                      >
-                        {familyImpact.market > 0 ? "+" : ""}
-                        {familyImpact.market.toFixed(1)}
-                      </span>
-                    </div>
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
-                      <span
-                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-sky-500/70 via-sky-400/45 to-transparent transition-transform duration-700 ease-out"
-                        style={{ transform: `scaleX(${scoreLineProgress})` }}
-                      />
-                    </span>
-                  </div>
-                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.financial).bg)}>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial</p>
-                    <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.financial).value)}>{derived.financialHealth}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          tileTone(tileStatuses.financial).badge,
-                        )}
-                      >
-                        {familyImpact.financial > 0 ? "+" : ""}
-                        {familyImpact.financial.toFixed(1)}
-                      </span>
-                    </div>
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
-                      <span
-                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-violet-500/70 via-violet-400/45 to-transparent transition-transform duration-700 ease-out"
-                        style={{ transform: `scaleX(${scoreLineProgress})` }}
-                      />
-                    </span>
-                  </div>
-                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.gtm).bg)}>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">GTM</p>
-                    <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.gtm).value)}>{derived.gtmStrength}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          tileTone(tileStatuses.gtm).badge,
-                        )}
-                      >
-                        {familyImpact.gtm > 0 ? "+" : ""}
-                        {familyImpact.gtm.toFixed(1)}
-                      </span>
-                    </div>
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
-                      <span
-                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-orange-500/70 via-orange-400/45 to-transparent transition-transform duration-700 ease-out"
-                        style={{ transform: `scaleX(${scoreLineProgress})` }}
-                      />
-                    </span>
-                  </div>
-                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.defensibility).bg)}>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensibility</p>
-                    <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.defensibility).value)}>{derived.defensibility}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          tileTone(tileStatuses.defensibility).badge,
-                        )}
-                      >
-                        {familyImpact.defensibility > 0 ? "+" : ""}
-                        {familyImpact.defensibility.toFixed(1)}
-                      </span>
-                    </div>
-                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
-                      <span
-                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent transition-transform duration-700 ease-out"
-                        style={{ transform: `scaleX(${scoreLineProgress})` }}
-                      />
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-0 border-t border-border/60 bg-muted/15 pt-0.5">
-                <div className="flex flex-wrap gap-1 rounded-xl bg-muted/35 p-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                      activeTab === tab.id
-                        ? "bg-background/95 text-foreground shadow-sm"
-                        : "text-muted-foreground hover:bg-background/40 hover:text-foreground/90",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-                </div>
-              </div>
+            <div className="border-b border-border/60 px-5 pt-3 pb-3 pr-14 sm:pr-16">
+              <CompanyHealthHeader
+                name={hasProfile ? companyName || "My Company" : "My Company"}
+                logoUrl={logoUrl ?? undefined}
+                hasProfile={hasProfile}
+                overallHealth={{ score: derived.score, delta: derived.trendPct }}
+                metrics={[
+                  { key: "market", label: "Market", score: derived.marketPosition, delta: familyImpact.market },
+                  { key: "financial", label: "Financial", score: derived.financialHealth, delta: familyImpact.financial },
+                  { key: "gtm", label: "GTM", score: derived.gtmStrength, delta: familyImpact.gtm },
+                  { key: "defensibility", label: "Defensibility", score: derived.defensibility, delta: familyImpact.defensibility },
+                ]}
+                tabs={tabs.map((t) => t.label)}
+                activeTab={tabs.find((t) => t.id === activeTab)?.label ?? tabs[0]?.label ?? "Overview"}
+                onTabChange={(label) => {
+                  const next = tabs.find((t) => t.label === label)?.id;
+                  if (next) setActiveTab(next);
+                }}
+              />
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
