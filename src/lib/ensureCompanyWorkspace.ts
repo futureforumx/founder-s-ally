@@ -11,6 +11,19 @@ export type EnsureWorkspaceResult =
 
 const sb = supabase as any;
 
+function googleFaviconFromWebsite(website?: string): string | null {
+  const raw = website?.trim() || "";
+  if (!raw) return null;
+  try {
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const domain = new URL(normalized).hostname.replace(/^www\./, "");
+    if (!domain) return null;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+  } catch {
+    return null;
+  }
+}
+
 /** Edge `resolveEdgeUserId` failures: safe to retry via PostgREST (may still hit RLS). */
 function isRecoverableEdgeIdentityError(message: string | null | undefined): boolean {
   if (!message) return false;
@@ -158,12 +171,14 @@ export async function ensureCompanyWorkspace(
 
   const newCompId = crypto.randomUUID();
   const websiteUrl = website || null;
+  const logoUrl = googleFaviconFromWebsite(website);
 
   const { error: compError } = await supabase.from("company_analyses").insert({
     id: newCompId,
     user_id: userId,
     company_name: name,
     website_url: websiteUrl,
+    logo_url: logoUrl,
     is_claimed: true,
     claimed_by: userId,
   } as any);

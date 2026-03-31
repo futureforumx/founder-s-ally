@@ -586,6 +586,7 @@ export type Database = {
           stage_max: Database["public"]["Enums"]["stage_focus_enum"] | null
           stage_min: Database["public"]["Enums"]["stage_focus_enum"] | null
           status: string | null
+          strategy_classifications: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url: string | null
           thesis_orientation: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals: string[]
@@ -677,6 +678,7 @@ export type Database = {
           stage_max?: Database["public"]["Enums"]["stage_focus_enum"] | null
           stage_min?: Database["public"]["Enums"]["stage_focus_enum"] | null
           status?: string | null
+          strategy_classifications?: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url?: string | null
           thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
@@ -768,6 +770,7 @@ export type Database = {
           stage_max?: Database["public"]["Enums"]["stage_focus_enum"] | null
           stage_min?: Database["public"]["Enums"]["stage_focus_enum"] | null
           status?: string | null
+          strategy_classifications?: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url?: string | null
           thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
@@ -1789,6 +1792,7 @@ export type Database = {
           stage_max: Database["public"]["Enums"]["stage_focus_enum"] | null
           stage_min: Database["public"]["Enums"]["stage_focus_enum"] | null
           status: string | null
+          strategy_classifications: Database["public"]["Enums"]["firm_strategy_classification"][] | null
           substack_url: string | null
           thesis_orientation: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals: string[] | null
@@ -2012,6 +2016,15 @@ export type Database = {
     Enums: {
       app_permission: "user" | "manager" | "admin" | "god"
       entity_type: "Institutional" | "Micro" | "Solo GP" | "Angel" | "Corporate (CVC)" | "Family Office" | "Accelerator / Studio" | "Syndicate" | "Fund of Funds"
+      firm_strategy_classification:
+        | "THESIS_DRIVEN"
+        | "GENERALIST"
+        | "OPERATOR_LED"
+        | "PLATFORM_SERVICES_HEAVY"
+        | "EVERGREEN_LONG_DURATION"
+        | "IMPACT_ESG_DRIVEN"
+        | "GEOGRAPHY_SPECIALIST"
+        | "FOUNDER_PROFILE_DRIVEN"
       thesis_orientation: "Generalist" | "Sector-Focused" | "Thesis-Driven" | "Founder-First" | "Geographic" | "Operator-led"
       stage_focus_enum: "Friends and Family" | "Pre-Seed" | "Seed" | "Series A" | "Series B+" | "Growth"
       sector_scope_enum: "Generalist" | "Specialized"
@@ -2145,6 +2158,16 @@ export const Constants = {
     Enums: {
       app_permission: ["user", "manager", "admin", "god"],
       entity_type: ["Institutional", "Micro", "Solo GP", "Angel", "Corporate (CVC)", "Family Office", "Accelerator / Studio", "Syndicate", "Fund of Funds"],
+      firm_strategy_classification: [
+        "THESIS_DRIVEN",
+        "GENERALIST",
+        "OPERATOR_LED",
+        "PLATFORM_SERVICES_HEAVY",
+        "EVERGREEN_LONG_DURATION",
+        "IMPACT_ESG_DRIVEN",
+        "GEOGRAPHY_SPECIALIST",
+        "FOUNDER_PROFILE_DRIVEN",
+      ],
       thesis_orientation: ["Generalist", "Sector-Focused", "Thesis-Driven", "Founder-First", "Geographic", "Operator-led"],
       stage_focus_enum: ["Friends and Family", "Pre-Seed", "Seed", "Series A", "Series B+", "Growth"],
       sector_scope_enum: ["Generalist", "Specialized"],

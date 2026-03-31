@@ -7,6 +7,8 @@ export interface VCFirm {
   name: string;
   description: string | null;
   aum: string | null;
+  /** Prisma `AumBand` when present on `vc_firms`. */
+  aum_band: string | null;
   sweet_spot: string | null;
   stages: string[] | null;
   sectors: string[] | null;
@@ -365,6 +367,7 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
         : typeof row.aum_usd === "number"
           ? `$${Math.round(row.aum_usd).toLocaleString()}`
           : null,
+    aum_band: typeof row.aum_band === "string" ? row.aum_band : null,
     sweet_spot: typeof row.sweet_spot === "string" ? row.sweet_spot : null,
     stages:
       toStringArray(row.stages) ??

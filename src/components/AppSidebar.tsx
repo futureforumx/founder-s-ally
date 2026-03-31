@@ -22,6 +22,7 @@ type ViewType =
   | "market-market"
   | "market-tech"
   | "market-network"
+  | "market-data-room"
   | "investors"
   | "investor-search"
   | "network"
@@ -57,7 +58,8 @@ function isMarketIntelView(v: ViewType) {
     v === "market-investors" ||
     v === "market-market" ||
     v === "market-tech" ||
-    v === "market-network"
+    v === "market-network" ||
+    v === "market-data-room"
   );
 }
 
@@ -130,14 +132,12 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
                   className={cn(
                     "flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground border border-transparent",
                     (activeView === "market-intelligence" ||
-                      activeView === "market-investors" ||
                       activeView === "market-market" ||
                       activeView === "market-tech" ||
                       activeView === "market-network") &&
                       "border",
                   )}
                   style={(activeView === "market-intelligence" ||
-                    activeView === "market-investors" ||
                     activeView === "market-market" ||
                     activeView === "market-tech" ||
                     activeView === "market-network") ? {
@@ -258,16 +258,45 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             </button>
             <button
               type="button"
-              onClick={() => goView("data-room")}
-              className={cn("flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground", activeView === "data-room" && "border")}
-              style={activeView === "data-room" ? {
-                backgroundColor: "#d1d5db",
-                borderColor: "#4b5563",
-                color: "#1f2937",
-                boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)"
-              } : {}}>
-              <FileText className="h-4 w-4" />
-              Data Room
+              onClick={() => goView("market-investors")}
+              className={cn(
+                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                (activeView === "market-investors" || activeView === "market-data-room") && "border",
+              )}
+              style={
+                activeView === "market-investors" || activeView === "market-data-room"
+                  ? {
+                      backgroundColor: "#d1d5db",
+                      borderColor: "#4b5563",
+                      color: "#1f2937",
+                      boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)",
+                    }
+                  : {}
+              }
+            >
+              <Handshake className="h-4 w-4 shrink-0" />
+              Raise
+            </button>
+            <button
+              type="button"
+              onClick={() => goView("competitors")}
+              className={cn(
+                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                activeView === "competitors" && "border",
+              )}
+              style={
+                activeView === "competitors"
+                  ? {
+                      backgroundColor: "#d1d5db",
+                      borderColor: "#4b5563",
+                      color: "#1f2937",
+                      boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)",
+                    }
+                  : {}
+              }
+            >
+              <Swords className="h-4 w-4 shrink-0" />
+              Competitors
             </button>
           </div>
           {isAppAdmin && (

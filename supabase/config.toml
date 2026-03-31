@@ -21,6 +21,12 @@ verify_jwt = false
 [functions.market-updates]
 verify_jwt = false
 
+[functions.investor-updates]
+verify_jwt = false
+
+[functions.refresh-firm-news]
+verify_jwt = false
+
 [functions.sync-investor-data]
 verify_jwt = false
 

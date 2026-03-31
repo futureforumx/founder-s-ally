@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { FirmStrategyClassification } from "@/lib/firmStrategyClassifications";
 
 // ── Types ──
 export interface InvestorPartner {
@@ -33,6 +34,11 @@ export interface InvestorProfile {
   firm_name: string;
   description: string | null;
   email: string | null;
+  address: string | null;
+  hq_city: string | null;
+  hq_state: string | null;
+  hq_zip_code: string | null;
+  hq_country: string | null;
   firm_type: string | null;
   aum: string | null;
   location: string | null;
@@ -42,6 +48,8 @@ export interface InvestorProfile {
   lead_or_follow: string | null;
   preferred_stage: string | null;
   thesis_verticals: string[];
+  /** Multi-tag strategy taxonomy (`firm_records.strategy_classifications`). */
+  strategy_classifications: FirmStrategyClassification[];
   min_check_size: number | null;
   max_check_size: number | null;
   market_sentiment: string | null;
@@ -71,6 +79,11 @@ function mapJsonFirm(firm: any): InvestorProfile {
     firm_name: firm.name,
     description: firm.description ?? null,
     email: null,
+    address: null,
+    hq_city: null,
+    hq_state: null,
+    hq_zip_code: null,
+    hq_country: null,
     firm_type: null,
     aum: firm.aum ?? null,
     location: null,
@@ -80,6 +93,7 @@ function mapJsonFirm(firm: any): InvestorProfile {
     lead_or_follow: null,
     preferred_stage: firm.stages?.[0] ?? null,
     thesis_verticals: firm.sectors ?? [],
+    strategy_classifications: [],
     min_check_size: null,
     max_check_size: null,
     market_sentiment: null,
@@ -123,6 +137,11 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       firm_name: firm.firm_name,
       description: firm.sentiment_detail,
       email: firm.email,
+      address: firm.address,
+      hq_city: firm.hq_city,
+      hq_state: firm.hq_state,
+      hq_zip_code: firm.hq_zip_code,
+      hq_country: firm.hq_country,
       firm_type: firm.firm_type,
       aum: firm.aum,
       location: firm.location,
@@ -132,6 +151,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       lead_or_follow: firm.lead_or_follow,
       preferred_stage: firm.preferred_stage,
       thesis_verticals: firm.thesis_verticals ?? [],
+      strategy_classifications: (firm.strategy_classifications ?? []) as FirmStrategyClassification[],
       min_check_size: firm.min_check_size,
       max_check_size: firm.max_check_size,
       market_sentiment: firm.market_sentiment,

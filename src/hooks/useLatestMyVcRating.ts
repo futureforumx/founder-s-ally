@@ -6,10 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
  * Refetch when `refreshKey` increments (e.g. after closing the review modal).
  *
  * Strategy:
- * 1. Try matching by `vc_firm_id` (fast, exact).
- * 2. If nothing found, fall back to matching by `star_ratings.firm_name` (handles the case
- *    where the saved `vc_firm_id` comes from `vc_firms` but the caller only has an
- *    `firm_records` id, or the rating was saved with a null firm id).
+ * 1. Try matching by `vc_firm_id` in `vc_ratings` (fast, exact).
+ * 2. Fall back to scanning recent `vc_ratings` by `star_ratings.firm_name` (handles mismatched UUIDs).
+ * 3. Final fallback: check `investor_reviews` by `firm_name` or `firm_id`
+ *    (handles cases where vc_firm_id FK validation failed and the edge function saved there instead).
  */
 export function useLatestMyVcRating(
   userId: string | undefined,
@@ -69,7 +69,7 @@ export function useLatestMyVcRating(
         }
       }
 
-      // ── 2. Fall back: scan recent ratings and match by firm_name in JSONB ──
+      // ── 2. Fall back: scan recent vc_ratings and match by firm_name in JSONB ──
       if (name) {
         const { data: recent } = await supabase
           .from("vc_ratings")
@@ -88,9 +88,39 @@ export function useLatestMyVcRating(
           return fn === name;
         });
 
-        setLoading(false);
         if (match) {
+          setLoading(false);
           const m = match as { star_ratings?: unknown; created_at?: string | null };
+          setStarRatings(m.star_ratings ?? null);
+          setCreatedAt(typeof m.created_at === "string" ? m.created_at : null);
+          return;
+        }
+      }
+
+      // ── 3. Final fallback: check investor_reviews (used when vc_firm_id FK fails) ──
+      {
+        const { data: irRows } = await supabase
+          .from("investor_reviews")
+          .select("star_ratings, created_at")
+          .eq("founder_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (cancelled) return;
+
+        const irMatch = (irRows ?? []).find((row) => {
+          const r = row as { star_ratings?: unknown; firm_id?: string };
+          const sr = r.star_ratings;
+          if (!sr || typeof sr !== "object") return false;
+          const fn = ((sr as Record<string, unknown>).firm_name as string | undefined)?.trim().toLowerCase();
+          if (name && fn === name) return true;
+          if (firm && r.firm_id === firm) return true;
+          return false;
+        });
+
+        setLoading(false);
+        if (irMatch) {
+          const m = irMatch as { star_ratings?: unknown; created_at?: string | null };
           setStarRatings(m.star_ratings ?? null);
           setCreatedAt(typeof m.created_at === "string" ? m.created_at : null);
         } else {
@@ -98,12 +128,6 @@ export function useLatestMyVcRating(
           setCreatedAt(null);
         }
         return;
-      }
-
-      if (!cancelled) {
-        setLoading(false);
-        setStarRatings(null);
-        setCreatedAt(null);
       }
     })();
 

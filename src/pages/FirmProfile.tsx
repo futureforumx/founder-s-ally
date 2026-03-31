@@ -16,6 +16,13 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import {
+  formatAumBandLabel,
+  formatAumBandWithRange,
+  representativeFundUsd,
+  resolveAumBandFromUsd,
+} from "@/lib/aumBand";
 
 // ---------------------------------------------------------------------------
 // Article type (matches vc_people.articles JSONB schema)
@@ -262,7 +269,21 @@ const FirmProfile = () => {
                 ) : null}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {typeof firm.firm_type === "string" ? (
-                    <Badge variant="secondary">{firm.firm_type.replace(/_/g, " ")}</Badge>
+                    <Badge variant="secondary">{formatFirmTypeLabel(firm.firm_type)}</Badge>
+                  ) : null}
+                  {typeof firm.aum_band === "string" && firm.aum_band.trim() ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="font-normal">
+                            AUM: {formatAumBandLabel(firm.aum_band)}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-xs">
+                          {formatAumBandWithRange(firm.aum_band)}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   ) : null}
                   {hq ? (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -415,6 +436,39 @@ const FirmProfile = () => {
                     <div>Vintage: {f.vintage_year != null ? String(f.vintage_year) : "—"}</div>
                     <div>Size (USD): {fmtUsd(f.size_usd)}</div>
                     <div>AUM (USD): {fmtUsd(f.aum_usd)}</div>
+                    <div>
+                      AUM band:{" "}
+                      {(() => {
+                        const stored =
+                          typeof f.aum_band === "string" && f.aum_band.trim()
+                            ? f.aum_band.trim()
+                            : null;
+                        const derived =
+                          stored ??
+                          resolveAumBandFromUsd(
+                            representativeFundUsd(
+                              typeof f.aum_usd === "number" ? f.aum_usd : null,
+                              typeof f.size_usd === "number" ? f.size_usd : null,
+                            ),
+                          );
+                        return derived ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help border-b border-dotted border-muted-foreground">
+                                  {formatAumBandLabel(derived)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                {formatAumBandWithRange(derived)}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          "—"
+                        );
+                      })()}
+                    </div>
                     <div>Lead / follow: {f.lead_follow != null ? String(f.lead_follow).replace(/_/g, " ") : "—"}</div>
                   </CardContent>
                 </Card>

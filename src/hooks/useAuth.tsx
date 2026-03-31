@@ -173,25 +173,25 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
-      // Only JWTs Supabase's gateway accepts (Edge Functions return 401 "Invalid JWT" for a plain Clerk session token).
-      // Prefer the Clerk template named "supabase" or third-party Clerk in the Supabase dashboard.
+      // Prefer the Clerk "supabase" JWT template (legacy, but still tried first for explicit opt-in setups).
+      // Fall back to the plain Clerk session token — accepted by Supabase when Clerk is configured as
+      // third-party auth (Supabase Dashboard → Authentication → Third-party auth → Clerk).
+      // This covers both PostgREST (direct DB with RLS) and the direct DB fallback path if edge functions fail.
       try {
         const templateJwt = await gt({ template: "supabase" });
         if (templateJwt) return templateJwt;
       } catch {
-        /* template missing */
+        /* template not configured — fall through to session JWT */
       }
-      if (import.meta.env.VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE === "true") {
-        try {
-          const s = clerkSessionRef.current;
-          const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
-          if (sessionJwt) return sessionJwt;
-        } catch {
-          /* no session token */
-        }
+      try {
+        const s = clerkSessionRef.current;
+        const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
+        if (sessionJwt) return sessionJwt;
+      } catch {
+        /* no session token */
       }
       console.warn(
-        "[Supabase + Clerk] No Supabase-compatible JWT. Add Clerk JWT template `supabase` or enable Supabase third-party Clerk. Optional: VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true if your session token is verified by Supabase. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
+        "[Supabase + Clerk] No Supabase-compatible JWT. Configure Clerk as third-party auth in Supabase Dashboard → Authentication → Third-party auth. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
       );
       return null;
     });

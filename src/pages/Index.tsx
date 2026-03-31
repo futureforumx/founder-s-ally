@@ -42,6 +42,7 @@ type ViewType =
   | "market-market"
   | "market-tech"
   | "market-network"
+  | "market-data-room"
   | "investors"
   | "investor-search"
   | "network"
@@ -56,6 +57,15 @@ type ViewType =
   | "resources"
   | "workspace"
   | "settings";
+
+const INTEL_VIEWS: ViewType[] = [
+  "market-intelligence",
+  "market-investors",
+  "market-market",
+  "market-tech",
+  "market-network",
+  "market-data-room",
+];
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -152,15 +162,24 @@ const Index = () => {
   const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
 
   useEffect(() => {
-    if (location.pathname === "/intelligence") {
-      setActiveView("market-intelligence");
-    }
+    if (location.pathname !== "/intelligence") return;
+    setActiveView((prev) =>
+      INTEL_VIEWS.includes(prev) ? prev : "market-intelligence",
+    );
   }, [location.pathname]);
 
   useEffect(() => {
     const v = searchParams.get("view");
-    if (v === "intelligence" || v === "market-intelligence") {
-      setActiveView("market-intelligence");
+    if (
+      v === "market-investors" ||
+      v === "market-market" ||
+      v === "market-tech" ||
+      v === "market-network" ||
+      v === "market-data-room" ||
+      v === "market-intelligence" ||
+      v === "intelligence"
+    ) {
+      setActiveView(v === "intelligence" ? "market-intelligence" : (v as ViewType));
     }
     if (v === "settings") {
       setActiveView("settings");
@@ -604,6 +623,8 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
+          ) : activeView === "market-data-room" ? (
+            <div className="h-full" />
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "resources" ? (
@@ -615,7 +636,7 @@ const Index = () => {
           ) : activeView === "market-intelligence" ? (
             <IntelligencePage variant="all" />
           ) : activeView === "market-investors" ? (
-            <IntelligencePage variant="investors" />
+            <div className="h-full" />
           ) : activeView === "market-market" ? (
             <IntelligencePage variant="market" />
           ) : activeView === "market-tech" ? (

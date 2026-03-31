@@ -17,6 +17,19 @@ import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
 
+function googleFaviconFromWebsite(websiteUrl?: string | null, size = 128): string | null {
+  const raw = (websiteUrl || "").trim();
+  if (!raw) return null;
+  try {
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const domain = new URL(normalized).hostname.replace(/^www\./, "");
+    if (!domain) return null;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+  } catch {
+    return null;
+  }
+}
+
 function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: string): CompanyData {
   const fundBits = [
     state.currentlyRaising && "Currently raising",
@@ -77,7 +90,7 @@ export function OnboardingWizard() {
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
 
-  const handleFinish = async (overrideCompanyName?: string) => {
+  const handleFinish = async (overrideCompanyName?: string, overrideExistingCompanyId?: string) => {
     if (!user || saving) return;
     playSound("/sounds/success.wav", 0.6);
     setSaving(true);
@@ -86,7 +99,34 @@ export function OnboardingWizard() {
       let companyId: string | null = null;
 
       const resolvedCompanyName = overrideCompanyName || state.companyName;
-      if (resolvedCompanyName) {
+      // When the user joins an existing in-network company, use its real DB id directly
+      // instead of creating a duplicate company_analyses row with the same name.
+      const resolvedExistingId = overrideExistingCompanyId ?? state.existingCompanyId;
+
+      if (resolvedExistingId) {
+        // Joining an existing company — just ensure membership, then link profile
+        companyId = resolvedExistingId;
+        const { supabase: _sb } = await import("@/integrations/supabase/client");
+        const { ensureManagerMembership: _emm } = await import("@/lib/ensureManagerMembership");
+        const memRes = await _emm(_sb as any, user.id, resolvedExistingId);
+        if (!memRes.ok) {
+          // Membership insert likely blocked by RLS (company owned by someone else).
+          // Fall back to a pending membership request — users can request access.
+          const { error: pendingErr } = await (_sb as any)
+            .from("company_members")
+            .insert({ user_id: user.id, company_id: resolvedExistingId, role: "pending" });
+          if (pendingErr && pendingErr.code !== "23505") {
+            toast({
+              title: "Couldn't join company",
+              description: pendingErr.message,
+              variant: "destructive",
+            });
+            setSaving(false);
+            return;
+          }
+        }
+        await (_sb as any).from("profiles").update({ company_id: resolvedExistingId }).eq("user_id", user.id);
+      } else if (resolvedCompanyName) {
         const ws = await ensureCompanyWorkspace(user.id, {
           name: resolvedCompanyName,
           website: state.websiteUrl?.trim() || "",
@@ -129,6 +169,7 @@ export function OnboardingWizard() {
       };
 
       const execSummary = buildExecutiveSummaryForDb(state);
+      const derivedLogoUrl = googleFaviconFromWebsite(state.websiteUrl, 128);
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,
@@ -137,6 +178,7 @@ export function OnboardingWizard() {
             ? {
                 company_name: resolvedCompanyName,
                 website_url: state.websiteUrl || null,
+                logo_url: derivedLogoUrl,
                 deck_text: state.deckText || null,
                 stage: state.stage || null,
                 sector: state.sectors?.[0] || null,
@@ -169,6 +211,7 @@ export function OnboardingWizard() {
               .update({
                 company_name: resolvedCompanyName,
                 website_url: state.websiteUrl || null,
+                logo_url: derivedLogoUrl,
                 deck_text: state.deckText || null,
                 stage: state.stage || null,
                 sector: state.sectors?.[0] || null,
@@ -258,6 +301,10 @@ export function OnboardingWizard() {
               subsectors: state.sectors?.length ? state.sectors.slice(1) : [],
             }),
           );
+          if (derivedLogoUrl) {
+            localStorage.setItem("company-logo-url", derivedLogoUrl);
+            window.dispatchEvent(new Event("company-logo-changed"));
+          }
         }
       } catch {}
 
@@ -308,7 +355,7 @@ export function OnboardingWizard() {
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
           )}
           {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name) => { void handleFinish(name); }} onBack={() => goTo(1)} />
+            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(1)} />
           )}
         </AnimatePresence>
       </div>

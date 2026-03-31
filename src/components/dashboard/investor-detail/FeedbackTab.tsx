@@ -307,19 +307,21 @@ export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, 
           </div>
         </div>
 
-        <div className="bg-foreground text-background rounded-xl px-4 py-3 flex items-center justify-between mb-3">
-          <div className="min-w-0 mr-3">
-            <p className="text-xs font-semibold leading-snug">Pitched {investorName} recently?</p>
-            <p className="text-[10px] text-background/60 mt-0.5">Share your experience to help the community.</p>
+        {myReviews.length === 0 && (
+          <div className="bg-foreground text-background rounded-xl px-4 py-3 flex items-center justify-between mb-3">
+            <div className="min-w-0 mr-3">
+              <p className="text-xs font-semibold leading-snug">Pitched {investorName} recently?</p>
+              <p className="text-[10px] text-background/60 mt-0.5">Share your experience to help the community.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onLogInteraction?.()}
+              className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors"
+            >
+              Log Interaction
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => onLogInteraction?.()}
-            className="shrink-0 bg-background text-foreground font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-background/90 transition-colors"
-          >
-            Log Interaction
-          </button>
-        </div>
+        )}
 
         {vcFirmId && ratingsQuery.isLoading ? (
           <p className="text-[10px] text-muted-foreground py-4">Loading ratings…</p>

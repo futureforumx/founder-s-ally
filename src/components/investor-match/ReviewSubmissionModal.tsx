@@ -49,6 +49,8 @@ import {
 export interface ReviewSubmissionModalProps {
   open: boolean;
   onClose: () => void;
+  /** Called immediately after a successful submission with the star_ratings payload — updates UI without waiting for a DB re-fetch. */
+  onRatingSubmitted?: (starRatings: unknown) => void;
   firmName: string;
   /** Firm mark for the header; if omitted and `vcFirmId` is set, logo is loaded from the directory. */
   firmLogoUrl?: string | null;
@@ -576,6 +578,7 @@ async function upsertVcRatingRow(opts: {
 export function ReviewSubmissionModal({
   open,
   onClose,
+  onRatingSubmitted,
   firmName,
   firmLogoUrl: firmLogoUrlProp,
   firmWebsiteUrl,
@@ -1003,6 +1006,38 @@ export function ReviewSubmissionModal({
     setShowSummary(false);
   }, []);
 
+  /** Transition from summary view back to the edit form, pre-populated with saved answers. */
+  const handleEditExistingReview = useCallback(() => {
+    const sr = initialStarRatings as {
+      answers?: Record<string, string | string[]>;
+      tags?: string[];
+      remember_who?: string;
+      remember_who_vc_person_ids?: string[];
+    } | null;
+
+    if (sr?.answers && typeof sr.answers === "object") {
+      const restored = investorIsMappedToProfile
+        ? { ...sr.answers }
+        : sanitizeHydratedUnlinkedAnswers({ ...sr.answers });
+      setAnswers(restored);
+    }
+    if (Array.isArray(sr?.tags)) {
+      setSelectedTags(sr!.tags.filter((t) => typeof t === "string"));
+    }
+    if (typeof sr?.remember_who === "string") {
+      setRememberWho(sr.remember_who);
+    }
+    if (Array.isArray(sr?.remember_who_vc_person_ids)) {
+      setRememberWhoPersonIds(
+        sr!.remember_who_vc_person_ids.filter(
+          (x): x is string => typeof x === "string" && x.trim().length > 0,
+        ),
+      );
+    }
+    setCurrentStep(1);
+    setShowSummary(false);
+  }, [initialStarRatings, investorIsMappedToProfile]);
+
   useEffect(() => {
     if (!investorIsMappedToProfile && selectedTags.length === 0) {
       setRememberWho("");
@@ -1224,6 +1259,10 @@ export function ReviewSubmissionModal({
       }
 
       setSubmitted(true);
+      // Stamp the submission time so the countdown is accurate the moment the user reopens the modal.
+      if (!reviewRecordId) setReviewCreatedAt(new Date().toISOString());
+      // Notify parent immediately so the button updates without waiting for a DB re-fetch.
+      onRatingSubmitted?.(structuredAnswers);
       toast.success(
         reviewRecordId
           ? savedAsRevision
@@ -1311,7 +1350,7 @@ export function ReviewSubmissionModal({
                     tags={selectedTags}
                     createdAt={reviewCreatedAt}
                     investorIsMappedToProfile={investorIsMappedToProfile}
-                    onEdit={() => setShowSummary(false)}
+                    onEdit={handleEditExistingReview}
                   />
                 </div>
               ) : (
@@ -1480,16 +1519,58 @@ function ReviewSummaryView({
   const founderNote =
     typeof answers.founder_note === "string" ? answers.founder_note.trim() : "";
 
-  const within48h = createdAt
-    ? Date.now() - new Date(createdAt).getTime() < 48 * 60 * 60 * 1000
-    : false;
+  const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
-  const formattedDate = createdAt
+  const submittedAt = createdAt ? new Date(createdAt) : null;
+  const deadlineAt = submittedAt ? new Date(submittedAt.getTime() + EDIT_WINDOW_MS) : null;
+
+  const deadlineMs = deadlineAt?.getTime() ?? 0;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!deadlineMs) return;
+    const remaining = deadlineMs - Date.now();
+    if (remaining <= 0) return;
+    // Tick every second under 1 hour, otherwise every minute
+    const interval = remaining < 60 * 60 * 1000 ? 1000 : 60_000;
+    const id = setInterval(() => setNow(Date.now()), interval);
+    return () => clearInterval(id);
+  }, [deadlineMs]);
+
+  const msRemaining = deadlineAt ? Math.max(0, deadlineAt.getTime() - now) : 0;
+  const within48h = msRemaining > 0;
+
+  function formatCountdown(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remHours = hours % 24;
+      return `${days}d ${remHours}h`;
+    }
+    if (hours >= 1) return `${hours}h ${minutes}m`;
+    if (minutes >= 1) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  }
+
+  const formattedDate = submittedAt
     ? new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
-      }).format(new Date(createdAt))
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(submittedAt)
+    : null;
+
+  const formattedDeadline = deadlineAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(deadlineAt)
     : null;
 
   const workRatingColor =
@@ -1562,24 +1643,36 @@ function ReviewSummaryView({
         </blockquote>
       )}
 
-      <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-1">
-        <span className="text-xs text-muted-foreground">
-          {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
-        </span>
-        {within48h ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
-          >
-            <Pencil className="h-3 w-3" />
-            Edit review
-          </button>
-        ) : (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3 w-3" />
-            Editing closed
+      <div className="flex flex-col gap-2 pt-2 border-t border-border/40 mt-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {formattedDate ? `Submitted ${formattedDate}` : "Submitted"}
           </span>
+          {within48h ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit review
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              Editing closed
+            </span>
+          )}
+        </div>
+        {within48h && formattedDeadline && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground/70">
+              Editable until {formattedDeadline}
+            </span>
+            <span className="text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+              {formatCountdown(msRemaining)} left
+            </span>
+          </div>
         )}
       </div>
     </div>

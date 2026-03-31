@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
+  X, Eye, Radar, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
   User, Settings2, SlidersHorizontal, LogOut
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -29,9 +30,8 @@ import {
   getCachedCompanyHealthSignals,
   type CompanyHealthSnapshot,
 } from "@/lib/companyHealthSignals";
-import { trackMixpanelEvent } from "@/lib/mixpanel";
 
-type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
+type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "market-data-room" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -130,6 +130,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   "market-market": { section: "Market Intelligence", label: "Market" },
   "market-tech": { section: "Market Intelligence", label: "Tech" },
   "market-network": { section: "Market Intelligence", label: "Network" },
+  "market-data-room": { section: "Market Intelligence", label: "Data Room" },
 
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
@@ -165,6 +166,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
     case "market-market":
     case "market-tech":
     case "market-network":
+    case "market-data-room":
       return [
         "Funds that led rounds in my space this week",
         "Competitor pricing and packaging changes",
@@ -251,7 +253,6 @@ export function GlobalTopNav({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [logoImgError, setLogoImgError] = useState(false);
   const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
-  const pulseHealthTrackTsRef = useRef(0);
 
   // Reset error state whenever the URL changes so a new URL gets a fresh attempt
   useEffect(() => { setLogoImgError(false); }, [logoUrl]);
@@ -259,9 +260,11 @@ export function GlobalTopNav({
   const pulse = useRotatingPulse();
 
   const autosaveStatus = useAutosaveStatus();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [weeklyViews, setWeeklyViews] = useState(0);
+  const [weeklySearchAppearances, setWeeklySearchAppearances] = useState(0);
 
   const routeView = useCallback(
     (v: ViewType) => {
@@ -270,7 +273,8 @@ export function GlobalTopNav({
         v === "market-investors" ||
         v === "market-market" ||
         v === "market-tech" ||
-        v === "market-network";
+        v === "market-network" ||
+        v === "market-data-room";
       if (intel) {
         if (location.pathname !== "/intelligence") navigate("/intelligence");
       } else if (location.pathname === "/intelligence") {
@@ -309,6 +313,45 @@ export function GlobalTopNav({
       window.removeEventListener("storage", syncFromCache);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTopAnalytics = async () => {
+      if (!user?.id) {
+        if (!cancelled) {
+          setWeeklyViews(0);
+          setWeeklySearchAppearances(0);
+        }
+        return;
+      }
+      const since = new Date();
+      since.setDate(since.getDate() - 7);
+      const { data, error } = await supabase
+        .from("founder_vc_interactions")
+        .select("action_type, firm_id")
+        .eq("founder_id", user.id)
+        .gte("created_at", since.toISOString());
+      if (error) {
+        console.warn("Failed to load top-nav analytics:", error.message);
+        return;
+      }
+      if (cancelled) return;
+      const rows = data ?? [];
+      const views = rows.filter((r) => r.action_type === "viewed").length;
+      const uniqueAppearingFirms = new Set(
+        rows
+          .filter((r) => r.action_type === "viewed")
+          .map((r) => r.firm_id)
+          .filter(Boolean),
+      ).size;
+      setWeeklyViews(views);
+      setWeeklySearchAppearances(uniqueAppearingFirms);
+    };
+    void loadTopAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Close on outside click
   useEffect(() => {
@@ -392,22 +435,6 @@ export function GlobalTopNav({
   const isCommunityArea = ["network", "groups", "events"].includes(activeView);
   const PulseIcon = pulse.icon;
   const suggestions = getContextSuggestions(activeView, userSector, userStage);
-  const topHealthDriver = healthSnapshot?.drivers?.[0]?.label;
-
-  const handlePulseHealthChipClick = useCallback(() => {
-    if (!healthSnapshot) return;
-    const now = Date.now();
-    if (now - pulseHealthTrackTsRef.current < 1200) return;
-    pulseHealthTrackTsRef.current = now;
-    trackMixpanelEvent("Company Health Interaction", {
-      action: "pulse_health_chip_clicked",
-      activeView,
-      score: healthSnapshot.score,
-      trendPct: healthSnapshot.trendPct,
-      topDriver: topHealthDriver,
-    });
-  }, [activeView, healthSnapshot, topHealthDriver]);
-
   const handleSearchClick = useCallback(() => {
     setSearchOpen(true);
   }, []);
@@ -446,22 +473,6 @@ export function GlobalTopNav({
                 <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
               </div>
 
-              {healthSnapshot && (
-                <button
-                  type="button"
-                  onClick={handlePulseHealthChipClick}
-                  className={cn(
-                    "hidden rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors xl:inline-flex",
-                    healthSnapshot.trendPct >= 0
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-                      : "border-rose-500/30 bg-rose-500/10 text-rose-600",
-                  )}
-                  title={topHealthDriver || "Health delta"}
-                >
-                  Health {healthSnapshot.trendPct >= 0 ? "+" : ""}
-                  {healthSnapshot.trendPct}%
-                </button>
-              )}
             </div>
           ) : lastSyncedAt ? (
             <div className="flex items-center gap-1.5 text-[11px] font-medium">
@@ -655,17 +666,22 @@ export function GlobalTopNav({
 
 
         {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
+        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network", "market-data-room"].includes(activeView) && (
           <>
             {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "market-intelligence", label: "Live" },
-                { id: "market-investors", label: "Investors" },
-                { id: "market-market", label: "Market" },
-                { id: "market-tech", label: "Tech" },
-                { id: "market-network", label: "Network" },
-              ].map((tab) => (
+              {(
+                activeView === "market-investors"
+                  ? [{ id: "market-data-room", label: "Data Room" }]
+                  : [
+                      { id: "market-intelligence", label: "Live" },
+                      { id: "market-investors", label: "Investors" },
+                      { id: "market-market", label: "Market" },
+                      { id: "market-tech", label: "Tech" },
+                      { id: "market-network", label: "Network" },
+                      { id: "market-data-room", label: "Data Room" },
+                    ]
+              ).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => routeView(tab.id as ViewType)}
@@ -690,52 +706,71 @@ export function GlobalTopNav({
                     "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}>
                     <span className="truncate max-w-[100px]">
-                      {activeView === "market-intelligence"
-                        ? "Live"
-                        : activeView === "market-investors"
-                          ? "Investors"
+                      {activeView === "market-investors" || activeView === "market-data-room"
+                        ? "Data Room"
+                        : activeView === "market-intelligence"
+                          ? "Live"
                           : activeView === "market-market"
                             ? "Market"
                             : activeView === "market-tech"
                               ? "Tech"
                               : activeView === "market-network"
                                 ? "Network"
-                                : "Intelligence"}
+                                : activeView === "market-data-room"
+                                  ? "Data Room"
+                                  : "Intelligence"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-intelligence")}
-                    className={cn(activeView === "market-intelligence" && "bg-accent/10 text-accent")}
-                  >
-                    Live
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-investors")}
-                    className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
-                  >
-                    Investors
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-market")}
-                    className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
-                  >
-                    Market
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-tech")}
-                    className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
-                  >
-                    Tech
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-network")}
-                    className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
-                  >
-                    Network
-                  </DropdownMenuItem>
+                  {activeView === "market-investors" ? (
+                    <DropdownMenuItem
+                      onClick={() => routeView("market-data-room")}
+                      className={cn(activeView === "market-data-room" && "bg-accent/10 text-accent")}
+                    >
+                      Data Room
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-intelligence")}
+                        className={cn(activeView === "market-intelligence" && "bg-accent/10 text-accent")}
+                      >
+                        Live
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-investors")}
+                        className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
+                      >
+                        Investors
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-market")}
+                        className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
+                      >
+                        Market
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-tech")}
+                        className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
+                      >
+                        Tech
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-network")}
+                        className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
+                      >
+                        Network
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => routeView("market-data-room")}
+                        className={cn(activeView === "market-data-room" && "bg-accent/10 text-accent")}
+                      >
+                        Data Room
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -848,24 +883,17 @@ export function GlobalTopNav({
         <TooltipProvider delayDuration={200}>
           <div className="hidden md:flex shrink-0 items-center gap-4">
             {(() => {
-              const locked = profileCompletion < 100 || personalCompletion < 100;
-              const views = 12;
-              const searches = 85;
               return (
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center gap-1.5">
                         <Eye className="h-4 w-4 text-muted-foreground/60" />
-                        {locked ? (
-                          <Lock className="h-3 w-3 text-muted-foreground/40" />
-                        ) : (
-                          <span className="text-xs font-medium text-foreground">{views}</span>
-                        )}
+                        <span className="text-xs font-medium text-foreground">{weeklyViews}</span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {locked ? "Complete your personal and company profiles to unlock Investor Views" : `${views} Total Investor Views this week`}
+                      {`${weeklyViews} Total Investor Views this week`}
                     </TooltipContent>
                   </Tooltip>
 
@@ -873,15 +901,11 @@ export function GlobalTopNav({
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center gap-1.5">
                         <Radar className="h-4 w-4 text-muted-foreground/60" />
-                        {locked ? (
-                          <Lock className="h-3 w-3 text-muted-foreground/40" />
-                        ) : (
-                          <span className="text-xs font-medium text-foreground">{searches}</span>
-                        )}
+                        <span className="text-xs font-medium text-foreground">{weeklySearchAppearances}</span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      {locked ? "Complete your personal and company profiles to unlock Search Appearances" : `${searches} Search Appearances this week`}
+                      {`${weeklySearchAppearances} Search Appearances this week`}
                     </TooltipContent>
                   </Tooltip>
                 </>
