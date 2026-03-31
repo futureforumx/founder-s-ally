@@ -1,5 +1,6 @@
 import { FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 
 export type CompleteFounderOnboardingPayload = {
@@ -30,7 +31,7 @@ export type CompleteFounderOnboardingPayload = {
 
 /**
  * Saves profile + preferences + company fields via service-role edge function (bypasses PostgREST RLS).
- * Returns fallbackToClient: true when the function is not deployed (404) so caller can use direct DB + Clerk supabase JWT.
+ * Returns fallbackToClient: true when the function is not deployed (404), JWT cannot identify the user (403), or there is no user JWT (anon-only bearer would always fail resolveEdgeUserId).
  */
 export async function completeFounderOnboardingEdge(
   payload: CompleteFounderOnboardingPayload,
@@ -39,25 +40,40 @@ export async function completeFounderOnboardingEdge(
     return { ok: false, error: "Supabase not configured", fallbackToClient: true };
   }
 
-  const jwt = await getSupabaseAccessToken();
-  if (!jwt) {
-    return { ok: false, error: "No Clerk→Supabase JWT (add template \"supabase\" or Supabase third-party Clerk)", fallbackToClient: true };
+  const userJwt =
+    (await getSupabaseAccessToken())?.trim() || (await getClerkSessionToken())?.trim() || "";
+  if (!userJwt) {
+    return {
+      ok: false,
+      error:
+        'Missing Supabase user JWT. Add Clerk JWT template "supabase" with sub matching your app user id, or set VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true when your session token is accepted by Supabase.',
+      fallbackToClient: true,
+    };
   }
+  const anonKey =
+    typeof import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY === "string"
+      ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.trim()
+      : "";
 
   const { data, error } = await supabase.functions.invoke("complete-founder-onboarding", {
     body: payload,
-    headers: { Authorization: `Bearer ${jwt}` },
+    headers: {
+      Authorization: `Bearer ${userJwt}`,
+      ...(anonKey ? { apikey: anonKey } : {}),
+    },
   });
 
   const p = (data || {}) as { success?: boolean; error?: string };
   if (p.success) return { ok: true };
 
   if (p.error) {
-    return { ok: false, error: p.error, fallbackToClient: false };
+    const identityOrDeployHint =
+      /jwt|identify this user|bearer token|does not identify/i.test(p.error);
+    return { ok: false, error: p.error, fallbackToClient: identityOrDeployHint };
   }
 
   if (error) {
-    if (error instanceof FunctionsRelayError || error instanceof FunctionsFetchError) {
+    if (error instanceof FunctionsFetchError || error instanceof FunctionsRelayError) {
       return { ok: false, error: error.message, fallbackToClient: true };
     }
     const jsonErr = await readFunctionsHttpErrorMessage(error);
@@ -65,6 +81,13 @@ export async function completeFounderOnboardingEdge(
       return {
         ok: false,
         error: jsonErr || "complete-founder-onboarding not deployed",
+        fallbackToClient: true,
+      };
+    }
+    if (isFunctionsHttpError(error) && error.context.status === 403) {
+      return {
+        ok: false,
+        error: jsonErr || String(error),
         fallbackToClient: true,
       };
     }
