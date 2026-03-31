@@ -13,6 +13,8 @@ interface Subscore {
 
 type TileId = "match" | "founderSentiment" | "founderReputation" | "industryReputation";
 
+export type { TileId };
+
 interface TileConfig {
   id: TileId;
   shortLabel: string;
@@ -52,6 +54,10 @@ export interface ScoreTilesRowProps {
   industryReputationScore?: number;
   lastUpdated?: string;
   confidenceScore?: number;
+  activeTileId?: TileId | null;
+  onActiveTileChange?: (tileId: TileId | null) => void;
+  showTiles?: boolean;
+  showBreakdown?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -255,8 +261,21 @@ export function ScoreTilesRow({
   industryReputationScore = 81,
   lastUpdated,
   confidenceScore = 87,
+  activeTileId,
+  onActiveTileChange,
+  showTiles = true,
+  showBreakdown = true,
 }: ScoreTilesRowProps) {
-  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+  const [internalActiveTile, setInternalActiveTile] = useState<TileId | null>(null);
+  const activeTile = activeTileId !== undefined ? activeTileId : internalActiveTile;
+
+  const setActiveTile = (next: TileId | null) => {
+    if (onActiveTileChange) {
+      onActiveTileChange(next);
+      return;
+    }
+    setInternalActiveTile(next);
+  };
 
   useEffect(() => {
     setActiveTile(null);
@@ -363,7 +382,7 @@ export function ScoreTilesRow({
   return (
     <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      <div className="flex gap-2.5 w-fit">
+      {showTiles && <div className="flex w-fit max-w-full gap-2">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
           const colors = colorTokens(tile.value);
@@ -375,7 +394,7 @@ export function ScoreTilesRow({
               onClick={() => handleTileClick(tile.id)}
               aria-expanded={isActive}
               className={[
-                "group relative overflow-hidden rounded-xl px-3 py-2.5 min-w-[96px]",
+                "group relative overflow-hidden rounded-xl px-2.5 py-2 min-w-[82px]",
                 "flex flex-col items-start",
                 "backdrop-blur-[28px] border transition-all duration-200 select-none cursor-pointer",
                 isActive
@@ -389,14 +408,14 @@ export function ScoreTilesRow({
               {/* Label row with colored accent dot */}
               <div className="flex items-center gap-1 mb-1.5">
                 <span className={["w-1.5 h-1.5 rounded-full shrink-0", colors.barCls].join(" ")} />
-                <span className="text-[9px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
+                <span className="text-[8px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
                   {tile.shortLabel}
                 </span>
               </div>
 
               {/* Score — neutral color, weight carries the hierarchy */}
               <div className="relative mb-0.5">
-                <span className="text-[26px] font-bold leading-none tabular-nums text-foreground">
+                <span className="text-[23px] font-bold leading-none tabular-nums text-foreground">
                   {tile.value}
                 </span>
                 {/* Soft color bloom behind number */}
@@ -404,7 +423,7 @@ export function ScoreTilesRow({
               </div>
 
               {/* Caption */}
-              <span className="text-[10px] text-foreground/40 leading-none mb-2">
+              <span className="text-[9px] text-foreground/40 leading-none mb-1.5">
                 {caption}
               </span>
 
@@ -425,10 +444,10 @@ export function ScoreTilesRow({
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* ── Breakdown panel ────────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
+      {showBreakdown && <AnimatePresence mode="wait">
         {activeTileConfig && (
           <motion.div
             key={activeTileConfig.id}
@@ -468,7 +487,7 @@ export function ScoreTilesRow({
             })()}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>}
     </div>
   );
 }

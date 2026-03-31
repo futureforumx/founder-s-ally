@@ -6,7 +6,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import {
   User, Star, Mail, Linkedin, Twitter, Bell, BellOff,
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
-  Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
+  Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase, Share2,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
   MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronRight,
 } from "lucide-react";
@@ -722,163 +722,9 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
   };
 
-  const hasSynced = syncedKeys.has("__linkedin_verified") || !!(fullName && fullName !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
-
   return (
     <TabWrapper>
       <div className="space-y-4">
-        {/* ── Data Sources ── */}
-        <div className="space-y-3" data-tour-section="data-sources">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
-              {/* Left column: URL inputs + AI Insight */}
-              <div className="flex flex-col gap-2.5">
-                {/* LinkedIn URL */}
-                <MorphingUrlInput
-                  platform="linkedin"
-                  label="LinkedIn URL"
-                  value={linkedinUrl}
-                  onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
-                  onBlur={(v) => {
-                    const formatted = formatSocialUrl("linkedin_personal", v);
-                    if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
-                  }}
-                  verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
-                  onVerify={handleSyncProfile}
-                  verifyLabel="Sync"
-                />
-
-                {/* X / Twitter URL */}
-                <MorphingUrlInput
-                  platform="x"
-                  label="X / Twitter URL"
-                  value={twitterUrl}
-                  onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
-                  onBlur={(v) => {
-                    const formatted = formatSocialUrl("x", v);
-                    if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
-                  }}
-                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                  onVerify={() => enrichXProfile(twitterUrl)}
-                  verifyLabel="Enrich"
-                />
-
-                {/* AI Insight Banner */}
-                <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5 mt-auto">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
-                    <Sparkles className="h-3 w-3 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
-                      Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right column: Resume PDF Dropzone */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Resume (PDF)</label>
-                <input
-                  ref={resumeInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
-                />
-                {resumeUrl ? (
-                  <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-success/30 bg-success/5 p-4 min-h-[140px]">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 mb-2">
-                      <FileText className="h-5 w-5 text-success" />
-                    </div>
-                    <p className="text-xs font-medium text-foreground truncate max-w-full">{resumeFileName || "Resume.pdf"}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <button onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
-                      <button onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => resumeInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
-                    onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
-                      const f = e.dataTransfer.files?.[0];
-                      if (f) handleResumeUpload(f);
-                    }}
-                    disabled={resumeUploading}
-                    className={cn(
-                      "flex-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all min-h-[140px]",
-                      "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
-                      resumeUploading && "opacity-60 pointer-events-none"
-                    )}
-                  >
-                    {resumeUploading ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    ) : (
-                      <>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
-                          <Upload className="h-5 w-5 text-muted-foreground/60" />
-                        </div>
-                        <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
-                        <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Primary CTA */}
-            <div className="mt-4">
-             {(() => {
-                const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
-                const hasDataPresent = !!(linkedinUrl.trim() || twitterUrl.trim() || resumeUrl || hasSynced);
-                return (
-                  <Button
-                    onClick={handleSyncProfile}
-                    disabled={syncing || isIdentityVerified}
-                    variant="default"
-                    className={cn(
-                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300 bg-primary text-primary-foreground",
-                      isIdentityVerified && "opacity-60 cursor-not-allowed",
-                      !isIdentityVerified && !syncing && (
-                        hasDataPresent
-                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)]"
-                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
-                      )
-                    )}
-                  >
-                    {syncing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Verifying Data…
-                      </>
-                    ) : isIdentityVerified ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">✓ Data Verified</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Verify Data
-                      </>
-                    )}
-                  </Button>
-                );
-              })()}
-              <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide mt-2">
-                Triple-source triangulation: Resume + LinkedIn + X
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* ── Personal Information (single card: role + identity + fields — no separate Profile section) ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
           <div className="px-5 pt-4 pb-3 border-b border-border/60">

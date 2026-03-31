@@ -377,6 +377,9 @@ function formatReviewSubmitError(err: unknown): string {
     if (/row-level security|rls|42501|permission denied for table|violates row-level security/i.test(text)) {
       return `${text} ${rlsHint}`;
     }
+    if (/pgrst301|no suitable key|wrong key type|decode the jwt/i.test(text)) {
+      return `${text} ${rlsHint}`;
+    }
     return text;
   };
 
@@ -411,6 +414,25 @@ function isVcPersonFkViolation(err: unknown): boolean {
   );
 }
 
+function isMissingVcRatingsTableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const o = err as { message?: string; details?: string; hint?: string };
+  const blob = `${o.message ?? ""} ${o.details ?? ""} ${o.hint ?? ""}`.toLowerCase();
+  return blob.includes("could not find the table") && blob.includes("public.vc_ratings");
+}
+
+/** Persist to investor_reviews when vc_ratings is absent or rows cannot reference vc_firms / vc_people. */
+function isVcRatingsWriteFallbackEligible(err: unknown): boolean {
+  if (isMissingVcRatingsTableError(err)) return true;
+  if (!err || typeof err !== "object") return false;
+  const o = err as { code?: string; message?: string; details?: string };
+  const blob = `${o.code ?? ""} ${o.message ?? ""} ${o.details ?? ""}`.toLowerCase();
+  // FK / check failures on vc_ratings → use legacy table (text firm_id, no directory FKs).
+  if (o.code === "23503" && blob.includes("vc_ratings")) return true;
+  if (o.code === "23514" && blob.includes("vc_ratings")) return true;
+  return false;
+}
+
 type VcRatingInsertPayload = Record<string, unknown>;
 
 async function upsertVcRatingRow(opts: {
@@ -420,14 +442,90 @@ async function upsertVcRatingRow(opts: {
   payload: VcRatingInsertPayload;
 }): Promise<{ savedAsRevision: boolean }> {
   const { supabaseClient, reviewRecordId, userId, payload } = opts;
+  const db = supabaseClient as unknown as { from: (t: string) => any };
+
+  /**
+   * Never fall back to `supabaseVcDirectory` (anon) for writes: RLS requires an authenticated JWT
+   * with `sub` = founder_id / author_user_id. Retrying as anon surfaces misleading RLS errors.
+   */
+  const upsertInvestorReviewFallback = async (): Promise<{ savedAsRevision: boolean }> => {
+    const starRatings =
+      payload.star_ratings && typeof payload.star_ratings === "object"
+        ? (payload.star_ratings as Record<string, unknown>)
+        : {};
+
+    const firmNameFromPayload =
+      typeof starRatings.firm_name === "string" && starRatings.firm_name.trim().length > 0
+        ? starRatings.firm_name.trim()
+        : "";
+    const derivedFirmId =
+      typeof payload.vc_firm_id === "string" && payload.vc_firm_id.trim().length > 0
+        ? payload.vc_firm_id.trim()
+        : firmNameFromPayload || "unknown-firm";
+
+    const npsRaw = payload.nps;
+    const npsScore =
+      typeof npsRaw === "number" && Number.isFinite(npsRaw) ? npsRaw : 0;
+
+    const personKey =
+      typeof payload.vc_person_id === "string" && payload.vc_person_id.trim().length > 0
+        ? payload.vc_person_id.trim()
+        : "";
+
+    const investorPayload = {
+      founder_id: userId,
+      firm_id: derivedFirmId,
+      person_id: personKey,
+      interaction_type:
+        typeof payload.interaction_type === "string" && payload.interaction_type.trim()
+          ? payload.interaction_type
+          : "investor_relationship",
+      nps_score: npsScore,
+      did_respond: false,
+      comment: typeof payload.comment === "string" ? payload.comment : null,
+      star_ratings: starRatings,
+      is_anonymous: typeof payload.anonymous === "boolean" ? payload.anonymous : true,
+    };
+
+    const { data: existing, error: selectErr } = await db
+      .from("investor_reviews")
+      .select("id")
+      .eq("founder_id", userId)
+      .eq("firm_id", derivedFirmId)
+      .eq("person_id", personKey)
+      .maybeSingle();
+
+    throwIfSupabaseError(selectErr, "Could not save your review.");
+
+    const updatePatch = {
+      interaction_type: investorPayload.interaction_type,
+      nps_score: investorPayload.nps_score,
+      did_respond: investorPayload.did_respond,
+      comment: investorPayload.comment,
+      star_ratings: investorPayload.star_ratings,
+      is_anonymous: investorPayload.is_anonymous,
+    };
+
+    if (existing?.id) {
+      const { error: updateError } = await db
+        .from("investor_reviews")
+        .update(updatePatch)
+        .eq("id", existing.id)
+        .eq("founder_id", userId);
+      throwIfSupabaseError(updateError, "Could not save your review.");
+      return { savedAsRevision: false };
+    }
+
+    const { error: insertError } = await db.from("investor_reviews").insert(investorPayload);
+    throwIfSupabaseError(insertError, "Could not save your review.");
+    return { savedAsRevision: false };
+  };
 
   const insertWithPersonFallback = async (p: VcRatingInsertPayload) => {
-    const { error } = await supabaseClient.from("vc_ratings").insert(p);
+    const { error } = await db.from("vc_ratings").insert(p);
     if (!error) return null;
     if (isVcPersonFkViolation(error) && p.vc_person_id) {
-      const { error: e2 } = await supabaseClient
-        .from("vc_ratings")
-        .insert({ ...p, vc_person_id: null });
+      const { error: e2 } = await db.from("vc_ratings").insert({ ...p, vc_person_id: null });
       return e2;
     }
     return error;
@@ -448,19 +546,28 @@ async function upsertVcRatingRow(opts: {
   };
 
   if (reviewRecordId) {
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await db
       .from("vc_ratings")
       .update(payload)
       .eq("id", reviewRecordId)
       .eq("author_user_id", userId);
+    if (isVcRatingsWriteFallbackEligible(updateError)) {
+      return upsertInvestorReviewFallback();
+    }
     if (!updateError) return { savedAsRevision: false };
 
     const insertErr = await insertWithPersonFallback(payload);
+    if (isVcRatingsWriteFallbackEligible(insertErr)) {
+      return upsertInvestorReviewFallback();
+    }
     if (!insertErr) return { savedAsRevision: true };
     throwIfSupabaseError(insertErr, "Could not save your review after update failed.");
   }
 
   const insertErr = await insertWithPersonFallback(payload);
+  if (isVcRatingsWriteFallbackEligible(insertErr)) {
+    return upsertInvestorReviewFallback();
+  }
   if (!insertErr) return { savedAsRevision: false };
   throwIfSupabaseError(insertErr, "Could not save your review.");
 }
@@ -976,6 +1083,10 @@ export function ReviewSubmissionModal({
 
     try {
       const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
+      const effectiveFirmId =
+        resolvedFirmId ||
+        (vcFirmResolveHint?.trim() || null) ||
+        (firmName.trim() || null);
 
       const pid = personId?.trim() || null;
 
@@ -1007,7 +1118,7 @@ export function ReviewSubmissionModal({
 
       const payload = {
         author_user_id: user.id,
-        vc_firm_id: resolvedFirmId,
+        vc_firm_id: effectiveFirmId,
         vc_person_id: pid,
         interaction_type: interactionTypeValue,
         interaction_detail: null,
@@ -1023,22 +1134,37 @@ export function ReviewSubmissionModal({
       let savedAsRevision = false;
 
       if (isSupabaseConfigured) {
-        const edge = await submitVcRatingViaEdge({
-          supabaseClient: supabase,
-          userId: user.id,
-          reviewRecordId,
-          payload,
-        });
-        if (edge.ok) {
-          savedAsRevision = edge.savedAsRevision;
-        } else if (edge.fallbackToDirect) {
-          const result = await upsertVcRatingRow({
+        try {
+          const edge = await submitVcRatingViaEdge({
             supabaseClient: supabase,
-            reviewRecordId,
             userId: user.id,
+            reviewRecordId,
             payload,
           });
-          savedAsRevision = result.savedAsRevision;
+          if (edge.ok) {
+            savedAsRevision = edge.savedAsRevision;
+          } else {
+            const result = await upsertVcRatingRow({
+              supabaseClient: supabase,
+              reviewRecordId,
+              userId: user.id,
+              payload,
+            });
+            savedAsRevision = result.savedAsRevision;
+          }
+        } catch (edgeErr) {
+          try {
+            const result = await upsertVcRatingRow({
+              supabaseClient: supabase,
+              reviewRecordId,
+              userId: user.id,
+              payload,
+            });
+            savedAsRevision = result.savedAsRevision;
+          } catch (directErr) {
+            console.error("[ReviewSubmissionModal] edge submit failed, direct path also failed", edgeErr, directErr);
+            throw directErr instanceof Error ? directErr : edgeErr;
+          }
         }
       } else {
         const result = await upsertVcRatingRow({

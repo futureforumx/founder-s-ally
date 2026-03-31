@@ -148,6 +148,14 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     mappingRecordId,
   } = useInvestorMapping(reviewFirmDisplayName || null);
 
+  const investorTitle = useMemo(() => {
+    const byTitle = person?.title?.trim();
+    if (byTitle) return byTitle;
+    const byRole = person?.role?.trim();
+    if (byRole) return byRole;
+    return null;
+  }, [person?.title, person?.role]);
+
   return (
     <AnimatePresence>
       {person && (
@@ -217,6 +225,9 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         <MapPin className="w-3 h-3" /> San Francisco, CA
                       </span>
                     </div>
+                    {investorTitle && (
+                      <p className="mt-1 text-sm font-medium text-muted-foreground">{investorTitle}</p>
+                    )}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {firm && (
                         <button
@@ -226,11 +237,6 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                           <FirmFavicon websiteUrl={firm.website_url} logoUrl={firm.logo_url} name={firm.name} />
                           {firm.name}
                         </button>
-                      )}
-                      {(person.title) && (
-                        <span className="text-xs text-muted-foreground">
-                          {person.title}
-                        </span>
                       )}
                     </div>
                   </div>

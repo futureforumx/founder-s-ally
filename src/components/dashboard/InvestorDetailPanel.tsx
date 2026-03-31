@@ -21,8 +21,7 @@ import { FeedbackTab } from "./investor-detail/FeedbackTab";
 import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
-import { DataProvenanceBadge } from "./investor-detail/DataProvenanceBadge";
-import { ScoreTilesRow } from "./investor-detail/ScoreTilesRow";
+import { ScoreTilesRow, type TileId } from "./investor-detail/ScoreTilesRow";
 import { useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -120,6 +119,7 @@ export function InvestorDetailPanel({
   onReviewBootstrapConsumed,
 }: InvestorDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<InvestorTab>(initialTab || "Updates");
+  const [activeScoreTile, setActiveScoreTile] = useState<TileId | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const bootstrapReviewOpenedRef = useRef(false);
@@ -132,6 +132,10 @@ export function InvestorDetailPanel({
   useEffect(() => {
     if (!investor) bootstrapReviewOpenedRef.current = false;
   }, [investor]);
+
+  useEffect(() => {
+    setActiveScoreTile(null);
+  }, [investor?.name, vcFirm?.id]);
 
   const { session } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
@@ -328,13 +332,17 @@ export function InvestorDetailPanel({
     : enrichedData?.profile?.lastVerified
       ? new Date(enrichedData.profile.lastVerified)
       : null;
-  const heroEmail = liveProfile?.email ?? null;
-  const heroInvestmentClassification = liveProfile?.firm_type ?? liveProfile?.lead_or_follow ?? null;
-  const heroStageRange =
+  const heroSectorFocus =
+    liveProfile?.firm_type ??
+    liveProfile?.lead_or_follow ??
+    vcFirm?.sectors?.join(", ") ??
+    effectiveInvestor?.sector ??
+    "-";
+  const heroStageFocus =
     liveProfile?.preferred_stage ??
-    (vcFirm?.stages?.length ? vcFirm.stages.join(", ") : null) ??
+    vcFirm?.stages?.join(", ") ??
     effectiveInvestor?.stage ??
-    null;
+    "-";
 
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
 
@@ -380,20 +388,20 @@ export function InvestorDetailPanel({
                   <div className="absolute -top-8 left-1/3 w-56 h-56 rounded-full bg-sky-500/[0.07] blur-3xl" />
                   <div className="absolute -top-8 right-0 w-64 h-64 rounded-full bg-emerald-500/[0.06] blur-3xl" />
                 </div>
-                {/* Identity + Actions row */}
-                <div className="relative z-10 flex items-start justify-between gap-8 px-8 pt-6 pb-3">
+                {/* Identity + Scores + Actions row */}
+                <div className="relative z-10 flex items-start gap-6 px-8 pt-6 pb-3">
 
                   {/* Left: Identity block */}
-                  <div className="flex items-start gap-3.5 min-w-0">
+                  <div className="flex min-w-0 flex-[1_1_0%] items-start gap-3.5">
                     {liveLoading ? (
-                      <Skeleton className="h-11 w-11 rounded-xl shrink-0 mt-0.5" />
+                      <Skeleton className="h-[86px] w-[86px] rounded-2xl shrink-0" />
                     ) : (
                       <FirmLogo
                         firmName={heroName}
                         logoUrl={heroLogo}
                         websiteUrl={liveProfile?.website_url ?? null}
                         size="lg"
-                        className="h-11 w-11 shrink-0 mt-0.5 ring-1 ring-border/20"
+                        className="h-[86px] w-[86px] rounded-2xl shrink-0 ring-1 ring-border/20"
                       />
                     )}
                     <div className="min-w-0 flex-1">
@@ -451,13 +459,27 @@ export function InvestorDetailPanel({
                               </span>
                             )}
                           </div>
+
                         </>
                       )}
                     </div>
                   </div>
 
-                  {/* Right: Actions */}
-                  <div className="flex flex-col items-end gap-2.5 shrink-0">
+                  {/* Middle: Score strip */}
+                  <div className="min-w-0 flex-[0_1_420px]">
+                    <ScoreTilesRow
+                      matchScore={matchScore}
+                      firmName={heroName}
+                      companyContext={companyData}
+                      investorContext={investorContext}
+                      activeTileId={activeScoreTile}
+                      onActiveTileChange={setActiveScoreTile}
+                      showBreakdown={false}
+                    />
+                  </div>
+
+                  {/* Right: Actions + data provenance */}
+                  <div className="flex w-[230px] shrink-0 flex-col items-end gap-2.5">
                     <div className="flex items-center gap-1.5">
                       {/* Rate */}
                       {myFirmRateDisplay ? (
@@ -494,28 +516,29 @@ export function InvestorDetailPanel({
                         <X className="h-[14px] w-[14px]" />
                       </button>
                     </div>
+                    <div className="w-full space-y-1 text-right">
+                      <p className="text-[10px] text-muted-foreground/90 truncate">
+                        <span className="font-medium text-foreground/75">Sector:</span>{" "}
+                        {heroSectorFocus}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/90 truncate">
+                        <span className="font-medium text-foreground/75">Stage:</span>{" "}
+                        {heroStageFocus}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Score strip */}
                 <div className="relative z-10 px-8 pb-2">
-                  <div className="flex items-start justify-between gap-6">
-                    <ScoreTilesRow
-                      matchScore={matchScore}
-                      firmName={heroName}
-                      companyContext={companyData}
-                      investorContext={investorContext}
-                    />
-                    <div className="shrink-0 pt-1">
-                      <DataProvenanceBadge
-                        dataSource={heroDataSource}
-                        lastSynced={heroLastSynced}
-                        emailAddress={heroEmail}
-                        investmentClassification={heroInvestmentClassification}
-                        stageRange={heroStageRange}
-                      />
-                    </div>
-                  </div>
+                  <ScoreTilesRow
+                    matchScore={matchScore}
+                    firmName={heroName}
+                    companyContext={companyData}
+                    investorContext={investorContext}
+                    activeTileId={activeScoreTile}
+                    onActiveTileChange={setActiveScoreTile}
+                    showTiles={false}
+                  />
                 </div>
               </div>
 

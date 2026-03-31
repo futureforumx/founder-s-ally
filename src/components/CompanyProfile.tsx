@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardR
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, Lock, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
+import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { AnalysisOverlay } from "./AnalysisOverlay";
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase, getSupabaseAccessToken } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
@@ -396,21 +397,59 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     } catch {}
     return null;
   });
-  const [faviconLoaded, setFaviconLoaded] = useState(false);
   const faviconDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Track when the current favicon URL has finished loading (re-run when URL changes)
+  const logoFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Favicon + nav logo whenever website changes (typing, paste, LinkedIn sync, etc.)
   useEffect(() => {
-    if (!faviconUrl) {
-      setFaviconLoaded(false);
+    const domain = extractDomain(form.website);
+    if (!domain) {
+      setFaviconUrl(null);
+      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
       return;
     }
-    setFaviconLoaded(false);
-    const img = new Image();
-    img.onload = () => setFaviconLoaded(true);
-    img.onerror = () => setFaviconLoaded(true);
-    img.src = faviconUrl;
-  }, [faviconUrl]);
+    setFaviconUrl(faviconSrc(domain));
+
+    const t = window.setTimeout(() => {
+      const d = extractDomain(form.website);
+      if (!d) return;
+      const primary = faviconSrc(d);
+      const img = new Image();
+      img.onload = () => {
+        setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(d)));
+      };
+      img.onerror = () => {
+        const fallback = s2FaviconSrc(d, 32);
+        setFaviconUrl(fallback);
+        const img2 = new Image();
+        img2.onload = () => {
+          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
+        };
+        img2.onerror = () => {
+          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(d, 128)));
+        };
+        img2.src = fallback;
+      };
+      if (logoFallbackTimerRef.current != null) window.clearTimeout(logoFallbackTimerRef.current);
+      logoFallbackTimerRef.current = window.setTimeout(() => {
+        logoFallbackTimerRef.current = null;
+        setLogoUrl((prev) => {
+          if (!prev || isCustomUploadedLogo(prev)) return prev;
+          return hdFaviconSrc(d);
+        });
+      }, 1000);
+      img.src = primary;
+    }, 300);
+
+    return () => {
+      window.clearTimeout(t);
+      if (logoFallbackTimerRef.current != null) {
+        window.clearTimeout(logoFallbackTimerRef.current);
+        logoFallbackTimerRef.current = null;
+      }
+    };
+  }, [form.website]);
 
   const [userTouched, setUserTouched] = useState<Set<keyof CompanyData>>(() => {
     try {
@@ -694,7 +733,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const { field } = (e as CustomEvent).detail || {};
       if (!field) return;
       const fieldSectionMap: Record<string, string> = {
-        "pitch-deck": "data-sources", "website-url": "data-sources", "sector-tags": "overview",
+        "pitch-deck": "overview", "website-url": "overview", "sector-tags": "overview",
         "ltv-cac": "metrics", "mrr": "metrics", "executive-summary": "overview",
         ...Object.fromEntries(Object.entries(fieldToSection)),
       };
@@ -784,16 +823,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setSocialEnrichState(prev => ({ ...prev, [platform]: "syncing" }));
     try {
       if (platform === "x") {
-        const { data, error } = await supabase.functions.invoke("sync-x-profile", {
+        const { data, error } = await invokeEdgeFunction("sync-x-profile", {
           body: { twitterUrl: url },
+          timeout: 120_000,
         });
         if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
         if (data?.bio && !form.description) update("description", data.bio);
         if (data?.location && !form.hqLocation) update("hqLocation", data.location);
         toast({ title: "X profile enriched", description: "Available fields populated." });
       } else {
-        const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+        const { data, error } = await invokeEdgeFunction("sync-company-linkedin", {
           body: { companyUrl: url },
+          timeout: 120_000,
         });
         if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to enrich");
         const incoming = readCompanySyncPayload(data);
@@ -1633,7 +1674,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   // Staggered section reveal after overlay closes
   const handleOverlayComplete = useCallback(() => {
     setShowAnalysisOverlay(false);
-    // Start staggered reveal: phase 0 = data sources visible, 1-4 = each card
+    // Start staggered reveal: phases 1-4 = each profile card
     setRevealPhase(0);
     const REVEAL_SECTIONS = ["overview", "positioning", "metrics", "social"];
     REVEAL_SECTIONS.forEach((_, i) => {
@@ -1649,315 +1690,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         onComplete={handleOverlayComplete}
         companyName={form.name || undefined}
       />
-      {/* ═══════════════════════════════════════════════
-          DATA SOURCES
-          ═══════════════════════════════════════════════ */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
-        <div className={`rounded-2xl border border-border bg-card p-4 shadow-sm transition-opacity duration-300 ${isAnalyzing ? "opacity-70 pointer-events-none" : ""}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* ── Left: Website URL + AI Insight ── */}
-            <div className="flex flex-col gap-2.5">
-              {/* WEBSITE URL */}
-              <div className="space-y-1" data-field="website-url">
-                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                    {faviconUrl && faviconLoaded ? (
-                      <img src={faviconUrl} alt="" className="h-4 w-4 rounded-sm object-contain" />
-                    ) : (
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  <input type="url" value={form.website} disabled={isAnalyzing}
-                    onChange={e => {
-                      const url = e.target.value.toLowerCase();
-                      update("website", url);
-                      setSourceVerified(false);
-                      try { localStorage.removeItem("company-source-verified"); } catch {}
-                      if (analysisComplete) setHasNewInputs(true);
-                      if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
-                      faviconDebounceRef.current = setTimeout(() => {
-                        const domain = extractDomain(url);
-                        if (!domain) {
-                          setFaviconUrl(null);
-                          setFaviconLoaded(false);
-                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
-                          return;
-                        }
-                        const primary = faviconSrc(domain);
-                        setFaviconUrl(primary);
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.onload = () => {
-                          setLogoUrl((prev) =>
-                            isCustomUploadedLogo(prev) ? prev : hdFaviconSrc(domain),
-                          );
-                        };
-                        img.onerror = () => {
-                          const fallback = s2FaviconSrc(domain, 32);
-                          const img2 = new Image();
-                          img2.crossOrigin = 'anonymous';
-                          img2.onload = () => {
-                            setFaviconUrl(fallback);
-                            setLogoUrl((prev) =>
-                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
-                            );
-                          };
-                          img2.onerror = () => {
-                            setFaviconUrl(fallback);
-                            setLogoUrl((prev) =>
-                              isCustomUploadedLogo(prev) ? prev : s2FaviconSrc(domain, 128),
-                            );
-                          };
-                          img2.src = fallback;
-                        };
-                        // Set a timeout fallback in case CORS or network issues prevent load/error events
-                        setTimeout(() => {
-                          setLogoUrl((prev) => {
-                            if (!prev || isCustomUploadedLogo(prev)) return prev;
-                            return hdFaviconSrc(domain);
-                          });
-                        }, 1000);
-                        img.src = primary;
-                        if (!form.name.trim() && !userTouched.has("name")) {
-                          const cleaned = cleanDomainToName(domain);
-                          if (cleaned) setForm((prev) => ({ ...prev, name: cleaned }));
-                        }
-                      }, 300);
-                    }}
-                    onBlur={() => {
-                      const domain = extractDomain(form.website);
-                      if (!domain) return;
-                      const hdLogoUrl = hdFaviconSrc(domain);
-                      const testImg = new Image();
-                      testImg.crossOrigin = 'anonymous';
-                      testImg.onload = () => {
-                        setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
-                        setSuggestedLogoUrl(null);
-                      };
-                      testImg.onerror = () => {
-                        const s2 = s2FaviconSrc(domain, 128);
-                        const test2 = new Image();
-                        test2.crossOrigin = 'anonymous';
-                        test2.onload = () => {
-                          setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
-                          setSuggestedLogoUrl(null);
-                        };
-                        test2.onerror = () => {};
-                        test2.src = s2;
-                      };
-                      // Set a timeout fallback in case CORS or network issues prevent load/error events
-                      setTimeout(() => {
-                        setLogoUrl((prev) => {
-                          if (!prev || isCustomUploadedLogo(prev)) return prev;
-                          return hdLogoUrl;
-                        });
-                      }, 500);
-                      testImg.src = hdLogoUrl;
-                    }}
-                    placeholder="https://acme.com" maxLength={255}
-                    className={`${inputCls("website")} pl-10 pr-24`}
-                  />
-                  {/* End adornment: Sync button + Verification indicator */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
-                    {sourceVerified ? (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger asChild>
-                          <motion.span
-                            key="verified"
-                            initial={sourceVerifiedAnim ? { scale: 0 } : { scale: 1 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                            onAnimationComplete={() => setSourceVerifiedAnim(false)}
-                            className="inline-flex"
-                          >
-                            <CheckCircle2
-                              className="h-4 w-4 text-green-500"
-                              style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
-                            />
-                          </motion.span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Source Verified via Apify Intelligence</TooltipContent>
-                      </Tooltip>
-                    ) : form.website.trim() ? (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default">
-                            <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                    {onSyncCompany && form.website.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSyncCompany(form.website.trim());
-                        }}
-                        disabled={companySyncing}
-                        className={cn(
-                          "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
-                          companySyncing
-                            ? "text-accent animate-pulse"
-                            : "text-accent/70 hover:text-accent hover:bg-accent/10"
-                        )}
-                      >
-                        {companySyncing ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3 w-3" />
-                        )}
-                        {companySyncing ? "Syncing" : "Sync"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground">We'll scrape your site for value prop & pricing</p>
-                {/* Logo suggestion banner */}
-                {suggestedLogoUrl && (
-                  <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
-                    <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
-                    <p className="text-[11px] text-muted-foreground flex-1">Use this as your company logo?</p>
-                    <button
-                      onClick={() => {
-                        setLogoUrl(suggestedLogoUrl);
-                        try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
-                        setSuggestedLogoUrl(null);
-                        setLogoSyncBadge(true);
-                        setTimeout(() => setLogoSyncBadge(false), 3000);
-                      }}
-                      className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
-                    >
-                      Apply
-                    </button>
-                    <button
-                      onClick={() => setSuggestedLogoUrl(null)}
-                      className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* AI Insight — condensed tip style, pushed to bottom */}
-              {parentCompanyData && (
-                <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5 mt-auto">
-                  <p className="text-[9px] font-bold text-accent uppercase tracking-wider flex items-center gap-1 mb-0.5">
-                    <Sparkles className="h-2.5 w-2.5" /> Insight
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
-                    Founders in <span className="font-semibold text-foreground">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify metrics see <span className="font-bold text-accent">3× higher</span> response rates from {parentCompanyData?.stage || "Seed"} investors.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Right: Pitch Deck dropzone / Active Deck Card ── */}
-            <div className="flex flex-col gap-1" data-field="pitch-deck">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Pitch Deck (PDF)
-              </label>
-              {activeDeck && !showReplaceDeck ? (
-                <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[120px]">
-                  <div className="flex items-center gap-3.5 overflow-hidden w-full">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                        <span>Active</span>
-                        {activeDeck.file_size_bytes && (
-                          <>
-                            <span className="text-border">•</span>
-                            <span>{activeDeck.file_size_bytes >= 1024 * 1024
-                              ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
-                              : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
-                            }</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowReplaceDeck(true)}
-                    className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Replace
-                  </button>
-                </div>
-              ) : (
-                <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-3 transition-colors flex-1 min-h-[120px] ${
-                    scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
-                  }`}>
-                  {scanningMetrics ? (
-                    <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
-                  ) : (
-                    <Upload className="h-5 w-5 text-muted-foreground mb-2" />
-                  )}
-                  <span className={`text-sm text-center ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                    {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF here or browse"}
-                  </span>
-                  {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
-                  <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
-                  {showReplaceDeck && activeDeck && (
-                    <button onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive mt-3">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
-            </div>
-          )}
-
-          
-
-          {/* Smart Analysis Button */}
-          <div className="mt-3 space-y-1.5">
-            {(() => {
-              const isUpToDate = analysisComplete && !dataSourcesChanged;
-              const isDisabled = isUpToDate || !canAnalyze || isAnalyzing;
-              const hasDataPresent = !!(form.website.trim() || deckText);
-              return (
-                <>
-                  <button onClick={handleAnalyzeClick} disabled={isDisabled}
-                    className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-lg border-0 px-5 py-2.5 text-[13px] font-medium transition-all duration-300 disabled:cursor-not-allowed",
-                      isAnalyzing ? "bg-primary text-primary-foreground"
-                      : isUpToDate ? "bg-muted text-muted-foreground cursor-default"
-                      : hasDataPresent
-                        ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--success)/0.35)]"
-                        : "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
-                    )}>
-                    {isAnalyzing ? (
-                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Syncing & Analyzing...</>
-                    ) : isUpToDate ? (
-                      <><Check className="h-3.5 w-3.5" /> Analysis Up to Date</>
-                    ) : (
-                      <><Sparkles className="h-3.5 w-3.5" /> {analysisComplete ? "Sync & Re-Analyze" : "Sync & Run AI Analysis"}</>
-                    )}
-                  </button>
-                  <p className="text-[10px] text-muted-foreground text-center">Triple-source triangulation: Deck + Website + Deep Search</p>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      </div>
-
       {/* ═══════════════════════════════════════════════
           GENERATED PROFILE — scrollable
           ═══════════════════════════════════════════════ */}
@@ -1983,16 +1715,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
           </div>
         </div>
 
-        {/* Pre-analysis placeholder */}
-        {!analysisComplete && !isAnalyzing && (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card py-16">
-            <Lock className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Run analysis to auto-populate your company profile</span>
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />{error}
           </div>
         )}
 
-        {/* ═══ Cards only shown after analysis or when data exists ═══ */}
-        {(analysisComplete || form.hqLocation || form.sector) && !showAnalysisOverlay && (
+        {/* ═══ Company overview always available; other cards after first analysis signals ═══ */}
+        {!showAnalysisOverlay && (
           <>
             {/* ─── CARD 1: Company Overview (Firmographics) ─── */}
             <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 1 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 1 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
@@ -2016,12 +1746,234 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-6">
-                    {/* ── Company Name ── */}
-                    <div className="space-y-1" data-field="company-name">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
-                      <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
-                        placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+                      <div className="min-w-0 space-y-1" data-field="company-name">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
+                        <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
+                          placeholder="Acme Corp" maxLength={100} disabled={isAnalyzing} className={inputCls("name")} />
+                      </div>
+                      <div className="min-w-0 space-y-1" data-field="website-url">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Website URL</label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                            {faviconUrl ? (
+                              <img
+                                src={faviconUrl}
+                                alt=""
+                                className="h-4 w-4 rounded-sm object-contain"
+                                onError={() => {
+                                  const d = extractDomain(form.website);
+                                  if (!d) return;
+                                  setFaviconUrl((prev) => {
+                                    const s2 = s2FaviconSrc(d, 32);
+                                    if (!prev || prev === s2) return null;
+                                    if (prev.includes("gstatic.com")) return s2;
+                                    return null;
+                                  });
+                                }}
+                              />
+                            ) : (
+                              <Globe className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <input type="url" value={form.website} disabled={isAnalyzing}
+                            onChange={e => {
+                              const url = e.target.value.toLowerCase();
+                              update("website", url);
+                              setSourceVerified(false);
+                              try { localStorage.removeItem("company-source-verified"); } catch {}
+                              if (analysisComplete) setHasNewInputs(true);
+                              if (faviconDebounceRef.current) clearTimeout(faviconDebounceRef.current);
+                              faviconDebounceRef.current = setTimeout(() => {
+                                const domain = extractDomain(url);
+                                if (domain && !form.name.trim() && !userTouched.has("name")) {
+                                  const cleaned = cleanDomainToName(domain);
+                                  if (cleaned) setForm((prev) => ({ ...prev, name: cleaned }));
+                                }
+                              }, 300);
+                            }}
+                            onBlur={() => {
+                              const domain = extractDomain(form.website);
+                              if (!domain) return;
+                              const hdLogoUrl = hdFaviconSrc(domain);
+                              const testImg = new Image();
+                              testImg.onload = () => {
+                                setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : hdLogoUrl));
+                                setSuggestedLogoUrl(null);
+                              };
+                              testImg.onerror = () => {
+                                const s2 = s2FaviconSrc(domain, 128);
+                                const test2 = new Image();
+                                test2.onload = () => {
+                                  setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : s2));
+                                  setSuggestedLogoUrl(null);
+                                };
+                                test2.onerror = () => {};
+                                test2.src = s2;
+                              };
+                              setTimeout(() => {
+                                setLogoUrl((prev) => {
+                                  if (!prev || isCustomUploadedLogo(prev)) return prev;
+                                  return hdLogoUrl;
+                                });
+                              }, 500);
+                              testImg.src = hdLogoUrl;
+                            }}
+                            placeholder="https://acme.com" maxLength={255}
+                            className={cn(inputCls("website"), "min-w-0 pl-10 pr-16 sm:pr-20 lg:pr-24")}
+                          />
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5">
+                            {sourceVerified ? (
+                              <Tooltip delayDuration={100}>
+                                <TooltipTrigger asChild>
+                                  <motion.span
+                                    key="verified"
+                                    initial={sourceVerifiedAnim ? { scale: 0 } : { scale: 1 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                                    onAnimationComplete={() => setSourceVerifiedAnim(false)}
+                                    className="inline-flex"
+                                  >
+                                    <CheckCircle2
+                                      className="h-4 w-4 text-green-500"
+                                      style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
+                                    />
+                                  </motion.span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">Source Verified via Apify Intelligence</TooltipContent>
+                              </Tooltip>
+                            ) : form.website.trim() ? (
+                              <Tooltip delayDuration={100}>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex cursor-default">
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">Sync to verify source</TooltipContent>
+                              </Tooltip>
+                            ) : null}
+                            {onSyncCompany && form.website.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onSyncCompany(form.website.trim());
+                                }}
+                                disabled={companySyncing}
+                                className={cn(
+                                  "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                                  companySyncing
+                                    ? "text-accent animate-pulse"
+                                    : "text-accent/70 hover:text-accent hover:bg-accent/10"
+                                )}
+                              >
+                                {companySyncing ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3 w-3" />
+                                )}
+                                {companySyncing ? "Syncing" : "Sync"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{"We'll scrape your site for value prop & pricing"}</p>
+                        {suggestedLogoUrl && (
+                          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 mt-1 animate-fade-in">
+                            <img src={suggestedLogoUrl} alt="Suggested logo" className="h-8 w-8 rounded-lg border border-border object-contain bg-background" />
+                            <p className="text-[11px] text-muted-foreground flex-1 min-w-[8rem]">Use this as your company logo?</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoUrl(suggestedLogoUrl);
+                                try { localStorage.setItem("company-logo-url", suggestedLogoUrl); } catch {}
+                                setSuggestedLogoUrl(null);
+                                setLogoSyncBadge(true);
+                                setTimeout(() => setLogoSyncBadge(false), 3000);
+                              }}
+                              className="text-[11px] font-medium text-accent hover:text-accent/80 transition-colors"
+                            >
+                              Apply
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSuggestedLogoUrl(null)}
+                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex flex-col gap-1" data-field="pitch-deck">
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <FileText className="h-3 w-3" /> Pitch Deck (PDF)
+                        </label>
+                        {activeDeck && !showReplaceDeck ? (
+                          <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[100px]">
+                            <div className="flex items-center gap-3.5 overflow-hidden w-full min-w-0">
+                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
+                                <FileText className="h-5 w-5" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
+                                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                                  <span>Active</span>
+                                  {activeDeck.file_size_bytes && (
+                                    <>
+                                      <span className="text-border">•</span>
+                                      <span>{activeDeck.file_size_bytes >= 1024 * 1024
+                                        ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
+                                        : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
+                                      }</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowReplaceDeck(true)}
+                              className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" /> Replace
+                            </button>
+                          </div>
+                        ) : (
+                          <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
+                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-3 transition-colors flex-1 min-h-[100px] ${
+                              scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
+                            }`}>
+                            {scanningMetrics ? (
+                              <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
+                            ) : (
+                              <Upload className="h-5 w-5 text-muted-foreground mb-2" />
+                            )}
+                            <span className={`text-xs text-center px-1 ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                              {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF or browse"}
+                            </span>
+                            {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
+                            <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
+                            <button type="button" onClick={() => fileInputRef.current?.click()}
+                              className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
+                            {showReplaceDeck && activeDeck && (
+                              <button type="button" onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    {parentCompanyData && (
+                      <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5">
+                        <p className="text-[9px] font-bold text-accent uppercase tracking-wider flex items-center gap-1 mb-0.5">
+                          <Sparkles className="h-2.5 w-2.5" /> Insight
+                        </p>
+                        <p className="text-[11px] text-muted-foreground leading-snug">
+                          Founders in <span className="font-semibold text-foreground">{parentCompanyData?.sector || "B2B SaaS"}</span> who verify metrics see <span className="font-bold text-accent">3× higher</span> response rates from {parentCompanyData?.stage || "Seed"} investors.
+                        </p>
+                      </div>
+                    )}
                     {/* ── Company Logo + Stage row ── */}
                     <div className="flex items-center gap-6">
                       {/* Logo Upload Slot */}
@@ -2163,6 +2115,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
             </Collapsible>
             </div>
 
+            {(analysisComplete || form.hqLocation || form.sector) && (
+            <>
             {/* ─── CARD 2: Positioning & Links ─── */}
             <div className="transition-all duration-500 ease-out" style={{ opacity: revealPhase >= 2 || revealPhase === -1 ? 1 : 0, transform: revealPhase >= 2 || revealPhase === -1 ? "translateY(0)" : "translateY(12px)" }}>
             <Collapsible open={openSections.positioning} onOpenChange={v => handleManualToggle("positioning", v)}>
@@ -2581,6 +2535,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
               </div>
             </Collapsible>
             </div>
+            </>
+            )}
 
             {confirmed && (
               <div className="rounded-2xl border border-success/30 bg-success/5 p-4 text-center">

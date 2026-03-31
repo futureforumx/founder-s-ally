@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { HealthDashboard } from "@/components/HealthDashboard";
+import { HealthDashboard, getHealthBenchmarks, getHealthStatus } from "@/components/HealthDashboard";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import {
@@ -26,6 +26,7 @@ import { fetchIntelligenceSummary, type IntelligenceSummaryStrip } from "@/lib/i
 import { trackMixpanelEvent } from "@/lib/mixpanel";
 
 type HealthTab = "overview" | "market" | "financial" | "gtm" | "defensibility";
+type GaugeStatus = "healthy" | "warning" | "critical";
 
 export interface TopNavCompanyHealthProps {
   score?: number | null;
@@ -213,6 +214,40 @@ export function TopNavCompanyHealth({
       defensibility: totals.defensibility.count ? totals.defensibility.sum / totals.defensibility.count : 0,
     };
   }, [derived.drivers]);
+
+  const marketBenchmarks = useMemo(() => getHealthBenchmarks("market", stage ?? undefined, sector ?? undefined), [stage, sector]);
+
+  const tileStatuses = useMemo(
+    () => ({
+      market: getHealthStatus(derived.marketPosition, marketBenchmarks.market),
+      financial: getHealthStatus(derived.financialHealth, marketBenchmarks.financial),
+      gtm: getHealthStatus(derived.gtmStrength, marketBenchmarks.gtm),
+      defensibility: getHealthStatus(derived.defensibility, marketBenchmarks.moat),
+    }),
+    [derived.marketPosition, derived.financialHealth, derived.gtmStrength, derived.defensibility, marketBenchmarks],
+  );
+
+  const tileTone = useCallback((statusLevel: GaugeStatus) => {
+    if (statusLevel === "healthy") {
+      return {
+        bg: "bg-emerald-500/[0.03]",
+        value: "text-emerald-600",
+        badge: "bg-emerald-500/10 text-emerald-700/85",
+      };
+    }
+    if (statusLevel === "warning") {
+      return {
+        bg: "bg-amber-500/[0.03]",
+        value: "text-amber-600",
+        badge: "bg-amber-500/10 text-amber-700/85",
+      };
+    }
+    return {
+      bg: "bg-rose-500/[0.03]",
+      value: "text-rose-600",
+      badge: "bg-rose-500/10 text-rose-700/85",
+    };
+  }, []);
 
   useEffect(() => {
     if (hoverOpen && !trackedHoverOpenRef.current) {
@@ -403,17 +438,17 @@ export function TopNavCompanyHealth({
       >
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
           <div className="flex h-full flex-col bg-background">
-            <div className="border-b border-border/60 px-5 py-4">
-              <div className="flex flex-wrap items-end justify-between gap-3 pr-8">
+            <div className="border-b border-border/60 px-5 pt-1 pb-1">
+              <div className="flex items-start justify-between gap-2 pr-8">
                 <div>
-                  <p className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wide text-success/80">
+                  <p className="m-0 inline-flex items-center gap-1.5 text-[10px] font-mono uppercase leading-none tracking-wide text-success/80">
                     <span
                       className="h-2 w-2 rounded-full bg-success animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
                       aria-hidden
                     />
                     Always On Intelligence
                   </p>
-                  <div className="mt-1 flex items-center gap-4">
+                  <div className="mt-0 flex items-center gap-4">
                     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
                       {logoUrl && !logoImgError ? (
                         <img
@@ -430,59 +465,65 @@ export function TopNavCompanyHealth({
                         <Building2 className="h-6 w-6 text-muted-foreground/40" />
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="space-y-1.5 py-0.5">
-                        <h2 className="text-[1.5rem] font-bold leading-tight tracking-tight text-foreground">
-                          {hasProfile ? companyName || "My Company" : "My Company"}
-                        </h2>
-                        <p className="text-xs uppercase leading-snug tracking-[0.08em] text-muted-foreground/80">Company Health</p>
-                      </div>
-                      <div className="flex w-[78px] flex-col items-stretch gap-1">
-                        <div
-                          className={cn(
-                            "relative overflow-hidden rounded-lg px-2.5 py-2.5",
-                            derived.score >= 70
-                              ? "bg-emerald-500/5"
-                              : derived.score >= 40
-                                ? "bg-amber-500/5"
-                                : "bg-rose-500/5",
-                          )}
-                        >
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
-                          <div className="mt-1 flex items-center justify-between gap-1.5">
-                            <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", status.text)}>{derived.score}</p>
-                            <span
-                              className={cn(
-                                "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                                derived.trendPct > 0
-                                  ? "bg-emerald-500/10 text-emerald-700/85"
-                                  : derived.trendPct < 0
-                                    ? "bg-rose-500/10 text-rose-700/85"
-                                    : "bg-muted/70 text-muted-foreground",
-                              )}
-                            >
-                              {derived.trendPct > 0 ? "+" : ""}
-                              {derived.trendPct}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                    <div className="space-y-1.5 py-0.5">
+                      <h2 className="text-[1.5rem] font-bold leading-tight tracking-tight text-foreground">
+                        {hasProfile ? companyName || "My Company" : "My Company"}
+                      </h2>
+                      <p className="text-xs uppercase leading-snug tracking-[0.08em] text-muted-foreground/80">Company Health</p>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div className="relative overflow-hidden rounded-lg bg-sky-500/5 px-2.5 py-2.5">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
-                    <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-sky-600">{derived.marketPosition}</p>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 sm:auto-rows-fr">
+                  <div
+                    className={cn(
+                      "relative col-span-2 overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem] sm:col-span-1 sm:row-span-2",
+                      "flex flex-col justify-between",
+                      derived.score >= 70
+                        ? "bg-emerald-500/[0.03]"
+                        : derived.score >= 40
+                          ? "bg-amber-500/[0.03]"
+                          : "bg-rose-500/[0.03]",
+                    )}
+                  >
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
+                    <div className="mt-2 flex items-end justify-between gap-1.5">
+                      <p className={cn("text-[1.75rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          familyImpact.market > 0
+                          derived.trendPct > 0
                             ? "bg-emerald-500/10 text-emerald-700/85"
-                            : familyImpact.market < 0
+                            : derived.trendPct < 0
                               ? "bg-rose-500/10 text-rose-700/85"
                               : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {derived.trendPct > 0 ? "+" : ""}
+                        {derived.trendPct}%
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className={cn(
+                          "block h-full origin-left animate-pulse transition-transform duration-700 ease-out",
+                          derived.score >= 70
+                            ? "bg-gradient-to-r from-emerald-500/70 via-emerald-400/45 to-transparent"
+                            : derived.score >= 40
+                              ? "bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent"
+                              : "bg-gradient-to-r from-rose-500/70 via-rose-400/45 to-transparent",
+                        )}
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.market).bg)}>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.market).value)}>{derived.marketPosition}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          tileTone(tileStatuses.market).badge,
                         )}
                       >
                         {familyImpact.market > 0 ? "+" : ""}
@@ -496,18 +537,14 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-violet-500/5 px-2.5 py-2.5">
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.financial).bg)}>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-violet-600">{derived.financialHealth}</p>
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.financial).value)}>{derived.financialHealth}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          familyImpact.financial > 0
-                            ? "bg-emerald-500/10 text-emerald-700/85"
-                            : familyImpact.financial < 0
-                              ? "bg-rose-500/10 text-rose-700/85"
-                              : "bg-muted/70 text-muted-foreground",
+                          tileTone(tileStatuses.financial).badge,
                         )}
                       >
                         {familyImpact.financial > 0 ? "+" : ""}
@@ -521,18 +558,14 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-orange-500/5 px-2.5 py-2.5">
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.gtm).bg)}>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">GTM</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-orange-500">{derived.gtmStrength}</p>
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.gtm).value)}>{derived.gtmStrength}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          familyImpact.gtm > 0
-                            ? "bg-emerald-500/10 text-emerald-700/85"
-                            : familyImpact.gtm < 0
-                              ? "bg-rose-500/10 text-rose-700/85"
-                              : "bg-muted/70 text-muted-foreground",
+                          tileTone(tileStatuses.gtm).badge,
                         )}
                       >
                         {familyImpact.gtm > 0 ? "+" : ""}
@@ -546,18 +579,14 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-amber-500/5 px-2.5 py-2.5">
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.defensibility).bg)}>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensibility</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-amber-500">{derived.defensibility}</p>
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.defensibility).value)}>{derived.defensibility}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          familyImpact.defensibility > 0
-                            ? "bg-emerald-500/10 text-emerald-700/85"
-                            : familyImpact.defensibility < 0
-                              ? "bg-rose-500/10 text-rose-700/85"
-                              : "bg-muted/70 text-muted-foreground",
+                          tileTone(tileStatuses.defensibility).badge,
                         )}
                       >
                         {familyImpact.defensibility > 0 ? "+" : ""}
@@ -574,7 +603,7 @@ export function TopNavCompanyHealth({
                 </div>
               </div>
 
-              <div className="mt-4 border-t border-border/60 bg-muted/15 pt-3">
+              <div className="mt-0 border-t border-border/60 bg-muted/15 pt-0.5">
                 <div className="flex flex-wrap gap-1 rounded-xl bg-muted/35 p-1">
                 {tabs.map((tab) => (
                   <button
