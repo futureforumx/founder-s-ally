@@ -82,7 +82,7 @@ if (!SUPABASE_URL) throw new Error("SUPABASE_URL is not set.");
 if (!SERVICE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
 
 const MAX = Math.max(1, parseInt(process.env.ENRICH_ALL_MAX || "100", 10));
-const DELAY_MS = Math.max(0, parseInt(process.env.ENRICH_ALL_DELAY_MS || "800", 10));
+const DELAY_MS = Math.max(0, parseInt(process.env.ENRICH_ALL_DELAY_MS || "3000", 10));
 const STALE_DAYS = Math.max(1, parseInt(process.env.ENRICH_ALL_STALE_DAYS || "30", 10));
 const DRY_RUN = ["1", "true", "yes"].includes(
   (process.env.ENRICH_ALL_DRY_RUN || "").toLowerCase()
@@ -108,6 +108,7 @@ const PDL_KEY       = process.env.PEOPLE_DATA_LABS_API_KEY?.trim() || process.en
 const LUSHA_KEY     = process.env.LUSHA_API_KEY?.trim() || "";
 const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY?.trim() || "";
 const SERPWOW_KEY   = process.env.SERPWOW_API_KEY?.trim() || "";
+const LOVABLE_KEY   = process.env.LOVABLE_API_KEY?.trim() || "";
 // Kept for reference but known broken — do not use:
 // APOLLO_KEY  → out of credits (HTTP 422)
 // CLAY_KEY    → deprecated endpoint (HTTP 404)
@@ -127,10 +128,14 @@ const SKIP_PROVIDERS = new Set(
 );
 
 // Pre-mark known-broken providers so they're never called
-// Add api.apollo.io since it's out of credits
 for (const host of ["api.apollo.io", "api.clay.com", "api.explorium.ai"]) {
   SKIP_PROVIDERS.add(host);
 }
+
+// Tracks providers that have hit quota mid-run — skipped automatically thereafter
+const QUOTA_EXHAUSTED = new Set<string>();
+// Pre-seed from SKIP_PROVIDERS so the first call is never wasted
+for (const host of SKIP_PROVIDERS) QUOTA_EXHAUSTED.add(host);
 
 // ---------------------------------------------------------------------------
 // Supabase REST helpers
@@ -227,9 +232,6 @@ function domainFromUrl(raw: string | null | undefined): string | null {
   }
 }
 
-// Tracks providers that have hit quota — skipped for the rest of the run
-const QUOTA_EXHAUSTED = new Set<string>();
-
 async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T | null> {
   let apiHost = "";
   try {
@@ -245,24 +247,37 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}): Promise<T |
     const res = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      // Quota / billing errors — mark provider as exhausted for this run
-      if (res.status === 429 || res.status === 402 || res.status === 422) {
-        const msg = body.slice(0, 120).replace(/<[^>]+>/g, "");
-        const isQuota = /credit|quota|limit|insufficient|billing|upgrade|plan/i.test(msg);
-        if (isQuota) {
-          console.warn(`    ⚠ ${apiHost} → quota exhausted (HTTP ${res.status}) — skipping for this run`);
-          QUOTA_EXHAUSTED.add(apiHost);
-          return null;
-        }
-      }
-      // Deprecated / not found — also skip for the run
-      if (res.status === 404 || res.status === 410) {
-        const msg = body.slice(0, 120);
-        console.warn(`    ⚠ ${apiHost} → HTTP ${res.status} (endpoint unavailable) — skipping`);
+      const msg = body.slice(0, 200).replace(/<[^>]+>/g, "");
+
+      // ── Permanent exhaustion: billing / credits gone ──
+      // 402 = payment required, 422 with credit/billing language = credits exhausted
+      const isBillingError =
+        res.status === 402 ||
+        (res.status === 422 && /credit|insufficient|billing|upgrade|plan/i.test(msg));
+
+      if (isBillingError) {
+        console.warn(`    ⊘ ${apiHost} → credits exhausted (HTTP ${res.status}) — disabled for this run`);
         QUOTA_EXHAUSTED.add(apiHost);
         return null;
       }
-      console.warn(`    ⚠ ${apiHost} → HTTP ${res.status}: ${body.slice(0, 150).replace(/<[^>]+>/g, "")}`);
+
+      // ── Deprecated / gone endpoints ──
+      if (res.status === 404 || res.status === 410) {
+        console.warn(`    ⊘ ${apiHost} → HTTP ${res.status} (endpoint unavailable) — disabled`);
+        QUOTA_EXHAUSTED.add(apiHost);
+        return null;
+      }
+
+      // ── Temporary rate limit (429): pause briefly, keep provider alive ──
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get("retry-after") || "5", 10);
+        const wait = Math.min(retryAfter, 15) * 1000;
+        console.warn(`    ⚠ ${apiHost} → rate limited — waiting ${wait / 1000}s`);
+        await new Promise((r) => setTimeout(r, wait));
+        return null;
+      }
+
+      console.warn(`    ⚠ ${apiHost} → HTTP ${res.status}: ${msg.slice(0, 150)}`);
       return null;
     }
     return (await res.json()) as T;
@@ -349,6 +364,8 @@ type InvestorRow = {
   check_size_min: number | null;
   check_size_max: number | null;
   needs_review: boolean;
+  // Embedded via PostgREST join (only populated in Phase 5 query)
+  firm_records?: { website_url: string | null } | null;
 };
 
 type EnrichPatch = Record<string, any>;
@@ -678,6 +695,41 @@ ${combined.slice(0, 20_000)}`;
     }
   }
 
+  // Final fallback: Perplexity sonar-pro for extraction
+  // (asks for JSON output explicitly; used when Groq/DeepSeek/Gemini are all rate-limited)
+  if (PERPLEXITY_KEY && isAvailable("api.perplexity.ai")) {
+    try {
+      const data = await jsonFetch<any>("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${PERPLEXITY_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "sonar-pro",
+          messages: [
+            {
+              role: "system",
+              content: "You extract structured data about VC firms and return only valid JSON. Use null for any field you cannot confidently determine.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.1,
+        }),
+      });
+      const content = data?.choices?.[0]?.message?.content;
+      if (content) {
+        // Perplexity wraps JSON in markdown fences; strip them
+        const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        // Find the first { ... } block in case there's surrounding prose
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return sanitizePatch(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn(`    ⚠ Perplexity extraction failed: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   return {};
 }
 
@@ -754,8 +806,8 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
       }
 
       if (searchPromises.length === 0 && !JINA_KEY) {
-        console.log(`    ⚠ All search providers exhausted — skipping remaining firms`);
-        break;
+        console.log(`    — No search providers available for this firm, skipping`);
+        continue;
       }
 
       const searchResults = await Promise.allSettled(searchPromises);
@@ -779,7 +831,7 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         await sleep(200);
       }
 
-      // Step 2: Extract structured data with AI (Groq → DeepSeek → Gemini waterfall)
+      // Step 2: Extract structured data with AI (Groq → DeepSeek → Gemini → Perplexity waterfall)
       const patch = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
       await sleep(200);
 
@@ -792,8 +844,10 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         console.log(`    ✓ Updated ${fieldCount} fields: ${Object.keys(patch).filter(k => k !== "last_enriched_at").join(", ")}`);
         enriched++;
       } else {
+        // All AI providers were rate-limited — back off longer before next firm
+        console.log(`    — No new data extracted (all AI providers rate-limited; waiting 20s before next firm)`);
         await sbUpdate("firm_records", firm.id, { last_enriched_at: patch.last_enriched_at });
-        console.log(`    — No new data extracted`);
+        await sleep(20_000);
       }
     } catch (e) {
       errors++;
@@ -1495,48 +1549,150 @@ async function phase4_emailBackfill(): Promise<{ enriched: number; errors: numbe
 
 async function checkImageUrl(url: string): Promise<boolean> {
   try {
-    const res = await fetch(url, {
+    // First try HEAD — fast, but many CDNs omit Content-Length (chunked)
+    const head = await fetch(url, {
       method: "HEAD",
       redirect: "follow",
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return false;
-    const ct = res.headers.get("content-type") || "";
-    const cl = parseInt(res.headers.get("content-length") || "0", 10);
-    return ct.startsWith("image/") && cl > 1024;
+    if (!head.ok) return false;
+    const ct = head.headers.get("content-type") || "";
+    if (!ct.startsWith("image/")) return false;
+    const cl = parseInt(head.headers.get("content-length") || "0", 10);
+    // If Content-Length is present and too small, it's a placeholder
+    if (cl > 0 && cl < 1024) return false;
+    // If Content-Length is missing (chunked), do a partial GET to confirm real data
+    if (cl === 0) {
+      try {
+        const get = await fetch(url, {
+          headers: { Range: "bytes=0-4095" },
+          redirect: "follow",
+          signal: AbortSignal.timeout(8000),
+        });
+        const buf = await get.arrayBuffer();
+        return buf.byteLength > 1024;
+      } catch {
+        return true; // assume valid if range request fails
+      }
+    }
+    return true;
   } catch {
     return false;
   }
 }
 
-async function findAvatar(investor: InvestorRow): Promise<string | null> {
-  // Try Unavatar with LinkedIn
-  if (investor.linkedin_url) {
-    const handle = investor.linkedin_url.replace(/\/$/, "").split("/").pop();
-    if (handle) {
-      const url = `https://unavatar.io/linkedin/${handle}`;
-      if (await checkImageUrl(url)) return url;
+/**
+ * Given Jina/Firecrawl markdown of a team page, find the best image URL
+ * for a specific investor by looking for markdown image tags near their name.
+ */
+function findAvatarOnTeamPage(markdown: string, fullName: string): string | null {
+  if (!markdown || !fullName) return null;
+
+  // Build name variants to search for (full, first, last)
+  const parts = fullName.trim().split(/\s+/);
+  const firstName = parts[0] ?? "";
+  const lastName = parts[parts.length - 1] ?? "";
+
+  // Regex to find all markdown images: ![alt](url)
+  const imgRegex = /!\[[^\]]*\]\((https?:\/\/[^)\s"']+)\)/g;
+
+  // Find all image positions in the markdown
+  const images: Array<{ idx: number; url: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = imgRegex.exec(markdown)) !== null) {
+    const url = m[1];
+    // Skip tiny icons, logos, decorative images (common patterns to exclude)
+    if (/logo|icon|badge|arrow|banner|bg|background|pattern|social|twitter|linkedin|facebook/i.test(url)) continue;
+    images.push({ idx: m.index, url });
+  }
+
+  if (images.length === 0) return null;
+
+  // Find all positions of the investor's name in the markdown
+  const namePositions: number[] = [];
+  const searchStr = markdown.toLowerCase();
+  const fullNameLower = fullName.toLowerCase();
+  let pos = searchStr.indexOf(fullNameLower);
+  while (pos !== -1) {
+    namePositions.push(pos);
+    pos = searchStr.indexOf(fullNameLower, pos + 1);
+  }
+
+  // If full name not found, try first + last within 120 chars of each other
+  if (namePositions.length === 0 && firstName && lastName && firstName !== lastName) {
+    const firstLower = firstName.toLowerCase();
+    const lastLower = lastName.toLowerCase();
+    let fi = searchStr.indexOf(firstLower);
+    while (fi !== -1) {
+      const li = searchStr.indexOf(lastLower, fi);
+      if (li !== -1 && li - fi < 120) namePositions.push(fi);
+      fi = searchStr.indexOf(firstLower, fi + 1);
     }
   }
 
-  // Try Unavatar with X/Twitter
+  if (namePositions.length === 0) return null;
+
+  // For each name position, find the closest image within ±1500 chars
+  let bestUrl: string | null = null;
+  let bestDist = Infinity;
+  for (const namePos of namePositions) {
+    for (const img of images) {
+      const dist = Math.abs(img.idx - namePos);
+      if (dist < 1500 && dist < bestDist) {
+        bestDist = dist;
+        bestUrl = img.url;
+      }
+    }
+  }
+
+  return bestUrl;
+}
+
+async function md5Hex(str: string): Promise<string> {
+  // Node built-in crypto — available without any import via globalThis or dynamic import
+  const { createHash } = await import("node:crypto");
+  return createHash("md5").update(str.trim().toLowerCase()).digest("hex");
+}
+
+async function findAvatar(investor: InvestorRow): Promise<{ url: string; source: string } | null> {
+  // 1. Unavatar → Twitter/X (most reliable: public profile photos)
   if (investor.x_url) {
     const handle = investor.x_url.replace(/\/$/, "").split("/").pop();
-    if (handle) {
+    if (handle && handle !== "x.com" && handle !== "twitter.com") {
       const url = `https://unavatar.io/twitter/${handle}`;
-      if (await checkImageUrl(url)) return url;
+      if (await checkImageUrl(url)) return { url, source: "Twitter/X" };
     }
   }
 
-  // Try Unavatar with name
-  const name = investor.full_name.replace(/\s+/g, "+");
-  const url = `https://unavatar.io/${name}`;
-  if (await checkImageUrl(url)) return url;
+  // 2. Unavatar → LinkedIn (works when Unavatar has cached it)
+  if (investor.linkedin_url) {
+    const handle = investor.linkedin_url.replace(/\/$/, "").split("/").pop();
+    if (handle && handle !== "linkedin.com" && handle !== "in") {
+      const url = `https://unavatar.io/linkedin/${handle}`;
+      if (await checkImageUrl(url)) return { url, source: "LinkedIn" };
+    }
+  }
 
-  // Try Unavatar with email
+  // 3. Gravatar (reliable for investors who use Gmail/GSuite-based email)
   if (investor.email) {
-    const url = `https://unavatar.io/${investor.email}`;
-    if (await checkImageUrl(url)) return url;
+    try {
+      const hash = await md5Hex(investor.email);
+      const url = `https://www.gravatar.com/avatar/${hash}?s=400&d=404`;
+      if (await checkImageUrl(url)) return { url, source: "Gravatar" };
+    } catch { /* ignore */ }
+  }
+
+  // 4. Unavatar → email (checks Gravatar + other social platforms by email)
+  if (investor.email) {
+    const url = `https://unavatar.io/${encodeURIComponent(investor.email)}`;
+    if (await checkImageUrl(url)) return { url, source: "Unavatar/email" };
+  }
+
+  // 5. Unavatar → full name (last resort — less accurate but often finds something)
+  const name = investor.full_name.trim().replace(/\s+/g, "+");
+  if (name) {
+    const url = `https://unavatar.io/${encodeURIComponent(investor.full_name.trim())}`;
+    if (await checkImageUrl(url)) return { url, source: "Unavatar/name" };
   }
 
   return null;
@@ -1547,9 +1703,10 @@ async function phase5_headshots(): Promise<{ enriched: number; errors: number }>
   console.log("║  PHASE 5: Headshot / Avatar Backfill                      ║");
   console.log("╚══════════════════════════════════════════════════════════╝\n");
 
+  // Fetch investors with no avatar — join firm_records to get website_url
   const { data: investors } = await sbQuery<InvestorRow>(
     "firm_investors",
-    `select=id,full_name,first_name,last_name,email,linkedin_url,x_url,avatar_url&deleted_at=is.null&avatar_url=is.null&limit=${Math.min(MAX * 3, 300)}`
+    `select=id,full_name,first_name,last_name,email,linkedin_url,x_url,avatar_url,firm_id,firm_records(website_url)&deleted_at=is.null&avatar_url=is.null&limit=${Math.min(MAX * 3, 300)}`
   );
 
   if (!investors.length) {
@@ -1559,24 +1716,79 @@ async function phase5_headshots(): Promise<{ enriched: number; errors: number }>
 
   console.log(`  ${investors.length} investors need headshots\n`);
 
+  // Group by firm so we scrape each team page once
+  const byFirm = new Map<string, { websiteUrl: string | null; investors: InvestorRow[] }>();
+  for (const inv of investors) {
+    const websiteUrl = (inv.firm_records as any)?.website_url ?? null;
+    if (!byFirm.has(inv.firm_id)) {
+      byFirm.set(inv.firm_id, { websiteUrl, investors: [] });
+    }
+    byFirm.get(inv.firm_id)!.investors.push(inv);
+  }
+
   let enriched = 0;
   let errors = 0;
 
-  for (const investor of investors) {
-    try {
-      const avatarUrl = await findAvatar(investor);
-      if (avatarUrl) {
-        await sbUpdate("firm_investors", investor.id, {
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        });
-        console.log(`  ✓ ${investor.full_name} → avatar found`);
-        enriched++;
+  for (const [firmId, { websiteUrl, investors: firmInvestors }] of byFirm) {
+    // ── Step 1: Scrape the firm's team page once ──────────────────────────────
+    let teamMarkdown = "";
+    let teamPageUrl: string | null = null;
+
+    if (websiteUrl && (JINA_KEY || FIRECRAWL_KEY)) {
+      teamPageUrl = await discoverTeamPageUrl(websiteUrl);
+      if (teamPageUrl) {
+        console.log(`  📄 Scraping team page: ${teamPageUrl}`);
+        teamMarkdown = await scrapeTeamPage(teamPageUrl);
+        if (teamMarkdown) {
+          console.log(`     → ${teamMarkdown.length} chars`);
+        }
+        await sleep(500);
       }
-      await sleep(200);
-    } catch (e) {
-      errors++;
     }
+
+    // ── Step 2: For each investor in this firm, try team page first ──────────
+    for (const investor of firmInvestors) {
+      try {
+        let avatarUrl: string | null = null;
+        let source = "";
+
+        // 1. Team page: look for image near investor's name in markdown
+        if (teamMarkdown) {
+          const candidate = findAvatarOnTeamPage(teamMarkdown, investor.full_name);
+          if (candidate && await checkImageUrl(candidate)) {
+            avatarUrl = candidate;
+            source = "team page";
+          }
+        }
+
+        // 2. Social / Gravatar fallback
+        if (!avatarUrl) {
+          const result = await findAvatar(investor);
+          if (result) {
+            avatarUrl = result.url;
+            source = result.source;
+          }
+        }
+
+        if (avatarUrl) {
+          await sbUpdate("firm_investors", investor.id, {
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString(),
+          });
+          console.log(`  ✓ ${investor.full_name} → ${source}`);
+          enriched++;
+        } else {
+          console.log(`  — ${investor.full_name} → no headshot found`);
+        }
+
+        await sleep(300);
+      } catch (e) {
+        errors++;
+        console.warn(`  ✗ ${investor.full_name} → ${e instanceof Error ? e.message : e}`);
+      }
+    }
+
+    await sleep(800); // pause between firms
   }
 
   return { enriched, errors };

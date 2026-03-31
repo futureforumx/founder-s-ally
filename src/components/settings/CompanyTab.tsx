@@ -9,6 +9,7 @@ import {
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
+import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { useAuth } from "@/hooks/useAuth";
 import { useCapTable } from "@/hooks/useCapTable";
@@ -986,10 +987,14 @@ export function CompanyTab() {
               onSyncCompany={async (url: string) => {
                 setCompanySyncing(true);
                 try {
-                  const { data, error } = await supabase.functions.invoke("sync-company-linkedin", {
+                  const { data, error } = await invokeEdgeFunction("sync-company-linkedin", {
                     body: { companyUrl: url },
+                    timeout: 120_000,
                   });
-                  if (error) throw error;
+                  if (error) {
+                    const detail = await readFunctionsHttpErrorMessage(error);
+                    throw new Error(detail || error.message || "Edge function error");
+                  }
                   if (!data?.success) throw new Error(data?.error || "Sync failed");
 
                   const incoming = data.data;

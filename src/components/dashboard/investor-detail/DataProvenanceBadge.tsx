@@ -1,4 +1,4 @@
-import { CheckCircle2, Radio } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface DataProvenanceBadgeProps {
@@ -7,6 +7,7 @@ interface DataProvenanceBadgeProps {
   emailAddress?: string | null;
   investmentClassification?: string | null;
   stageRange?: string | null;
+  showDetails?: boolean;
 }
 
 export function DataProvenanceBadge({
@@ -15,6 +16,7 @@ export function DataProvenanceBadge({
   emailAddress,
   investmentClassification,
   stageRange,
+  showDetails = true,
 }: DataProvenanceBadgeProps) {
   if (dataSource === "verified") {
     return (
@@ -38,20 +40,22 @@ export function DataProvenanceBadge({
         </span>
         Live Synced: {timeAgo} ago
       </div>
-      <div className="grid grid-cols-1 gap-0.5 text-[10px] text-muted-foreground/90">
-        <div>
-          <span className="font-medium text-foreground/75">Email:</span>{" "}
-          {emailAddress || "-"}
+      {showDetails && (
+        <div className="grid grid-cols-1 gap-0.5 text-[10px] text-muted-foreground/90">
+          <div>
+            <span className="font-medium text-foreground/75">Email:</span>{" "}
+            {emailAddress || "-"}
+          </div>
+          <div>
+            <span className="font-medium text-foreground/75">Investment Classification:</span>{" "}
+            {investmentClassification || "-"}
+          </div>
+          <div>
+            <span className="font-medium text-foreground/75">Stage Range:</span>{" "}
+            {stageRange || "-"}
+          </div>
         </div>
-        <div>
-          <span className="font-medium text-foreground/75">Investment Classification:</span>{" "}
-          {investmentClassification || "-"}
-        </div>
-        <div>
-          <span className="font-medium text-foreground/75">Stage Range:</span>{" "}
-          {stageRange || "-"}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

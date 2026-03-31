@@ -41,6 +41,30 @@ const sectorOffsets: Record<string, { financial: number; gtm: number; market: nu
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 
+export type HealthBenchmarkMode = "market" | "community";
+
+export function getHealthStatus(value: number, benchmark: number): "healthy" | "warning" | "critical" {
+  if (value >= benchmark + 5) return "healthy";
+  if (value >= benchmark - 10) return "warning";
+  return "critical";
+}
+
+export function getHealthBenchmarks(mode: HealthBenchmarkMode, stage?: string, sector?: string) {
+  const mult = stageMultipliers[stage || ""] ?? 1.0;
+  const offsets = sectorOffsets[sector || ""] ?? { financial: 0, gtm: 0, market: 0, moat: 0 };
+  const baseBenchmarks =
+    mode === "market"
+      ? { market: 65, financial: 70, gtm: 60, moat: 55 }
+      : { market: 58, financial: 48, gtm: 53, moat: 60 };
+
+  return {
+    market: clamp(baseBenchmarks.market * mult + offsets.market),
+    financial: clamp(baseBenchmarks.financial * mult + offsets.financial),
+    gtm: clamp(baseBenchmarks.gtm * mult + offsets.gtm),
+    moat: clamp(baseBenchmarks.moat * mult + offsets.moat),
+  };
+}
+
 const metricDescriptions: Record<string, string> = {
   MRR: "Monthly Recurring Revenue - predictable revenue from subscriptions each month",
   ARR: "Annual Recurring Revenue - your MRR multiplied by 12",
@@ -59,40 +83,25 @@ function buildHealthData(
   sector?: string,
   valueOverride?: { market: number; financial: number; gtm: number; moat: number },
 ) {
-  const mult = stageMultipliers[stage || ""] ?? 1.0;
-  const offsets = sectorOffsets[sector || ""] ?? { financial: 0, gtm: 0, market: 0, moat: 0 };
-  const baseBenchmarks = mode === "market"
-    ? { market: 65, financial: 70, gtm: 60, moat: 55 }
-    : { market: 58, financial: 48, gtm: 53, moat: 60 };
   const defaultBaseValues = mode === "market"
     ? { market: 72, financial: 45, gtm: 61, moat: 78 }
     : { market: 68, financial: 52, gtm: 55, moat: 82 };
   const baseValues = valueOverride ?? defaultBaseValues;
-  const benchmarks = {
-    market: clamp(baseBenchmarks.market * mult + offsets.market),
-    financial: clamp(baseBenchmarks.financial * mult + offsets.financial),
-    gtm: clamp(baseBenchmarks.gtm * mult + offsets.gtm),
-    moat: clamp(baseBenchmarks.moat * mult + offsets.moat),
-  };
-  const getStatus = (val: number, bench: number) => {
-    if (val >= bench + 5) return "healthy" as const;
-    if (val >= bench - 10) return "warning" as const;
-    return "critical" as const;
-  };
+  const benchmarks = getHealthBenchmarks(mode, stage, sector);
   const prefix = mode === "market" ? "" : "community ";
   return [
     { label: "Market Positioning", value: baseValues.market, benchmark: benchmarks.market,
       description: mode === "market" ? `Category leadership${stage ? ` for ${stage}` : ""}${sector ? ` in ${sector}` : ""}` : `Rank vs ${prefix}peers${sector ? ` in ${sector}` : ""}`,
-      status: getStatus(baseValues.market, benchmarks.market) },
+      status: getHealthStatus(baseValues.market, benchmarks.market) },
     { label: "Financial Health", value: baseValues.financial, benchmark: benchmarks.financial,
       description: mode === "market" ? `Burn rate, runway, unit economics vs.${stage ? ` ${stage}` : ""} benchmarks` : `Burn & runway vs peers${stage ? ` at ${stage}` : ""}`,
-      status: getStatus(baseValues.financial, benchmarks.financial) },
+      status: getHealthStatus(baseValues.financial, benchmarks.financial) },
     { label: "GTM Strategy", value: baseValues.gtm, benchmark: benchmarks.gtm,
       description: mode === "market" ? `Channel efficiency, CAC payback${sector ? ` in ${sector}` : ""}` : `Channel mix vs founders${stage ? ` at ${stage}` : ""}`,
-      status: getStatus(baseValues.gtm, benchmarks.gtm) },
+      status: getHealthStatus(baseValues.gtm, benchmarks.gtm) },
     { label: "Defensibility", value: baseValues.moat, benchmark: benchmarks.moat,
       description: mode === "market" ? `Moat depth: IP, network effects${sector ? ` in ${sector}` : ""}` : `Moat strength vs peers${sector ? ` in ${sector}` : ""}`,
-      status: getStatus(baseValues.moat, benchmarks.moat) },
+      status: getHealthStatus(baseValues.moat, benchmarks.moat) },
   ];
 }
 

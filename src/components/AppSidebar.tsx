@@ -206,6 +206,32 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             </button>
           </div>
           <div className="mt-3 px-2 pb-1 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+            NODES
+          </div>
+          <div className="ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2">
+            <button
+              type="button"
+              onClick={() => goView("connections")}
+              className={cn(
+                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                activeView === "connections" && "border",
+              )}
+              style={
+                activeView === "connections"
+                  ? {
+                      backgroundColor: "#d1d5db",
+                      borderColor: "#4b5563",
+                      color: "#1f2937",
+                      boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)",
+                    }
+                  : {}
+              }
+            >
+              <Link2 className="h-4 w-4 shrink-0" />
+              Connections
+            </button>
+          </div>
+          <div className="mt-3 px-2 pb-1 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
             COMMAND
           </div>
           <div className="ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2">
@@ -242,32 +268,6 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               } : {}}>
               <FileText className="h-4 w-4" />
               Data Room
-            </button>
-          </div>
-          <div className="mt-3 px-2 pb-1 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-            NODES
-          </div>
-          <div className="ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2">
-            <button
-              type="button"
-              onClick={() => goView("connections")}
-              className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                activeView === "connections" && "border",
-              )}
-              style={
-                activeView === "connections"
-                  ? {
-                      backgroundColor: "#d1d5db",
-                      borderColor: "#4b5563",
-                      color: "#1f2937",
-                      boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)",
-                    }
-                  : {}
-              }
-            >
-              <Link2 className="h-4 w-4 shrink-0" />
-              Connections
             </button>
           </div>
           {isAppAdmin && (
