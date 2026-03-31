@@ -955,6 +955,61 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 )}
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Resume (PDF)</label>
+              <input
+                ref={resumeInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
+              />
+              {resumeUrl ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 shrink-0">
+                      <FileText className="h-5 w-5 text-success" />
+                    </div>
+                    <p className="text-xs font-medium text-foreground truncate">{resumeFileName || "Resume.pdf"}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button type="button" onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
+                    <button type="button" onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => resumeInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
+                  onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
+                    const f = e.dataTransfer.files?.[0];
+                    if (f) handleResumeUpload(f);
+                  }}
+                  disabled={resumeUploading}
+                  className={cn(
+                    "flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all py-8",
+                    "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                    resumeUploading && "opacity-60 pointer-events-none"
+                  )}
+                >
+                  {resumeUploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : (
+                    <>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
+                        <Upload className="h-5 w-5 text-muted-foreground/60" />
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
+                      <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             <Separator className="my-2" />
             <div className="flex justify-end">
               <Button
@@ -990,6 +1045,44 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 Confirm Details
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* ── Social ── */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="social">
+          <div className="px-5 pt-4 pb-3 border-b border-border/60">
+            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
+              <Share2 className="h-3.5 w-3.5" />
+              Social
+            </h3>
+          </div>
+          <div className="p-5 space-y-4">
+            <MorphingUrlInput
+              platform="linkedin"
+              label="LinkedIn URL"
+              value={linkedinUrl}
+              onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
+              onBlur={(v) => {
+                const formatted = formatSocialUrl("linkedin_personal", v);
+                if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
+              }}
+              verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
+              onVerify={handleSyncProfile}
+              verifyLabel="Sync"
+            />
+            <MorphingUrlInput
+              platform="x"
+              label="X / Twitter URL"
+              value={twitterUrl}
+              onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
+              onBlur={(v) => {
+                const formatted = formatSocialUrl("x", v);
+                if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
+              }}
+              verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+              onVerify={() => enrichXProfile(twitterUrl)}
+              verifyLabel="Enrich"
+            />
           </div>
         </div>
 
