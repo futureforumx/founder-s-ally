@@ -624,7 +624,7 @@ const Index = () => {
           ) : activeView === "events" ? (
             <EventsView />
           ) : activeView === "market-data-room" ? (
-            <div className="h-full" />
+            <DeckAuditView />
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "resources" ? (
