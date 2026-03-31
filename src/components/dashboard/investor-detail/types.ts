@@ -106,7 +106,7 @@ export interface InvestorEntry {
   category: "investor";
   partners?: PartnerPerson[];
   logo_url?: string | null;
-  /** `investor_database.id` when the row came from Supabase (not an MDM domain id). */
+  /** `firm_records.id` when the row came from Supabase (not an MDM domain id). */
   investorDatabaseId?: string | null;
   websiteUrl?: string | null;
 }

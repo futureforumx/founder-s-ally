@@ -8,7 +8,7 @@ import {
   CreditCard, CheckCircle2, Shield, Camera, Lock, ArrowRight, Check,
   Sparkles, Crown, Zap, ExternalLink, Building2, Users, UserCog, Briefcase,
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
-  MessageSquare, AlertTriangle, Loader2, CloudUpload, X, ChevronRight,
+  MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronRight,
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
@@ -371,6 +371,10 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Magic Sync state
@@ -396,6 +400,7 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     if ("userType" in updates) dbUpdates.user_type = updates.userType;
     if ("linkedinUrl" in updates) dbUpdates.linkedin_url = updates.linkedinUrl || null;
     if ("twitterUrl" in updates) dbUpdates.twitter_url = updates.twitterUrl || null;
+    if ("resumeUrl" in updates) dbUpdates.resume_url = updates.resumeUrl || null;
     // Handle company_id for founders
     if (updates.userType === "founder" && userId) {
       const { data: comp } = await (supabase as any)
@@ -450,6 +455,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         setTimeout(() => {
           try { saveImmediate({ linkedinUrl: initialLiUrl, twitterUrl: initialTwUrl }); } catch {}
         }, 1500);
+      }
+      if (profile.resume_url) {
+        setResumeUrl(profile.resume_url);
+        // Extract filename from URL
+        try {
+          const parts = profile.resume_url.split("/");
+          setResumeFileName(decodeURIComponent(parts[parts.length - 1]?.replace(/^\d+-/, "") || "Resume.pdf"));
+        } catch { setResumeFileName("Resume.pdf"); }
       }
       if (profile.avatar_url) {
         setAvatarUrl(profile.avatar_url);
@@ -531,6 +544,47 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
       setAvatarUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handleResumeUpload = async (file: File) => {
+    if (!userId) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are accepted");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be under 10MB");
+      return;
+    }
+    setResumeUploading(true);
+    try {
+      const path = `${userId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(path);
+
+      await saveImmediate({ resumeUrl: publicUrl });
+      setResumeUrl(publicUrl);
+      setResumeFileName(file.name);
+      toast.success("Resume uploaded");
+    } catch (err: any) {
+      toast.error("Upload failed: " + (err.message || "Unknown error"));
+    } finally {
+      setResumeUploading(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveResume = async () => {
+    await saveImmediate({ resumeUrl: "" });
+    setResumeUrl(null);
+    setResumeFileName(null);
+    toast.success("Resume removed");
   };
 
   // handleSave removed — autosave handles persistence
@@ -668,9 +722,163 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     }
   };
 
+  const hasSynced = syncedKeys.has("__linkedin_verified") || !!(fullName && fullName !== displayName) || !!(title && title.trim()) || syncedKeys.size > 0;
+
   return (
     <TabWrapper>
       <div className="space-y-4">
+        {/* ── Data Sources ── */}
+        <div className="space-y-3" data-tour-section="data-sources">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h3>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+              {/* Left column: URL inputs + AI Insight */}
+              <div className="flex flex-col gap-2.5">
+                {/* LinkedIn URL */}
+                <MorphingUrlInput
+                  platform="linkedin"
+                  label="LinkedIn URL"
+                  value={linkedinUrl}
+                  onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
+                  onBlur={(v) => {
+                    const formatted = formatSocialUrl("linkedin_personal", v);
+                    if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
+                  }}
+                  verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
+                  onVerify={handleSyncProfile}
+                  verifyLabel="Sync"
+                />
+
+                {/* X / Twitter URL */}
+                <MorphingUrlInput
+                  platform="x"
+                  label="X / Twitter URL"
+                  value={twitterUrl}
+                  onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
+                  onBlur={(v) => {
+                    const formatted = formatSocialUrl("x", v);
+                    if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
+                  }}
+                  verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
+                  onVerify={() => enrichXProfile(twitterUrl)}
+                  verifyLabel="Enrich"
+                />
+
+                {/* AI Insight Banner */}
+                <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5 mt-auto">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
+                    <Sparkles className="h-3 w-3 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
+                      Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right column: Resume PDF Dropzone */}
+              <div className="flex flex-col">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Resume (PDF)</label>
+                <input
+                  ref={resumeInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
+                />
+                {resumeUrl ? (
+                  <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-success/30 bg-success/5 p-4 min-h-[140px]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 mb-2">
+                      <FileText className="h-5 w-5 text-success" />
+                    </div>
+                    <p className="text-xs font-medium text-foreground truncate max-w-full">{resumeFileName || "Resume.pdf"}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <button onClick={() => resumeInputRef.current?.click()} className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors">Replace</button>
+                      <button onClick={handleRemoveResume} className="text-[10px] font-medium text-destructive hover:text-destructive/80 transition-colors">Remove</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => resumeInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-accent/50", "bg-accent/5"); }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove("border-accent/50", "bg-accent/5"); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove("border-accent/50", "bg-accent/5");
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleResumeUpload(f);
+                    }}
+                    disabled={resumeUploading}
+                    className={cn(
+                      "flex-1 flex flex-col items-center justify-center rounded-xl border-2 border-dashed cursor-pointer transition-all min-h-[140px]",
+                      "border-border/60 bg-secondary/50 hover:border-accent/50 hover:bg-accent/5",
+                      resumeUploading && "opacity-60 pointer-events-none"
+                    )}
+                  >
+                    {resumeUploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 mb-2">
+                          <Upload className="h-5 w-5 text-muted-foreground/60" />
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium">Drop PDF here or <span className="text-primary">browse</span></p>
+                        <p className="text-[9px] text-muted-foreground/50 mt-0.5">Max 10MB</p>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Primary CTA */}
+            <div className="mt-4">
+             {(() => {
+                const isIdentityVerified = syncedKeys.has("__linkedin_verified") && hasSynced;
+                const hasDataPresent = !!(linkedinUrl.trim() || twitterUrl.trim() || resumeUrl || hasSynced);
+                return (
+                  <Button
+                    onClick={handleSyncProfile}
+                    disabled={syncing || isIdentityVerified}
+                    variant="default"
+                    className={cn(
+                      "w-full rounded-lg h-10 text-sm font-semibold gap-2 transition-shadow duration-300 bg-primary text-primary-foreground",
+                      isIdentityVerified && "opacity-60 cursor-not-allowed",
+                      !isIdentityVerified && !syncing && (
+                        hasDataPresent
+                          ? "shadow-[0_0_12px_hsl(var(--success)/0.35)]"
+                          : "shadow-[0_0_12px_hsl(45_90%_55%/0.35)]"
+                      )
+                    )}
+                  >
+                    {syncing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying Data…
+                      </>
+                    ) : isIdentityVerified ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">✓ Data Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Verify Data
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
+              <p className="text-[9px] text-muted-foreground/60 text-center font-mono tracking-wide mt-2">
+                Triple-source triangulation: Resume + LinkedIn + X
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* ── Personal Information (single card: role + identity + fields — no separate Profile section) ── */}
         <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="profile">
           <div className="px-5 pt-4 pb-3 border-b border-border/60">
@@ -935,57 +1143,6 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                 <Check className="h-3.5 w-3.5" />
                 Confirm Details
               </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card overflow-hidden" data-tour-section="social">
-          <div className="px-5 pt-4 pb-3 border-b border-border/60">
-            <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold flex items-center gap-1.5">
-              <Globe className="h-3.5 w-3.5" />
-              Social
-            </h3>
-          </div>
-          <div className="p-5 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <MorphingUrlInput
-                platform="linkedin"
-                label="LinkedIn Profile"
-                value={linkedinUrl}
-                onChange={(v) => { setLinkedinUrl(v); autosave({ linkedinUrl: v }); }}
-                onBlur={(v) => {
-                  const formatted = formatSocialUrl("linkedin_personal", v);
-                  if (formatted !== linkedinUrl) { setLinkedinUrl(formatted); saveImmediate({ linkedinUrl: formatted }); }
-                }}
-                verifyState={syncing ? "syncing" : (syncedKeys.has("__linkedin_verified") ? "verified" : "idle")}
-                onVerify={handleSyncProfile}
-                verifyLabel="Sync"
-              />
-
-              <MorphingUrlInput
-                platform="x"
-                label="X Profile"
-                value={twitterUrl}
-                onChange={(v) => { setTwitterUrl(v); autosave({ twitterUrl: v }); }}
-                onBlur={(v) => {
-                  const formatted = formatSocialUrl("x", v);
-                  if (formatted !== twitterUrl) { setTwitterUrl(formatted); saveImmediate({ twitterUrl: formatted }); }
-                }}
-                verifyState={xSyncing ? "syncing" : (xVerified ? "verified" : "idle")}
-                onVerify={() => enrichXProfile(twitterUrl)}
-                verifyLabel="Enrich"
-              />
-            </div>
-            <div className="flex items-start gap-2.5 rounded-lg bg-accent/5 border border-accent/10 px-3.5 py-2.5">
-              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent/10 shrink-0 mt-0.5">
-                <Sparkles className="h-3 w-3 text-accent" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold text-foreground leading-snug">AI Insight</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
-                  Founders with verified LinkedIn profiles see a 40% higher response rate from investors.
-                </p>
-              </div>
             </div>
           </div>
         </div>
@@ -1528,7 +1685,7 @@ function ActivityTab() {
       if (!cancelled && !legacyErr && legacyData && legacyData.length > 0) {
         const firmIds = [...new Set(legacyData.map((r) => r.firm_id))];
         const { data: firms } = await supabase
-          .from("investor_database")
+          .from("firm_records")
           .select("id, firm_name, logo_url")
           .in("id", firmIds);
         const firmMap = Object.fromEntries((firms || []).map((f) => [f.id, f]));
@@ -1569,7 +1726,7 @@ function ActivityTab() {
 
           const prismaMap: Record<string, string> = {};
           if (firmIds.length > 0) {
-            const { data: invMatch } = await supabase.from("investor_database").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
+            const { data: invMatch } = await supabase.from("firm_records").select("id, prisma_firm_id").in("prisma_firm_id", firmIds);
             for (const row of invMatch || []) {
               const pid = (row as { prisma_firm_id?: string; id?: string }).prisma_firm_id;
               const iid = (row as { id?: string }).id;

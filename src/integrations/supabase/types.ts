@@ -460,7 +460,7 @@ export type Database = {
             foreignKeyName: "firm_recent_deals_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
-            referencedRelation: "investor_database"
+            referencedRelation: "firm_records"
             referencedColumns: ["id"]
           },
           {
@@ -499,7 +499,7 @@ export type Database = {
             foreignKeyName: "founder_vc_interactions_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
-            referencedRelation: "investor_database"
+            referencedRelation: "firm_records"
             referencedColumns: ["id"]
           },
           {
@@ -511,7 +511,7 @@ export type Database = {
           },
         ]
       }
-      investor_database: {
+      firm_records: {
         Row: {
           address: string | null
           angellist_url: string | null
@@ -528,6 +528,7 @@ export type Database = {
           elevator_pitch: string | null
           email: string | null
           email_source: string | null
+          entity_type: Database["public"]["Enums"]["entity_type"] | null
           facebook_url: string | null
           firm_name: string
           firm_type: string | null
@@ -535,10 +536,13 @@ export type Database = {
           founder_reputation_score: number | null
           general_partner_count: number | null
           general_partner_names: string[] | null
+          geo_focus: string[] | null
           headcount: string | null
           hq_city: string | null
           hq_country: string | null
+          hq_region: Database["public"]["Enums"]["us_region"] | null
           hq_state: string | null
+          hq_zip_code: string | null
           id: string
           industry_reputation: number | null
           instagram_url: string | null
@@ -573,12 +577,17 @@ export type Database = {
           reputation_updated_at: string | null
           responsiveness_score: number | null
           sector_embedding: string | null
+          sector_scope: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail: string | null
           signal_nfx_url: string | null
           slug: string | null
           social_sentiment_score: number | null
+          stage_focus: Database["public"]["Enums"]["stage_focus_enum"][] | null
+          stage_max: Database["public"]["Enums"]["stage_focus_enum"] | null
+          stage_min: Database["public"]["Enums"]["stage_focus_enum"] | null
           status: string | null
           substack_url: string | null
+          thesis_orientation: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals: string[]
           tiktok_url: string | null
           total_headcount: number | null
@@ -610,6 +619,7 @@ export type Database = {
           elevator_pitch?: string | null
           email?: string | null
           email_source?: string | null
+          entity_type?: Database["public"]["Enums"]["entity_type"] | null
           facebook_url?: string | null
           firm_name: string
           firm_type?: string | null
@@ -617,10 +627,13 @@ export type Database = {
           founder_reputation_score?: number | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
+          geo_focus?: string[] | null
           headcount?: string | null
           hq_city?: string | null
           hq_country?: string | null
+          hq_region?: Database["public"]["Enums"]["us_region"] | null
           hq_state?: string | null
+          hq_zip_code?: string | null
           id?: string
           industry_reputation?: number | null
           instagram_url?: string | null
@@ -655,12 +668,17 @@ export type Database = {
           reputation_updated_at?: string | null
           responsiveness_score?: number | null
           sector_embedding?: string | null
+          sector_scope?: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail?: string | null
           signal_nfx_url?: string | null
           slug?: string | null
           social_sentiment_score?: number | null
+          stage_focus?: Database["public"]["Enums"]["stage_focus_enum"][] | null
+          stage_max?: Database["public"]["Enums"]["stage_focus_enum"] | null
+          stage_min?: Database["public"]["Enums"]["stage_focus_enum"] | null
           status?: string | null
           substack_url?: string | null
+          thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
           tiktok_url?: string | null
           total_headcount?: number | null
@@ -692,6 +710,7 @@ export type Database = {
           elevator_pitch?: string | null
           email?: string | null
           email_source?: string | null
+          entity_type?: Database["public"]["Enums"]["entity_type"] | null
           facebook_url?: string | null
           firm_name?: string
           firm_type?: string | null
@@ -699,10 +718,13 @@ export type Database = {
           founder_reputation_score?: number | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
+          geo_focus?: string[] | null
           headcount?: string | null
           hq_city?: string | null
           hq_country?: string | null
+          hq_region?: Database["public"]["Enums"]["us_region"] | null
           hq_state?: string | null
+          hq_zip_code?: string | null
           id?: string
           industry_reputation?: number | null
           instagram_url?: string | null
@@ -737,12 +759,17 @@ export type Database = {
           reputation_updated_at?: string | null
           responsiveness_score?: number | null
           sector_embedding?: string | null
+          sector_scope?: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail?: string | null
           signal_nfx_url?: string | null
           slug?: string | null
           social_sentiment_score?: number | null
+          stage_focus?: Database["public"]["Enums"]["stage_focus_enum"][] | null
+          stage_max?: Database["public"]["Enums"]["stage_focus_enum"] | null
+          stage_min?: Database["public"]["Enums"]["stage_focus_enum"] | null
           status?: string | null
           substack_url?: string | null
+          thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
           tiktok_url?: string | null
           total_headcount?: number | null
@@ -760,7 +787,7 @@ export type Database = {
         }
         Relationships: []
       }
-      investor_partners: {
+      firm_investors: {
         Row: {
           avatar_url: string | null
           background_summary: string | null
@@ -774,16 +801,21 @@ export type Database = {
           deleted_at: string | null
           education_summary: string | null
           email: string | null
+          facebook_url: string | null
           firm_id: string
           first_name: string | null
           full_name: string
           id: string
+          instagram_url: string | null
           investment_style: string | null
           is_active: boolean
           is_actively_investing: boolean
           last_active_date: string | null
+          last_name: string | null
           linkedin_url: string | null
           match_score: number | null
+          medium_url: string | null
+          needs_review: boolean
           network_strength: number | null
           personal_thesis_tags: string[] | null
           phone: string | null
@@ -796,6 +828,8 @@ export type Database = {
           sector_focus: string[] | null
           stage_focus: string[] | null
           state: string | null
+          substack_url: string | null
+          tiktok_url: string | null
           timezone: string | null
           title: string | null
           updated_at: string
@@ -803,7 +837,7 @@ export type Database = {
           warm_intro_preferred: boolean
           website_url: string | null
           x_url: string | null
-          last_name: string | null
+          youtube_url: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -818,16 +852,21 @@ export type Database = {
           deleted_at?: string | null
           education_summary?: string | null
           email?: string | null
+          facebook_url?: string | null
           firm_id: string
           first_name?: string | null
           full_name: string
           id?: string
+          instagram_url?: string | null
           investment_style?: string | null
           is_active?: boolean
           is_actively_investing?: boolean
           last_active_date?: string | null
+          last_name?: string | null
           linkedin_url?: string | null
           match_score?: number | null
+          medium_url?: string | null
+          needs_review?: boolean
           network_strength?: number | null
           personal_thesis_tags?: string[] | null
           phone?: string | null
@@ -840,6 +879,8 @@ export type Database = {
           sector_focus?: string[] | null
           stage_focus?: string[] | null
           state?: string | null
+          substack_url?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           title?: string | null
           updated_at?: string
@@ -847,7 +888,7 @@ export type Database = {
           warm_intro_preferred?: boolean
           website_url?: string | null
           x_url?: string | null
-          last_name?: string | null
+          youtube_url?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -862,16 +903,21 @@ export type Database = {
           deleted_at?: string | null
           education_summary?: string | null
           email?: string | null
+          facebook_url?: string | null
           firm_id?: string
           first_name?: string | null
           full_name?: string
           id?: string
+          instagram_url?: string | null
           investment_style?: string | null
           is_active?: boolean
           is_actively_investing?: boolean
           last_active_date?: string | null
+          last_name?: string | null
           linkedin_url?: string | null
           match_score?: number | null
+          medium_url?: string | null
+          needs_review?: boolean
           network_strength?: number | null
           personal_thesis_tags?: string[] | null
           phone?: string | null
@@ -884,6 +930,8 @@ export type Database = {
           sector_focus?: string[] | null
           stage_focus?: string[] | null
           state?: string | null
+          substack_url?: string | null
+          tiktok_url?: string | null
           timezone?: string | null
           title?: string | null
           updated_at?: string
@@ -891,18 +939,18 @@ export type Database = {
           warm_intro_preferred?: boolean
           website_url?: string | null
           x_url?: string | null
-          last_name?: string | null
+          youtube_url?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "investor_partners_firm_id_fkey"
+            foreignKeyName: "firm_investors_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
-            referencedRelation: "investor_database"
+            referencedRelation: "firm_records"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "investor_partners_firm_id_fkey"
+            foreignKeyName: "firm_investors_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
             referencedRelation: "investor_directory_safe"
@@ -1190,7 +1238,7 @@ export type Database = {
             foreignKeyName: "reputation_logs_firm_id_fkey"
             columns: ["firm_id"]
             isOneToOne: false
-            referencedRelation: "investor_database"
+            referencedRelation: "firm_records"
             referencedColumns: ["id"]
           },
           {
@@ -1691,18 +1739,24 @@ export type Database = {
           elevator_pitch: string | null
           email: string | null
           email_source: string | null
+          entity_type: Database["public"]["Enums"]["entity_type"] | null
+          facebook_url: string | null
           firm_name: string | null
           firm_type: string | null
           founded_year: number | null
-          founder_sentiment_score: number | null
+          founder_reputation_score: number | null
           general_partner_count: number | null
           general_partner_names: string[] | null
+          geo_focus: string[] | null
           headcount: string | null
           hq_city: string | null
           hq_country: string | null
+          hq_region: Database["public"]["Enums"]["us_region"] | null
           hq_state: string | null
+          hq_zip_code: string | null
           id: string | null
           industry_reputation: number | null
+          instagram_url: string | null
           is_actively_deploying: boolean | null
           last_enriched_at: string | null
           last_verified_at: string | null
@@ -1715,6 +1769,7 @@ export type Database = {
           market_sentiment: string | null
           match_score: number | null
           max_check_size: number | null
+          medium_url: string | null
           min_check_size: number | null
           network_strength: number | null
           news_sentiment_score: number | null
@@ -1726,11 +1781,18 @@ export type Database = {
           reputation_score: number | null
           responsiveness_score: number | null
           sector_embedding: string | null
+          sector_scope: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail: string | null
           slug: string | null
           social_sentiment_score: number | null
+          stage_focus: Database["public"]["Enums"]["stage_focus_enum"][] | null
+          stage_max: Database["public"]["Enums"]["stage_focus_enum"] | null
+          stage_min: Database["public"]["Enums"]["stage_focus_enum"] | null
           status: string | null
+          substack_url: string | null
+          thesis_orientation: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals: string[] | null
+          tiktok_url: string | null
           total_headcount: number | null
           total_investors: number | null
           total_partners: number | null
@@ -1740,6 +1802,7 @@ export type Database = {
           volatility_score: number | null
           website_url: string | null
           x_url: string | null
+          youtube_url: string | null
         }
         Insert: {
           angellist_url?: string | null
@@ -1948,6 +2011,11 @@ export type Database = {
     }
     Enums: {
       app_permission: "user" | "manager" | "admin" | "god"
+      entity_type: "Institutional" | "Micro" | "Solo GP" | "Angel" | "Corporate (CVC)" | "Family Office" | "Accelerator / Studio" | "Syndicate" | "Fund of Funds"
+      thesis_orientation: "Generalist" | "Sector-Focused" | "Thesis-Driven" | "Founder-First" | "Geographic" | "Operator-led"
+      stage_focus_enum: "Friends and Family" | "Pre-Seed" | "Seed" | "Series A" | "Series B+" | "Growth"
+      sector_scope_enum: "Generalist" | "Specialized"
+      us_region: "West" | "East" | "South" | "Midwest" | "Southwest" | "Southeast" | "Northeast" | "Northwest" | "International"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2076,6 +2144,11 @@ export const Constants = {
   public: {
     Enums: {
       app_permission: ["user", "manager", "admin", "god"],
+      entity_type: ["Institutional", "Micro", "Solo GP", "Angel", "Corporate (CVC)", "Family Office", "Accelerator / Studio", "Syndicate", "Fund of Funds"],
+      thesis_orientation: ["Generalist", "Sector-Focused", "Thesis-Driven", "Founder-First", "Geographic", "Operator-led"],
+      stage_focus_enum: ["Friends and Family", "Pre-Seed", "Seed", "Series A", "Series B+", "Growth"],
+      sector_scope_enum: ["Generalist", "Specialized"],
+      us_region: ["West", "East", "South", "Midwest", "Southwest", "Southeast", "Northeast", "Northwest", "International"],
     },
   },
 } as const

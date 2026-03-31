@@ -55,7 +55,7 @@ serve(async (req) => {
 
     // Fetch investor data (excluding email/email_source for safety)
     const { data: investors, error: fetchError } = await supabase
-      .from("investor_database")
+      .from("firm_records")
       .select("firm_name, lead_partner, thesis_verticals, preferred_stage, min_check_size, max_check_size, location, lead_or_follow, market_sentiment, aum, website_url")
       .order("firm_name");
 

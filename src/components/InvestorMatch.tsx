@@ -242,7 +242,7 @@ export function InvestorMatch({
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("investor_database").select("*");
+      const { data, error } = await supabase.from("firm_records").select("*");
       if (!error && data) setInvestors(data as unknown as Investor[]);
       setLoading(false);
     })();

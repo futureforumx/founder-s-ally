@@ -79,7 +79,7 @@ serve(async (req) => {
       }
     }
 
-    // 2. Fallback: query local investor_database with fuzzy + alias matching
+    // 2. Fallback: query local firm_records with fuzzy + alias matching
     return await globalDatabaseSearch(trimmed);
   } catch (error: unknown) {
     console.error("NFX search error:", error);
@@ -127,7 +127,7 @@ async function globalDatabaseSearch(query: string): Promise<Response> {
   }
 
   const orFilter = filterParts.join(",");
-  const url = `${SUPABASE_URL}/rest/v1/investor_database?or=(${orFilter})&select=firm_name,location,preferred_stage,thesis_verticals,min_check_size,max_check_size&limit=8`;
+  const url = `${SUPABASE_URL}/rest/v1/firm_records?or=(${orFilter})&select=firm_name,location,preferred_stage,thesis_verticals,min_check_size,max_check_size&limit=8`;
 
   const dbResponse = await fetch(url, {
     headers: {

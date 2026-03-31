@@ -57,9 +57,9 @@ serve(async (req) => {
         .filter((f: any) => f.sectors && f.sectors.length > 0)
         .map((f: any) => ({ id: f.id, sectors: f.sectors }));
     } else {
-      // Pull firms from investor_database that don't have embeddings yet
+      // Pull firms from firm_records that don't have embeddings yet
       const { data: rows, error } = await supabase
-        .from("investor_database")
+        .from("firm_records")
         .select("id, thesis_verticals")
         .is("sector_embedding", null);
 
@@ -83,7 +83,7 @@ serve(async (req) => {
           const embedding = await getEmbedding(sectorText, LOVABLE_API_KEY);
 
           const { error: updateError } = await supabase
-            .from("investor_database")
+            .from("firm_records")
             .update({ sector_embedding: JSON.stringify(embedding) } as any)
             .eq("id", firm.id);
 

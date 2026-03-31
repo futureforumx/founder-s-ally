@@ -413,49 +413,68 @@ export function TopNavCompanyHealth({
                     />
                     Always On Intelligence
                   </p>
-                  <div className="mt-1 flex items-center gap-3">
-                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
+                  <div className="mt-1 flex items-center gap-4">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
                       {logoUrl && !logoImgError ? (
                         <img
                           src={logoUrl}
                           alt=""
-                          crossOrigin="anonymous"
                           className="h-full w-full object-contain rounded-xl"
                           onError={() => setLogoImgError(true)}
                         />
                       ) : hasProfile ? (
-                        <span className="text-sm font-bold text-muted-foreground">
+                        <span className="text-base font-bold text-muted-foreground">
                           {companyName?.charAt(0).toUpperCase() || "?"}
                         </span>
                       ) : (
-                        <Building2 className="h-5 w-5 text-muted-foreground/40" />
+                        <Building2 className="h-6 w-6 text-muted-foreground/40" />
                       )}
                     </div>
-                    <div>
-                      <h2 className="text-[1.38rem] font-bold tracking-tight text-foreground">
-                        {hasProfile ? companyName || "My Company" : "My Company"}
-                      </h2>
-                      <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground/80">Company Health</p>
+                    <div className="flex items-center gap-3">
+                      <div className="space-y-1.5 py-0.5">
+                        <h2 className="text-[1.5rem] font-bold leading-tight tracking-tight text-foreground">
+                          {hasProfile ? companyName || "My Company" : "My Company"}
+                        </h2>
+                        <p className="text-xs uppercase leading-snug tracking-[0.08em] text-muted-foreground/80">Company Health</p>
+                      </div>
+                      <div className="flex w-[78px] flex-col items-stretch gap-1">
+                        <div
+                          className={cn(
+                            "relative overflow-hidden rounded-lg px-2.5 py-2.5",
+                            derived.score >= 70
+                              ? "bg-emerald-500/5"
+                              : derived.score >= 40
+                                ? "bg-amber-500/5"
+                                : "bg-rose-500/5",
+                          )}
+                        >
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
+                          <div className="mt-1 flex items-center justify-between gap-1.5">
+                            <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", status.text)}>{derived.score}</p>
+                            <span
+                              className={cn(
+                                "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                                derived.trendPct > 0
+                                  ? "bg-emerald-500/10 text-emerald-700/85"
+                                  : derived.trendPct < 0
+                                    ? "bg-rose-500/10 text-rose-700/85"
+                                    : "bg-muted/70 text-muted-foreground",
+                              )}
+                            >
+                              {derived.trendPct > 0 ? "+" : ""}
+                              {derived.trendPct}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>
-                      Score <span className="text-[1.05rem] font-extrabold tabular-nums text-foreground">{derived.score}</span>
-                    </span>
-                    <span className="tabular-nums">
-                      {derived.trendPct >= 0 ? "+" : ""}
-                      {derived.trendPct}%
-                    </span>
-                    <span className="inline-flex items-center rounded-md border border-amber-500/45 bg-amber-500/5 px-1.5 py-px text-[10px] font-medium leading-none text-amber-700/85">
-                      {status.label}
-                    </span>
-                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
+                  <div className="relative overflow-hidden rounded-lg bg-sky-500/5 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="font-semibold tabular-nums text-sky-600">{derived.marketPosition}</p>
+                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-sky-600">{derived.marketPosition}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
@@ -477,10 +496,10 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
+                  <div className="relative overflow-hidden rounded-lg bg-violet-500/5 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="font-semibold tabular-nums text-violet-600">{derived.financialHealth}</p>
+                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-violet-600">{derived.financialHealth}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
@@ -502,10 +521,10 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
+                  <div className="relative overflow-hidden rounded-lg bg-orange-500/5 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">GTM</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="font-semibold tabular-nums text-orange-500">{derived.gtmStrength}</p>
+                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-orange-500">{derived.gtmStrength}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
@@ -527,10 +546,10 @@ export function TopNavCompanyHealth({
                       />
                     </span>
                   </div>
-                  <div className="relative overflow-hidden rounded-lg bg-muted/40 px-2.5 py-2.5">
+                  <div className="relative overflow-hidden rounded-lg bg-amber-500/5 px-2.5 py-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensibility</p>
                     <div className="mt-1 flex items-center justify-between gap-1.5">
-                      <p className="font-semibold tabular-nums text-amber-500">{derived.defensibility}</p>
+                      <p className="text-[1.05rem] font-bold tabular-nums leading-none text-amber-500">{derived.defensibility}</p>
                       <span
                         className={cn(
                           "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
@@ -578,7 +597,17 @@ export function TopNavCompanyHealth({
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {activeTab === "overview" && (
-                <HealthDashboard stage={stage ?? undefined} sector={sector ?? undefined} analysisResult={analysisResult} />
+                <HealthDashboard
+                  stage={stage ?? undefined}
+                  sector={sector ?? undefined}
+                  analysisResult={analysisResult}
+                  familyScores={{
+                    market: derived.marketPosition,
+                    financial: derived.financialHealth,
+                    gtm: derived.gtmStrength,
+                    defensibility: derived.defensibility,
+                  }}
+                />
               )}
 
               {activeTab !== "overview" && (

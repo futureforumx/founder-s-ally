@@ -95,7 +95,7 @@ export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, 
   }, [rows, reviewSort]);
 
   // Separate authenticated query for the current user's own reviews.
-  // Uses firm-name fallback so it works even when vcFirmId is an investor_database id
+  // Uses firm-name fallback so it works even when vcFirmId is a firm_records id
   // that doesn't match the vc_firms id stored on the rating row.
   const myRatingsQuery = useQuery({
     queryKey: ["vc-ratings-mine", userId, vcFirmId, investorName],
