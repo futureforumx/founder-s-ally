@@ -671,7 +671,7 @@ export function GlobalTopNav({
             {/* Tabs for larger screens */}
             <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
               {(
-                activeView === "market-investors"
+                activeView === "market-investors" || activeView === "market-data-room"
                   ? [{ id: "market-data-room", label: "Data Room" }]
                   : [
                       { id: "market-intelligence", label: "Live" },
