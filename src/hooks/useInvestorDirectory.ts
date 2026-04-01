@@ -24,6 +24,8 @@ export interface LiveInvestorEntry {
   is_popular?: boolean;
   is_recent?: boolean;
   website_url?: string | null;
+  /** Array of recent portfolio company names — used to compute deal velocity. */
+  recent_deals?: string[] | null;
 }
 
 // Transform DB rows into DirectoryEntry-compatible shape
@@ -31,7 +33,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
   return {
     id: row.id,
     name: row.firm_name,
-    sector: row.thesis_verticals?.join(", ") || "Multi-stage",
+    sector: row.thesis_verticals?.filter(Boolean).join(", ") || "Generalist",
     stage: row.preferred_stage || "Seed–Growth",
     description: row.sentiment_detail || `${row.firm_name} is an active investor focused on ${row.thesis_verticals?.slice(0, 2).join(" and ") || "technology"}.`,
     location: row.location || "",
@@ -53,6 +55,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     is_popular: row.is_popular ?? false,
     is_recent: row.is_recent ?? false,
     website_url: row.website_url ?? null,
+    recent_deals: row.recent_deals ?? null,
   };
 }
 

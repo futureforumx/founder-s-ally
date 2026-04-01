@@ -123,6 +123,26 @@ export const INTELLIGENCE_FALLBACK_EVENTS: IntelligenceFeedEvent[] = [
     saved: false,
     rank: 0.74,
   },
+  {
+    id: "fallback-e5",
+    event_type: "policy_update",
+    category: "regulatory",
+    title: "EU AI Act compliance checklist (offline preview)",
+    summary: "Demo regulatory-lane card for the Regulatory tab when the feed API is offline.",
+    why_it_matters: "Validates the new intelligence category lanes before live regulatory events ingest.",
+    confidence_score: 0.8,
+    importance_score: 0.75,
+    relevance_score: 0.72,
+    sentiment: "neutral",
+    first_seen_at: new Date().toISOString(),
+    last_seen_at: new Date().toISOString(),
+    canonical_source_url: null,
+    source_count: 1,
+    metadata: { fallback: true },
+    entities: [{ id: "fb-7", type: "company", name: "RegDesk EU" }],
+    saved: false,
+    rank: 0.71,
+  },
 ];
 
 export const INTELLIGENCE_FALLBACK_SIDE_RAIL = {
@@ -132,11 +152,24 @@ export const INTELLIGENCE_FALLBACK_SIDE_RAIL = {
   risingTopics: ["Deploy edge functions", "Run DB migration", "Clerk JWT → Supabase"],
 };
 
+/** Maps feed tab keys to fallback demo `event.category` values when API is offline. */
+const FALLBACK_CATEGORY_ALIASES: Record<string, string[]> = {
+  category: ["market"],
+  funding: ["investors"],
+  customer: ["market"],
+  ma: ["network", "market"],
+  regulatory: ["regulatory"],
+};
+
 export function filterFallbackEvents(
   category: string | null | undefined,
   events: IntelligenceFeedEvent[],
 ): IntelligenceFeedEvent[] {
   if (!category || category === "all") return events;
+  const aliases = FALLBACK_CATEGORY_ALIASES[category];
+  if (aliases?.length) {
+    return events.filter((e) => aliases.includes(e.category));
+  }
   return events.filter((e) => e.category === category);
 }
 

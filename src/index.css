@@ -465,6 +465,57 @@
   .animate-glow-pulse {
     animation: text-glow-pulse 2.5s ease-in-out infinite;
   }
+
+  @keyframes health-line-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .health-overall-signal-fill {
+    transform-origin: left center;
+    animation: health-line-grow 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes health-live-dot-soft {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.58;
+      transform: scale(0.9);
+    }
+  }
+
+  .health-live-dot-pulse {
+    animation: health-live-dot-soft 2.75s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Company health header — glass inner highlight (dark mode via .dark on root) */
+.company-health-glass-surface {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.028),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55);
+}
+
+.dark .company-health-glass-surface {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+}
+
+.company-health-glass-cell {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+.dark .company-health-glass-cell {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Mux: pierce shadow DOM so internal <video> covers the player box (official + !important). */
@@ -506,4 +557,64 @@ video.auth-hero-native-video {
   max-width: none !important;
   max-height: none !important;
   object-fit: cover !important;
+}
+
+/* Global top nav — company health chip: score + trend arrow (currentColor) */
+@keyframes vekta-health-metric-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px color-mix(in srgb, currentColor 45%, transparent))
+      drop-shadow(0 0 5px color-mix(in srgb, currentColor 22%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 2px color-mix(in srgb, currentColor 55%, transparent))
+      drop-shadow(0 0 12px color-mix(in srgb, currentColor 36%, transparent));
+  }
+}
+
+.animate-health-metric-glow {
+  animation: vekta-health-metric-glow 2.35s ease-in-out infinite;
+}
+
+/* Status dot — soft expanding pulse */
+@keyframes vekta-health-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(2.15);
+    opacity: 0.08;
+  }
+}
+
+.animate-health-dot-pulse {
+  animation: vekta-health-dot-pulse 2.1s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+/* Community cohort cards — micro sparkline bars to the right of % trend */
+@keyframes cohort-spark-bar-breathe {
+  0%,
+  100% {
+    transform: scaleY(0.78);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.animate-cohort-spark-bar {
+  transform-origin: bottom center;
+  animation: cohort-spark-bar-breathe 1.35s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-health-metric-glow,
+  .animate-health-dot-pulse,
+  .animate-cohort-spark-bar {
+    animation: none;
+  }
 }

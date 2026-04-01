@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
+import { FirmXPostsCard } from "./FirmXPostsCard";
 
 // ── Types ──
 
@@ -480,7 +481,16 @@ function CompactCard({ card }: { card: UpdateCard }) {
 
 // ── Main component ──
 
-export function InvestorActivity({ firmName, firmId }: { firmName: string; firmId?: string }) {
+export function InvestorActivity({
+  firmName,
+  firmId,
+  xUrl,
+}: {
+  firmName: string;
+  firmId?: string;
+  /** Firm-level X profile (`firm_records.x_url` or `vc_firms.x_url`) for embedded timeline on Posts. */
+  xUrl?: string | null;
+}) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
   const [filter, setFilter] = useState<InvestorUpdateFilter>("all");
@@ -550,14 +560,15 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
 
   const showCompactBlock = filter !== "posts" && visibleCompact.length > 0;
 
+  const isEmpty =
+    filter !== "posts" && !showPostsBlock && !showCompactBlock;
+
   const compactTitle =
     filter === "all" ? "Deals, funds & team"
     : filter === "investments" ? "Investments"
     : filter === "fund_news" ? "Fund news"
     : filter === "team" ? "Team updates"
     : "Other signals";
-
-  const isEmpty = !showPostsBlock && !showCompactBlock;
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -642,6 +653,11 @@ export function InvestorActivity({ firmName, firmId }: { firmName: string; firmI
             <UpdatesEmptyState filter={filter} />
           ) : (
             <div className="space-y-6">
+              {/* Official X profile timeline (free embed) — only under Updates → Posts */}
+              {filter === "posts" && (
+                <FirmXPostsCard xUrl={xUrl} firmName={firmName} />
+              )}
+
               {/* Rich post cards */}
               {showPostsBlock && (
                 <section className="space-y-3">

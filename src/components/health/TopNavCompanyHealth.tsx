@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { HealthDashboard } from "@/components/HealthDashboard";
+import { HealthDashboard, HealthFinancialsUnitEconomicsSection } from "@/components/HealthDashboard";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import {
@@ -78,13 +78,30 @@ function Sparkline({ values, className }: { values: number[]; className?: string
 }
 
 function viewContextNote(view: TopNavView) {
-  if (["market-intelligence", "market-investors", "market-market", "market-tech", "market-network", "market-data-room"].includes(view)) {
+  if (
+    [
+      "market-intelligence",
+      "market-category",
+      "market-funding",
+      "market-regulatory",
+      "market-customer",
+      "market-ma",
+      "market-investors",
+      "market-market",
+      "market-tech",
+      "market-network",
+    ].includes(view)
+  ) {
     return "Markets context: relative position and competitor pressure are folded into this score.";
   }
-  if (["investors", "investor-search", "directory", "connections", "network"].includes(view)) {
+  if (
+    ["investors", "investor-search", "directory", "connections", "network", "market-data-room", "data-room"].includes(
+      view,
+    )
+  ) {
     return "Raise readiness context: investor fit and momentum signals are weighted in this score.";
   }
-  if (["data-room", "audit", "workspace"].includes(view)) {
+  if (["audit", "workspace"].includes(view)) {
     return "Workflows context: internal execution and benchmark discipline are reflected here.";
   }
   return "Pulse context: recent operating shifts are reflected across score drivers.";
@@ -252,14 +269,21 @@ export function TopNavCompanyHealth({
 
   const trendIcon =
     derived.trendPct > 0 ? (
-      <ArrowUpRight className="h-3.5 w-3.5" />
+      <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
     ) : derived.trendPct < 0 ? (
-      <ArrowDownRight className="h-3.5 w-3.5" />
+      <ArrowDownRight className="h-3.5 w-3.5" strokeWidth={2} />
     ) : (
-      <Minus className="h-3.5 w-3.5" />
+      <Minus className="h-3.5 w-3.5" strokeWidth={2} />
     );
 
   const trendText = `${derived.trendPct > 0 ? "+" : ""}${derived.trendPct}%`;
+
+  const trendArrowClass =
+    derived.trendPct > 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : derived.trendPct < 0
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-muted-foreground";
 
   return (
     <>
@@ -296,20 +320,51 @@ export function TopNavCompanyHealth({
                 }
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold tabular-nums transition-all",
-                "backdrop-blur-sm hover:shadow-sm",
-                status.border,
-                status.bg,
-                status.text,
+                "inline-flex h-9 items-center gap-2 rounded-xl border px-3 transition-all",
+                "border-zinc-300/55 bg-background/75 text-foreground shadow-sm shadow-zinc-950/[0.03]",
+                "backdrop-blur-sm hover:border-zinc-400/45 hover:bg-muted/35 hover:shadow-md",
+                "dark:border-zinc-600/50 dark:bg-zinc-950/35 dark:shadow-black/20 dark:hover:border-zinc-500/45 dark:hover:bg-zinc-900/45",
               )}
             >
-              <span className="hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:inline">Health</span>
-              <span className="text-sm leading-none">{derived.score}</span>
-              <span className="inline-flex items-center gap-0.5 text-[11px] leading-none">
+              <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:inline">
+                Health
+              </span>
+              <span
+                className={cn(
+                  "animate-health-metric-glow text-sm font-semibold tabular-nums leading-none will-change-[filter]",
+                  status.text,
+                )}
+              >
+                {derived.score}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex animate-health-metric-glow items-center justify-center will-change-[filter]",
+                  trendArrowClass,
+                )}
+                aria-hidden
+              >
                 {trendIcon}
+              </span>
+              <span
+                className={cn(
+                  "rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-slate-600",
+                  "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
+                  "dark:border-zinc-700/90 dark:bg-zinc-900/55 dark:text-zinc-400 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                )}
+              >
                 {trendText}
               </span>
-              <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+              <span className="relative flex h-2 w-2 shrink-0 items-center justify-center" title={status.label}>
+                <span
+                  className={cn(
+                    "absolute inline-flex h-1.5 w-1.5 rounded-full animate-health-dot-pulse",
+                    status.dot,
+                  )}
+                  aria-hidden
+                />
+                <span className={cn("relative h-1.5 w-1.5 rounded-full shadow-sm", status.dot)} />
+              </span>
             </button>
           </PopoverTrigger>
 
@@ -387,8 +442,8 @@ export function TopNavCompanyHealth({
         }}
       >
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
-          <div className="flex h-full flex-col bg-background">
-            <div className="border-b border-border/60 px-5 pt-3 pb-3 pr-14 sm:pr-16">
+          <div className="flex h-full min-h-0 flex-col bg-background">
+            <div className="shrink-0 border-b border-border/60 px-5 pt-3 pb-3 pr-14 sm:pr-16">
               <CompanyHealthHeader
                 name={hasProfile ? companyName || "My Company" : "My Company"}
                 logoUrl={logoUrl ?? undefined}
@@ -409,9 +464,10 @@ export function TopNavCompanyHealth({
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-10">
               {activeTab === "overview" && (
                 <HealthDashboard
+                  hideFinancialsSection
                   stage={stage ?? undefined}
                   sector={sector ?? undefined}
                   analysisResult={analysisResult}
@@ -490,6 +546,8 @@ export function TopNavCompanyHealth({
                   </div>
                 </div>
               )}
+
+              <HealthFinancialsUnitEconomicsSection className="mt-8" />
             </div>
           </div>
         </DialogContent>

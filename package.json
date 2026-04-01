@@ -42,6 +42,7 @@
     "db:export:investors-enriched": "tsx scripts/export-investors-enriched.ts",
     "db:export:ai-seed": "tsx scripts/export-ai-seed-outreach.ts",
     "db:enrich:all": "tsx scripts/enrich-all.ts",
+    "db:backfill:csv": "tsx scripts/backfill-from-csv.ts",
     "db:enrich:emails": "tsx scripts/enrich-emails-hunter.ts",
     "db:enrich:emails:waterfall": "tsx scripts/enrich-emails-waterfall.ts",
     "db:sync:investor-photos": "tsx scripts/sync-investor-photos-waterfall.ts",
@@ -53,7 +54,16 @@
     "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh",
     "headshots:update": "tsx scripts/update-headshots.ts",
     "headshots:dry-run": "DRY_RUN=true tsx scripts/update-headshots.ts",
-    "headshots:refresh": "ALLOW_REFRESH=true tsx scripts/update-headshots.ts"
+    "headshots:refresh": "ALLOW_REFRESH=true tsx scripts/update-headshots.ts",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "operators:enrich": "tsx scripts/enrich-operators-apollo.ts",
+    "operators:enrich:dry": "DRY_RUN=true tsx scripts/enrich-operators-apollo.ts",
+    "operators:signals:greenhouse": "tsx scripts/seed-greenhouse-signals.ts",
+    "operators:signals:greenhouse:dry": "DRY_RUN=true tsx scripts/seed-greenhouse-signals.ts",
+    "operators:signals:ashby": "tsx scripts/seed-ashby-signals.ts",
+    "operators:signals:ashby:dry": "DRY_RUN=true tsx scripts/seed-ashby-signals.ts",
+    "operators:signals:all": "npm run operators:signals:greenhouse && npm run operators:signals:ashby",
+    "db:reload-schema": "tsx scripts/reload-supabase-schema.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

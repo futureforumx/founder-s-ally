@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { FirmStrategyClassification } from "@/lib/firmStrategyClassifications";
+import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
 
 // ── Types ──
 export interface InvestorPartner {
@@ -32,6 +33,9 @@ export interface FirmDeal {
 export interface InvestorProfile {
   id: string;
   firm_name: string;
+  /** Public X (Twitter) profile URL or handle, from `firm_records.x_url`. */
+  x_url: string | null;
+  linkedin_url: string | null;
   description: string | null;
   email: string | null;
   address: string | null;
@@ -77,6 +81,8 @@ function mapJsonFirm(firm: any): InvestorProfile {
   return {
     id: firm.id,
     firm_name: firm.name,
+    x_url: pickFirmXUrl(firm as Record<string, unknown>),
+    linkedin_url: null,
     description: firm.description ?? null,
     email: null,
     address: null,
@@ -135,6 +141,8 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     return {
       id: firm.id,
       firm_name: firm.firm_name,
+      x_url: pickFirmXUrl(firm as Record<string, unknown>),
+      linkedin_url: typeof firm.linkedin_url === "string" ? firm.linkedin_url : null,
       description: firm.sentiment_detail,
       email: firm.email,
       address: firm.address,

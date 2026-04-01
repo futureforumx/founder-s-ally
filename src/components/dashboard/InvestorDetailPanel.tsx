@@ -23,6 +23,7 @@ import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { ScoreTilesRow, type TileId } from "./investor-detail/ScoreTilesRow";
 import { useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
+import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
@@ -168,8 +169,8 @@ export function InvestorDetailPanel({
     if (!vcFirm) return null;
     return {
       name: vcFirm.name,
-      sector: vcFirm.sectors?.slice(0, 2).join(", ") || "Multi-stage",
-      stage: vcFirm.stages?.join(", ") || "Multi-stage",
+      sector: vcFirm.sectors?.filter(Boolean).slice(0, 2).join(", ") || "Generalist",
+      stage: vcFirm.stages?.filter(Boolean).join(", ") || "Multi-stage",
       description: vcFirm.description || `${vcFirm.name} is an active investment firm.`,
       location: "",
       model: vcFirm.sweet_spot || vcFirm.aum || "",
@@ -201,6 +202,17 @@ export function InvestorDetailPanel({
     liveProfile?.source === "live"
       ? liveProfile.id
       : investorDbIdFromEntry ?? resolvedFirmId ?? null;
+
+  const firmRecordXSupplement = useFirmRecordXUrlSupplement(liveProfile ?? undefined, vcFirm ?? undefined, databaseFirmId);
+  const effectiveFirmXUrl = useMemo(
+    () =>
+      liveProfile?.x_url?.trim() ||
+      vcFirm?.x_url?.trim() ||
+      firmRecordXSupplement.data?.trim() ||
+      null,
+    [liveProfile?.x_url, vcFirm?.x_url, firmRecordXSupplement.data],
+  );
+
   const explicitVcDirId =
     typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
       ? vcDirectoryFirmIdHint.trim()
@@ -332,6 +344,33 @@ export function InvestorDetailPanel({
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
   const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
+  /** Connect tab: full mailing/HQ line from `firm_records` when `location` is empty. */
+  const connectLocation = useMemo(() => {
+    if (liveProfile?.source === "live") {
+      const loc = liveProfile.location?.trim();
+      if (loc) return loc;
+      const addr = liveProfile.address?.trim();
+      if (addr) return addr;
+      const parts = [liveProfile.hq_city, liveProfile.hq_state, liveProfile.hq_country]
+        .map((p) => (typeof p === "string" ? p.trim() : ""))
+        .filter(Boolean);
+      if (parts.length) return parts.join(", ");
+    }
+    return effectiveInvestor?.location?.trim() || null;
+  }, [liveProfile, effectiveInvestor?.location]);
+
+  const connectEmailFromRecord =
+    liveProfile?.source === "live" && liveProfile.email?.trim()
+      ? liveProfile.email.trim()
+      : null;
+  const connectLinkedInUrl =
+    liveProfile?.source === "live" && liveProfile.linkedin_url?.trim()
+      ? liveProfile.linkedin_url.trim()
+      : null;
+  const connectXUrl = effectiveFirmXUrl;
+  const connectWebsiteUrl =
+    liveProfile?.website_url?.trim() || vcFirm?.website_url?.trim() || null;
+
   const heroPartnerCount = mergedPartners.length > 0 ? mergedPartners.length : null;
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at
@@ -613,6 +652,7 @@ export function InvestorDetailPanel({
                         <InvestorActivity
                           firmName={effectiveInvestor.name}
                           firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? undefined}
+                          xUrl={effectiveFirmXUrl}
                         />
                       </motion.div>
                     )}
@@ -657,6 +697,8 @@ export function InvestorDetailPanel({
                         <InvestorPartnersTab
                           firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? ""}
                           firmName={effectiveInvestor.name}
+                          firmWebsiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
+                          firmLogoUrl={heroLogo}
                           partners={mergedPartners}
                           onSelectPerson={onSelectPerson}
                         />
@@ -682,7 +724,11 @@ export function InvestorDetailPanel({
                           currentUserId={session?.user?.id}
                           investorId={databaseFirmId || null}
                           isAdmin={isAdmin}
-                          location={heroLocation || null}
+                          location={connectLocation || null}
+                          email={connectEmailFromRecord || undefined}
+                          linkedinUrl={connectLinkedInUrl || undefined}
+                          xUrl={connectXUrl || undefined}
+                          websiteUrl={connectWebsiteUrl || undefined}
                         />
                       </motion.div>
                     )}

@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import type { AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./CompanyProfile";
 
 const stageMultipliers: Record<string, number> = {
@@ -76,6 +77,146 @@ const metricDescriptions: Record<string, string> = {
   LTV: "Lifetime Value - total revenue expected from a customer over their lifetime",
   Headcount: "Total number of employees on your team"
 };
+
+/** Financials + Unit Economics — exported for full-screen Company Health dialog (scroll + all tabs). */
+export function HealthFinancialsUnitEconomicsSection({ className }: { className?: string }) {
+  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border/60 bg-card p-5 space-y-5 shadow-sm",
+        className,
+      )}
+    >
+      <div className="space-y-3">
+        <h2 className="text-[11px] font-mono font-semibold uppercase tracking-wider text-foreground">Financials</h2>
+
+        <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
+          <button
+            type="button"
+            onClick={() => setPeriod("monthly")}
+            className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => setPeriod("annual")}
+            className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Annual
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {period === "monthly" ? (
+            <>
+              {["MRR", "MoM Growth", "Monthly Burn"].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? "+5%" : idx === 1 ? "+3%" : "+2%"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {["ARR", "YoY Growth", "Annual Burn"].map((metric, idx) => (
+                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{metricDescriptions[metric]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-foreground">—</span>
+                    <span className="text-xs text-success flex items-center gap-0.5">
+                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? "+12%" : idx === 1 ? "+8%" : "+6%"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-border/50 pt-5">
+        <h2 className="text-[11px] font-mono font-semibold uppercase tracking-wider text-foreground">Unit Economics</h2>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[
+            { label: "CAC", value: "—", trend: "+5%" },
+            { label: "LTV", value: "—", trend: "+8%" },
+            { label: "Headcount", value: "—", trend: "0" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg bg-muted/40 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">{metricDescriptions[item.label]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-foreground">{item.value}</span>
+                <span
+                  className={`text-xs flex items-center gap-0.5 ${item.trend === "0" ? "text-muted-foreground" : "text-success"}`}
+                >
+                  {item.trend !== "0" && <TrendingUp className="h-3 w-3" />} {item.trend}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/40">
+          <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60">CONFIDENCE</span>
+          <span className="flex items-center gap-1">
+            <Shield className="h-3 w-3 text-success" /> High
+          </span>
+          <span className="flex items-center gap-1">
+            <ShieldAlert className="h-3 w-3 text-amber-500" /> Medium
+          </span>
+          <span className="flex items-center gap-1">
+            <ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function buildHealthData(
   mode: "market" | "community",
@@ -211,6 +352,10 @@ interface HealthDashboardProps {
   };
   /** Personal LinkedIn URL (`/in/...`) — loads public profile preview via edge function (RapidAPI when configured). */
   linkedinProfileUrl?: string | null;
+  /**
+   * When true, omit Financials + Unit Economics (parent renders `HealthFinancialsUnitEconomicsSection`, e.g. full-screen Health dialog).
+   */
+  hideFinancialsSection?: boolean;
 }
 
 export function HealthDashboard({
@@ -220,9 +365,9 @@ export function HealthDashboard({
   onMetricEdit,
   familyScores,
   linkedinProfileUrl,
+  hideFinancialsSection = false,
 }: HealthDashboardProps) {
   const [mode, setMode] = useState<BenchmarkMode>("market");
-  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
   const [liProfile, setLiProfile] = useState<LinkedInPublicProfileRow | null>(null);
   const [liLoading, setLiLoading] = useState(false);
 
@@ -426,117 +571,6 @@ export function HealthDashboard({
         {healthData.map((gauge) => <HealthGauge key={gauge.label} {...gauge} />)}
       </div>
 
-      {/* Financials Section with Outline */}
-      <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-3">
-        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Financials</h2>
-
-        <div className="inline-flex items-center rounded-lg p-1 bg-muted w-fit">
-          <button onClick={() => setPeriod("monthly")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Monthly</button>
-          <button onClick={() => setPeriod("annual")} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-all ${period === "annual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>Annual</button>
-        </div>
-
-        {/* Top row: MRR/ARR, Growth, Burn */}
-        <div className="grid grid-cols-3 gap-4">
-          {period === "monthly" ? (
-            <>
-              {['MRR', 'MoM Growth', 'Monthly Burn'].map((metric, idx) => (
-                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-xs">{metricDescriptions[metric]}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">—</span>
-                    <span className="text-xs text-success flex items-center gap-0.5">
-                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+5%' : idx === 1 ? '+3%' : '+2%'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : (
-            <>
-              {['ARR', 'YoY Growth', 'Annual Burn'].map((metric, idx) => (
-                <div key={metric} className="rounded-lg bg-muted/40 p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">{metric}</span>
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-xs">{metricDescriptions[metric]}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-foreground">—</span>
-                    <span className="text-xs text-success flex items-center gap-0.5">
-                      <TrendingUp className="h-3 w-3" /> {idx === 0 ? '+12%' : idx === 1 ? '+8%' : '+6%'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Unit Economics Section */}
-      <div className="surface-card p-6 space-y-4">
-        <h2 className="text-[10px] uppercase tracking-wider text-muted-foreground">Unit Economics</h2>
-
-        {/* Bottom row: CAC, LTV, Headcount */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'CAC', value: '—', trend: '+5%' },
-            { label: 'LTV', value: '—', trend: '+8%' },
-            { label: 'Headcount', value: '—', trend: '0' }
-          ].map((item) => (
-            <div key={item.label} className="rounded-lg bg-muted/40 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">{item.label}</span>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      <p className="text-xs">{metricDescriptions[item.label]}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-foreground">{item.value}</span>
-                <span className={`text-xs flex items-center gap-0.5 ${item.trend === '0' ? 'text-muted-foreground' : 'text-success'}`}>
-                  {item.trend !== '0' && <TrendingUp className="h-3 w-3" />} {item.trend}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Confidence legend */}
-        <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/40">
-          <span className="text-[9px] font-light tracking-widest uppercase text-muted-foreground/60">CONFIDENCE</span>
-          <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-success" /> High</span>
-          <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" /> Medium</span>
-          <span className="flex items-center gap-1"><ShieldQuestion className="h-3 w-3 text-destructive" /> Low (editable)</span>
-        </div>
-      </div>
-
       {analysisResult?.executiveSummary && (
         <div className="surface-card p-5">
           <h3 className="text-sm font-semibold tracking-tight text-foreground mb-3">Executive Summary</h3>
@@ -586,6 +620,8 @@ export function HealthDashboard({
           )}
         </div>
       )}
+
+      {!hideFinancialsSection && <HealthFinancialsUnitEconomicsSection />}
     </div>
   );
 }

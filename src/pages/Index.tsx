@@ -21,7 +21,10 @@ import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
 import { GlobalTopNav, type InvestorDirectoryPick } from "@/components/GlobalTopNav";
-import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
+import {
+  IntelligencePage,
+  type IntelligenceVariant,
+} from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
@@ -38,6 +41,11 @@ type ViewType =
   | "audit"
   | "benchmarks"
   | "market-intelligence"
+  | "market-category"
+  | "market-funding"
+  | "market-regulatory"
+  | "market-customer"
+  | "market-ma"
   | "market-investors"
   | "market-market"
   | "market-tech"
@@ -58,14 +66,40 @@ type ViewType =
   | "workspace"
   | "settings";
 
-const INTEL_VIEWS: ViewType[] = [
+/** `/intelligence` feed tabs only (Raise / Data Room use home `/`). */
+const INTEL_FEED_VIEWS: ViewType[] = [
   "market-intelligence",
-  "market-investors",
-  "market-market",
-  "market-tech",
-  "market-network",
-  "market-data-room",
+  "market-category",
+  "market-funding",
+  "market-regulatory",
+  "market-customer",
+  "market-ma",
 ];
+
+const LEGACY_INTEL_VIEW_MAP: Partial<Record<ViewType, ViewType>> = {
+  "market-market": "market-category",
+  "market-tech": "market-funding",
+  "market-network": "market-ma",
+};
+
+function intelligencePageVariant(v: ViewType): IntelligenceVariant | null {
+  switch (v) {
+    case "market-intelligence":
+      return "brief";
+    case "market-category":
+      return "category";
+    case "market-funding":
+      return "funding";
+    case "market-regulatory":
+      return "regulatory";
+    case "market-customer":
+      return "customer";
+    case "market-ma":
+      return "ma";
+    default:
+      return null;
+  }
+}
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -167,28 +201,56 @@ const Index = () => {
 
   useEffect(() => {
     if (location.pathname !== "/intelligence") return;
-    setActiveView((prev) =>
-      INTEL_VIEWS.includes(prev) ? prev : "market-intelligence",
-    );
+    setActiveView((prev) => {
+      const mapped = LEGACY_INTEL_VIEW_MAP[prev];
+      if (mapped) return mapped;
+      if (INTEL_FEED_VIEWS.includes(prev)) return prev;
+      return "market-intelligence";
+    });
   }, [location.pathname]);
 
   useEffect(() => {
     const v = searchParams.get("view");
-    if (
-      v === "market-investors" ||
-      v === "market-market" ||
-      v === "market-tech" ||
-      v === "market-network" ||
-      v === "market-data-room" ||
-      v === "market-intelligence" ||
-      v === "intelligence"
-    ) {
-      setActiveView(v === "intelligence" ? "market-intelligence" : (v as ViewType));
+    if (!v) return;
+
+    if (v === "data-room") {
+      setActiveView("market-data-room");
+      return;
     }
     if (v === "settings") {
       setActiveView("settings");
+      return;
     }
+
+    const intelFromQuery: Record<string, ViewType> = {
+      intelligence: "market-intelligence",
+      "market-intelligence": "market-intelligence",
+      "market-category": "market-category",
+      "market-funding": "market-funding",
+      "market-regulatory": "market-regulatory",
+      "market-customer": "market-customer",
+      "market-ma": "market-ma",
+      "market-market": "market-category",
+      "market-tech": "market-funding",
+      "market-network": "market-ma",
+      "market-investors": "market-investors",
+      "market-data-room": "market-data-room",
+    };
+
+    const next = intelFromQuery[v];
+    if (next) setActiveView(next);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (activeView === "data-room") setActiveView("market-data-room");
+  }, [activeView]);
+
+  /** Clear investor directory search when leaving the investor-search surface (nav input is controlled from here). */
+  useEffect(() => {
+    if (activeView === "investor-search") return;
+    setInvestorListQuery("");
+    setInvestorGridScrollTo(null);
+  }, [activeView]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -644,16 +706,10 @@ const Index = () => {
             <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
           ) : activeView === "settings" ? (
             <SettingsPage />
-          ) : activeView === "market-intelligence" ? (
-            <IntelligencePage variant="all" />
           ) : activeView === "market-investors" ? (
             <div className="h-full" />
-          ) : activeView === "market-market" ? (
-            <IntelligencePage variant="market" />
-          ) : activeView === "market-tech" ? (
-            <IntelligencePage variant="tech" />
-          ) : activeView === "market-network" ? (
-            <IntelligencePage variant="network" />
+          ) : intelligencePageVariant(activeView) != null ? (
+            <IntelligencePage variant={intelligencePageVariant(activeView)!} />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

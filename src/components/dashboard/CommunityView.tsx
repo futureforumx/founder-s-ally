@@ -3,8 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart, Info, ChevronDown, X } from
-"lucide-react";
+  DollarSign, Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,10 +21,23 @@ import { CompanyData, AnalysisResult } from "@/components/company-profile/types"
 import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
 import { useFounderProfiles, type FounderProfile } from "@/hooks/useProfile";
 import { FounderCarousel } from "./FounderCarousel";
+import { InvestorSuggestedTrendingRails } from "./InvestorSuggestedTrendingRails";
+import type { InvestorPreviewModel } from "./InvestorPreviewRow";
+import { computeDealVelocityScore } from "./InvestorPreviewRow";
 import { FounderDetailPanel } from "./FounderDetailPanel";
 import { InvestorDetailPanel } from "./InvestorDetailPanel";
 import { PersonProfileModal } from "./PersonProfileModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
+import type { AumBand } from "@prisma/client";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -68,6 +81,8 @@ interface DirectoryEntry {
   _founderSentimentScore?: number | null;
   _headcount?: string | null;
   _aum?: string | null;
+  /** Derived from `_aum` only (Nano → Mega tiers). */
+  _aumBand?: string | null;
   _logoUrl?: string | null;
   _matchScore?: number | null;
   _firmId?: string | null;
@@ -75,6 +90,8 @@ interface DirectoryEntry {
   _isTrending?: boolean;
   _isPopular?: boolean;
   _isRecent?: boolean;
+  /** Deal velocity score (0–100) derived from recent deal count. */
+  _dealVelocityScore?: number | null;
   competitors?: string[];
 }
 
@@ -86,9 +103,9 @@ const SUGGESTED_ENTRIES: DirectoryEntry[] = [
 { name: "Priya Patel", sector: "Health & Biotech", stage: "Pre-Seed", description: "Biomedical engineer turned founder. Building decentralized health records with zero-knowledge proofs.", location: "Boston, MA", model: "Co-founder & CTO", initial: "P", matchReason: null, category: "founder", _companyName: "Synthara Bio", _websiteUrl: "synthara.bio" },
 { name: "Alex Rivera", sector: "Consumer & Retail", stage: "Series B", description: "Second-time founder with a $45M exit in e-commerce. Now building AI visual merchandising for brands.", location: "New York, NY", model: "Founder & CEO", initial: "A", matchReason: "Matches your sector", category: "founder", _companyName: "NovaBuild", _websiteUrl: "novabuild.co" },
 // Investors
-{ name: "Sequoia Capital", sector: "Multi-stage", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 88, _headcount: "250+", _aum: "$85B" },
-{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 76, _headcount: "45", _aum: "$4B" },
-{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 92, _headcount: "55", _aum: "$1.5B" },
+{ name: "Sequoia Capital", sector: "Generalist", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 88, _headcount: "250+", _aum: "$85B", _dealVelocityScore: 92 },
+{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 76, _headcount: "45", _aum: "$4B", _dealVelocityScore: 71 },
+{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 92, _headcount: "55", _aum: "$1.5B", _dealVelocityScore: 85 },
 // Companies
 { name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
 { name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
@@ -105,8 +122,8 @@ const TRENDING_ENTRIES: DirectoryEntry[] = [
 { name: "Leila Farouk", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum physicist turned founder. Building compiler toolchains that reduce qubit error rates by 60%.", location: "Boulder, CO", model: "Co-founder & CTO", initial: "L", matchReason: null, category: "founder", _companyName: "StarLink", _websiteUrl: "starlink.com" },
 { name: "Ryan Nakamura", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Ex-SpaceX engineer building autonomous satellite constellation management using multi-agent AI systems.", location: "Los Angeles, CA", model: "Founder & CEO", initial: "R", matchReason: null, category: "founder", _companyName: "OrbitOS", _websiteUrl: "orbitos.io" },
 // Investors
-{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 71, _headcount: "500+", _aum: "$42B" },
-{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 65, _headcount: "50", _aum: "$11B" },
+{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 71, _headcount: "500+", _aum: "$42B", _isTrending: true, _dealVelocityScore: 88 },
+{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 65, _headcount: "50", _aum: "$11B", _isTrending: true, _dealVelocityScore: 62 },
 // Companies
 { name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
 { name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
@@ -122,8 +139,8 @@ const EXTRA_ENTRIES: DirectoryEntry[] = [
 { name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company", _websiteUrl: "freshroute.com" },
 { name: "Omar Hassan", sector: "Enterprise AI", stage: "Series B", description: "Third-time founder building enterprise knowledge graph platforms. Previous exit to Salesforce for $120M.", location: "San Jose, CA", model: "Founder & CEO", initial: "O", matchReason: null, category: "founder", _companyName: "GraphBase", _websiteUrl: "graphbase.ai" },
 { name: "Maria Santos", sector: "EdTech", stage: "Seed", description: "Former teacher turned founder. Building adaptive learning platforms for workforce upskilling with competency mapping.", location: "Washington, DC", model: "Co-founder & CEO", initial: "M", matchReason: "Matches your sector", category: "founder", _companyName: "SkillMap", _websiteUrl: "skillmap.io" },
-{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 82, _headcount: "80", _aum: "$18B" },
-{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: false, _founderSentimentScore: 79, _headcount: "100", _aum: "$22B" },
+{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 82, _headcount: "80", _aum: "$18B", _dealVelocityScore: 76 },
+{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: false, _founderSentimentScore: 79, _headcount: "100", _aum: "$22B", _dealVelocityScore: 44 },
 { name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company", _websiteUrl: "aquapure.tech" },
 { name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company", _websiteUrl: "fleetmind.ai" },
 { name: "Nina Kapoor", sector: "LegalTech", stage: "Seed", description: "Former BigLaw partner building AI contract analysis tools. Identifies risk clauses and suggests negotiation strategies.", location: "Philadelphia, PA", model: "Founder & CEO", initial: "N", matchReason: null, category: "founder", _companyName: "LegalMind", _websiteUrl: "legalmind.ai" },
@@ -169,6 +186,30 @@ const getAliasKeys = (normalizedName: string) => {
   if (normalizedName === "a16z") keys.push("andreessenhorowitz");
   return keys;
 };
+
+/** Match grid rows to mock “Trending Investors” seeds (badges when DB has no is_trending). */
+const MOCK_TRENDING_INVESTOR_KEYS = (() => {
+  const s = new Set<string>();
+  for (const e of TRENDING_ENTRIES) {
+    if (e.category !== "investor") continue;
+    const n = normalizeFirmName(e.name);
+    for (const k of getAliasKeys(n)) s.add(k);
+  }
+  return s;
+})();
+
+/** DB often stores is_trending: false — that must not wipe mock/seed trending for demo rails. */
+function isInvestorTrendingMerged(
+  dbIsTrending: boolean | null | undefined,
+  seedIsTrending: boolean,
+  firmName: string,
+): boolean {
+  return (
+    dbIsTrending === true ||
+    seedIsTrending ||
+    MOCK_TRENDING_INVESTOR_KEYS.has(normalizeFirmName(firmName))
+  );
+}
 
 const deriveWebsiteUrlFromFirmId = (firmId?: string | null): string | null => {
   if (!firmId) return null;
@@ -309,6 +350,83 @@ function FounderCardSkeleton() {
 
 }
 
+/** Largest AUM figure in millions USD from strings like "$42B", "$1.5B", "$850M", "$500K". */
+function parseAumToMillions(raw: string | null | undefined): number | null {
+  if (!raw?.trim()) return null;
+  const s = raw.replace(/,/g, "").toLowerCase();
+  let maxM = 0;
+  const re = /\$\s*([\d.]+)\s*([bmk])(?![a-z])/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    const n = parseFloat(m[1]);
+    if (Number.isNaN(n)) continue;
+    const u = m[2].toLowerCase();
+    const millions = u === "b" ? n * 1000 : u === "m" ? n : n / 1000;
+    maxM = Math.max(maxM, millions);
+  }
+  return maxM > 0 ? maxM : null;
+}
+
+/** Card badge text for each `AumBand` (thresholds: `src/lib/aumBand.ts`). */
+const INVESTOR_CARD_AUM_BADGE: Record<AumBand, string> = {
+  NANO: "NANO",
+  MICRO: "MICRO",
+  SMALL: "SMALL",
+  MID_SIZE: "MID-SIZE",
+  LARGE: "LARGE",
+  MEGA_FUND: "MEGA",
+};
+
+/** AUM band from parsed `_aum` only (not check size in `model`). */
+function investorAumBandLabel(aum: string | null | undefined): string | null {
+  const mm = parseAumToMillions(aum);
+  if (mm == null) return null;
+  const band = resolveAumBandFromUsd(mm * 1_000_000);
+  return band ? INVESTOR_CARD_AUM_BADGE[band] : null;
+}
+
+function aumBandKeyFromCardBadgeLabel(label: string): AumBand | null {
+  for (const k of Object.keys(INVESTOR_CARD_AUM_BADGE) as AumBand[]) {
+    if (INVESTOR_CARD_AUM_BADGE[k] === label) return k;
+  }
+  return null;
+}
+
+function aumBandBadgeTooltipText(cardLabel: string): string {
+  const key = aumBandKeyFromCardBadgeLabel(cardLabel);
+  if (!key) {
+    return "Tier from reported flagship fund or firm-wide VC assets under management—not individual check size.";
+  }
+  const human = AUM_BAND_LABELS[key];
+  const range = AUM_BAND_RANGES[key];
+  return `${human}: ${range}. Derived from the largest AUM figure we parse on this profile.`;
+}
+
+function firmTypeBadgeTooltipText(firmType: string): string {
+  const t = firmType.trim().toLowerCase();
+  if (t === "institutional") {
+    return "Professional fund or firm investing pooled third-party (LP) capital—typical venture partnerships, corporate venture arms, and similar vehicles.";
+  }
+  if (t === "angel" || t === "angel investor") {
+    return "Individual or small group investing personal or syndicated capital, often at earlier stages with smaller checks than institutional funds.";
+  }
+  if (t.includes("family")) {
+    return "Family office: deploys a single family’s wealth, often with a flexible mandate compared with traditional VC funds.";
+  }
+  return `How we classify this investor’s structure and capital source (${firmType}).`;
+}
+
+/** Spaces around en/em dashes in stage ranges (e.g. Seed–Growth → Seed – Growth). */
+function formatStageForDisplay(stage: string): string {
+  return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
+}
+
+function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
+  const sector = entry.sector?.trim() || null;
+  const stage = entry.stage?.trim() ? formatStageForDisplay(entry.stage.trim()) : null;
+  return { sector, stage };
+}
+
 // ── Investor Card ──
 function InvestorCard({
   founder,
@@ -330,6 +448,11 @@ function InvestorCard({
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
   const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
+  const aumBand = founder._aumBand ?? investorAumBandLabel(founder._aum);
+  const velocityScore = (founder as any)._dealVelocityScore ?? null;
+  const velocityColor = velocityScore != null ? (velocityScore >= 70 ? "text-success" : velocityScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
+  const velocityLabel = velocityScore == null ? null : velocityScore >= 80 ? "Hot" : velocityScore >= 60 ? "Active" : velocityScore >= 35 ? "Moderate" : "Slow";
+  const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
 
   return (
     <Card
@@ -338,9 +461,9 @@ function InvestorCard({
       className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
       trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"}`
       }>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="space-y-2 px-3 py-2.5">
         {/* ── Row 1: Logo left, Alerts right ── */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-2.5">
           {/* Logo */}
           <FirmLogo
             firmName={founder.name}
@@ -350,10 +473,15 @@ function InvestorCard({
             onClick={(e) => { e.stopPropagation(); onClick?.(); }}
           />
 
-          {/* Upper right: deploying status + scores */}
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {/* Deploying badge — always occupies space; invisible when not deploying */}
-            <div className={founder._isActivelyDeploying !== false ? undefined : "invisible pointer-events-none"}>
+          {/* Upper right: status icons (deploying + trending/popular/recent) on one row */}
+          <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
+            <div
+              className={
+                founder._isActivelyDeploying !== false
+                  ? "-mr-1.5"
+                  : "invisible pointer-events-none -mr-1.5"
+              }
+            >
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -363,15 +491,13 @@ function InvestorCard({
                         e.stopPropagation();
                         onDeployingClick?.();
                       }}
-                      className="inline-flex items-center"
+                      aria-label="Actively deploying"
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-success"
                     >
-                      <Badge className="text-[7px] font-light px-1.5 py-0.5 bg-success/3 text-success border border-success/25 rounded-sm uppercase tracking-wider hover:bg-success/5 transition-colors">
-                        <span className="relative flex h-1.5 w-1.5 mr-1.5 shrink-0">
-                          <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
-                        </span>
-                        Deploying
-                      </Badge>
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                      </span>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[240px] bg-popover/95 backdrop-blur-md p-2.5">
@@ -382,65 +508,107 @@ function InvestorCard({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex flex-col items-center cursor-help">
-                      <span className={`text-sm font-black leading-none ${matchColor}`}>{matchScore}%</span>
-                      <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Match</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
-                    <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Measures alignment between your company profile and this investor&apos;s thesis across sector, stage, geography, and check size using vector similarity.
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
-                      {"= cosine_sim(sector) \u00D7 stage_match \u00D7 geo_fit \u00D7 check_range"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {/* Reputation score — always occupies space; dims to — when no data */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex flex-col items-center cursor-help">
-                      <span className={`text-sm font-black leading-none ${sentimentScore != null ? sentimentColor : "text-muted-foreground/40"}`}>
-                        {sentimentScore != null ? `${sentimentScore}%` : "—"}
-                      </span>
-                      <span className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground">Reputation</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[260px] bg-popover/95 backdrop-blur-md p-3 space-y-1.5 shadow-lg border border-border">
-                    <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground/70 bg-secondary/50 rounded px-1.5 py-1">
-                      {"= avg(NPS) \u00D7 response_rate \u00D7 recency_weight"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <VCBadgeContainer
+              iconOnly
+              vc_firm={{
+                is_trending: (founder as any)._isTrending,
+                is_popular: (founder as any)._isPopular,
+                is_recent: (founder as any)._isRecent,
+              }}
+            />
           </div>
         </div>
 
-        {/* ── Row 2: Name + badges + description ── */}
+        {/* ── Row 2: Name + badges + scores (no long description) ── */}
         <div>
-          <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          <VCBadgeContainer vc_firm={{
-            is_trending: (founder as any)._isTrending,
-            is_popular: (founder as any)._isPopular,
-            is_recent: (founder as any)._isRecent,
-          }} />
-          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5 line-clamp-2">{founder.description}</p>
+          <h3 className="text-[15px] font-bold leading-tight text-foreground">{founder.name}</h3>
+          {(investorSector || investorStage) ? (
+            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug">
+              {investorSector ? (
+                <span className="font-semibold text-foreground/80">{investorSector}</span>
+              ) : null}
+              {investorSector && investorStage ? (
+                <span className="font-normal text-muted-foreground"> · </span>
+              ) : null}
+              {investorStage ? <span className="text-muted-foreground">{investorStage}</span> : null}
+            </p>
+          ) : null}
+          <div className="mt-1.5 flex items-end gap-5 border-t border-border/35 pt-1.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex cursor-help flex-col items-start">
+                    <span className={`text-base font-bold tabular-nums leading-none tracking-tight ${matchColor}`}>
+                      {matchScore}%
+                    </span>
+                    <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Match</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Structural Fit Score</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Measures alignment between your company profile and this investor&apos;s thesis across sector, stage, geography, and check size using vector similarity.
+                  </p>
+                  <p className="mt-2 rounded bg-secondary/50 px-1.5 py-1 font-mono text-[10px] text-muted-foreground/70">
+                    {"= cosine_sim(sector) \u00D7 stage_match \u00D7 geo_fit \u00D7 check_range"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex cursor-help flex-col items-start">
+                    <span
+                      className={`text-base font-bold tabular-nums leading-none tracking-tight ${
+                        sentimentScore != null ? sentimentColor : "text-muted-foreground/40"
+                      }`}
+                    >
+                      {sentimentScore != null ? `${sentimentScore}%` : "—"}
+                    </span>
+                    <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Reputation</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Founder Reputation Score</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Aggregated from founder reviews, NPS ratings, and response-rate data across our network. Higher scores indicate responsive, transparent, and founder-friendly investors.
+                  </p>
+                  <p className="mt-2 rounded bg-secondary/50 px-1.5 py-1 font-mono text-[10px] text-muted-foreground/70">
+                    {"= avg(NPS) \u00D7 response_rate \u00D7 recency_weight"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {velocityScore != null && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex cursor-help flex-col items-start">
+                      <span className={`inline-flex items-center gap-0.5 text-base font-bold tabular-nums leading-none tracking-tight ${velocityColor}`}>
+                        <Zap className="h-3.5 w-3.5 shrink-0" />
+                        {velocityScore}
+                      </span>
+                      <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">Velocity</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                    <p className="text-xs font-bold text-foreground">Deal Velocity Score</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      How actively this firm is closing deals right now. Derived from recent deal count over the past 12 months. <strong>{velocityLabel}</strong> — {velocityScore >= 80 ? "closing deals at a high pace" : velocityScore >= 60 ? "actively investing" : velocityScore >= 35 ? "moderate deal flow" : "relatively quiet recently"}.
+                    </p>
+                    <p className="mt-2 rounded bg-secondary/50 px-1.5 py-1 font-mono text-[10px] text-muted-foreground/70">
+                      {"= f(recent_deals, active_deployment)"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </div>
 
         {/* ── Row 3: HQ · AUM · Headcount · Type ── */}
-        <div className="flex items-center gap-3 pt-2 border-t border-border/40 text-[10px] text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-2.5 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground flex-wrap">
           {founder.location && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location || "—"}
@@ -456,12 +624,232 @@ function InvestorCard({
               <Users className="h-2.5 w-2.5 shrink-0" /> {founder._headcount}
             </span>
           )}
-          <Badge variant="outline" className="text-[8px] font-semibold px-1.5 py-0">
-            {founder._firmType || "Institutional"}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                    aria-label={`Firm type: ${founder._firmType || "Institutional"}`}
+                  >
+                    {founder._firmType || "Institutional"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Firm type</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {firmTypeBadgeTooltipText(founder._firmType || "Institutional")}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              {aumBand ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                      aria-label={`AUM band: ${aumBand}`}
+                    >
+                      {aumBand}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                    <p className="text-xs font-bold text-foreground">AUM band</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {aumBandBadgeTooltipText(aumBand)}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </TooltipProvider>
+          </div>
         </div>
       </CardContent>
     </Card>);
+}
+
+function operatorRoleBadgeText(model: string): string {
+  const t = model.trim();
+  if (!t) return "OPERATOR";
+  const u = t.toUpperCase();
+  return u.length <= 22 ? u : `${u.slice(0, 20).trimEnd()}…`;
+}
+
+function operatorEngagementTooltipText(engagement: string): string {
+  const t = engagement.trim() || "this operator";
+  return `Typical engagement: ${t}. Describes how this profile works with founders (fractional, advisory, embedded, etc.).`;
+}
+
+/** Operators hub — mirrors InvestorCard chrome without fund-specific fields. */
+function OperatorHubCard({
+  founder,
+  trending,
+  onClick,
+}: {
+  founder: DirectoryEntry;
+  trending?: boolean;
+  onClick?: () => void;
+}) {
+  const websiteUrl = founder._websiteUrl || null;
+  const logoUrl = founder._logoUrl || null;
+  const sentimentScore = founder._founderSentimentScore;
+  const sentimentColor =
+    sentimentScore != null
+      ? sentimentScore >= 70
+        ? "text-success"
+        : sentimentScore >= 40
+          ? "text-warning"
+          : "text-destructive"
+      : "text-muted-foreground";
+  const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60);
+  const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
+  const { sector: opSector, stage: opStage } = investorSectorStageParts(founder);
+  const roleBadge = operatorRoleBadgeText(founder.model || "");
+
+  return (
+    <Card
+      onClick={onClick}
+      className={`overflow-hidden group transition-all duration-200 cursor-pointer hover:-translate-y-1 hover:shadow-lg ${
+        trending ? "border-accent/20 hover:border-accent/40" : "border-border/60 hover:border-accent/30"
+      }`}
+    >
+      <CardContent className="space-y-2 px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2.5">
+          <FirmLogo
+            firmName={founder.name}
+            logoUrl={logoUrl}
+            websiteUrl={websiteUrl}
+            size="lg"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick?.();
+            }}
+          />
+          <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
+            <VCBadgeContainer
+              iconOnly
+              vc_firm={{
+                is_trending: founder._isTrending,
+                is_popular: founder._isPopular,
+                is_recent: founder._isRecent,
+              }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-[15px] font-bold leading-tight text-foreground">{founder.name}</h3>
+          {opSector || opStage ? (
+            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug">
+              {opSector ? <span className="font-semibold text-foreground/80">{opSector}</span> : null}
+              {opSector && opStage ? <span className="font-normal text-muted-foreground"> · </span> : null}
+              {opStage ? <span className="text-muted-foreground">{opStage}</span> : null}
+            </p>
+          ) : null}
+          <div className="mt-1.5 flex items-end gap-5 border-t border-border/35 pt-1.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex cursor-help flex-col items-start">
+                    <span className={`text-base font-bold tabular-nums leading-none tracking-tight ${matchColor}`}>
+                      {matchScore}%
+                    </span>
+                    <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                      Fit
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Operator fit</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    How closely this operator&apos;s experience aligns with your sector, stage, and hiring needs.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex cursor-help flex-col items-start">
+                    <span
+                      className={`text-base font-bold tabular-nums leading-none tracking-tight ${
+                        sentimentScore != null ? sentimentColor : "text-muted-foreground/40"
+                      }`}
+                    >
+                      {sentimentScore != null ? `${sentimentScore}%` : "—"}
+                    </span>
+                    <span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+                      Rating
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Peer rating</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Aggregated feedback from founders who have worked with this operator.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground flex-wrap">
+          {founder.location ? (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location}
+            </span>
+          ) : null}
+          {founder.model ? (
+            <span className="inline-flex items-center gap-1">
+              <Briefcase className="h-2.5 w-2.5 shrink-0" /> {founder.model}
+            </span>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-1">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                    aria-label="Operator profile"
+                  >
+                    Operator
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Operator</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Fractional, advisory, or embedded leadership talent in the Vekta network—not a fund.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              {founder.model?.trim() ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="h-5 min-h-5 max-w-[9rem] cursor-help truncate border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                      aria-label={`Engagement: ${founder.model}`}
+                    >
+                      {roleBadge}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                    <p className="text-xs font-bold text-foreground">Engagement</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {operatorEngagementTooltipText(founder.model)}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </TooltipProvider>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function FounderCard({
@@ -470,13 +858,20 @@ function FounderCard({
   onClick,
   onDeployingClick,
   anchorVcFirmId,
+  operatorHubLayout,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
   onClick?: () => void;
   onDeployingClick?: () => void;
   anchorVcFirmId?: string | null;
+  /** Match investor-search density when browsing Operators scope. */
+  operatorHubLayout?: boolean;
 }) {
+  if (operatorHubLayout && founder.category === "operator") {
+    return <OperatorHubCard founder={founder} trending={trending} onClick={onClick} />;
+  }
+
   // Use specialized investor card for investor entries
   if (founder.category === "investor") {
     return (
@@ -571,12 +966,14 @@ function CarouselCard({
   onClick,
   onDeployingClick,
   anchorVcFirmId,
+  operatorHubLayout,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
   onClick?: () => void;
   onDeployingClick?: () => void;
   anchorVcFirmId?: string | null;
+  operatorHubLayout?: boolean;
 }) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
@@ -586,11 +983,223 @@ function CarouselCard({
         onClick={onClick}
         onDeployingClick={onDeployingClick}
         anchorVcFirmId={anchorVcFirmId}
+        operatorHubLayout={operatorHubLayout}
       />
     </div>);
 
 }
 
+type CohortTrendStat = { trend: string; trendUp: boolean };
+
+function RotatingCohortTrendText({
+  stats,
+  initialDelayMs,
+  intervalMs = 4800,
+  className,
+}: {
+  stats: readonly CohortTrendStat[];
+  initialDelayMs: number;
+  intervalMs?: number;
+  className?: string;
+}) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (stats.length < 2) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const schedule = (delay: number) => {
+      timeoutId = setTimeout(() => {
+        setIndex((i) => (i + 1) % stats.length);
+        schedule(intervalMs);
+      }, delay);
+    };
+    schedule(initialDelayMs);
+    return () => clearTimeout(timeoutId);
+  }, [stats, initialDelayMs, intervalMs]);
+
+  const current = stats[index] ?? stats[0];
+  if (!current) return null;
+
+  if (stats.length < 2) {
+    return (
+      <span
+        className={cn(
+          "text-right text-[10px] font-bold tabular-nums leading-none tracking-tight",
+          current.trendUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
+          className,
+        )}
+      >
+        {current.trend}
+      </span>
+    );
+  }
+
+  return (
+    <span className={cn("relative inline-flex min-h-[12px] min-w-[12.5rem] justify-end align-baseline", className)}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={`${index}:${current.trend}`}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className={cn(
+            "absolute right-0 top-0 whitespace-nowrap text-right text-[10px] font-bold tabular-nums leading-none tracking-tight",
+            current.trendUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
+          )}
+        >
+          {current.trend}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+function CohortFooterSparkline({
+  cohortId,
+  values,
+  isPrimary,
+}: {
+  cohortId: string;
+  values: readonly number[];
+  isPrimary: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-2.5 items-end justify-end gap-px",
+        isPrimary ? "opacity-[0.52]" : "opacity-[0.38]",
+      )}
+      aria-hidden
+    >
+      {values.map((bar, idx) => (
+        <span
+          key={`${cohortId}-spark-${idx}`}
+          className={cn(
+            "animate-cohort-spark-bar w-px shrink-0 rounded-full",
+            isPrimary
+              ? "bg-muted-foreground/38 dark:bg-white/22"
+              : "bg-muted-foreground/28 dark:bg-white/16",
+          )}
+          style={{
+            height: `${Math.max(3, Math.round(bar * 1.35))}px`,
+            animationDelay: `${idx * 0.1}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const INVESTOR_SORT_OPTIONS = [
+  { value: "recommended", label: "Recommended" },
+  { value: "name_az", label: "Name A–Z" },
+  { value: "name_za", label: "Name Z–A" },
+  { value: "sentiment", label: "Founder sentiment" },
+  { value: "deploying", label: "Deploying first" },
+] as const;
+
+type InvestorSortValue = (typeof INVESTOR_SORT_OPTIONS)[number]["value"];
+
+function investorMatchPriority(e: DirectoryEntry): number {
+  const r = e.matchReason?.toLowerCase() ?? "";
+  if (r.includes("sector")) return 3;
+  if (r.includes("stage")) return 2;
+  if (e.matchReason) return 1;
+  return 0;
+}
+
+/** Stable sort for Network → Investors grid (investor entries only). */
+function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: InvestorSortValue): number {
+  switch (sort) {
+    case "name_az":
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    case "name_za":
+      return b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
+    case "sentiment": {
+      const sa = a._founderSentimentScore;
+      const sb = b._founderSentimentScore;
+      if (sa == null && sb == null) {
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+      if (sa == null) return 1;
+      if (sb == null) return -1;
+      if (sb !== sa) return sb - sa;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    }
+    case "deploying": {
+      const da = a._isActivelyDeploying ? 1 : 0;
+      const db = b._isActivelyDeploying ? 1 : 0;
+      if (db !== da) return db - da;
+      break;
+    }
+    case "recommended":
+    default:
+      break;
+  }
+  const mp = investorMatchPriority(b) - investorMatchPriority(a);
+  if (mp !== 0) return mp;
+  const deploy = Number(!!b._isActivelyDeploying) - Number(!!a._isActivelyDeploying);
+  if (deploy !== 0) return deploy;
+  const sa = a._founderSentimentScore;
+  const sb = b._founderSentimentScore;
+  if (sa != null || sb != null) {
+    if (sa == null) return 1;
+    if (sb == null) return -1;
+    if (sb !== sa) return sb - sa;
+  }
+  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+}
+
+function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewModel {
+  return {
+    name: e.name,
+    sector: e.sector,
+    stage: e.stage,
+    description: e.description,
+    location: e.location,
+    model: e.model,
+    matchReason: e.matchReason,
+    _logoUrl: e._logoUrl ?? null,
+    _websiteUrl: e._websiteUrl ?? null,
+    _founderSentimentScore: e._founderSentimentScore ?? null,
+    _matchScore: e._matchScore ?? null,
+    _isActivelyDeploying: e._isActivelyDeploying,
+    _isTrending: e._isTrending,
+    _isPopular: e._isPopular,
+    _isRecent: e._isRecent,
+    _headcount: e._headcount ?? null,
+    _aum: e._aum ?? null,
+    _firmType: e._firmType,
+    _aumBand: e._aumBand ?? null,
+    _dealVelocityScore: e._dealVelocityScore ?? null,
+  };
+}
+
+function directoryEntryToOperatorPreview(e: DirectoryEntry): InvestorPreviewModel {
+  return {
+    name: e.name,
+    sector: e.sector,
+    stage: e.stage,
+    description: e.description,
+    location: e.location,
+    model: e.model,
+    matchReason: e.matchReason,
+    _logoUrl: e._logoUrl ?? null,
+    _websiteUrl: e._websiteUrl ?? null,
+    _founderSentimentScore: e._founderSentimentScore ?? null,
+    _matchScore: e._matchScore ?? null,
+    _isActivelyDeploying: false,
+    _isTrending: e._isTrending,
+    _isPopular: e._isPopular,
+    _isRecent: e._isRecent,
+    _headcount: null,
+    _aum: null,
+    _firmType: "Operator",
+    _aumBand: null,
+    _dealVelocityScore: null,
+  };
+}
 
 export function CommunityView({
   companyData,
@@ -614,6 +1223,7 @@ export function CommunityView({
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
+  const [investorSort, setInvestorSort] = useState<InvestorSortValue>("recommended");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleStatus = (status: string) => {
@@ -687,11 +1297,12 @@ export function CommunityView({
         const displayName = f.name.trim();
         const dbMatch = getDbMatch(displayName);
         const fallbackWebsite = f.website_url || deriveWebsiteUrlFromFirmId(f.id);
+        const resolvedAum = f.aum || (dbMatch as any)?.aum || null;
 
         return {
           name: displayName,
-          sector: f.sectors?.slice(0, 2).join(", ") || "Multi-stage",
-          stage: f.stages?.join(", ") || "Multi-stage",
+          sector: f.sectors?.filter(Boolean).slice(0, 2).join(", ") || "Generalist",
+          stage: f.stages?.filter(Boolean).join(", ") || "Multi-stage",
           description: f.description || `${displayName} is an active investment firm.`,
           location: dbMatch?.location || "",
           model: f.sweet_spot || f.aum || "",
@@ -704,13 +1315,22 @@ export function CommunityView({
           _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
-          _aum: f.aum || (dbMatch as any)?.aum || null,
+          _aum: resolvedAum,
+          _aumBand: investorAumBandLabel(resolvedAum),
           _logoUrl: (dbMatch as any)?.logo_url || f.logo_url || null,
-          _isTrending: (dbMatch as any)?.is_trending ?? false,
+          _isTrending: isInvestorTrendingMerged(
+            (dbMatch as any)?.is_trending,
+            false,
+            displayName,
+          ),
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
           _firmId: (dbMatch as any)?.id || f.id || null,
           _websiteUrl: (dbMatch as any)?.website_url || fallbackWebsite || null,
+          _dealVelocityScore: computeDealVelocityScore(
+            (dbMatch as any)?.recent_deals ?? null,
+            (dbMatch as any)?.is_actively_deploying ?? null,
+          ),
         };
       });
   }, [vcFirms, getDbMatch]);
@@ -751,22 +1371,46 @@ export function CommunityView({
         const dbMatch = getDbMatch(e.name);
         const vcMatch = getVCFirmMatch(e.name);
         const fallbackWebsite = vcMatch?.website_url || deriveWebsiteUrlFromFirmId(vcMatch?.id);
+        const resolvedAum =
+          (dbMatch as any)?.aum ?? vcMatch?.aum ?? e._aum ?? null;
 
+        const seedTrending = (e as DirectoryEntry)._isTrending === true;
+
+        // DB values always win; static mock values are the last-resort fallback
         return {
           ...e,
           _sectors: [] as string[],
           _stages: [] as string[],
-          _isTrending: (dbMatch as any)?.is_trending ?? false,
-          _isPopular: (dbMatch as any)?.is_popular ?? false,
-          _isRecent: (dbMatch as any)?.is_recent ?? false,
+          _aum: resolvedAum,
+          _aumBand: investorAumBandLabel(resolvedAum),
+          _isTrending: isInvestorTrendingMerged((dbMatch as any)?.is_trending, seedTrending, e.name),
+          _isPopular: (dbMatch as any)?.is_popular ?? (e._isPopular ?? false),
+          _isRecent: (dbMatch as any)?.is_recent ?? (e._isRecent ?? false),
           _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? null,
           _websiteUrl: (dbMatch as any)?.website_url ?? e._websiteUrl ?? fallbackWebsite ?? null,
           _logoUrl: (dbMatch as any)?.logo_url ?? e._logoUrl ?? null,
+          // All investor-specific fields prefer live DB data over static mock values
+          _isActivelyDeploying: dbMatch
+            ? ((dbMatch as any)?.is_actively_deploying ?? true)
+            : (e._isActivelyDeploying ?? true),
+          _founderSentimentScore: dbMatch
+            ? ((dbMatch as any)?.founder_reputation_score ?? null)
+            : (e._founderSentimentScore ?? null),
+          _headcount: (dbMatch as any)?.headcount ?? e._headcount ?? null,
+          _firmType: (dbMatch as any)?.firm_type ?? e._firmType ?? "Institutional",
+          _dealVelocityScore: dbMatch
+            ? computeDealVelocityScore(
+                (dbMatch as any)?.recent_deals ?? null,
+                (dbMatch as any)?.is_actively_deploying ?? null,
+              )
+            : (e._dealVelocityScore ?? null),
         };
       }),
       ...vcEntries,
     ];
   }, [vcEntries, realFounderEntries, getDbMatch, getVCFirmMatch]);
+
+  const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
 
   const hasProfile = !!companyData?.name;
 
@@ -778,6 +1422,78 @@ export function CommunityView({
     const userCity = userLocation.split(",")[0].trim();
     const userStage = companyData?.stage || "Seed";
 
+    if (isOperatorHubLayout) {
+      const op = mergedEntries.filter((e) => e.category === "operator");
+      const matchCount = op.filter((e) => e.matchReason).length;
+      const localCount = op.filter((e) => e.location.includes(userCity)).length;
+      const stageCount = op.filter((e) =>
+        (e.stage ?? "").toLowerCase().includes(userStage.toLowerCase()),
+      ).length;
+      const benchCount = op.length;
+      return [
+        {
+          id: "matches",
+          value: matchCount || 3,
+          label: "Strong fits",
+          icon: TrendingUp,
+          filterKey: "",
+          timeframe: "this week",
+          trendStats: [
+            { trend: "▲ 14% vs last week", trendUp: true },
+            { trend: "88% intro acceptance on warm paths", trendUp: true },
+          ],
+          sparkline: [3, 4, 5, 4, 6, 7],
+          cluster: "professionals" as CohortCluster,
+          isPrimary: true,
+        },
+        {
+          id: "local",
+          value: localCount || 5,
+          label: `Operators in ${userCity}`,
+          icon: MapPin,
+          filterKey: userCity,
+          timeframe: "last 30 days",
+          trendStats: [
+            { trend: "▲ 5% vs prior month", trendUp: true },
+            { trend: "Net +7% in your metro", trendUp: true },
+          ],
+          sparkline: [2, 3, 3, 4, 4, 5],
+          cluster: "location" as CohortCluster,
+          isPrimary: false,
+        },
+        {
+          id: "stage",
+          value: stageCount || 4,
+          label: `${userStage} stage bench`,
+          icon: Zap,
+          filterKey: userStage,
+          timeframe: "last 30 days",
+          trendStats: [
+            { trend: "▲ 10% vs prior period", trendUp: true },
+            { trend: "Avg 2.1 shared portfolio cos.", trendUp: true },
+          ],
+          sparkline: [2, 3, 4, 3, 4, 5],
+          cluster: "stage" as CohortCluster,
+          isPrimary: false,
+        },
+        {
+          id: "founders",
+          value: benchCount || 6,
+          label: "Bench depth",
+          icon: Users,
+          filterKey: "",
+          timeframe: "this week",
+          trendStats: [
+            { trend: "▼ 2% vs last week", trendUp: false },
+            { trend: "▲ 6% vs 30-day average", trendUp: true },
+          ],
+          sparkline: [5, 5, 4, 4, 4, 3],
+          cluster: "connections" as CohortCluster,
+          isPrimary: false,
+        },
+      ] as const;
+    }
+
     const localCount = ALL_ENTRIES.filter((e) => e.location.includes(userCity)).length;
     const stageCount = ALL_ENTRIES.filter((e) => e.stage === userStage).length;
     const founderCount = ALL_ENTRIES.filter((e) => e.category === "founder").length;
@@ -787,12 +1503,14 @@ export function CommunityView({
       {
         id: "matches",
         value: matchCount || 5,
-        label: "IN YOUR NETWORK",
+        label: "In your network",
         icon: TrendingUp,
         filterKey: "",
         timeframe: "this week",
-        trend: "▲ 18% vs last week",
-        trendUp: true,
+        trendStats: [
+          { trend: "▲ 18% vs last week", trendUp: true },
+          { trend: "92% reply rate on warm intros", trendUp: true },
+        ],
         sparkline: [3, 4, 5, 4, 6, 7],
         cluster: "professionals" as CohortCluster,
         isPrimary: true,
@@ -804,8 +1522,10 @@ export function CommunityView({
         icon: MapPin,
         filterKey: userCity,
         timeframe: "last 30 days",
-        trend: "▲ 6% vs previous month",
-        trendUp: true,
+        trendStats: [
+          { trend: "▲ 6% vs previous month", trendUp: true },
+          { trend: "Net +9% in your micro-market", trendUp: true },
+        ],
         sparkline: [2, 3, 3, 4, 4, 5],
         cluster: "location" as CohortCluster,
         isPrimary: false,
@@ -817,8 +1537,10 @@ export function CommunityView({
         icon: Zap,
         filterKey: userStage,
         timeframe: "last 30 days",
-        trend: "▲ 12% vs prior period",
-        trendUp: true,
+        trendStats: [
+          { trend: "▲ 12% vs prior period", trendUp: true },
+          { trend: "Avg 2.4 mutual connections", trendUp: true },
+        ],
         sparkline: [2, 3, 4, 3, 4, 5],
         cluster: "stage" as CohortCluster,
         isPrimary: false,
@@ -826,18 +1548,20 @@ export function CommunityView({
       {
         id: "founders",
         value: founderCount,
-        label: "RECOMMENDED",
+        label: "Recommended",
         icon: Users,
         filterKey: "",
         timeframe: "this week",
-        trend: "▼ 3% vs last week",
-        trendUp: false,
+        trendStats: [
+          { trend: "▼ 3% vs last week", trendUp: false },
+          { trend: "▲ 5% vs 30-day average", trendUp: true },
+        ],
         sparkline: [5, 5, 4, 4, 4, 3],
         cluster: "connections" as CohortCluster,
         isPrimary: false,
       },
     ] as const;
-  }, [companyData]);
+  }, [companyData, mergedEntries, isOperatorHubLayout]);
 
   // Cohort detail entries — filtered list shown inside the detail drawer
   const cohortDetailEntries = useMemo(() => {
@@ -845,40 +1569,52 @@ export function CommunityView({
     const userLocation = companyData?.hqLocation || "San Francisco, CA";
     const userCity = userLocation.split(",")[0].trim();
     const userStage = companyData?.stage || "Seed";
+    const base = isOperatorHubLayout
+      ? mergedEntries.filter((e) => e.category === "operator")
+      : mergedEntries;
     switch (activeCohortId) {
       case "matches":
-        return mergedEntries.filter((e) => e.matchReason);
+        return base.filter((e) => e.matchReason);
       case "local":
-        return mergedEntries.filter((e) => e.location.includes(userCity));
+        return base.filter((e) => e.location.includes(userCity));
       case "stage":
-        return mergedEntries.filter((e) => e.stage === userStage);
+        return base.filter((e) => {
+          if (isOperatorHubLayout) {
+            return (e.stage ?? "").toLowerCase().includes(userStage.toLowerCase());
+          }
+          return e.stage === userStage;
+        });
       case "founders":
+        if (isOperatorHubLayout) return base;
         return mergedEntries.filter((e) => e.category === "founder");
       default:
         return [];
     }
-  }, [activeCohortId, mergedEntries, companyData]);
+  }, [activeCohortId, mergedEntries, companyData, isOperatorHubLayout]);
 
   // Cohort click handler — filter results
-  const handleCohortClick = useCallback((filterKey: string, scopeOverride?: EntityScope) => {
-    if (filterKey) {
-      setActiveFilter(filterKey);
-    }
-    if (scopeOverride) {
-      setActiveScope(scopeOverride);
-      return;
-    }
+  const handleCohortClick = useCallback(
+    (filterKey: string, scopeOverride?: EntityScope) => {
+      if (filterKey) {
+        setActiveFilter(filterKey);
+      }
+      if (scopeOverride) {
+        setActiveScope(scopeOverride);
+        return;
+      }
 
-    // Ensure metrics with no filter key (e.g. New Matches) still drill into a details view.
-    if (!filterKey) {
-      setActiveScope("investors");
-    }
-  }, []);
+      if (!filterKey) {
+        if (isInvestorSearch) setActiveScope("investors");
+        else if (activeScope === "operators") setActiveScope("operators");
+      }
+    },
+    [isInvestorSearch, activeScope],
+  );
 
-  // Reset pagination on filter/scope change (not on text search — large indices must stay reachable for scroll-to-pick)
+  // Reset pagination on filter/scope/sort change (not on text search — large indices must stay reachable for scroll-to-pick)
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab]);
+  }, [activeFilter, activeScope, activeInvestorTab, investorSort]);
 
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
 
@@ -903,14 +1639,7 @@ export function CommunityView({
 
     switch (activeInvestorTab) {
       case "matches": {
-        const matched = investors.filter(
-          (e) => e.matchReason || e._isActivelyDeploying !== false
-        );
-        return matched.sort((a, b) => {
-          const scoreA = a.matchReason?.toLowerCase().includes("sector") ? 3 : a.matchReason?.toLowerCase().includes("stage") ? 2 : a.matchReason ? 1 : 0;
-          const scoreB = b.matchReason?.toLowerCase().includes("sector") ? 3 : b.matchReason?.toLowerCase().includes("stage") ? 2 : b.matchReason ? 1 : 0;
-          return scoreB - scoreA;
-        });
+        return investors.filter((e) => e.matchReason || e._isActivelyDeploying !== false);
       }
       case "stage": {
         if (!userStage) return investors;
@@ -980,14 +1709,21 @@ export function CommunityView({
     });
   }, [displayEntries, investorListSearchQuery, isInvestorSearch]);
 
-  const hasMore = visibleCount < textFilteredEntries.length;
-  const visibleFounders = textFilteredEntries.slice(0, visibleCount);
+  const gridEntries = useMemo(() => {
+    if (!isInvestorSearch && !isOperatorHubLayout) return textFilteredEntries;
+    const list = [...textFilteredEntries];
+    list.sort((a, b) => compareInvestorsForSort(a, b, investorSort));
+    return list;
+  }, [isInvestorSearch, isOperatorHubLayout, textFilteredEntries, investorSort]);
+
+  const hasMore = visibleCount < gridEntries.length;
+  const visibleFounders = gridEntries.slice(0, visibleCount);
 
   useLayoutEffect(() => {
     if (!isInvestorSearch || !investorScrollTo?.vcFirmId) return;
     const { vcFirmId } = investorScrollTo;
 
-    const idx = textFilteredEntries.findIndex((e) => {
+    const idx = gridEntries.findIndex((e) => {
       if (e.category !== "investor") return false;
       if (e._firmId && e._firmId === vcFirmId) return true;
       const vc = getVCFirmMatch(e.name);
@@ -1010,7 +1746,7 @@ export function CommunityView({
         block: "center",
       });
     });
-  }, [isInvestorSearch, investorScrollTo, textFilteredEntries, visibleCount, getVCFirmMatch]);
+  }, [isInvestorSearch, investorScrollTo, gridEntries, visibleCount, getVCFirmMatch]);
 
   // Dynamic header for investor tabs
   const investorTabHeader = useMemo(() => {
@@ -1036,6 +1772,11 @@ export function CommunityView({
     }
   }, [activeInvestorTab, userStage, userSector]);
 
+  const operatorHubHeader = useMemo(
+    () => ({ title: "OPERATORS", subtitle: "Fractional and advisory talent matched to your profile" }),
+    [],
+  );
+
   // Missing context detection for smart empty states
   const needsStagePrompt = isInvestorSearch && activeInvestorTab === "stage" && !userStage;
   const needsSectorPrompt = isInvestorSearch && activeInvestorTab === "sector" && !userSector;
@@ -1049,7 +1790,11 @@ export function CommunityView({
 
     return {
       ...entry,
-      _isTrending: (dbMatch as any)?.is_trending ?? entry._isTrending ?? false,
+      _isTrending: isInvestorTrendingMerged(
+        (dbMatch as any)?.is_trending,
+        entry._isTrending === true,
+        entry.name,
+      ),
       _isPopular: (dbMatch as any)?.is_popular ?? entry._isPopular ?? false,
       _isRecent: (dbMatch as any)?.is_recent ?? entry._isRecent ?? false,
       _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? entry._firmId ?? null,
@@ -1065,6 +1810,29 @@ export function CommunityView({
   const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
     .map(enrichInvestorSeedEntry);
+
+  const investorRailSuggested = useMemo(
+    () => scopedSuggested.filter((e) => e.category === "investor"),
+    [scopedSuggested],
+  );
+  const investorRailTrending = useMemo(
+    () => scopedTrending.filter((e) => e.category === "investor"),
+    [scopedTrending],
+  );
+
+  const operatorRailSuggested = useMemo(
+    () => scopedSuggested.filter((e) => e.category === "operator"),
+    [scopedSuggested],
+  );
+  const operatorRailTrending = useMemo(
+    () => scopedTrending.filter((e) => e.category === "operator"),
+    [scopedTrending],
+  );
+
+  const showInvestorRails =
+    isInvestorSearch && (investorRailSuggested.length > 0 || investorRailTrending.length > 0);
+  const showOperatorRails =
+    isOperatorHubLayout && (operatorRailSuggested.length > 0 || operatorRailTrending.length > 0);
 
   const labels = SCOPE_LABELS[activeScope];
   const carouselTitles = CAROUSEL_TITLES[activeScope];
@@ -1109,12 +1877,36 @@ export function CommunityView({
     setSelectedInvestor(entry);
   }, [getVCFirmMatch]);
 
+  const handleInvestorPreviewClick = useCallback(
+    (inv: InvestorPreviewModel) => {
+      const entry = mergedEntries.find((e) => e.category === "investor" && e.name === inv.name);
+      if (entry) handleInvestorClick(entry);
+    },
+    [mergedEntries, handleInvestorClick],
+  );
+
   const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
     setInvestorInitialTab("Activity");
     const vcMatch = getVCFirmMatch(entry.name);
     if (vcMatch) setSelectedVCFirm(vcMatch);
     setSelectedInvestor(entry);
   }, [getVCFirmMatch]);
+
+  const handleInvestorPreviewDeploying = useCallback(
+    (inv: InvestorPreviewModel) => {
+      const entry = mergedEntries.find((e) => e.category === "investor" && e.name === inv.name);
+      if (entry) handleDeployingClick(entry);
+    },
+    [mergedEntries, handleDeployingClick],
+  );
+
+  const handleOperatorPreviewClick = useCallback(
+    (inv: InvestorPreviewModel) => {
+      const entry = mergedEntries.find((e) => e.category === "operator" && e.name === inv.name);
+      if (entry) setSelectedFounder(entry);
+    },
+    [mergedEntries],
+  );
 
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
@@ -1123,11 +1915,11 @@ export function CommunityView({
   return (
     <div className="space-y-2">
       {/* Spacer for global top nav */}
-      {variant === "investor-search" && <div className="h-2" />}
+      {(variant === "investor-search" || isOperatorHubLayout) && <div className="h-2" />}
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
-        {variant !== "investor-search" && (
+        {variant !== "investor-search" && !isOperatorHubLayout && (
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               Network
@@ -1136,7 +1928,7 @@ export function CommunityView({
           </div>
         )}
 
-        {variant !== "investor-search" && !hasProfile && (
+        {variant !== "investor-search" && !isOperatorHubLayout && !hasProfile && (
           <div className="flex items-center gap-2 shrink-0">
             {/* Status Dropdown */}
             <DropdownMenu>
@@ -1197,13 +1989,85 @@ export function CommunityView({
         )}
       </div>
 
-      {/* ── Smart Cohort Cards ── */}
-      <div className="mb-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:overflow-x-visible">
-        <div className="flex min-w-max items-stretch gap-3 lg:min-w-0 lg:w-full">
-          {cohorts.map((cohort) => {
+      {/* ── Smart Cohort Cards (scroll target for GlobalTopNav live pulse) ── */}
+      <div
+        className="mb-2 scroll-mt-24 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:overflow-x-visible"
+        data-section="network-pulse-cohorts"
+      >
+        <div className="flex min-w-max items-stretch gap-2.5 lg:min-w-0 lg:w-full lg:gap-3">
+          {cohorts.map((cohort, cohortIdx) => {
             const Icon = cohort.icon;
             const isPrimary = cohort.isPrimary;
-            const scopeOverride: EntityScope | undefined = cohort.id === "founders" ? "founders" : undefined;
+
+            if (isInvestorSearch || isOperatorHubLayout) {
+              return (
+                <button
+                  key={cohort.id}
+                  type="button"
+                  onClick={() => setActiveCohortId(cohort.id)}
+                  className={cn(
+                    "group flex min-h-0 snap-start shrink-0 flex-col rounded-lg border px-3.5 py-3 text-left",
+                    "w-[220px] transition-[border-color,box-shadow,background-color] duration-200 lg:min-w-0 lg:w-auto lg:flex-1",
+                    isPrimary
+                      ? "border-foreground/[0.135] bg-muted/[0.42] shadow-[0_1px_2px_rgba(0,0,0,0.045)] dark:border-white/[0.175] dark:bg-white/[0.082]"
+                      : "border-border/42 bg-card/97 shadow-[0_1px_1px_rgba(0,0,0,0.022)] dark:border-white/[0.09] dark:bg-white/[0.038]",
+                    "hover:border-border/70 hover:shadow-[0_2px_10px_rgba(0,0,0,0.045)] hover:bg-card dark:hover:border-white/16 dark:hover:bg-white/[0.055]",
+                    isPrimary &&
+                      "hover:border-foreground/[0.155] hover:shadow-[0_2px_10px_rgba(0,0,0,0.052)] dark:hover:border-white/19",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className={cn(
+                        "min-w-0 text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-muted-foreground",
+                        isPrimary && "text-foreground/50",
+                      )}
+                    >
+                      {cohort.cluster}
+                    </span>
+                    <span className="flex shrink-0 items-center justify-center text-blue-400 transition-colors group-hover:text-blue-300 dark:text-blue-300 dark:group-hover:text-blue-200" aria-hidden>
+                      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 min-h-[3rem]">
+                    <p
+                      className={cn(
+                        "font-semibold tabular-nums text-foreground",
+                        "leading-[0.92] tracking-[-0.028em]",
+                        isPrimary ? "text-[31px]" : "text-[26px]",
+                      )}
+                    >
+                      {cohort.value}
+                    </p>
+                    <p className="mt-1.5 text-[11px] font-medium leading-[1.25] tracking-[-0.01em] text-foreground/64">
+                      {cohort.label}
+                    </p>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "mt-4 border-t pt-3 dark:border-white/[0.1]",
+                      isPrimary ? "border-border/58 dark:border-white/[0.115]" : "border-border/40",
+                    )}
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
+                        {cohort.timeframe}
+                      </span>
+                      <div className="flex shrink-0 items-baseline justify-end gap-2">
+                        <RotatingCohortTrendText
+                          stats={cohort.trendStats}
+                          initialDelayMs={2200 + cohortIdx * 550}
+                        />
+                        <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={isPrimary} />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            }
+
             return (
               <button
                 key={cohort.id}
@@ -1216,56 +2080,49 @@ export function CommunityView({
                     : "border border-border bg-card shadow-sm hover:border-accent/40",
                 ].join(" ")}
               >
-                {/* Top row: category label left, icon right */}
                 <div className="flex items-center justify-between">
-                  <span className={[
-                    "text-[9px] font-semibold uppercase tracking-[0.1em]",
-                    isPrimary ? "text-accent/80" : "text-muted-foreground/60",
-                  ].join(" ")}>
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60">
                     {cohort.cluster}
                   </span>
-                  <Icon className={[
-                    "h-3.5 w-3.5",
-                    isPrimary ? "text-accent/60" : "text-muted-foreground/50",
-                  ].join(" ")} />
+                  <Icon
+                    className={[
+                      "h-3.5 w-3.5",
+                      isPrimary ? "text-accent/60" : "text-muted-foreground/50",
+                    ].join(" ")}
+                  />
                 </div>
 
-                {/* Middle: number + label */}
                 <div className="mt-3">
-                  <p className={[
-                    "leading-none font-bold tracking-tight transition-colors",
-                    isPrimary
-                      ? "text-[32px] text-foreground group-hover:text-accent"
-                      : "text-[26px] text-foreground group-hover:text-accent",
-                  ].join(" ")}>
+                  <p
+                    className={[
+                      "leading-none font-bold tracking-tight transition-colors",
+                      isPrimary
+                        ? "text-[32px] text-foreground group-hover:text-accent"
+                        : "text-[26px] text-foreground group-hover:text-accent",
+                    ].join(" ")}
+                  >
                     {cohort.value}
                   </p>
-                  <p className="mt-1.5 text-[12px] font-semibold text-foreground leading-tight">
-                    {cohort.label}
-                  </p>
+                  <p className="mt-1.5 text-[12px] font-semibold text-foreground leading-tight">{cohort.label}</p>
                 </div>
 
-                {/* Bottom row: timeframe left, trend + sparkline right */}
-                <div className="mt-3 flex items-end justify-between gap-2">
-                  <p className="text-[10px] text-muted-foreground">{cohort.timeframe}</p>
-                  <div className="flex items-end gap-2">
-                    <span className={[
-                      "text-[10px] font-medium whitespace-nowrap",
-                      cohort.trendUp ? "text-emerald-600" : "text-rose-500",
-                    ].join(" ")}>
-                      {cohort.trend}
+                {/* Same footer strip as investor-search / Operators cohort cards */}
+                <div
+                  className={cn(
+                    "mt-4 border-t pt-3 dark:border-white/[0.1]",
+                    isPrimary ? "border-border/58 dark:border-white/[0.115]" : "border-border/40",
+                  )}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
+                      {cohort.timeframe}
                     </span>
-                    <div className="flex items-end gap-[2px]" aria-hidden>
-                      {cohort.sparkline.map((bar, idx) => (
-                        <span
-                          key={`${cohort.id}-${idx}`}
-                          className={[
-                            "w-[3px] rounded-[2px]",
-                            isPrimary ? "bg-accent/50" : "bg-muted-foreground/30",
-                          ].join(" ")}
-                          style={{ height: `${Math.max(4, bar * 2)}px` }}
-                        />
-                      ))}
+                    <div className="flex shrink-0 items-baseline justify-end gap-2">
+                      <RotatingCohortTrendText
+                        stats={cohort.trendStats}
+                        initialDelayMs={2200 + cohortIdx * 550}
+                      />
+                      <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={isPrimary} />
                     </div>
                   </div>
                 </div>
@@ -1301,43 +2158,114 @@ export function CommunityView({
 
       
 
-      {/* ═══════ Carousel: Suggested ═══════ */}
-      {scopedSuggested.length > 0 &&
-      <div className="pt-4">
-          <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile" onViewAll={handleViewAll}>
-            {scopedSuggested.map((entry, i) =>
-          <CarouselCard key={`suggested-${i}`} founder={entry} anchorVcFirmId={investorAnchorVcFirmId(entry)} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
-          )}
-          </FounderCarousel>
+      {/* ═══════ Suggested + Trending: investor-search & Operators hub = 2-col rails; else carousels ═══════ */}
+      {showInvestorRails || showOperatorRails ? (
+        <div className="pt-4">
+          <InvestorSuggestedTrendingRails
+            rowKind={showOperatorRails ? "operator" : "investor"}
+            suggested={(showOperatorRails ? operatorRailSuggested : investorRailSuggested).map((e) =>
+              showOperatorRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e),
+            )}
+            trending={(showOperatorRails ? operatorRailTrending : investorRailTrending).map((e) =>
+              showOperatorRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e),
+            )}
+            suggestedTitle={carouselTitles.suggested}
+            suggestedSubtitle="Curated matches based on your profile"
+            trendingTitle={carouselTitles.trending}
+            trendingSubtitle="Most active this week"
+            onViewAllSuggested={handleViewAll}
+            onViewAllTrending={handleViewAll}
+            onPreviewClick={showOperatorRails ? handleOperatorPreviewClick : handleInvestorPreviewClick}
+            onDeployingClick={showOperatorRails ? undefined : handleInvestorPreviewDeploying}
+            anchorVcFirmId={(inv) => {
+              if (showOperatorRails) return null;
+              const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
+              return entry ? investorAnchorVcFirmId(entry) : null;
+            }}
+          />
         </div>
-      }
-
-      {/* ═══════ Carousel: Trending ═══════ */}
-      {scopedTrending.length > 0 &&
-      <div className="pt-4">
-          <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week" onViewAll={handleViewAll}>
-            {scopedTrending.map((entry, i) =>
-          <CarouselCard key={`trending-${i}`} founder={entry} trending anchorVcFirmId={investorAnchorVcFirmId(entry)} onClick={() => entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry)} onDeployingClick={() => handleDeployingClick(entry)} />
+      ) : !isInvestorSearch && !isOperatorHubLayout ? (
+        <>
+          {scopedSuggested.length > 0 && (
+            <div className="pt-4">
+              <FounderCarousel title={carouselTitles.suggested} subtitle="Curated matches based on your profile" onViewAll={handleViewAll}>
+                {scopedSuggested.map((entry, i) => (
+                  <CarouselCard
+                    key={`suggested-${i}`}
+                    founder={entry}
+                    anchorVcFirmId={investorAnchorVcFirmId(entry)}
+                    onClick={() => (entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry))}
+                    onDeployingClick={() => handleDeployingClick(entry)}
+                  />
+                ))}
+              </FounderCarousel>
+            </div>
           )}
-          </FounderCarousel>
-        </div>
-      }
+          {scopedTrending.length > 0 && (
+            <div className="pt-4">
+              <FounderCarousel title={carouselTitles.trending} subtitle="Most active this week" onViewAll={handleViewAll}>
+                {scopedTrending.map((entry, i) => (
+                  <CarouselCard
+                    key={`trending-${i}`}
+                    founder={entry}
+                    trending
+                    anchorVcFirmId={investorAnchorVcFirmId(entry)}
+                    onClick={() => (entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry))}
+                    onDeployingClick={() => handleDeployingClick(entry)}
+                  />
+                ))}
+              </FounderCarousel>
+            </div>
+          )}
+        </>
+      ) : null}
 
       {/* ═══════ All Grid ═══════ */}
       <div className="space-y-3 pt-4" data-section="all-grid">
           {/* Dynamic header for investor tabs */}
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground">
-                {isInvestorSearch ? investorTabHeader.title : `All ${labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}`}
+                {isInvestorSearch
+                  ? investorTabHeader.title
+                  : isOperatorHubLayout
+                    ? operatorHubHeader.title
+                    : `All ${labels.plural.charAt(0).toUpperCase() + labels.plural.slice(1)}`}
               </h2>
-              {isInvestorSearch && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">{investorTabHeader.subtitle}</p>
+              {(isInvestorSearch || isOperatorHubLayout) && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {isInvestorSearch ? investorTabHeader.subtitle : operatorHubHeader.subtitle}
+                </p>
               )}
             </div>
-            <span className="text-[10px] text-muted-foreground font-mono uppercase">
-              {`${visibleFounders.length} of ${textFilteredEntries.length} ${isInvestorSearch ? "investors" : labels.plural}`}
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              {(isInvestorSearch || isOperatorHubLayout) && (
+                <Select
+                  value={investorSort}
+                  onValueChange={(v) => setInvestorSort(v as InvestorSortValue)}
+                >
+                  <SelectTrigger
+                    aria-label={isOperatorHubLayout ? "Sort operators" : "Sort investors"}
+                    className="h-8 w-[min(100%,11.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[11.5rem]"
+                  >
+                    <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent align="end" className="min-w-[12rem]">
+                    {INVESTOR_SORT_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <span className="text-[10px] text-muted-foreground font-mono uppercase tabular-nums">
+                {`${visibleFounders.length} of ${gridEntries.length} ${
+                  isInvestorSearch ? "investors" : isOperatorHubLayout ? "operators" : labels.plural
+                }`}
+              </span>
+            </div>
           </div>
 
           {/* Smart empty states for missing profile context */}
@@ -1368,7 +2296,7 @@ export function CommunityView({
           ) : visibleFounders.length > 0 ? (
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeInvestorTab}
+                key={isOperatorHubLayout ? "operators-hub" : activeInvestorTab}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -1379,6 +2307,7 @@ export function CommunityView({
                     <FounderCard
                       key={`all-${founder.category === "investor" ? investorAnchorVcFirmId(founder) ?? founder.name : founder._profileId ?? founder.name}-${i}`}
                       founder={founder}
+                      operatorHubLayout={isOperatorHubLayout}
                       anchorVcFirmId={investorAnchorVcFirmId(founder)}
                       onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)}
                       onDeployingClick={() => handleDeployingClick(founder)}
@@ -1412,12 +2341,16 @@ export function CommunityView({
               <p className="text-sm font-medium text-foreground mb-1">
                 {isInvestorSearch && activeInvestorTab === "matches"
                   ? "No Matches Yet"
-                  : "Entity Not Found"}
+                  : isOperatorHubLayout
+                    ? "No operators yet"
+                    : "Entity Not Found"}
               </p>
               <p className="text-xs text-muted-foreground max-w-sm">
                 {isInvestorSearch && activeInvestorTab === "matches"
                   ? "Update your company profile to unlock AI-driven investor matching."
-                  : `No ${isInvestorSearch ? "investors" : labels.plural} match your current criteria. Try adjusting your filters.`}
+                  : isOperatorHubLayout
+                    ? "No operators match your current filters. Try another tab or widen your search."
+                    : `No ${isInvestorSearch ? "investors" : labels.plural} match your current criteria. Try adjusting your filters.`}
               </p>
               {isInvestorSearch && (
                 <button
@@ -1491,11 +2424,11 @@ export function CommunityView({
                     <div className="mb-1 flex flex-col gap-0.5">
                       <span className={[
                         "text-[11px] font-medium",
-                        cohort.trendUp ? "text-emerald-600" : "text-rose-500",
+                        cohort.trendStats[0].trendUp ? "text-emerald-600" : "text-rose-500",
                       ].join(" ")}>
-                        {cohort.trend}
+                        {cohort.trendStats[0].trend}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">{cohort.timeframe}</span>
+                      <span className="whitespace-nowrap text-[10px] text-muted-foreground">{cohort.timeframe}</span>
                     </div>
                     <div className="mb-1.5 ml-auto flex items-end gap-[2px]" aria-hidden>
                       {cohort.sparkline.map((bar, idx) => (

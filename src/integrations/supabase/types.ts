@@ -514,6 +514,7 @@ export type Database = {
       firm_records: {
         Row: {
           address: string | null
+          aliases: string[]
           angellist_url: string | null
           aum: string | null
           beehiiv_url: string | null
@@ -606,6 +607,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          aliases?: string[]
           angellist_url?: string | null
           aum?: string | null
           beehiiv_url?: string | null

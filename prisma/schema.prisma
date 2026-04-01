@@ -162,6 +162,92 @@ enum DeadLetterStatus {
   RESOLVED         @map("Resolved")
 }
 
+// --- Operator Network Graph Enums ---
+
+/// Normalized functional area for an operator role.
+enum OperatorFunction {
+  PRODUCT
+  ENGINEERING
+  GTM
+  SALES
+  MARKETING
+  FINANCE
+  OPERATIONS
+  LEGAL
+  DESIGN
+  DATA
+  GENERAL_MANAGEMENT
+  PEOPLE_HR
+  CUSTOMER_SUCCESS
+  OTHER
+}
+
+/// Inferred seniority tier for an operator role.
+enum OperatorSeniority {
+  INDIVIDUAL_CONTRIBUTOR
+  MANAGER
+  DIRECTOR
+  VP
+  C_SUITE
+  FOUNDER
+  ADVISOR
+  BOARD
+}
+
+/// Activity / freshness signal category for an operator or company.
+enum OperatorSignalType {
+  JOB_CHANGE
+  PROMOTION
+  NEW_ADVISORY_ROLE
+  CONTENT_PUBLISHED
+  SPEAKING_APPEARANCE
+  MEDIA_MENTION
+  COMPANY_MILESTONE
+  JOB_POSTING_DETECTED
+  OPEN_TO_ADVISING
+  FUNDING_NEWS
+  OTHER
+}
+
+/// Directed relationship type between two operators, or an operator and a company.
+enum OperatorEdgeType {
+  WORKED_WITH
+  REPORTED_TO
+  COFOUNDED
+  INVESTED_IN
+  ADVISED
+  HIRED
+  INTRODUCED
+  BOARD_MEMBER
+  PEER
+}
+
+/// Company lifecycle stage (operator-graph context; covers portfolio + big-cos).
+enum OperatorCompanyStage {
+  PRE_SEED
+  SEED
+  SERIES_A
+  SERIES_B
+  SERIES_C
+  GROWTH
+  PUBLIC
+  BOOTSTRAPPED
+  ACQUIRED
+  SHUTDOWN
+  UNKNOWN
+}
+
+/// Approximate headcount band for an operator company.
+/// SOLO=1, MICRO=2-10, SMALL=11-50, MID=51-200, LARGE=201-1000, ENTERPRISE=1000+
+enum CompanyHeadcountBand {
+  SOLO
+  MICRO
+  SMALL
+  MID
+  LARGE
+  ENTERPRISE
+}
+
 // =============================================================================
 // VCFirm
 // =============================================================================
@@ -290,7 +376,7 @@ model VCFirmAlias {
   @@map("vc_firm_aliases")
 }
 
-/// Parsed SEC Form D filing (Regulation D). VC_FUND rows link to vc_firms + vc_funds; STARTUP rows stand in for issuer “company” until claimed in product.
+/// Parsed SEC Form D filing (Regulation D). VC_FUND rows link to vc_firms + vc_funds; STARTUP rows stand in for issuer "company" until claimed in product.
 model RegDFiling {
   id                 String         @id @default(cuid())
   kind               RegDFilingKind
@@ -700,7 +786,7 @@ model StartupProfessional {
   prevStartups    String[]  @default([]) @map("prev_startups")
   ycBatch         String?   @map("yc_batch")
   phMaker         Boolean   @default(false) @map("ph_maker")
-  /// Posts shipped as maker (for “2+ launches” style filters)
+  /// Posts shipped as maker (for "2+ launches" style filters)
   phLaunchCount   Int       @default(0) @map("ph_launch_count")
   githubHandle    String?   @map("github_handle")
   githubStars     Int       @default(0) @map("github_stars")
@@ -716,7 +802,43 @@ model StartupProfessional {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  changeLogs StartupProfessionalChangeLog[]
+  // --- Operator Graph Extensions ---
+  /// Short bio / headline (Apollo headline, PDL summary, or first-party)
+  bioSummary         String?           @map("bio_summary") @db.Text
+  avatarUrl          String?           @map("avatar_url")
+  xUrl               String?           @map("x_url")
+  websiteUrl         String?           @map("website_url")
+
+  /// Normalized functional area (mapped from title via taxonomy worker)
+  normalizedFunction  OperatorFunction? @map("normalized_function")
+  /// Normalized seniority tier (mapped from title via taxonomy worker)
+  normalizedSeniority OperatorSeniority? @map("normalized_seniority")
+
+  /// Startup-specific capability tags: "B2B SaaS GTM", "enterprise sales", "marketplace ops"
+  expertiseTags String[] @default([]) @map("expertise_tags")
+  /// Industry verticals: "fintech", "healthtech", "construction tech"
+  industries    String[] @default([]) @map("industries")
+  /// Stage experience: "seed", "series_a", "series_b_plus"
+  stages        String[] @default([]) @map("stages")
+
+  /// Apollo people ID - enrichment idempotency key
+  apolloId         String?   @unique @map("apollo_id")
+  /// People Data Labs person ID
+  pdlId            String?   @map("pdl_id")
+  /// 0-100 overall data confidence (completeness x source quality)
+  confidenceScore  Int?      @map("confidence_score")
+  lastEnrichedAt   DateTime? @map("last_enriched_at") @db.Timestamptz(6)
+
+  /// FK to current employer in operator_companies (optional)
+  currentCompanyId String?         @map("current_company_id")
+  currentCompany   OperatorCompany? @relation("CurrentEmployer", fields: [currentCompanyId], references: [id], onDelete: SetNull)
+
+  changeLogs    StartupProfessionalChangeLog[]
+  experiences   OperatorExperience[]
+  signals       OperatorSignal[]
+  reputation    OperatorReputation?
+  relationsFrom OperatorRelationship[] @relation("RelationshipSource")
+  relationsTo   OperatorRelationship[] @relation("RelationshipTarget")
 
   @@unique([fullName, currentStartup], map: "startup_professionals_full_name_current_startup_key")
   @@index([ycBatch])
@@ -727,6 +849,11 @@ model StartupProfessional {
   @@index([location])
   @@index([phLaunchCount])
   @@index([lastSeenAt])
+  @@index([normalizedFunction])
+  @@index([normalizedSeniority])
+  @@index([currentCompanyId])
+  @@index([confidenceScore])
+  @@index([lastEnrichedAt])
   @@map("startup_professionals")
 }
 
@@ -749,6 +876,237 @@ model StartupProfessionalChangeLog {
   @@index([createdAt])
   @@map("startup_professional_changelogs")
 }
+
+// =============================================================================
+// Operator Network Graph Models
+// =============================================================================
+
+/// Company entity for the operator graph.
+/// Covers portfolio companies, big-cos, pre-IPO firms, and any employer.
+/// Distinct from vc_firms (investor entities) and startups (minimal table).
+model OperatorCompany {
+  id   String @id @default(cuid())
+  name String
+
+  /// Canonical domain (lowercase, no www) — primary deduplication key.
+  domain        String? @unique
+  description   String? @db.Text
+  logoUrl       String? @map("logo_url")
+  websiteUrl    String? @map("website_url")
+  linkedinUrl   String? @map("linkedin_url")
+  xUrl          String? @map("x_url")
+  crunchbaseUrl String? @map("crunchbase_url")
+
+  /// Primary sector for indexing; sectors[] for multi-tag.
+  sector        SectorFocus?
+  sectors       SectorFocus[]
+  /// B2B, B2C, B2B2C, marketplace, etc.
+  businessModel String? @map("business_model")
+
+  stage         OperatorCompanyStage  @default(UNKNOWN)
+  headcountBand CompanyHeadcountBand? @map("headcount_band")
+  headcount     Int?
+
+  hqCity    String? @map("hq_city")
+  hqState   String? @map("hq_state")
+  hqCountry String? @map("hq_country")
+
+  fundingStatus     String?   @map("funding_status")
+  totalRaisedUsd    Decimal?  @map("total_raised_usd") @db.Decimal(15, 2)
+  latestFundingDate DateTime? @map("latest_funding_date") @db.Date
+  /// Denormalized list of investor names for fast display.
+  investors         String[]  @default([])
+
+  /// Populated by Greenhouse / Ashby signal scripts.
+  activeJobCount   Int?      @map("active_job_count")
+  lastJobPostedAt  DateTime? @map("last_job_posted_at") @db.Timestamptz(6)
+
+  apolloOrgId    String? @unique @map("apollo_org_id")
+  pdlCompanyId   String? @unique @map("pdl_company_id")
+  latestActivityAt DateTime? @map("latest_activity_at") @db.Timestamptz(6)
+  lastEnrichedAt   DateTime? @map("last_enriched_at") @db.Timestamptz(6)
+  dataSource       String?   @map("data_source")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  currentEmployees OperatorExperience[]              @relation("CompanyExperiences")
+  signals          OperatorSignal[]
+  relationships    OperatorRelationship[]             @relation("RelationshipTargetCompany")
+  currentEmployer  StartupProfessional[]              @relation("CurrentEmployer")
+
+  @@index([name])
+  @@index([sector])
+  @@index([stage])
+  @@index([hqCountry, hqState, hqCity])
+  @@index([deletedAt])
+  @@index([lastEnrichedAt])
+  @@map("operator_companies")
+}
+
+/// Normalized employment timeline entry.
+/// One row per distinct role; multiple rows per company when promoted.
+model OperatorExperience {
+  id        String              @id @default(cuid())
+  personId  String              @map("person_id")
+  companyId String?             @map("company_id")
+  person    StartupProfessional @relation(fields: [personId], references: [id], onDelete: Cascade)
+  company   OperatorCompany?    @relation("CompanyExperiences", fields: [companyId], references: [id], onDelete: SetNull)
+
+  /// Raw title exactly as ingested — preserved for audit and re-normalization.
+  titleRaw       String @map("title_raw")
+  /// Denormalized company name for when company isn't yet resolved.
+  companyNameRaw String @map("company_name_raw")
+
+  titleNormalized     String?            @map("title_normalized")
+  functionNormalized  OperatorFunction?  @map("function_normalized")
+  seniorityNormalized OperatorSeniority? @map("seniority_normalized")
+
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  isCurrent Boolean   @default(false) @map("is_current")
+  /// True when same company + higher seniority than prior role (inferred).
+  isPromotion Boolean @default(false) @map("is_promotion")
+
+  description String? @db.Text
+  dataSource  String? @map("data_source")
+  /// 0–1 confidence on this record.
+  confidence  Float?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([personId])
+  @@index([companyId])
+  @@index([isCurrent])
+  @@index([startDate])
+  @@index([functionNormalized])
+  @@index([seniorityNormalized])
+  @@map("operator_experiences")
+}
+
+/// Freshness and activity signal for a person or company.
+/// Sources: Greenhouse/Ashby (job postings), Apollo (job changes), GDELT (news), manual.
+model OperatorSignal {
+  id         String @id @default(cuid())
+  /// "person" | "company"
+  entityType String @map("entity_type")
+  personId   String? @map("person_id")
+  companyId  String? @map("company_id")
+
+  person  StartupProfessional? @relation(fields: [personId], references: [id], onDelete: SetNull)
+  company OperatorCompany?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  signalType  OperatorSignalType @map("signal_type")
+  title       String
+  description String?            @db.Text
+  url         String?
+
+  /// "greenhouse" | "ashby" | "gdelt" | "apollo" | "manual"
+  source          String
+  occurredAt      DateTime? @map("occurred_at") @db.Timestamptz(6)
+  /// 0–100 confidence on signal accuracy.
+  confidenceScore Int?      @map("confidence_score")
+  /// Arbitrary extra payload from source (job req details, article metadata, etc.)
+  metadata        Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([personId])
+  @@index([companyId])
+  @@index([signalType])
+  @@index([occurredAt])
+  @@index([source])
+  @@index([deletedAt])
+  @@map("operator_signals")
+}
+
+/// Trust and credibility layer — one row per operator.
+/// Populated from first-party platform activity: founder reviews, intros, outcomes.
+model OperatorReputation {
+  id       String              @id @default(cuid())
+  personId String              @unique @map("person_id")
+  person   StartupProfessional @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  /// Founder-submitted ratings
+  ratingCount Int    @default(0) @map("rating_count")
+  /// 0–5 composite score
+  avgRating   Float? @map("avg_rating")
+
+  founderEndorsementCount  Int @default(0) @map("founder_endorsement_count")
+  investorEndorsementCount Int @default(0) @map("investor_endorsement_count")
+
+  /// 0–1: fraction of intro requests accepted
+  introAcceptRate      Float? @map("intro_accept_rate")
+  /// 0–100: faster response = higher
+  responseTimeScore    Int?   @map("response_time_score")
+  /// 0–1: fraction of founders who re-engaged this operator
+  repeatEngagementRate Float? @map("repeat_engagement_rate")
+
+  /// Self-reported or inferred availability
+  openToAdvising       Boolean? @map("open_to_advising")
+  openToFractional     Boolean? @map("open_to_fractional")
+  openToFullTime       Boolean? @map("open_to_full_time")
+  /// "advisor" | "fractional" | "full-time" | "board"
+  engagementPreference String?  @map("engagement_preference")
+  /// "cash" | "equity" | "mixed"
+  preferredCompModel   String?  @map("preferred_comp_model")
+
+  /// 0–100 composite credibility (recomputed by scoring worker)
+  credibilityScore Int?      @map("credibility_score")
+  lastComputedAt   DateTime? @map("last_computed_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([credibilityScore])
+  @@index([openToAdvising])
+  @@index([avgRating])
+  @@map("operator_reputation")
+}
+
+/// Directed graph edge between operators, or an operator and a company.
+/// Enables queries like "operators trusted by seed fintech founders in LA."
+model OperatorRelationship {
+  id             String @id @default(cuid())
+  sourcePersonId String @map("source_person_id")
+  /// Exactly one of targetPersonId / targetCompanyId must be non-null.
+  targetPersonId  String? @map("target_person_id")
+  targetCompanyId String? @map("target_company_id")
+
+  sourcePerson  StartupProfessional  @relation("RelationshipSource", fields: [sourcePersonId], references: [id], onDelete: Cascade)
+  targetPerson  StartupProfessional? @relation("RelationshipTarget", fields: [targetPersonId], references: [id], onDelete: Cascade)
+  targetCompany OperatorCompany?     @relation("RelationshipTargetCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
+
+  edgeType OperatorEdgeType @map("edge_type")
+  /// "apollo" | "user_submission" | "co_employment" | "manual"
+  source     String?
+  /// 0–1 confidence on this edge
+  confidence Float?
+  /// 0–100 relationship strength (decays without refresh)
+  strength   Int?
+  notes      String? @db.Text
+
+  firstSeenAt DateTime? @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt  DateTime? @map("last_seen_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([sourcePersonId, targetPersonId, edgeType], map: "operator_relationships_person_person_edge_key")
+  @@index([sourcePersonId])
+  @@index([targetPersonId])
+  @@index([targetCompanyId])
+  @@index([edgeType])
+  @@map("operator_relationships")
+}
+
+// =============================================================================
+// Dead Letter Queue
+// =============================================================================
 
 /// Dead-letter queue for failed ingest / enrichment operations.
 /// Stores raw payloads so failed writes can be retried or resolved manually.
