@@ -491,7 +491,17 @@ const SOURCES: SourceConfig[] = [
   },
 ];
 
-
+/** Labels + icons for integrations the user marked connected (Settings → Network). */
+export function getConnectedSensorIntegrations(): { key: SourceKey; label: string; iconUrl?: string }[] {
+  const c = loadConnected();
+  return ALL_KEYS.filter((k) => c[k])
+    .map((key) => {
+      const s = SOURCES.find((x) => x.key === key);
+      if (!s) return null;
+      return { key, label: s.label, iconUrl: s.customIcon };
+    })
+    .filter((row): row is { key: SourceKey; label: string; iconUrl?: string } => row != null);
+}
 
 const SECTIONS: { key: SensorSection; label: string; sub: string }[] = [
   { key: "recommended", label: "RECOMMENDED", sub: "Connect these first — highest impact on your matches" },

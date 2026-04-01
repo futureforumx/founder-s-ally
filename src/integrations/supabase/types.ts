@@ -1130,63 +1130,200 @@ export type Database = {
           },
         ]
       }
+      profile_field_provenance: {
+        Row: {
+          id: string
+          profile_id: string
+          field_name: string
+          source_type: Database["public"]["Enums"]["profile_field_source_type"]
+          source_detail: Json | null
+          confidence: number | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          field_name: string
+          source_type: Database["public"]["Enums"]["profile_field_source_type"]
+          source_detail?: Json | null
+          confidence?: number | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          field_name?: string
+          source_type?: Database["public"]["Enums"]["profile_field_source_type"]
+          source_detail?: Json | null
+          confidence?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_field_provenance_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          actions_last_30d: number | null
           avatar_url: string | null
           bio: string | null
+          capital_raised_lifetime: number | null
+          city: string | null
+          community_tags: string[]
+          company_departed_at: string | null
           company_id: string | null
+          company_joined_at: string | null
+          company_role: string | null
+          country: string | null
           created_at: string
+          current_role_title: string | null
+          domains_of_expertise: string[]
+          engagement_score: number | null
+          founder_role: string | null
+          founder_seniority: string | null
+          fundraising_experience_level: string | null
           full_name: string
+          gtm_experience: string | null
           has_completed_onboarding: boolean
+          has_prior_exit: boolean | null
           has_seen_settings_tour: boolean
+          hiring_experience_level: string | null
           id: string
+          intro_preferences: string[]
+          intros_made_count: number | null
           is_public: boolean
+          last_active_at: string | null
+          leadership_style: string | null
           linkedin_url: string | null
           location: string | null
+          management_experience_level: string | null
+          playbooks_used_count: number | null
+          preferred_help_areas: string[]
+          primary_expertise: string | null
+          prior_exits_count: number | null
+          prior_startups_count: number
+          region: string | null
           resume_url: string | null
+          risk_tolerance: string | null
+          timezone: string | null
           title: string | null
           twitter_url: string | null
           updated_at: string
           user_id: string
           user_type: string
+          willing_to_advise: boolean | null
+          working_style: string | null
+          years_experience: number | null
         }
         Insert: {
+          actions_last_30d?: number | null
           avatar_url?: string | null
           bio?: string | null
+          capital_raised_lifetime?: number | null
+          city?: string | null
+          community_tags?: string[]
+          company_departed_at?: string | null
           company_id?: string | null
+          company_joined_at?: string | null
+          company_role?: string | null
+          country?: string | null
           created_at?: string
+          current_role_title?: string | null
+          domains_of_expertise?: string[]
+          engagement_score?: number | null
+          founder_role?: string | null
+          founder_seniority?: string | null
+          fundraising_experience_level?: string | null
           full_name?: string
+          gtm_experience?: string | null
           has_completed_onboarding?: boolean
+          has_prior_exit?: boolean | null
           has_seen_settings_tour?: boolean
+          hiring_experience_level?: string | null
           id?: string
+          intro_preferences?: string[]
+          intros_made_count?: number | null
           is_public?: boolean
+          last_active_at?: string | null
+          leadership_style?: string | null
           linkedin_url?: string | null
           location?: string | null
+          management_experience_level?: string | null
+          playbooks_used_count?: number | null
+          preferred_help_areas?: string[]
+          primary_expertise?: string | null
+          prior_exits_count?: number | null
+          prior_startups_count?: number
+          region?: string | null
           resume_url?: string | null
+          risk_tolerance?: string | null
+          timezone?: string | null
           title?: string | null
           twitter_url?: string | null
           updated_at?: string
           user_id: string
           user_type?: string
+          willing_to_advise?: boolean | null
+          working_style?: string | null
+          years_experience?: number | null
         }
         Update: {
+          actions_last_30d?: number | null
           avatar_url?: string | null
           bio?: string | null
+          capital_raised_lifetime?: number | null
+          city?: string | null
+          community_tags?: string[]
+          company_departed_at?: string | null
           company_id?: string | null
+          company_joined_at?: string | null
+          company_role?: string | null
+          country?: string | null
           created_at?: string
+          current_role_title?: string | null
+          domains_of_expertise?: string[]
+          engagement_score?: number | null
+          founder_role?: string | null
+          founder_seniority?: string | null
+          fundraising_experience_level?: string | null
           full_name?: string
+          gtm_experience?: string | null
           has_completed_onboarding?: boolean
+          has_prior_exit?: boolean | null
           has_seen_settings_tour?: boolean
+          hiring_experience_level?: string | null
           id?: string
+          intro_preferences?: string[]
+          intros_made_count?: number | null
           is_public?: boolean
+          last_active_at?: string | null
+          leadership_style?: string | null
           linkedin_url?: string | null
           location?: string | null
+          management_experience_level?: string | null
+          playbooks_used_count?: number | null
+          preferred_help_areas?: string[]
+          primary_expertise?: string | null
+          prior_exits_count?: number | null
+          prior_startups_count?: number
+          region?: string | null
           resume_url?: string | null
+          risk_tolerance?: string | null
+          timezone?: string | null
           title?: string | null
           twitter_url?: string | null
           updated_at?: string
           user_id?: string
           user_type?: string
+          willing_to_advise?: boolean | null
+          working_style?: string | null
+          years_experience?: number | null
         }
         Relationships: [
           {
@@ -1936,6 +2073,64 @@ export type Database = {
         }
         Relationships: []
       }
+      /** Read-only view; coalesced counters. App uses `profiles` + profileRead.ts — see that file. */
+      profiles_app_read: {
+        Row: {
+          actions_last_30d: number
+          avatar_url: string | null
+          bio: string | null
+          capital_raised_lifetime: number | null
+          city: string | null
+          community_tags: string[]
+          company_departed_at: string | null
+          company_id: string | null
+          company_joined_at: string | null
+          company_role: string | null
+          country: string | null
+          created_at: string
+          current_role_title: string | null
+          domains_of_expertise: string[]
+          engagement_score: number | null
+          founder_role: string | null
+          founder_seniority: string | null
+          fundraising_experience_level: string | null
+          full_name: string
+          gtm_experience: string | null
+          has_completed_onboarding: boolean
+          has_prior_exit: boolean | null
+          has_seen_settings_tour: boolean
+          hiring_experience_level: string | null
+          id: string
+          intro_preferences: string[]
+          intros_made_count: number
+          is_public: boolean
+          last_active_at: string | null
+          leadership_style: string | null
+          linkedin_url: string | null
+          location: string | null
+          management_experience_level: string | null
+          playbooks_used_count: number
+          preferred_help_areas: string[]
+          primary_expertise: string | null
+          prior_exits_count: number
+          prior_startups_count: number
+          region: string | null
+          resume_url: string | null
+          risk_tolerance: string | null
+          timezone: string | null
+          title: string | null
+          twitter_url: string | null
+          updated_at: string
+          user_id: string
+          user_type: string
+          willing_to_advise: boolean | null
+          working_style: string | null
+          years_experience: number | null
+        }
+        Insert: Record<string, never>
+        Update: Record<string, never>
+        Relationships: []
+      }
     }
     Functions: {
       find_connections_by_investor: {
@@ -2018,6 +2213,12 @@ export type Database = {
     Enums: {
       app_permission: "user" | "manager" | "admin" | "god"
       entity_type: "Institutional" | "Micro" | "Solo GP" | "Angel" | "Corporate (CVC)" | "Family Office" | "Accelerator / Studio" | "Syndicate" | "Fund of Funds"
+      profile_field_source_type:
+        | "user_entered"
+        | "imported"
+        | "inferred"
+        | "computed"
+        | "admin_set"
       firm_strategy_classification:
         | "THESIS_DRIVEN"
         | "GENERALIST"
@@ -2160,6 +2361,7 @@ export const Constants = {
     Enums: {
       app_permission: ["user", "manager", "admin", "god"],
       entity_type: ["Institutional", "Micro", "Solo GP", "Angel", "Corporate (CVC)", "Family Office", "Accelerator / Studio", "Syndicate", "Fund of Funds"],
+      profile_field_source_type: ["user_entered", "imported", "inferred", "computed", "admin_set"],
       firm_strategy_classification: [
         "THESIS_DRIVEN",
         "GENERALIST",

@@ -73,6 +73,7 @@ async function sbInsert(table: string, data: Record<string, any>): Promise<strin
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST", headers: { ...SB, Prefer: "return=representation" }, body: JSON.stringify(data),
   });
+  if (res.status === 409) return null; // duplicate — already exists, skip silently
   if (!res.ok) { console.warn(`  ✗ INSERT failed ${table}: ${res.status} ${await res.text().catch(() => "")}`); return null; }
   const rows = await res.json();
   return rows?.[0]?.id ?? null;
@@ -166,19 +167,21 @@ function parseCheckSize(raw: string): number | null {
   let n = parseFloat(m[1]);
   const s = m[2].toUpperCase();
   if (s === "K") n *= 1_000; if (s === "M") n *= 1_000_000; if (s === "B") n *= 1_000_000_000;
-  return Math.round(n);
+  const result = Math.round(n);
+  if (result <= 0) return null;              // never return 0 — violates chk_fr_check_size_range
+  if (result > 2_147_483_647) return null;   // exceeds Postgres integer max
+  return result;
 }
 
 // ── Entity type mapping ───────────────────────────────────────────────────────
 function mapEntityType(raw: string): string | null {
   const t = (raw || "").toLowerCase();
   if (/\bvc\b|venture capital|institutional/i.test(t))       return "Institutional";
-  if (/family.?office/i.test(t))                            return "Family Office";
-  if (/angel.?network/i.test(t))                            return "Angel network";
+  if (/family.?office/i.test(t))                            return "Institutional";
+  if (/angel.?network|angel\s+group/i.test(t))             return "Solo GP";
   if (/\bangel\b/i.test(t))                                 return "Solo GP";
   if (/corporate|cvc/i.test(t))                             return "Corporate (CVC)";
-  if (/accelerator|incubator/i.test(t))                     return "Accelerator / Studio";
-  if (/studio/i.test(t))                                    return "Accelerator / Studio";
+  if (/accelerator|incubator|studio/i.test(t))             return "Institutional";
   if (/micro/i.test(t))                                     return "Micro";
   if (/pe\b|private.?equity/i.test(t))                      return "Institutional";
   return null;
@@ -318,11 +321,7 @@ async function main() {
     if (n) nameToId.set(n, f.id);
     const d = domainFromUrl(f.website_url || "");
     if (d) domainToId.set(d, f.id);
-    // Also index existing aliases[] array
-    for (const alias of (f.aliases || [])) {
-      const an = norm(alias);
-      if (an) nameToId.set(an, f.id);
-    }
+    // (aliases column does not exist in schema — skipped)
   }
 
   console.log(`  DB: ${dbFirms.length} firms loaded\n`);
@@ -338,41 +337,18 @@ async function main() {
     return null;
   }
 
-  // Helper: register name/domain in local dedup maps (aliases[] col is updated in bulk at end)
-  // We collect new aliases and flush them per-firm via PATCH to firm_records.aliases
-  const pendingAliases = new Map<string, Set<string>>(); // firmId → Set of alias strings to add
-
+  // Helper: register name/domain in local in-memory dedup maps only (no DB write)
   function registerAliases(firmId: string, name: string, website?: string) {
     const n = norm(name);
-    if (n && !nameToId.has(n)) {
-      nameToId.set(n, firmId);
-      if (!pendingAliases.has(firmId)) pendingAliases.set(firmId, new Set());
-      pendingAliases.get(firmId)!.add(name.trim());
-    }
+    if (n && !nameToId.has(n)) nameToId.set(n, firmId);
     if (website) {
       const d = domainFromUrl(website);
-      if (d && !domainToId.has(d)) {
-        domainToId.set(d, firmId);
-        if (!pendingAliases.has(firmId)) pendingAliases.set(firmId, new Set());
-        pendingAliases.get(firmId)!.add(d);
-      }
+      if (d && !domainToId.has(d)) domainToId.set(d, firmId);
     }
   }
 
-  async function flushAliases() {
-    let flushed = 0;
-    for (const [firmId, aliases] of pendingAliases) {
-      if (aliases.size === 0) continue;
-      const existing = firmById.get(firmId);
-      const existingAliases: string[] = existing?.aliases || [];
-      const newAliases = [...aliases].filter(a => !existingAliases.includes(a));
-      if (newAliases.length === 0) continue;
-      const merged = [...existingAliases, ...newAliases];
-      await sbPatch("firm_records", firmId, { aliases: merged });
-      flushed++;
-    }
-    if (flushed > 0) console.log(`  ↳ Flushed aliases for ${flushed} firms`);
-  }
+  // aliases column does not exist in DB schema — nothing to flush
+  async function flushAliases() {}
 
   // ── Build a lookup from firm_id → FirmRow for patching ────────────────────
   const firmById = new Map<string, FirmRow>(dbFirms.map(f => [f.id, f]));
@@ -514,17 +490,18 @@ async function main() {
       };
       const patch = buildFirmPatch(firm, sources);
 
-      // Wikipedia for firms still missing key fields
-      if (DO_WIKI && (!firm.aum && !patch.aum || !firm.founded_year && !patch.founded_year || !firm.description && !patch.description)) {
+      // Wikipedia — authoritative source: override CSV-sourced values when found
+      if (DO_WIKI) {
         const wiki = await fetchWikipedia(firm.firm_name);
         if (Object.keys(wiki).length) {
           wikiHits++;
-          if (!firm.aum        && !patch.aum        && wiki.aum)          patch.aum          = wiki.aum;
-          if (!firm.founded_year && !patch.founded_year && wiki.founded_year) patch.founded_year = wiki.founded_year;
-          if (!firm.description  && !patch.description  && wiki.description)  patch.description  = wiki.description;
-          if (!firm.hq_city    && !patch.hq_city    && wiki.hq_city)     patch.hq_city     = wiki.hq_city;
-          if (!firm.hq_state   && !patch.hq_state   && wiki.hq_state)    patch.hq_state    = wiki.hq_state;
-          if (!firm.hq_country && !patch.hq_country && wiki.hq_country)  patch.hq_country  = wiki.hq_country;
+          // Wikipedia overrides CSV data (it's the more trusted source)
+          if (wiki.aum)          patch.aum          = wiki.aum;
+          if (wiki.founded_year) patch.founded_year = wiki.founded_year;
+          if (wiki.description)  patch.description  = wiki.description;
+          if (wiki.hq_city)      patch.hq_city      = wiki.hq_city;
+          if (wiki.hq_state)     patch.hq_state     = wiki.hq_state;
+          if (wiki.hq_country)   patch.hq_country   = wiki.hq_country;
         }
         await new Promise(r => setTimeout(r, 250));
       }
@@ -576,8 +553,8 @@ async function main() {
           hq_state:     hq.hq_state || null,
           hq_country:   hq.hq_country || null,
           aum:          isOpenVC ? null : parseAum(source["AUM"] || source["Fund Size (AUM)"] || ""),
-          min_check_size: parseCheckSize(source["First cheque minimum"] || source["Check Size"] || ""),
-          max_check_size: parseCheckSize(source["First cheque maximum"] || source["Check Size"] || ""),
+          min_check_size: parseCheckSize(source["First cheque minimum"] || source["Check Size"] || "") || null,
+          max_check_size: parseCheckSize(source["First cheque maximum"] || "") || null,
           stage_focus:  stages.length ? stages : null,
           stage_min:    sortedStages[0] || null,
           stage_max:    sortedStages[sortedStages.length - 1] || null,
@@ -587,6 +564,9 @@ async function main() {
         };
         // Remove nulls to avoid overwriting DB defaults
         for (const k of Object.keys(newFirm)) { if (newFirm[k] === null || newFirm[k] === "") delete newFirm[k]; }
+        // Guard: chk_fr_check_size_range — DB defaults missing side to 0, so only keep both if both valid & max>=min
+        { const mn = newFirm.min_check_size, mx = newFirm.max_check_size;
+          if ((mn || mx) && (!mn || !mx || mx < mn)) { delete newFirm.min_check_size; delete newFirm.max_check_size; } }
 
         const id = await sbInsert("firm_records", newFirm);
         if (id) {
@@ -643,6 +623,9 @@ async function main() {
           updated_at:   new Date().toISOString(),
         };
         for (const k of Object.keys(newFirm)) { if (newFirm[k] === null || newFirm[k] === "") delete newFirm[k]; }
+        // Guard: chk_fr_check_size_range — same as Phase 1B
+        { const mn = newFirm.min_check_size, mx = newFirm.max_check_size;
+          if ((mn || mx) && (!mn || !mx || mx < mn)) { delete newFirm.min_check_size; delete newFirm.max_check_size; } }
 
         firmId = await sbInsert("firm_records", newFirm);
         if (!firmId) continue;
@@ -665,8 +648,6 @@ async function main() {
         title:        "Angel Investor",
         bio:          angel["Investment thesis"]?.trim().slice(0, 2000) || null,
         website_url:  website?.startsWith("http") ? website : null,
-        data_source:  "openvc-angels",
-        import_record_id: norm(name),
         created_at:   new Date().toISOString(),
         updated_at:   new Date().toISOString(),
       };
@@ -711,11 +692,16 @@ async function main() {
         if (!inv.linkedin_url && (row["LinkedIn"]||"").includes("linkedin")) patch.linkedin_url = row["LinkedIn"].trim();
         if (!inv.x_url        && ((row["X / Twitter"]||"").includes("twitter") || (row["X / Twitter"]||"").includes("x.com")))
                                                                            patch.x_url        = row["X / Twitter"].trim();
-        if (!inv.city && row["Geography"]) {
-          const geo = parseHq(row["Geography"].split(",")[0]);
-          if (geo.hq_city)    patch.city    = geo.hq_city;
-          if (geo.hq_state)   patch.state   = geo.hq_state;
-          if (geo.hq_country) patch.country = geo.hq_country;
+        if (!inv.website_url  && (row["Personal Website / Bio"]||"").startsWith("http"))
+                                                                           patch.website_url  = row["Personal Website / Bio"].trim();
+        if (!inv.city) {
+          const locRaw = row["Location (Metro)"] || row["Location"] || row["Geography"] || "";
+          if (locRaw) {
+            const geo = parseHq(locRaw.split(";")[0]);
+            if (geo.hq_city)    patch.city    = geo.hq_city;
+            if (geo.hq_state && !inv.state)   patch.state   = geo.hq_state;
+            if (geo.hq_country && !inv.country) patch.country = geo.hq_country;
+          }
         }
       }
 

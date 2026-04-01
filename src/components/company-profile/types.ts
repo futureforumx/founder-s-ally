@@ -42,6 +42,8 @@ export interface CompanyData {
   socialTwitter: string;
   socialLinkedin: string;
   socialInstagram: string;
+  /** Public or drive link to one-pager; shown under Company Health → Data */
+  onePagerUrl: string;
   burnRate: string;
   nrr: string;
   cac: string;
@@ -146,6 +148,7 @@ export const EMPTY_FORM: CompanyData = {
   businessModel: [], targetCustomer: [], hqLocation: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", momGrowth: "", totalHeadcount: "",
   socialTwitter: "", socialLinkedin: "", socialInstagram: "",
+  onePagerUrl: "",
   burnRate: "", nrr: "", cac: "", ltv: "",
 };
 

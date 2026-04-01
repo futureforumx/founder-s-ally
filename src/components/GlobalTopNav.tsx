@@ -1445,6 +1445,7 @@ export function GlobalTopNav({
           companyName={companyName}
           logoUrl={logoUrl}
           hasProfile={hasProfile}
+          onNavigateToDataRoom={() => routeView("market-data-room")}
         />
 
         {/* ── Right: Help + Persona Switcher ── */}

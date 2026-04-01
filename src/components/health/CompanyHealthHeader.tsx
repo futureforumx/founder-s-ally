@@ -21,6 +21,10 @@ export type CompanyHealthProps = {
   tabs: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
+  /** Right-aligned square control on the tab strip (linked data sources surface). */
+  onDataClick?: () => void;
+  /** When true, the Data control shows an active state (data surface open). */
+  dataSurfaceActive?: boolean;
   /** e.g. "Updated today" / "5 live signals" — lives in identity stack with live dot */
   metadataLine?: string;
   /** Optional override for hover tooltip under metadata (default lists overall + metric pillars). */
@@ -235,41 +239,65 @@ function HealthControlTabs({
   tabs,
   activeTab,
   onTabChange,
+  onDataClick,
+  dataSurfaceActive,
 }: {
   tabs: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onDataClick?: () => void;
+  dataSurfaceActive?: boolean;
 }) {
   return (
-    <nav
-      className="flex flex-wrap items-stretch gap-x-0.5 border-t border-border/40 bg-muted/10 px-2 dark:bg-muted/5"
-      aria-label="Company health sections"
-    >
-      {tabs.map((tab) => {
-        const active = tab === activeTab;
-        return (
+    <div className="flex min-h-[2.25rem] items-stretch border-t border-border/40 bg-muted/10 dark:bg-muted/5">
+      <nav
+        className="flex min-w-0 flex-1 flex-wrap items-stretch gap-x-0.5 px-2"
+        aria-label="Company health sections"
+      >
+        {tabs.map((tab) => {
+          const active = tab === activeTab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => onTabChange(tab)}
+              className={cn(
+                "relative px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                active
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground/90",
+              )}
+            >
+              <span className={cn(active && "font-semibold")}>{tab}</span>
+              {active ? (
+                <span
+                  className="absolute bottom-0 left-2 right-2 h-px bg-foreground/50 dark:bg-foreground/45"
+                  aria-hidden
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+      {onDataClick ? (
+        <div className="flex shrink-0 items-center border-s border-border/40 px-2 py-1">
           <button
-            key={tab}
             type="button"
-            onClick={() => onTabChange(tab)}
+            onClick={onDataClick}
             className={cn(
-              "relative px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-              active
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground/90",
+              "flex size-9 items-center justify-center rounded-sm border text-[10px] font-semibold leading-none tracking-tight transition-colors",
+              dataSurfaceActive
+                ? "border-foreground/35 bg-foreground/10 text-foreground"
+                : "border-border bg-background/60 text-foreground hover:border-foreground/25 hover:bg-muted/50 dark:bg-background/20 dark:hover:bg-muted/30",
             )}
+            aria-pressed={dataSurfaceActive}
+            aria-label="Data sources"
           >
-            <span className={cn(active && "font-semibold")}>{tab}</span>
-            {active ? (
-              <span
-                className="absolute bottom-0 left-2 right-2 h-px bg-foreground/50 dark:bg-foreground/45"
-                aria-hidden
-              />
-            ) : null}
+            Data
           </button>
-        );
-      })}
-    </nav>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -282,6 +310,8 @@ export function CompanyHealthHeader({
   tabs,
   activeTab,
   onTabChange,
+  onDataClick,
+  dataSurfaceActive,
   metadataLine = "5 live signals",
   metadataLineTooltip,
 }: CompanyHealthHeaderProps) {
@@ -383,7 +413,13 @@ export function CompanyHealthHeader({
           </div>
         </div>
       </div>
-      <HealthControlTabs tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />
+      <HealthControlTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        onDataClick={onDataClick}
+        dataSurfaceActive={dataSurfaceActive}
+      />
     </div>
   );
 }

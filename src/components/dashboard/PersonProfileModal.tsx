@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, startTransition } from "react";
+import { useState, useMemo, useCallback, startTransition, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
   BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star,
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
+import type { VCPerson, VCFirm, VCPersonInvestment } from "@/hooks/useVCDirectory";
 
 interface PersonProfileModalProps {
   person: VCPerson | null;
@@ -23,25 +24,72 @@ interface PersonProfileModalProps {
   onNavigateToFirm: (firmId: string) => void;
 }
 
-/* ── Mock data for personal intelligence ── */
-const MOCK_BIO = "Focuses on early-stage B2B SaaS and vertical software companies. Previously built and scaled a fintech startup to $12M ARR before joining the firm. Gravitates toward technical founders solving workflow automation problems in regulated industries.";
+function isLeadOrSponsoredDeal(leadOrFollow: string | null | undefined): boolean {
+  if (!leadOrFollow?.trim()) return false;
+  const u = leadOrFollow.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (u === "FOLLOW" || u === "FOLLOW_ONLY" || u.includes("FOLLOW_ONLY") || u === "PARTICIPANT") return false;
+  return u.includes("LEAD") || u.includes("SPONSOR") || u.includes("CO_LEAD") || u.includes("COLEAD");
+}
 
-const MOCK_DEALS = [
-  { company: "Ramp", round: "Series A", domain: "ramp.com", source: "ramp.com", url: "https://ramp.com/blog/series-a" },
-  { company: "Vanta", round: "Seed", domain: "vanta.com", source: "techcrunch.com", url: "https://techcrunch.com/2020/02/vanta-seed-round" },
-  { company: "Lattice", round: "Series A", domain: "lattice.com", source: "prnewswire.com", url: "https://www.prnewswire.com/news-releases/lattice-series-a.html" },
-  { company: "Notion", round: "Seed", domain: "notion.so", source: "notion.so", url: "https://notion.so/blog/seed-announcement" },
-];
+function domainFromSourceUrl(sourceUrl: string | null | undefined): string | null {
+  if (!sourceUrl?.trim()) return null;
+  try {
+    const host = new URL(sourceUrl.trim()).hostname.replace(/^www\./i, "");
+    return host || null;
+  } catch {
+    return null;
+  }
+}
 
-/* ── Inline logo component for deal rows ── */
-function DealLogo({ domain, name }: { domain: string; name: string }) {
-  const [src, setSrc] = useState(`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`);
+/** Normalize person URL fields to a safe http(s) href, or null if missing/invalid. */
+function personSocialHref(raw: string | null | undefined): string | null {
+  const s = raw?.trim();
+  if (!s) return null;
+  let href = s;
+  if (!/^https?:\/\//i.test(s)) {
+    href = s.startsWith("//") ? `https:${s}` : `https://${s.replace(/^\/+/, "")}`;
+  }
+  try {
+    const u = new URL(href);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
+function investmentSortMs(date: string | null | undefined): number {
+  if (!date?.trim()) return 0;
+  const t = Date.parse(date);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function ledOrSponsoredInvestments(person: VCPerson): VCPersonInvestment[] {
+  const raw = person.recent_investments;
+  if (!raw?.length) return [];
+  return [...raw]
+    .filter((inv) => isLeadOrSponsoredDeal(inv.lead_or_follow))
+    .sort((a, b) => investmentSortMs(b.date) - investmentSortMs(a.date));
+}
+
+/* ── Deal row logo (favicon when we have a URL host; else initial) ── */
+function DealLogo({ domain, name }: { domain: string | null; name: string }) {
+  const d = domain?.trim() || null;
+  const baseSrc = d
+    ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${d}&size=128`
+    : null;
+  const [src, setSrc] = useState<string | null>(baseSrc);
   const [failed, setFailed] = useState(false);
 
-  if (failed) {
+  useEffect(() => {
+    setFailed(false);
+    setSrc(baseSrc);
+  }, [baseSrc]);
+
+  if (!d || failed || !src) {
     return (
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary border border-border text-xs font-bold text-muted-foreground shrink-0">
-        {name.charAt(0)}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-xs font-bold text-muted-foreground">
+        {name.charAt(0).toUpperCase()}
       </div>
     );
   }
@@ -49,11 +97,11 @@ function DealLogo({ domain, name }: { domain: string; name: string }) {
   return (
     <img
       src={src}
-      alt={name}
-      className="h-8 w-8 rounded-lg border border-border object-contain bg-background p-1 shrink-0"
+      alt=""
+      className="h-8 w-8 shrink-0 rounded-lg border border-border bg-background object-contain p-1"
       onError={() => {
         if (src.includes("gstatic")) {
-          setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+          setSrc(`https://www.google.com/s2/favicons?domain=${d}&sz=128`);
         } else {
           setFailed(true);
         }
@@ -61,23 +109,6 @@ function DealLogo({ domain, name }: { domain: string; name: string }) {
     />
   );
 }
-
-const MOCK_STAGES = ["Pre-Seed", "Seed", "Series A"];
-const MOCK_SECTORS = ["B2B SaaS", "Fintech", "Developer Tools", "Vertical Software"];
-const MOCK_QUALITIES = ["Product-led growth", "Technical founders", "Workflow automation", "Regulated markets"];
-
-const MOCK_ARTICLES = [
-  { title: "Why Vertical SaaS Will Win the Next Decade", domain: "substack.com", date: "Mar 2026" },
-];
-const MOCK_TWEETS = [
-  "Seeing an incredible wave of AI-native vertical SaaS companies. The best ones aren't just adding AI — they're rethinking the entire workflow.",
-];
-
-const SOCIALS = [
-  { icon: Linkedin, label: "LinkedIn", hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]" },
-  { icon: Twitter, label: "X", hoverClass: "hover:border-foreground/40 hover:text-foreground" },
-  { icon: Globe, label: "Website", hoverClass: "hover:border-accent/40 hover:text-accent" },
-] as const;
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session } = useAuth();
@@ -123,6 +154,82 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     if (byRole) return byRole;
     return null;
   }, [person?.title, person?.role]);
+
+  const displayLocation = useMemo(() => {
+    if (!person) return null;
+    const raw = person.raw_location?.trim();
+    if (raw) return raw;
+    const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(p?.trim()));
+    return parts.length ? parts.join(", ") : null;
+  }, [person]);
+
+  const backgroundText = useMemo(() => {
+    if (!person) return null;
+    return person.background_summary?.trim() || person.bio?.trim() || null;
+  }, [person]);
+
+  const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
+
+  const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => s?.trim()) ?? [], [person?.stage_focus]);
+  const sectorFocusTags = useMemo(() => person?.sector_focus?.filter((s) => s?.trim()) ?? [], [person?.sector_focus]);
+  const qualityTags = useMemo(() => {
+    if (!person) return [];
+    const q = person.investment_criteria_qualities?.filter((s) => s?.trim()) ?? [];
+    if (q.length) return q;
+    return person.personal_qualities?.filter((s) => s?.trim()) ?? [];
+  }, [person]);
+
+  const publishedInsights = useMemo(() => {
+    const list = person?.published_content?.filter((c) => c.title?.trim()) ?? [];
+    return [...list].sort((a, b) => {
+      const ta = a.published_at ? Date.parse(a.published_at) : 0;
+      const tb = b.published_at ? Date.parse(b.published_at) : 0;
+      return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+    });
+  }, [person?.published_content]);
+
+  const hasPersonalFocus =
+    stageFocusTags.length > 0 || sectorFocusTags.length > 0 || qualityTags.length > 0;
+
+  const socialLinks = useMemo(() => {
+    if (!person) return [];
+    const items: { key: string; href: string; icon: LucideIcon; label: string; hoverClass: string }[] = [];
+    const linkedin = personSocialHref(person.linkedin_url);
+    if (linkedin) {
+      items.push({
+        key: "linkedin",
+        href: linkedin,
+        icon: Linkedin,
+        label: "LinkedIn",
+        hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]",
+      });
+    }
+    const x = personSocialHref(person.x_url);
+    if (x) {
+      items.push({
+        key: "x",
+        href: x,
+        icon: Twitter,
+        label: "X",
+        hoverClass: "hover:border-foreground/40 hover:text-foreground",
+      });
+    }
+    const websiteRaw =
+      person.website_url?.trim() ||
+      (person as VCPerson & { personal_website_url?: string | null }).personal_website_url?.trim() ||
+      null;
+    const website = personSocialHref(websiteRaw);
+    if (website) {
+      items.push({
+        key: "website",
+        href: website,
+        icon: Globe,
+        label: "Website",
+        hoverClass: "hover:border-accent/40 hover:text-accent",
+      });
+    }
+    return items;
+  }, [person]);
 
   return (
     <AnimatePresence>
@@ -189,9 +296,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>
-                      <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> San Francisco, CA
-                      </span>
+                      {displayLocation ? (
+                        <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" /> {displayLocation}
+                        </span>
+                      ) : null}
                     </div>
                     {investorTitle && !firm && (
                       <p className="mt-1 text-sm font-medium text-muted-foreground">{investorTitle}</p>
@@ -264,14 +373,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                       </Tooltip>
                     </TooltipProvider>
                   )}
-                  {SOCIALS.map(({ icon: Icon, label, hoverClass }) => (
-                    <button
-                      key={label}
+                  {socialLinks.map(({ key, href, icon: Icon, label, hoverClass }) => (
+                    <a
+                      key={key}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       title={label}
-                      className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border border-border bg-card text-muted-foreground transition-all duration-200 hover:scale-105 ${hoverClass}`}
+                      aria-label={label}
+                      className={cn(
+                        "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-all duration-200 hover:scale-105",
+                        hoverClass,
+                      )}
                     >
                       <Icon className="h-4 w-4" />
-                    </button>
+                    </a>
                   ))}
                 </div>
 
@@ -279,103 +395,177 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left Column (2 cols) */}
                   <div className="lg:col-span-2 space-y-6">
-                    {/* Background */}
-                    <div>
-                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Background</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{MOCK_BIO}</p>
-                    </div>
-
-                    {/* Led or Sponsored Deals */}
-                    <div>
-                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Led or Sponsored Deals</h4>
-                      <div className="space-y-0 rounded-xl border border-border overflow-hidden">
-                        {MOCK_DEALS.map((deal, i) => (
-                          <a
-                            key={deal.company}
-                            href={deal.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`flex items-center gap-3 px-4 py-3 hover:bg-secondary/40 transition-colors group cursor-pointer ${
-                              i < MOCK_DEALS.length - 1 ? "border-b border-border" : ""
-                            }`}
-                          >
-                            <DealLogo domain={deal.domain} name={deal.company} />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-semibold text-foreground block">{deal.company}</span>
-                              <span className="text-[10px] text-muted-foreground">{deal.source}</span>
-                            </div>
-                            <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{deal.round}</Badge>
-                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </a>
-                        ))}
+                    {backgroundText ? (
+                      <div>
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                          Background
+                        </h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{backgroundText}</p>
                       </div>
-                    </div>
+                    ) : null}
+
+                    {ledDeals.length > 0 ? (
+                      <div>
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                          Led or sponsored deals
+                        </h4>
+                        <div className="space-y-0 overflow-hidden rounded-xl border border-border">
+                          {ledDeals.map((inv, i) => {
+                            const host = domainFromSourceUrl(inv.source_url);
+                            const subline =
+                              host ||
+                              [inv.sector, inv.date].filter(Boolean).join(" · ") ||
+                              "Verified lead / sponsor";
+                            const roundLabel = inv.stage?.trim() || "—";
+                            const key = `${inv.company_name}-${inv.date ?? i}-${i}`;
+                            const rowClass = `flex items-center gap-3 px-4 py-3 transition-colors group ${
+                              inv.source_url ? "cursor-pointer hover:bg-secondary/40" : "cursor-default"
+                            } ${i < ledDeals.length - 1 ? "border-b border-border" : ""}`;
+
+                            return inv.source_url ? (
+                              <a
+                                key={key}
+                                href={inv.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={rowClass}
+                              >
+                                <DealLogo domain={host} name={inv.company_name} />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block text-sm font-semibold text-foreground">{inv.company_name}</span>
+                                  <span className="text-[10px] text-muted-foreground">{subline}</span>
+                                </div>
+                                <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+                                  {roundLabel}
+                                </Badge>
+                                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                              </a>
+                            ) : (
+                              <div key={key} className={rowClass}>
+                                <DealLogo domain={host} name={inv.company_name} />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block text-sm font-semibold text-foreground">{inv.company_name}</span>
+                                  <span className="text-[10px] text-muted-foreground">{subline}</span>
+                                </div>
+                                <Badge variant="secondary" className="px-2 py-0.5 text-[10px]">
+                                  {roundLabel}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Right Column (1 col) */}
                   <div className="lg:col-span-1 space-y-6">
-                    {/* Personal Focus */}
-                    <div className="bg-secondary/30 p-5 rounded-2xl border border-border">
-                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Personal Focus</h4>
+                    {hasPersonalFocus ? (
+                      <div className="rounded-2xl border border-border bg-secondary/30 p-5">
+                        <h4 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Personal focus
+                        </h4>
 
-                      <div className="mb-3">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Stage</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {MOCK_STAGES.map(s => (
-                            <span key={s} className="bg-accent/10 text-accent text-[10px] px-2 py-0.5 rounded-full font-medium">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Sector</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {MOCK_SECTORS.map(s => (
-                            <span key={s} className="bg-secondary text-secondary-foreground text-[10px] px-2 py-0.5 rounded-full font-medium">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Qualities</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {MOCK_QUALITIES.map(q => (
-                            <span key={q} className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5" /> {q}
+                        {stageFocusTags.length > 0 ? (
+                          <div className="mb-3">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Stage
                             </span>
-                          ))}
-                        </div>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {stageFocusTags.map((s) => (
+                                <span
+                                  key={s}
+                                  className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {sectorFocusTags.length > 0 ? (
+                          <div className="mb-3">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Sector
+                            </span>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {sectorFocusTags.map((s) => (
+                                <span
+                                  key={s}
+                                  className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {qualityTags.length > 0 ? (
+                          <div>
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Qualities
+                            </span>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {qualityTags.map((q) => (
+                                <span
+                                  key={q}
+                                  className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5" /> {q}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
+                    ) : null}
 
-                    {/* Latest Insights */}
-                    <div className="border border-border p-5 rounded-2xl">
-                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Latest Insights</h4>
+                    <div className="rounded-2xl border border-border p-5">
+                      <h4 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Latest insights
+                      </h4>
 
-                      {MOCK_ARTICLES.length > 0 ? (
+                      {publishedInsights.length > 0 ? (
                         <div className="space-y-3">
-                          {MOCK_ARTICLES.map((article, i) => (
-                            <div key={i} className="flex items-start gap-2.5 group cursor-pointer">
-                              <BookOpen className="w-4 h-4 text-accent mt-0.5 shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-foreground group-hover:text-accent transition-colors line-clamp-2">{article.title}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{article.domain} · {article.date}</p>
+                          {publishedInsights.map((item, i) => {
+                            const isTweet = item.content_type === "TWEET";
+                            const Icon = isTweet ? Twitter : BookOpen;
+                            const metaBits = [item.source_name, item.published_at].filter(Boolean);
+                            const meta = metaBits.join(" · ");
+                            const inner = (
+                              <>
+                                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                                <div className="min-w-0">
+                                  <p className="line-clamp-2 text-sm font-semibold text-foreground">{item.title}</p>
+                                  {meta ? (
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">{meta}</p>
+                                  ) : null}
+                                </div>
+                              </>
+                            );
+                            return item.source_url ? (
+                              <a
+                                key={`${item.title}-${i}`}
+                                href={item.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group flex items-start gap-2.5"
+                              >
+                                {inner}
+                              </a>
+                            ) : (
+                              <div key={`${item.title}-${i}`} className="flex items-start gap-2.5">
+                                {inner}
                               </div>
-                            </div>
-                          ))}
-
-                          {MOCK_TWEETS.map((tweet, i) => (
-                            <div key={i} className="bg-secondary/40 rounded-xl p-3 border-l-2 border-muted-foreground/20">
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Twitter className="w-3 h-3 text-muted-foreground" />
-                                <span className="text-[10px] font-semibold text-muted-foreground">Recent post</span>
-                              </div>
-                              <p className="text-xs text-foreground/80 leading-relaxed italic">"{tweet}"</p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground italic">No recent public publications detected.</p>
+                        <p className="text-xs italic text-muted-foreground">
+                          No recent public publications on file.
+                        </p>
                       )}
                     </div>
                   </div>

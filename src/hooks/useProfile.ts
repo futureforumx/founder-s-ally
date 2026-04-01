@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  normalizeProfileRowForRead,
+  normalizeProfileRowsForRead,
+} from "@/lib/profileRead"; // full-row reads: profiles table + normalization (see module doc there)
 
 export interface Profile {
   id: string;
@@ -43,7 +47,11 @@ export function useProfile() {
         console.warn("Failed to fetch profile:", error);
         setProfile(null);
       } else {
-        setProfile(data as Profile | null);
+        setProfile(
+          data
+            ? (normalizeProfileRowForRead(data as Record<string, unknown>) as Profile)
+            : null,
+        );
       }
     } catch (err) {
       console.warn("Error fetching profile:", err);
@@ -128,7 +136,8 @@ export function useFounderProfiles() {
           }
         }
 
-        const result: FounderProfile[] = (profiles as any[]).map((p) => ({
+        const normalized = normalizeProfileRowsForRead(profiles as Record<string, unknown>[]);
+        const result: FounderProfile[] = normalized.map((p) => ({
           ...p,
           company_name: p.company_id ? companyMap.get(p.company_id)?.company_name || null : null,
           company_sector: p.company_id ? companyMap.get(p.company_id)?.sector || null : null,

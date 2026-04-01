@@ -690,6 +690,7 @@ Rules:
         yoyGrowth: sanitize(analysisResult?.aiExtracted?.yoyGrowth),
         totalHeadcount: sanitize(headcount) || sanitize(analysisResult?.aiExtracted?.totalHeadcount),
         socialTwitter: "", socialLinkedin: "", socialInstagram: "",
+        onePagerUrl: "",
         burnRate: sanitize(burnRate), nrr: "", cac: "", ltv: "",
         momGrowth: sanitize(momGrowth),
       };
