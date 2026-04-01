@@ -1,6 +1,21 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Network, MessageSquare, Building2, Loader2, Users, Mail, MapPin, Clock, ArrowRight, ThumbsUp, Plus } from "lucide-react";
+import {
+  MessageSquare,
+  Building2,
+  Loader2,
+  Users,
+  Mail,
+  MapPin,
+  Clock,
+  ArrowRight,
+  ThumbsUp,
+  Plus,
+  Linkedin,
+  Twitter,
+  Globe,
+} from "lucide-react";
+import { extractXHandle } from "@/lib/extractXHandle";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +32,27 @@ interface Connection {
   instrument: string;
 }
 
+function normalizeExternalHref(url: string): string {
+  const t = url.trim();
+  if (!t) return t;
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t.replace(/^\/+/, "")}`;
+}
+
+function xProfileHref(xUrl: string): string | null {
+  const t = xUrl.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      return new URL(t).href;
+    } catch {
+      return null;
+    }
+  }
+  const h = extractXHandle(t);
+  return h ? `https://x.com/${h}` : null;
+}
+
 interface ConnectionsTabProps {
   investorName: string;
   currentUserId?: string;
@@ -24,6 +60,9 @@ interface ConnectionsTabProps {
   isAdmin?: boolean;
   location?: string | null;
   email?: string | null;
+  linkedinUrl?: string | null;
+  xUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 const WARM_PATHS = [
@@ -32,7 +71,17 @@ const WARM_PATHS = [
   { name: "Marcus Chen", company: "BuildStack", badge: "1st Degree", context: "Co-led their Pre-Seed in Mar 2024.", avatar: "MC" },
 ];
 
-export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmin, location, email }: ConnectionsTabProps) {
+export function ConnectionsTab({
+  investorName,
+  currentUserId,
+  investorId,
+  isAdmin,
+  location,
+  email,
+  linkedinUrl,
+  xUrl,
+  websiteUrl,
+}: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +112,13 @@ export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmi
     return () => { cancelled = true; };
   }, [investorName, currentUserId]);
 
+  const linkedinHref = linkedinUrl?.trim() ? normalizeExternalHref(linkedinUrl.trim()) : null;
+  const xHref = xUrl?.trim() ? xProfileHref(xUrl.trim()) : null;
+  const websiteHref = websiteUrl?.trim() ? normalizeExternalHref(websiteUrl.trim()) : null;
+  const hasSocialLinks = !!(linkedinHref || xHref || websiteHref);
+  const hasContactCard =
+    !!(investorId || email?.trim() || location?.trim() || hasSocialLinks);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -81,18 +137,18 @@ export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmi
       className="space-y-5"
     >
       {/* Contact Details */}
-      {(investorId || email || location) ? (
+      {hasContactCard ? (
         <div className="rounded-2xl border border-border bg-card px-5 py-4 space-y-3">
-          {email ? (
+          {email?.trim() ? (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <Mail className="w-3.5 h-3.5 text-accent" />
               </div>
               <a
-                href={`mailto:${email}`}
+                href={`mailto:${email.trim()}`}
                 className="text-sm font-medium text-foreground hover:text-accent transition-colors"
               >
-                {email}
+                {email.trim()}
               </a>
             </div>
           ) : investorId ? (
@@ -108,12 +164,55 @@ export function ConnectionsTab({ investorName, currentUserId, investorId, isAdmi
               />
             </div>
           ) : null}
-          {location && (
+          {location?.trim() && (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <MapPin className="w-3.5 h-3.5 text-accent" />
               </div>
-              <p className="text-sm font-medium text-foreground">{location}</p>
+              <p className="text-sm font-medium text-foreground">{location.trim()}</p>
+            </div>
+          )}
+          {hasSocialLinks && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/70">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1.5 shrink-0">
+                Social
+              </span>
+              {linkedinHref ? (
+                <a
+                  href={linkedinHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-[#0A66C2] hover:border-[#0A66C2]/30 transition-colors"
+                  title="LinkedIn"
+                  aria-label={`${investorName} on LinkedIn`}
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              ) : null}
+              {xHref ? (
+                <a
+                  href={xHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+                  title="X (Twitter)"
+                  aria-label={`${investorName} on X`}
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+              ) : null}
+              {websiteHref ? (
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-accent hover:border-accent/30 transition-colors"
+                  title="Website"
+                  aria-label={`${investorName} website`}
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              ) : null}
             </div>
           )}
         </div>

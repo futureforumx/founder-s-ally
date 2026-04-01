@@ -17,10 +17,12 @@ export function BrandLogo({
   alt = "Vekta",
 }: BrandLogoProps) {
   return (
-    <img
-      src={LOGO_SRC[variant]}
-      alt={alt}
-      className={cn("h-auto w-full object-contain", className)}
-    />
+    <div className="flex w-full translate-x-1 justify-center p-0 text-center">
+      <img
+        src={LOGO_SRC[variant]}
+        alt={alt}
+        className={cn("block h-auto object-contain", className)}
+      />
+    </div>
   );
 }

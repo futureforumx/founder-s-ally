@@ -11,6 +11,7 @@ import {
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
+import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
@@ -20,39 +21,6 @@ interface PersonProfileModalProps {
   firm: VCFirm | null;
   onClose: () => void;
   onNavigateToFirm: (firmId: string) => void;
-}
-
-/* ── Firm favicon component ── */
-function FirmFavicon({ websiteUrl, logoUrl, name }: { websiteUrl: string | null; logoUrl: string | null; name: string }) {
-  const domain = (() => {
-    try {
-      if (websiteUrl) return new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`).hostname.replace(/^www\./, "");
-      return null;
-    } catch { return null; }
-  })();
-  const [src, setSrc] = useState<string | null>(
-    logoUrl || (domain ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32` : null)
-  );
-  const [failed, setFailed] = useState(false);
-
-  if (failed || !src) {
-    return <span className="text-[10px] font-bold text-muted-foreground/60 bg-secondary rounded px-1">{name.charAt(0).toUpperCase()}</span>;
-  }
-
-  return (
-    <img
-      src={src}
-      alt=""
-      className="h-3.5 w-3.5 rounded-sm object-contain"
-      onError={() => {
-        if (src.includes("gstatic") && domain) {
-          setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=32`);
-        } else {
-          setFailed(true);
-        }
-      }}
-    />
-  );
 }
 
 /* ── Mock data for personal intelligence ── */
@@ -229,22 +197,20 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                       <p className="mt-1 text-sm font-medium text-muted-foreground">{investorTitle}</p>
                     )}
                     {firm ? (
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
                         {investorTitle ? (
-                          <span className="text-xs font-medium text-muted-foreground shrink-0">{investorTitle}</span>
-                        ) : null}
-                        {investorTitle ? (
-                          <span className="text-xs text-border/80 select-none" aria-hidden>
-                            ·
-                          </span>
+                          <>
+                            <span className="shrink-0">{investorTitle}</span>
+                            <span className="shrink-0 text-muted-foreground/75">at</span>
+                          </>
                         ) : null}
                         <button
                           type="button"
                           onClick={() => onNavigateToFirm(firm.id)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
                         >
                           <FirmFavicon websiteUrl={firm.website_url} logoUrl={firm.logo_url} name={firm.name} />
-                          {firm.name}
+                          <span className="truncate">{firm.name}</span>
                         </button>
                       </div>
                     ) : null}

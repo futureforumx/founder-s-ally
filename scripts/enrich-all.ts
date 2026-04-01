@@ -184,7 +184,12 @@ async function sbUpdate(
     headers: { ...SB_HEADERS, Prefer: "return=minimal" },
     body: JSON.stringify(patch),
   });
-  return res.ok;
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`    ✗ DB write FAILED for ${table}.${id} (HTTP ${res.status}): ${errBody.slice(0, 200)}`);
+    return false;
+  }
+  return true;
 }
 
 async function sbUpsert(
@@ -257,11 +262,12 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}, trackingHost
       const msg = body.slice(0, 200).replace(/<[^>]+>/g, "");
 
       // ── Permanent exhaustion: billing / credits / quota gone ──
-      // 402 = payment required, 422/401 with credit/billing/quota language = exhausted
+      // 402 = payment required, 422/401/403 with credit/billing/quota/plan language = exhausted
       const isBillingError =
         res.status === 402 ||
         (res.status === 422 && /credit|insufficient|billing|upgrade|plan/i.test(msg)) ||
-        (res.status === 401 && /quota|exceeded|billing|plan|credit/i.test(msg));
+        (res.status === 401 && /quota|exceeded|billing|plan|credit/i.test(msg)) ||
+        (res.status === 403 && /upgrade|plan|not accessible|free plan/i.test(msg));
 
       if (isBillingError) {
         console.warn(`    ⊘ ${apiHost} → credits/quota exhausted (HTTP ${res.status}) — disabled for this run`);
@@ -818,6 +824,36 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
     console.log(`  ▸ ${firm.firm_name}${domain ? ` (${domain})` : ""}`);
 
     try {
+      // Guard: if ALL AI providers are in cooldown/exhausted, wait for the soonest one to recover
+      // before spending any search credits on this firm.
+      const aiHosts = [
+        "api.groq.com/70b",
+        "api.groq.com/8b",
+        "generativelanguage.googleapis.com",
+        "api.perplexity.ai",
+        "api.deepseek.com",
+      ];
+      const hasAI = (): boolean => aiHosts.some(h => isAvailable(h));
+      if (!hasAI()) {
+        const now = Date.now();
+        const waitMs = aiHosts.reduce((min, h) => {
+          if (QUOTA_EXHAUSTED.has(h)) return min; // permanently gone — skip
+          const coolUntil = RATE_LIMIT_COOLDOWN.get(h) ?? 0;
+          const remaining = coolUntil - now;
+          return remaining > 0 ? Math.min(min, remaining) : min;
+        }, Infinity);
+        if (waitMs === Infinity) {
+          console.log(`    — All AI providers exhausted; skipping firm`);
+          continue;
+        }
+        console.log(`    ⏳ All AI providers in cooldown — waiting ${Math.round(waitMs / 1000)}s before fetching search data...`);
+        await sleep(waitMs + 500);
+        if (!hasAI()) {
+          console.log(`    — AI still unavailable after wait; skipping firm`);
+          continue;
+        }
+      }
+
       // Step 1: Gather raw data from multiple search providers in parallel
       const searchPromises: Promise<string>[] = [];
       const searchLabels: string[] = [];
@@ -874,14 +910,45 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
 
       const fieldCount = Object.keys(patch).length - 1; // -1 for last_enriched_at
       if (fieldCount > 0) {
-        await sbUpdate("firm_records", firm.id, patch);
-        console.log(`    ✓ Updated ${fieldCount} fields: ${Object.keys(patch).filter(k => k !== "last_enriched_at").join(", ")}`);
-        enriched++;
+        const ok = await sbUpdate("firm_records", firm.id, patch);
+        if (ok) {
+          console.log(`    ✓ DB confirmed — updated ${fieldCount} fields: ${Object.keys(patch).filter(k => k !== "last_enriched_at").join(", ")}`);
+          enriched++;
+        } else {
+          console.warn(`    ✗ DB write failed — fields were extracted but NOT saved`);
+          errors++;
+        }
       } else {
-        // All AI providers were rate-limited — do NOT stamp last_enriched_at so this
-        // firm is retried on the next run rather than being skipped for 30 days.
-        console.log(`    — No new data extracted (all AI providers rate-limited; skipping last_enriched_at stamp so firm retries next run)`);
-        await sleep(20_000);
+        // All AI providers were rate-limited — wait for the shortest cooldown to expire, then retry once
+        const aiHosts = ["api.groq.com/70b", "api.groq.com/8b", "generativelanguage.googleapis.com", "api.perplexity.ai", "api.deepseek.com"];
+        const now = Date.now();
+        const waitMs = aiHosts.reduce((min, h) => {
+          const coolUntil = RATE_LIMIT_COOLDOWN.get(h) ?? 0;
+          const remaining = coolUntil - now;
+          return remaining > 0 ? Math.min(min, remaining) : min;
+        }, Infinity);
+        const actualWait = waitMs === Infinity ? 0 : waitMs + 1000;
+        if (actualWait > 0) {
+          console.log(`    ⏳ Waiting ${Math.round(actualWait / 1000)}s for AI provider to recover, then retrying...`);
+          await sleep(actualWait);
+          const retryPatch = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
+          const retryFieldCount = Object.keys(retryPatch).length;
+          if (retryFieldCount > 0) {
+            retryPatch.last_enriched_at = new Date().toISOString();
+            const retryOk = await sbUpdate("firm_records", firm.id, retryPatch);
+            if (retryOk) {
+              console.log(`    ✓ DB confirmed — retry updated ${retryFieldCount} fields: ${Object.keys(retryPatch).filter(k => k !== "last_enriched_at").join(", ")}`);
+              enriched++;
+            } else {
+              console.warn(`    ✗ DB write failed on retry — fields extracted but NOT saved`);
+              errors++;
+            }
+          } else {
+            console.log(`    — Retry also rate-limited; skipping last_enriched_at stamp so firm retries next run`);
+          }
+        } else {
+          console.log(`    — No new data extracted; skipping last_enriched_at stamp so firm retries next run`);
+        }
       }
     } catch (e) {
       errors++;

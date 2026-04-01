@@ -260,7 +260,7 @@ export function InvestorMatch({
     setPendingVcReviewContext(vcReviewBootstrap);
     setSelectedInvestor({
       name: vcReviewBootstrap.firmName,
-      sector: "Multi-stage",
+      sector: "Generalist",
       stage: "Multi-stage",
       description: "",
       location: "",
@@ -439,7 +439,7 @@ export function InvestorMatch({
           onViewInvestor={(inv) =>
             setSelectedInvestor({
               name: inv.firm_name,
-              sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Multi-stage",
+              sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Generalist",
               stage: inv.preferred_stage || "Multi-stage",
               description: inv.reasoning,
               location: inv.location || "",

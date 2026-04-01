@@ -46,13 +46,24 @@ import {
   type IntelligenceSummaryStrip,
 } from "@/lib/intelligenceFeedApi";
 
-export type IntelligenceVariant = "all" | "investors" | "market" | "tech" | "network";
+/** Top-nav lanes on `/intelligence` — API `category` string (null = full Brief). */
+export type IntelligenceVariant = "brief" | "category" | "funding" | "regulatory" | "customer" | "ma";
 
 const TIMEFRAMES = [
   { id: "24h", hours: 24, label: "24h" },
   { id: "7d", hours: 24 * 7, label: "7d" },
   { id: "30d", hours: 24 * 30, label: "30d" },
 ] as const;
+
+const INTELLIGENCE_OFFLINE_SUMMARY_FALLBACK: IntelligenceSummaryStrip = {
+  highSignal24h: 2,
+  investorActivity: 1,
+  competitorMoves: 1,
+  peopleMoves: 0,
+  newFunds: 0,
+  productLaunches: 0,
+  regulatory: 0,
+};
 
 const ENTITY_TYPES = [
   { value: "", label: "Any entity" },
@@ -66,12 +77,16 @@ const ENTITY_TYPES = [
 function categoryChipClass(cat: string): string {
   switch (cat) {
     case "investors":
+    case "funding":
       return "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/25";
     case "market":
+    case "category":
+    case "customer":
       return "bg-sky-500/15 text-sky-800 dark:text-sky-200 border-sky-500/25";
     case "tech":
       return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/25";
     case "network":
+    case "ma":
       return "bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-500/30";
     case "regulatory":
       return "bg-rose-500/10 text-rose-800 dark:text-rose-200 border-rose-500/25";
@@ -322,7 +337,7 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
   const [watchEntityId, setWatchEntityId] = useState<string | null>(null);
 
   const categoryFilter = useMemo(() => {
-    if (variant === "all") return null;
+    if (variant === "brief") return null;
     return variant;
   }, [variant]);
 
@@ -331,8 +346,8 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
       if (replace) setLoading(true);
       else setLoadingMore(true);
       try {
-        const [feed, sum] = await Promise.all([
-          fetchIntelligenceFeed({
+        try {
+          const feed = await fetchIntelligenceFeed({
             category: categoryFilter,
             watchlistOnly,
             highSignalOnly,
@@ -341,39 +356,35 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
             search: search || null,
             limit: 15,
             offset,
-          }),
-          fetchIntelligenceSummary({ hours: 24 }),
-        ]);
-        setSideRail(feed.sideRail);
-        setSummary(sum);
-        if (replace) {
-          setEvents(feed.events);
-          setNextOffset(feed.events.length);
-        } else {
-          setEvents((prev) => [...prev, ...feed.events]);
-          setNextOffset(offset + feed.events.length);
-        }
-        setHasMore(feed.events.length >= 15);
-      } catch (e) {
-        console.error(e);
-        toast.message("Intelligence feed unavailable — showing offline preview", {
-          description: "Deploy `intelligence-feed`, apply the intelligence migration, or use dev without Supabase for mock data.",
-        });
-        if (replace) {
-          const fb = filterFallbackEvents(categoryFilter, INTELLIGENCE_FALLBACK_EVENTS);
-          setEvents(fb);
-          setNextOffset(fb.length);
-          setSideRail(INTELLIGENCE_FALLBACK_SIDE_RAIL);
-          setHasMore(false);
-          setSummary({
-            highSignal24h: 2,
-            investorActivity: 1,
-            competitorMoves: 1,
-            peopleMoves: 0,
-            newFunds: 0,
-            productLaunches: 0,
-            regulatory: 0,
           });
+          setSideRail(feed.sideRail);
+          if (replace) {
+            setEvents(feed.events);
+            setNextOffset(feed.events.length);
+          } else {
+            setEvents((prev) => [...prev, ...feed.events]);
+            setNextOffset(offset + feed.events.length);
+          }
+          setHasMore(feed.events.length >= 15);
+        } catch (e) {
+          console.warn("[intelligence] feed request failed; using offline preview", e);
+          if (replace) {
+            const fb = filterFallbackEvents(categoryFilter, INTELLIGENCE_FALLBACK_EVENTS);
+            setEvents(fb);
+            setNextOffset(fb.length);
+            setSideRail(INTELLIGENCE_FALLBACK_SIDE_RAIL);
+            setHasMore(false);
+          } else {
+            setHasMore(false);
+          }
+        }
+
+        try {
+          const sum = await fetchIntelligenceSummary({ hours: 24 });
+          setSummary(sum);
+        } catch (e) {
+          console.warn("[intelligence] summary request failed; using defaults", e);
+          if (replace) setSummary(INTELLIGENCE_OFFLINE_SUMMARY_FALLBACK);
         }
       } finally {
         setLoading(false);
@@ -476,15 +487,17 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
   const watchEntities = watchEventId ? events.find((e) => e.id === watchEventId)?.entities || [] : [];
 
   const headline =
-    variant === "all"
-      ? "Live Intelligence"
-      : variant === "investors"
-        ? "Investor intelligence"
-        : variant === "market"
-          ? "Market intelligence"
-          : variant === "tech"
-            ? "Technology intelligence"
-            : "Network intelligence";
+    variant === "brief"
+      ? "Brief"
+      : variant === "category"
+        ? "Category"
+        : variant === "funding"
+          ? "Funding"
+          : variant === "regulatory"
+            ? "Regulatory"
+            : variant === "customer"
+              ? "Customer"
+              : "M&A / Strategic Moves";
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">

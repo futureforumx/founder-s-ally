@@ -231,7 +231,7 @@ export function InvestorCommandPalette({
           </div>
 
           {/* ── Filter chips ── */}
-          <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-zinc-800/60 overflow-x-auto scrollbar-none">
+          <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-zinc-800/60">
             <span className="text-[10px] text-zinc-500 font-medium shrink-0 mr-1">I'm looking for</span>
             {FILTER_CHIPS.map(chip => {
               const Icon = chip.icon;
@@ -515,7 +515,7 @@ export function InvestorSearchTrigger({
       </button>
 
       {/* ── Filter chips row ── */}
-      <div className="flex items-center gap-2 px-5 py-2.5 rounded-b-2xl border border-t-0 border-zinc-700/60 bg-zinc-900/90 backdrop-blur-xl overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+      <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 rounded-b-2xl border border-t-0 border-zinc-700/60 bg-zinc-900/90 backdrop-blur-xl">
         <span className="text-[11px] text-zinc-500 font-medium shrink-0 mr-0.5">I'm looking for</span>
         {FILTER_CHIPS.map(chip => {
           const Icon = chip.icon;

@@ -1,10 +1,18 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2, SlidersHorizontal, LogOut
+  User, Settings2, SlidersHorizontal, LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,16 +32,40 @@ import {
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
 import type { AnalysisResult } from "@/components/company-profile/types";
-import {
-  COMPANY_HEALTH_SIGNAL_EVENT,
-  getCachedCompanyHealthSignals,
-  type CompanyHealthSnapshot,
-} from "@/lib/companyHealthSignals";
-import { trackMixpanelEvent } from "@/lib/mixpanel";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
 
-type ViewType = "company" | "dashboard" | "industry" | "competitive" | "audit" | "benchmarks" | "market-intelligence" | "market-investors" | "market-market" | "market-tech" | "market-network" | "investors" | "investor-search" | "network" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "data-room" | "resources" | "settings";
+type ViewType =
+  | "company"
+  | "dashboard"
+  | "industry"
+  | "competitive"
+  | "audit"
+  | "benchmarks"
+  | "market-intelligence"
+  | "market-category"
+  | "market-funding"
+  | "market-regulatory"
+  | "market-customer"
+  | "market-ma"
+  | "market-investors"
+  | "market-market"
+  | "market-tech"
+  | "market-network"
+  | "market-data-room"
+  | "investors"
+  | "investor-search"
+  | "network"
+  | "directory"
+  | "connections"
+  | "messages"
+  | "events"
+  | "competitors"
+  | "sector"
+  | "groups"
+  | "data-room"
+  | "resources"
+  | "settings";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -65,7 +97,8 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   dashboard: { section: "Mission Control", label: "Company" },
   industry: { section: "Mission Control", label: "Industry" },
   competitive: { section: "Mission Control", label: "Competitive" },
-  "data-room": { section: "Mission Control", label: "Data Room" },
+  "data-room": { section: "Raise", label: "Data Room" },
+  "market-data-room": { section: "Raise", label: "Data Room" },
   company: { section: "My Company", label: "Company Settings", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
@@ -129,11 +162,16 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "events", label: "Events" },
   ]},
   messages: { section: "Community", label: "Messages" },
-  "market-intelligence": { section: "Market Intelligence", label: "Live" },
-  "market-investors": { section: "Market Intelligence", label: "Investors" },
-  "market-market": { section: "Market Intelligence", label: "Market" },
-  "market-tech": { section: "Market Intelligence", label: "Tech" },
-  "market-network": { section: "Market Intelligence", label: "Network" },
+  "market-intelligence": { section: "Pulse", label: "Brief" },
+  "market-category": { section: "Pulse", label: "Category" },
+  "market-funding": { section: "Pulse", label: "Funding" },
+  "market-regulatory": { section: "Pulse", label: "Regulatory" },
+  "market-customer": { section: "Pulse", label: "Customer" },
+  "market-ma": { section: "Pulse", label: "M&A / Strategic Moves" },
+  "market-investors": { section: "Raise", label: "Investors" },
+  "market-market": { section: "Pulse", label: "Category" },
+  "market-tech": { section: "Pulse", label: "Funding" },
+  "market-network": { section: "Pulse", label: "M&A / Strategic Moves" },
 
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
@@ -165,10 +203,16 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         `Operators with ${s} experience`,
       ];
     case "market-intelligence":
+    case "market-category":
+    case "market-funding":
+    case "market-regulatory":
+    case "market-customer":
+    case "market-ma":
     case "market-investors":
     case "market-market":
     case "market-tech":
     case "market-network":
+    case "market-data-room":
       return [
         "Funds that led rounds in my space this week",
         "Competitor pricing and packaging changes",
@@ -282,7 +326,7 @@ function HighlightedName({ text, query }: { text: string; query: string }) {
         part.toLowerCase() === qLower ? (
           <mark
             key={i}
-            className="rounded px-0.5 font-semibold bg-sky-500/15 text-sky-700 dark:bg-sky-400/20 dark:text-sky-200"
+            className="rounded px-0.5 font-semibold bg-foreground/[0.08] text-foreground dark:bg-white/[0.12]"
           >
             {part}
           </mark>
@@ -294,12 +338,21 @@ function HighlightedName({ text, query }: { text: string; query: string }) {
   );
 }
 
-// ── Live Market Pulse ──
-const PULSE_MESSAGES = [
-  { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-400" },
-  { text: "3 Funds Actively Deploying", icon: Activity, color: "text-sky-400" },
-  { text: "AI Sector +18% This Week", icon: TrendingUp, color: "text-amber-400" },
-  { text: "8 New Investors Added", icon: Radio, color: "text-violet-400" },
+// ── Live Market Pulse (click navigates to the matching Pulse / Network surface) ──
+type PulseNav =
+  | { kind: "intel"; view: ViewType }
+  | { kind: "investor"; chip: string; scrollCohorts: boolean };
+
+const PULSE_MESSAGES: readonly {
+  text: string;
+  icon: LucideIcon;
+  color: string;
+  nav: PulseNav;
+}[] = [
+  { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-400", nav: { kind: "intel", view: "market-funding" } },
+  { text: "3 Funds Actively Deploying", icon: Activity, color: "text-sky-400", nav: { kind: "investor", chip: "matches", scrollCohorts: true } },
+  { text: "AI Sector +18% This Week", icon: TrendingUp, color: "text-amber-400", nav: { kind: "intel", view: "market-category" } },
+  { text: "8 New Investors Added", icon: Radio, color: "text-violet-400", nav: { kind: "investor", chip: "recent", scrollCohorts: true } },
 ];
 
 function useRotatingPulse(interval = 4000) {
@@ -309,6 +362,193 @@ function useRotatingPulse(interval = 4000) {
     return () => clearInterval(t);
   }, [interval]);
   return PULSE_MESSAGES[idx];
+}
+
+const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search" | "directory"; label: string }[] = [
+  { id: "investors", label: "All" },
+  { id: "investor-search", label: "Investors" },
+  { id: "directory", label: "Operators" },
+];
+
+const MARKET_INTEL_SEGMENTS: { id: ViewType; label: string }[] = [
+  { id: "market-intelligence", label: "Brief" },
+  { id: "market-category", label: "Category" },
+  { id: "market-funding", label: "Funding" },
+  { id: "market-regulatory", label: "Regulatory" },
+  { id: "market-customer", label: "Customer" },
+  { id: "market-ma", label: "M&A / Strategic Moves" },
+];
+
+const MARKET_INTEL_SEGMENT_IDS = new Set<ViewType>(MARKET_INTEL_SEGMENTS.map((s) => s.id));
+
+function pulseIntelActiveLabel(view: ViewType): string {
+  return MARKET_INTEL_SEGMENTS.find((s) => s.id === view)?.label ?? "Brief";
+}
+
+/** Raise (home `/`): top nav is Data Room only — Investor Match stays on sidebar Raise. */
+const RAISE_SEGMENTS: readonly { id: ViewType; label: string }[] = [
+  { id: "market-data-room", label: "Data Room" },
+];
+
+const MISSION_CONTROL_SEGMENTS: { id: ViewType; label: string }[] = [
+  { id: "dashboard", label: "Company" },
+  { id: "industry", label: "Industry" },
+  { id: "competitive", label: "Competitive" },
+  { id: "competitors", label: "Competitors" },
+  { id: "sector", label: "Sector" },
+];
+
+const COMMUNITY_SEGMENTS: { id: "network" | "groups" | "events"; label: string }[] = [
+  { id: "network", label: "Overview" },
+  { id: "groups", label: "Groups" },
+  { id: "events", label: "Events" },
+];
+
+/** Light purple focus ring on the active top-nav tab / segment (matches VEKTA accent, restrained). */
+const TOP_NAV_ACTIVE_OUTLINE =
+  "ring-1 ring-[#a667ff]/40 ring-offset-0 ring-offset-background dark:ring-[#b892f0]/45";
+
+/** Active tab label: foreground-first with a slight violet cast (not full accent saturation). */
+const TOP_NAV_TAB_TEXT_ACTIVE =
+  "text-[#3f3650] dark:text-[#ebe8f6]";
+
+/** Mobile section trigger — matches segmented control chrome (Network / directory pattern). */
+const TOP_NAV_MOBILE_SECTION_TRIGGER = cn(
+  "flex h-8 items-center gap-1.5 rounded-[9px] border border-border/35 bg-muted/35 px-2.5",
+  "text-[10px] font-semibold uppercase leading-none tracking-[0.08em] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+  TOP_NAV_TAB_TEXT_ACTIVE,
+  "transition-[background-color,border-color,color,box-shadow] duration-150 ease-out",
+  "dark:border-white/[0.07] dark:bg-white/[0.04]",
+  "hover:bg-muted/50 dark:hover:bg-white/[0.07]",
+  TOP_NAV_ACTIVE_OUTLINE,
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-0",
+);
+
+/**
+ * Shared top-nav segmented control (same instrument as Investor / Network directory).
+ * Radiogroup + roving tabindex; keyboard arrows move selection.
+ */
+function TopNavSegmentedControl<T extends string>({
+  segments,
+  activeId,
+  onSelect,
+  ariaLabel,
+  widthClassName,
+  density = "default",
+  labelTransform = "uppercase",
+  /** `hug`: natural-width segments that wrap inside the pill when space is tight (no horizontal scroll). `stretch`: equal flex columns (short labels). */
+  segmentLayout = "stretch",
+}: {
+  segments: readonly { id: T; label: string }[];
+  activeId: T;
+  onSelect: (id: T) => void;
+  ariaLabel: string;
+  widthClassName?: string;
+  density?: "default" | "compact";
+  labelTransform?: "uppercase" | "none";
+  segmentLayout?: "stretch" | "hug";
+}) {
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const selectedIndex = segments.findIndex((s) => s.id === activeId);
+  const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+  const focusIndex = useCallback((i: number) => {
+    const el = btnRefs.current[i];
+    if (el) queueMicrotask(() => el.focus());
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      const len = segments.length;
+      let next = safeIndex;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        next = (safeIndex + 1) % len;
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        next = (safeIndex - 1 + len) % len;
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        next = 0;
+      } else if (e.key === "End") {
+        e.preventDefault();
+        next = len - 1;
+      } else {
+        return;
+      }
+      const seg = segments[next];
+      if (seg) {
+        onSelect(seg.id);
+        focusIndex(next);
+      }
+    },
+    [focusIndex, onSelect, safeIndex, segments],
+  );
+
+  const densityCls =
+    density === "compact"
+      ? "px-1.5 py-1 text-[9px] leading-none tracking-[0.05em] sm:px-2 sm:text-[10px] sm:tracking-[0.06em]"
+      : "px-2 py-1 text-[10px] leading-none tracking-[0.08em]";
+
+  const labelCls = labelTransform === "uppercase" ? "font-medium uppercase" : "font-medium normal-case";
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      aria-orientation="horizontal"
+      onKeyDown={handleKeyDown}
+      className={cn(
+        "items-stretch rounded-[9px] border border-border/35",
+        "bg-muted/35 p-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+        "dark:border-white/[0.07] dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+        segmentLayout === "hug"
+          ? "flex min-h-8 w-full min-w-0 max-w-full flex-wrap content-start gap-y-0.5"
+          : cn("inline-flex h-8 shrink-0 flex-nowrap", widthClassName),
+      )}
+    >
+      {segments.map((seg, i) => {
+        const selected = activeId === seg.id;
+        return (
+          <button
+            key={seg.id}
+            ref={(el) => {
+              btnRefs.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onSelect(seg.id)}
+            title={seg.label}
+            className={cn(
+              "relative min-h-0 rounded-md text-center whitespace-nowrap",
+              segmentLayout === "hug" ? "shrink-0" : "min-w-0 flex-1",
+              densityCls,
+              labelCls,
+              "transition-[color,background-color,box-shadow,ring-color,transform] duration-150 ease-out",
+              "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-0",
+              selected
+                ? cn(
+                    TOP_NAV_TAB_TEXT_ACTIVE,
+                    "shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.12)]",
+                    "bg-background/95 font-semibold",
+                    TOP_NAV_ACTIVE_OUTLINE,
+                    "dark:bg-white/[0.1] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]",
+                  )
+                : cn(
+                    "text-muted-foreground/70 hover:bg-muted/45 hover:text-foreground/88",
+                    "dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80",
+                  ),
+            )}
+          >
+            {seg.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function GlobalTopNav({
@@ -339,8 +579,6 @@ export function GlobalTopNav({
   const [activeChip, setActiveChip] = useState("all");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [logoImgError, setLogoImgError] = useState(false);
-  const [healthSnapshot, setHealthSnapshot] = useState<CompanyHealthSnapshot | null>(null);
-  const pulseHealthTrackTsRef = useRef(0);
 
   // Reset error state whenever the URL changes so a new URL gets a fresh attempt
   useEffect(() => { setLogoImgError(false); }, [logoUrl]);
@@ -354,22 +592,36 @@ export function GlobalTopNav({
 
   const routeView = useCallback(
     (v: ViewType) => {
-      const intel =
-        v === "market-intelligence" ||
-        v === "market-investors" ||
-        v === "market-market" ||
-        v === "market-tech" ||
-        v === "market-network";
+      const resolved = v === "data-room" ? ("market-data-room" as ViewType) : v;
+      const intel = MARKET_INTEL_SEGMENT_IDS.has(resolved);
       if (intel) {
         if (location.pathname !== "/intelligence") navigate("/intelligence");
       } else if (location.pathname === "/intelligence") {
         navigate("/");
       }
-      onViewChange?.(v);
-      if (v === "investors") dispatchInvestorsAllFocus();
+      onViewChange?.(resolved);
+      if (resolved === "investors") dispatchInvestorsAllFocus();
     },
     [location.pathname, navigate, onViewChange]
   );
+
+  const handlePulseClick = useCallback(() => {
+    const { nav } = pulse;
+    if (nav.kind === "intel") {
+      routeView(nav.view);
+      return;
+    }
+    if (location.pathname === "/intelligence") navigate("/");
+    onInvestorSearchChipChange?.(nav.chip);
+    if (nav.scrollCohorts) {
+      const scrollToCohorts = () => {
+        document
+          .querySelector<HTMLElement>("[data-section=\"network-pulse-cohorts\"]")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      requestAnimationFrame(() => requestAnimationFrame(scrollToCohorts));
+    }
+  }, [pulse, routeView, location.pathname, navigate, onInvestorSearchChipChange]);
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -377,26 +629,6 @@ export function GlobalTopNav({
     const handler = () => setScrolled(main.scrollTop > 12);
     main.addEventListener("scroll", handler, { passive: true });
     return () => main.removeEventListener("scroll", handler);
-  }, []);
-
-  useEffect(() => {
-    const syncFromCache = () => {
-      const cached = getCachedCompanyHealthSignals();
-      if (cached) setHealthSnapshot(cached);
-    };
-
-    const onSignalUpdate = (event: Event) => {
-      const detail = (event as CustomEvent<CompanyHealthSnapshot>).detail;
-      if (detail?.score != null) setHealthSnapshot(detail);
-    };
-
-    syncFromCache();
-    window.addEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
-    window.addEventListener("storage", syncFromCache);
-    return () => {
-      window.removeEventListener(COMPANY_HEALTH_SIGNAL_EVENT, onSignalUpdate as EventListener);
-      window.removeEventListener("storage", syncFromCache);
-    };
   }, []);
 
   // Close on outside click
@@ -603,22 +835,10 @@ export function GlobalTopNav({
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
   const isCommunityArea = ["network", "groups", "events"].includes(activeView);
-  const PulseIcon = pulse.icon;
-  const topHealthDriver = healthSnapshot?.drivers?.[0]?.label;
 
-  const handlePulseHealthChipClick = useCallback(() => {
-    if (!healthSnapshot) return;
-    const now = Date.now();
-    if (now - pulseHealthTrackTsRef.current < 1200) return;
-    pulseHealthTrackTsRef.current = now;
-    trackMixpanelEvent("Company Health Interaction", {
-      action: "pulse_health_chip_clicked",
-      activeView,
-      score: healthSnapshot.score,
-      trendPct: healthSnapshot.trendPct,
-      topDriver: topHealthDriver,
-    });
-  }, [activeView, healthSnapshot, topHealthDriver]);
+  const marketIntelActiveId: ViewType =
+    activeView && MARKET_INTEL_SEGMENT_IDS.has(activeView) ? activeView : "market-intelligence";
+  const PulseIcon = pulse.icon;
 
   const handleSearchClick = useCallback(() => {
     setSearchOpen(true);
@@ -653,39 +873,32 @@ export function GlobalTopNav({
           ? "bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
           : "bg-transparent border-b border-transparent"
       )}
-      style={{ left: "11rem" }}
+      style={{ left: "200px" }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* ── Left: Pulse ── */}
         <div className="flex min-w-0 shrink-0 items-center gap-2.5">
           {(isInvestorArea || isCommunityArea) ? (
-            <div key={pulse.text} className="flex items-center gap-2 text-[11px] font-medium animate-fade-in">
-              <div className="flex items-center gap-1.5">
+            <button
+              key={pulse.text}
+              type="button"
+              onClick={handlePulseClick}
+              aria-label={`Open: ${pulse.text}`}
+              className={cn(
+                "flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 -mx-1 text-left text-[11px] font-medium",
+                "animate-fade-in transition-colors",
+                "cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-0",
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 </span>
                 <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
                 <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
-              </div>
-
-              {healthSnapshot && (
-                <button
-                  type="button"
-                  onClick={handlePulseHealthChipClick}
-                  className={cn(
-                    "hidden rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors xl:inline-flex",
-                    healthSnapshot.trendPct >= 0
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-                      : "border-rose-500/30 bg-rose-500/10 text-rose-600",
-                  )}
-                  title={topHealthDriver || "Health delta"}
-                >
-                  Health {healthSnapshot.trendPct >= 0 ? "+" : ""}
-                  {healthSnapshot.trendPct}%
-                </button>
-              )}
-            </div>
+              </span>
+            </button>
           ) : lastSyncedAt ? (
             <div className="flex items-center gap-1.5 text-[11px] font-medium">
               <Clock className="h-3 w-3 text-muted-foreground/50" />
@@ -722,7 +935,7 @@ export function GlobalTopNav({
 
           {searchOpen && (
             <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-2xl border border-border/50 bg-popover shadow-2xl backdrop-blur-xl">
-              <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 px-4 py-2.5">
                 <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
                 {FILTER_CHIPS.map(chip => {
                   const Icon = chip.icon;
@@ -891,49 +1104,32 @@ export function GlobalTopNav({
           )}
         </div>
 
-        {/* ── Investor Section Tabs (visible when search collapsed) ── */}
+        {/* ── Investor directory segmented control (visible when search collapsed) ── */}
         {!searchOpen && ["investors", "investor-search", "directory"].includes(activeView) && (
           <>
-            {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "matches", label: "ALL" },
-                { id: "search", label: "INVESTORS" },
-                { id: "operators", label: "OPERATORS" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.id === "matches") routeView("investors");
-                    else if (tab.id === "search") routeView("investor-search");
-                    else if (tab.id === "operators") routeView("directory");
-                  }}
-                  className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                    activeView === "investors" && tab.id === "matches" ||
-                    activeView === "investor-search" && tab.id === "search" ||
-                    activeView === "directory" && tab.id === "operators"
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
+              <TopNavSegmentedControl
+                segments={INVESTOR_DIRECTORY_SEGMENTS}
+                activeId={activeView as "investors" | "investor-search" | "directory"}
+                onSelect={(v) => routeView(v)}
+                ariaLabel="Investor directory view"
+                widthClassName="w-[236px] sm:w-[244px]"
+              />
             </div>
 
-            {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2 mr-2">
+            {/* Narrow screens: same IA, compact menu trigger aligned with segmented chrome */}
+            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
-                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}>
-                    <span className="truncate max-w-[100px]">
-                      {activeView === "investors" ? "ALL" : activeView === "investor-search" ? "INVESTORS" : "OPERATORS"}
+                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[9.5rem]")}>
+                    <span className="min-w-0 flex-1 truncate text-left uppercase">
+                      {activeView === "investors"
+                        ? "All"
+                        : activeView === "investor-search"
+                          ? "Investors"
+                          : "Operators"}
                     </span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
+                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-36">
@@ -961,89 +1157,47 @@ export function GlobalTopNav({
           </>
         )}
 
-
-
-        {/* ── Market Intelligence Section Tabs (visible when search collapsed) ── */}
-        {!searchOpen && ["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(activeView) && (
+        {/* ── Community (Network) — same segmented chrome as investor directory ── */}
+        {!searchOpen && ["network", "groups", "events"].includes(activeView) && (
           <>
-            {/* Tabs for larger screens */}
-            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {[
-                { id: "market-intelligence", label: "Live" },
-                { id: "market-investors", label: "Investors" },
-                { id: "market-market", label: "Market" },
-                { id: "market-tech", label: "Tech" },
-                { id: "market-network", label: "Network" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => routeView(tab.id as ViewType)}
-                  className={cn(
-                    "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                    activeView === tab.id
-                      ? "text-accent bg-accent/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
+              <TopNavSegmentedControl
+                segments={COMMUNITY_SEGMENTS}
+                activeId={activeView}
+                onSelect={(id) => routeView(id)}
+                ariaLabel="Community view"
+                widthClassName="w-[248px] sm:w-[264px]"
+                labelTransform="none"
+              />
             </div>
-
-            {/* Dropdown for smaller screens */}
-            <div className="md:hidden ml-2 mr-2">
+            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
-                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}>
-                    <span className="truncate max-w-[100px]">
-                      {activeView === "market-intelligence"
-                        ? "Live"
-                        : activeView === "market-investors"
-                          ? "Investors"
-                          : activeView === "market-market"
-                            ? "Market"
-                            : activeView === "market-tech"
-                              ? "Tech"
-                              : activeView === "market-network"
-                                ? "Network"
-                                : "Intelligence"}
+                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10rem]")}>
+                    <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
+                      {activeView === "network" ? "Overview" : activeView === "groups" ? "Groups" : "Events"}
                     </span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
+                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
                   <DropdownMenuItem
-                    onClick={() => routeView("market-intelligence")}
-                    className={cn(activeView === "market-intelligence" && "bg-accent/10 text-accent")}
+                    onClick={() => routeView("network")}
+                    className={cn(activeView === "network" && "bg-accent/10 text-accent")}
                   >
-                    Live
+                    Overview
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => routeView("market-investors")}
-                    className={cn(activeView === "market-investors" && "bg-accent/10 text-accent")}
+                    onClick={() => routeView("groups")}
+                    className={cn(activeView === "groups" && "bg-accent/10 text-accent")}
                   >
-                    Investors
+                    Groups
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => routeView("market-market")}
-                    className={cn(activeView === "market-market" && "bg-accent/10 text-accent")}
+                    onClick={() => routeView("events")}
+                    className={cn(activeView === "events" && "bg-accent/10 text-accent")}
                   >
-                    Market
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-tech")}
-                    className={cn(activeView === "market-tech" && "bg-accent/10 text-accent")}
-                  >
-                    Tech
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-network")}
-                    className={cn(activeView === "market-network" && "bg-accent/10 text-accent")}
-                  >
-                    Network
+                    Events
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1051,47 +1205,99 @@ export function GlobalTopNav({
           </>
         )}
 
-        {/* ── Mission Control section tabs (visible when search collapsed) — not Intelligence */}
-        {!searchOpen &&
-          ["dashboard", "industry", "competitive", "competitors", "sector", "data-room"].includes(activeView) && (
+        {/* ── Pulse (`/intelligence`) — Brief, Category, Funding, Regulatory, Customer, M&A ── */}
+        {!searchOpen && location.pathname === "/intelligence" && (
           <>
-            <div className="hidden md:flex items-center gap-1 ml-3 mr-3 shrink min-w-0">
-              {(
-                [
-                  { nav: "dashboard" as const, label: "Company" },
-                  { nav: "industry" as const, label: "Industry" },
-                  { nav: "competitive" as const, label: "Competitive" },
-                  { nav: "competitors" as const, label: "Competitors" },
-                  { nav: "sector" as const, label: "Sector" },
-                  { nav: "data-room" as const, label: "Data Room" },
-                ] as const
-              ).map((tab) => {
-                const tabActive = activeView === tab.nav;
-                return (
-                  <button
-                    key={tab.nav}
-                    onClick={() => routeView(tab.nav)}
-                    className={cn(
-                      "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors shrink-0 whitespace-nowrap",
-                      tabActive
-                        ? "text-accent bg-accent/10"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
+              <TopNavSegmentedControl
+                segments={MARKET_INTEL_SEGMENTS}
+                activeId={marketIntelActiveId}
+                onSelect={(id) => routeView(id as ViewType)}
+                ariaLabel="Market intelligence views"
+                density="compact"
+                labelTransform="none"
+                segmentLayout="hug"
+              />
             </div>
 
-            <div className="md:hidden ml-2 mr-2">
+            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors whitespace-nowrap",
-                    "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}>
-                    <span className="truncate max-w-[80px]">
+                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
+                    <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold tracking-normal normal-case">
+                      {pulseIntelActiveLabel(marketIntelActiveId)}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44">
+                  {MARKET_INTEL_SEGMENTS.map((seg) => (
+                    <DropdownMenuItem
+                      key={seg.id}
+                      onClick={() => routeView(seg.id)}
+                      className={cn(activeView === seg.id && "bg-accent/10 text-accent")}
+                    >
+                      {seg.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        )}
+
+        {/* ── Raise (home): Data Room only when not on /intelligence */}
+        {!searchOpen &&
+          location.pathname === "/" &&
+          (activeView === "market-investors" || activeView === "market-data-room") && (
+          <>
+            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
+              <TopNavSegmentedControl<ViewType>
+                segments={RAISE_SEGMENTS}
+                activeId={activeView}
+                onSelect={(id) => routeView(id)}
+                ariaLabel="Raise — Data Room"
+                widthClassName="min-w-[120px] w-auto"
+                labelTransform="none"
+              />
+            </div>
+            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
+              <button
+                type="button"
+                onClick={() => routeView("market-data-room")}
+                className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10rem]")}
+                aria-label="Open Data Room"
+                aria-current={activeView === "market-data-room" ? "page" : undefined}
+              >
+                <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
+                  Data Room
+                </span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── Mission Control — segmented control (matches Network directory chrome) */}
+        {!searchOpen &&
+          ["dashboard", "industry", "competitive", "competitors", "sector"].includes(activeView) && (
+          <>
+            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
+              <TopNavSegmentedControl
+                segments={MISSION_CONTROL_SEGMENTS}
+                activeId={activeView}
+                onSelect={(id) => routeView(id as ViewType)}
+                ariaLabel="Mission control view"
+                density="compact"
+                labelTransform="none"
+                segmentLayout="hug"
+              />
+            </div>
+
+            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
+                    <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
                       {activeView === "dashboard"
                         ? "Company"
                         : activeView === "industry"
@@ -1102,9 +1308,9 @@ export function GlobalTopNav({
                               ? "Competitors"
                               : activeView === "sector"
                                 ? "Sector"
-                                : "Data Room"}
+                                : "Company"}
                     </span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
+                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
@@ -1137,12 +1343,6 @@ export function GlobalTopNav({
                     className={cn(activeView === "sector" && "bg-accent/10 text-accent")}
                   >
                     Sector
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("data-room")}
-                    className={cn(activeView === "data-room" && "bg-accent/10 text-accent")}
-                  >
-                    Data Room
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

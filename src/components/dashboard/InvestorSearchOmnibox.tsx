@@ -62,7 +62,11 @@ export function InvestorSearchOmnibox({
     if (query.length <= MIN_CHARS) return { firmResults: [], personResults: [] };
 
     const fr: InvestorTypeaheadResult[] = firms
-      .filter((f) => f.name.toLowerCase().includes(query))
+      .filter((f) => {
+        if (f.name.toLowerCase().includes(query)) return true;
+        if (f.aliases?.some((alias) => alias.toLowerCase().includes(query))) return true;
+        return false;
+      })
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((f) => ({
         id: f.id,

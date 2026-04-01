@@ -5,6 +5,7 @@ import { supabaseVcDirectory } from "@/integrations/supabase/client";
 export interface VCFirm {
   id: string;
   name: string;
+  x_url: string | null;
   description: string | null;
   aum: string | null;
   /** Prisma `AumBand` when present on `vc_firms`. */
@@ -14,6 +15,8 @@ export interface VCFirm {
   sectors: string[] | null;
   logo_url: string | null;
   website_url: string | null;
+  /** Searchable nicknames and alternate names (e.g. ["a16z"] for Andreessen Horowitz). */
+  aliases: string[] | null;
 }
 
 // ── Enums ──
@@ -355,6 +358,7 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
   return {
     id,
     name,
+    x_url: typeof row.x_url === "string" ? row.x_url : null,
     description:
       typeof row.description === "string"
         ? row.description
@@ -382,6 +386,7 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
       null,
     logo_url: typeof row.logo_url === "string" ? row.logo_url : null,
     website_url: websiteRaw || deriveWebsiteUrlFromFirmId(id),
+    aliases: toStringArray(row.aliases) ?? null,
   };
 }
 
@@ -455,6 +460,7 @@ async function loadStaticVCData(): Promise<VCData> {
     .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
     .map((firm) => ({
       ...firm,
+      x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
       website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
     }));
   return { firms, people: d.people || [] };
