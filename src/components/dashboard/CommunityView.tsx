@@ -421,10 +421,88 @@ function formatStageForDisplay(stage: string): string {
   return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
 }
 
+function normalizeStageKey(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[\u2013\u2014-]/g, " ");
+}
+
+/** Canonical ordering for VC stage focus (low → high). Unknown labels sort after known. */
+const STAGE_ORDER: Record<string, number> = {
+  "friends and family": 0,
+  "pre-seed": 1,
+  "pre seed": 1,
+  "seed": 2,
+  "series a": 3,
+  "series b": 4,
+  "series b+": 5,
+  "series c": 6,
+  "series c+": 7,
+  "series d": 8,
+  "series e": 9,
+  "growth": 10,
+  "late stage": 11,
+  "late": 11,
+  "multi-stage": 12,
+  "multistage": 12,
+};
+
+function stageRank(s: string): number {
+  const k = normalizeStageKey(s);
+  if (k in STAGE_ORDER) return STAGE_ORDER[k];
+  const m = k.match(/^series ([a-e])(\+)?$/);
+  if (m) {
+    const letter = m[1];
+    const plus = m[2] === "+";
+    const base = { a: 3, b: 4, c: 6, d: 8, e: 9 }[letter];
+    if (base != null) return plus ? base + 0.15 : base;
+  }
+  return 100;
+}
+
+/**
+ * Card subtitle: "Seed – Series B" instead of "Seed, Series A, Series B".
+ * Preserves single labels and existing range strings.
+ */
+function collapseStagesToRange(stages: string[]): string | null {
+  const uniq: string[] = [];
+  const seen = new Set<string>();
+  for (const s of stages) {
+    const t = s.trim();
+    if (!t) continue;
+    const key = normalizeStageKey(t);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(t);
+  }
+  if (uniq.length === 0) return null;
+  if (uniq.length === 1) return formatStageForDisplay(uniq[0]);
+  const sorted = [...uniq].sort((a, b) => stageRank(a) - stageRank(b));
+  const lo = sorted[0];
+  const hi = sorted[sorted.length - 1];
+  if (normalizeStageKey(lo) === normalizeStageKey(hi)) return formatStageForDisplay(lo);
+  return formatStageForDisplay(`${lo}\u2013${hi}`);
+}
+
 function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
   const sector = entry.sector?.trim() || null;
-  const stage = entry.stage?.trim() ? formatStageForDisplay(entry.stage.trim()) : null;
-  return { sector, stage };
+  const raw = entry.stage?.trim();
+  if (!raw) return { sector, stage: null };
+
+  if (entry._stages && entry._stages.length > 0) {
+    const collapsed = collapseStagesToRange(entry._stages);
+    return { sector, stage: collapsed ?? formatStageForDisplay(raw) };
+  }
+
+  if (raw.includes(",")) {
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    const collapsed = collapseStagesToRange(parts);
+    return { sector, stage: collapsed ?? formatStageForDisplay(raw) };
+  }
+
+  return { sector, stage: formatStageForDisplay(raw) };
 }
 
 // ── Investor Card ──
@@ -1302,7 +1380,7 @@ export function CommunityView({
         return {
           name: displayName,
           sector: f.sectors?.filter(Boolean).slice(0, 2).join(", ") || "Generalist",
-          stage: f.stages?.filter(Boolean).join(", ") || "Multi-stage",
+          stage: collapseStagesToRange(f.stages?.filter(Boolean) ?? []) || "Multi-stage",
           description: f.description || `${displayName} is an active investment firm.`,
           location: dbMatch?.location || "",
           model: f.sweet_spot || f.aum || "",

@@ -22,6 +22,7 @@ import {
   type TopNavView,
 } from "@/lib/companyHealthSignals";
 import { CompanyHealthHeader } from "@/components/health/CompanyHealthHeader";
+import { CompanyHealthDataSourcesPanel } from "@/components/health/CompanyHealthDataSourcesPanel";
 import { fetchIntelligenceSummary, type IntelligenceSummaryStrip } from "@/lib/intelligenceFeedApi";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
 
@@ -36,6 +37,8 @@ export interface TopNavCompanyHealthProps {
   companyName?: string | null;
   logoUrl?: string | null;
   hasProfile?: boolean;
+  /** Navigate to Raise → Data Room (e.g. from Documents edit controls). */
+  onNavigateToDataRoom?: () => void;
 }
 
 const tabs: Array<{ id: HealthTab; label: string }> = [
@@ -116,10 +119,12 @@ export function TopNavCompanyHealth({
   companyName,
   logoUrl,
   hasProfile = false,
+  onNavigateToDataRoom,
 }: TopNavCompanyHealthProps) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<HealthTab>("overview");
+  const [healthSurface, setHealthSurface] = useState<"tabs" | "data">("tabs");
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
   const [scoreLineProgress, setScoreLineProgress] = useState(0);
@@ -438,7 +443,10 @@ export function TopNavCompanyHealth({
         open={modalOpen}
         onOpenChange={(open) => {
           setModalOpen(open);
-          if (!open) setActiveTab("overview");
+          if (!open) {
+            setActiveTab("overview");
+            setHealthSurface("tabs");
+          }
         }}
       >
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
@@ -456,98 +464,117 @@ export function TopNavCompanyHealth({
                   { key: "defensibility", label: "Defensibility", score: derived.defensibility, delta: familyImpact.defensibility },
                 ]}
                 tabs={tabs.map((t) => t.label)}
-                activeTab={tabs.find((t) => t.id === activeTab)?.label ?? tabs[0]?.label ?? "Overview"}
+                activeTab={
+                  healthSurface === "data"
+                    ? "\u200b"
+                    : tabs.find((t) => t.id === activeTab)?.label ?? tabs[0]?.label ?? "Overview"
+                }
                 onTabChange={(label) => {
+                  setHealthSurface("tabs");
                   const next = tabs.find((t) => t.label === label)?.id;
                   if (next) setActiveTab(next);
+                }}
+                dataSurfaceActive={healthSurface === "data"}
+                onDataClick={() => {
+                  setHealthSurface((s) => {
+                    const next = s === "data" ? "tabs" : "data";
+                    trackInteractionThrottled("health_data_surface", 1000, { surface: next });
+                    return next;
+                  });
                 }}
               />
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-10">
-              {activeTab === "overview" && (
-                <HealthDashboard
-                  hideFinancialsSection
-                  stage={stage ?? undefined}
-                  sector={sector ?? undefined}
-                  analysisResult={analysisResult}
-                  familyScores={{
-                    market: derived.marketPosition,
-                    financial: derived.financialHealth,
-                    gtm: derived.gtmStrength,
-                    defensibility: derived.defensibility,
-                  }}
-                />
-              )}
+              {healthSurface === "data" ? (
+                <CompanyHealthDataSourcesPanel onEditDocumentsInDataRoom={handleNavigateToDataRoom} />
+              ) : (
+                <>
+                  {activeTab === "overview" && (
+                    <HealthDashboard
+                      hideFinancialsSection
+                      stage={stage ?? undefined}
+                      sector={sector ?? undefined}
+                      analysisResult={analysisResult}
+                      familyScores={{
+                        market: derived.marketPosition,
+                        financial: derived.financialHealth,
+                        gtm: derived.gtmStrength,
+                        defensibility: derived.defensibility,
+                      }}
+                    />
+                  )}
 
-              {activeTab !== "overview" && (
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {topDrivers
-                      .filter((driver) => (activeTab === "market" ? driver.family === "market" : true))
-                      .filter((driver) => (activeTab === "financial" ? driver.family === "financial" : true))
-                      .filter((driver) => (activeTab === "gtm" ? driver.family === "gtm" : true))
-                      .filter((driver) => (activeTab === "defensibility" ? driver.family === "defensibility" : true))
-                      .map((driver) => (
-                        <div key={driver.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
-                          <p className="text-sm font-medium text-foreground">{driver.label}</p>
-                          <p
-                            className={cn(
-                              "mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
-                              driver.impact >= 0
-                                ? "bg-emerald-500/10 text-emerald-600"
-                                : "bg-rose-500/10 text-rose-600",
-                            )}
-                          >
-                            {driver.impact >= 0 ? "+" : ""}
-                            {driver.impact.toFixed(1)} impact
+                  {activeTab !== "overview" && (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {topDrivers
+                          .filter((driver) => (activeTab === "market" ? driver.family === "market" : true))
+                          .filter((driver) => (activeTab === "financial" ? driver.family === "financial" : true))
+                          .filter((driver) => (activeTab === "gtm" ? driver.family === "gtm" : true))
+                          .filter((driver) => (activeTab === "defensibility" ? driver.family === "defensibility" : true))
+                          .map((driver) => (
+                            <div key={driver.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
+                              <p className="text-sm font-medium text-foreground">{driver.label}</p>
+                              <p
+                                className={cn(
+                                  "mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+                                  driver.impact >= 0
+                                    ? "bg-emerald-500/10 text-emerald-600"
+                                    : "bg-rose-500/10 text-rose-600",
+                                )}
+                              >
+                                {driver.impact >= 0 ? "+" : ""}
+                                {driver.impact.toFixed(1)} impact
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                            <BarChart3 className="h-3.5 w-3.5" />
+                            Pulse
                           </p>
+                          <p className="mt-2 text-sm text-foreground">Health driver deltas feed Pulse alerts for high-priority shifts.</p>
                         </div>
-                      ))}
-                  </div>
+                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                            <Target className="h-3.5 w-3.5" />
+                            Markets
+                          </p>
+                          <p className="mt-2 text-sm text-foreground">Relative competitor pressure and category momentum refine positioning.</p>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                            <Wallet className="h-3.5 w-3.5" />
+                            Raise Readiness
+                          </p>
+                          <p className="mt-2 text-sm text-foreground">Financial + GTM signals update readiness narrative for investor conversations.</p>
+                        </div>
+                      </div>
 
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        Pulse
-                      </p>
-                      <p className="mt-2 text-sm text-foreground">Health driver deltas feed Pulse alerts for high-priority shifts.</p>
+                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                        <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                          <Shield className="h-3.5 w-3.5" />
+                          {tabs.find((tab) => tab.id === activeTab)?.label}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                          {analysisResult?.executiveSummary ||
+                            "This panel mirrors the same Company Health model used across dashboard, market intelligence, and workflows, with instant top-nav access."}
+                        </p>
+                        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-foreground">
+                          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                          {viewContextNote(activeView)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <Target className="h-3.5 w-3.5" />
-                        Markets
-                      </p>
-                      <p className="mt-2 text-sm text-foreground">Relative competitor pressure and category momentum refine positioning.</p>
-                    </div>
-                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                        <Wallet className="h-3.5 w-3.5" />
-                        Raise Readiness
-                      </p>
-                      <p className="mt-2 text-sm text-foreground">Financial + GTM signals update readiness narrative for investor conversations.</p>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                    <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <Shield className="h-3.5 w-3.5" />
-                      {tabs.find((tab) => tab.id === activeTab)?.label}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {analysisResult?.executiveSummary ||
-                        "This panel mirrors the same Company Health model used across dashboard, market intelligence, and workflows, with instant top-nav access."}
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-foreground">
-                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                      {viewContextNote(activeView)}
-                    </div>
-                  </div>
-                </div>
+                  <HealthFinancialsUnitEconomicsSection className="mt-8" />
+                </>
               )}
-
-              <HealthFinancialsUnitEconomicsSection className="mt-8" />
             </div>
           </div>
         </DialogContent>

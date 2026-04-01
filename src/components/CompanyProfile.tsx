@@ -591,6 +591,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         localStorage.setItem("company-metric-period", metricPeriod);
         localStorage.setItem("company-section-confirmed", JSON.stringify(sectionConfirmed));
         if (stageClassification) localStorage.setItem("company-stage-classification", JSON.stringify(stageClassification));
+        window.dispatchEvent(new Event("company-profile-changed"));
         if (form.name) { setSaveIndicator("Live"); }
       } catch {}
     }, 800);
@@ -1938,6 +1939,26 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           </div>
                         )}
                       </div>
+                    </div>
+                    <div className="min-w-0 space-y-1" data-field="one-pager-url">
+                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <FileText className="h-3 w-3" /> One-pager (link)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="url"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        value={form.onePagerUrl}
+                        disabled={isAnalyzing}
+                        onChange={(e) => update("onePagerUrl", e.target.value)}
+                        placeholder="https://…"
+                        maxLength={2048}
+                        className={inputCls("onePagerUrl")}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Optional. Shown under Company Health → Data with your latest pitch deck.
+                      </p>
                     </div>
                     {parentCompanyData && (
                       <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5">
