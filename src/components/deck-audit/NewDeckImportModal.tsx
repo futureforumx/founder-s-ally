@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Upload, Link2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewDeckImportModalProps {
   open: boolean;
@@ -129,18 +130,35 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
     if (file) handleFile(file);
   }, [handleFile]);
 
-  const handleLinkImport = useCallback(() => {
+  const handleLinkImport = useCallback(async () => {
     if (!linkUrl.trim()) return;
     setError(null);
     setIsExtracting(true);
 
-    // Simulate link fetch — in production this would call an edge function
-    setTimeout(() => {
-      setIsExtracting(false);
-      setPendingImportText(`[Link Import]\nImported deck from: ${linkUrl}\n\n[Slide 01]\nTitle slide content extracted from link.\n\n[Slide 02]\nProblem statement and market analysis.\n\n[Slide 03]\nSolution overview and product demo.\n\n[Slide 04]\nTraction metrics and growth chart.\n\n[Slide 05]\nTeam and advisors.`);
+    try {
+      const { data, error: scrapeError } = await supabase.functions.invoke("scrape-website", {
+        body: { url: linkUrl.trim() },
+      });
+
+      if (scrapeError) {
+        setError("Failed to fetch content from this link. Please try uploading the file instead.");
+        return;
+      }
+
+      const markdown = data?.markdown;
+      if (!markdown || markdown.trim().length < 50) {
+        setError("Could not extract enough content from this link. Try uploading the deck as a PDF instead.");
+        return;
+      }
+
+      setPendingImportText(`[Link Import]\nImported deck from: ${linkUrl}\n\n${markdown}`);
       setPagePreviews([]);
       setActivePreviewPage(0);
-    }, 1500);
+    } catch {
+      setError("Failed to fetch content from this link. Please try uploading the file instead.");
+    } finally {
+      setIsExtracting(false);
+    }
   }, [linkUrl]);
 
   const handleConfirmImport = useCallback(() => {
