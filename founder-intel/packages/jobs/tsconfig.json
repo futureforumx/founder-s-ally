@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@founder-intel/types": ["../types/src"],
+      "@founder-intel/database": ["../database/src"],
+      "@founder-intel/adapters": ["../adapters/src"],
+      "@founder-intel/matching": ["../matching/src"]
+    }
+  },
+  "include": ["src/**/*"]
+}

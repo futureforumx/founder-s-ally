@@ -1,0 +1,25 @@
+{
+  "name": "@founder-intel/adapters",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@founder-intel/types": "workspace:*",
+    "cheerio": "^1.0.0",
+    "robotstxt-guard": "^1.0.2",
+    "robots-parser": "^3.0.1",
+    "node-fetch": "^3.3.2",
+    "p-limit": "^5.0.0",
+    "p-retry": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/cheerio": "^0.22.35",
+    "typescript": "^5.3.3"
+  }
+}

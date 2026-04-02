@@ -98,7 +98,7 @@ const SB = {
 };
 
 async function sbGet<T>(table: string, select: string, extra = ""): Promise<T[]> {
-  const url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=10000${extra}`;
+  const url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=50000${extra}`;
   const res = await fetch(url, { headers: SB });
   if (!res.ok) throw new Error(`GET ${table}: ${res.status} ${await res.text()}`);
   return res.json();

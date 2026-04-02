@@ -1,0 +1,26 @@
+{
+  "name": "founder-intel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Founder intelligence ingestion system — operator network graph",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @founder-intel/database prisma:generate",
+    "db:migrate": "pnpm --filter @founder-intel/database prisma:migrate",
+    "db:studio": "pnpm --filter @founder-intel/database prisma:studio",
+    "db:seed": "pnpm --filter @founder-intel/database prisma:seed"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.4.0"
+}
