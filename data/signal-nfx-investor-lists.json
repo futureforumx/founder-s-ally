@@ -1,0 +1,3473 @@
+[
+  {
+    "id": "1",
+    "slug": "advertising-seed",
+    "investor_count": 716,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "1",
+      "display_name": "Advertising",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "2",
+    "slug": "agtech-seed",
+    "investor_count": 1454,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "2",
+      "display_name": "AgTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "3",
+    "slug": "ai-seed",
+    "investor_count": 5376,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "3",
+      "display_name": "AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "4",
+    "slug": "analytics-seed",
+    "investor_count": 1597,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "4",
+      "display_name": "Analytics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5",
+    "slug": "ar-vr-seed",
+    "investor_count": 649,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "5",
+      "display_name": "AR/VR",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5419",
+    "slug": "audiotech-seed",
+    "investor_count": 78,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57796",
+      "display_name": "AudioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5464",
+    "slug": "autotech-seed",
+    "investor_count": 409,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57797",
+      "display_name": "AutoTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6",
+    "slug": "biotech-seed",
+    "investor_count": 3638,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "6",
+      "display_name": "BioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "194",
+    "slug": "chemicals-seed",
+    "investor_count": 125,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "54720",
+      "display_name": "Chemicals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "9",
+    "slug": "climatetech-cleantech-seed",
+    "investor_count": 2919,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "9",
+      "display_name": "ClimateTech/CleanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "10",
+    "slug": "cloud-infrastructure-seed",
+    "investor_count": 1977,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "10",
+      "display_name": "Cloud Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5509",
+    "slug": "constructiontech-seed",
+    "investor_count": 440,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57798",
+      "display_name": "ConstructionTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "11",
+    "slug": "consumer-health-seed",
+    "investor_count": 2267,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "11",
+      "display_name": "Consumer Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "12",
+    "slug": "consumer-internet-seed",
+    "investor_count": 5509,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "12",
+      "display_name": "Consumer Internet",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "191",
+    "slug": "cosmetics-seed",
+    "investor_count": 130,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "54719",
+      "display_name": "Cosmetics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6049",
+    "slug": "creator-passion-economy-seed",
+    "investor_count": 250,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "59254",
+      "display_name": "Creator/Passion Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5554",
+    "slug": "cybersecurity-seed",
+    "investor_count": 1555,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57799",
+      "display_name": "Cybersecurity",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "14",
+    "slug": "data-services-seed",
+    "investor_count": 1599,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "14",
+      "display_name": "Data Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6094",
+    "slug": "deeptech-seed",
+    "investor_count": 1455,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "59255",
+      "display_name": "DeepTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7956",
+    "slug": "defensetech-seed",
+    "investor_count": 89,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "111331",
+      "display_name": "DefenseTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "15",
+    "slug": "developer-tools-seed",
+    "investor_count": 1197,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "15",
+      "display_name": "Developer Tools",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5599",
+    "slug": "diagnostics-seed",
+    "investor_count": 419,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57800",
+      "display_name": "Diagnostics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5644",
+    "slug": "digital-health-seed",
+    "investor_count": 3885,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57801",
+      "display_name": "Digital Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5734",
+    "slug": "direct-to-consumer-dtc-seed",
+    "investor_count": 404,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57803",
+      "display_name": "Direct-to-Consumer (DTC)",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5689",
+    "slug": "drug-delivery-seed",
+    "investor_count": 120,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57802",
+      "display_name": "Drug Delivery",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "17",
+    "slug": "e-commerce-seed",
+    "investor_count": 3366,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "17",
+      "display_name": "E-commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "18",
+    "slug": "education-seed",
+    "investor_count": 1958,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "18",
+      "display_name": "Education",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "19",
+    "slug": "energytech-seed",
+    "investor_count": 1521,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "19",
+      "display_name": "EnergyTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5779",
+    "slug": "enterprise-applications-seed",
+    "investor_count": 2212,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57804",
+      "display_name": "Enterprise Applications",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5824",
+    "slug": "enterprise-infrastructure-seed",
+    "investor_count": 911,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57805",
+      "display_name": "Enterprise Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "20",
+    "slug": "enterprise-seed",
+    "investor_count": 6423,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "20",
+      "display_name": "Enterprise",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "21",
+    "slug": "entertainment-sports-seed",
+    "investor_count": 1049,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "21",
+      "display_name": "Entertainment & Sports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "22",
+    "slug": "fashion-seed",
+    "investor_count": 396,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "22",
+      "display_name": "Fashion",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "23",
+    "slug": "fintech-seed",
+    "investor_count": 8777,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "23",
+      "display_name": "FinTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "24",
+    "slug": "food-and-beverage-seed",
+    "investor_count": 1579,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24",
+      "display_name": "Food and Beverage",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5416",
+    "slug": "future-of-work-seed",
+    "investor_count": 1025,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "56543",
+      "display_name": "Future of Work",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "25",
+    "slug": "games-seed",
+    "investor_count": 747,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "25",
+      "display_name": "Games",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "26",
+    "slug": "gaming-esports-seed",
+    "investor_count": 1121,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "26",
+      "display_name": "Gaming/eSports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "8056",
+    "slug": "general-tech-seed",
+    "investor_count": 37,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "113791",
+      "display_name": "General Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7543",
+    "slug": "generative-tech-seed",
+    "investor_count": 585,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "74055",
+      "display_name": "Generative Tech/AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5869",
+    "slug": "gig-economy-seed",
+    "investor_count": 140,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57806",
+      "display_name": "Gig Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "27",
+    "slug": "govtech-seed",
+    "investor_count": 228,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "27",
+      "display_name": "GovTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "28",
+    "slug": "hardware-seed",
+    "investor_count": 811,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "28",
+      "display_name": "Hardware",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "54",
+    "slug": "health-hospital-services-seed",
+    "investor_count": 4745,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "32",
+      "display_name": "Health & Hospital Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "29",
+    "slug": "health-it-seed",
+    "investor_count": 4801,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "29",
+      "display_name": "Health IT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "30",
+    "slug": "human-capital-hrtech-seed",
+    "investor_count": 574,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "30",
+      "display_name": "Human Capital/HRTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "31",
+    "slug": "impact-seed",
+    "investor_count": 1051,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "31",
+      "display_name": "Impact",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "32",
+    "slug": "insurance-seed",
+    "investor_count": 1155,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "33",
+      "display_name": "Insurance",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "33",
+    "slug": "iot-seed",
+    "investor_count": 1875,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "34",
+      "display_name": "IoT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5914",
+    "slug": "legaltech-seed",
+    "investor_count": 246,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57807",
+      "display_name": "LegalTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "34",
+    "slug": "local-services-seed",
+    "investor_count": 314,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "35",
+      "display_name": "Local Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "35",
+    "slug": "lodging-hospitality-seed",
+    "investor_count": 239,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "36",
+      "display_name": "Lodging/Hospitality",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "176",
+    "slug": "logistics-seed",
+    "investor_count": 1050,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24386",
+      "display_name": "Logistics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "173",
+    "slug": "manufacturing-seed",
+    "investor_count": 928,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24385",
+      "display_name": "Manufacturing",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "36",
+    "slug": "marketingtech-seed",
+    "investor_count": 986,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "37",
+      "display_name": "MarketingTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "37",
+    "slug": "marketplaces-seed",
+    "investor_count": 3196,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "38",
+      "display_name": "Marketplaces",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "55",
+    "slug": "material-science-seed",
+    "investor_count": 328,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24056",
+      "display_name": "Material Science",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "38",
+    "slug": "media-content-seed",
+    "investor_count": 1816,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "39",
+      "display_name": "Media/Content",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "39",
+    "slug": "medical-devices-seed",
+    "investor_count": 1195,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "40",
+      "display_name": "Medical Devices",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "40",
+    "slug": "messaging-seed",
+    "investor_count": 369,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "41",
+      "display_name": "Messaging",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "42",
+    "slug": "parenting-families-seed",
+    "investor_count": 197,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "43",
+      "display_name": "Parenting/Families",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "43",
+    "slug": "payments-seed",
+    "investor_count": 1108,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "44",
+      "display_name": "Payments",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "56",
+    "slug": "pharmaceuticals-seed",
+    "investor_count": 1270,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24057",
+      "display_name": "Pharmaceuticals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "44",
+    "slug": "real-estate-proptech-seed",
+    "investor_count": 1960,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "45",
+      "display_name": "Real Estate/PropTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "45",
+    "slug": "retail-seed",
+    "investor_count": 1381,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "46",
+      "display_name": "Retail",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "46",
+    "slug": "robotics-seed",
+    "investor_count": 1185,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "47",
+      "display_name": "Robotics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "47",
+    "slug": "saas-seed",
+    "investor_count": 5774,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "48",
+      "display_name": "SaaS",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "48",
+    "slug": "sales-crm-seed",
+    "investor_count": 610,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "49",
+      "display_name": "Sales & CRM",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "49",
+    "slug": "security-seed",
+    "investor_count": 1124,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "50",
+      "display_name": "Security",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "197",
+    "slug": "semiconductors-seed",
+    "investor_count": 369,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "54721",
+      "display_name": "Semiconductors",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7313",
+    "slug": "smart-cities-urbantech-seed",
+    "investor_count": 146,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "68855",
+      "display_name": "Smart Cities/UrbanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "50",
+    "slug": "smb-software-seed",
+    "investor_count": 1588,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "51",
+      "display_name": "SMB Software",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "51",
+    "slug": "social-commerce-seed",
+    "investor_count": 677,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "52",
+      "display_name": "Social Commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "52",
+    "slug": "social-networks-seed",
+    "investor_count": 1751,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "53",
+      "display_name": "Social Networks",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "179",
+    "slug": "space-seed",
+    "investor_count": 750,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "24384",
+      "display_name": "Space",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7389",
+    "slug": "supply-chain-tech-seed",
+    "investor_count": 451,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "68856",
+      "display_name": "Supply Chain Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7465",
+    "slug": "therapeutics-seed",
+    "investor_count": 370,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "68857",
+      "display_name": "Therapeutics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "8",
+    "slug": "transportationtech-seed",
+    "investor_count": 1517,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "8",
+      "display_name": "TransportationTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "53",
+    "slug": "travel-seed",
+    "investor_count": 466,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "54",
+      "display_name": "Travel",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7",
+    "slug": "web3-blockchain-seed",
+    "investor_count": 2830,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "7",
+      "display_name": "Web3/Blockchain",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "13",
+    "slug": "web3-crypto-seed",
+    "investor_count": 3111,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "13",
+      "display_name": "Web3/Crypto",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6004",
+    "slug": "wellness-fitness-seed",
+    "investor_count": 793,
+    "stage": "seed",
+    "location": null,
+    "vertical": {
+      "id": "57809",
+      "display_name": "Wellness & Fitness",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "57",
+    "slug": "advertising-series-a",
+    "investor_count": 325,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "1",
+      "display_name": "Advertising",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "59",
+    "slug": "agtech-series-a",
+    "investor_count": 1002,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "2",
+      "display_name": "AgTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "61",
+    "slug": "ai-series-a",
+    "investor_count": 3658,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "3",
+      "display_name": "AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "63",
+    "slug": "analytics-series-a",
+    "investor_count": 940,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "4",
+      "display_name": "Analytics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "65",
+    "slug": "ar-vr-series-a",
+    "investor_count": 414,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "5",
+      "display_name": "AR/VR",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5434",
+    "slug": "audiotech-series-a",
+    "investor_count": 62,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57796",
+      "display_name": "AudioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5479",
+    "slug": "autotech-series-a",
+    "investor_count": 328,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57797",
+      "display_name": "AutoTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "67",
+    "slug": "biotech-series-a",
+    "investor_count": 3036,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "6",
+      "display_name": "BioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "192",
+    "slug": "chemicals-series-a",
+    "investor_count": 107,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "54720",
+      "display_name": "Chemicals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "73",
+    "slug": "climatetech-cleantech-series-a",
+    "investor_count": 1802,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "9",
+      "display_name": "ClimateTech/CleanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "75",
+    "slug": "cloud-infrastructure-series-a",
+    "investor_count": 1452,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "10",
+      "display_name": "Cloud Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5524",
+    "slug": "constructiontech-series-a",
+    "investor_count": 340,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57798",
+      "display_name": "ConstructionTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "77",
+    "slug": "consumer-health-series-a",
+    "investor_count": 1621,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "11",
+      "display_name": "Consumer Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "79",
+    "slug": "consumer-internet-series-a",
+    "investor_count": 4329,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "12",
+      "display_name": "Consumer Internet",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "189",
+    "slug": "cosmetics-series-a",
+    "investor_count": 88,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "54719",
+      "display_name": "Cosmetics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6064",
+    "slug": "creator-passion-economy-series-a",
+    "investor_count": 163,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "59254",
+      "display_name": "Creator/Passion Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5569",
+    "slug": "cybersecurity-series-a",
+    "investor_count": 1253,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57799",
+      "display_name": "Cybersecurity",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "83",
+    "slug": "data-services-series-a",
+    "investor_count": 1242,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "14",
+      "display_name": "Data Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6109",
+    "slug": "deeptech-series-a",
+    "investor_count": 1151,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "59255",
+      "display_name": "DeepTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7981",
+    "slug": "defensetech-series-a",
+    "investor_count": 89,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "111331",
+      "display_name": "DefenseTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "85",
+    "slug": "developer-tools-series-a",
+    "investor_count": 743,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "15",
+      "display_name": "Developer Tools",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5614",
+    "slug": "diagnostics-series-a",
+    "investor_count": 348,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57800",
+      "display_name": "Diagnostics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5659",
+    "slug": "digital-health-series-a",
+    "investor_count": 3396,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57801",
+      "display_name": "Digital Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5749",
+    "slug": "direct-to-consumer-dtc-series-a",
+    "investor_count": 290,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57803",
+      "display_name": "Direct-to-Consumer (DTC)",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5704",
+    "slug": "drug-delivery-series-a",
+    "investor_count": 92,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57802",
+      "display_name": "Drug Delivery",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "89",
+    "slug": "e-commerce-series-a",
+    "investor_count": 2169,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "17",
+      "display_name": "E-commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "91",
+    "slug": "education-series-a",
+    "investor_count": 1270,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "18",
+      "display_name": "Education",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "93",
+    "slug": "energytech-series-a",
+    "investor_count": 1224,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "19",
+      "display_name": "EnergyTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5794",
+    "slug": "enterprise-applications-series-a",
+    "investor_count": 1579,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57804",
+      "display_name": "Enterprise Applications",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5839",
+    "slug": "enterprise-infrastructure-series-a",
+    "investor_count": 759,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57805",
+      "display_name": "Enterprise Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "95",
+    "slug": "enterprise-series-a",
+    "investor_count": 4543,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "20",
+      "display_name": "Enterprise",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "97",
+    "slug": "entertainment-sports-series-a",
+    "investor_count": 679,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "21",
+      "display_name": "Entertainment & Sports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "99",
+    "slug": "fashion-series-a",
+    "investor_count": 213,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "22",
+      "display_name": "Fashion",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "101",
+    "slug": "fintech-series-a",
+    "investor_count": 6623,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "23",
+      "display_name": "FinTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "103",
+    "slug": "food-and-beverage-series-a",
+    "investor_count": 1135,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24",
+      "display_name": "Food and Beverage",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5417",
+    "slug": "future-of-work-series-a",
+    "investor_count": 673,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "56543",
+      "display_name": "Future of Work",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "105",
+    "slug": "games-series-a",
+    "investor_count": 407,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "25",
+      "display_name": "Games",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "107",
+    "slug": "gaming-esports-series-a",
+    "investor_count": 835,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "26",
+      "display_name": "Gaming/eSports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "8081",
+    "slug": "general-tech-series-a",
+    "investor_count": 37,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "113791",
+      "display_name": "General Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7564",
+    "slug": "generative-tech-series-a",
+    "investor_count": 382,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "74055",
+      "display_name": "Generative Tech/AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5884",
+    "slug": "gig-economy-series-a",
+    "investor_count": 93,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57806",
+      "display_name": "Gig Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "109",
+    "slug": "govtech-series-a",
+    "investor_count": 149,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "27",
+      "display_name": "GovTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "111",
+    "slug": "hardware-series-a",
+    "investor_count": 485,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "28",
+      "display_name": "Hardware",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "163",
+    "slug": "health-hospital-services-series-a",
+    "investor_count": 3647,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "32",
+      "display_name": "Health & Hospital Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "113",
+    "slug": "health-it-series-a",
+    "investor_count": 3994,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "29",
+      "display_name": "Health IT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "115",
+    "slug": "human-capital-hrtech-series-a",
+    "investor_count": 385,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "30",
+      "display_name": "Human Capital/HRTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "117",
+    "slug": "impact-series-a",
+    "investor_count": 765,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "31",
+      "display_name": "Impact",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "119",
+    "slug": "insurance-series-a",
+    "investor_count": 944,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "33",
+      "display_name": "Insurance",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "121",
+    "slug": "iot-series-a",
+    "investor_count": 1406,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "34",
+      "display_name": "IoT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5929",
+    "slug": "legaltech-series-a",
+    "investor_count": 163,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57807",
+      "display_name": "LegalTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "123",
+    "slug": "local-services-series-a",
+    "investor_count": 81,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "35",
+      "display_name": "Local Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "125",
+    "slug": "lodging-hospitality-series-a",
+    "investor_count": 148,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "36",
+      "display_name": "Lodging/Hospitality",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "177",
+    "slug": "logistics-series_a",
+    "investor_count": 846,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24386",
+      "display_name": "Logistics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "174",
+    "slug": "manufacturing-series_a",
+    "investor_count": 696,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24385",
+      "display_name": "Manufacturing",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "127",
+    "slug": "marketingtech-series-a",
+    "investor_count": 636,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "37",
+      "display_name": "MarketingTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "129",
+    "slug": "marketplaces-series-a",
+    "investor_count": 2077,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "38",
+      "display_name": "Marketplaces",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "165",
+    "slug": "material-science-series-a",
+    "investor_count": 240,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24056",
+      "display_name": "Material Science",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "131",
+    "slug": "media-content-series-a",
+    "investor_count": 1164,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "39",
+      "display_name": "Media/Content",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "133",
+    "slug": "medical-devices-series-a",
+    "investor_count": 921,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "40",
+      "display_name": "Medical Devices",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "135",
+    "slug": "messaging-series-a",
+    "investor_count": 197,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "41",
+      "display_name": "Messaging",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "139",
+    "slug": "parenting-families-series-a",
+    "investor_count": 74,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "43",
+      "display_name": "Parenting/Families",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "141",
+    "slug": "payments-series-a",
+    "investor_count": 632,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "44",
+      "display_name": "Payments",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "167",
+    "slug": "pharmaceuticals-series-a",
+    "investor_count": 1101,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24057",
+      "display_name": "Pharmaceuticals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "143",
+    "slug": "real-estate-proptech-series-a",
+    "investor_count": 1508,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "45",
+      "display_name": "Real Estate/PropTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "145",
+    "slug": "retail-series-a",
+    "investor_count": 992,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "46",
+      "display_name": "Retail",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "147",
+    "slug": "robotics-series-a",
+    "investor_count": 883,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "47",
+      "display_name": "Robotics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "149",
+    "slug": "saas-series-a",
+    "investor_count": 3894,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "48",
+      "display_name": "SaaS",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "151",
+    "slug": "sales-crm-series-a",
+    "investor_count": 302,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "49",
+      "display_name": "Sales & CRM",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "153",
+    "slug": "security-series-a",
+    "investor_count": 842,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "50",
+      "display_name": "Security",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "195",
+    "slug": "semiconductors-series-a",
+    "investor_count": 308,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "54721",
+      "display_name": "Semiconductors",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7332",
+    "slug": "smart-cities-urbantech-series-a",
+    "investor_count": 111,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "68855",
+      "display_name": "Smart Cities/UrbanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "155",
+    "slug": "smb-software-series-a",
+    "investor_count": 1145,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "51",
+      "display_name": "SMB Software",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "157",
+    "slug": "social-commerce-series-a",
+    "investor_count": 312,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "52",
+      "display_name": "Social Commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "159",
+    "slug": "social-networks-series-a",
+    "investor_count": 666,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "53",
+      "display_name": "Social Networks",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "180",
+    "slug": "space-series_a",
+    "investor_count": 626,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "24384",
+      "display_name": "Space",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7408",
+    "slug": "supply-chain-tech-series-a",
+    "investor_count": 309,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "68856",
+      "display_name": "Supply Chain Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7484",
+    "slug": "therapeutics-series-a",
+    "investor_count": 232,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "68857",
+      "display_name": "Therapeutics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "71",
+    "slug": "transportationtech-series-a",
+    "investor_count": 1135,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "8",
+      "display_name": "TransportationTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "161",
+    "slug": "travel-series-a",
+    "investor_count": 268,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "54",
+      "display_name": "Travel",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "69",
+    "slug": "web3-blockchain-series-a",
+    "investor_count": 2115,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "7",
+      "display_name": "Web3/Blockchain",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "81",
+    "slug": "web3-crypto-series-a",
+    "investor_count": 2316,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "13",
+      "display_name": "Web3/Crypto",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6019",
+    "slug": "wellness-fitness-series-a",
+    "investor_count": 506,
+    "stage": "series_a",
+    "location": null,
+    "vertical": {
+      "id": "57809",
+      "display_name": "Wellness & Fitness",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "58",
+    "slug": "advertising-series-b",
+    "investor_count": 151,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "1",
+      "display_name": "Advertising",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "60",
+    "slug": "agtech-series-b",
+    "investor_count": 462,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "2",
+      "display_name": "AgTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "62",
+    "slug": "ai-series-b",
+    "investor_count": 1631,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "3",
+      "display_name": "AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "64",
+    "slug": "analytics-series-b",
+    "investor_count": 387,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "4",
+      "display_name": "Analytics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "66",
+    "slug": "ar-vr-series-b",
+    "investor_count": 182,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "5",
+      "display_name": "AR/VR",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5449",
+    "slug": "audiotech-series-b",
+    "investor_count": 20,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57796",
+      "display_name": "AudioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5494",
+    "slug": "autotech-series-b",
+    "investor_count": 148,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57797",
+      "display_name": "AutoTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "68",
+    "slug": "biotech-series-b",
+    "investor_count": 1415,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "6",
+      "display_name": "BioTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "193",
+    "slug": "chemicals-series-b",
+    "investor_count": 57,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "54720",
+      "display_name": "Chemicals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "74",
+    "slug": "climatetech-cleantech-series-b",
+    "investor_count": 717,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "9",
+      "display_name": "ClimateTech/CleanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "76",
+    "slug": "cloud-infrastructure-series-b",
+    "investor_count": 778,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "10",
+      "display_name": "Cloud Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5539",
+    "slug": "constructiontech-series-b",
+    "investor_count": 156,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57798",
+      "display_name": "ConstructionTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "78",
+    "slug": "consumer-health-series-b",
+    "investor_count": 681,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "11",
+      "display_name": "Consumer Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "80",
+    "slug": "consumer-internet-series-b",
+    "investor_count": 2083,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "12",
+      "display_name": "Consumer Internet",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "190",
+    "slug": "cosmetics-series-b",
+    "investor_count": 36,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "54719",
+      "display_name": "Cosmetics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6079",
+    "slug": "creator-passion-economy-series-b",
+    "investor_count": 52,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "59254",
+      "display_name": "Creator/Passion Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5584",
+    "slug": "cybersecurity-series-b",
+    "investor_count": 705,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57799",
+      "display_name": "Cybersecurity",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "84",
+    "slug": "data-services-series-b",
+    "investor_count": 587,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "14",
+      "display_name": "Data Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6124",
+    "slug": "deeptech-series-b",
+    "investor_count": 467,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "59255",
+      "display_name": "DeepTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "8006",
+    "slug": "defensetech-series-b",
+    "investor_count": 89,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "111331",
+      "display_name": "DefenseTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "86",
+    "slug": "developer-tools-series-b",
+    "investor_count": 360,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "15",
+      "display_name": "Developer Tools",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5629",
+    "slug": "diagnostics-series-b",
+    "investor_count": 196,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57800",
+      "display_name": "Diagnostics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5674",
+    "slug": "digital-health-series-b",
+    "investor_count": 1756,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57801",
+      "display_name": "Digital Health",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5764",
+    "slug": "direct-to-consumer-dtc-series-b",
+    "investor_count": 144,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57803",
+      "display_name": "Direct-to-Consumer (DTC)",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5719",
+    "slug": "drug-delivery-series-b",
+    "investor_count": 43,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57802",
+      "display_name": "Drug Delivery",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "90",
+    "slug": "e-commerce-series-b",
+    "investor_count": 995,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "17",
+      "display_name": "E-commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "92",
+    "slug": "education-series-b",
+    "investor_count": 545,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "18",
+      "display_name": "Education",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "94",
+    "slug": "energytech-series-b",
+    "investor_count": 558,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "19",
+      "display_name": "EnergyTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5809",
+    "slug": "enterprise-applications-series-b",
+    "investor_count": 802,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57804",
+      "display_name": "Enterprise Applications",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5854",
+    "slug": "enterprise-infrastructure-series-b",
+    "investor_count": 344,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57805",
+      "display_name": "Enterprise Infrastructure",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "96",
+    "slug": "enterprise-series-b",
+    "investor_count": 2001,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "20",
+      "display_name": "Enterprise",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "98",
+    "slug": "entertainment-sports-series-b",
+    "investor_count": 357,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "21",
+      "display_name": "Entertainment & Sports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "100",
+    "slug": "fashion-series-b",
+    "investor_count": 82,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "22",
+      "display_name": "Fashion",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "102",
+    "slug": "fintech-series-b",
+    "investor_count": 3218,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "23",
+      "display_name": "FinTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "104",
+    "slug": "food-and-beverage-series-b",
+    "investor_count": 508,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24",
+      "display_name": "Food and Beverage",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5418",
+    "slug": "future-of-work-series-b",
+    "investor_count": 273,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "56543",
+      "display_name": "Future of Work",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "106",
+    "slug": "games-series-b",
+    "investor_count": 184,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "25",
+      "display_name": "Games",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "108",
+    "slug": "gaming-esports-series-b",
+    "investor_count": 355,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "26",
+      "display_name": "Gaming/eSports",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "8106",
+    "slug": "general-tech-series-b",
+    "investor_count": 37,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "113791",
+      "display_name": "General Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7585",
+    "slug": "generative-tech-series-b",
+    "investor_count": 189,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "74055",
+      "display_name": "Generative Tech/AI",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5899",
+    "slug": "gig-economy-series-b",
+    "investor_count": 28,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57806",
+      "display_name": "Gig Economy",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "110",
+    "slug": "govtech-series-b",
+    "investor_count": 83,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "27",
+      "display_name": "GovTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "112",
+    "slug": "hardware-series-b",
+    "investor_count": 223,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "28",
+      "display_name": "Hardware",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "164",
+    "slug": "health-hospital-services-series-b",
+    "investor_count": 1848,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "32",
+      "display_name": "Health & Hospital Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "114",
+    "slug": "health-it-series-b",
+    "investor_count": 1961,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "29",
+      "display_name": "Health IT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "116",
+    "slug": "human-capital-hrtech-series-b",
+    "investor_count": 148,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "30",
+      "display_name": "Human Capital/HRTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "118",
+    "slug": "impact-series-b",
+    "investor_count": 250,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "31",
+      "display_name": "Impact",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "120",
+    "slug": "insurance-series-b",
+    "investor_count": 544,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "33",
+      "display_name": "Insurance",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "122",
+    "slug": "iot-series-b",
+    "investor_count": 646,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "34",
+      "display_name": "IoT",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5944",
+    "slug": "legaltech-series-b",
+    "investor_count": 62,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57807",
+      "display_name": "LegalTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "124",
+    "slug": "local-services-series-b",
+    "investor_count": 40,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "35",
+      "display_name": "Local Services",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "126",
+    "slug": "lodging-hospitality-series-b",
+    "investor_count": 83,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "36",
+      "display_name": "Lodging/Hospitality",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "178",
+    "slug": "logistics-series_b",
+    "investor_count": 349,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24386",
+      "display_name": "Logistics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "175",
+    "slug": "manufacturing-series_b",
+    "investor_count": 314,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24385",
+      "display_name": "Manufacturing",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "128",
+    "slug": "marketingtech-series-b",
+    "investor_count": 255,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "37",
+      "display_name": "MarketingTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "130",
+    "slug": "marketplaces-series-b",
+    "investor_count": 930,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "38",
+      "display_name": "Marketplaces",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "166",
+    "slug": "material-science-series-b",
+    "investor_count": 118,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24056",
+      "display_name": "Material Science",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "132",
+    "slug": "media-content-series-b",
+    "investor_count": 560,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "39",
+      "display_name": "Media/Content",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "134",
+    "slug": "medical-devices-series-b",
+    "investor_count": 454,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "40",
+      "display_name": "Medical Devices",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "136",
+    "slug": "messaging-series-b",
+    "investor_count": 98,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "41",
+      "display_name": "Messaging",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "140",
+    "slug": "parenting-families-series-b",
+    "investor_count": 26,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "43",
+      "display_name": "Parenting/Families",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "142",
+    "slug": "payments-series-b",
+    "investor_count": 296,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "44",
+      "display_name": "Payments",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "168",
+    "slug": "pharmaceuticals-series-b",
+    "investor_count": 526,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24057",
+      "display_name": "Pharmaceuticals",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "144",
+    "slug": "real-estate-proptech-series-b",
+    "investor_count": 789,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "45",
+      "display_name": "Real Estate/PropTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "146",
+    "slug": "retail-series-b",
+    "investor_count": 534,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "46",
+      "display_name": "Retail",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "148",
+    "slug": "robotics-series-b",
+    "investor_count": 404,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "47",
+      "display_name": "Robotics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "150",
+    "slug": "saas-series-b",
+    "investor_count": 1800,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "48",
+      "display_name": "SaaS",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "152",
+    "slug": "sales-crm-series-b",
+    "investor_count": 133,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "49",
+      "display_name": "Sales & CRM",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "154",
+    "slug": "security-series-b",
+    "investor_count": 415,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "50",
+      "display_name": "Security",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "196",
+    "slug": "semiconductors-series-b",
+    "investor_count": 202,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "54721",
+      "display_name": "Semiconductors",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7351",
+    "slug": "smart-cities-urbantech-series-b",
+    "investor_count": 36,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "68855",
+      "display_name": "Smart Cities/UrbanTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "156",
+    "slug": "smb-software-series-b",
+    "investor_count": 631,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "51",
+      "display_name": "SMB Software",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "158",
+    "slug": "social-commerce-series-b",
+    "investor_count": 136,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "52",
+      "display_name": "Social Commerce",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "160",
+    "slug": "social-networks-series-b",
+    "investor_count": 327,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "53",
+      "display_name": "Social Networks",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "181",
+    "slug": "space-series_b",
+    "investor_count": 247,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "24384",
+      "display_name": "Space",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7427",
+    "slug": "supply-chain-tech-series-b",
+    "investor_count": 138,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "68856",
+      "display_name": "Supply Chain Tech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7503",
+    "slug": "therapeutics-series-b",
+    "investor_count": 101,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "68857",
+      "display_name": "Therapeutics",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "72",
+    "slug": "transportationtech-series-b",
+    "investor_count": 549,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "8",
+      "display_name": "TransportationTech",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "162",
+    "slug": "travel-series-b",
+    "investor_count": 113,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "54",
+      "display_name": "Travel",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "70",
+    "slug": "web3-blockchain-series-b",
+    "investor_count": 826,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "7",
+      "display_name": "Web3/Blockchain",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "82",
+    "slug": "web3-crypto-series-b",
+    "investor_count": 1053,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "13",
+      "display_name": "Web3/Crypto",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "6034",
+    "slug": "wellness-fitness-series-b",
+    "investor_count": 201,
+    "stage": "series_b",
+    "location": null,
+    "vertical": {
+      "id": "57809",
+      "display_name": "Wellness & Fitness",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5415",
+    "slug": "angel-scout-and-solo-capitalists",
+    "investor_count": 3627,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "55826",
+      "display_name": "Angel, Scout, and Solo-Capitalists",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5411",
+    "slug": "austin",
+    "investor_count": 799,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "23000",
+      "display_name": "Austin",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5408",
+    "slug": "boston-new-england",
+    "investor_count": 1914,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22997",
+      "display_name": "Boston / New England",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5406",
+    "slug": "british-columbia",
+    "investor_count": 324,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "9678",
+      "display_name": "British Columbia",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5413",
+    "slug": "canada",
+    "investor_count": 493,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24310",
+      "display_name": "Canada",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5410",
+    "slug": "colorado-utah",
+    "investor_count": 351,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22999",
+      "display_name": "Colorado / Utah",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "171",
+    "slug": "diverse",
+    "investor_count": 2318,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24242",
+      "display_name": "Diverse Investors",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "172",
+    "slug": "female",
+    "investor_count": 1174,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24241",
+      "display_name": "Female Investors",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "184",
+    "slug": "israel",
+    "investor_count": 1167,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22994",
+      "display_name": "Israel",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "7930",
+    "slug": "latam-latin-america",
+    "investor_count": 715,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "54725",
+      "display_name": "LatAm (Latin America)",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5414",
+    "slug": "london",
+    "investor_count": 1965,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "9626",
+      "display_name": "London",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "185",
+    "slug": "los-angeles-southern-california",
+    "investor_count": 1808,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22993",
+      "display_name": "Los Angeles / Southern California",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5407",
+    "slug": "midwest",
+    "investor_count": 1026,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22995",
+      "display_name": "Midwest",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "183",
+    "slug": "new-york-city",
+    "investor_count": 4309,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22996",
+      "display_name": "New York City",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5412",
+    "slug": "raleigh-durham-southeast-us",
+    "investor_count": 898,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "23001",
+      "display_name": "Raleigh-Durham / Southeast US",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "188",
+    "slug": "san-francisco-bay-area",
+    "investor_count": 8251,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22992",
+      "display_name": "San Francisco Bay Area",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "186",
+    "slug": "seattle-portland",
+    "investor_count": 580,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "23002",
+      "display_name": "Seattle / Portland",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "5409",
+    "slug": "washington-d-c",
+    "investor_count": 500,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "22998",
+      "display_name": "Washington, D.C.",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "169",
+    "slug": "who-invested-in-diverse-founders",
+    "investor_count": 3040,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24244",
+      "display_name": "Investors who invested in diverse founders",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "170",
+    "slug": "who-invested-in-female-founders",
+    "investor_count": 2980,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24243",
+      "display_name": "Investors who invested in female founders",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  },
+  {
+    "id": "187",
+    "slug": "who-were-founders",
+    "investor_count": 2900,
+    "stage": "other",
+    "location": null,
+    "vertical": {
+      "id": "24387",
+      "display_name": "Investors who were founders",
+      "__typename": "Tag"
+    },
+    "__typename": "InvestorList"
+  }
+]

@@ -2,182 +2,32 @@
   "cookies": [
     {
       "name": "_csrf",
-      "value": "nkzNOZgqSwgAhK2d50b5uJ3b",
+      "value": "OF5OZsFUGWxBI18zBgAHipYt",
       "domain": "auth.nfx.com",
       "path": "/usernamepassword/login",
-      "expires": 1775941094.638717,
+      "expires": 1775952765.025381,
       "httpOnly": true,
       "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "com.auth0.auth.nhao4jvjjvxznc4Jdl6gt6_B5raxJPzo",
+      "value": "{%22nonce%22:%22eaAO20JC~g3ifmU7YyPl337xs-1nSCAQ%22%2C%22state%22:%22nhao4jvjjvxznc4Jdl6gt6_B5raxJPzo%22}",
+      "domain": "signal.nfx.com",
+      "path": "/",
+      "expires": 1775090560,
+      "httpOnly": false,
+      "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_gid",
-      "value": "GA1.2.753254053.1775077030",
+      "value": "GA1.2.1449806913.1775088761",
       "domain": ".nfx.com",
       "path": "/",
-      "expires": 1775163519,
+      "expires": 1775175176,
       "httpOnly": false,
       "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_rollupGa",
-      "value": "GA1.3.1747862051.1775077030",
-      "domain": ".signal.nfx.com",
-      "path": "/",
-      "expires": 1809637119.2519,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_rollupGa_gid",
-      "value": "GA1.3.1666970373.1775077031",
-      "domain": ".signal.nfx.com",
-      "path": "/",
-      "expires": 1775163519,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_twpid",
-      "value": "tw.1775077030931.515069136239699473",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1808773030.933869,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Strict"
-    },
-    {
-      "name": "guest_id_marketing",
-      "value": "v1%3A177507703105401266",
-      "domain": ".twitter.com",
-      "path": "/",
-      "expires": 1809637031.070337,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "guest_id_ads",
-      "value": "v1%3A177507703105401266",
-      "domain": ".twitter.com",
-      "path": "/",
-      "expires": 1809637031.070371,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "personalization_id",
-      "value": "\"v1_pTjZ05OMEJF+tztMwtJ68Q==\"",
-      "domain": ".twitter.com",
-      "path": "/",
-      "expires": 1809637031.07038,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "guest_id",
-      "value": "v1%3A177507703105401266",
-      "domain": ".twitter.com",
-      "path": "/",
-      "expires": 1809637031.070386,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "_fbp",
-      "value": "fb.1.1775077031078.76007738765973759",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1782853119,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "muc_ads",
-      "value": "7b070db0-01a3-4ce3-8186-c0e153ac3d62",
-      "domain": ".t.co",
-      "path": "/",
-      "expires": 1809637031.096187,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "did",
-      "value": "s%3Av0%3Adfbd323c-0e5c-48a8-81c3-15ba4814f4f0.n4E3JgfFdRehpuvYbSndULtKOQ9LDuo7Cly7fcCiIZI",
-      "domain": "auth.nfx.com",
-      "path": "/",
-      "expires": 1806634632.225541,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "did_compat",
-      "value": "s%3Av0%3Adfbd323c-0e5c-48a8-81c3-15ba4814f4f0.n4E3JgfFdRehpuvYbSndULtKOQ9LDuo7Cly7fcCiIZI",
-      "domain": "auth.nfx.com",
-      "path": "/",
-      "expires": 1806634632.225624,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_cfuvid",
-      "value": "fP09gPIBUg99fbMRUSWvJWtQrzOQvhC66xdDiVY8bF0-1775077032223-0.0.1.1-604800000",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "intercom-id-ula4qov4",
-      "value": "132b382c-2e0b-44e0-a15e-9aa547cd3466",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1798407111,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "intercom-device-id-ula4qov4",
-      "value": "29cde30b-e786-42e2-a17d-4890b8615fd8",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1798407120,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "auth0",
-      "value": "s%3AiIaBKiANklcInaCdPMrCZxXcKzxdxwyD.WwcUMbrY7dekpUat627N4jxEtLu4z61sRQVuoh51H58",
-      "domain": "auth.nfx.com",
-      "path": "/",
-      "expires": 1775336310.689538,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "auth0_compat",
-      "value": "s%3AiIaBKiANklcInaCdPMrCZxXcKzxdxwyD.WwcUMbrY7dekpUat627N4jxEtLu4z61sRQVuoh51H58",
-      "domain": "auth.nfx.com",
-      "path": "/",
-      "expires": 1775336310.689626,
-      "httpOnly": true,
-      "secure": true,
       "sameSite": "Lax"
     },
     {
@@ -185,7 +35,27 @@
       "value": "1",
       "domain": ".nfx.com",
       "path": "/",
-      "expires": 1775077170,
+      "expires": 1775088820,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_rollupGa",
+      "value": "GA1.3.483152100.1775088761",
+      "domain": ".signal.nfx.com",
+      "path": "/",
+      "expires": 1809648776.672102,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_rollupGa_gid",
+      "value": "GA1.3.1761742656.1775088761",
+      "domain": ".signal.nfx.com",
+      "path": "/",
+      "expires": 1775175176,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -195,7 +65,157 @@
       "value": "1",
       "domain": ".signal.nfx.com",
       "path": "/",
-      "expires": 1775077170,
+      "expires": 1775088820,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_fbp",
+      "value": "fb.1.1775088760862.555671438984430616",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1782864778,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "did",
+      "value": "s%3Av0%3A7e880689-4e7e-45a2-814c-0dd211b354b3.NliNKOPewIWF98fgCzlzRxd9H0R%2B0uGp8QBIC0yVugU",
+      "domain": "auth.nfx.com",
+      "path": "/",
+      "expires": 1806646360.029044,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "did_compat",
+      "value": "s%3Av0%3A7e880689-4e7e-45a2-814c-0dd211b354b3.NliNKOPewIWF98fgCzlzRxd9H0R%2B0uGp8QBIC0yVugU",
+      "domain": "auth.nfx.com",
+      "path": "/",
+      "expires": 1806646360.029098,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "sNZ2k3tnA6n969VJOnGQ8oKv2S7Dby16Lf2n2Tcfn8s-1775088761011-0.0.1.1-604800000",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_twpid",
+      "value": "tw.1775088761103.969940415159550358",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1808784761.107024,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "guest_id_marketing",
+      "value": "v1%3A177508876122372908",
+      "domain": ".twitter.com",
+      "path": "/",
+      "expires": 1809648761.239261,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "guest_id_ads",
+      "value": "v1%3A177508876122372908",
+      "domain": ".twitter.com",
+      "path": "/",
+      "expires": 1809648761.239444,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "personalization_id",
+      "value": "\"v1_Ef1keMmgWJuE6sMQyG6UuA==\"",
+      "domain": ".twitter.com",
+      "path": "/",
+      "expires": 1809648761.239493,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "guest_id",
+      "value": "v1%3A177508876122372908",
+      "domain": ".twitter.com",
+      "path": "/",
+      "expires": 1809648761.239512,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "muc_ads",
+      "value": "00f720a8-0b2f-4a9a-a95c-ac69a0c360d6",
+      "domain": ".t.co",
+      "path": "/",
+      "expires": 1809648761.266399,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "intercom-id-ula4qov4",
+      "value": "3aa6cafe-f2dd-4879-b4f4-3e0bb6775961",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1798418777,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "intercom-device-id-ula4qov4",
+      "value": "3ce4cb41-386d-4a59-a43b-ef7d95f8f424",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1798418779,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "auth0",
+      "value": "s%3Asq4TZmg_VzZ33alKy76NGioitN0WaH37.og5RizlxLaziPxIQxmF1bjHhhShetGk3wIT9DrEbZXI",
+      "domain": "auth.nfx.com",
+      "path": "/",
+      "expires": 1775347976.562154,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "auth0_compat",
+      "value": "s%3Asq4TZmg_VzZ33alKy76NGioitN0WaH37.og5RizlxLaziPxIQxmF1bjHhhShetGk3wIT9DrEbZXI",
+      "domain": "auth.nfx.com",
+      "path": "/",
+      "expires": 1775347976.562255,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.483152100.1775088761",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1809648776.715639,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -205,87 +225,77 @@
       "value": "%22{%5C%22lastUsedConnection%5C%22:%5C%22username-password%5C%22%2C%5C%22lastUsedSub%5C%22:%5C%22auth0|69cd796b45e8814cef2e2021%5C%22}%22",
       "domain": "signal.nfx.com",
       "path": "/",
-      "expires": 1775163511,
+      "expires": 1775175176,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "SIGNAL_ID_JWT",
-      "value": "%22eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlJqVTFSREJFUlRoRE1rWTRNalF3UmtNME0wUTNNMFU0UXpKRk5rUXdSVGd4TXpRNE5VWkNNZyJ9.eyJuaWNrbmFtZSI6InRyeXZla3RhIiwibmFtZSI6InRyeXZla3RhQGdtYWlsLmNvbSIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci83MWQwZjQ0M2Y1ZmIxZmMwNTAwODIwOGJjNWRkMjZhYT9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRnRyLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDI2LTA0LTAxVDIwOjU4OjMwLjI1M1oiLCJlbWFpbCI6InRyeXZla3RhQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiaXNzIjoiaHR0cHM6Ly9hdXRoLm5meC5jb20vIiwiYXVkIjoiVmkyRXdvMG5XNmZsS1F6TzBOQmM4RTBZdmVCampLbFUiLCJzdWIiOiJhdXRoMHw2OWNkNzk2YjQ1ZTg4MTRjZWYyZTIwMjEiLCJpYXQiOjE3NzUwNzcxMTAsImV4cCI6MTc5MDg1NzExMCwic2lkIjoicG5LUTI0Y1l2UGYwdWFfNF92ajdTRWFQd2N5bjhRX0IiLCJhdF9oYXNoIjoicU90Y05VMF9sMHlBLXlJX2NLRHFOUSIsIm5vbmNlIjoiUFBCcFV5LkU5ZHcuLXJnNEpjQjdkbkFzelp0YTlhT3AifQ.ws_tYFBvbdcNOAsf4gN-fWMSC9jB_0zVivm3fXg96-dIM_tb_aOwQtcXOV2mdMMXdYa-yM5bDGFRoQfxDgA2GgvxegH9wZcqAZQt6FRHvuJpLXg61NFgOFeTw6QPWeIwLXcwx5__y75MxDcEqfwzEnJy0c6igvOz2wJzbV2u0NKLOpswzPCv8geRmU0RyfaA1USaladMFWVP-1vrFmJYjw88PkZ6Wr_BNVRNltab64VmaFVPmzWAM_7hQFCOa90jH8iOZJZQ-q0f7JaK80WVSytdmb_DDVeRi0hPuqsEryUYXJ9AInEm6Q4WMr-4OaYAYDLeOStXDE1krEbYuPsQ4g%22",
+      "value": "%22eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlJqVTFSREJFUlRoRE1rWTRNalF3UmtNME0wUTNNMFU0UXpKRk5rUXdSVGd4TXpRNE5VWkNNZyJ9.eyJuaWNrbmFtZSI6InRyeXZla3RhIiwibmFtZSI6InRyeXZla3RhQGdtYWlsLmNvbSIsInBpY3R1cmUiOiJodHRwczovL3MuZ3JhdmF0YXIuY29tL2F2YXRhci83MWQwZjQ0M2Y1ZmIxZmMwNTAwODIwOGJjNWRkMjZhYT9zPTQ4MCZyPXBnJmQ9aHR0cHMlM0ElMkYlMkZjZG4uYXV0aDAuY29tJTJGYXZhdGFycyUyRnRyLnBuZyIsInVwZGF0ZWRfYXQiOiIyMDI2LTA0LTAyVDAwOjEyOjU2LjAwNFoiLCJlbWFpbCI6InRyeXZla3RhQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiaXNzIjoiaHR0cHM6Ly9hdXRoLm5meC5jb20vIiwiYXVkIjoiVmkyRXdvMG5XNmZsS1F6TzBOQmM4RTBZdmVCampLbFUiLCJzdWIiOiJhdXRoMHw2OWNkNzk2YjQ1ZTg4MTRjZWYyZTIwMjEiLCJpYXQiOjE3NzUwODg3NzYsImV4cCI6MTc5MDg2ODc3Niwic2lkIjoiNF9iZzBUYUZOX0dWakY5VFlVR3B5UWljSE0xSEl5UnAiLCJhdF9oYXNoIjoiaXlUc0Naa1g0R0lkMWgzUHRCTUhzZyIsIm5vbmNlIjoiM0pNUHlpNEhRM1RJd3Uud01pfkhuYUE0amxPenV0dHoifQ.fgsC0yp6OJFxyZYYQhVNLZ2G2-lq9IJCLRhBJB5LtcQTq7pPhte_ATjo4gltVp7FY21jhU5ogY_9XjgjsV1MPjgpxHFsMZndhH_H_i_KM9nJ4GAqLFB2VNhEzFSq7EbMmyf8YWQqnbUpIJXGjB7SSIeUCY6_XS60eDxIFzCafRi5P5C080TRTTABt0G6s5BrNEls81XTMwKDJWEVeEkU7J9a41DjlYDIj7bTdsq7vQ1dj2SPgzfsm2NMNZNeLk54wh5Xi82dtH7j4DGpGMRbh6QIU4urT0f83vEQoBIIRAQ3bPblFNgdFfVxPmx1sDyT9FrFsW1IE2WvQ0lTruBgiA%22",
       "domain": "signal.nfx.com",
       "path": "/",
-      "expires": 1809637111.600072,
+      "expires": 1809648777.298421,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "SIGNAL_ACCESS_JWT",
-      "value": "%22eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlJqVTFSREJFUlRoRE1rWTRNalF3UmtNME0wUTNNMFU0UXpKRk5rUXdSVGd4TXpRNE5VWkNNZyJ9.eyJpc3MiOiJodHRwczovL2F1dGgubmZ4LmNvbS8iLCJzdWIiOiJhdXRoMHw2OWNkNzk2YjQ1ZTg4MTRjZWYyZTIwMjEiLCJhdWQiOlsiaHR0cHM6Ly9uZnhzaWduYWwtcHJvZHVjdGlvbi5hdXRoMC5jb20vYXBpL3YyLyIsImh0dHBzOi8vbmZ4c2lnbmFsLXByb2R1Y3Rpb24uYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTc3NTA3NzExMCwiZXhwIjoxNzc1MDg0MzEwLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiYXpwIjoiVmkyRXdvMG5XNmZsS1F6TzBOQmM4RTBZdmVCampLbFUifQ.Z3PY7AIJzF9OG_nqn0mqUEIiwnoQILOSG6GYm39pQsJ7Bl1fDGt94uXnaewKp_NP4DtelNuY6-WfWa677duP5evWTlASpCDB-r7hCYaTY0CU3XKezh55TH0INz92nVshstlzzBVR9To_X5zasPVgXsnIB05ohpR8c31lLJmW4qd4N22EGhSHi-HZggp7aTWlJuwnnhgKXQ4z6zuJeA0GkjGaW3UA5fCcvJzDAQ5TVuaLfAw4o0M0MFE_NXWvt5pesSGenF4AMYr97v2f482CnnymFYe1NZirWM_vpYNcSKhe8KfynnHOW5jn1X9pz5FymWLJyRNLWK2mbme9XZT2Iw%22",
+      "value": "%22eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlJqVTFSREJFUlRoRE1rWTRNalF3UmtNME0wUTNNMFU0UXpKRk5rUXdSVGd4TXpRNE5VWkNNZyJ9.eyJpc3MiOiJodHRwczovL2F1dGgubmZ4LmNvbS8iLCJzdWIiOiJhdXRoMHw2OWNkNzk2YjQ1ZTg4MTRjZWYyZTIwMjEiLCJhdWQiOlsiaHR0cHM6Ly9uZnhzaWduYWwtcHJvZHVjdGlvbi5hdXRoMC5jb20vYXBpL3YyLyIsImh0dHBzOi8vbmZ4c2lnbmFsLXByb2R1Y3Rpb24uYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTc3NTA4ODc3NiwiZXhwIjoxNzc1MDk1OTc2LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiYXpwIjoiVmkyRXdvMG5XNmZsS1F6TzBOQmM4RTBZdmVCampLbFUifQ.mJUnlgwAhAUuf2lFVSNo1YCi8NE8ofj-S1rrCiFfct5-7WgfLWFXlmMQTKDPtn9wA8eYiNc7CE0XuOy0d9K3V-Q0Dzxwo9-2D3Zdu1Gvev46vES7r-r7Hh1_BNhC3dqgcamBXro5-XUk-RItD69DbLjFBjralyK2NV940FtwtTFjhQCROeG7w3_HbRXVjcDXWoga5C1PPQHnb-xf7XRgbGBkyLDWMeBzqlBqc4YEZvaX2wPNN-Qpk1XatK5jznt96Z0QmGpb-uawLzyE4NRA4jyIb-U9XqA6sZujDiLu9aK3OVPtpeF9t8fsEQR9wUy7a14niTnBMGyC8gXvhGDM9w%22",
       "domain": "signal.nfx.com",
       "path": "/",
-      "expires": 1809637111.603787,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga",
-      "value": "GA1.1.1747862051.1775077030",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1809637119.275076,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga_47H9PGWB3X",
-      "value": "GS2.1.s1775077030$o1$g1$t1775077119$j35$l0$h0",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1809637119.26459,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga_7Y5EN2DN1E",
-      "value": "GS2.1.s1775077030$o1$g1$t1775077119$j35$l0$h0",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1809637119.270321,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga_V166E9BBG9",
-      "value": "GS2.1.s1775077031$o1$g1$t1775077119$j35$l0$h0",
-      "domain": ".nfx.com",
-      "path": "/",
-      "expires": 1809637119.276857,
+      "expires": 1809648777.300953,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "mp_994587916709e3793f4a587e466b21f8_mixpanel",
-      "value": "%7B%22distinct_id%22%3A%22256914%22%2C%22%24device_id%22%3A%22eec18ae1-8a2b-429a-88bb-ec3afee5b346%22%2C%22%24initial_referrer%22%3A%22%24direct%22%2C%22%24initial_referring_domain%22%3A%22%24direct%22%2C%22__mps%22%3A%7B%7D%2C%22__mpso%22%3A%7B%7D%2C%22__mpus%22%3A%7B%7D%2C%22__mpa%22%3A%7B%7D%2C%22__mpu%22%3A%7B%7D%2C%22__mpr%22%3A%5B%5D%2C%22__mpap%22%3A%5B%5D%2C%22%24user_id%22%3A%22256914%22%2C%22id%22%3A%22256914%22%2C%22first_name%22%3A%22%20%22%2C%22last_name%22%3A%22%20%22%2C%22email%22%3Anull%2C%22name%22%3A%22%20%20%20%22%2C%22role%22%3A%22CEO%22%2C%22claimed_investor_profile%22%3Afalse%2C%22gmail_connected%22%3Afalse%2C%22sign_up_url%22%3A%22https%3A%2F%2Fsignal.nfx.com%2Flogin%3Fsign_up_action%3Dlogged_out_navbar%22%7D",
+      "value": "%7B%22distinct_id%22%3A%22256914%22%2C%22%24device_id%22%3A%22a413d2a2-2a77-4079-a29c-d1cbff4ca5f7%22%2C%22%24initial_referrer%22%3A%22%24direct%22%2C%22%24initial_referring_domain%22%3A%22%24direct%22%2C%22__mps%22%3A%7B%7D%2C%22__mpso%22%3A%7B%7D%2C%22__mpus%22%3A%7B%7D%2C%22__mpa%22%3A%7B%7D%2C%22__mpu%22%3A%7B%7D%2C%22__mpr%22%3A%5B%5D%2C%22__mpap%22%3A%5B%5D%2C%22%24user_id%22%3A%22256914%22%2C%22id%22%3A%22256914%22%2C%22first_name%22%3A%22%20%22%2C%22last_name%22%3A%22%20%22%2C%22email%22%3Anull%2C%22name%22%3A%22%20%20%20%22%2C%22role%22%3A%22CEO%22%2C%22claimed_investor_profile%22%3Afalse%2C%22gmail_connected%22%3Afalse%2C%22sign_up_url%22%3A%22https%3A%2F%2Fsignal.nfx.com%2Flogin%3Fsign_up_action%3Dlogged_out_navbar%22%7D",
       "domain": ".nfx.com",
       "path": "/",
-      "expires": 1806613119,
+      "expires": 1806624778,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "intercom-session-ula4qov4",
-      "value": "dUg3YnRQTzNaaUlRQS9PNkFNTXVLZlR5dEhmSUQ5bkZlTmVTS0pMRXAvUUhWd05FVmNtM3lQcGJKa2k3RklRVkJDR3Z5Wi9lK2htaHBBSU9ieG8zeU8rTCtCRW5lZGxIZUZwNHUwYkE1d1ltNEZUQXppT1U4Q2ZndUZMQVovZE9mVEJBNDV3ZWIwdjFDMmx3d1pVbVNhR1g0VlJGQkpNaytFY2ZCUk1URWxsMHlvOFV0elJ2NzFkL0Nqcm1XdmY2MVAybCtDOXFnK3lvOTNQZGVqSCt3Zz09LS11OWJsMlc0dVZ4SWVJUHI3OEZsN0hRPT0=--33252f40af60e6977a83ae9ff72fba8de9f031fb",
+      "value": "bU44TTlSQndrNHVRc1BJd3ZXanYxRGVJQVJsVlVyQ1FOKzJ2WGhFNkhzTzNYNlp3MnZoVTRKelJzbEwwUEw4ckpsZjdXZnNBdHRndHEyZTAzeTlJS3NkNVQvemNuTG9EbEs0c0lnNzcvUEJiK01FRjZzODBiVk9pNHh2NERDM3JRa1lxRkxFTTF1bi9LTWYyVENhdFRNR2Vycjdva09WMTB6c1g0Q2dRU2djWVkvdWtmTXc2dEhQam82aFJ6c3dLZmVPc0lBK084MTAzdXlnWmtoZlVKZz09LS1sZ0gzRXJ5eFllSzRINHVHRWRpeE5BPT0=--ddee262ec4e2be113f319a58c1db2e499c323514",
       "domain": ".nfx.com",
       "path": "/",
-      "expires": 1775681920,
+      "expires": 1775693579,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_47H9PGWB3X",
+      "value": "GS2.1.s1775088761$o1$g1$t1775088779$j42$l0$h0",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1809648779.728111,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_7Y5EN2DN1E",
+      "value": "GS2.1.s1775088761$o1$g1$t1775088779$j42$l0$h0",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1809648779.733427,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_V166E9BBG9",
+      "value": "GS2.1.s1775088761$o1$g1$t1775088779$j42$l0$h0",
+      "domain": ".nfx.com",
+      "path": "/",
+      "expires": 1809648779.737373,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -297,11 +307,11 @@
       "localStorage": [
         {
           "name": "__mpq_994587916709e3793f4a587e466b21f8_ev",
-          "value": "[{\"id\":\"sc8jvashpgc8nm03\",\"flushAfter\":1775077129255,\"payload\":{\"event\":\"Loaded a Page\",\"properties\":{\"$os\":\"Mac OS X\",\"$browser\":\"Chrome\",\"$current_url\":\"https://signal.nfx.com/investors\",\"$browser_version\":145,\"$screen_height\":900,\"$screen_width\":1440,\"mp_lib\":\"web\",\"$lib_version\":\"2.77.0\",\"$insert_id\":\"y7a59h15j6n3vbcv\",\"time\":1775077119.255,\"distinct_id\":\"256914\",\"$device_id\":\"eec18ae1-8a2b-429a-88bb-ec3afee5b346\",\"$initial_referrer\":\"$direct\",\"$initial_referring_domain\":\"$direct\",\"$user_id\":\"256914\",\"id\":\"256914\",\"first_name\":\" \",\"last_name\":\" \",\"email\":null,\"name\":\"   \",\"role\":\"CEO\",\"claimed_investor_profile\":false,\"gmail_connected\":false,\"sign_up_url\":\"https://signal.nfx.com/login?sign_up_action=logged_out_navbar\",\"page\":\"/investors\",\"search\":\"\",\"title\":\"Signal\",\"url\":\"https://signal.nfx.com/investors\",\"referrer\":\"\",\"token\":\"994587916709e3793f4a587e466b21f8\"}}}]"
+          "value": "[]"
         },
         {
           "name": "lastExternalReferrerTime",
-          "value": "1775077119278"
+          "value": "1775088776723"
         },
         {
           "name": "lastExternalReferrer",
@@ -313,15 +323,15 @@
         },
         {
           "name": "__openreplay_uuid",
-          "value": "7276006a-f205-48e6-b013-b2cff501e844"
+          "value": "1a0aad65-6b73-4bac-aef7-fa547c5eab04"
         },
         {
           "name": "intercom.intercom-state",
-          "value": "{\"app\":{\"openConfig\":{\"unifiedStyling\":true,\"openTo\":\"home\",\"spaces\":[{\"type\":\"home\",\"label\":\"Home\",\"navigationLabel\":\"Home\",\"badge\":null},{\"type\":\"messages\",\"label\":\"Messages\",\"navigationLabel\":\"Messages\",\"badge\":null},{\"type\":\"tickets\",\"label\":\"Tickets\",\"navigationLabel\":\"Tickets\",\"badge\":null}],\"userHasReceivedChecklists\":false,\"userHasLiveNewsfeed\":false,\"userHasTickets\":false},\"selfServeSuggestionsMatch\":false,\"name\":\"NFX\",\"features\":{\"anonymousInboundMessages\":true,\"googleAnalytics\":false,\"hubspotInstalled\":false,\"inboundMessages\":true,\"marketoEnrichmentInstalled\":false,\"googleAnalytics4Integration\":true},\"helpCenterSiteUrl\":\"https://products.nfx.com\",\"inboundConversationsDisabled\":false,\"isDeveloperWorkspace\":false,\"customGoogleAnalyticsTrackerId\":null},\"launcher\":{\"isLauncherEnabled\":true},\"launcherDiscoveryMode\":{\"hasDiscoveredLauncher\":true},\"launcherSettings\":{\"alignment\":\"right\",\"color\":\"#F0AD4E\",\"colorDark\":\"#F0AD4E\",\"hasRequiredFeatures\":true,\"horizontalPadding\":20,\"instantBootEnabled\":true,\"launcherLogoUrl\":null,\"launcherLogoDarkUrl\":null,\"secondaryColor\":\"#F0AD4E\",\"secondaryColorDark\":\"#F0AD4E\",\"showLauncher\":true,\"themeMode\":\"light\",\"updatedAt\":1775063021,\"verticalPadding\":20,\"isLoading\":false},\"user\":{\"id\":\"69cd797f7559dfa8d28c9e45\",\"role\":\"user\",\"locale\":\"en\",\"hasConversations\":false},\"message\":{},\"conversations\":{\"byId\":{}},\"openOnBoot\":{\"type\":null,\"metadata\":{},\"lastOpenAtTimestamp\":1775077120350},\"operator\":{\"lastComposerEvent\":0},\"router\":{\"isInitialized\":false,\"navigationQueue\":[]}}"
+          "value": "{\"app\":{\"openConfig\":{\"unifiedStyling\":true,\"openTo\":\"home\",\"spaces\":[{\"type\":\"home\",\"label\":\"Home\",\"navigationLabel\":\"Home\",\"badge\":null},{\"type\":\"messages\",\"label\":\"Messages\",\"navigationLabel\":\"Messages\",\"badge\":null},{\"type\":\"tickets\",\"label\":\"Tickets\",\"navigationLabel\":\"Tickets\",\"badge\":null}],\"userHasReceivedChecklists\":false,\"userHasLiveNewsfeed\":false,\"userHasTickets\":false},\"selfServeSuggestionsMatch\":false,\"name\":\"NFX\",\"features\":{\"anonymousInboundMessages\":true,\"googleAnalytics\":false,\"hubspotInstalled\":false,\"inboundMessages\":true,\"marketoEnrichmentInstalled\":false,\"googleAnalytics4Integration\":true},\"helpCenterSiteUrl\":\"https://products.nfx.com\",\"inboundConversationsDisabled\":false,\"isDeveloperWorkspace\":false,\"customGoogleAnalyticsTrackerId\":null},\"launcher\":{\"isLauncherEnabled\":true},\"launcherDiscoveryMode\":{\"hasDiscoveredLauncher\":true},\"launcherSettings\":{\"alignment\":\"right\",\"color\":\"#F0AD4E\",\"colorDark\":\"#F0AD4E\",\"hasRequiredFeatures\":true,\"horizontalPadding\":20,\"instantBootEnabled\":true,\"launcherLogoUrl\":null,\"launcherLogoDarkUrl\":null,\"secondaryColor\":\"#F0AD4E\",\"secondaryColorDark\":\"#F0AD4E\",\"showLauncher\":true,\"themeMode\":\"light\",\"updatedAt\":1775063021,\"verticalPadding\":20,\"isLoading\":false},\"user\":{\"id\":\"69cd797f7559dfa8d28c9e45\",\"role\":\"user\",\"locale\":\"en\",\"hasConversations\":false},\"message\":{},\"conversations\":{\"byId\":{}},\"openOnBoot\":{\"type\":null,\"metadata\":{},\"lastOpenAtTimestamp\":1775088792937},\"operator\":{\"lastComposerEvent\":0},\"router\":{\"isInitialized\":false,\"navigationQueue\":[]}}"
         },
         {
           "name": "__mpq_994587916709e3793f4a587e466b21f8_pp",
-          "value": "[{\"id\":\"bo3qsq8d9vx7jgxa\",\"flushAfter\":1775077129849,\"payload\":{\"$set_once\":{\"$initial_referrer\":\"$direct\",\"$initial_referring_domain\":\"$direct\"},\"$token\":\"994587916709e3793f4a587e466b21f8\",\"$distinct_id\":\"256914\",\"$device_id\":\"eec18ae1-8a2b-429a-88bb-ec3afee5b346\",\"$user_id\":\"256914\"}},{\"id\":\"xcafunra6j8skgdz\",\"flushAfter\":1775077129850,\"payload\":{\"$set\":{\"$os\":\"Mac OS X\",\"$browser\":\"Chrome\",\"$browser_version\":145,\"id\":\"256914\",\"first_name\":\" \",\"last_name\":\" \",\"email\":null,\"name\":\"   \",\"role\":\"CEO\",\"claimed_investor_profile\":false,\"gmail_connected\":false,\"sign_up_url\":\"https://signal.nfx.com/login?sign_up_action=logged_out_navbar\"},\"$token\":\"994587916709e3793f4a587e466b21f8\",\"$distinct_id\":\"256914\",\"$device_id\":\"eec18ae1-8a2b-429a-88bb-ec3afee5b346\",\"$user_id\":\"256914\"}}]"
+          "value": "[]"
         }
       ]
     },

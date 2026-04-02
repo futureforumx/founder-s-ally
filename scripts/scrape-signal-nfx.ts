@@ -168,10 +168,10 @@ async function stealthContext(browser: Browser): Promise<BrowserContext> {
     locale: "en-US",
     timezoneId: "America/Los_Angeles",
   });
-  await ctx.addInitScript(() => {
-    Object.defineProperty(navigator, "webdriver", { get: () => false });
-    (window as any).chrome = { runtime: {} };
-  });
+  await ctx.addInitScript(`
+    Object.defineProperty(navigator, "webdriver", { get: function() { return false; } });
+    window.chrome = { runtime: {} };
+  `);
   return ctx;
 }
 
@@ -214,10 +214,10 @@ async function stealthContextWithAuth(browser: Browser): Promise<BrowserContext>
     locale: "en-US",
     timezoneId: "America/Los_Angeles",
   });
-  await ctx.addInitScript(() => {
-    Object.defineProperty(navigator, "webdriver", { get: () => false });
-    (window as any).chrome = { runtime: {} };
-  });
+  await ctx.addInitScript(`
+    Object.defineProperty(navigator, "webdriver", { get: function() { return false; } });
+    window.chrome = { runtime: {} };
+  `);
   return ctx;
 }
 
@@ -243,13 +243,16 @@ async function collectSlugs(page: Page): Promise<InvestorSlug[]> {
   const seen = new Map<string, InvestorSlug>();
   let pageNum = 0;
 
+  // Wait for investor cards to render before extracting slugs
+  await page.waitForSelector('a[href^="/investors/"]', { timeout: 15_000 }).catch(() => {});
+
   while (true) {
     pageNum++;
-    const found = await page.evaluate((): InvestorSlug[] => {
-      return [...document.querySelectorAll<HTMLAnchorElement>('a[href^="/investors/"]')]
-        .map(a => ({ slug: a.getAttribute("href")!.replace("/investors/", ""), name: a.textContent?.trim() || "" }))
-        .filter(s => s.slug && !s.slug.includes("/") && !s.slug.includes("?") && s.slug.length > 2);
-    });
+    const found = await page.evaluate(`
+      Array.from(document.querySelectorAll('a[href^="/investors/"]'))
+        .map(function(a) { return { slug: (a.getAttribute("href") || "").replace("/investors/", ""), name: (a.textContent || "").trim() }; })
+        .filter(function(s) { return s.slug && !s.slug.includes("/") && !s.slug.includes("?") && s.slug.length > 2; })
+    `) as InvestorSlug[];
     let added = 0;
     for (const s of found) { if (!seen.has(s.slug)) { seen.set(s.slug, s); added++; } }
     console.log(`  Page ${pageNum}: +${added} new (total: ${seen.size})`);
@@ -301,137 +304,120 @@ async function scrapeProfile(page: Page, slug: string): Promise<InvestorProfile 
 
   if (page.url().includes("/login")) return null;
 
-  const raw = await page.evaluate((profileUrl) => {
-    const bodyText = document.body.innerText;
+  // Pass as string so tsx/esbuild never transforms the browser-side code
+  // (avoids "__name is not defined" from esbuild helper injection)
+  const raw = await page.evaluate(`(function(profileUrl) {
+    var bodyText = document.body.innerText;
 
-    // ── Label → value pairs ────────────────────────────────────────────────
-    function labelValue(label: string): string | null {
-      const els = [...document.querySelectorAll<HTMLElement>("*")]
-        .filter(el => el.children.length === 0 && el.textContent?.trim() === label);
-      for (const el of els) {
-        const row = el.closest('[class*="row"], tr');
+    // Label -> value pairs
+    var labelValue = function(label) {
+      var els = Array.from(document.querySelectorAll("*"))
+        .filter(function(el) { return el.children.length === 0 && (el.textContent || "").trim() === label; });
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        var row = el.closest('[class*="row"], tr');
         if (row) {
-          const cols = [...row.querySelectorAll('[class*="col"], td')];
-          const idx = cols.findIndex(c => c.contains(el));
-          const val = cols[idx + 1]?.textContent?.trim();
+          var cols = Array.from(row.querySelectorAll('[class*="col"], td'));
+          var idx = cols.findIndex(function(c) { return c.contains(el); });
+          var val = cols[idx + 1] && (cols[idx + 1].textContent || "").trim();
           if (val) return val;
         }
-        const sib = el.parentElement?.nextElementSibling?.textContent?.trim();
+        var sib = el.parentElement && el.parentElement.nextElementSibling && (el.parentElement.nextElementSibling.textContent || "").trim();
         if (sib) return sib;
       }
       return null;
-    }
+    };
 
-    // ── Investment Range ───────────────────────────────────────────────────
-    const rangeRaw = labelValue("Investment Range") || "";
-    const sweetRaw = labelValue("Sweet Spot") || "";
-    const fundRaw  = labelValue("Current Fund Size") || "";
+    var rangeRaw = labelValue("Investment Range") || "";
+    var sweetRaw = labelValue("Sweet Spot") || "";
+    var fundRaw  = labelValue("Current Fund Size") || "";
 
-    // ── Name / title / firm ────────────────────────────────────────────────
-    const h1 = document.querySelector("h1")?.textContent?.trim() || "";
+    var h1 = (document.querySelector("h1") || {textContent:""}).textContent.trim();
 
-    // Firm name from "General Partner at Firm" line
-    const posMatch = bodyText.match(/([A-Za-z\s,]+?)\s+at\s+([\w\s&.,'-]+?)(?:\n|$)/);
-    const title    = posMatch?.[1]?.trim() || null;
-    const firmName = posMatch?.[2]?.trim() || null;
+    var posMatch = bodyText.match(/([A-Za-z\\s,]+?)\\s+at\\s+([\\w\\s&.,'-]+?)(?:\\n|$)/);
+    var title    = posMatch ? posMatch[1].trim() : null;
+    var firmName = posMatch ? posMatch[2].trim() : null;
 
-    // Firm website — standalone domain near top of page (not signal.nfx.com)
-    const firmWebsiteEl = document.querySelector<HTMLAnchorElement>(
+    var firmWebsiteEl = document.querySelector(
       'a[href^="https://"]:not([href*="signal.nfx.com"]):not([href*="linkedin"]):not([href*="twitter"]):not([href*="x.com"]):not([href*="crunchbase"]):not([href*="angel.co"])'
     );
-    const firmWebsite = firmWebsiteEl?.href?.replace(/\/$/, "") || null;
+    var firmWebsite = firmWebsiteEl ? firmWebsiteEl.href.replace(/\\/$/, "") : null;
 
-    // ── Location ───────────────────────────────────────────────────────────
-    // Look for "City, State" near the top — appears as plain text after firm website
-    const locationMatch = bodyText.match(/([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*)/);
-    const rawCity  = locationMatch?.[1] || null;
-    const rawState = locationMatch?.[2] || null;
+    var locationMatch = bodyText.match(/([A-Z][a-z]+(?: [A-Z][a-z]+)*),\\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*)/);
+    var rawCity  = locationMatch ? locationMatch[1] : null;
+    var rawState = locationMatch ? locationMatch[2] : null;
 
-    // ── Socials ────────────────────────────────────────────────────────────
-    const xEl = document.querySelector<HTMLAnchorElement>('a[href*="twitter.com/"], a[href*="x.com/"]');
-    const xUrl = xEl?.href || null;
+    var xEl = document.querySelector('a[href*="twitter.com/"], a[href*="x.com/"]');
+    var xUrl = xEl ? xEl.href : null;
 
-    const linkedinEl = document.querySelector<HTMLAnchorElement>('a[href*="linkedin.com/in"]');
-    const linkedinUrl = linkedinEl?.href || null;
+    var linkedinEl = document.querySelector('a[href*="linkedin.com/in"]');
+    var linkedinUrl = linkedinEl ? linkedinEl.href : null;
 
-    // Personal website — first external link that is NOT the firm's or social
-    const externalLinks = [...document.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')]
-      .filter(a =>
-        !a.href.includes("signal.nfx.com") &&
-        !a.href.includes("linkedin.com") &&
-        !a.href.includes("twitter.com") &&
-        !a.href.includes("x.com") &&
-        !a.href.includes("crunchbase") &&
-        !a.href.includes("angel.co") &&
-        !a.href.includes("techcrunch") &&
-        !a.href.includes("google") &&
-        a.href !== firmWebsiteEl?.href
-      );
-    const personalWebsite = externalLinks[0]?.href?.replace(/\/$/, "") || null;
+    var externalLinks = Array.from(document.querySelectorAll('a[href^="http"]'))
+      .filter(function(a) {
+        return !a.href.includes("signal.nfx.com") &&
+          !a.href.includes("linkedin.com") &&
+          !a.href.includes("twitter.com") &&
+          !a.href.includes("x.com") &&
+          !a.href.includes("crunchbase") &&
+          !a.href.includes("angel.co") &&
+          !a.href.includes("techcrunch") &&
+          !a.href.includes("google") &&
+          a.href !== (firmWebsiteEl ? firmWebsiteEl.href : "");
+      });
+    var personalWebsite = externalLinks[0] ? externalLinks[0].href.replace(/\\/$/, "") : null;
 
-    // ── Avatar ─────────────────────────────────────────────────────────────
-    const avatarEl = document.querySelector<HTMLImageElement>(
+    var avatarEl = document.querySelector(
       'img[src*="active_storage"], img[class*="investor"], img[class*="avatar"], img[class*="headshot"]'
     );
-    const avatarUrl = avatarEl?.src || null;
+    var avatarUrl = avatarEl ? avatarEl.src : null;
 
-    // ── Networks ───────────────────────────────────────────────────────────
-    // Pattern: "NETWORKS [NAME] IS A MEMBER OF\nNetwork Name\nN CONNECTIONS\n..."
-    const networksMatch = bodyText.match(/NETWORKS\s+[\w\s]+IS A MEMBER OF\n([\s\S]+?)(?:\n\nFIND|\n\n[A-Z]{3,})/i);
-    const networksRaw   = networksMatch?.[1] || "";
-    const networks: string[] = networksRaw
-      .split("\n")
-      .map(l => l.trim())
-      .filter(l => l.length > 3 && !/^\d+\s+CONNECTIONS?$/i.test(l));
+    var networksMatch = bodyText.match(/NETWORKS\\s+[\\w\\s]+IS A MEMBER OF\\n([\\s\\S]+?)(?:\\n\\nFIND|\\n\\n[A-Z]{3,})/i);
+    var networksRaw   = networksMatch ? networksMatch[1] : "";
+    var networks = networksRaw.split("\\n")
+      .map(function(l) { return l.trim(); })
+      .filter(function(l) { return l.length > 3 && !/^\\d+\\s+CONNECTIONS?$/i.test(l); });
 
-    // ── Past investments ───────────────────────────────────────────────────
-    const tableRows = [...document.querySelectorAll("table tbody tr")];
-    const investments: Array<{
-      company: string; details: string; totalRaised: string; coInvestorText: string;
-    }> = [];
-    let cur: typeof investments[0] | null = null;
-    for (const row of tableRows) {
-      const cells = [...row.querySelectorAll("td")].map(td => td.textContent?.trim() || "");
+    var tableRows = Array.from(document.querySelectorAll("table tbody tr"));
+    var investments = [];
+    var cur = null;
+    for (var r = 0; r < tableRows.length; r++) {
+      var cells = Array.from(tableRows[r].querySelectorAll("td")).map(function(td) { return (td.textContent || "").trim(); });
       if (cells.length >= 2 && cells[0] && !cells[0].startsWith("Co-") && cells[0] !== "Company") {
         cur = { company: cells[0], details: cells[1] || "", totalRaised: cells[2] || "", coInvestorText: "" };
         investments.push(cur);
-      } else if (cells[0]?.startsWith("Co-investors:") && cur) {
+      } else if (cells[0] && cells[0].startsWith("Co-investors:") && cur) {
         cur.coInvestorText = cells[0].replace("Co-investors:", "").trim();
       }
     }
 
-    // ── Co-investors (investors who invest with) ───────────────────────────
-    // Pattern: "INVEST WITH [NAME]\n{investor name}\n{firm}\n{investor name}\n{firm}..."
-    const coInvMatch = bodyText.match(/INVEST WITH [\w\s]+\n([\s\S]+?)(?:\nSCOUTS|FIND JAMES|FIND \w|Copyright)/i);
-    const coInvRaw   = coInvMatch?.[1] || "";
-    const coInvLines = coInvRaw.split("\n").map(l => l.trim()).filter(l => l.length > 1 && !/^SCOUTS/i.test(l));
-    // co-investor links for slugs
-    const coInvLinks = [...document.querySelectorAll<HTMLAnchorElement>('a[href^="/investors/"]')]
-      .filter(a => a.href !== window.location.href && !a.href.includes("?"))
-      .map(a => ({ name: a.textContent?.trim() || "", slug: a.getAttribute("href")!.replace("/investors/", "") }));
+    var coInvMatch = bodyText.match(/INVEST WITH [\\w\\s]+\\n([\\s\\S]+?)(?:\\nSCOUTS|FIND JAMES|FIND \\w|Copyright)/i);
+    var coInvRaw   = coInvMatch ? coInvMatch[1] : "";
+    var coInvLines = coInvRaw.split("\\n").map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 1 && !/^SCOUTS/i.test(l); });
 
-    // ── Sector rankings ────────────────────────────────────────────────────
-    const rankMatch = bodyText.match(/SECTOR & STAGE RANKINGS\n([\s\S]+?)(?:\n\nINVESTMENTS|FIND)/i);
-    const sectorRankings = rankMatch?.[1]
-      ?.split("\n").map(l => l.trim()).filter(l => l.length > 2 && !/^\d+$/.test(l))
-      .slice(0, 30) || [];
+    var coInvLinks = Array.from(document.querySelectorAll('a[href^="/investors/"]'))
+      .filter(function(a) { return a.href !== window.location.href && !a.href.includes("?"); })
+      .map(function(a) { return { name: (a.textContent || "").trim(), slug: a.getAttribute("href").replace("/investors/", "") }; });
+
+    var rankMatch = bodyText.match(/SECTOR & STAGE RANKINGS\\n([\\s\\S]+?)(?:\\n\\nINVESTMENTS|FIND)/i);
+    var sectorRankings = rankMatch
+      ? rankMatch[1].split("\\n").map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 2 && !/^\\d+$/.test(l); }).slice(0, 30)
+      : [];
 
     return {
-      h1, title, firmName, firmWebsite, personalWebsite, xUrl, linkedinUrl, avatarUrl,
-      rawCity, rawState,
-      rangeRaw, sweetRaw, fundRaw,
-      networks,
-      investments: investments.map(inv => ({
-        company: inv.company,
-        details: inv.details,       // "Seed RoundFeb 2020$6M"
-        totalRaised: inv.totalRaised,
-        coInvestorText: inv.coInvestorText,
-      })),
-      coInvLines,
-      coInvLinks,
-      sectorRankings,
+      h1: h1, title: title, firmName: firmName, firmWebsite: firmWebsite,
+      personalWebsite: personalWebsite, xUrl: xUrl, linkedinUrl: linkedinUrl, avatarUrl: avatarUrl,
+      rawCity: rawCity, rawState: rawState,
+      rangeRaw: rangeRaw, sweetRaw: sweetRaw, fundRaw: fundRaw,
+      networks: networks,
+      investments: investments.map(function(inv) {
+        return { company: inv.company, details: inv.details, totalRaised: inv.totalRaised, coInvestorText: inv.coInvestorText };
+      }),
+      coInvLines: coInvLines,
+      coInvLinks: coInvLinks,
+      sectorRankings: sectorRankings,
     };
-  }, url);
+  })(${JSON.stringify(url)})`) as any;
 
   if (!raw || !raw.h1) return null;
 

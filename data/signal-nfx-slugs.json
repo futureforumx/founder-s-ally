@@ -1,34 +1,194 @@
 [
   {
     "slug": "satya-patel",
-    "name": ""
+    "name": "",
+    "signalRank": 1,
+    "signalScore": null
   },
   {
     "slug": "aileen-lee",
-    "name": ""
+    "name": "",
+    "signalRank": 2,
+    "signalScore": null
   },
   {
     "slug": "carl-fritjofsson",
-    "name": ""
+    "name": "",
+    "signalRank": 3,
+    "signalScore": null
   },
   {
     "slug": "eva-ho",
-    "name": ""
+    "name": "",
+    "signalRank": 4,
+    "signalScore": null
   },
   {
     "slug": "kevin-lee",
-    "name": ""
+    "name": "",
+    "signalRank": 5,
+    "signalScore": null
   },
   {
     "slug": "guy-katsovich",
-    "name": ""
+    "name": "",
+    "signalRank": 6,
+    "signalScore": null
   },
   {
     "slug": "michael-ma",
-    "name": ""
+    "name": "",
+    "signalRank": 7,
+    "signalScore": null
   },
   {
     "slug": "clint-korver",
-    "name": ""
+    "name": "",
+    "signalRank": 8,
+    "signalScore": null
+  },
+  {
+    "slug": "david-waxman",
+    "name": "",
+    "signalRank": 9,
+    "signalScore": null
+  },
+  {
+    "slug": "sergey-gribov",
+    "name": "",
+    "signalRank": 10,
+    "signalScore": null
+  },
+  {
+    "slug": "harry-stebbings",
+    "name": "",
+    "signalRank": 11,
+    "signalScore": null
+  },
+  {
+    "slug": "brianne-kimmel",
+    "name": "",
+    "signalRank": 12,
+    "signalScore": null
+  },
+  {
+    "slug": "omri-amirav-drory",
+    "name": "",
+    "signalRank": 13,
+    "signalScore": null
+  },
+  {
+    "slug": "ameet-shah",
+    "name": "",
+    "signalRank": 14,
+    "signalScore": null
+  },
+  {
+    "slug": "jeremy-yap",
+    "name": "",
+    "signalRank": 15,
+    "signalScore": null
+  },
+  {
+    "slug": "mark-sugarman",
+    "name": "",
+    "signalRank": 16,
+    "signalScore": null
+  },
+  {
+    "slug": "lauren-kolodny",
+    "name": "",
+    "signalRank": 17,
+    "signalScore": null
+  },
+  {
+    "slug": "alex-fayette",
+    "name": "",
+    "signalRank": 18,
+    "signalScore": null
+  },
+  {
+    "slug": "paul-bricault",
+    "name": "",
+    "signalRank": 19,
+    "signalScore": null
+  },
+  {
+    "slug": "angela-tran-kingyens",
+    "name": "",
+    "signalRank": 20,
+    "signalScore": null
+  },
+  {
+    "slug": "moritz-baier-lentz",
+    "name": "",
+    "signalRank": 21,
+    "signalScore": null
+  },
+  {
+    "slug": "ben-blumenrose",
+    "name": "",
+    "signalRank": 22,
+    "signalScore": null
+  },
+  {
+    "slug": "hayley-barna",
+    "name": "",
+    "signalRank": 23,
+    "signalScore": null
+  },
+  {
+    "slug": "adam-besvinick",
+    "name": "",
+    "signalRank": 24,
+    "signalScore": null
+  },
+  {
+    "slug": "kevin-colleran",
+    "name": "",
+    "signalRank": 25,
+    "signalScore": null
+  },
+  {
+    "slug": "alexander-norman",
+    "name": "",
+    "signalRank": 26,
+    "signalScore": null
+  },
+  {
+    "slug": "jesse-middleton",
+    "name": "",
+    "signalRank": 27,
+    "signalScore": null
+  },
+  {
+    "slug": "eurie-kim",
+    "name": "",
+    "signalRank": 28,
+    "signalScore": null
+  },
+  {
+    "slug": "alex-luce_1",
+    "name": "",
+    "signalRank": 29,
+    "signalScore": null
+  },
+  {
+    "slug": "eze-vidra",
+    "name": "",
+    "signalRank": 30,
+    "signalScore": null
+  },
+  {
+    "slug": "richard-dulude",
+    "name": "",
+    "signalRank": 31,
+    "signalScore": null
+  },
+  {
+    "slug": "brad-feld",
+    "name": "",
+    "signalRank": 32,
+    "signalScore": null
   }
 ]
