@@ -7,60 +7,75 @@
 -- =============================================================================
 
 -- --------------------------------------------------------
--- 0. Create ENUM types
+-- 0. Create ENUM types (idempotent: may already exist on remote)
 -- --------------------------------------------------------
 
--- Entity types for VC firms
-CREATE TYPE public.entity_type AS ENUM (
-  'Institutional',
-  'Micro',
-  'Solo GP',
-  'Angel',
-  'Corporate (CVC)',
-  'Family Office',
-  'Accelerator / Studio',
-  'Syndicate',
-  'Fund of Funds'
-);
+DO $$ BEGIN
+  CREATE TYPE public.entity_type AS ENUM (
+    'Institutional',
+    'Micro',
+    'Solo GP',
+    'Angel',
+    'Corporate (CVC)',
+    'Family Office',
+    'Accelerator / Studio',
+    'Syndicate',
+    'Fund of Funds'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- Thesis orientation categories
-CREATE TYPE public.thesis_orientation AS ENUM (
-  'Generalist',
-  'Sector-Focused',
-  'Thesis-Driven',
-  'Founder-First',
-  'Geographic',
-  'Operator-led'
-);
+DO $$ BEGIN
+  CREATE TYPE public.thesis_orientation AS ENUM (
+    'Generalist',
+    'Sector-Focused',
+    'Thesis-Driven',
+    'Founder-First',
+    'Geographic',
+    'Operator-led'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- Stage focus values
-CREATE TYPE public.stage_focus_enum AS ENUM (
-  'Friends and Family',
-  'Pre-Seed',
-  'Seed',
-  'Series A',
-  'Series B+',
-  'Growth'
-);
+DO $$ BEGIN
+  CREATE TYPE public.stage_focus_enum AS ENUM (
+    'Friends and Family',
+    'Pre-Seed',
+    'Seed',
+    'Series A',
+    'Series B+',
+    'Growth'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- Sector scope (generalist vs specialized)
-CREATE TYPE public.sector_scope_enum AS ENUM (
-  'Generalist',
-  'Specialized'
-);
+DO $$ BEGIN
+  CREATE TYPE public.sector_scope_enum AS ENUM (
+    'Generalist',
+    'Specialized'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- US Region classification
-CREATE TYPE public.us_region AS ENUM (
-  'West',
-  'East',
-  'South',
-  'Midwest',
-  'Southwest',
-  'Southeast',
-  'Northeast',
-  'Northwest',
-  'International'
-);
+DO $$ BEGIN
+  CREATE TYPE public.us_region AS ENUM (
+    'West',
+    'East',
+    'South',
+    'Midwest',
+    'Southwest',
+    'Southeast',
+    'Northeast',
+    'Northwest',
+    'International'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- --------------------------------------------------------
 -- 1. Deduplicate investor_database BEFORE rename
