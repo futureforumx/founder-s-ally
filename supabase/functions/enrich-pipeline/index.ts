@@ -228,13 +228,16 @@ async function upsertResults(
       result.current_partners.map((n) => n.toLowerCase().trim())
     );
 
-    // Mark partners NOT in new list as inactive
+    // Mark partners NOT in new list as inactive.
+    // Previously: one PATCH per partner (O(n) round-trips).
+    // Now: single PATCH using PostgREST `in` filter (1 round-trip).
     const toDeactivate = existing.filter(
       (e) => !newNames.has(e.full_name.toLowerCase().trim())
     );
-    for (const p of toDeactivate) {
+    if (toDeactivate.length > 0) {
+      const idList = toDeactivate.map((p) => p.id).join(",");
       await fetch(
-        `${supabaseUrl}/rest/v1/firm_investors?id=eq.${p.id}`,
+        `${supabaseUrl}/rest/v1/firm_investors?id=in.(${idList})`,
         {
           method: "PATCH",
           headers,
@@ -246,23 +249,24 @@ async function upsertResults(
       );
     }
 
-    // Upsert current partners
-    for (const name of result.current_partners) {
-      await fetch(`${supabaseUrl}/rest/v1/firm_investors`, {
-        method: "POST",
-        headers: {
-          ...headers,
-          Prefer: "resolution=merge-duplicates,return=minimal",
-        },
-        body: JSON.stringify({
-          firm_id: firmId,
-          full_name: name,
-          title: null,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        }),
-      });
-    }
+    // Upsert current partners.
+    // Previously: one POST per partner (O(n) round-trips).
+    // Now: single bulk POST with the full array (1 round-trip).
+    const partnerRows = result.current_partners.map((name) => ({
+      firm_id: firmId,
+      full_name: name,
+      title: null,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    }));
+    await fetch(`${supabaseUrl}/rest/v1/firm_investors`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(partnerRows),
+    });
   }
 
   console.log(

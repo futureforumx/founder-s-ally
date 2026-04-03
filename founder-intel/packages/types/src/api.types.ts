@@ -110,3 +110,104 @@ export interface HealthDto {
     workers: { status: "ok" | "error"; activeJobs?: number; waitingJobs?: number };
   };
 }
+
+// ─── Operator Network DTOs ──────────────────────────────────────────────────
+
+/** Derived boolean signals for a founder/operator. */
+export interface PersonSignalsDto {
+  isRepeatFounder: boolean;
+  isFirstTimeFounder: boolean;
+  isCrossCompanyOperator: boolean;
+  isCoFounder: boolean;
+  isSoloFounder: boolean;
+  isCurrentlyActive: boolean;
+  orgCount: number;
+  roleCount: number;
+  founderOrgCount: number;
+}
+
+/** Full operator profile — people row + signals from v_person_signals. */
+export interface OperatorProfileDto {
+  personId: string;
+  name: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  linkedinUrl?: string | null;
+  twitterUrl?: string | null;
+  githubUrl?: string | null;
+  expertise: string[];
+  ycId?: string | null;
+  ycBatch?: string | null;
+  isYcBacked: boolean;
+  primaryOrgName?: string | null;
+  primaryOrgId?: string | null;
+  primaryOrgStage?: string | null;
+  primaryOrgLogo?: string | null;
+  primaryOrgIndustry?: string | null;
+  primaryDomain?: string | null;
+  allTitles: string[];
+  signals: PersonSignalsDto;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Full org profile — organizations row + founders + signals from v_org_profile. */
+export interface OrgProfileDto {
+  id: string;
+  name: string;
+  domain?: string | null;
+  website?: string | null;
+  linkedinUrl?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  industry?: string | null;
+  location?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  foundedYear?: number | null;
+  employeeCount?: number | null;
+  status?: string | null;
+  stageProxy?: string | null;
+  tags: string[];
+  isYcBacked: boolean;
+  ycBatch?: string | null;
+  ycId?: string | null;
+  founderCount: number;
+  founderNames: string[];
+  founderIds: string[];
+  founderAvatars: string[];
+  founderTitles: string[];
+  founderExpertise: string[];
+  signals: {
+    isFounderUnknown: boolean;
+    isSoloFounded: boolean;
+    isDuoFounded: boolean;
+    isMultiFounder: boolean;
+    isLargeTeam: boolean;
+    hasRepeatFounder: boolean;
+    repeatFounderCount: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Aggregated YC batch cluster. */
+export interface BatchClusterDto {
+  ycBatch: string;
+  companyCount: number;
+  founderCount: number;
+  industries: string[];
+  topExpertiseTags: string[];
+}
+
+/** Aggregated expertise tag cluster. */
+export interface ExpertiseClusterDto {
+  tag: string;
+  founderCount: number;
+  repeatFounders: number;
+  ycFounders: number;
+  sampleFounders: string[];
+}

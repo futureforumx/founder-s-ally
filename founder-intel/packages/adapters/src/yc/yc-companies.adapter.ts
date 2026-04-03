@@ -183,6 +183,7 @@ export class YcCompaniesAdapter implements IAdapter {
       sourceId: String(hit.objectID),
       rawPayload: rawJson,
       entityType: "organization",
+      entityDedupeKey: dedupeKey,
     };
 
     // ─── Founders → People + Roles ───────────────────────────────────────────
@@ -246,6 +247,7 @@ export class YcCompaniesAdapter implements IAdapter {
       sourceId: founder.id ? `founder:${founder.id}` : undefined,
       rawPayload: founder as unknown as Record<string, unknown>,
       entityType: "person",
+      entityDedupeKey: personDedupeKey,
     };
 
     return { person, role, record };

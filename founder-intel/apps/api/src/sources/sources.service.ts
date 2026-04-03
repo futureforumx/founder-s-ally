@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { buildAdapterRegistry } from "@founder-intel/adapters";
 import type { SourceDto } from "@founder-intel/types";
 
-const IMPLEMENTED = new Set(["yc-companies", "founders-list"]);
+const IMPLEMENTED = new Set(["yc-companies", "yc-people", "founders-list"]);
 
 @Injectable()
 export class SourcesService {

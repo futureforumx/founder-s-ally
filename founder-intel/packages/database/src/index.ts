@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../generated/client/index";
 
 // ─── Singleton Prisma client ──────────────────────────────────────────────────
 
@@ -25,5 +25,6 @@ if (process.env.NODE_ENV !== "production") {
   global.__prisma = prisma;
 }
 
-export { PrismaClient } from "@prisma/client";
-export * from "@prisma/client";
+export { PrismaClient } from "../generated/client/index.js";
+export * from "../generated/client/index.js";
+

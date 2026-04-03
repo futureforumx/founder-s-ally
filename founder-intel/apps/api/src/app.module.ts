@@ -7,6 +7,7 @@ import { SearchModule } from "./search/search.module";
 import { SourcesModule } from "./sources/sources.module";
 import { HealthModule } from "./health/health.module";
 import { DatabaseModule } from "./config/database.module";
+import { NetworkModule } from "./network/network.module";
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DatabaseModule } from "./config/database.module";
     SearchModule,
     SourcesModule,
     HealthModule,
+    NetworkModule,
   ],
 })
 export class AppModule {}

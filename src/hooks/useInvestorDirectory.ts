@@ -59,22 +59,48 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
   };
 }
 
+// Columns actually consumed by mapDbInvestor() — nothing more.
+// Deliberately excludes: sector_embedding (vector), descriptions/full-text
+// fields not rendered in the directory card, and all ~50 enrichment-only columns.
+const DIRECTORY_COLUMNS = [
+  "id",
+  "firm_name",
+  "thesis_verticals",
+  "preferred_stage",
+  "sentiment_detail",
+  "location",
+  "min_check_size",
+  "max_check_size",
+  "logo_url",
+  "firm_type",
+  "is_actively_deploying",
+  "founder_reputation_score",
+  "headcount",
+  "aum",
+  "is_trending",
+  "is_popular",
+  "is_recent",
+  "website_url",
+  "recent_deals",
+].join(",");
+
 export function useInvestorDirectory() {
   return useQuery({
     queryKey: ["investor-directory"],
     queryFn: async (): Promise<LiveInvestorEntry[]> => {
       const { data, error } = await supabase
         .from("firm_records")
-        .select("*")
+        .select(DIRECTORY_COLUMNS)
+        .is("deleted_at", null) // filter at DB level — avoids pulling soft-deleted rows
         .order("firm_name");
 
       if (error) throw error;
       return (data || []).map(mapDbInvestor);
     },
-    staleTime: 5 * 60 * 1000, // Consider fresh for 5 min
-    gcTime: 30 * 60 * 1000, // Cache for 30 min
-    refetchOnWindowFocus: true, // SWR: refetch silently when user comes back
-    refetchInterval: 10 * 60 * 1000, // Background refresh every 10 min
-    placeholderData: (prev) => prev, // Keep old data while refetching (SWR)
+    staleTime: 30 * 60 * 1000, // Investor list is stable — 30 min before background refresh
+    gcTime: 60 * 60 * 1000,    // Keep in memory cache for 1 hour
+    refetchOnWindowFocus: false, // Was: true — this was the primary seq-scan driver
+    refetchInterval: 60 * 60 * 1000, // Was: 10 min — 1 hour is plenty for static directory
+    placeholderData: (prev) => prev,
   });
 }

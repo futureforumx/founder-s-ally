@@ -1,5 +1,5 @@
 import type { NormalizedOrganization, NormalizedPerson, NormalizedRole } from "@founder-intel/types";
-import type { PrismaClient } from "@founder-intel/database";
+import type { PrismaClient, Prisma } from "@founder-intel/database";
 import { OrgMatcher, RESOLVER_VERSION } from "./org-matcher";
 import { PersonMatcher } from "./person-matcher";
 
@@ -38,7 +38,7 @@ export class MatchingService {
         confidenceScore: match.confidenceScore,
         decisionType: match.decisionType,
         resolverVersion: RESOLVER_VERSION,
-        metadata: match.metadata,
+        metadata: match.metadata as Prisma.InputJsonValue,
         organizationId: match.organizationId ?? undefined,
       },
     });
@@ -62,7 +62,7 @@ export class MatchingService {
           ...(org.isYcBacked && { isYcBacked: true }),
           ...(org.ycBatch && { ycBatch: org.ycBatch }),
           ...(org.ycId && { ycId: org.ycId }),
-          ...(org.ycRawJson && { ycRawJson: org.ycRawJson }),
+          ...(org.ycRawJson && { ycRawJson: org.ycRawJson as Prisma.InputJsonValue }),
           updatedAt: new Date(),
         },
       });
@@ -99,7 +99,7 @@ export class MatchingService {
         isYcBacked: org.isYcBacked ?? false,
         ycBatch: org.ycBatch,
         ycId: org.ycId,
-        ycRawJson: org.ycRawJson ?? undefined,
+        ycRawJson: org.ycRawJson as Prisma.InputJsonValue | undefined,
       },
     });
 
@@ -128,7 +128,7 @@ export class MatchingService {
         confidenceScore: match.confidenceScore,
         decisionType: match.decisionType,
         resolverVersion: RESOLVER_VERSION,
-        metadata: match.metadata,
+        metadata: match.metadata as Prisma.InputJsonValue,
         personId: match.personId ?? undefined,
       },
     });

@@ -8,6 +8,10 @@ export interface SourceRecord {
   sourceId?: string;
   rawPayload: Record<string, unknown>;
   entityType: "organization" | "person";
+  /** dedupeKey of the canonical org or person this record belongs to.
+   *  Used by the processor to link SourceRecord → Organization/Person FK
+   *  and populate the sourceIds[] provenance array. */
+  entityDedupeKey?: string;
 }
 
 export interface AdapterResult {
