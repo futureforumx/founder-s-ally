@@ -242,7 +242,18 @@ export function InvestorMatch({
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("firm_records").select("*");
+      // Project only the columns defined in the Investor interface.
+      // Previously SELECT * fetched all ~80 columns (including vector embeddings)
+      // against 17,980 rows on every component mount.
+      const { data, error } = await supabase
+        .from("firm_records")
+        .select(
+          "id,firm_name,lead_partner,thesis_verticals,preferred_stage," +
+          "min_check_size,max_check_size,recent_deals,location,lead_or_follow," +
+          "ca_sb54_compliant,market_sentiment,sentiment_detail," +
+          "is_trending,is_popular,is_recent,logo_url,website_url"
+        )
+        .is("deleted_at", null);
       if (!error && data) setInvestors(data as unknown as Investor[]);
       setLoading(false);
     })();

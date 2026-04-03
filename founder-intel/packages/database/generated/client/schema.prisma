@@ -1,0 +1,255 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Founder Intelligence — Prisma Schema
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Organization ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id            String @id @default(uuid())
+  canonicalName String
+  dedupeKey     String @unique // normalized domain or name-slug
+
+  domain        String?  @unique
+  website       String?
+  linkedinUrl   String?
+  description   String?
+  logoUrl       String?
+  industry      String?
+  location      String?
+  city          String?
+  state         String?
+  country       String?
+  foundedYear   Int?
+  employeeCount Int?
+  status        String? // active | acquired | ipo | defunct | stealth | unknown
+  stageProxy    String? // idea | pre_seed | seed | series_a | series_b_plus | growth | public
+  tags          String[]
+
+  // YC-specific fields — never discard
+  isYcBacked Boolean @default(false)
+  ycBatch    String?
+  ycId       String? @unique
+  ycRawJson  Json? // full YC API payload stored verbatim
+
+  sourceIds String[] // SourceRecord.id references
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  roles          Role[]
+  sourceRecords  SourceRecord[]
+  matchDecisions MatchDecision[] @relation("OrgMatchDecisions")
+  ycCompany      YcCompany?
+
+  @@index([canonicalName])
+  @@index([isYcBacked])
+  @@index([ycBatch])
+  @@map("organizations")
+}
+
+// ─── Person ───────────────────────────────────────────────────────────────────
+
+model Person {
+  id            String @id @default(uuid())
+  canonicalName String
+  dedupeKey     String @unique // normalized linkedinUrl or name-slug
+
+  firstName   String?
+  lastName    String?
+  email       String?  @unique
+  linkedinUrl String?  @unique
+  twitterUrl  String?
+  githubUrl   String?
+  avatarUrl   String?
+  bio         String?
+  location    String?
+  city        String?
+  country     String?
+  expertise   String[]
+
+  // YC-specific
+  ycId String? @unique
+
+  sourceIds String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  roles          Role[]
+  sourceRecords  SourceRecord[]
+  matchDecisions MatchDecision[] @relation("PersonMatchDecisions")
+  ycPerson       YcPerson?
+
+  @@index([canonicalName])
+  @@map("people")
+}
+
+// ─── Role ─────────────────────────────────────────────────────────────────────
+
+model Role {
+  id             String    @id @default(uuid())
+  personId       String
+  organizationId String
+  title          String?
+  roleType       String? // founder | cofounder | ceo | cto | employee | advisor | investor | board | other
+  functionType   String? // engineering | product | design | sales | marketing | operations | finance | legal | data | general_management | other
+  isCurrent      Boolean   @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, organizationId, roleType])
+  @@index([organizationId])
+  @@index([personId])
+  @@map("roles")
+}
+
+// ─── SourceRecord — full raw provenance ───────────────────────────────────────
+
+model SourceRecord {
+  id            String    @id @default(uuid())
+  sourceAdapter String // yc-companies | yc-people | founders-list | product-hunt | betalist
+  sourceUrl     String
+  sourceId      String? // ID from the originating source
+  rawPayload    Json // verbatim normalized-but-unmerged payload
+  entityType    String // organization | person
+  fetchedAt     DateTime  @default(now())
+  normalizedAt  DateTime?
+
+  organizationId String?
+  personId       String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  person       Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceAdapter, sourceId])
+  @@index([sourceAdapter])
+  @@index([entityType])
+  @@index([organizationId])
+  @@index([personId])
+  @@map("source_records")
+}
+
+// ─── IngestionJob ─────────────────────────────────────────────────────────────
+
+model IngestionJob {
+  id            String    @id @default(uuid())
+  sourceAdapter String
+  status        String // pending | running | completed | failed | partial
+  triggeredBy   String? // api | schedule | manual
+  error         String?
+  stats         Json? // { fetched, normalized, upserted, errors, durationMs, ... }
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([sourceAdapter])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ingestion_jobs")
+}
+
+// ─── YcCompany — YC source-of-truth, preserve all fields ─────────────────────
+
+model YcCompany {
+  id              String   @id @default(uuid())
+  ycId            String   @unique
+  slug            String   @unique
+  name            String
+  batch           String
+  status          String?
+  website         String?
+  description     String?
+  longDescription String?
+  teamSize        Int?
+  allLocations    String?
+  industries      String[]
+  subverticals    String[]
+  tags            String[]
+  badges          Json? // { isHiring, nonprofit, topCompany }
+  foundersRaw     Json? // raw founders array from YC API
+  rawJson         Json // complete verbatim YC API payload
+
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  ycPersons YcPerson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batch])
+  @@index([name])
+  @@map("yc_companies")
+}
+
+// ─── YcPerson — YC source-of-truth for founders ───────────────────────────────
+
+model YcPerson {
+  id          String  @id @default(uuid())
+  ycId        String  @unique
+  name        String
+  role        String? // Founder, CTO, CEO, etc.
+  linkedinUrl String?
+  twitterUrl  String?
+  avatarUrl   String?
+  bio         String?
+
+  ycCompanyId String?
+  ycCompany   YcCompany? @relation(fields: [ycCompanyId], references: [id])
+
+  personId String? @unique
+  person   Person? @relation(fields: [personId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("yc_people")
+}
+
+// ─── MatchDecision — full audit log of every merge decision ──────────────────
+
+model MatchDecision {
+  id              String   @id @default(uuid())
+  entityType      String // organization | person
+  candidateIds    String[] // IDs that were candidates for this entity
+  selectedId      String? // canonical entity ID that was selected/created
+  matchRuleUsed   String // domain_exact | linkedin_exact | name_domain_fuzzy | name_only | no_match | etc.
+  confidenceScore Float // 0.0 – 1.0
+  decisionType    String // AUTO | REVIEW
+  resolverVersion String // semver of the matching service
+  metadata        Json? // extra debug info (scores, input strings, etc.)
+
+  organizationId String?
+  personId       String?
+
+  organization Organization? @relation("OrgMatchDecisions", fields: [organizationId], references: [id], onDelete: SetNull)
+  person       Person?       @relation("PersonMatchDecisions", fields: [personId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType])
+  @@index([decisionType])
+  @@index([matchRuleUsed])
+  @@index([organizationId])
+  @@index([personId])
+  @@map("match_decisions")
+}

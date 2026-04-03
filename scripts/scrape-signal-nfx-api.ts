@@ -9,11 +9,13 @@
  *   SIGNAL_DRY_RUN=1 npx tsx scripts/scrape-signal-nfx-api.ts
  *   SIGNAL_PAGE_SIZE=200 npx tsx scripts/scrape-signal-nfx-api.ts
  *   SIGNAL_CONCURRENCY=5 npx tsx scripts/scrape-signal-nfx-api.ts
- *   SIGNAL_PHASE=fetch   # only fetch + save JSON, no DB
- *   SIGNAL_PHASE=upsert  # only upsert saved JSON to DB
- *   SIGNAL_PHASE=both    # default
+ *   SIGNAL_PHASE=fetch         # only fetch + save JSON, no DB
+ *   SIGNAL_PHASE=upsert        # only upsert saved JSON to DB
+ *   SIGNAL_PHASE=both          # default: fetch + upsert
+ *   SIGNAL_PHASE=headshots     # only upload missing headshots to R2 (from JSONL cache)
+ *   SIGNAL_UPLOAD_HEADSHOTS=1  # also upload headshots during upsert phase (default: 0)
  *
- * Env: .env.local (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+ * Env: .env.local (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CF_R2_*)
  * Auth: data/signal-nfx-auth.json (SIGNAL_ID_JWT cookie used as Bearer)
  * Log: /tmp/signal-nfx-filter-sweep.log
  * Data: /tmp/signal-nfx-investors.jsonl (one investor JSON per line)
@@ -24,6 +26,7 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync, createReadStre
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
+import { uploadHeadshot } from "./r2-image-upload";
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -35,10 +38,11 @@ const eBool = (n: string) => ["1","true","yes"].includes(e(n).toLowerCase());
 
 const SUPA_URL   = e("SUPABASE_URL") || e("NEXT_PUBLIC_SUPABASE_URL");
 const SUPA_KEY   = e("SUPABASE_SERVICE_ROLE_KEY");
-const DRY_RUN    = eBool("SIGNAL_DRY_RUN");
-const PAGE_SIZE  = eInt("SIGNAL_PAGE_SIZE", 50);
-const CONCURRENCY = eInt("SIGNAL_CONCURRENCY", 4);
-const PHASE      = e("SIGNAL_PHASE") || "both";
+const DRY_RUN           = eBool("SIGNAL_DRY_RUN");
+const PAGE_SIZE         = eInt("SIGNAL_PAGE_SIZE", 50);
+const CONCURRENCY       = eInt("SIGNAL_CONCURRENCY", 4);
+const PHASE             = e("SIGNAL_PHASE") || "both";
+const UPLOAD_HEADSHOTS  = eBool("SIGNAL_UPLOAD_HEADSHOTS");
 const AUTH_FILE  = e("SIGNAL_AUTH_FILE") || join(process.cwd(), "data", "signal-nfx-auth.json");
 const LOG_FILE   = "/tmp/signal-nfx-filter-sweep.log";
 const DATA_FILE  = "/tmp/signal-nfx-investors.jsonl";
@@ -524,11 +528,28 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
   if (inv.stage_focus.length > 0 || inv.sector_focus.length > 0)
     ip.personal_thesis_tags = [...inv.stage_focus, ...inv.sector_focus];
 
-  const { error: upsertErr } = await supabase
+  const { data: upserted, error: upsertErr } = await supabase
     .from("firm_investors")
-    .upsert(ip, { onConflict: "firm_id,full_name", ignoreDuplicates: false });
+    .upsert(ip, { onConflict: "firm_id,full_name", ignoreDuplicates: false })
+    .select("id, slug")
+    .single();
 
   if (upsertErr) throw new Error(`investor upsert: ${upsertErr.message}`);
+
+  // Optionally upload headshot to R2
+  if (UPLOAD_HEADSHOTS && inv.avatar_url && upserted?.id) {
+    try {
+      await uploadHeadshot({
+        investorId: upserted.id,
+        slug: upserted.slug || inv.slug || inv.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        sourceUrl: inv.avatar_url,
+        source: "signal_nfx",
+      });
+    } catch (err: any) {
+      // Non-fatal — headshot upload failure shouldn't abort the investor upsert
+      log(`  ⚠️  headshot upload failed for ${inv.full_name}: ${err.message}`);
+    }
+  }
 }
 
 // ── Also save investor_list slugs for cross-referencing ──────────────────────
@@ -560,7 +581,7 @@ async function fetchAndSaveInvestorLists(idJwt: string): Promise<void> {
 
 async function main() {
   appendFileSync(LOG_FILE, `\n=== Signal NFX API Scraper — ${new Date().toISOString()} ===\n`);
-  log(`DRY_RUN=${DRY_RUN}  PAGE_SIZE=${PAGE_SIZE}  CONCURRENCY=${CONCURRENCY}  PHASE=${PHASE}`);
+  log(`DRY_RUN=${DRY_RUN}  PAGE_SIZE=${PAGE_SIZE}  CONCURRENCY=${CONCURRENCY}  PHASE=${PHASE}  UPLOAD_HEADSHOTS=${UPLOAD_HEADSHOTS}`);
 
   const idJwt = loadIdJwt();
   log(`  ID JWT loaded (exp check: valid for ~186 days)`);
@@ -590,7 +611,92 @@ async function main() {
     }
   }
 
+  // ── Phase: headshots ─────────────────────────────────────────────────────────
+  if (PHASE === "headshots") {
+    log("\n═══ Phase: Uploading headshots from JSONL cache to R2 ═══");
+    if (!existsSync(DATA_FILE)) {
+      log(`  Data file not found: ${DATA_FILE} — run with SIGNAL_PHASE=fetch first`);
+    } else {
+      await uploadHeadshotsFromJSONL();
+    }
+  }
+
   log("\n  ✅ Done");
+}
+
+async function uploadHeadshotsFromJSONL(): Promise<void> {
+  const lines = readFileSync(DATA_FILE, "utf8").split("\n").filter(Boolean);
+  log(`  ${lines.length} investors in JSONL — resolving DB IDs then uploading headshots...`);
+
+  // Resolve slugs → DB UUIDs in batches
+  const withAvatars = lines
+    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+    .filter((inv): inv is SignalInvestor => inv !== null && !!inv.avatar_url && !!inv.slug);
+
+  log(`  ${withAvatars.length} have avatar_url`);
+
+  const SLUG_BATCH = 500;
+  const resolved: Array<{ id: string; slug: string; full_name: string; avatar_url: string }> = [];
+
+  for (let i = 0; i < withAvatars.length; i += SLUG_BATCH) {
+    const batch = withAvatars.slice(i, i + SLUG_BATCH);
+    const { data } = await supabase
+      .from("firm_investors")
+      .select("id, slug")
+      .in("slug", batch.map(b => b.slug));
+
+    const slugToId = new Map((data || []).map((r: any) => [r.slug, r.id]));
+
+    for (const inv of batch) {
+      const id = slugToId.get(inv.slug);
+      if (id) resolved.push({ id, slug: inv.slug, full_name: inv.full_name, avatar_url: inv.avatar_url! });
+    }
+  }
+
+  log(`  ${resolved.length} resolved to DB IDs`);
+
+  // Filter already uploaded
+  const { data: existing } = await supabase
+    .from("headshot_assets")
+    .select("investor_id")
+    .in("investor_id", resolved.map(r => r.id));
+  const done = new Set((existing || []).map((r: any) => r.investor_id));
+  const todo = resolved.filter(r => !done.has(r.id));
+
+  log(`  ${todo.length} missing headshots to upload`);
+  if (todo.length === 0) return;
+
+  let uploaded = 0, skipped = 0, failed = 0;
+  let idx = 0;
+  const startTime = Date.now();
+
+  async function worker() {
+    while (idx < todo.length) {
+      const inv = todo[idx++];
+      try {
+        const result = await uploadHeadshot({
+          investorId: inv.id,
+          slug: inv.slug,
+          sourceUrl: inv.avatar_url,
+          source: "signal_nfx",
+        });
+        if (result) { uploaded++; } else { skipped++; }
+      } catch (err: any) {
+        failed++;
+        log(`  ❌ ${inv.full_name}: ${err.message}`);
+      }
+      if ((uploaded + skipped + failed) % 200 === 0) {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const rate = ((uploaded + skipped) / parseFloat(elapsed)).toFixed(1);
+        log(`  [${uploaded + skipped + failed}/${todo.length}] uploaded=${uploaded} skipped=${skipped} failed=${failed} (${rate}/s)`);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  log(`\n  ✅ Headshot upload complete in ${elapsed}s — uploaded=${uploaded} skipped=${skipped} failed=${failed}`);
 }
 
 main().catch(err => {

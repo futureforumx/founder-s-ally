@@ -38,7 +38,7 @@ export class OrganizationsService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: orgs.map((o) => this.mapToDto(o)),
+      data: orgs.map((o: Parameters<typeof this.mapToDto>[0]) => this.mapToDto(o)),
       meta: {
         total,
         page,
@@ -80,7 +80,7 @@ export class OrganizationsService {
       include: { _count: { select: { sourceRecords: true } } },
       orderBy: { isYcBacked: "desc" },
     });
-    return orgs.map((o) => this.mapToDto(o));
+    return orgs.map((o: Parameters<typeof this.mapToDto>[0]) => this.mapToDto(o));
   }
 
   private mapToDto(org: {

@@ -99,7 +99,7 @@ export class IngestionService {
       this.prisma.ingestionJob.count({ where }),
     ]);
 
-    return { data: jobs.map((j) => this.mapToDto(j)), total };
+    return { data: jobs.map((j: Parameters<typeof this.mapToDto>[0]) => this.mapToDto(j)), total };
   }
 
   async getJob(id: string): Promise<IngestionJobDto> {

@@ -11,7 +11,6 @@
   "dependencies": {
     "@founder-intel/types": "workspace:*",
     "cheerio": "^1.0.0",
-    "robotstxt-guard": "^1.0.2",
     "robots-parser": "^3.0.1",
     "node-fetch": "^3.3.2",
     "p-limit": "^5.0.0",

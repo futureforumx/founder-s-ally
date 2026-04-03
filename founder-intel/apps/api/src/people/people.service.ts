@@ -47,7 +47,7 @@ export class PeopleService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: people.map((p) => this.mapToDto(p)),
+      data: people.map((p: Parameters<typeof this.mapToDto>[0]) => this.mapToDto(p)),
       meta: {
         total,
         page,
@@ -101,7 +101,7 @@ export class PeopleService {
       },
       orderBy: { updatedAt: "desc" },
     });
-    return people.map((p) => this.mapToDto(p));
+    return people.map((p: Parameters<typeof this.mapToDto>[0]) => this.mapToDto(p));
   }
 
   private mapToDto(person: {

@@ -75,11 +75,12 @@ export class OrgMatcher {
     // ── 3. LinkedIn URL exact match ──────────────────────────────────────────
     if (org.linkedinUrl) {
       const slug = normalizeLinkedinSlug(org.linkedinUrl);
-      const candidates = await this.prisma.organization.findMany({
-        where: { linkedinUrl: { not: null } },
-        select: { id: true, linkedinUrl: true, canonicalName: true },
-        take: 500,
-      });
+      const candidates: Array<{ id: string; linkedinUrl: string | null; canonicalName: string }> =
+        await this.prisma.organization.findMany({
+          where: { linkedinUrl: { not: null } },
+          select: { id: true, linkedinUrl: true, canonicalName: true },
+          take: 500,
+        });
       const match = candidates.find(
         (c) => c.linkedinUrl && normalizeLinkedinSlug(c.linkedinUrl) === slug
       );
@@ -92,16 +93,17 @@ export class OrgMatcher {
 
     // ── 4. Name + description fuzzy ──────────────────────────────────────────
     const normalizedInput = normalizeName(org.canonicalName);
-    const nameCandidates = await this.prisma.organization.findMany({
-      where: {
-        canonicalName: {
-          contains: normalizedInput.split(" ")[0],
-          mode: "insensitive",
+    const nameCandidates: Array<{ id: string; canonicalName: string; domain: string | null; country: string | null }> =
+      await this.prisma.organization.findMany({
+        where: {
+          canonicalName: {
+            contains: normalizedInput.split(" ")[0],
+            mode: "insensitive",
+          },
         },
-      },
-      select: { id: true, canonicalName: true, domain: true, country: true },
-      take: 20,
-    });
+        select: { id: true, canonicalName: true, domain: true, country: true },
+        take: 20,
+      });
 
     const scored = nameCandidates
       .map((c) => ({

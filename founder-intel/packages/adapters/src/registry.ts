@@ -72,6 +72,7 @@ export function inferStageProxy(hit: any): import("@founder-intel/types").StageP
 
 import type { IAdapter } from "./base/adapter.interface";
 import { YcCompaniesAdapter } from "./yc/yc-companies.adapter";
+import { YcPeopleAdapter } from "./yc/yc-people.adapter";
 import { FoundersListAdapter } from "./founders-list/founders-list.adapter";
 import { ProductHuntAdapter } from "./product-hunt/product-hunt.adapter";
 import { BetaListAdapter } from "./betalist/betalist.adapter";
@@ -80,6 +81,7 @@ import { CoFoundersLabAdapter } from "./cofounders-lab/cofounders-lab.adapter";
 export function buildAdapterRegistry(): Map<string, IAdapter> {
   const adapters: IAdapter[] = [
     new YcCompaniesAdapter(),
+    new YcPeopleAdapter(),
     new FoundersListAdapter(),
     new ProductHuntAdapter(),
     new BetaListAdapter(),

@@ -39,11 +39,12 @@ export class PersonMatcher {
     // ── 1. LinkedIn exact match ──────────────────────────────────────────────
     if (person.linkedinUrl) {
       const slug = normalizeLinkedinSlug(person.linkedinUrl);
-      const candidates = await this.prisma.person.findMany({
-        where: { linkedinUrl: { not: null } },
-        select: { id: true, linkedinUrl: true, canonicalName: true },
-        take: 1000,
-      });
+      const candidates: Array<{ id: string; linkedinUrl: string | null; canonicalName: string }> =
+        await this.prisma.person.findMany({
+          where: { linkedinUrl: { not: null } },
+          select: { id: true, linkedinUrl: true, canonicalName: true },
+          take: 1000,
+        });
       const match = candidates.find(
         (c) => c.linkedinUrl && normalizeLinkedinSlug(c.linkedinUrl) === slug
       );
@@ -63,7 +64,13 @@ export class PersonMatcher {
     const normalizedName = normalizeName(person.canonicalName);
     const namePart = normalizedName.split(" ")[0];
 
-    const nameCandidates = await this.prisma.person.findMany({
+    const nameCandidates: Array<{
+      id: string;
+      canonicalName: string;
+      city: string | null;
+      country: string | null;
+      roles: Array<{ organization: { domain: string | null } | null }>;
+    }> = await this.prisma.person.findMany({
       where: {
         canonicalName: { contains: namePart, mode: "insensitive" },
       },

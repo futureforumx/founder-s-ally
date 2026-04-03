@@ -1,5 +1,5 @@
 import { Job } from "bullmq";
-import type { PrismaClient } from "@founder-intel/database";
+import type { PrismaClient, Prisma } from "@founder-intel/database";
 import { buildAdapterRegistry } from "@founder-intel/adapters";
 import { MatchingService } from "@founder-intel/matching";
 import type { IngestionJobData } from "../queues";
@@ -71,7 +71,8 @@ export async function processIngestionJob(
         stats.matchDecisions++;
         if (isNew) stats.orgsUpserted++;
 
-        // Upsert YcCompany record if this is a YC source
+        // Upsert YcCompany record if this is the companies source
+        // (yc-people returns no orgs, so this branch is never hit for that source)
         if (org.isYcBacked && org.ycId && source === "yc-companies") {
           await upsertYcCompany(prisma, org, orgId);
         }
@@ -101,8 +102,9 @@ export async function processIngestionJob(
         stats.matchDecisions++;
         if (isNew) stats.peopleUpserted++;
 
-        // Upsert YcPerson record if applicable
-        if (person.ycId && source === "yc-companies") {
+        // Upsert YcPerson record for both YC sources
+        const isYcSource = source === "yc-companies" || source === "yc-people";
+        if (person.ycId && isYcSource) {
           await upsertYcPerson(prisma, person, personId, orgDedupeKeyToId, result.roles);
         }
       } catch (err) {
@@ -131,9 +133,24 @@ export async function processIngestionJob(
     await job.updateProgress(85);
 
     // ── 5. Store source records ───────────────────────────────────────────────
+    // Resolve entity FKs from dedupeKey maps so SourceRecord.organizationId /
+    // personId are always populated, enabling the provenance join to work.
+    // After each upsert, push the SourceRecord ID into the canonical entity's
+    // sourceIds[] array for direct provenance lookup.
+
     for (const record of result.sourceRecords) {
       try {
-        await prisma.sourceRecord.upsert({
+        const orgId =
+          record.entityType === "organization" && record.entityDedupeKey
+            ? orgDedupeKeyToId.get(record.entityDedupeKey)
+            : undefined;
+
+        const personId =
+          record.entityType === "person" && record.entityDedupeKey
+            ? personDedupeKeyToId.get(record.entityDedupeKey)
+            : undefined;
+
+        const upserted = await prisma.sourceRecord.upsert({
           where: {
             sourceAdapter_sourceId: {
               sourceAdapter: record.sourceAdapter,
@@ -144,15 +161,34 @@ export async function processIngestionJob(
             sourceAdapter: record.sourceAdapter,
             sourceUrl: record.sourceUrl,
             sourceId: record.sourceId ?? record.sourceUrl,
-            rawPayload: record.rawPayload,
+            rawPayload: record.rawPayload as Prisma.InputJsonValue,
             entityType: record.entityType,
             normalizedAt: new Date(),
+            organizationId: orgId ?? undefined,
+            personId: personId ?? undefined,
           },
           update: {
-            rawPayload: record.rawPayload,
+            rawPayload: record.rawPayload as Prisma.InputJsonValue,
             normalizedAt: new Date(),
+            ...(orgId && { organizationId: orgId }),
+            ...(personId && { personId: personId }),
           },
         });
+
+        // Push SourceRecord.id into the canonical entity's sourceIds array
+        // (Prisma array push — no-op if ID is already present via DB uniqueness)
+        if (orgId) {
+          await prisma.organization.update({
+            where: { id: orgId },
+            data: { sourceIds: { push: upserted.id } },
+          });
+        }
+        if (personId) {
+          await prisma.person.update({
+            where: { id: personId },
+            data: { sourceIds: { push: upserted.id } },
+          });
+        }
       } catch (err) {
         console.error(`[ingestion-processor] SourceRecord upsert failed:`, err);
         stats.errors++;
@@ -176,7 +212,7 @@ export async function processIngestionJob(
         status: "failed",
         error: errorMsg,
         completedAt: new Date(),
-        stats,
+        stats: stats as Prisma.InputJsonValue,
       },
     });
     throw err; // Re-throw so BullMQ can retry
@@ -195,7 +231,7 @@ async function completedJob(
   stats.durationMs = completedAt.getTime() - startedAt.getTime();
   await prisma.ingestionJob.update({
     where: { id: jobDbId },
-    data: { status: "completed", completedAt, stats },
+    data: { status: "completed", completedAt, stats: stats as Prisma.InputJsonValue },
   });
 }
 
@@ -226,9 +262,9 @@ async function upsertYcCompany(
         isHiring: raw["isHiring"],
         nonprofit: raw["nonprofit"],
         topCompany: raw["topCompany"],
-      },
-      foundersRaw: raw["founders"] as Record<string, unknown>[] | undefined,
-      rawJson: org.ycRawJson,
+      } as Prisma.InputJsonValue,
+      foundersRaw: raw["founders"] as Prisma.InputJsonValue | undefined,
+      rawJson: org.ycRawJson as Prisma.InputJsonValue,
       organizationId,
     },
     update: {
@@ -236,7 +272,7 @@ async function upsertYcCompany(
       status: org.status ?? undefined,
       website: org.website,
       teamSize: org.employeeCount,
-      rawJson: org.ycRawJson,
+      rawJson: org.ycRawJson as Prisma.InputJsonValue,
       updatedAt: new Date(),
     },
   });
@@ -265,11 +301,15 @@ async function upsertYcPerson(
     ycCompanyId = ycCo?.id;
   }
 
+  // Derive role title from the NormalizedRole for this person
+  const personRoleTitle = personRole?.title ?? undefined;
+
   await prisma.ycPerson.upsert({
     where: { ycId: person.ycId },
     create: {
       ycId: person.ycId,
       name: person.canonicalName,
+      role: personRoleTitle,
       linkedinUrl: person.linkedinUrl,
       twitterUrl: person.twitterUrl,
       avatarUrl: person.avatarUrl,
@@ -278,6 +318,8 @@ async function upsertYcPerson(
       personId,
     },
     update: {
+      // Only update role if we have a value (never overwrite a known title with blank)
+      ...(personRoleTitle && { role: personRoleTitle }),
       linkedinUrl: person.linkedinUrl ?? undefined,
       avatarUrl: person.avatarUrl ?? undefined,
       bio: person.bio ?? undefined,

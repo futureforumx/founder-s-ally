@@ -81,7 +81,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 if (!SUPABASE_URL) throw new Error("SUPABASE_URL is not set.");
 if (!SERVICE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
 
-const MAX = Math.max(1, parseInt(process.env.ENRICH_ALL_MAX || "100", 10));
+let MAX = Math.max(1, parseInt(process.env.ENRICH_ALL_MAX || "100", 10));
 const DELAY_MS = Math.max(0, parseInt(process.env.ENRICH_ALL_DELAY_MS || "3000", 10));
 const STALE_DAYS = Math.max(0, parseInt(process.env.ENRICH_ALL_STALE_DAYS || "30", 10));
 const DRY_RUN = ["1", "true", "yes"].includes(
@@ -95,20 +95,25 @@ const PHASES = new Set(
 );
 
 // API keys
-const PERPLEXITY_KEY = process.env.PERPLEXITY_API_KEY?.trim() || "";
-const EXA_KEY       = process.env.EXA_API_KEY?.trim() || "";
-const TAVILY_KEY    = process.env.TAVILY_API_KEY?.trim() || "";
-const JINA_KEY      = process.env.JINA_API_KEY?.trim() || "";
-const LINKUP_KEY    = process.env.LINKUP_API_KEY?.trim() || "";
-const GROQ_KEY      = process.env.GROQ_API_KEY?.trim() || "";
-const DEEPSEEK_KEY  = process.env.DEEPSEEK_API_KEY?.trim() || "";
-const GEMINI_KEY    = process.env.GEMINI_API_KEY?.trim() || "";
-const HUNTER_KEY    = process.env.HUNTER_API_KEY?.trim() || "";
-const PDL_KEY       = process.env.PEOPLE_DATA_LABS_API_KEY?.trim() || process.env.PDL_API_KEY?.trim() || "";
-const LUSHA_KEY     = process.env.LUSHA_API_KEY?.trim() || "";
-const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY?.trim() || "";
-const SERPWOW_KEY   = process.env.SERPWOW_API_KEY?.trim() || "";
-const LOVABLE_KEY   = process.env.LOVABLE_API_KEY?.trim() || "";
+const PERPLEXITY_KEY   = process.env.PERPLEXITY_API_KEY?.trim() || "";
+const EXA_KEY          = (process.env.EXA_API_KEY?.trim() || process.env.EXA_AI_API_KEY?.trim() || "");
+const TAVILY_KEY       = process.env.TAVILY_API_KEY?.trim() || "";
+const JINA_KEY         = process.env.JINA_API_KEY?.trim() || "";
+const LINKUP_KEY       = process.env.LINKUP_API_KEY?.trim() || "";
+const GROQ_KEY         = process.env.GROQ_API_KEY?.trim() || "";
+const DEEPSEEK_KEY     = process.env.DEEPSEEK_API_KEY?.trim() || "";
+// GEMINI_KEY   — gemini-2.0-flash (fast fallback)
+const GEMINI_KEY       = process.env.GEMINI_API_KEY?.trim() || "";
+// GEMINI_25_KEY — gemini-2.5-flash (primary extractor; falls back to GEMINI_KEY if not set)
+const GEMINI_25_KEY    = (process.env.GEMINI_25_API_KEY?.trim() || GEMINI_KEY);
+const HUNTER_KEY       = process.env.HUNTER_API_KEY?.trim() || "";
+const PDL_KEY          = process.env.PEOPLE_DATA_LABS_API_KEY?.trim() || process.env.PDL_API_KEY?.trim() || "";
+const LUSHA_KEY        = process.env.LUSHA_API_KEY?.trim() || "";
+const FIRECRAWL_KEY    = process.env.FIRECRAWL_API_KEY?.trim() || "";
+const SERPWOW_KEY      = process.env.SERPWOW_API_KEY?.trim() || "";
+const LOVABLE_KEY      = process.env.LOVABLE_API_KEY?.trim() || "";
+// ScrapingBee — JS-rendered scraping; reads SCRAPING_BEE_API_KEY or SCRAPINGBEE_API_KEY
+const SCRAPINGBEE_KEY  = (process.env.SCRAPING_BEE_API_KEY?.trim() || process.env.SCRAPINGBEE_API_KEY?.trim() || "");
 // CLAY_KEY    → deprecated endpoint (HTTP 404)
 // EXPLORIUM_KEY → endpoint not found (HTTP 404)
 const APOLLO_KEY = process.env.APOLLO_API_KEY?.trim() || "";
@@ -139,6 +144,43 @@ for (const host of SKIP_PROVIDERS) QUOTA_EXHAUSTED.add(host);
 // Maps hostname → timestamp when it may be retried again
 const RATE_LIMIT_COOLDOWN = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_MS = 90_000; // 90s cooldown before retrying a 429-limited provider
+
+// ---------------------------------------------------------------------------
+// Run-level statistics (populated during the run, printed at end)
+// ---------------------------------------------------------------------------
+
+/** Per-provider call tracking */
+type ProviderStat = { calls: number; successes: number; failures: number; rate_limited: number; quota_exhausted: boolean };
+const PROVIDER_STATS: Record<string, ProviderStat> = {};
+
+function trackProvider(host: string, outcome: "success" | "failure" | "rate_limit" | "quota") {
+  if (!PROVIDER_STATS[host]) {
+    PROVIDER_STATS[host] = { calls: 0, successes: 0, failures: 0, rate_limited: 0, quota_exhausted: false };
+  }
+  PROVIDER_STATS[host].calls++;
+  if (outcome === "success")     PROVIDER_STATS[host].successes++;
+  else if (outcome === "rate_limit") PROVIDER_STATS[host].rate_limited++;
+  else if (outcome === "quota")  { PROVIDER_STATS[host].quota_exhausted = true; PROVIDER_STATS[host].failures++; }
+  else                           PROVIDER_STATS[host].failures++;
+}
+
+/** Per-field update tracking (across the whole run) */
+const FIELD_STATS: Record<string, number> = {};   // key = "table.field" → count of updates
+
+function trackFieldUpdates(table: string, patch: Record<string, any>) {
+  const skip = new Set(["updated_at", "last_enriched_at", "needs_review"]);
+  for (const field of Object.keys(patch)) {
+    if (skip.has(field)) continue;
+    const key = `${table}.${field}`;
+    FIELD_STATS[key] = (FIELD_STATS[key] ?? 0) + 1;
+  }
+}
+
+/** Per-phase attempt/update/error counters */
+type PhaseStat = { attempted: number; updated: number; skipped: number; errors: number };
+const PHASE_STATS: Record<string, PhaseStat> = {};
+
+const RUN_START = Date.now();
 
 // ---------------------------------------------------------------------------
 // Supabase REST helpers
@@ -175,10 +217,33 @@ async function sbUpdate(
   id: string,
   patch: Record<string, any>
 ): Promise<boolean> {
+  // Always track what fields are being set (for post-run audit)
+  trackFieldUpdates(table, patch);
+
   if (DRY_RUN) {
-    console.log(`    [DRY RUN] Would update ${table}.${id}:`, Object.keys(patch).join(", "));
+    // Fetch current record to show a proper before → after diff
+    try {
+      const cur = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}&select=*&limit=1`, {
+        headers: SB_HEADERS,
+      });
+      const rows = cur.ok ? await cur.json() : [];
+      const before: Record<string, any> = rows[0] ?? {};
+      const skip = new Set(["updated_at", "last_enriched_at", "needs_review"]);
+      const meaningful = Object.entries(patch).filter(([k]) => !skip.has(k));
+      if (meaningful.length > 0) {
+        console.log(`    [DRY RUN] ${table} id=${id.slice(0, 8)}...`);
+        for (const [k, v] of meaningful) {
+          const was = before[k] != null ? JSON.stringify(before[k]).slice(0, 80) : "null";
+          const willBe = JSON.stringify(v).slice(0, 80);
+          console.log(`      ${k}: ${was} → ${willBe}`);
+        }
+      }
+    } catch {
+      console.log(`    [DRY RUN] Would update ${table}.${id}:`, Object.keys(patch).join(", "));
+    }
     return true;
   }
+
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: "PATCH",
     headers: { ...SB_HEADERS, Prefer: "return=minimal" },
@@ -198,17 +263,22 @@ async function sbUpsert(
   onConflict?: string
 ): Promise<boolean> {
   if (DRY_RUN) {
-    console.log(`    [DRY RUN] Would upsert into ${table}:`, JSON.stringify(data).slice(0, 200));
+    console.log(`    [DRY RUN] Would upsert into ${table} (conflict on: ${onConflict ?? "none"}):`, JSON.stringify(data).slice(0, 200));
     return true;
   }
-  const prefer = onConflict
-    ? `resolution=merge-duplicates,return=minimal`
-    : "return=minimal";
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  // PostgREST requires the conflict columns as a query param AND the Prefer header
+  // Without ?on_conflict= the merge-duplicates preference is ignored and inserts fail on constraint violation
+  const conflictParam = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : "";
+  const prefer = onConflict ? `resolution=merge-duplicates,return=minimal` : "return=minimal";
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${conflictParam}`, {
     method: "POST",
     headers: { ...SB_HEADERS, Prefer: prefer },
     body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`    ✗ sbUpsert FAILED for ${table} (HTTP ${res.status}): ${errBody.slice(0, 200)}`);
+  }
   return res.ok;
 }
 
@@ -272,6 +342,7 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}, trackingHost
       if (isBillingError) {
         console.warn(`    ⊘ ${apiHost} → credits/quota exhausted (HTTP ${res.status}) — disabled for this run`);
         QUOTA_EXHAUSTED.add(apiHost);
+        trackProvider(apiHost, "quota");
         return null;
       }
 
@@ -279,6 +350,7 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}, trackingHost
       if (res.status === 404 || res.status === 410) {
         console.warn(`    ⊘ ${apiHost} → HTTP ${res.status} (endpoint unavailable) — disabled`);
         QUOTA_EXHAUSTED.add(apiHost);
+        trackProvider(apiHost, "quota");
         return null;
       }
 
@@ -289,15 +361,19 @@ async function jsonFetch<T>(url: string, options: RequestInit = {}, trackingHost
         const coolMs = retryAfterSec > 0 ? retryAfterSec * 1000 : RATE_LIMIT_COOLDOWN_MS;
         RATE_LIMIT_COOLDOWN.set(apiHost, Date.now() + coolMs);
         console.warn(`    ⚠ ${apiHost} → rate limited — cooling down for ${Math.round(coolMs / 1000)}s`);
+        trackProvider(apiHost, "rate_limit");
         return null;
       }
 
       console.warn(`    ⚠ ${apiHost} → HTTP ${res.status}: ${msg.slice(0, 150)}`);
+      trackProvider(apiHost, "failure");
       return null;
     }
+    trackProvider(apiHost, "success");
     return (await res.json()) as T;
   } catch (e) {
     console.warn(`    ⚠ ${apiHost} → ${e instanceof Error ? e.message : String(e)}`);
+    trackProvider(apiHost, "failure");
     return null;
   }
 }
@@ -477,8 +553,10 @@ async function enrichFirmWithLinkup(firmName: string): Promise<string> {
 
 async function scrapeWebsiteWithJina(url: string): Promise<string> {
   if (!JINA_KEY) return "";
+  const host = "r.jina.ai";
+  if (!isAvailable(host)) return "";
   try {
-    const res = await fetch(`https://r.jina.ai/${url}`, {
+    const res = await fetch(`https://${host}/${url}`, {
       headers: {
         Authorization: `Bearer ${JINA_KEY}`,
         Accept: "text/markdown",
@@ -487,14 +565,232 @@ async function scrapeWebsiteWithJina(url: string): Promise<string> {
       signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {
+      trackProvider(host, "success");
       const text = await res.text();
       return text.slice(0, 8000);
     }
+    trackProvider(host, "failure");
     console.warn(`    ⚠ Jina → HTTP ${res.status}`);
   } catch (e) {
+    trackProvider(host, "failure");
     console.warn(`    ⚠ Jina → ${e instanceof Error ? e.message : e}`);
   }
   return "";
+}
+
+// ---------------------------------------------------------------------------
+// ScrapingBee — JS-rendered page fetch (SCRAPING_BEE_API_KEY / SCRAPINGBEE_API_KEY)
+// Preferred over raw fetch for JS-heavy team pages and firm websites.
+// ---------------------------------------------------------------------------
+
+function stripHtmlToText(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 30_000);
+}
+
+async function scrapeWithScrapingBee(url: string): Promise<string> {
+  if (!SCRAPINGBEE_KEY) return "";
+  const host = "app.scrapingbee.com";
+  if (!isAvailable(host)) return "";
+
+  const params = new URLSearchParams({
+    api_key: SCRAPINGBEE_KEY,
+    url,
+    render_js: "true",
+    block_ads: "true",
+    block_resources: "false",
+  });
+
+  try {
+    const res = await fetch(`https://${host}/api/v1/?${params}`, {
+      signal: AbortSignal.timeout(45_000),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      if (res.status === 402 || res.status === 429) {
+        const outcome = res.status === 429 ? "rate_limit" : "quota";
+        trackProvider(host, outcome);
+        if (res.status === 429) RATE_LIMIT_COOLDOWN.set(host, Date.now() + RATE_LIMIT_COOLDOWN_MS);
+        else QUOTA_EXHAUSTED.add(host);
+        console.warn(`    ⚠ ScrapingBee → HTTP ${res.status}`);
+      } else {
+        trackProvider(host, "failure");
+        console.warn(`    ⚠ ScrapingBee → HTTP ${res.status}: ${body.slice(0, 120)}`);
+      }
+      return "";
+    }
+
+    const html = await res.text();
+    if (!html) { trackProvider(host, "failure"); return ""; }
+    trackProvider(host, "success");
+    return stripHtmlToText(html);
+  } catch (e) {
+    trackProvider(host, "failure");
+    console.warn(`    ⚠ ScrapingBee → ${e instanceof Error ? e.message : e}`);
+    return "";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Firecrawl — structured markdown scraping and async crawl
+// FIRECRAWL_SCRAPE: single page, synchronous, returns markdown immediately.
+// FIRECRAWL_CRAWL:  multi-page async job (about/team/portfolio), polled up to 15s.
+//                   Only triggered when single-page fetch is thin (< CRAWL_THRESHOLD chars).
+// ---------------------------------------------------------------------------
+
+const FIRECRAWL_HOST = "api.firecrawl.dev";
+
+/** Single-page Firecrawl scrape — synchronous, cheapest option (1 credit). */
+async function firecrawlScrape(url: string): Promise<string> {
+  if (!FIRECRAWL_KEY || !isAvailable(FIRECRAWL_HOST)) return "";
+  const data = await jsonFetch<any>("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${FIRECRAWL_KEY}` },
+    body: JSON.stringify({
+      url,
+      formats: ["markdown"],
+      onlyMainContent: true,
+    }),
+  });
+  return (data?.data?.markdown || data?.markdown || "").slice(0, 15_000);
+}
+
+/**
+ * Multi-page Firecrawl crawl — async job targeting About/Team/Portfolio subpages.
+ * Only call this when single-page results are thin (< CRAWL_THRESHOLD chars).
+ * Polls every 3s up to 5 attempts (15s max); takes partial results if still running.
+ * Cost: up to `maxPages` credits.
+ */
+async function firecrawlCrawl(url: string, maxPages = 4): Promise<string> {
+  if (!FIRECRAWL_KEY || !isAvailable(FIRECRAWL_HOST)) return "";
+
+  // Start the async crawl job
+  const job = await jsonFetch<any>("https://api.firecrawl.dev/v1/crawl", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${FIRECRAWL_KEY}` },
+    body: JSON.stringify({
+      url,
+      limit: maxPages,
+      includePaths: ["about", "team", "partners", "portfolio", "contact", "who-we-are", "our-story", "people"],
+      scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+    }),
+  });
+
+  if (!job?.id) return "";
+  const jobId = job.id as string;
+
+  // Poll for completion — 5 attempts × 3s = 15s max wait per firm
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await sleep(3_000);
+    try {
+      const res = await fetch(`https://api.firecrawl.dev/v1/crawl/${jobId}`, {
+        headers: { Authorization: `Bearer ${FIRECRAWL_KEY}` },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) break;
+      const status = await res.json();
+      const pages: any[] = status?.data ?? [];
+      if (pages.length > 0) {
+        const combined = pages
+          .map((p: any) => {
+            const title = p.metadata?.title || p.url || "";
+            const md = p.markdown || "";
+            return title ? `## ${title}\n${md}` : md;
+          })
+          .join("\n\n---\n\n");
+        // Return on completion OR when we have enough pages
+        if (status?.status === "completed" || pages.length >= maxPages) {
+          return combined.slice(0, 20_000);
+        }
+      }
+    } catch {
+      break;
+    }
+  }
+
+  return "";
+}
+
+// ---------------------------------------------------------------------------
+// Exa REST helpers — search/discovery layer (not MCP; uses REST API directly)
+// NOTE: Exa MCP is only available in interactive Claude sessions, not Node scripts.
+//       These helpers call https://api.exa.ai/search directly using EXA_API_KEY.
+// ---------------------------------------------------------------------------
+
+interface ExaResult { url: string; title: string; text?: string }
+
+/** Core Exa search — returns raw result array for callers to interpret. */
+async function exaSearch(
+  query: string,
+  opts: { numResults?: number; type?: "neural" | "keyword" | "auto"; includeText?: boolean } = {}
+): Promise<ExaResult[]> {
+  if (!EXA_KEY || !isAvailable("api.exa.ai")) return [];
+  const data = await jsonFetch<any>("https://api.exa.ai/search", {
+    method: "POST",
+    headers: { "x-api-key": EXA_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      type: opts.type ?? "auto",
+      numResults: opts.numResults ?? 5,
+      contents: opts.includeText ? { text: { maxCharacters: 2000 } } : undefined,
+    }),
+  });
+  return data?.results ?? [];
+}
+
+/**
+ * Exa: discover official website_url and/or linkedin_url for a firm.
+ * Called when both are missing from the DB record.
+ */
+async function discoverFirmUrlsWithExa(
+  firmName: string
+): Promise<{ website_url: string | null; linkedin_url: string | null }> {
+  const results = await exaSearch(`"${firmName}" venture capital official website`, { numResults: 6, type: "neural" });
+
+  let website_url: string | null = null;
+  let linkedin_url: string | null = null;
+
+  for (const r of results) {
+    const url = (r.url || "").split("?")[0];
+    if (!linkedin_url && url.includes("linkedin.com/company/")) {
+      linkedin_url = url;
+    } else if (!website_url) {
+      const domain = domainFromUrl(url);
+      if (domain) website_url = url.startsWith("http") ? url : `https://${url}`;
+    }
+    if (website_url && linkedin_url) break;
+  }
+
+  return { website_url, linkedin_url };
+}
+
+/**
+ * Exa: find team/people/about page URL for a firm.
+ * More reliable than HEAD-probing common URL suffixes.
+ */
+async function discoverTeamPageWithExa(firmName: string, domain: string | null): Promise<string | null> {
+  const domainHint = domain ? ` site:${domain}` : "";
+  const results = await exaSearch(
+    `${firmName} venture capital team partners people page${domainHint}`,
+    { numResults: 4, type: "neural" }
+  );
+
+  for (const r of results) {
+    const url = r.url || "";
+    if (/\/(team|people|about|partners|who-we-are|our-team|leadership)/i.test(url)) return url;
+  }
+  // Fallback: first result that lives on the firm's own domain
+  if (domain) {
+    const onDomain = results.find(r => (r.url || "").includes(domain));
+    if (onDomain) return onDomain.url;
+  }
+  return null;
 }
 
 async function extractFirmDataWithAI(
@@ -502,7 +798,7 @@ async function extractFirmDataWithAI(
   searchText: string,
   websiteText: string,
   firm: FirmRow
-): Promise<EnrichPatch> {
+): Promise<[EnrichPatch, string]> {
   const emptyFields: string[] = [];
 
   // Core identity
@@ -546,14 +842,14 @@ async function extractFirmDataWithAI(
   if (!firm.total_headcount) emptyFields.push("total_headcount (total number of employees as integer)");
   if (!firm.founded_year) emptyFields.push("founded_year (4-digit integer year the firm was founded)");
 
-  if (emptyFields.length === 0) return {};
+  if (emptyFields.length === 0) return [{}, "SKIPPED_ALL_POPULATED"];
 
   const combined = [
     websiteText ? `=== FIRM WEBSITE ===\n${websiteText}` : "",
     searchText ? `=== WEB RESEARCH ===\n${searchText}` : "",
   ].filter(Boolean).join("\n\n");
 
-  if (!combined || combined.length < 50) return {};
+  if (!combined || combined.length < 50) return [{}, "SKIPPED_NO_INPUT"];
 
   // Sanitizes raw AI JSON output into a valid DB patch
   function sanitizePatch(parsed: Record<string, any>): EnrichPatch {
@@ -637,6 +933,8 @@ ${combined.slice(0, 12_000)}`;
   // Helper: call Groq with a specific model tracked under its own virtual host key
   async function tryGroq(model: string, trackHost: string): Promise<EnrichPatch | null> {
     if (!GROQ_KEY || !isAvailable(trackHost)) return null;
+    const label = model.includes("70b") ? "GROQ_70B" : "GROQ_8B";
+    console.log(`    → [${label}_EXTRACT] trying ${model}...`);
     try {
       const data = await jsonFetch<any>(
         `https://api.groq.com/openai/v1/chat/completions`,
@@ -657,62 +955,26 @@ ${combined.slice(0, 12_000)}`;
       );
       const content = data?.choices?.[0]?.message?.content;
       if (content) {
+        console.log(`    ✓ [${label}_EXTRACT] succeeded`);
         const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
         const parsed = JSON.parse(cleaned);
         return sanitizePatch(parsed);
       }
+      console.log(`    ↷ [${label}_EXTRACT] → no content in response`);
     } catch (e) {
-      console.warn(`    ⚠ Groq(${model}) extraction failed: ${e instanceof Error ? e.message : e}`);
+      console.warn(`    ✗ [${label}_EXTRACT] failed: ${e instanceof Error ? e.message : e}`);
     }
     return null;
   }
 
-  // Try Groq 70b → Groq 8b → DeepSeek → Gemini (each tracked separately for independent cooldowns)
-  {
-    const result = await tryGroq("llama-3.3-70b-versatile", "api.groq.com/70b");
-    if (result) return result;
-  }
-  {
-    const result = await tryGroq("llama-3.1-8b-instant", "api.groq.com/8b");
-    if (result) return result;
-  }
-
-  if (DEEPSEEK_KEY && isAvailable("api.deepseek.com")) {
-    try {
-      const data = await jsonFetch<any>("https://api.deepseek.com/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${DEEPSEEK_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [
-            { role: "system", content: "You extract structured data about VC firms. Return only valid JSON with the requested fields. Use null for unknown values." },
-            { role: "user", content: prompt },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.1,
-        }),
-      });
-      const content = data?.choices?.[0]?.message?.content;
-      if (content) {
-        const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        const parsed = JSON.parse(cleaned);
-        const patch: EnrichPatch = {};
-        for (const [k, v] of Object.entries(parsed)) {
-          if (v != null && v !== "" && v !== "null" && (firm as any)[k] == null) {
-            patch[k] = v;
-          }
-        }
-        return patch;
-      }
-    } catch (e) {
-      console.warn(`    ⚠ DeepSeek extraction failed: ${e instanceof Error ? e.message : e}`);
-    }
-  }
-
-  if (GEMINI_KEY && isAvailable("generativelanguage.googleapis.com")) {
+  // Helper: call Gemini for structured extraction; tracked per model under distinct virtual hosts
+  async function tryGemini(model: string, apiKey: string, trackHost: string): Promise<EnrichPatch | null> {
+    if (!apiKey || !isAvailable(trackHost)) return null;
+    const label = model.includes("2.5") ? "GEMINI_25" : "GEMINI_20";
+    console.log(`    → [${label}_EXTRACT] trying ${model}...`);
     try {
       const data = await jsonFetch<any>(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -720,21 +982,44 @@ ${combined.slice(0, 12_000)}`;
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
           }),
-        }
+        },
+        trackHost,
       );
       const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (content) {
-        const parsed = JSON.parse(content.trim());
-        return sanitizePatch(parsed);
+        console.log(`    ✓ [${label}_EXTRACT] succeeded`);
+        return sanitizePatch(JSON.parse(content.trim()));
       }
+      console.log(`    ↷ [${label}_EXTRACT] → no content in response`);
     } catch (e) {
-      console.warn(`    ⚠ Gemini extraction failed: ${e instanceof Error ? e.message : e}`);
+      console.warn(`    ✗ [${label}_EXTRACT] failed: ${e instanceof Error ? e.message : e}`);
     }
+    return null;
   }
 
-  // Final fallback: Perplexity sonar-pro for extraction
-  // (asks for JSON output explicitly; used when Groq/DeepSeek/Gemini are all rate-limited)
+  // Waterfall: Gemini 2.5 Flash → Groq 70b → Groq 8b → Gemini 2.0 → Perplexity (last resort)
+  // Each step returns [patch, providerLabel] so callers know who actually extracted.
+  // NOTE: "gemini-2.5-flash" is the stable model name (preview suffix was dropped in 2025).
+  {
+    const result = await tryGemini("gemini-2.5-flash", GEMINI_25_KEY, "generativelanguage.googleapis.com/2.5");
+    if (result) return [result, "GEMINI_25"];
+  }
+  {
+    const result = await tryGroq("llama-3.3-70b-versatile", "api.groq.com/70b");
+    if (result) return [result, "GROQ_70B"];
+  }
+  {
+    const result = await tryGroq("llama-3.1-8b-instant", "api.groq.com/8b");
+    if (result) return [result, "GROQ_8B"];
+  }
+  // Gemini 2.0 Flash — fallback if 2.5 returned 404/rate-limit
+  {
+    const result = await tryGemini("gemini-2.0-flash", GEMINI_KEY, "generativelanguage.googleapis.com/2.0");
+    if (result) return [result, "GEMINI_20"];
+  }
+  // Perplexity last resort — quota-sensitive, only fires if all above are exhausted
   if (PERPLEXITY_KEY && isAvailable("api.perplexity.ai")) {
+    console.log(`    → [PERPLEXITY_EXTRACT] trying sonar-pro...`);
     try {
       const data = await jsonFetch<any>("https://api.perplexity.ai/chat/completions", {
         method: "POST",
@@ -742,10 +1027,7 @@ ${combined.slice(0, 12_000)}`;
         body: JSON.stringify({
           model: "sonar-pro",
           messages: [
-            {
-              role: "system",
-              content: "You extract structured data about VC firms and return only valid JSON. Use null for any field you cannot confidently determine.",
-            },
+            { role: "system", content: "You extract structured data about VC firms and return only valid JSON. Use null for any field you cannot confidently determine." },
             { role: "user", content: prompt },
           ],
           temperature: 0.1,
@@ -753,26 +1035,28 @@ ${combined.slice(0, 12_000)}`;
       });
       const content = data?.choices?.[0]?.message?.content;
       if (content) {
-        // Perplexity wraps JSON in markdown fences; strip them
         const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        // Find the first { ... } block in case there's surrounding prose
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return sanitizePatch(parsed);
+          console.log(`    ✓ [PERPLEXITY_EXTRACT] succeeded`);
+          return [sanitizePatch(JSON.parse(jsonMatch[0])), "PERPLEXITY"];
         }
       }
+      console.log(`    ↷ [PERPLEXITY_EXTRACT] → no parseable JSON in response`);
     } catch (e) {
-      console.warn(`    ⚠ Perplexity extraction failed: ${e instanceof Error ? e.message : e}`);
+      console.warn(`    ✗ [PERPLEXITY_EXTRACT] failed: ${e instanceof Error ? e.message : e}`);
     }
   }
 
-  return {};
+  return [{}, "NONE"];
 }
 
 async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number }> {
   console.log("\n╔═══════════════════════════════════════════════════════════════════════╗");
-  console.log("║  PHASE 1: Firm Profile Enrichment (Exa+Tavily+Linkup+Jina → Groq/DeepSeek/Gemini)  ║");
+  console.log("║  PHASE 1: Firm Profile Enrichment                                     ║");
+  console.log("║  Search : Exa (primary) → Linkup/Tavily (fallback if thin)           ║");
+  console.log("║  Fetch  : ScrapingBee → Firecrawl scrape → Firecrawl crawl (deep)    ║");
+  console.log("║  Extract: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0              ║");
   console.log("╚═══════════════════════════════════════════════════════════════════════╝\n");
 
   const staleDate = new Date(Date.now() - STALE_DAYS * 86400_000).toISOString();
@@ -794,25 +1078,34 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
     return { enriched: 0, errors: 0 };
   }
 
-  console.log(`  ${firms.length} firms need enrichment\n`);
-  const providers = [
-    EXA_KEY && "Exa",
-    TAVILY_KEY && "Tavily",
-    LINKUP_KEY && "Linkup",
-    JINA_KEY && "Jina",
-    GROQ_KEY && "Groq",
-    DEEPSEEK_KEY && "DeepSeek",
-    GEMINI_KEY && "Gemini",
-  ].filter(Boolean);
-  console.log(`  Search: ${[PERPLEXITY_KEY && "Perplexity", EXA_KEY && "Exa", TAVILY_KEY && "Tavily", LINKUP_KEY && "Linkup", JINA_KEY && "Jina"].filter(Boolean).join(", ")}`);
-  console.log(`  AI extraction: ${[GROQ_KEY && "Groq", DEEPSEEK_KEY && "DeepSeek", GEMINI_KEY && "Gemini"].filter(Boolean).join(", ")}\n`);
+  console.log(`  ${firms.length} firms need enrichment`);
+
+  // ── Startup: show actual key status (masked) so missing keys are immediately visible ──
+  {
+    const kv = (key: string, name: string, role: string) => {
+      const ok = !!key;
+      const masked = ok ? key.slice(0, 6) + "..." : "NOT SET ✗";
+      return `    ${ok ? "✓" : "✗"} ${name.padEnd(18)} ${role.padEnd(22)} ${masked}`;
+    };
+    console.log("\n  ── PROVIDER KEY STATUS ──────────────────────────────────────────────────");
+    console.log(kv(EXA_KEY,         "Exa",          "[PRIMARY search]"));
+    console.log(kv(SCRAPINGBEE_KEY, "ScrapingBee",  "[PRIMARY fetch]"));
+    console.log(kv(GEMINI_25_KEY,   "Gemini 2.5",   "[PRIMARY extract]"));
+    console.log(kv(GROQ_KEY,        "Groq",         "[fallback extract]"));
+    console.log(kv(GEMINI_KEY,      "Gemini 2.0",   "[fallback extract]"));
+    console.log(kv(PERPLEXITY_KEY,  "Perplexity",   "[secondary search]"));
+    console.log(kv(FIRECRAWL_KEY,   "Firecrawl",    "[P1 fallback scrape/crawl]"));
+    console.log(kv(LINKUP_KEY,      "Linkup",       "[DEMOTED fallback search]"));
+    console.log(kv(JINA_KEY,        "Jina",         "[Phase 3 only — NOT Phase 1]"));
+    console.log("  ─────────────────────────────────────────────────────────────────────────\n");
+  }
 
   if (!PERPLEXITY_KEY && !EXA_KEY && !TAVILY_KEY && !JINA_KEY && !LINKUP_KEY) {
     console.log("  ⚠ No search API keys set — cannot gather data. Skipping.\n");
     return { enriched: 0, errors: 0 };
   }
-  if (!GROQ_KEY && !DEEPSEEK_KEY && !GEMINI_KEY) {
-    console.log("  ⚠ No AI API keys set — cannot extract structured data. Skipping.\n");
+  if (!GEMINI_25_KEY && !GROQ_KEY && !PERPLEXITY_KEY) {
+    console.log("  ⚠ No AI extraction keys set (GEMINI_25_API_KEY / GEMINI_API_KEY / GROQ_API_KEY). Skipping.\n");
     return { enriched: 0, errors: 0 };
   }
 
@@ -820,18 +1113,35 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
   let errors = 0;
 
   for (const firm of firms) {
-    const domain = domainFromUrl(firm.website_url);
-    console.log(`  ▸ ${firm.firm_name}${domain ? ` (${domain})` : ""}`);
+    let domain = domainFromUrl(firm.website_url);
+    console.log(`  ▸ ${firm.firm_name}${domain ? ` (${domain})` : " [no website]"}`);
 
     try {
-      // Guard: if ALL AI providers are in cooldown/exhausted, wait for the soonest one to recover
-      // before spending any search credits on this firm.
+      // ── Step 0: Exa URL discovery (runs when website_url or linkedin_url is missing) ──
+      // This lets the AI extraction prompt include a real website URL even for unknown firms.
+      if ((!firm.website_url || !firm.linkedin_url) && EXA_KEY && isAvailable("api.exa.ai")) {
+        const discovered = await discoverFirmUrlsWithExa(firm.firm_name);
+        if (discovered.website_url && !firm.website_url) {
+          firm.website_url = discovered.website_url;
+          domain = domainFromUrl(firm.website_url);
+          console.log(`    Exa → discovered website: ${firm.website_url}`);
+        }
+        if (discovered.linkedin_url && !firm.linkedin_url) {
+          firm.linkedin_url = discovered.linkedin_url;
+          console.log(`    Exa → discovered LinkedIn: ${firm.linkedin_url}`);
+        }
+        await sleep(300);
+      }
+
+      // Guard: if ALL AI extractors are cooling/exhausted, skip rather than burning search credits.
+      // Cap wait at 30s — if the shortest cooldown is longer than that, skip and retry next run.
+      const MAX_AI_WAIT_MS = 30_000;
       const aiHosts = [
+        "generativelanguage.googleapis.com/2.5",
+        "generativelanguage.googleapis.com/2.0",
         "api.groq.com/70b",
         "api.groq.com/8b",
-        "generativelanguage.googleapis.com",
         "api.perplexity.ai",
-        "api.deepseek.com",
       ];
       const hasAI = (): boolean => aiHosts.some(h => isAvailable(h));
       if (!hasAI()) {
@@ -843,10 +1153,14 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
           return remaining > 0 ? Math.min(min, remaining) : min;
         }, Infinity);
         if (waitMs === Infinity) {
-          console.log(`    — All AI providers exhausted; skipping firm`);
+          console.log(`    — All AI extractors permanently exhausted; skipping firm`);
           continue;
         }
-        console.log(`    ⏳ All AI providers in cooldown — waiting ${Math.round(waitMs / 1000)}s before fetching search data...`);
+        if (waitMs > MAX_AI_WAIT_MS) {
+          console.log(`    — All AI extractors cooling ${Math.round(waitMs / 1000)}s (> ${MAX_AI_WAIT_MS / 1000}s cap); skipping firm — will retry next run`);
+          continue;
+        }
+        console.log(`    ⏳ AI extractors cooling ${Math.round(waitMs / 1000)}s — waiting...`);
         await sleep(waitMs + 500);
         if (!hasAI()) {
           console.log(`    — AI still unavailable after wait; skipping firm`);
@@ -854,55 +1168,153 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         }
       }
 
-      // Step 1: Gather raw data from multiple search providers in parallel
-      const searchPromises: Promise<string>[] = [];
-      const searchLabels: string[] = [];
+      // ── Provider path for this firm (printed at end of each firm) ──────────
+      const providerPath: string[] = [];
 
-      if (PERPLEXITY_KEY && isAvailable("api.perplexity.ai")) {
-        searchPromises.push(enrichFirmWithPerplexity(firm.firm_name, domain));
-        searchLabels.push("Perplexity");
-      }
+      // Step 1a: PRIMARY search — Exa + Perplexity in parallel
+      // Linkup/Tavily are DEMOTED: only run if primary search returns < 300 chars
+      const primarySearchPromises: Promise<string>[] = [];
+      const primarySearchLabels: string[] = [];
+
       if (EXA_KEY && isAvailable("api.exa.ai")) {
-        searchPromises.push(enrichFirmWithExa(firm.firm_name, domain));
-        searchLabels.push("Exa");
-      }
-      if (TAVILY_KEY && isAvailable("api.tavily.com")) {
-        searchPromises.push(enrichFirmWithTavily(firm.firm_name, domain));
-        searchLabels.push("Tavily");
-      }
-      if (LINKUP_KEY && isAvailable("api.linkup.so")) {
-        searchPromises.push(enrichFirmWithLinkup(firm.firm_name));
-        searchLabels.push("Linkup");
+        console.log(`    → [EXA_SEARCH] querying...`);
+        providerPath.push("EXA_SEARCH");
+        primarySearchPromises.push(enrichFirmWithExa(firm.firm_name, domain));
+        primarySearchLabels.push("Exa");
+      } else {
+        const reason = !EXA_KEY ? "key missing (EXA_API_KEY not set)"
+          : QUOTA_EXHAUSTED.has("api.exa.ai") ? "quota exhausted"
+          : "in cooldown";
+        console.log(`    ↷ [EXA_SEARCH] skipped — ${reason}`);
       }
 
-      if (searchPromises.length === 0 && !JINA_KEY) {
-        console.log(`    — No search providers available for this firm, skipping`);
+      // Perplexity is NOT used for Phase 1 search — it's quota-sensitive and reserved
+      // exclusively for the AI extraction fallback (last resort in the extractor waterfall).
+
+      const primaryResults = await Promise.allSettled(primarySearchPromises);
+      const searchTexts: string[] = [];
+      for (let i = 0; i < primaryResults.length; i++) {
+        const r = primaryResults[i];
+        const label = primarySearchLabels[i].toUpperCase();
+        if (r.status === "fulfilled" && r.value) {
+          searchTexts.push(r.value);
+          console.log(`    ✓ [${label}_SEARCH] → ${r.value.length} chars`);
+        } else if (r.status === "rejected") {
+          console.warn(`    ✗ [${label}_SEARCH] failed: ${r.reason}`);
+        } else {
+          console.log(`    ↷ [${label}_SEARCH] → returned empty`);
+        }
+      }
+
+      // Step 1b: FALLBACK search — only if primary results are thin (< 300 chars)
+      const combinedPrimaryText = searchTexts.join("");
+      if (combinedPrimaryText.length < 300) {
+        if (TAVILY_KEY && isAvailable("api.tavily.com")) {
+          console.log(`    → [FALLBACK_TAVILY] primary thin (${combinedPrimaryText.length} chars), trying Tavily...`);
+          providerPath.push("FALLBACK_TAVILY");
+          const tv = await enrichFirmWithTavily(firm.firm_name, domain);
+          if (tv) { searchTexts.push(tv); console.log(`    ✓ [FALLBACK_TAVILY] → ${tv.length} chars`); }
+          else console.log(`    ↷ [FALLBACK_TAVILY] → returned empty`);
+        }
+        if (LINKUP_KEY && isAvailable("api.linkup.so")) {
+          console.log(`    → [FALLBACK_LINKUP] primary thin (${combinedPrimaryText.length} chars), trying Linkup...`);
+          providerPath.push("FALLBACK_LINKUP");
+          const lu = await enrichFirmWithLinkup(firm.firm_name);
+          if (lu) { searchTexts.push(lu); console.log(`    ✓ [FALLBACK_LINKUP] → ${lu.length} chars`); }
+          else console.log(`    ↷ [FALLBACK_LINKUP] → returned empty`);
+        }
+      } else {
+        if (TAVILY_KEY) console.log(`    ↷ [FALLBACK_TAVILY] skipped — primary sufficient (${combinedPrimaryText.length} chars)`);
+        if (LINKUP_KEY) console.log(`    ↷ [FALLBACK_LINKUP] skipped — primary sufficient (${combinedPrimaryText.length} chars)`);
+      }
+
+      const combinedSearchText = searchTexts.join("\n\n=== NEXT SOURCE ===\n\n");
+
+      if (combinedSearchText.length === 0 && !firm.website_url) {
+        console.log(`    — No search data and no website URL; skipping firm`);
         continue;
       }
 
-      const searchResults = await Promise.allSettled(searchPromises);
-      const searchTexts: string[] = [];
-      for (let i = 0; i < searchResults.length; i++) {
-        const r = searchResults[i];
-        if (r.status === "fulfilled" && r.value) {
-          searchTexts.push(r.value);
-          console.log(`    ${searchLabels[i]} → ${r.value.length} chars`);
-        } else if (r.status === "rejected") {
-          console.warn(`    ⚠ ${searchLabels[i]} failed: ${r.reason}`);
-        }
-      }
-      const combinedSearchText = searchTexts.join("\n\n=== NEXT SOURCE ===\n\n");
+      // Step 1c: Website scrape waterfall
+      // PRIMARY:   ScrapingBee — JS-rendered homepage fetch
+      // FALLBACK:  Firecrawl scrape — single page markdown (if ScrapingBee empty or thin)
+      // DEEP:      Firecrawl crawl — about/team/portfolio subpages (if single-page is still thin)
+      // Jina is NOT used in Phase 1 (quota-sensitive; reserved for Phase 3 team pages only)
+      //
+      // Thresholds:
+      //   THIN_THRESHOLD = 500 chars  → ScrapingBee result thin enough to try Firecrawl scrape
+      //   CRAWL_THRESHOLD = 1000 chars → combined result still thin → trigger multi-page crawl
+      const THIN_THRESHOLD = 500;
+      const CRAWL_THRESHOLD = 1_000;
 
-      // Scrape firm website directly with Jina
       let websiteText = "";
-      if (firm.website_url && JINA_KEY) {
-        websiteText = await scrapeWebsiteWithJina(firm.website_url);
-        if (websiteText) console.log(`    Jina → ${websiteText.length} chars`);
-        await sleep(200);
+      if (firm.website_url) {
+        // ── PRIMARY: ScrapingBee ──────────────────────────────────────────────
+        if (SCRAPINGBEE_KEY && isAvailable("app.scrapingbee.com")) {
+          console.log(`    → [SCRAPINGBEE_FETCH] fetching ${firm.website_url}...`);
+          providerPath.push("SCRAPINGBEE_FETCH");
+          websiteText = await scrapeWithScrapingBee(firm.website_url);
+          if (websiteText) {
+            console.log(`    ✓ [SCRAPINGBEE_FETCH] → ${websiteText.length} chars`);
+          } else {
+            console.log(`    ✗ [SCRAPINGBEE_FETCH] → returned empty`);
+          }
+        } else {
+          const reason = !SCRAPINGBEE_KEY ? "key missing (SCRAPING_BEE_API_KEY not set)"
+            : QUOTA_EXHAUSTED.has("app.scrapingbee.com") ? "quota exhausted"
+            : "in cooldown";
+          console.log(`    ↷ [SCRAPINGBEE_FETCH] skipped — ${reason}`);
+        }
+
+        // ── FALLBACK: Firecrawl single-page scrape ────────────────────────────
+        // Fires when ScrapingBee returned nothing or thin content.
+        if (websiteText.length < THIN_THRESHOLD && FIRECRAWL_KEY && isAvailable(FIRECRAWL_HOST)) {
+          const reason = websiteText.length === 0 ? "ScrapingBee empty" : `ScrapingBee thin (${websiteText.length} chars < ${THIN_THRESHOLD})`;
+          console.log(`    → [FIRECRAWL_SCRAPE] ${reason} — scraping ${firm.website_url}...`);
+          providerPath.push("FIRECRAWL_SCRAPE");
+          const fcText = await firecrawlScrape(firm.website_url);
+          if (fcText) {
+            console.log(`    ✓ [FIRECRAWL_SCRAPE] → ${fcText.length} chars`);
+            // Take whichever is longer (ScrapingBee may have partial useful content)
+            websiteText = fcText.length > websiteText.length ? fcText : websiteText;
+          } else {
+            console.log(`    ✗ [FIRECRAWL_SCRAPE] → returned empty`);
+          }
+        } else if (websiteText.length >= THIN_THRESHOLD && FIRECRAWL_KEY) {
+          console.log(`    ↷ [FIRECRAWL_SCRAPE] skipped — ScrapingBee sufficient (${websiteText.length} chars)`);
+        } else if (!FIRECRAWL_KEY) {
+          console.log(`    ↷ [FIRECRAWL_SCRAPE] skipped — key missing (FIRECRAWL_API_KEY not set)`);
+        }
+
+        // ── DEEP: Firecrawl multi-page crawl ─────────────────────────────────
+        // Fires only when single-page results are still thin AND search text is also thin.
+        // Crawls about/team/portfolio subpages to find the missing context.
+        const combinedSoFar = websiteText.length + combinedSearchText.length;
+        if (websiteText.length < CRAWL_THRESHOLD && FIRECRAWL_KEY && isAvailable(FIRECRAWL_HOST)) {
+          const reason = `content thin (${websiteText.length} chars site + ${combinedSearchText.length} chars search)`;
+          console.log(`    → [FIRECRAWL_CRAWL] ${reason} — crawling subpages (max 4 pages)...`);
+          providerPath.push("FIRECRAWL_CRAWL");
+          const crawlText = await firecrawlCrawl(firm.website_url, 4);
+          if (crawlText) {
+            console.log(`    ✓ [FIRECRAWL_CRAWL] → ${crawlText.length} chars from subpages`);
+            websiteText = websiteText
+              ? `${websiteText}\n\n=== SUBPAGES ===\n\n${crawlText}`
+              : crawlText;
+          } else {
+            console.log(`    ✗ [FIRECRAWL_CRAWL] → returned empty`);
+          }
+        } else if (websiteText.length >= CRAWL_THRESHOLD) {
+          console.log(`    ↷ [FIRECRAWL_CRAWL] skipped — content sufficient (${websiteText.length} chars)`);
+        }
+
+        if (websiteText) await sleep(200);
       }
 
-      // Step 2: Extract structured data with AI (Groq → DeepSeek → Gemini → Perplexity waterfall)
-      const patch = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
+      // Step 2: Extract structured data — waterfall: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0
+      console.log(`    → [AI_EXTRACT] waterfall: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0...`);
+      const [patch, extractProvider] = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
+      providerPath.push(`AI_EXTRACT[${extractProvider}]`);
+      console.log(`    ⬡ Provider path: ${providerPath.join(" → ")}`);
       await sleep(200);
 
       // Step 3: Write to DB
@@ -920,18 +1332,21 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         }
       } else {
         // All AI providers were rate-limited — wait for the shortest cooldown to expire, then retry once
-        const aiHosts = ["api.groq.com/70b", "api.groq.com/8b", "generativelanguage.googleapis.com", "api.perplexity.ai", "api.deepseek.com"];
+        const aiHosts = ["generativelanguage.googleapis.com/2.5", "generativelanguage.googleapis.com/2.0", "api.groq.com/70b", "api.groq.com/8b", "api.perplexity.ai"];
         const now = Date.now();
         const waitMs = aiHosts.reduce((min, h) => {
           const coolUntil = RATE_LIMIT_COOLDOWN.get(h) ?? 0;
           const remaining = coolUntil - now;
           return remaining > 0 ? Math.min(min, remaining) : min;
         }, Infinity);
+        const MAX_RETRY_WAIT_MS = 30_000; // never sleep > 30s; skip firm if all extractors are cooling longer
         const actualWait = waitMs === Infinity ? 0 : waitMs + 1000;
-        if (actualWait > 0) {
+        if (actualWait > MAX_RETRY_WAIT_MS) {
+          console.log(`    — All AI extractors cooling ${Math.round(actualWait / 1000)}s (> ${MAX_RETRY_WAIT_MS / 1000}s cap); skipping firm — will retry next run`);
+        } else if (actualWait > 0) {
           console.log(`    ⏳ Waiting ${Math.round(actualWait / 1000)}s for AI provider to recover, then retrying...`);
           await sleep(actualWait);
-          const retryPatch = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
+          const [retryPatch] = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
           const retryFieldCount = Object.keys(retryPatch).length;
           if (retryFieldCount > 0) {
             retryPatch.last_enriched_at = new Date().toISOString();
@@ -1206,6 +1621,8 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
           const firstName = nameParts[0] || "";
           const lastName = nameParts.slice(1).join(" ") || "";
 
+          // Pass onConflict so PostgREST performs UPDATE on duplicate (firm_id, full_name) pairs
+          // instead of failing/inserting a duplicate row.
           await sbUpsert("firm_investors", {
             firm_id: firm.id,
             full_name: name.trim(),
@@ -1213,7 +1630,7 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
             last_name: lastName,
             is_active: true,
             updated_at: new Date().toISOString(),
-          });
+          }, "firm_id,full_name");
         }
         console.log(`    Partners → ${result.current_partners.length} investors`);
       }
@@ -1257,7 +1674,7 @@ async function discoverTeamPageUrl(websiteUrl: string): Promise<string | null> {
 }
 
 async function scrapeTeamPage(url: string): Promise<string> {
-  // Try Firecrawl first
+  // Tier 1: Firecrawl — best markdown output for LLM consumption
   if (FIRECRAWL_KEY) {
     try {
       const data = await jsonFetch<any>("https://api.firecrawl.dev/v1/scrape", {
@@ -1269,35 +1686,24 @@ async function scrapeTeamPage(url: string): Promise<string> {
     } catch {}
   }
 
-  // Try Jina Reader
-  if (JINA_KEY) {
-    try {
-      const res = await fetch(`https://r.jina.ai/${url}`, {
-        headers: {
-          Authorization: `Bearer ${JINA_KEY}`,
-          Accept: "text/markdown",
-          "X-Return-Format": "markdown",
-        },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (res.ok) {
-        const text = await res.text();
-        if (text.length > 100) return text;
-      }
-    } catch {}
+  // Tier 2: ScrapingBee — JS rendering for SPA team pages (preferred over Jina for dynamic content)
+  if (SCRAPINGBEE_KEY) {
+    const text = await scrapeWithScrapingBee(url);
+    if (text.length > 100) return text;
   }
 
-  // Raw fetch fallback
+  // Tier 3: Jina Reader — lightweight markdown extraction
+  if (JINA_KEY) {
+    const text = await scrapeWebsiteWithJina(url);
+    if (text.length > 100) return text;
+  }
+
+  // Tier 4: Raw fetch — last resort, no JS rendering
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) {
       const html = await res.text();
-      return html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 30_000);
+      return stripHtmlToText(html);
     }
   } catch {}
 
@@ -1321,8 +1727,32 @@ async function extractInvestorsWithAI(
 }>> {
   const prompt = `Extract all investment professionals from this VC firm team page for "${firmName}". Return a JSON array where each element has: { "first_name": string, "last_name": string, "title": string or null, "bio": string or null, "email": string or null, "linkedin_url": string or null, "x_url": string or null, "avatar_url": string or null, "investment_themes": string[] or null, "location": string or null }. Only include people who are partners, principals, MDs, VPs, associates, or analysts. Exclude administrative/operations staff. Return ONLY the JSON array, no markdown fences.`;
 
-  // Try Groq first (fast), then Gemini
-  if (GROQ_KEY) {
+  const fullPrompt = `${prompt}\n\nTeam page content:\n${markdown.slice(0, 15_000)}`;
+
+  // Try Gemini 2.5 Flash first (primary), then Gemini 2.0, then Groq
+  if (GEMINI_25_KEY && isAvailable("generativelanguage.googleapis.com/2.5")) {
+    try {
+      const data = await jsonFetch<any>(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GEMINI_25_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.1 },
+          }),
+        },
+        "generativelanguage.googleapis.com/2.5",
+      );
+      const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (content) {
+        const parsed = JSON.parse(content.trim());
+        return Array.isArray(parsed) ? parsed : parsed.investors || parsed.team || parsed.people || [];
+      }
+    } catch {}
+  }
+
+  if (GROQ_KEY && isAvailable("api.groq.com/70b")) {
     try {
       const data = await jsonFetch<any>("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -1331,7 +1761,7 @@ async function extractInvestorsWithAI(
           model: "llama-3.3-70b-versatile",
           messages: [
             { role: "system", content: "You extract structured data from VC team pages. Return only valid JSON." },
-            { role: "user", content: `${prompt}\n\nTeam page content:\n${markdown.slice(0, 15_000)}` },
+            { role: "user", content: fullPrompt },
           ],
           response_format: { type: "json_object" },
         }),
@@ -1344,7 +1774,8 @@ async function extractInvestorsWithAI(
     } catch {}
   }
 
-  if (GEMINI_KEY && isAvailable("generativelanguage.googleapis.com")) {
+  // Gemini 2.0 Flash — fallback if 2.5 was rate-limited
+  if (GEMINI_KEY && isAvailable("generativelanguage.googleapis.com/2.0")) {
     try {
       const data = await jsonFetch<any>(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
@@ -1352,10 +1783,11 @@ async function extractInvestorsWithAI(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `${prompt}\n\nTeam page content:\n${markdown.slice(0, 15_000)}` }] }],
+            contents: [{ parts: [{ text: fullPrompt }] }],
             generationConfig: { responseMimeType: "application/json" },
           }),
-        }
+        },
+        "generativelanguage.googleapis.com/2.0",
       );
       const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (content) {
@@ -1495,12 +1927,17 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
     console.log(`  ▸ ${firm.firm_name} — ${investors.length} investors need enrichment`);
 
     try {
-      // Step 1: Try to scrape the team page for bulk data
+      // Step 1: Discover and scrape the team page
       let extractedPeople: any[] = [];
-      if (firm.website_url && (FIRECRAWL_KEY || JINA_KEY)) {
-        const teamUrl = await discoverTeamPageUrl(firm.website_url);
-        if (teamUrl) {
-          console.log(`    Team page: ${teamUrl}`);
+      if (firm.website_url) {
+        const domain = domainFromUrl(firm.website_url);
+        // Exa finds the correct URL more reliably than HEAD-probing common suffixes
+        let teamUrl: string | null = await discoverTeamPageWithExa(firm.firm_name, domain);
+        if (!teamUrl) {
+          // Fallback: HEAD-probe common URL suffixes
+          teamUrl = await discoverTeamPageUrl(firm.website_url);
+        }
+        if (teamUrl && (FIRECRAWL_KEY || SCRAPINGBEE_KEY || JINA_KEY)) {
           const markdown = await scrapeTeamPage(teamUrl);
           if (markdown.length > 100) {
             extractedPeople = await extractInvestorsWithAI(markdown, firm.firm_name);
@@ -1918,6 +2355,76 @@ async function phase5_headshots(): Promise<{ enriched: number; errors: number }>
 }
 
 // ╔═════════════════════════════════════════════════════════════════════════════╗
+// ║ POST-RUN AUDIT SUMMARY                                                    ║
+// ╚═════════════════════════════════════════════════════════════════════════════╝
+
+function printRunSummary(phaseResults: Record<string, { enriched: number; errors: number }>) {
+  const elapsed = Math.round((Date.now() - RUN_START) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+
+  console.log("\n╔═════════════════════════════════════════════════════════════╗");
+  console.log("║  POST-RUN AUDIT SUMMARY                                     ║");
+  console.log("╚═════════════════════════════════════════════════════════════╝");
+  console.log(`  Run duration : ${mins}m ${secs}s`);
+  console.log(`  Dry-run mode : ${DRY_RUN ? "YES — no writes committed" : "NO — live writes"}`);
+
+  // ── Phase-level results ──
+  console.log("\n  ── Phase Results ──────────────────────────────────────────");
+  let totalAttempted = 0;
+  let totalUpdated = 0;
+  let totalErrors = 0;
+  for (const [phase, { enriched, errors }] of Object.entries(phaseResults)) {
+    const stat = PHASE_STATS[phase];
+    const attempted = stat?.attempted ?? enriched + errors;
+    const skipped   = stat?.skipped   ?? 0;
+    console.log(`  ${phase}`);
+    console.log(`    attempted: ${attempted}  updated: ${enriched}  skipped: ${skipped}  errors: ${errors}`);
+    totalAttempted += attempted;
+    totalUpdated   += enriched;
+    totalErrors    += errors;
+  }
+  console.log(`\n  TOTAL  attempted: ${totalAttempted}  updated: ${totalUpdated}  errors: ${totalErrors}`);
+
+  // ── Fields updated this run ──
+  const byTable: Record<string, Array<[string, number]>> = {};
+  for (const [key, count] of Object.entries(FIELD_STATS)) {
+    const [table, field] = key.split(".");
+    if (!byTable[table]) byTable[table] = [];
+    byTable[table].push([field, count]);
+  }
+  if (Object.keys(byTable).length > 0) {
+    console.log("\n  ── Fields Written This Run ─────────────────────────────────");
+    for (const [table, fields] of Object.entries(byTable)) {
+      console.log(`  ${table}:`);
+      for (const [field, count] of fields.sort((a, b) => b[1] - a[1])) {
+        console.log(`    ${field.padEnd(28)} +${count}`);
+      }
+    }
+  }
+
+  // ── Provider outcomes ──
+  if (Object.keys(PROVIDER_STATS).length > 0) {
+    console.log("\n  ── Provider Outcomes ───────────────────────────────────────");
+    const sorted = Object.entries(PROVIDER_STATS).sort((a, b) => b[1].calls - a[1].calls);
+    for (const [host, s] of sorted) {
+      const status = s.quota_exhausted ? "⊘ QUOTA" : s.rate_limited > 0 ? "⚠ THROTTLED" : "✓";
+      console.log(
+        `  ${status.padEnd(12)} ${host.padEnd(40)} ` +
+        `calls:${s.calls}  ok:${s.successes}  fail:${s.failures}  429s:${s.rate_limited}`
+      );
+    }
+    // Explicitly list quota-exhausted providers
+    const exhausted = Object.entries(PROVIDER_STATS).filter(([, s]) => s.quota_exhausted).map(([h]) => h);
+    if (exhausted.length > 0) {
+      console.log(`\n  ⚠ Quota/billing exhausted (won't retry until next run): ${exhausted.join(", ")}`);
+    }
+  }
+
+  console.log("\n═══════════════════════════════════════════════════════════════\n");
+}
+
+// ╔═════════════════════════════════════════════════════════════════════════════╗
 // ║ MAIN: Run all phases                                                      ║
 // ╚═════════════════════════════════════════════════════════════════════════════╝
 
@@ -1968,22 +2475,28 @@ async function main() {
   console.log(`  Phases to run: ${[...PHASES].join(", ")}`);
   console.log(`  Dry run: ${DRY_RUN}`);
   console.log(`  API keys configured:`);
-  const provStatus = (key: string, host: string) =>
-    !key ? "✗ no key" : SKIP_PROVIDERS.has(host) ? "⊘ skipped" : "✓";
-  console.log(`  Search providers:`);
-  console.log(`    Perplexity: ${provStatus(PERPLEXITY_KEY, "api.perplexity.ai")}  Exa: ${provStatus(EXA_KEY, "api.exa.ai")}  Tavily: ${provStatus(TAVILY_KEY, "api.tavily.com")}  Linkup: ${provStatus(LINKUP_KEY, "api.linkup.so")}  Jina: ${provStatus(JINA_KEY, "r.jina.ai")}`);
-  console.log(`  AI extraction:`);
-  console.log(`    Groq: ${provStatus(GROQ_KEY, "api.groq.com")}  DeepSeek: ${provStatus(DEEPSEEK_KEY, "api.deepseek.com")}  Gemini: ${provStatus(GEMINI_KEY, "generativelanguage.googleapis.com")}`);
+  const k = (key: string) => key ? "✓" : "✗ no key";
+  console.log(`  Search/discovery:`);
+  console.log(`    Exa(search+discovery): ${k(EXA_KEY)}  Perplexity: ${k(PERPLEXITY_KEY)}  Tavily: ${k(TAVILY_KEY)}  Linkup: ${k(LINKUP_KEY)}`);
+  console.log(`  Page fetching:`);
+  console.log(`    ScrapingBee(JS): ${k(SCRAPINGBEE_KEY)}  Firecrawl: ${k(FIRECRAWL_KEY)}  Jina: ${k(JINA_KEY)}`);
+  if (!SCRAPINGBEE_KEY) console.log(`    ⚠ ScrapingBee key missing — set SCRAPING_BEE_API_KEY or SCRAPINGBEE_API_KEY in .env.local`);
+  console.log(`  AI extraction (waterfall):`);
+  console.log(`    [1] Gemini 2.5 Flash: ${k(GEMINI_25_KEY)}  [2] Groq 70b: ${k(GROQ_KEY)}  [3] Groq 8b: ${k(GROQ_KEY)}  [4] Perplexity: ${k(PERPLEXITY_KEY)}`);
+  console.log(`    Gemini 2.0 Flash(fb): ${k(GEMINI_KEY)}`);
   console.log(`  Email/contact:`);
-  console.log(`    Hunter: ${provStatus(HUNTER_KEY, "api.hunter.io")}  PDL: ${provStatus(PDL_KEY, "api.peopledatalabs.com")}`);
+  console.log(`    Hunter: ${k(HUNTER_KEY)}  PDL: ${k(PDL_KEY)}`);
   if (SKIP_PROVIDERS.size > 0) {
     console.log(`\n  ⊘ Pre-skipped: ${[...SKIP_PROVIDERS].join(", ")}`);
-    console.log(`    (add more with: ENRICH_SKIP_PROVIDERS=api.tavily.com,api.exa.ai npx tsx scripts/enrich-all.ts)`);
   }
-  console.log(`    Groq: ${GROQ_KEY ? "✓" : "✗"}  Gemini: ${GEMINI_KEY ? "✓" : "✗"}  Firecrawl: ${FIRECRAWL_KEY ? "✓" : "✗"}`);
-  console.log(`    Jina: ${JINA_KEY ? "✓" : "✗"}  PDL: ${PDL_KEY ? "✓" : "✗"}  Lusha: ${LUSHA_KEY ? "✓" : "✗"}`);
 
-  // Run audit first
+  // In dry-run mode, cap to 10 sample firms and 10 sample investors so output stays readable
+  if (DRY_RUN && MAX > 10) {
+    console.log(`  ℹ Dry-run mode: capping MAX to 10 samples per phase (was ${MAX})`);
+    MAX = 10;
+  }
+
+  // Run pre-enrichment audit
   await audit();
 
   const results: Record<string, { enriched: number; errors: number }> = {};
@@ -2004,19 +2517,8 @@ async function main() {
     results["Phase 5 (Headshots)"] = await phase5_headshots();
   }
 
-  // Summary
-  console.log("\n═══════════════════════════════════════════════════════════");
-  console.log("  ENRICHMENT SUMMARY");
-  console.log("═══════════════════════════════════════════════════════════");
-  let totalEnriched = 0;
-  let totalErrors = 0;
-  for (const [phase, { enriched, errors }] of Object.entries(results)) {
-    console.log(`  ${phase}: ${enriched} enriched, ${errors} errors`);
-    totalEnriched += enriched;
-    totalErrors += errors;
-  }
-  console.log(`\n  TOTAL: ${totalEnriched} records enriched, ${totalErrors} errors`);
-  console.log("═══════════════════════════════════════════════════════════\n");
+  // Post-run audit summary (replaces the simple counter block)
+  printRunSummary(results);
 }
 
 main().catch((e) => {

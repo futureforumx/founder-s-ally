@@ -133,8 +133,8 @@ export class FoundersListAdapter implements IAdapter {
   }
 
   private extractCardData(
-    card: cheerio.Cheerio<cheerio.Element>,
-    $: cheerio.CheerioAPI
+    card: cheerio.Cheerio,
+    $: cheerio.Root
   ): FoundersListProfile | null {
     const name =
       card.find(".name, h2, h3, [class*='name']").first().text().trim() ||
@@ -154,7 +154,7 @@ export class FoundersListAdapter implements IAdapter {
 
     const skills: string[] = [];
     card.find(".skill, .tag, .expertise-tag, [class*='skill'], [class*='tag']").each(
-      (_i, el) => {
+      (_i: number, el: cheerio.Element) => {
         const text = $(el).text().trim();
         if (text) skills.push(text);
       }
@@ -212,6 +212,7 @@ export class FoundersListAdapter implements IAdapter {
       sourceId: profile.profileUrl ?? personDedupeKey,
       rawPayload: profile as unknown as Record<string, unknown>,
       entityType: "person",
+      entityDedupeKey: personDedupeKey,
     };
 
     let org: NormalizedOrganization | undefined;
