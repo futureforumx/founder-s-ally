@@ -223,7 +223,8 @@ async function stealthContextWithAuth(browser: Browser): Promise<BrowserContext>
 
 async function verifyAuth(page: Page): Promise<void> {
   console.log("  🔐 Verifying session...");
-  await page.goto("https://signal.nfx.com/investors", { waitUntil: "networkidle" });
+  await page.goto("https://signal.nfx.com/investors", { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForLoadState("networkidle").catch(() => {});
   if (page.url().includes("login")) {
     throw new Error(`Session expired or invalid. Delete ${AUTH_FILE} and run SIGNAL_PHASE=auth again.`);
   }
@@ -234,7 +235,8 @@ async function verifyAuth(page: Page): Promise<void> {
 
 async function collectSlugs(page: Page): Promise<InvestorSlug[]> {
   console.log("\n── Phase 1: Collecting investor slugs ──");
-  await page.goto("https://signal.nfx.com/investors", { waitUntil: "networkidle" });
+  await page.goto("https://signal.nfx.com/investors", { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForLoadState("networkidle").catch(() => {});
 
   // Clear any active filters
   const clearBtn = page.locator('button:has-text("CLEAR FILTERS"), a:has-text("Clear all")');
@@ -257,12 +259,22 @@ async function collectSlugs(page: Page): Promise<InvestorSlug[]> {
     for (const s of found) { if (!seen.has(s.slug)) { seen.set(s.slug, s); added++; } }
     console.log(`  Page ${pageNum}: +${added} new (total: ${seen.size})`);
 
-    const loadMore = page.locator('button:has-text("Load More Investors"), button:has-text("LOAD MORE INVESTORS")');
-    if (await loadMore.count() === 0) break;
-    await loadMore.scrollIntoViewIfNeeded();
-    await loadMore.click();
-    await page.waitForTimeout(1500);
-    await page.waitForLoadState("networkidle").catch(() => {});
+    const loadMore = page.locator('button:has-text("Load More"), button:has-text("LOAD MORE"), button:has-text("Load More Investors"), button:has-text("LOAD MORE INVESTORS")');
+    if (await loadMore.count() === 0) {
+      // Fallback: scroll to bottom to trigger infinite scroll
+      const prevCount = seen.size;
+      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+      await page.waitForTimeout(2000);
+      const newCount = await page.evaluate(`
+        Array.from(document.querySelectorAll('a[href^="/investors/"]')).length
+      `) as number;
+      if (newCount <= prevCount) break; // nothing new loaded
+    } else {
+      await loadMore.scrollIntoViewIfNeeded();
+      await loadMore.click();
+      await page.waitForTimeout(2000);
+      await page.waitForLoadState("networkidle").catch(() => {});
+    }
   }
 
   const slugs = [...seen.values()];

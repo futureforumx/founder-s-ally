@@ -99,7 +99,7 @@ export function useProfile() {
   return { profile, loading, upsertProfile, refetch: fetchProfile };
 }
 
-/** Fetch all public founder profiles with their company data */
+/** Fetch founder profiles from the people table (YC founders + repeat founders) */
 export function useFounderProfiles() {
   const [founders, setFounders] = useState<FounderProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,42 +108,71 @@ export function useFounderProfiles() {
     async function load() {
       setLoading(true);
       try {
-        // Fetch public founder profiles
-        const { data: profiles, error: profileError } = await (supabase as any)
-          .from("profiles")
-          .select("*")
-          .eq("user_type", "founder")
-          .eq("is_public", true);
+        // Step 1: get founder/ceo role → person + org in one join
+        const { data: roles, error: rolesError } = await (supabase as any)
+          .from("roles")
+          .select(`
+            title,
+            "roleType",
+            person:people(
+              id,
+              "canonicalName",
+              "firstName",
+              "lastName",
+              "linkedinUrl",
+              "twitterUrl",
+              "avatarUrl",
+              bio,
+              city,
+              country
+            ),
+            organization:organizations(
+              "canonicalName",
+              industry,
+              city,
+              country,
+              website
+            )
+          `)
+          .in("roleType", ["founder", "cofounder", "ceo"])
+          .eq("isCurrent", true)
+          .limit(500);
 
-        if (profileError || !profiles || profiles.length === 0) {
-          console.warn("Failed to fetch founder profiles:", profileError);
+        if (rolesError || !roles || roles.length === 0) {
+          console.warn("Failed to fetch founder roles:", rolesError);
           setFounders([]);
           return;
         }
 
-        const companyIds = (profiles as any[])
-          .map((p) => p.company_id)
-          .filter(Boolean);
+        // Deduplicate by person id — keep first role found per person
+        const seen = new Set<string>();
+        const result: FounderProfile[] = [];
 
-        const companyMap = new Map<string, any>();
-        if (companyIds.length > 0) {
-          const { data: companies } = await supabase
-            .from("company_analyses")
-            .select("id, company_name, sector, stage, competitors")
-            .in("id", companyIds);
-          if (companies) {
-            for (const c of companies) companyMap.set(c.id, c);
-          }
+        for (const r of roles as any[]) {
+          const p = r.person;
+          if (!p?.id || seen.has(p.id)) continue;
+          seen.add(p.id);
+          const org = r.organization;
+          result.push({
+            id: p.id,
+            user_id: p.id,
+            full_name: p.canonicalName || `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+            title: r.title || "Founder",
+            bio: p.bio || null,
+            location: [p.city, p.country].filter(Boolean).join(", ") || null,
+            user_type: "founder",
+            avatar_url: p.avatarUrl || null,
+            company_id: null,
+            linkedin_url: p.linkedinUrl || null,
+            twitter_url: p.twitterUrl || null,
+            resume_url: null,
+            is_public: true,
+            company_name: org?.canonicalName || null,
+            company_sector: org?.industry || null,
+            company_stage: null,
+            company_competitors: null,
+          });
         }
-
-        const normalized = normalizeProfileRowsForRead(profiles as Record<string, unknown>[]);
-        const result: FounderProfile[] = normalized.map((p) => ({
-          ...p,
-          company_name: p.company_id ? companyMap.get(p.company_id)?.company_name || null : null,
-          company_sector: p.company_id ? companyMap.get(p.company_id)?.sector || null : null,
-          company_stage: p.company_id ? companyMap.get(p.company_id)?.stage || null : null,
-          company_competitors: p.company_id ? companyMap.get(p.company_id)?.competitors || null : null,
-        }));
 
         setFounders(result);
       } catch (err) {
@@ -157,4 +186,135 @@ export function useFounderProfiles() {
   }, []);
 
   return { founders, loading };
+}
+
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  sector: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  logo_url: string | null;
+  founded_year: number | null;
+  is_yc_backed: boolean;
+  yc_batch: string | null;
+  employee_count: number | null;
+}
+
+/** Fetch company profiles from organizations / yc_companies */
+export function useCompanyDirectory(limit = 300) {
+  const [companies, setCompanies] = useState<CompanyProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const { data, error } = await (supabase as any)
+          .from("organizations")
+          .select(`
+            id,
+            "canonicalName",
+            description,
+            industry,
+            city,
+            country,
+            website,
+            "logoUrl",
+            "foundedYear",
+            "isYcBacked",
+            "ycBatch",
+            "employeeCount"
+          `)
+          .not("description", "is", null)
+          .limit(limit);
+
+        if (error || !data) {
+          console.warn("Failed to fetch company profiles:", error);
+          setCompanies([]);
+          return;
+        }
+
+        setCompanies((data as any[]).map((o) => ({
+          id: o.id,
+          name: o.canonicalName,
+          description: o.description,
+          sector: o.industry,
+          city: o.city,
+          country: o.country,
+          website: o.website,
+          logo_url: o.logoUrl,
+          founded_year: o.foundedYear,
+          is_yc_backed: o.isYcBacked ?? false,
+          yc_batch: o.ycBatch,
+          employee_count: o.employeeCount,
+        })));
+      } catch (err) {
+        console.warn("Error loading company profiles:", err);
+        setCompanies([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [limit]);
+
+  return { companies, loading };
+}
+
+export interface OperatorProfile {
+  id: string;
+  full_name: string;
+  title: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  engagement_type: string | null;
+  sector_focus: string[] | null;
+  stage_focus: string | null;
+  expertise: string[] | null;
+  prior_companies: string[] | null;
+  is_available: boolean;
+}
+
+/** Fetch operator profiles from operator_profiles table */
+export function useOperatorProfiles(limit = 200) {
+  const [operators, setOperators] = useState<OperatorProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const { data, error } = await (supabase as any)
+          .from("operator_profiles")
+          .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available")
+          .is("deleted_at", null)
+          .eq("is_available", true)
+          .limit(limit);
+
+        if (error || !data) {
+          console.warn("Failed to fetch operator profiles:", error);
+          setOperators([]);
+          return;
+        }
+
+        setOperators(data as OperatorProfile[]);
+      } catch (err) {
+        console.warn("Error loading operator profiles:", err);
+        setOperators([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [limit]);
+
+  return { operators, loading };
 }

@@ -60,14 +60,23 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
 }
 
 // Columns actually consumed by mapDbInvestor() — nothing more.
-// Deliberately excludes: sector_embedding (vector), descriptions/full-text
-// fields not rendered in the directory card, and all ~50 enrichment-only columns.
+// Excludes: sector_embedding (vector) and audit-only columns.
 const DIRECTORY_COLUMNS = [
   "id",
   "firm_name",
   "thesis_verticals",
   "preferred_stage",
   "sentiment_detail",
+  "description",
+  "elevator_pitch",
+  "stage_min",
+  "stage_max",
+  "sector_scope",
+  "thesis_orientation",
+  "geo_focus",
+  "hq_city",
+  "hq_state",
+  "hq_country",
   "location",
   "min_check_size",
   "max_check_size",
@@ -81,6 +90,7 @@ const DIRECTORY_COLUMNS = [
   "is_popular",
   "is_recent",
   "website_url",
+  "linkedin_url",
   "recent_deals",
 ].join(",");
 
