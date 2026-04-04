@@ -818,13 +818,6 @@ function OperatorHubCard({
 
         <div>
           <h3 className="text-[15px] font-bold leading-tight text-foreground">{founder.name}</h3>
-          {opSector || opStage ? (
-            <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug">
-              {opSector ? <span className="font-semibold text-foreground/80">{opSector}</span> : null}
-              {opSector && opStage ? <span className="font-normal text-muted-foreground"> · </span> : null}
-              {opStage ? <span className="text-muted-foreground">{opStage}</span> : null}
-            </p>
-          ) : null}
           <div className="mt-1.5 flex items-end gap-5 border-t border-border/35 pt-1.5">
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -877,6 +870,13 @@ function OperatorHubCard({
           {founder.location ? (
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location}
+            </span>
+          ) : null}
+          {(opSector || opStage) ? (
+            <span className="inline-flex items-center gap-1">
+              {opSector ? <span className="font-medium text-foreground/75">{opSector}</span> : null}
+              {opSector && opStage ? <span className="text-muted-foreground/60">·</span> : null}
+              {opStage ? <span>{opStage}</span> : null}
             </span>
           ) : null}
           {founder.model ? (
@@ -964,7 +964,8 @@ function FounderCard({
   }
 
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
-  
+  const { sector: founderCardSector, stage: founderCardStage } = investorSectorStageParts(founder);
+
   return (
     <Card
       onClick={onClick}
@@ -1013,17 +1014,6 @@ function FounderCard({
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
-          {(() => {
-            const { sector: fs, stage: fst } = investorSectorStageParts(founder);
-            if (!fs && !fst) return null;
-            return (
-              <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
-                {fs ? <span className="font-semibold text-foreground/80">{fs}</span> : null}
-                {fs && fst ? <span className="font-normal"> · </span> : null}
-                {fst ? <span>{fst}</span> : null}
-              </p>
-            );
-          })()}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[11px] font-medium text-muted-foreground">{founder.model}</span>
             {founder._companyName && (
@@ -1047,12 +1037,19 @@ function FounderCard({
           <p className="text-xs text-muted-foreground leading-relaxed mt-1.5 line-clamp-2">{founder.description}</p>
         </div>
         <div className="flex items-center justify-between pt-1 border-t border-border/40 flex-wrap gap-y-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {founder.location &&
               <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                 <MapPin className="h-2.5 w-2.5" /> {founder.location}
               </span>
             }
+            {(founderCardSector || founderCardStage) && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                {founderCardSector ? <span className="font-medium text-foreground/75">{founderCardSector}</span> : null}
+                {founderCardSector && founderCardStage ? <span className="text-muted-foreground/60">·</span> : null}
+                {founderCardStage ? <span>{founderCardStage}</span> : null}
+              </span>
+            )}
           </div>
           {founder.matchReason &&
           <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
