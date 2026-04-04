@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   normalizeProfileRowForRead,
@@ -109,7 +109,9 @@ export function useFounderProfiles() {
       setLoading(true);
       try {
         // Step 1: get founder/ceo role → person + org in one join
-        const { data: roles, error: rolesError } = await (supabase as any)
+        // Uses supabaseVcDirectory (anon key only) — roles/people/organizations have no RLS;
+        // the main supabase client's accessToken getter fails in dev, which blocks these reads.
+        const { data: roles, error: rolesError } = await (supabaseVcDirectory as any)
           .from("roles")
           .select(`
             title,
@@ -212,7 +214,7 @@ export function useCompanyDirectory(limit = 300) {
     async function load() {
       setLoading(true);
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await (supabaseVcDirectory as any)
           .from("organizations")
           .select(`
             id,
@@ -292,7 +294,7 @@ export function useOperatorProfiles(limit = 200) {
     async function load() {
       setLoading(true);
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await (supabaseVcDirectory as any)
           .from("operator_profiles")
           .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available")
           .is("deleted_at", null)
