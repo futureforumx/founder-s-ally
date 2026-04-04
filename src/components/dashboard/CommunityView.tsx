@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
-import { useFounderProfiles, type FounderProfile } from "@/hooks/useProfile";
+import { useFounderProfiles, useCompanyDirectory, useOperatorProfiles, type FounderProfile } from "@/hooks/useProfile";
 import { FounderCarousel } from "./FounderCarousel";
 import { InvestorSuggestedTrendingRails } from "./InvestorSuggestedTrendingRails";
 import type { InvestorPreviewModel } from "./InvestorPreviewRow";
@@ -1318,8 +1318,14 @@ export function CommunityView({
     firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
   } = useVCDirectory();
 
-  // Real founder profiles from database
+  // Real founder profiles from people table
   const { founders: realFounders, loading: foundersLoading } = useFounderProfiles();
+
+  // Real company profiles from organizations table
+  const { companies: realCompanies } = useCompanyDirectory(300);
+
+  // Real operator profiles from operator_profiles table
+  const { operators: realOperators } = useOperatorProfiles(200);
 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
   const { data: dbInvestors } = useInvestorDirectory();
@@ -1381,8 +1387,8 @@ export function CommunityView({
           name: displayName,
           sector: f.sectors?.filter(Boolean).slice(0, 2).join(", ") || "Generalist",
           stage: collapseStagesToRange(f.stages?.filter(Boolean) ?? []) || "Multi-stage",
-          description: f.description || `${displayName} is an active investment firm.`,
-          location: dbMatch?.location || "",
+          description: (dbMatch as any)?.description || (dbMatch as any)?.elevator_pitch || f.description || `${displayName} is an active investment firm.`,
+          location: (dbMatch as any)?.hq_city ? [(dbMatch as any).hq_city, (dbMatch as any).hq_state].filter(Boolean).join(", ") : (dbMatch?.location || ""),
           model: f.sweet_spot || f.aum || "",
           initial: displayName.charAt(0).toUpperCase(),
           matchReason: null,
@@ -1434,10 +1440,69 @@ export function CommunityView({
     }));
   }, [realFounders]);
 
+  // Convert real company profiles to DirectoryEntry format
+  const realCompanyEntries: DirectoryEntry[] = useMemo(() => {
+    const mockNames = new Set(ALL_ENTRIES.filter(e => e.category === "company").map(e => e.name.toLowerCase()));
+    return realCompanies
+      .filter(c => c.name && !mockNames.has(c.name.toLowerCase()))
+      .map(c => ({
+        name: c.name,
+        sector: c.sector || "—",
+        stage: c.yc_batch ? `YC ${c.yc_batch}` : "—",
+        description: c.description || `${c.name} is a startup company.`,
+        location: [c.city, c.country].filter(Boolean).join(", "),
+        model: c.is_yc_backed ? "YC-backed" : "Startup",
+        initial: c.name.charAt(0).toUpperCase(),
+        matchReason: null,
+        category: "company" as const,
+        _sectors: [] as string[],
+        _stages: [] as string[],
+        _isRealProfile: true,
+        _websiteUrl: c.website || null,
+        _logoUrl: c.logo_url || null,
+        _firmId: c.id,
+      }));
+  }, [realCompanies]);
+
+  // Convert real operator profiles to DirectoryEntry format
+  const realOperatorEntries: DirectoryEntry[] = useMemo(() => {
+    return realOperators.map(op => ({
+      name: op.full_name,
+      sector: op.sector_focus?.slice(0, 2).join(", ") || "—",
+      stage: op.stage_focus || "—",
+      description: op.bio || (op.title ? `${op.title} — available for operator engagements.` : "Experienced operator."),
+      location: [op.city, op.state, op.country].filter(Boolean).join(", "),
+      model: op.engagement_type ? op.engagement_type.charAt(0).toUpperCase() + op.engagement_type.slice(1) : "Advisory",
+      initial: op.full_name.charAt(0).toUpperCase(),
+      matchReason: null,
+      category: "operator" as const,
+      _sectors: [] as string[],
+      _stages: [] as string[],
+      _isRealProfile: true,
+      _profileId: op.id,
+      _websiteUrl: null,
+      _logoUrl: op.avatar_url || null,
+    }));
+  }, [realOperators]);
+
   const mergedEntries = useMemo(() => {
+    const hasRealFounders = realFounderEntries.length > 0;
+    const hasRealCompanies = realCompanyEntries.length > 0;
+    const hasRealOperators = realOperatorEntries.length > 0;
+
+    // Filter mock entries: replace categories where we have real data
+    const mockEntries = ALL_ENTRIES.filter(e => {
+      if (e.category === "founder" && hasRealFounders) return false;
+      if (e.category === "company" && hasRealCompanies) return false;
+      if (e.category === "operator" && hasRealOperators) return false;
+      return true;
+    });
+
     return [
       ...realFounderEntries,
-      ...ALL_ENTRIES.map(e => {
+      ...realCompanyEntries,
+      ...realOperatorEntries,
+      ...mockEntries.map(e => {
         if (e.category !== "investor") {
           return {
             ...e,
@@ -1486,7 +1551,7 @@ export function CommunityView({
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries, getDbMatch, getVCFirmMatch]);
+  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
 
@@ -2210,10 +2275,12 @@ export function CommunityView({
         </div>
       </div>
 
-      {/* Global Entity Tabs — hidden for investor-search */}
+      {/* Global Entity Tabs — hidden for investor-search; Operators hub omits Investors */}
       {!isInvestorSearch && (
       <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 w-fit shadow-sm backdrop-blur-sm">
-        {GLOBAL_TABS.map((tab) => {
+        {(isOperatorHubLayout
+          ? GLOBAL_TABS.filter((t) => t.id !== "investors")
+          : GLOBAL_TABS).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeScope === tab.id;
           return (
