@@ -975,9 +975,25 @@ function FounderCard({
       <div className={`h-10 ${trending ? "bg-gradient-to-r from-accent/10 to-primary/5" : founder._isRealProfile ? "bg-gradient-to-r from-primary/10 to-accent/5" : "bg-gradient-to-r from-muted to-secondary/30"}`} />
       <CardContent className="p-5 -mt-5 space-y-3">
         <div className="flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border-2 border-background shadow-sm text-sm font-bold text-muted-foreground shrink-0">
-            {founder._isRealProfile ? (
-              <Users className="h-4 w-4 text-primary" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border-2 border-background shadow-sm text-sm font-bold text-muted-foreground shrink-0 overflow-hidden">
+            {founder._logoUrl ? (
+              <img
+                src={founder._logoUrl}
+                alt={founder.name}
+                className="h-full w-full object-cover rounded-xl"
+                onError={(e) => {
+                  // Fall back to ui-avatars for a styled initials avatar
+                  const img = e.currentTarget as HTMLImageElement;
+                  const uiUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(founder.name)}&size=40&bold=true&background=random&color=fff&rounded=true`;
+                  if (img.src !== uiUrl) { img.src = uiUrl; }
+                }}
+              />
+            ) : founder._isRealProfile ? (
+              <img
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(founder.name)}&size=40&bold=true&background=random&color=fff&rounded=true`}
+                alt={founder.name}
+                className="h-full w-full object-cover rounded-xl"
+              />
             ) : (
               founder.initial
             )}
@@ -997,6 +1013,17 @@ function FounderCard({
         </div>
         <div>
           <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          {(() => {
+            const { sector: fs, stage: fst } = investorSectorStageParts(founder);
+            if (!fs && !fst) return null;
+            return (
+              <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                {fs ? <span className="font-semibold text-foreground/80">{fs}</span> : null}
+                {fs && fst ? <span className="font-normal"> · </span> : null}
+                {fst ? <span>{fst}</span> : null}
+              </p>
+            );
+          })()}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[11px] font-medium text-muted-foreground">{founder.model}</span>
             {founder._companyName && (
@@ -1436,6 +1463,7 @@ export function CommunityView({
       _isRealProfile: true,
       _companyName: f.company_name,
       _profileId: f.id,
+      _logoUrl: f.avatar_url || null,
       competitors: f.company_competitors || [],
     }));
   }, [realFounders]);
