@@ -1054,7 +1054,7 @@ ${combined.slice(0, 12_000)}`;
 async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number }> {
   console.log("\n╔═══════════════════════════════════════════════════════════════════════╗");
   console.log("║  PHASE 1: Firm Profile Enrichment                                     ║");
-  console.log("║  Search : Exa (primary) → Linkup/Tavily (fallback if thin)           ║");
+  console.log("║  Search : Exa (primary) → Tavily (fallback if thin)                  ║");
   console.log("║  Fetch  : ScrapingBee → Firecrawl scrape → Firecrawl crawl (deep)    ║");
   console.log("║  Extract: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0              ║");
   console.log("╚═══════════════════════════════════════════════════════════════════════╝\n");
@@ -1095,13 +1095,13 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
     console.log(kv(GEMINI_KEY,      "Gemini 2.0",   "[fallback extract]"));
     console.log(kv(PERPLEXITY_KEY,  "Perplexity",   "[secondary search]"));
     console.log(kv(FIRECRAWL_KEY,   "Firecrawl",    "[P1 fallback scrape/crawl]"));
-    console.log(kv(LINKUP_KEY,      "Linkup",       "[DEMOTED fallback search]"));
+    console.log(kv(LINKUP_KEY,      "Linkup",       "[Phase 2 only — NOT Phase 1]"));
     console.log(kv(JINA_KEY,        "Jina",         "[Phase 3 only — NOT Phase 1]"));
     console.log("  ─────────────────────────────────────────────────────────────────────────\n");
   }
 
-  if (!PERPLEXITY_KEY && !EXA_KEY && !TAVILY_KEY && !JINA_KEY && !LINKUP_KEY) {
-    console.log("  ⚠ No search API keys set — cannot gather data. Skipping.\n");
+  if (!EXA_KEY && !TAVILY_KEY) {
+    console.log("  ⚠ No Phase 1 search keys set (EXA_API_KEY / TAVILY_API_KEY) — cannot gather data. Skipping.\n");
     return { enriched: 0, errors: 0 };
   }
   if (!GEMINI_25_KEY && !GROQ_KEY && !PERPLEXITY_KEY) {
@@ -1110,13 +1110,20 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
   }
 
   let enriched = 0;
-  let errors = 0;
+  let errors   = 0;
+  let attempted = 0; // incremented once per firm that enters the processing try-block
 
   for (const firm of firms) {
     let domain = domainFromUrl(firm.website_url);
     console.log(`  ▸ ${firm.firm_name}${domain ? ` (${domain})` : " [no website]"}`);
 
     try {
+      attempted++;
+      // DEBUG (first 3 firms): show counter state at start of each firm
+      if (attempted <= 3) {
+        console.log(`    [COUNTERS] firm #${attempted} entered — attempted:${attempted} updated:${enriched} errors:${errors}`);
+      }
+
       // ── Step 0: Exa URL discovery (runs when website_url or linkedin_url is missing) ──
       // This lets the AI extraction prompt include a real website URL even for unknown firms.
       if ((!firm.website_url || !firm.linkedin_url) && EXA_KEY && isAvailable("api.exa.ai")) {
@@ -1206,26 +1213,19 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         }
       }
 
-      // Step 1b: FALLBACK search — only if primary results are thin (< 300 chars)
+      // Step 1b: FALLBACK search — Tavily only, if Exa returned < 300 chars.
+      // Linkup is NOT used in Phase 1 — it throttles immediately and contributes nothing.
       const combinedPrimaryText = searchTexts.join("");
       if (combinedPrimaryText.length < 300) {
         if (TAVILY_KEY && isAvailable("api.tavily.com")) {
-          console.log(`    → [FALLBACK_TAVILY] primary thin (${combinedPrimaryText.length} chars), trying Tavily...`);
+          console.log(`    → [FALLBACK_TAVILY] Exa thin (${combinedPrimaryText.length} chars), trying Tavily...`);
           providerPath.push("FALLBACK_TAVILY");
           const tv = await enrichFirmWithTavily(firm.firm_name, domain);
           if (tv) { searchTexts.push(tv); console.log(`    ✓ [FALLBACK_TAVILY] → ${tv.length} chars`); }
           else console.log(`    ↷ [FALLBACK_TAVILY] → returned empty`);
         }
-        if (LINKUP_KEY && isAvailable("api.linkup.so")) {
-          console.log(`    → [FALLBACK_LINKUP] primary thin (${combinedPrimaryText.length} chars), trying Linkup...`);
-          providerPath.push("FALLBACK_LINKUP");
-          const lu = await enrichFirmWithLinkup(firm.firm_name);
-          if (lu) { searchTexts.push(lu); console.log(`    ✓ [FALLBACK_LINKUP] → ${lu.length} chars`); }
-          else console.log(`    ↷ [FALLBACK_LINKUP] → returned empty`);
-        }
       } else {
-        if (TAVILY_KEY) console.log(`    ↷ [FALLBACK_TAVILY] skipped — primary sufficient (${combinedPrimaryText.length} chars)`);
-        if (LINKUP_KEY) console.log(`    ↷ [FALLBACK_LINKUP] skipped — primary sufficient (${combinedPrimaryText.length} chars)`);
+        if (TAVILY_KEY) console.log(`    ↷ [FALLBACK_TAVILY] skipped — Exa sufficient (${combinedPrimaryText.length} chars)`);
       }
 
       const combinedSearchText = searchTexts.join("\n\n=== NEXT SOURCE ===\n\n");
@@ -1362,12 +1362,18 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
             console.log(`    — Retry also rate-limited; skipping last_enriched_at stamp so firm retries next run`);
           }
         } else {
-          console.log(`    — No new data extracted; skipping last_enriched_at stamp so firm retries next run`);
+          console.log(`    — No new data extracted (all fields already populated or extraction returned empty)`);
         }
       }
     } catch (e) {
       errors++;
       console.warn(`    ✗ Error:`, e instanceof Error ? e.message : e);
+    }
+
+    // DEBUG (first 3 firms): show counter state after each firm completes
+    if (attempted <= 3) {
+      const skippedSoFar = attempted - enriched - errors;
+      console.log(`    [COUNTERS] firm #${attempted} done — attempted:${attempted} updated:${enriched} skipped:${skippedSoFar} errors:${errors}`);
     }
 
     await sleep(DELAY_MS);
@@ -1376,6 +1382,13 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
   if (QUOTA_EXHAUSTED.size > 0) {
     console.log(`\n  ⚠ Providers that hit quota this run: ${[...QUOTA_EXHAUSTED].join(", ")}`);
   }
+
+  // Write phase-level counters so printRunSummary reads real values.
+  // skipped = firms that completed without writing any new fields (already enriched, or extraction empty).
+  // This is the only source of truth — PHASE_STATS was previously never populated, causing
+  // attempted/skipped to show 0 even when firms were fully processed.
+  const skipped = Math.max(0, attempted - enriched - errors);
+  PHASE_STATS["Phase 1 (Firm Profiles)"] = { attempted, updated: enriched, skipped, errors };
 
   return { enriched, errors };
 }
@@ -1513,9 +1526,27 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
   console.log("║  PHASE 2: Tri-Force Pipeline (AUM / Deals / Partners)    ║");
   console.log("╚══════════════════════════════════════════════════════════╝\n");
 
-  if (!PERPLEXITY_KEY && !EXA_KEY && !LINKUP_KEY && !JINA_KEY) {
-    console.log("  ⚠ No search API keys available (Perplexity/Exa/Linkup/Jina) — skipping Phase 2\n");
+  // Phase 2 requires at least one primary search provider (Perplexity or Exa).
+  // Linkup and Jina are NOT primary providers for Phase 2.
+  if (!PERPLEXITY_KEY && !EXA_KEY) {
+    console.log("  ⚠ No Phase 2 search keys (PERPLEXITY_API_KEY / EXA_API_KEY) — skipping Phase 2\n");
     return { enriched: 0, errors: 0 };
+  }
+
+  // ── Phase 2 startup: show actual key status so missing keys are immediately visible ──
+  {
+    const kv = (key: string, name: string, role: string) => {
+      const ok = !!key;
+      const masked = ok ? key.slice(0, 6) + "..." : "NOT SET ✗";
+      return `    ${ok ? "✓" : "✗"} ${name.padEnd(18)} ${role.padEnd(30)} ${masked}`;
+    };
+    console.log("\n  ── PROVIDER KEY STATUS (Phase 2) ────────────────────────────────────────");
+    console.log(kv(PERPLEXITY_KEY, "Perplexity",   "[PRIMARY research]"));
+    console.log(kv(EXA_KEY,        "Exa",           "[PRIMARY deal discovery]"));
+    console.log(kv(LOVABLE_KEY,    "Lovable",       "[AI formatting primary]"));
+    console.log(kv(GROQ_KEY,       "Groq",          "[AI formatting fallback]"));
+    console.log(kv(GEMINI_KEY,     "Gemini 2.0",    "[AI formatting fallback]"));
+    console.log("  ─────────────────────────────────────────────────────────────────────────\n");
   }
 
   const staleDate = new Date(Date.now() - STALE_DAYS * 86400_000).toISOString();
@@ -1538,38 +1569,64 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
 
   let enriched = 0;
   let errors = 0;
+  let attempted = 0;
 
   for (const firm of firms) {
     console.log(`  ▸ ${firm.firm_name}`);
 
     try {
+      attempted++;
       const domain = domainFromUrl(firm.website_url);
 
       // Step 1: Perplexity research (primary)
-      let researchText = await perplexityResearch(firm.firm_name, domain);
-      if (researchText) console.log("    Perplexity ✓");
+      // Checks isAvailable so rate-limited/exhausted providers are skipped with a clear log line.
+      let researchText = "";
+      if (PERPLEXITY_KEY && isAvailable("api.perplexity.ai")) {
+        console.log(`    → [P2_PERPLEXITY] researching ${firm.firm_name}...`);
+        researchText = await perplexityResearch(firm.firm_name, domain);
+        if (researchText) {
+          console.log(`    ✓ [P2_PERPLEXITY] → ${researchText.length} chars`);
+        } else {
+          console.log(`    ↷ [P2_PERPLEXITY] → returned empty (no data or API error)`);
+        }
+      } else {
+        const why = !PERPLEXITY_KEY
+          ? "key missing (PERPLEXITY_API_KEY not set)"
+          : QUOTA_EXHAUSTED.has("api.perplexity.ai")
+            ? "quota exhausted"
+            : "in cooldown";
+        console.log(`    ↷ [P2_PERPLEXITY] skipped — ${why}`);
+      }
       await sleep(500);
 
       // Step 2: Exa deal discovery (primary)
-      let exaText = await exaDealDiscovery(firm.firm_name);
-      if (exaText) console.log("    Exa ✓");
+      // Checks isAvailable so a quota hit from Phase 1 doesn't silently swallow calls here.
+      let exaText = "";
+      if (EXA_KEY && isAvailable("api.exa.ai")) {
+        console.log(`    → [P2_EXA_DEALS] discovering recent investments for ${firm.firm_name}...`);
+        exaText = await exaDealDiscovery(firm.firm_name);
+        if (exaText) {
+          console.log(`    ✓ [P2_EXA_DEALS] → ${exaText.length} chars`);
+        } else {
+          console.log(`    ↷ [P2_EXA_DEALS] → returned empty (no recent deals found or API error)`);
+        }
+      } else {
+        const why = !EXA_KEY
+          ? "key missing (EXA_API_KEY not set)"
+          : QUOTA_EXHAUSTED.has("api.exa.ai")
+            ? "quota exhausted"
+            : "in cooldown";
+        console.log(`    ↷ [P2_EXA_DEALS] skipped — ${why}`);
+      }
       await sleep(500);
 
-      // Fallback: Linkup + Jina when both Perplexity and Exa are unavailable
+      // If both primaries returned nothing, skip rather than burning Linkup/Jina quota.
+      // Linkup throttles to 429 immediately; Jina has returned 402 (billing exhausted).
+      // Neither is a reliable fallback — skip and let the next run retry.
       if (!researchText && !exaText) {
-        if (LINKUP_KEY && isAvailable("api.linkup.so")) {
-          researchText = await enrichFirmWithLinkup(firm.firm_name);
-          if (researchText) console.log(`    Linkup → ${researchText.length} chars`);
-          await sleep(500);
-        }
-        if (!researchText && firm.website_url && JINA_KEY && isAvailable("r.jina.ai")) {
-          const jinaText = await scrapeWebsiteWithJina(firm.website_url);
-          if (jinaText) {
-            researchText = jinaText;
-            console.log(`    Jina → ${jinaText.length} chars`);
-          }
-          await sleep(500);
-        }
+        console.log(`    — [P2_NO_DATA] Both Perplexity and Exa returned empty; skipping firm`);
+        await sleep(DELAY_MS);
+        continue;
       }
 
       await sleep(DELAY_MS);
@@ -1643,6 +1700,9 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
 
     await sleep(2000); // Rate limit between firms
   }
+
+  const skipped = Math.max(0, attempted - enriched - errors);
+  PHASE_STATS["Phase 2 (Tri-Force)"] = { attempted, updated: enriched, skipped, errors };
 
   return { enriched, errors };
 }
