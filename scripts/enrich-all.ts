@@ -1089,7 +1089,7 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
     };
     console.log("\n  ── PROVIDER KEY STATUS ──────────────────────────────────────────────────");
     console.log(kv(EXA_KEY,         "Exa",          "[PRIMARY search]"));
-    console.log(kv(SCRAPINGBEE_KEY, "ScrapingBee",  "[PRIMARY fetch]"));
+    console.log(kv(FIRECRAWL_KEY,   "Firecrawl",    "[PRIMARY fetch]"));
     console.log(kv(GEMINI_25_KEY,   "Gemini 2.5",   "[PRIMARY extract]"));
     console.log(kv(GROQ_KEY,        "Groq",         "[fallback extract]"));
     console.log(kv(GEMINI_KEY,      "Gemini 2.0",   "[fallback extract]"));
@@ -1249,39 +1249,17 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
 
       let websiteText = "";
       if (firm.website_url) {
-        // ── PRIMARY: ScrapingBee ──────────────────────────────────────────────
-        if (SCRAPINGBEE_KEY && isAvailable("app.scrapingbee.com")) {
-          console.log(`    → [SCRAPINGBEE_FETCH] fetching ${firm.website_url}...`);
-          providerPath.push("SCRAPINGBEE_FETCH");
-          websiteText = await scrapeWithScrapingBee(firm.website_url);
-          if (websiteText) {
-            console.log(`    ✓ [SCRAPINGBEE_FETCH] → ${websiteText.length} chars`);
-          } else {
-            console.log(`    ✗ [SCRAPINGBEE_FETCH] → returned empty`);
-          }
-        } else {
-          const reason = !SCRAPINGBEE_KEY ? "key missing (SCRAPING_BEE_API_KEY not set)"
-            : QUOTA_EXHAUSTED.has("app.scrapingbee.com") ? "quota exhausted"
-            : "in cooldown";
-          console.log(`    ↷ [SCRAPINGBEE_FETCH] skipped — ${reason}`);
-        }
-
-        // ── FALLBACK: Firecrawl single-page scrape ────────────────────────────
-        // Fires when ScrapingBee returned nothing or thin content.
-        if (websiteText.length < THIN_THRESHOLD && FIRECRAWL_KEY && isAvailable(FIRECRAWL_HOST)) {
-          const reason = websiteText.length === 0 ? "ScrapingBee empty" : `ScrapingBee thin (${websiteText.length} chars < ${THIN_THRESHOLD})`;
-          console.log(`    → [FIRECRAWL_SCRAPE] ${reason} — scraping ${firm.website_url}...`);
+        // ── PRIMARY: Firecrawl single-page scrape ────────────────────────────
+        if (FIRECRAWL_KEY && isAvailable(FIRECRAWL_HOST)) {
+          console.log(`    → [FIRECRAWL_SCRAPE] scraping ${firm.website_url}...`);
           providerPath.push("FIRECRAWL_SCRAPE");
           const fcText = await firecrawlScrape(firm.website_url);
           if (fcText) {
             console.log(`    ✓ [FIRECRAWL_SCRAPE] → ${fcText.length} chars`);
-            // Take whichever is longer (ScrapingBee may have partial useful content)
-            websiteText = fcText.length > websiteText.length ? fcText : websiteText;
+            websiteText = fcText;
           } else {
             console.log(`    ✗ [FIRECRAWL_SCRAPE] → returned empty`);
           }
-        } else if (websiteText.length >= THIN_THRESHOLD && FIRECRAWL_KEY) {
-          console.log(`    ↷ [FIRECRAWL_SCRAPE] skipped — ScrapingBee sufficient (${websiteText.length} chars)`);
         } else if (!FIRECRAWL_KEY) {
           console.log(`    ↷ [FIRECRAWL_SCRAPE] skipped — key missing (FIRECRAWL_API_KEY not set)`);
         }
@@ -1746,11 +1724,6 @@ async function scrapeTeamPage(url: string): Promise<string> {
     } catch {}
   }
 
-  // Tier 2: ScrapingBee — JS rendering for SPA team pages (preferred over Jina for dynamic content)
-  if (SCRAPINGBEE_KEY) {
-    const text = await scrapeWithScrapingBee(url);
-    if (text.length > 100) return text;
-  }
 
   // Tier 3: Jina Reader — lightweight markdown extraction
   if (JINA_KEY) {
@@ -2539,8 +2512,8 @@ async function main() {
   console.log(`  Search/discovery:`);
   console.log(`    Exa(search+discovery): ${k(EXA_KEY)}  Perplexity: ${k(PERPLEXITY_KEY)}  Tavily: ${k(TAVILY_KEY)}  Linkup: ${k(LINKUP_KEY)}`);
   console.log(`  Page fetching:`);
-  console.log(`    ScrapingBee(JS): ${k(SCRAPINGBEE_KEY)}  Firecrawl: ${k(FIRECRAWL_KEY)}  Jina: ${k(JINA_KEY)}`);
-  if (!SCRAPINGBEE_KEY) console.log(`    ⚠ ScrapingBee key missing — set SCRAPING_BEE_API_KEY or SCRAPINGBEE_API_KEY in .env.local`);
+  console.log(`    Firecrawl(primary): ${k(FIRECRAWL_KEY)}  Jina: ${k(JINA_KEY)}`);
+  if (!FIRECRAWL_KEY) console.log(`    ⚠ Firecrawl key missing — set FIRECRAWL_API_KEY in .env.local`);
   console.log(`  AI extraction (waterfall):`);
   console.log(`    [1] Gemini 2.5 Flash: ${k(GEMINI_25_KEY)}  [2] Groq 70b: ${k(GROQ_KEY)}  [3] Groq 8b: ${k(GROQ_KEY)}  [4] Perplexity: ${k(PERPLEXITY_KEY)}`);
   console.log(`    Gemini 2.0 Flash(fb): ${k(GEMINI_KEY)}`);
