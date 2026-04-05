@@ -1,8 +1,8 @@
 // =============================================================================
 // Edge Function: kb-agent-actions
 // =============================================================================
-// Action preview and execution endpoint for Aurora agent.
-// Protected by ENABLE_AURORA_ACTIONS feature flag.
+// Action preview and execution endpoint for Vyta agent.
+// Protected by ENABLE_VYTA_ACTIONS feature flag.
 //
 // Routes:
 //   POST / with { mode: "preview" }  — Preview an action without executing
@@ -38,7 +38,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const flagCheck = requireFeatureFlag("ENABLE_AURORA_ACTIONS");
+  const flagCheck = requireFeatureFlag("ENABLE_VYTA_ACTIONS");
   if (flagCheck) return flagCheck;
 
   try {

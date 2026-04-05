@@ -2,7 +2,7 @@
 // Edge Function: kb-notes
 // =============================================================================
 // Endpoints for note ingestion and retrieval.
-// Protected by ENABLE_AURORA_KB feature flag.
+// Protected by ENABLE_VYTA_KB feature flag.
 //
 // Routes:
 //   POST /   — Create a new note (ingestNote)
@@ -29,7 +29,7 @@ serve(async (req) => {
   }
 
   // Feature flag gate
-  const flagCheck = requireFeatureFlag("ENABLE_AURORA_KB");
+  const flagCheck = requireFeatureFlag("ENABLE_VYTA_KB");
   if (flagCheck) return flagCheck;
 
   try {

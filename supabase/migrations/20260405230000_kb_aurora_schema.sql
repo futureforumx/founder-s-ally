@@ -1,7 +1,7 @@
 -- =============================================================================
--- Aurora Knowledge Base & Agent Backend Schema
+-- Vyta Knowledge Base & Agent Backend Schema
 -- =============================================================================
--- This migration creates the kb_* table family for the Aurora knowledge base,
+-- This migration creates the kb_* table family for the Vyta knowledge base,
 -- agent context assembly, and action dispatcher layers.
 --
 -- SAFETY:
@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS kb_action_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid,
   workspace_id uuid,
-  agent_name text,             -- e.g. 'aurora', 'enrichment_bot'
+  agent_name text,             -- e.g. 'vyta', 'enrichment_bot'
   action_type text NOT NULL,   -- e.g. 'hubspot_create_contact', 'send_email', 'zapier_trigger'
   target_provider text,        -- e.g. 'zapier', 'hubspot', 'notion', 'slack'
   status text NOT NULL,        -- 'pending', 'running', 'success', 'failed', 'preview'

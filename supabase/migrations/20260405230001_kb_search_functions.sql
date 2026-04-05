@@ -1,5 +1,5 @@
 -- =============================================================================
--- Aurora KB — Search Helper Functions
+-- Vyta KB — Search Helper Functions
 -- =============================================================================
 -- SQL functions used by the retrieval service for full-text and vector search.
 -- These are called via supabase.rpc() from the edge functions.

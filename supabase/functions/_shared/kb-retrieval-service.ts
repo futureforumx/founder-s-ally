@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora KB — Retrieval Service (Hybrid Search)
+// Vyta KB — Retrieval Service (Hybrid Search)
 // =============================================================================
 // Implements hybrid retrieval combining:
 //   1. Structured filters (entity type, date range, user/workspace scope)

@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora KB — Embedding Provider
+// Vyta KB — Embedding Provider
 // =============================================================================
 // Isolated embedding provider implementation.
 // Uses the same Lovable AI gateway (OpenAI-compatible) as generate-embeddings.

@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora KB — Ingestion Service
+// Vyta KB — Ingestion Service
 // =============================================================================
 // Handles note and document ingestion into the kb_* tables.
 // Reads canonical entities for validation but NEVER modifies them.

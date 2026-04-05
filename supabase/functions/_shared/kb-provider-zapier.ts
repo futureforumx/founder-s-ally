@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora KB — Zapier MCP Provider Adapter (Scaffold)
+// Vyta KB — Zapier MCP Provider Adapter (Scaffold)
 // =============================================================================
 // Stub implementation of the Zapier MCP adapter.
 // This follows the ActionProviderAdapter interface so it can be registered

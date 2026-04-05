@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora KB — Action Dispatcher
+// Vyta KB — Action Dispatcher
 // =============================================================================
 // Generic action execution layer with preview and execute modes.
 // Every action is logged to kb_action_logs for full auditability.

@@ -1,9 +1,9 @@
 // =============================================================================
 // Edge Function: kb-entity-context
 // =============================================================================
-// Aurora agent context assembly endpoint.
+// Vyta agent context assembly endpoint.
 // Returns grounded, structured context for a canonical entity.
-// Protected by ENABLE_AURORA_KB feature flag.
+// Protected by ENABLE_VYTA_KB feature flag.
 //
 // Routes:
 //   POST /   — Get full entity context (for agent consumption)
@@ -22,8 +22,8 @@ import {
   getServiceClient,
 } from "../_shared/kb-utils.ts";
 import {
-  assembleAuroraEntityContext,
-  assembleAuroraSearchContext,
+  assembleVytaEntityContext,
+  assembleVytaSearchContext,
 } from "../_shared/kb-agent-context-service.ts";
 import { createEmbeddingProvider } from "../_shared/kb-embedding-provider.ts";
 
@@ -32,7 +32,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const flagCheck = requireFeatureFlag("ENABLE_AURORA_KB");
+  const flagCheck = requireFeatureFlag("ENABLE_VYTA_KB");
   if (flagCheck) return flagCheck;
 
   try {
@@ -52,7 +52,7 @@ serve(async (req) => {
         return errorResponse("entityId (string) is required", 400);
       }
 
-      const context = await assembleAuroraEntityContext(
+      const context = await assembleVytaEntityContext(
         supabase,
         body.entityType,
         body.entityId,
@@ -71,7 +71,7 @@ serve(async (req) => {
         ? createEmbeddingProvider()
         : undefined;
 
-      const context = await assembleAuroraSearchContext(
+      const context = await assembleVytaSearchContext(
         supabase,
         body.query,
         {

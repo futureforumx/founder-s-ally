@@ -2,7 +2,7 @@
 // Edge Function: kb-documents
 // =============================================================================
 // Endpoints for document ingestion and retrieval.
-// Protected by ENABLE_AURORA_KB feature flag.
+// Protected by ENABLE_VYTA_KB feature flag.
 //
 // Routes:
 //   POST /   — Ingest a new document (chunk, embed, link)
@@ -28,7 +28,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const flagCheck = requireFeatureFlag("ENABLE_AURORA_KB");
+  const flagCheck = requireFeatureFlag("ENABLE_VYTA_KB");
   if (flagCheck) return flagCheck;
 
   try {

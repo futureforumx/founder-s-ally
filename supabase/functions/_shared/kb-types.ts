@@ -1,5 +1,5 @@
 // =============================================================================
-// Aurora Knowledge Base — TypeScript Types & Interfaces
+// Vyta Knowledge Base — TypeScript Types & Interfaces
 // =============================================================================
 // These types map to the kb_* table family and service layer contracts.
 // Canonical entity types (investor, company, profile) are NOT redefined here;
@@ -246,7 +246,7 @@ export interface SearchResult {
   metadata: Record<string, unknown>;
 }
 
-/** Full entity context assembled for Aurora agent */
+/** Full entity context assembled for Vyta agent */
 export interface EntityContext {
   entity: Record<string, unknown> | null;
   entityType: string;
@@ -333,6 +333,6 @@ export interface EmbeddingProvider {
 // Feature flag names
 // ---------------------------------------------------------------------------
 export const FEATURE_FLAGS = {
-  ENABLE_AURORA_KB: "ENABLE_AURORA_KB",
-  ENABLE_AURORA_ACTIONS: "ENABLE_AURORA_ACTIONS",
+  ENABLE_VYTA_KB: "ENABLE_VYTA_KB",
+  ENABLE_VYTA_ACTIONS: "ENABLE_VYTA_ACTIONS",
 } as const;

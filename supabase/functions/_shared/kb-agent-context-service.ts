@@ -1,7 +1,7 @@
 // =============================================================================
-// Aurora KB — Agent Context Assembly Service
+// Vyta KB — Agent Context Assembly Service
 // =============================================================================
-// Produces clean, structured JSON context objects for the Aurora agent.
+// Produces clean, structured JSON context objects for the Vyta agent.
 // Combines canonical entity data (read-only) with KB artifacts.
 // This is the primary interface between the knowledge base and the agent.
 // =============================================================================
@@ -16,10 +16,10 @@ import type {
 import { getEntityContext, searchKnowledge } from "./kb-retrieval-service.ts";
 
 // ---------------------------------------------------------------------------
-// assembleAuroraEntityContext — full grounded context for a single entity
+// assembleVytaEntityContext — full grounded context for a single entity
 // ---------------------------------------------------------------------------
 /**
- * Assembles everything Aurora needs to reason about a specific entity.
+ * Assembles everything Vyta needs to reason about a specific entity.
  *
  * Returns a structured JSON object containing:
  * - Canonical entity profile from existing tables (read-only)
@@ -32,7 +32,7 @@ import { getEntityContext, searchKnowledge } from "./kb-retrieval-service.ts";
  *
  * This output is designed to be directly consumable by the agent prompt.
  */
-export async function assembleAuroraEntityContext(
+export async function assembleVytaEntityContext(
   supabase: SupabaseClient,
   entityType: string,
   entityId: string,
@@ -41,7 +41,7 @@ export async function assembleAuroraEntityContext(
 }
 
 // ---------------------------------------------------------------------------
-// assembleAuroraSearchContext — grounded context from a search query
+// assembleVytaSearchContext — grounded context from a search query
 // ---------------------------------------------------------------------------
 /**
  * Runs a hybrid search and assembles context for the top results.
@@ -49,7 +49,7 @@ export async function assembleAuroraEntityContext(
  *
  * @param enrichTopN — number of top entity results to enrich with full context (default: 3)
  */
-export async function assembleAuroraSearchContext(
+export async function assembleVytaSearchContext(
   supabase: SupabaseClient,
   query: string,
   filters?: Partial<SearchKnowledgeParams>,
