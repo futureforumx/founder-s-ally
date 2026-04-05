@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { generateElevatorPitch } from "@/lib/generateFallbacks";
 
 export interface LiveInvestorEntry {
   id: string;
@@ -35,7 +36,16 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     name: row.firm_name,
     sector: row.thesis_verticals?.filter(Boolean).join(", ") || "Generalist",
     stage: row.preferred_stage || "Seed–Growth",
-    description: row.sentiment_detail || `${row.firm_name} is an active investor focused on ${row.thesis_verticals?.slice(0, 2).join(" and ") || "technology"}.`,
+    description: row.sentiment_detail || row.description || row.elevator_pitch || generateElevatorPitch({
+      firm_name: row.firm_name,
+      description: row.description,
+      stage_focus: row.stage_focus,
+      thesis_verticals: row.thesis_verticals,
+      hq_city: row.hq_city,
+      hq_state: row.hq_state,
+      hq_country: row.hq_country,
+      entity_type: row.entity_type,
+    }) || `${row.firm_name} is an active investment firm.`,
     location: row.location || "",
     model: row.min_check_size && row.max_check_size
       ? `$${row.min_check_size >= 1_000_000 ? `${(row.min_check_size / 1_000_000).toFixed(0)}M` : `${(row.min_check_size / 1_000).toFixed(0)}K`}–$${row.max_check_size >= 1_000_000 ? `${(row.max_check_size / 1_000_000).toFixed(0)}M` : `${(row.max_check_size / 1_000).toFixed(0)}K`}`
@@ -92,6 +102,7 @@ const DIRECTORY_COLUMNS = [
   "website_url",
   "linkedin_url",
   "recent_deals",
+  "stage_focus",
 ].join(",");
 
 export function useInvestorDirectory() {
@@ -102,6 +113,7 @@ export function useInvestorDirectory() {
         .from("firm_records")
         .select(DIRECTORY_COLUMNS)
         .is("deleted_at", null) // filter at DB level — avoids pulling soft-deleted rows
+        .eq("ready_for_live", true) // only show production-quality records
         .order("firm_name");
 
       if (error) throw error;

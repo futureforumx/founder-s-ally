@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { FirmStrategyClassification } from "@/lib/firmStrategyClassifications";
 import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
+import { sanitizeText } from "@/lib/sanitizeText";
+import { generateInvestorBio, generateElevatorPitch } from "@/lib/generateFallbacks";
 
 // ── Types ──
 export interface InvestorPartner {
@@ -121,11 +123,14 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
         .from("firm_records")
         .select("*")
         .eq("id", firmId)
+        .is("deleted_at", null)
         .maybeSingle(),
       supabase
         .from("firm_investors")
-        .select("id, full_name, first_name, last_name, title, is_active, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
+        .select("id, full_name, first_name, last_name, title, is_active, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, check_size_min, check_size_max, sweet_spot")
         .eq("firm_id", firmId)
+        .is("deleted_at", null)
+        .eq("ready_for_live", true)
         .order("full_name"),
       supabase
         .from("firm_recent_deals")
@@ -143,7 +148,18 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       firm_name: firm.firm_name,
       x_url: pickFirmXUrl(firm as Record<string, unknown>),
       linkedin_url: typeof firm.linkedin_url === "string" ? firm.linkedin_url : null,
-      description: firm.sentiment_detail,
+      description: sanitizeText(firm.sentiment_detail) || sanitizeText(firm.description) || generateElevatorPitch({
+        firm_name: firm.firm_name,
+        description: firm.description,
+        stage_focus: firm.stage_focus,
+        thesis_verticals: firm.thesis_verticals,
+        hq_city: firm.hq_city,
+        hq_state: firm.hq_state,
+        hq_country: firm.hq_country,
+        entity_type: firm.entity_type,
+        min_check_size: firm.min_check_size,
+        max_check_size: firm.max_check_size,
+      }),
       email: firm.email,
       address: firm.address,
       hq_city: firm.hq_city,
@@ -166,7 +182,24 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       sentiment_detail: firm.sentiment_detail,
       recent_deals: firm.recent_deals,
       last_enriched_at: firm.last_enriched_at,
-      partners: (partnersRes.data ?? []) as InvestorPartner[],
+      partners: (partnersRes.data ?? []).map((p: any) => ({
+        ...p,
+        bio: sanitizeText(p.bio) || generateInvestorBio({
+          full_name: p.full_name,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          title: p.title,
+          firm_name: firm.firm_name,
+          personal_thesis_tags: p.personal_thesis_tags,
+          stage_focus: p.stage_focus,
+          check_size_min: p.check_size_min,
+          check_size_max: p.check_size_max,
+          sweet_spot: p.sweet_spot,
+          city: p.city,
+          state: p.state,
+          country: p.country,
+        }),
+      })) as InvestorPartner[],
       deals: (dealsRes.data ?? []) as FirmDeal[],
       source: "live",
     };
@@ -186,6 +219,7 @@ async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
       .from("firm_records")
       .select("id")
       .ilike("firm_name", firmName.trim())
+      .is("deleted_at", null)
       .limit(1);
 
     if (error) throw error;

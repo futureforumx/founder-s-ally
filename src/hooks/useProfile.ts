@@ -138,6 +138,7 @@ export function useFounderProfiles() {
           `)
           .in("roleType", ["founder", "cofounder", "ceo"])
           .eq("isCurrent", true)
+          .not("person", "is", null)
           .limit(500);
 
         if (rolesError || !roles || roles.length === 0) {
@@ -231,6 +232,7 @@ export function useCompanyDirectory(limit = 300) {
             "employeeCount"
           `)
           .not("description", "is", null)
+          .eq("ready_for_live", true)
           .limit(limit);
 
         if (error || !data) {
@@ -299,6 +301,7 @@ export function useOperatorProfiles(limit = 200) {
           .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available")
           .is("deleted_at", null)
           .eq("is_available", true)
+          .eq("ready_for_live", true)
           .limit(limit);
 
         if (error || !data) {

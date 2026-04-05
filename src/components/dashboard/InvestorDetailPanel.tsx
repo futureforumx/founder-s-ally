@@ -67,6 +67,14 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
+function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
+  for (const v of values) {
+    const t = typeof v === "string" ? v.trim() : "";
+    if (t.length > 0) return t;
+  }
+  return null;
+}
+
 function investorPartnerToVCPerson(p: InvestorPartner, firmId: string): VCPerson {
   const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
   return {
@@ -165,7 +173,13 @@ export function InvestorDetailPanel({
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
-    if (investor) return investor;
+    if (investor) {
+      return {
+        ...investor,
+        logo_url: firstNonEmpty(investor.logo_url, vcFirm?.logo_url),
+        websiteUrl: firstNonEmpty(investor.websiteUrl, vcFirm?.website_url),
+      };
+    }
     if (!vcFirm) return null;
     return {
       name: vcFirm.name,
@@ -178,6 +192,7 @@ export function InvestorDetailPanel({
       matchReason: null,
       category: "investor" as const,
       logo_url: vcFirm.logo_url || null,
+      websiteUrl: vcFirm.website_url ?? null,
     };
   }, [investor, vcFirm]);
 
@@ -301,6 +316,7 @@ export function InvestorDetailPanel({
           .from("firm_records")
           .select("id")
           .ilike("firm_name", displayName.trim())
+          .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
       }
@@ -340,7 +356,12 @@ export function InvestorDetailPanel({
 
   // Prefer live profile data, fallback to vcFirm/effectiveInvestor
   const heroName = liveProfile?.firm_name ?? effectiveInvestor?.name ?? "";
-  const heroLogo = liveProfile?.logo_url ?? effectiveInvestor?.logo_url ?? null;
+  /** Live row may lag or have empty string; keep search/grid logo from entry or VC directory. */
+  const heroLogo = firstNonEmpty(
+    liveProfile?.logo_url,
+    effectiveInvestor?.logo_url,
+    vcFirm?.logo_url,
+  );
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
   const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
@@ -369,7 +390,10 @@ export function InvestorDetailPanel({
       : null;
   const connectXUrl = effectiveFirmXUrl;
   const connectWebsiteUrl =
-    liveProfile?.website_url?.trim() || vcFirm?.website_url?.trim() || null;
+    liveProfile?.website_url?.trim() ||
+    vcFirm?.website_url?.trim() ||
+    effectiveInvestor?.websiteUrl?.trim() ||
+    null;
 
   const heroPartnerCount = mergedPartners.length > 0 ? mergedPartners.length : null;
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
@@ -445,7 +469,7 @@ export function InvestorDetailPanel({
                       <FirmLogo
                         firmName={heroName}
                         logoUrl={heroLogo}
-                        websiteUrl={liveProfile?.website_url ?? null}
+                        websiteUrl={connectWebsiteUrl}
                         size="lg"
                         className="h-[86px] w-[86px] rounded-2xl shrink-0 ring-1 ring-border/20"
                       />
