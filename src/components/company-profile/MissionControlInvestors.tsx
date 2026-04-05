@@ -103,6 +103,8 @@ export function MissionControlInvestors({
           .from("firm_records")
           .select("firm_name, location, preferred_stage, thesis_verticals")
           .overlaps("thesis_verticals", sectorKeywords)
+          .is("deleted_at", null)
+          .eq("ready_for_live", true)
           .limit(5);
         if (!error && data) setRecommendations(data);
       } catch { /* ignore */ }

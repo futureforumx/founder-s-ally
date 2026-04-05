@@ -277,7 +277,9 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
       supabase
         .from("firm_records")
         .select("id, location, created_at, firm_name, website_url")
-        .not("location", "is", null),
+        .not("location", "is", null)
+        .is("deleted_at", null)
+        .eq("ready_for_live", true),
       supabase
         .from("firm_recent_deals")
         .select("firm_id, company_name, amount, stage, date_announced, created_at")

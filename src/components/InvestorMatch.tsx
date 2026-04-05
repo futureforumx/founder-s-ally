@@ -253,7 +253,8 @@ export function InvestorMatch({
           "ca_sb54_compliant,market_sentiment,sentiment_detail," +
           "is_trending,is_popular,is_recent,logo_url,website_url"
         )
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .eq("ready_for_live", true);
       if (!error && data) setInvestors(data as unknown as Investor[]);
       setLoading(false);
     })();
