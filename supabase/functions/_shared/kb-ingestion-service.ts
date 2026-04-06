@@ -281,7 +281,7 @@ async function validateEntityExists(
   const table = getCanonicalTable(entityType);
   if (!table) {
     throw new Error(
-      `Unknown entity type: "${entityType}". Valid types: investor, company, profile, competitor`,
+      `Unknown entity type: "${entityType}". Valid types: firm, company, org, person, profile, competitor`,
     );
   }
 

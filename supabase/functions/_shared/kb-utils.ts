@@ -133,9 +133,27 @@ export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
 // ---------------------------------------------------------------------------
 // Entity table mapping — maps entity_type to canonical table name
 // ---------------------------------------------------------------------------
+// Verified against production schema (zmnlsdohtwztneamvwaq) on 2026-04-06.
+//
+// Canonical entities:
+//   firm     → vc_firms           (primary VC firm records)
+//   company  → company_analyses   (company profiles + analysis data)
+//   org      → organizations      (organizations entity)
+//   person   → people             (all people — founders, operators, partners)
+//   profile  → profiles           (authenticated user profiles)
+//   competitor → competitors      (competitor registry)
+//
+// NOT mapped as standalone entity types (data sources that feed into canonical entities):
+//   operator_profiles, operator_companies, operator_signals
+//   yc_companies, yc_people
+//   firm_records, firm_investors, firm_website_candidates
+//   source_records, ingestion_jobs, enrich_social_state
+// ---------------------------------------------------------------------------
 export const ENTITY_TABLE_MAP: Record<string, string> = {
-  investor: "investor_database",
+  firm: "vc_firms",
   company: "company_analyses",
+  org: "organizations",
+  person: "people",
   profile: "profiles",
   competitor: "competitors",
 };

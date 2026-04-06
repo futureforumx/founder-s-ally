@@ -8,12 +8,15 @@
 
 // ---------------------------------------------------------------------------
 // Canonical entity type enum — references existing tables without duplicating
+// Verified against production schema (zmnlsdohtwztneamvwaq) on 2026-04-06.
 // ---------------------------------------------------------------------------
 export type CanonicalEntityType =
-  | "investor"       // investor_database
-  | "company"        // company_analyses
-  | "profile"        // profiles
-  | "competitor";    // competitors
+  | "firm"           // vc_firms — primary VC firm records
+  | "company"        // company_analyses — company profiles + analysis
+  | "org"            // organizations — organizations entity
+  | "person"         // people — all people (founders, operators, partners)
+  | "profile"        // profiles — authenticated user profiles
+  | "competitor";    // competitors — competitor registry
 
 // ---------------------------------------------------------------------------
 // Table row types — match kb_* migration columns

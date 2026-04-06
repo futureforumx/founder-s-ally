@@ -8,9 +8,9 @@
 --   - No existing tables are modified.
 --   - No existing RLS policies are changed.
 --   - All new tables are prefixed with kb_ to isolate from current schema.
---   - Existing canonical tables (investor_database, company_analyses, profiles,
---     etc.) remain the source of truth. kb_* tables reference them via
---     entity_type + entity_id polymorphic links.
+--   - Existing canonical tables (vc_firms, company_analyses, organizations,
+--     people, profiles, competitors) remain the source of truth.
+--     kb_* tables reference them via entity_type + entity_id polymorphic links.
 --
 -- REQUIRES: pgvector extension (for vector(1536) columns and HNSW indexes)
 -- =============================================================================
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS kb_notes (
   note_type text,          -- e.g. 'meeting', 'quick', 'research', 'agent_generated'
   source_type text,        -- e.g. 'manual', 'import', 'agent', 'api'
   source_ref text,         -- external reference identifier
-  related_entity_type text,-- e.g. 'investor', 'company', 'profile'
+  related_entity_type text,-- e.g. 'firm', 'company', 'org', 'person', 'profile'
   related_entity_id uuid,
   created_by_agent boolean NOT NULL DEFAULT false,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -104,13 +104,13 @@ CREATE INDEX idx_kb_chunks_embedding ON kb_document_chunks
 -- 4. kb_entity_links — polymorphic links from kb artifacts to canonical entities
 -- =============================================================================
 -- This is the core join table that connects notes, documents, chunks, cards,
--- and actions to canonical entities (investor_database, company_analyses,
--- profiles, etc.) WITHOUT duplicating entity data.
+-- and actions to canonical entities (vc_firms, company_analyses, organizations,
+-- people, profiles, competitors) WITHOUT duplicating entity data.
 CREATE TABLE IF NOT EXISTS kb_entity_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_table text NOT NULL,   -- e.g. 'kb_notes', 'kb_documents', 'kb_document_chunks'
   source_id uuid NOT NULL,
-  entity_type text NOT NULL,    -- e.g. 'investor', 'company', 'profile'
+  entity_type text NOT NULL,    -- e.g. 'firm', 'company', 'org', 'person', 'profile'
   entity_id uuid NOT NULL,
   relationship_type text,       -- e.g. 'about', 'mentions', 'authored_by', 'tagged'
   confidence numeric(5,4),      -- 0.0000 to 9.9999, nullable for manual links
