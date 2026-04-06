@@ -62,24 +62,40 @@ serve(async (req) => {
         const baseUrl = src.base_url || "";
         try {
           const items = await adapter({ fetch, baseUrl, metadata: meta });
-          for (const it of items.slice(0, 40)) {
-            const link = it.link || baseUrl;
-            const hash = await sha256hex(`${src.id}:${link}:${it.title}`);
-            const excerpt = it.description?.slice(0, 500) || null;
-            const publishedAt = it.pubDate ? new Date(it.pubDate).toISOString() : null;
-            const { error: ie } = await admin.from("raw_intelligence_items").insert({
-              source_id: src.id,
-              source_url: link,
-              title: it.title.slice(0, 500),
-              excerpt,
-              body: excerpt,
-              published_at: publishedAt,
-              content_hash: hash,
-              processing_status: "pending",
-              metadata: { adapter: adapterKey },
-            });
-            if (!ie) ingested++;
-            else if (!String(ie.message).includes("duplicate")) console.warn(ie.message);
+
+          // ── Bulk ingest: build all rows in memory, then insert in one call ──
+          // Previously: one INSERT per item (up to 40 round-trips per source).
+          // Now: a single INSERT with the full array (1 round-trip per source).
+          const rows = await Promise.all(
+            items.slice(0, 40).map(async (it) => {
+              const link = it.link || baseUrl;
+              const hash = await sha256hex(`${src.id}:${link}:${it.title}`);
+              const excerpt = it.description?.slice(0, 500) || null;
+              return {
+                source_id: src.id,
+                source_url: link,
+                title: it.title.slice(0, 500),
+                excerpt,
+                body: excerpt,
+                published_at: it.pubDate ? new Date(it.pubDate).toISOString() : null,
+                content_hash: hash,
+                processing_status: "pending",
+                metadata: { adapter: adapterKey },
+              };
+            })
+          );
+
+          if (rows.length > 0) {
+            // ignoreDuplicates is not available; use upsert with onConflict on content_hash
+            // to skip rows that already exist without erroring.
+            const { error: ie } = await admin
+              .from("raw_intelligence_items")
+              .upsert(rows, { onConflict: "content_hash", ignoreDuplicates: true });
+            if (ie && !String(ie.message).includes("duplicate")) {
+              console.warn(`ingest bulk insert for source ${src.id}:`, ie.message);
+            } else {
+              ingested += rows.length;
+            }
           }
         } catch (e) {
           console.warn(`ingest source ${src.id}:`, e);
@@ -101,12 +117,28 @@ serve(async (req) => {
         .limit(40);
       if (pe) throw pe;
 
-      for (const raw of pending || []) {
+      const pendingItems = pending || [];
+
+      // ── Batch mark all pending items as "processing" in one UPDATE ──
+      // Previously: one UPDATE per item at the top of the loop.
+      if (pendingItems.length > 0) {
+        const ids = pendingItems.map((r) => r.id);
+        await admin
+          .from("raw_intelligence_items")
+          .update({ processing_status: "processing" })
+          .in("id", ids);
+      }
+
+      // Accumulators for end-of-batch status updates and entity inserts
+      const processedIds: string[] = [];
+      const failedIds: string[] = [];
+      const entityInsertRows: { event_id: string; entity_id: string; role: string }[] = [];
+
+      for (const raw of pendingItems) {
         const srcCred = Number(
           (raw as { intelligence_sources?: { credibility_score?: number } }).intelligence_sources
             ?.credibility_score ?? 0.7,
         );
-        await admin.from("raw_intelligence_items").update({ processing_status: "processing" }).eq("id", raw.id);
 
         const norm = normalizeRawToItem({
           title: raw.title,
@@ -149,6 +181,7 @@ serve(async (req) => {
             source_count: (existing.source_count || 1) + 1,
             updated_at: new Date().toISOString(),
           }).eq("id", existing.id);
+          processedIds.push(raw.id);
         } else {
           const { data: inserted, error: insE } = await admin.from("intelligence_events").insert({
             event_type: norm.likelyEventType,
@@ -164,23 +197,47 @@ serve(async (req) => {
             dedupe_key: dedupeKey,
             metadata: { raw_item_id: raw.id },
           }).select("id").single();
+
           if (insE) {
             console.warn(insE);
-            await admin.from("raw_intelligence_items").update({ processing_status: "failed" }).eq("id", raw.id);
+            failedIds.push(raw.id);
             continue;
           }
+
           const eventId = inserted!.id;
+          // Collect entity links — will be batch-inserted after the loop
           for (const m of matched) {
-            await admin.from("intelligence_event_entities").insert({
+            entityInsertRows.push({
               event_id: eventId,
               entity_id: m.id,
               role: m.type === "fund" || m.type === "investor" ? "investor" : "subject",
             });
           }
+          processedIds.push(raw.id);
         }
 
-        await admin.from("raw_intelligence_items").update({ processing_status: "processed" }).eq("id", raw.id);
         processed++;
+      }
+
+      // ── Batch insert all entity links in one call ──
+      // Previously: one INSERT per matched entity inside the per-item loop.
+      if (entityInsertRows.length > 0) {
+        await admin.from("intelligence_event_entities").insert(entityInsertRows);
+      }
+
+      // ── Batch update final status for all processed and failed items ──
+      // Previously: one UPDATE per item at the bottom of the loop.
+      if (processedIds.length > 0) {
+        await admin
+          .from("raw_intelligence_items")
+          .update({ processing_status: "processed" })
+          .in("id", processedIds);
+      }
+      if (failedIds.length > 0) {
+        await admin
+          .from("raw_intelligence_items")
+          .update({ processing_status: "failed" })
+          .in("id", failedIds);
       }
     }
 

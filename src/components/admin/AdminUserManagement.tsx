@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
+import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { Crown, Search, Shield, UserCog, Loader2, Clock, Zap, Mail, MapPin, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -62,11 +63,11 @@ export function AdminUserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await invokeEdgeFunction("admin-list-users");
+      const { data, error } = await invokeEdgeFunction("admin-list-users", { preferClerkSessionToken: true });
       if (error) throw error;
       setUsers(data.users || []);
-    } catch (e: any) {
-      toast.error("Failed to load users", { description: e.message });
+    } catch (e: unknown) {
+      toast.error("Failed to load users", { description: await formatEdgeFunctionInvokeError(e) });
     }
     setLoading(false);
   };
@@ -75,13 +76,14 @@ export function AdminUserManagement() {
     setUpdatingId(userId);
     try {
       const { error } = await invokeEdgeFunction("admin-update-permission", {
+        preferClerkSessionToken: true,
         body: { target_user_id: userId, permission },
       });
       if (error) throw error;
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, permission } : u));
       toast.success("Permission updated", { description: `Set to ${permission.toUpperCase()}` });
-    } catch (e: any) {
-      toast.error("Failed to update permission", { description: e.message });
+    } catch (e: unknown) {
+      toast.error("Failed to update permission", { description: await formatEdgeFunctionInvokeError(e) });
     }
     setUpdatingId(null);
   };

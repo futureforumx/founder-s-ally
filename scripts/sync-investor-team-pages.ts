@@ -31,8 +31,92 @@
  *   DATABASE_URL        — Postgres connection string
  */
 
-import { PrismaClient, StageFocus, SectorFocus, type VCPerson } from "@prisma/client";
-import { loadDatabaseUrl } from "./lib/loadDatabaseUrl";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// ── Env loading ───────────────────────────────────────────────────────────────
+
+function loadEnv(): void {
+  for (const name of [".env", ".env.local", ".env.enrichment"]) {
+    const p = join(process.cwd(), name);
+    if (!existsSync(p)) continue;
+    for (const line of readFileSync(p, "utf8").split("\n")) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const m = t.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      if (!m) continue;
+      if (process.env[m[1]] !== undefined && process.env[m[1]] !== "") continue;
+      let v = m[2].trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+        v = v.slice(1, -1);
+      if (v) process.env[m[1]] = v;
+    }
+  }
+}
+loadEnv();
+
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+if (!SUPABASE_URL) throw new Error("SUPABASE_URL is not set.");
+if (!SERVICE_KEY)  throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
+
+const SB = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" };
+
+async function sbGet<T>(table: string, select: string, extra = ""): Promise<T[]> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=50000${extra}`, { headers: SB });
+  if (!res.ok) throw new Error(`GET ${table}: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function sbPatch(table: string, id: string, patch: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { ...SB, Prefer: "return=minimal" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) console.warn(`  ✗ PATCH ${table}/${id}: ${res.status}`);
+}
+
+async function sbPost<T>(table: string, data: Record<string, unknown>): Promise<T | null> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST",
+    headers: { ...SB, Prefer: "return=representation" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) { console.warn(`  ✗ POST ${table}: ${res.status} ${await res.text()}`); return null; }
+  const rows = await res.json() as T[];
+  return rows[0] ?? null;
+}
+
+// ── Supabase row type ─────────────────────────────────────────────────────────
+
+type FirmInvestorRow = {
+  id: string;
+  firm_id: string;
+  full_name: string | null;
+  first_name: string;
+  last_name: string;
+  title: string | null;
+  bio: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  medium_url: string | null;
+  substack_url: string | null;
+  website_url: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  stage_focus: string[] | null;
+  sector_focus: string[] | null;
+  personal_thesis_tags: string[] | null;
+  background_summary: string | null;
+};
+
+// Stage / Sector string enums (matches existing DB values)
+type StageFocus = string;
+type SectorFocus = string;
 
 // ---------------------------------------------------------------------------
 // AI extraction types
@@ -82,7 +166,7 @@ type FirmRow = {
   slug: string;
   firm_name: string;
   website_url: string | null;
-  people: Array<{
+  investors: Array<{
     id: string;
     first_name: string;
     last_name: string;
@@ -507,7 +591,7 @@ async function lushaLookup(
   lastName: string,
   firmName: string,
   linkedinUrl?: string
-): Promise<{ email?: string; linkedin_url?: string }> {
+): Promise<Partial<AiExtractedPerson>> {
   const key = process.env.LUSHA_API_KEY ?? process.env.LUSHA_API;
   if (!key) return {};
   try {
@@ -1020,36 +1104,36 @@ function extractThemes(text: string): string[] {
   }
 
   const STAGE_RE_MAP: Array<[RegExp, StageFocus]> = [
-    [/pre.?seed|angel\s*stage|pre\s*series/i, StageFocus.PRE_SEED],
-    [/\bseed\b/i, StageFocus.SEED],
-    [/series[\s-]?a\b/i, StageFocus.SERIES_A],
-    [/series[\s-]?b\b/i, StageFocus.SERIES_B],
-    [/series[\s-]?c\b/i, StageFocus.SERIES_C],
-    [/growth[\s-]?stage|growth[\s-]?equity/i, StageFocus.GROWTH],
-    [/late[\s-]?stage|series[\s-]?[d-z]\b/i, StageFocus.LATE],
-    [/\bipo\b|pre.?ipo/i, StageFocus.IPO],
+    [/pre.?seed|angel\s*stage|pre\s*series/i, "PRE_SEED"],
+    [/\bseed\b/i, "SEED"],
+    [/series[\s-]?a\b/i, "SERIES_A"],
+    [/series[\s-]?b\b/i, "SERIES_B"],
+    [/series[\s-]?c\b/i, "SERIES_C"],
+    [/growth[\s-]?stage|growth[\s-]?equity/i, "GROWTH"],
+    [/late[\s-]?stage|series[\s-]?[d-z]\b/i, "LATE"],
+    [/\bipo\b|pre.?ipo/i, "IPO"],
   ];
 
   const SECTOR_RE_MAP: Array<[RegExp, SectorFocus]> = [
-    [/fintech|payments|insurtech|neobank/i, SectorFocus.FINTECH],
-    [/enterprise[\s-]?saa?s|b2b[\s-]?saa?s/i, SectorFocus.ENTERPRISE_SAAS],
-    [/\bai\b|machine[\s-]?learning|artificial[\s-]?intelligence/i, SectorFocus.AI],
-    [/health[\s-]?tech|digital[\s-]?health|medtech/i, SectorFocus.HEALTHTECH],
-    [/biotech|life[\s-]?sciences?/i, SectorFocus.BIOTECH],
-    [/\bconsumer\b|d2c\b|direct.to.consumer/i, SectorFocus.CONSUMER],
-    [/climate[\s-]?tech|clean[\s-]?tech|green[\s-]?tech|sustainability/i, SectorFocus.CLIMATE],
-    [/\bmobility\b|autonomous\s+vehicle|transportation\s+tech/i, SectorFocus.MOBILITY],
-    [/\bindustrial\b|manufacturing\b|supply[\s-]?chain/i, SectorFocus.INDUSTRIAL],
-    [/cyber[\s-]?security|infosec/i, SectorFocus.CYBERSECURITY],
-    [/\bmedia\b|\bcontent\b|entertainment\b/i, SectorFocus.MEDIA],
-    [/\bweb3\b|\bcrypto\b|\bblockchain\b|\bdefi\b/i, SectorFocus.WEB3],
-    [/edtech|education[\s-]?tech/i, SectorFocus.EDTECH],
-    [/govtech|government[\s-]?tech|civic[\s-]?tech/i, SectorFocus.GOVTECH],
-    [/\bhardware\b|deep[\s-]?tech|semiconductors?/i, SectorFocus.HARDWARE],
-    [/\brobotics\b|\bautomation\b/i, SectorFocus.ROBOTICS],
-    [/\bmarketplace\b/i, SectorFocus.MARKETPLACE],
-    [/agritech|agri[\s-]?tech|food[\s-]?tech/i, SectorFocus.AGRITECH],
-    [/proptech|real[\s-]?estate[\s-]?tech/i, SectorFocus.PROPTECH],
+    [/fintech|payments|insurtech|neobank/i, "FINTECH"],
+    [/enterprise[\s-]?saa?s|b2b[\s-]?saa?s/i, "ENTERPRISE_SAAS"],
+    [/\bai\b|machine[\s-]?learning|artificial[\s-]?intelligence/i, "AI"],
+    [/health[\s-]?tech|digital[\s-]?health|medtech/i, "HEALTHTECH"],
+    [/biotech|life[\s-]?sciences?/i, "BIOTECH"],
+    [/\bconsumer\b|d2c\b|direct.to.consumer/i, "CONSUMER"],
+    [/climate[\s-]?tech|clean[\s-]?tech|green[\s-]?tech|sustainability/i, "CLIMATE"],
+    [/\bmobility\b|autonomous\s+vehicle|transportation\s+tech/i, "MOBILITY"],
+    [/\bindustrial\b|manufacturing\b|supply[\s-]?chain/i, "INDUSTRIAL"],
+    [/cyber[\s-]?security|infosec/i, "CYBERSECURITY"],
+    [/\bmedia\b|\bcontent\b|entertainment\b/i, "MEDIA"],
+    [/\bweb3\b|\bcrypto\b|\bblockchain\b|\bdefi\b/i, "WEB3"],
+    [/edtech|education[\s-]?tech/i, "EDTECH"],
+    [/govtech|government[\s-]?tech|civic[\s-]?tech/i, "GOVTECH"],
+    [/\bhardware\b|deep[\s-]?tech|semiconductors?/i, "HARDWARE"],
+    [/\brobotics\b|\bautomation\b/i, "ROBOTICS"],
+    [/\bmarketplace\b/i, "MARKETPLACE"],
+    [/agritech|agri[\s-]?tech|food[\s-]?tech/i, "AGRITECH"],
+    [/proptech|real[\s-]?estate[\s-]?tech/i, "PROPTECH"],
   ];
 
   function parseStageFocusFromText(text: string): StageFocus[] {
@@ -1446,8 +1530,8 @@ function shouldReplace(current: string | null, incoming: string | undefined, ove
 function resolveExistingPerson(
   firm: FirmRow,
   extracted: ExtractedPerson,
-  fullRowsById: Map<string, VCPerson>,
-): VCPerson | null {
+  fullRowsById: Map<string, FirmInvestorRow>,
+): FirmInvestorRow | null {
   const byEmail = extracted.email?.toLowerCase();
   if (byEmail) {
     const hit = [...fullRowsById.values()].find((p) => p.email?.toLowerCase() === byEmail);
@@ -1462,7 +1546,7 @@ function resolveExistingPerson(
 
   const target = normName(extracted.fullName);
   if (!target) return null;
-  const base = firm.people.find(
+  const base = firm.investors.find(
     (p) => normName(`${p.first_name} ${p.last_name}`) === target,
   );
   if (!base) return null;
@@ -1473,83 +1557,49 @@ function resolveExistingPerson(
 // Article signals helper
 // ---------------------------------------------------------------------------
 
+// Article signals are not written to firm_investors — kept as a no-op stub
+// so existing call sites compile without changes.
 async function upsertArticleSignals(
-  prisma: PrismaClient,
-  firmId: string,
-  personId: string,
-  articles: ArticleRecord[],
-  authorName: string
-): Promise<void> {
-  for (const a of articles) {
-    if (!a.url || !a.title) continue;
-    try {
-      // Check for existing signal by URL
-      const exists = await prisma.vCSignal.findFirst({
-        where: { firm_id: firmId, url: a.url, deleted_at: null },
-        select: { id: true },
-      });
-      if (exists) continue;
-
-      const platform = a.platform ?? (() => {
-        const u = a.url.toLowerCase();
-        if (u.includes("medium.com")) return "medium";
-        if (u.includes("substack.com")) return "substack";
-        if (u.includes("linkedin.com")) return "linkedin";
-        if (u.includes("twitter.com") || u.includes("x.com")) return "twitter";
-        return "company_blog";
-      })();
-
-      await prisma.vCSignal.create({
-        data: {
-          firm_id: firmId,
-          person_id: personId,
-          signal_type: "BLOG_POST",
-          title: a.title.slice(0, 500),
-          url: a.url,
-          description: a.summary ?? null,
-          signal_date: a.published_at ? new Date(a.published_at) : null,
-          source_type: "OTHER",
-          metadata: { platform, author: authorName },
-        },
-      });
-    } catch {
-      // Skip duplicate or invalid entries silently
-    }
-  }
-}
+  _firmId: string,
+  _personId: string,
+  _articles: ArticleRecord[],
+  _authorName: string,
+): Promise<void> {}
 
 async function main() {
-  loadDatabaseUrl();
   const cfg = configFromEnv();
-  const prisma = new PrismaClient();
 
-  const firms = (await prisma.vCFirm.findMany({
-    where: {
-      deleted_at: null,
-      website_url: { not: null },
-      ...(cfg.firmSlug ? { slug: cfg.firmSlug } : {}),
-      people: { some: { deleted_at: null } },
-    },
-    select: {
-      id: true,
-      slug: true,
-      firm_name: true,
-      website_url: true,
-      people: {
-        where: { deleted_at: null },
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          email: true,
-          linkedin_url: true,
-          website_url: true,
-        },
-      },
-    },
-    orderBy: { updated_at: "asc" },
-    take: cfg.maxFirms,
-  })) as FirmRow[];
+  // ── Fetch firms ────────────────────────────────────────────────────────────
+  const firmFilter = `&deleted_at=is.null&website_url=not.is.null`
+    + (cfg.firmSlug ? `&slug=eq.${encodeURIComponent(cfg.firmSlug)}` : "")
+    + `&order=updated_at.asc`;
+
+  const rawFirms = await sbGet<{ id: string; slug: string; firm_name: string; website_url: string | null }>(
+    "firm_records", "id,slug,firm_name,website_url", firmFilter
+  );
+  const firmSlice = rawFirms.slice(0, cfg.maxFirms);
+
+  // ── Batch-load investors for those firms ───────────────────────────────────
+  const firmIds = firmSlice.map((f) => f.id);
+  const allInvestors = firmIds.length
+    ? await sbGet<{ id: string; firm_id: string; first_name: string; last_name: string; email: string | null; linkedin_url: string | null; website_url: string | null }>(
+        "firm_investors",
+        "id,firm_id,first_name,last_name,email,linkedin_url,website_url",
+        `&firm_id=in.(${firmIds.join(",")})&deleted_at=is.null`
+      )
+    : [];
+
+  const investorsByFirm = new Map<string, typeof allInvestors>();
+  for (const inv of allInvestors) {
+    const arr = investorsByFirm.get(inv.firm_id) ?? [];
+    arr.push(inv);
+    investorsByFirm.set(inv.firm_id, arr);
+  }
+
+  // Only process firms that already have at least one investor record
+  const firms: FirmRow[] = firmSlice
+    .filter((f) => (investorsByFirm.get(f.id)?.length ?? 0) > 0)
+    .map((f) => ({ ...f, investors: investorsByFirm.get(f.id)! }));
 
   const stats = {
     firmsScanned: firms.length,
@@ -1631,9 +1681,11 @@ async function main() {
       stats.firmsWithTeamPage += 1;
       stats.extractedPeople += Math.max(extracted.length, aiPeople.length);
 
-      const existingRows = await prisma.vCPerson.findMany({
-        where: { firm_id: firm.id, deleted_at: null },
-      });
+      const existingRows = await sbGet<FirmInvestorRow>(
+        "firm_investors",
+        "id,firm_id,full_name,first_name,last_name,title,bio,email,avatar_url,linkedin_url,x_url,medium_url,substack_url,website_url,city,state,country,stage_focus,sector_focus,personal_thesis_tags,background_summary",
+        `&firm_id=eq.${firm.id}&deleted_at=is.null`
+      );
       const byId = new Map(existingRows.map((p) => [p.id, p]));
 
       // --- Process AI-extracted people (richer data) ---
@@ -1704,20 +1756,30 @@ async function main() {
             updates.investment_themes = mergedThemes;
           }
 
+          // Drop fields not in firm_investors (team_page_scraped_at, investment_themes → personal_thesis_tags)
+          delete (updates as Record<string, unknown>).team_page_scraped_at;
+          if (aiThemes.length) {
+            const existing2 = (existingAi.personal_thesis_tags ?? []) as string[];
+            updates.personal_thesis_tags = uniq([...existing2, ...aiThemes]).slice(0, 20);
+          }
+
           if (!cfg.dryRun) {
-            const u = await prisma.vCPerson.update({ where: { id: existingAi.id }, data: updates });
-            byId.set(u.id, u);
+            await sbPatch("firm_investors", existingAi.id, updates);
+            byId.set(existingAi.id, { ...existingAi, ...updates } as FirmInvestorRow);
           }
           stats.updatedPeople += 1;
 
-          // Upsert vc_signals for new articles
           if (!cfg.dryRun) {
-            await upsertArticleSignals(prisma, firm.id, existingAi.id, newArticles, `${ap.first_name} ${ap.last_name}`);
+            await upsertArticleSignals(firm.id, existingAi.id, newArticles, `${ap.first_name} ${ap.last_name}`);
           }
         } else {
           const aiCreateLoc = ap.location ? parseLocation(ap.location) : {};
-          const createData = {
+          const portfolioSummary = ap.portfolio_companies?.length
+            ? `Portfolio: ${ap.portfolio_companies.slice(0, 15).join(", ")}`
+            : null;
+          const createData: Record<string, unknown> = {
             firm_id: firm.id,
+            full_name: `${ap.first_name.trim()} ${ap.last_name.trim()}`,
             first_name: ap.first_name.trim(),
             last_name: ap.last_name.trim(),
             title: ap.title ?? null,
@@ -1733,18 +1795,16 @@ async function main() {
             country: aiCreateLoc.country ?? null,
             stage_focus: parseStageFocusFromStrings(ap.investment_stages ?? []),
             sector_focus: parseSectorFocusFromStrings(ap.investment_sectors ?? []),
-            investment_themes: aiThemes,
-            articles: mergedArticles.length > 0 ? mergedArticles : undefined,
-            background_summary: ap.portfolio_companies?.length
-              ? `Portfolio: ${ap.portfolio_companies.slice(0, 15).join(", ")}`
-              : null,
-            team_page_scraped_at: new Date(),
+            personal_thesis_tags: aiThemes.length > 0 ? aiThemes : null,
+            background_summary: portfolioSummary,
           };
 
           if (!cfg.dryRun) {
-            const created = await prisma.vCPerson.create({ data: createData });
-            byId.set(created.id, created);
-            await upsertArticleSignals(prisma, firm.id, created.id, newArticles, `${ap.first_name} ${ap.last_name}`);
+            const created = await sbPost<FirmInvestorRow>("firm_investors", createData);
+            if (created) {
+              byId.set(created.id, created);
+              await upsertArticleSignals(firm.id, created.id, newArticles, `${ap.first_name} ${ap.last_name}`);
+            }
           }
           stats.createdPeople += 1;
         }
@@ -1762,7 +1822,6 @@ async function main() {
           const updates: Record<string, unknown> = { team_page_scraped_at: new Date() };
 
           if (shouldReplace(existing.title, p.title, cfg.overwrite)) updates.title = p.title;
-          if (shouldReplace(existing.role, p.role, cfg.overwrite)) updates.role = p.role;
           if (shouldReplace(existing.bio, p.bio, cfg.overwrite)) updates.bio = p.bio;
           if (shouldReplace(existing.email, p.email, cfg.overwrite)) updates.email = p.email;
           if (shouldReplace(existing.linkedin_url, p.linkedinUrl, cfg.overwrite)) updates.linkedin_url = p.linkedinUrl;
@@ -1808,8 +1867,11 @@ async function main() {
           }
 
           if (!cfg.dryRun) {
-            const updated = await prisma.vCPerson.update({ where: { id: existing.id }, data: updates });
-            byId.set(updated.id, updated);
+            // Drop fields not present in firm_investors
+            delete (updates as Record<string, unknown>).team_page_scraped_at;
+            delete (updates as Record<string, unknown>).role;
+            await sbPatch("firm_investors", existing.id, updates);
+            byId.set(existing.id, { ...existing, ...updates } as FirmInvestorRow);
           }
           stats.updatedPeople += 1;
           continue;
@@ -1822,12 +1884,12 @@ async function main() {
         }
 
         const hCreateLoc = p.location ? parseLocation(p.location) : {};
-        const createData = {
+        const createData: Record<string, unknown> = {
           firm_id: firm.id,
+          full_name: `${first} ${last}`,
           first_name: first,
           last_name: last,
           title: p.title || null,
-          role: p.role || p.title || null,
           bio: p.bio || null,
           email: p.email || null,
           linkedin_url: p.linkedinUrl || null,
@@ -1842,13 +1904,12 @@ async function main() {
           stage_focus: p.investmentStages,
           sector_focus: p.investmentSectors,
           background_summary: compileBackground(null, p) || null,
-          personal_thesis_tags: thesisTags,
-          team_page_scraped_at: new Date(),
+          personal_thesis_tags: thesisTags.length > 0 ? thesisTags : null,
         };
 
         if (!cfg.dryRun) {
-          const created = await prisma.vCPerson.create({ data: createData });
-          byId.set(created.id, created);
+          const created = await sbPost<FirmInvestorRow>("firm_investors", createData);
+          if (created) byId.set(created.id, created);
         }
         stats.createdPeople += 1;
       }
@@ -1866,8 +1927,6 @@ async function main() {
   console.log(
     `[team-sync] extractedPeople=${stats.extractedPeople} updatedPeople=${stats.updatedPeople} createdPeople=${stats.createdPeople} skippedPeople=${stats.skippedPeople}`,
   );
-
-  await prisma.$disconnect();
 }
 
 main().catch(async (err) => {

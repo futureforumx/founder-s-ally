@@ -2685,7 +2685,9 @@ export function CommunityView({
                   )
                     ? selectedInvestor._firmId.trim()
                     : null,
-                websiteUrl: selectedInvestor._websiteUrl ?? null,
+                /** Panel reads `logo_url`; directory cards use `_logoUrl` (+ VC JSON match). */
+                logo_url: selectedInvestor._logoUrl ?? selectedVCFirm?.logo_url ?? null,
+                websiteUrl: selectedInvestor._websiteUrl ?? selectedVCFirm?.website_url ?? null,
               }
             : null
         }

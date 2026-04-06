@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { BarChart3, Handshake, Link2, UserCog, Sparkles, TrendingUp, Zap, Gauge, Swords } from "lucide-react";
+import { BarChart3, Handshake, Link2, UserCog, TrendingUp, Zap, Gauge, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -344,7 +344,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             <PopoverTrigger asChild>
               <button
                 type="button"
-                aria-label="VEKTA Aurora — coming soon"
+                aria-label="VEKTA Vyta — coming soon"
                 aria-haspopup="dialog"
                 aria-expanded={agentPopoverOpen}
                 onPointerEnter={() => {
@@ -354,17 +354,36 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
                 onPointerLeave={scheduleAgentPopoverClose}
                 onClick={onAgentClick}
                 className={cn(
-                  "group relative flex w-full min-w-0 items-center gap-2 rounded-[6px] py-[5px] pl-[6px] pr-[6px] text-left",
-                  "whitespace-nowrap bg-transparent text-[10px] font-medium uppercase leading-none tracking-[0.04em]",
-                  "text-white/[0.67] transition-[background-color,color] duration-150 ease-out",
-                  "hover:bg-white/[0.045] hover:text-white/[0.8]",
+                  "group relative flex w-full min-w-0 items-center justify-center gap-2 rounded-[6px] py-[5px] pl-[6px] pr-[6px]",
+                  "whitespace-nowrap bg-transparent text-[11px] font-semibold uppercase leading-none tracking-[0.07em]",
+                  "text-white/[0.67] transition-[background-color,color,filter] duration-150 ease-out",
+                  "hover:bg-white/[0.045] hover:text-white/[0.82]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a667ff]/22",
                 )}
               >
                 <span className={NAV_ICON_COL}>
-                  <Sparkles className="h-[17px] w-[17px] stroke-[1.6] text-[#c4b0e8] opacity-[0.7] transition-[color,opacity] duration-150 ease-out group-hover:opacity-[0.88] group-hover:text-[#d4c4f0]" />
+                  <img
+                    src="/brand/vyta-mark.svg"
+                    alt=""
+                    width={17}
+                    height={17}
+                    className={cn(
+                      "h-[17px] w-[17px] shrink-0 object-contain",
+                      "invert drop-shadow-[0_0_5px_rgba(196,176,232,0.35)]",
+                      "animate-aurora-icon-pulse will-change-[transform,opacity]",
+                      "motion-reduce:animate-none motion-reduce:opacity-[0.85]",
+                    )}
+                  />
                 </span>
-                Aurora
+                <span
+                  className={cn(
+                    "shrink-0 text-center",
+                    "animate-aurora-text-pulse will-change-[color,text-shadow]",
+                    "motion-reduce:animate-none motion-reduce:text-white/[0.67] motion-reduce:[text-shadow:none]",
+                  )}
+                >
+                  Vyta
+                </span>
               </button>
             </PopoverTrigger>
             <PopoverContent
@@ -377,16 +396,16 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
             >
               <div className="flex flex-col items-center gap-3 text-center">
                 <img
-                  src="/brand/vekta-aurora-logo.png"
+                  src="/brand/vyta-logo.svg"
                   alt=""
-                  width={56}
-                  height={56}
-                  className="h-14 w-auto object-contain"
+                  width={200}
+                  height={84}
+                  className="h-14 w-auto max-w-full object-contain dark:invert"
                 />
                 <p className="text-xs leading-relaxed text-popover-foreground">
-                  VEKTA Aurora is coming soon.{" "}
+                  VEKTA Vyta is coming soon.{" "}
                   <a
-                    href="https://tryvekta.com/aurora"
+                    href="https://tryvekta.com/vyta"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"

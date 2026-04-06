@@ -5,6 +5,8 @@ import {
   hasAdminConsoleAccess,
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
+import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
+import { clerkListAllUsers, clerkUserToListedAuthFields } from "../_shared/clerk-backend.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,28 +42,24 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is admin via user_roles table
-    const userClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
-    if (authError || !caller) throw new Error("Unauthorized");
+    const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseKey);
+    if ("error" in resolved) throw new Error(resolved.error);
 
-    // Check user_roles table for admin/god permission
     const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("permission")
-      .eq("user_id", caller.id)
-      .maybeSingle();
+    const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
+    const { data: roleRows } = await adminClient.from("user_roles").select("permission").in("user_id", roleIds);
+    let roleFromDb: AppPermission | null = null;
+    for (const row of roleRows ?? []) {
+      roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
+    }
 
     const callerPermission = clampGodModeToDesignatedEmail(
       highestPermission(
-        asPermission(roleData?.permission),
-        asPermission(caller.user_metadata?.role),
-        autoPermissionForEmail(caller.email),
+        roleFromDb,
+        asPermission(resolved.user_metadata?.role),
+        autoPermissionForEmail(resolved.email),
       ),
-      caller.email,
+      resolved.email,
     );
 
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
@@ -83,18 +81,50 @@ Deno.serve(async (req) => {
     const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
     const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
 
-    let authUsers: { id: string; email?: string | null; last_sign_in_at?: string | null; created_at?: string; user_metadata?: Record<string, unknown> }[] = [];
-    const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-    if (listError) {
-      console.error("[admin-list-users] auth.admin.listUsers:", listError.message);
+    const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
+
+    type ListedUser = {
+      id: string;
+      email?: string | null;
+      last_sign_in_at?: string | null;
+      created_at?: string;
+      user_metadata?: Record<string, unknown>;
+      image_url?: string | null;
+    };
+
+    let authUsers: ListedUser[] = [];
+
+    if (clerkSecret) {
+      try {
+        const clerkUsers = await clerkListAllUsers(clerkSecret);
+        authUsers = clerkUsers.map(clerkUserToListedAuthFields);
+      } catch (e) {
+        console.error("[admin-list-users] Clerk list:", (e as Error).message);
+        throw new Error(
+          "Failed to list users from Clerk. Check CLERK_SECRET_KEY matches your Clerk instance (test vs live).",
+        );
+      }
     } else {
-      authUsers = listData?.users ?? [];
+      console.warn(
+        "[admin-list-users] CLERK_SECRET_KEY unset — falling back to Supabase auth.users + profiles (empty when using Clerk-only auth).",
+      );
+      const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      if (listError) {
+        console.error("[admin-list-users] auth.admin.listUsers:", listError.message);
+      } else {
+        authUsers = (listData?.users ?? []) as ListedUser[];
+      }
     }
+
     const authById = new Map(authUsers.map((u) => [u.id, u]));
 
     const idSet = new Set<string>();
-    for (const p of profiles || []) idSet.add(p.user_id);
-    for (const u of authUsers) idSet.add(u.id);
+    if (clerkSecret) {
+      for (const u of authUsers) idSet.add(u.id);
+    } else {
+      for (const p of profiles || []) idSet.add(p.user_id);
+      for (const u of authUsers) idSet.add(u.id);
+    }
 
     const enrichedUsers = [...idSet].map((id) => {
       const profile = profileMap.get(id);
@@ -107,7 +137,7 @@ Deno.serve(async (req) => {
         last_sign_in_at: u?.last_sign_in_at ?? null,
         created_at: u?.created_at ?? profile?.created_at ?? new Date(0).toISOString(),
         full_name: profile?.full_name || meta?.full_name || "",
-        avatar_url: profile?.avatar_url ?? null,
+        avatar_url: profile?.avatar_url ?? u?.image_url ?? null,
         user_type: profile?.user_type ?? "founder",
         title: profile?.title ?? null,
         linkedin_url: profile?.linkedin_url ?? null,

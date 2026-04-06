@@ -1,8 +1,8 @@
 /**
  * enrich-firms-brandfetch.ts
  *
- * Enriches firm_records using the Brandfetch v2 API:
- *   - logo_url        (best quality logo, uploaded to R2)
+ * Enriches firm_records using the Brandfetch v2 API (logo.dev fallback):
+ *   - logo_url        (Brandfetch best quality → logo.dev fallback, uploaded to R2)
  *   - description
  *   - total_headcount / headcount
  *   - founded_year
@@ -57,6 +57,8 @@ const SECRET_KEY    = e("CF_R2_SECRET_ACCESS_KEY");
 const ENDPOINT      = e("CF_R2_ENDPOINT", `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`);
 const BUCKET        = e("CF_R2_BUCKET_LOGOS", "investor-logos");
 const PUB_BASE      = e("CF_R2_PUBLIC_BASE_LOGOS", "").replace(/\/$/, "");
+
+const LOGO_DEV_TOKEN = e("LOGO_DEV_TOKEN");
 
 const DRY_RUN     = eBool("BRANDFETCH_DRY_RUN");
 const FORCE       = eBool("BRANDFETCH_FORCE");
@@ -212,50 +214,76 @@ async function processFirm(
   if (!domain) { console.log(`${pfx} ✗ no domain: ${firm.firm_name}`); return "skipped"; }
 
   const brand = await fetchBrandfetch(domain);
-  if (!brand) { console.log(`${pfx} ✗ not found: ${firm.firm_name} (${domain})`); return "no_data"; }
 
   const patch: Record<string, unknown> = {};
 
   // ── Logo ──────────────────────────────────────────────────────────────────
   if (!firm.logo_url || FORCE) {
-    const best = pickBestLogo(brand.logos);
-    if (best) {
-      const key = `${firm.id}${extFromCt(best.format)}`;
-      const exists = !DRY_RUN && await objectExists(key);
-      if (exists) {
-        patch.logo_url = r2Url(key);
-      } else {
-        const img = await downloadImage(best.src);
-        if (img) {
+    // Try Brandfetch logo first (if brand data available)
+    if (brand) {
+      const best = pickBestLogo(brand.logos);
+      if (best) {
+        const key = `${firm.id}${extFromCt(best.format)}`;
+        const exists = !DRY_RUN && await objectExists(key);
+        if (exists) {
+          patch.logo_url = r2Url(key);
+        } else {
+          const img = await downloadImage(best.src);
+          if (img) {
+            await uploadR2(key, img.data, img.contentType);
+            patch.logo_url = r2Url(key);
+          }
+        }
+      }
+    }
+    // Fallback: logo.dev (runs when Brandfetch is unavailable, rate-limited, or had no logo)
+    if (!patch.logo_url && LOGO_DEV_TOKEN) {
+      const logoDevUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN}&size=200`;
+      const img = await downloadImage(logoDevUrl);
+      if (img) {
+        const key = `${firm.id}${extFromCt(img.contentType)}`;
+        const exists = !DRY_RUN && await objectExists(key);
+        if (exists) {
+          patch.logo_url = r2Url(key);
+        } else {
           await uploadR2(key, img.data, img.contentType);
           patch.logo_url = r2Url(key);
         }
+        console.log(`${pfx} ✓ logo.dev: ${firm.firm_name}`);
       }
     }
   }
 
-  // ── Text fields ───────────────────────────────────────────────────────────
-  if ((!firm.description || FORCE) && brand.description)
-    patch.description = brand.description;
-
-  if ((!firm.total_headcount || FORCE) && brand.employees)
-    patch.total_headcount = brand.employees;
-
-  if ((!firm.headcount || FORCE) && brand.employees)
-    patch.headcount = String(brand.employees);
-
-  if ((!firm.founded_year || FORCE) && brand.foundedYear)
-    patch.founded_year = brand.foundedYear;
-
-  // ── Social links ──────────────────────────────────────────────────────────
-  const links = extractLinks(brand.links || []);
-  for (const [col, url] of Object.entries(links)) {
-    if (!firm[col] || FORCE) patch[col] = url;
+  // If Brandfetch had no data at all and logo.dev also got nothing, bail out
+  if (!brand && !patch.logo_url) {
+    console.log(`${pfx} ✗ not found: ${firm.firm_name} (${domain})`);
+    return "no_data";
   }
 
-  // ── Website (canonical) ───────────────────────────────────────────────────
-  if (!firm.website_url && brand.domain)
-    patch.website_url = `https://${brand.domain}`;
+  // ── Text fields (Brandfetch only) ────────────────────────────────────────
+  if (brand) {
+    if ((!firm.description || FORCE) && brand.description)
+      patch.description = brand.description;
+
+    if ((!firm.total_headcount || FORCE) && brand.employees)
+      patch.total_headcount = brand.employees;
+
+    if ((!firm.headcount || FORCE) && brand.employees)
+      patch.headcount = String(brand.employees);
+
+    if ((!firm.founded_year || FORCE) && brand.foundedYear)
+      patch.founded_year = brand.foundedYear;
+
+    // ── Social links ────────────────────────────────────────────────────────
+    const links = extractLinks(brand.links || []);
+    for (const [col, url] of Object.entries(links)) {
+      if (!firm[col] || FORCE) patch[col] = url;
+    }
+
+    // ── Website (canonical) ──────────────────────────────────────────────────
+    if (!firm.website_url && brand.domain)
+      patch.website_url = `https://${brand.domain}`;
+  }
 
   if (Object.keys(patch).length === 0) {
     console.log(`${pfx} — already complete: ${firm.firm_name}`);
