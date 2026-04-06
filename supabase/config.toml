@@ -1,4 +1,4 @@
-project_id = "fuxzlmporikuhotzcqyc"
+project_id = "zmnlsdohtwztneamvwaq"
 
 [functions.audit-deck]
 verify_jwt = false
@@ -43,4 +43,21 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-login-otp]
+verify_jwt = false
+
+# ── Vyta KB + Agent Backend (feature-flagged, not yet production) ──
+
+[functions.kb-notes]
+verify_jwt = false
+
+[functions.kb-documents]
+verify_jwt = false
+
+[functions.kb-search]
+verify_jwt = false
+
+[functions.kb-entity-context]
+verify_jwt = false
+
+[functions.kb-agent-actions]
 verify_jwt = false
