@@ -1,11 +1,5 @@
 project_id = "zmnlsdohtwztneamvwaq"
 
-# Local PostgREST + Clerk (only if you use `supabase start` and hit local API with real Clerk JWTs):
-# https://supabase.com/docs/guides/auth/third-party/clerk#configure-for-local-development-or-self-hosting
-# [auth.third_party.clerk]
-# enabled = true
-# domain = "your-instance.clerk.accounts.dev"
-
 [functions.audit-deck]
 verify_jwt = false
 
@@ -19,12 +13,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.market-updates]
-verify_jwt = false
-
-[functions.investor-updates]
-verify_jwt = false
-
-[functions.refresh-firm-news]
 verify_jwt = false
 
 [functions.sync-investor-data]
@@ -57,61 +45,19 @@ verify_jwt = false
 [functions.send-login-otp]
 verify_jwt = false
 
-[functions.investor-waitlist]
+# ── Vyta KB + Agent Backend (feature-flagged, not yet production) ──
+
+[functions.kb-notes]
 verify_jwt = false
 
-[functions.research-agent]
+[functions.kb-documents]
 verify_jwt = false
 
-[functions.create-company-workspace]
+[functions.kb-search]
 verify_jwt = false
 
-[functions.claim-company-workspace]
+[functions.kb-entity-context]
 verify_jwt = false
 
-# Saves vc_ratings with service role; verifies caller via Clerk session JWT (resolveEdgeUserId).
-[functions.submit-vc-rating]
-verify_jwt = false
-
-[functions.complete-founder-onboarding]
-verify_jwt = false
-
-# Clerk third-party JWTs are not verified by the Edge gateway — functions enforce auth in code.
-[functions.admin-list-users]
-verify_jwt = false
-
-[functions.admin-record-updates]
-verify_jwt = false
-
-[functions.admin-update-permission]
-verify_jwt = false
-
-[functions.export-csv]
-verify_jwt = false
-
-[functions.investor-compatibility]
-verify_jwt = false
-
-[functions.manage-competitors]
-verify_jwt = false
-
-[functions.polar-checkout]
-verify_jwt = false
-
-[functions.search-companies]
-verify_jwt = false
-
-[functions.sync-company-linkedin]
-verify_jwt = false
-
-[functions.sync-linkedin-profile]
-verify_jwt = false
-
-[functions.sync-x-profile]
-verify_jwt = false
-
-[functions.intelligence-feed]
-verify_jwt = false
-
-[functions.intelligence-pipeline]
+[functions.kb-agent-actions]
 verify_jwt = false
