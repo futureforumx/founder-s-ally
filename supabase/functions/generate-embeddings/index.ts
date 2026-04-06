@@ -71,38 +71,73 @@ serve(async (req) => {
 
     let processed = 0;
     let failed = 0;
-    const batchSize = 20;
+    // Embedding API batch: 20 parallel requests to the AI gateway
+    const embeddingBatchSize = 20;
     const errors: string[] = [];
 
-    for (let i = 0; i < firmsToProcess.length; i += batchSize) {
-      const batch = firmsToProcess.slice(i, i + batchSize);
+    // Accumulate all (id, embedding) pairs in memory, then write in one RPC call
+    // Previously: one UPDATE per firm (N individual round-trips to the DB).
+    // Now:  N parallel embedding fetches → one RPC batch update per chunk.
+    for (let i = 0; i < firmsToProcess.length; i += embeddingBatchSize) {
+      const batch = firmsToProcess.slice(i, i + embeddingBatchSize);
 
-      const results = await Promise.allSettled(
+      // Fetch embeddings in parallel (unchanged — this is already efficient)
+      const embeddingResults = await Promise.allSettled(
         batch.map(async (firm) => {
           const sectorText = firm.sectors.join(", ");
           const embedding = await getEmbedding(sectorText, LOVABLE_API_KEY);
-
-          const { error: updateError } = await supabase
-            .from("firm_records")
-            .update({ sector_embedding: JSON.stringify(embedding) } as any)
-            .eq("id", firm.id);
-
-          if (updateError) {
-            throw new Error(`Update failed for ${firm.id}: ${updateError.message}`);
-          }
+          return { id: firm.id, embedding };
         })
       );
 
-      for (const r of results) {
-        if (r.status === "fulfilled") processed++;
-        else {
+      // Separate successes from failures
+      const successRows: { id: string; embedding: number[] }[] = [];
+      for (const r of embeddingResults) {
+        if (r.status === "fulfilled") {
+          successRows.push(r.value);
+        } else {
           failed++;
           errors.push(r.reason?.message || "Unknown error");
         }
       }
 
-      // Small delay between batches to avoid rate limits
-      if (i + batchSize < firmsToProcess.length) {
+      // ── Single RPC call to batch-update all embeddings in this chunk ──
+      // Uses the `batch_update_sector_embeddings` SQL function (see migration
+      // 20260404_batch_embedding_update.sql) which accepts a JSONB array and
+      // executes one UPDATE ... FROM jsonb_array_elements() internally.
+      if (successRows.length > 0) {
+        const { error: rpcError } = await supabase.rpc(
+          "batch_update_sector_embeddings",
+          {
+            updates: successRows.map((r) => ({
+              id: r.id,
+              embedding: r.embedding,
+            })),
+          }
+        );
+
+        if (rpcError) {
+          // Fall back to individual updates so a single RPC failure doesn't drop the whole batch
+          console.warn(`[batch_update_sector_embeddings] RPC failed: ${rpcError.message} — falling back to per-row updates`);
+          for (const row of successRows) {
+            const { error: updateError } = await supabase
+              .from("firm_records")
+              .update({ sector_embedding: JSON.stringify(row.embedding) } as any)
+              .eq("id", row.id);
+            if (updateError) {
+              failed++;
+              errors.push(`Update failed for ${row.id}: ${updateError.message}`);
+            } else {
+              processed++;
+            }
+          }
+        } else {
+          processed += successRows.length;
+        }
+      }
+
+      // Small delay between chunks to avoid rate limits on the embedding API
+      if (i + embeddingBatchSize < firmsToProcess.length) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }

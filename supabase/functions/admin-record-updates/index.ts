@@ -5,6 +5,7 @@ import {
   hasAdminConsoleAccess,
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
+import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -144,26 +145,24 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
-    if (authError || !caller) throw new Error("Unauthorized");
+    const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseKey);
+    if ("error" in resolved) throw new Error(resolved.error);
 
     const adminClient = createClient(supabaseUrl, serviceKey);
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("permission")
-      .eq("user_id", caller.id)
-      .maybeSingle();
+    const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
+    const { data: roleRows } = await adminClient.from("user_roles").select("permission").in("user_id", roleIds);
+    let roleFromDb: AppPermission | null = null;
+    for (const row of roleRows ?? []) {
+      roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
+    }
 
     const callerPermission = clampGodModeToDesignatedEmail(
       highestPermission(
-        asPermission(roleData?.permission),
-        asPermission(caller.user_metadata?.role),
-        autoPermissionForEmail(caller.email),
+        roleFromDb,
+        asPermission(resolved.user_metadata?.role),
+        autoPermissionForEmail(resolved.email),
       ),
-      caller.email,
+      resolved.email,
     );
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 

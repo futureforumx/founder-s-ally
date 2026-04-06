@@ -226,9 +226,9 @@ function parseInvestorEdge(edge: any): SignalInvestor {
     firm_name: firm.name || null,
     firm_slug: firm.slug || null,
     firm_website: null,  // not available in list query
-    locations: [...new Set(locations)],
-    stage_focus: [...new Set(stageFocus)],
-    sector_focus: [...new Set(sectorFocus)],
+    locations: [...new Set(locations)] as string[],
+    stage_focus: [...new Set(stageFocus)] as string[],
+    sector_focus: [...new Set(sectorFocus)] as string[],
     signal_nfx_url: `https://signal.nfx.com/investors/${person.slug}`,
     profile_id: node.id,
     firm_id_signal: firm.id || null,

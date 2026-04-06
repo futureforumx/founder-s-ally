@@ -41,7 +41,7 @@
   {
     "id": "4",
     "slug": "analytics-seed",
-    "investor_count": 1597,
+    "investor_count": 1596,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -145,7 +145,7 @@
   {
     "id": "5509",
     "slug": "constructiontech-seed",
-    "investor_count": 440,
+    "investor_count": 441,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -158,7 +158,7 @@
   {
     "id": "11",
     "slug": "consumer-health-seed",
-    "investor_count": 2267,
+    "investor_count": 2266,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -210,7 +210,7 @@
   {
     "id": "5554",
     "slug": "cybersecurity-seed",
-    "investor_count": 1555,
+    "investor_count": 1554,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -236,7 +236,7 @@
   {
     "id": "6094",
     "slug": "deeptech-seed",
-    "investor_count": 1455,
+    "investor_count": 1454,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -249,7 +249,7 @@
   {
     "id": "7956",
     "slug": "defensetech-seed",
-    "investor_count": 89,
+    "investor_count": 88,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -301,7 +301,7 @@
   {
     "id": "5734",
     "slug": "direct-to-consumer-dtc-seed",
-    "investor_count": 404,
+    "investor_count": 405,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -327,7 +327,7 @@
   {
     "id": "17",
     "slug": "e-commerce-seed",
-    "investor_count": 3366,
+    "investor_count": 3365,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -366,7 +366,7 @@
   {
     "id": "5779",
     "slug": "enterprise-applications-seed",
-    "investor_count": 2212,
+    "investor_count": 2213,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -431,7 +431,7 @@
   {
     "id": "23",
     "slug": "fintech-seed",
-    "investor_count": 8777,
+    "investor_count": 8776,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -444,7 +444,7 @@
   {
     "id": "24",
     "slug": "food-and-beverage-seed",
-    "investor_count": 1579,
+    "investor_count": 1578,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -509,7 +509,7 @@
   {
     "id": "7543",
     "slug": "generative-tech-seed",
-    "investor_count": 585,
+    "investor_count": 584,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -535,7 +535,7 @@
   {
     "id": "27",
     "slug": "govtech-seed",
-    "investor_count": 228,
+    "investor_count": 229,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -574,7 +574,7 @@
   {
     "id": "29",
     "slug": "health-it-seed",
-    "investor_count": 4801,
+    "investor_count": 4800,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -639,7 +639,7 @@
   {
     "id": "5914",
     "slug": "legaltech-seed",
-    "investor_count": 246,
+    "investor_count": 247,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -717,7 +717,7 @@
   {
     "id": "37",
     "slug": "marketplaces-seed",
-    "investor_count": 3196,
+    "investor_count": 3197,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -860,7 +860,7 @@
   {
     "id": "47",
     "slug": "saas-seed",
-    "investor_count": 5774,
+    "investor_count": 5775,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -925,7 +925,7 @@
   {
     "id": "50",
     "slug": "smb-software-seed",
-    "investor_count": 1588,
+    "investor_count": 1589,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -977,7 +977,7 @@
   {
     "id": "7389",
     "slug": "supply-chain-tech-seed",
-    "investor_count": 451,
+    "investor_count": 452,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -1055,7 +1055,7 @@
   {
     "id": "6004",
     "slug": "wellness-fitness-seed",
-    "investor_count": 793,
+    "investor_count": 792,
     "stage": "seed",
     "location": null,
     "vertical": {
@@ -1094,7 +1094,7 @@
   {
     "id": "61",
     "slug": "ai-series-a",
-    "investor_count": 3658,
+    "investor_count": 3657,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1107,7 +1107,7 @@
   {
     "id": "63",
     "slug": "analytics-series-a",
-    "investor_count": 940,
+    "investor_count": 939,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1224,7 +1224,7 @@
   {
     "id": "77",
     "slug": "consumer-health-series-a",
-    "investor_count": 1621,
+    "investor_count": 1620,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1276,7 +1276,7 @@
   {
     "id": "5569",
     "slug": "cybersecurity-series-a",
-    "investor_count": 1253,
+    "investor_count": 1252,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1302,7 +1302,7 @@
   {
     "id": "6109",
     "slug": "deeptech-series-a",
-    "investor_count": 1151,
+    "investor_count": 1150,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1315,7 +1315,7 @@
   {
     "id": "7981",
     "slug": "defensetech-series-a",
-    "investor_count": 89,
+    "investor_count": 88,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1393,7 +1393,7 @@
   {
     "id": "89",
     "slug": "e-commerce-series-a",
-    "investor_count": 2169,
+    "investor_count": 2168,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1497,7 +1497,7 @@
   {
     "id": "101",
     "slug": "fintech-series-a",
-    "investor_count": 6623,
+    "investor_count": 6622,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1510,7 +1510,7 @@
   {
     "id": "103",
     "slug": "food-and-beverage-series-a",
-    "investor_count": 1135,
+    "investor_count": 1134,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -1575,7 +1575,7 @@
   {
     "id": "7564",
     "slug": "generative-tech-series-a",
-    "investor_count": 382,
+    "investor_count": 381,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -2121,7 +2121,7 @@
   {
     "id": "6019",
     "slug": "wellness-fitness-series-a",
-    "investor_count": 506,
+    "investor_count": 505,
     "stage": "series_a",
     "location": null,
     "vertical": {
@@ -2173,7 +2173,7 @@
   {
     "id": "64",
     "slug": "analytics-series-b",
-    "investor_count": 387,
+    "investor_count": 386,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -2290,7 +2290,7 @@
   {
     "id": "78",
     "slug": "consumer-health-series-b",
-    "investor_count": 681,
+    "investor_count": 680,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -2381,7 +2381,7 @@
   {
     "id": "8006",
     "slug": "defensetech-series-b",
-    "investor_count": 89,
+    "investor_count": 88,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -2459,7 +2459,7 @@
   {
     "id": "90",
     "slug": "e-commerce-series-b",
-    "investor_count": 995,
+    "investor_count": 994,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -2576,7 +2576,7 @@
   {
     "id": "104",
     "slug": "food-and-beverage-series-b",
-    "investor_count": 508,
+    "investor_count": 507,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -3187,7 +3187,7 @@
   {
     "id": "6034",
     "slug": "wellness-fitness-series-b",
-    "investor_count": 201,
+    "investor_count": 200,
     "stage": "series_b",
     "location": null,
     "vertical": {
@@ -3278,7 +3278,7 @@
   {
     "id": "171",
     "slug": "diverse",
-    "investor_count": 2318,
+    "investor_count": 2319,
     "stage": "other",
     "location": null,
     "vertical": {
@@ -3291,7 +3291,7 @@
   {
     "id": "172",
     "slug": "female",
-    "investor_count": 1174,
+    "investor_count": 1175,
     "stage": "other",
     "location": null,
     "vertical": {
@@ -3356,7 +3356,7 @@
   {
     "id": "5407",
     "slug": "midwest",
-    "investor_count": 1026,
+    "investor_count": 1027,
     "stage": "other",
     "location": null,
     "vertical": {
@@ -3369,7 +3369,7 @@
   {
     "id": "183",
     "slug": "new-york-city",
-    "investor_count": 4309,
+    "investor_count": 4308,
     "stage": "other",
     "location": null,
     "vertical": {
@@ -3395,7 +3395,7 @@
   {
     "id": "188",
     "slug": "san-francisco-bay-area",
-    "investor_count": 8251,
+    "investor_count": 8250,
     "stage": "other",
     "location": null,
     "vertical": {
@@ -3460,7 +3460,7 @@
   {
     "id": "187",
     "slug": "who-were-founders",
-    "investor_count": 2900,
+    "investor_count": 2902,
     "stage": "other",
     "location": null,
     "vertical": {

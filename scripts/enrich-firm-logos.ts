@@ -87,9 +87,21 @@ const s3 = new S3Client({
 const SB = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" };
 
 async function sbGet<T>(table: string, select: string, extra = ""): Promise<T[]> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=20000${extra}`, { headers: SB });
-  if (!res.ok) throw new Error(`GET ${table}: ${res.status} ${await res.text()}`);
-  return res.json();
+  const PAGE = 1000;
+  const all: T[] = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=${PAGE}&offset=${offset}${extra}`,
+      { headers: { ...SB, Prefer: "count=none" } },
+    );
+    if (!res.ok) throw new Error(`GET ${table}: ${res.status} ${await res.text()}`);
+    const page: T[] = await res.json();
+    all.push(...page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 async function sbPatch(table: string, id: string, patch: Record<string, string | null>): Promise<void> {

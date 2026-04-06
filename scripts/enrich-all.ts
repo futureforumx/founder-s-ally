@@ -282,6 +282,35 @@ async function sbUpsert(
   return res.ok;
 }
 
+/**
+ * Bulk upsert: sends a single POST with an array of rows instead of one call per row.
+ * This collapses N individual round-trips into a single PostgREST call, dramatically
+ * reducing write IO on high-churn tables like firm_investors.
+ */
+async function sbBulkUpsert(
+  table: string,
+  rows: Record<string, any>[],
+  onConflict?: string
+): Promise<boolean> {
+  if (!rows.length) return true;
+  if (DRY_RUN) {
+    console.log(`    [DRY RUN] Would bulk-upsert ${rows.length} rows into ${table} (conflict on: ${onConflict ?? "none"})`);
+    return true;
+  }
+  const conflictParam = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : "";
+  const prefer = onConflict ? `resolution=merge-duplicates,return=minimal` : "return=minimal";
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${conflictParam}`, {
+    method: "POST",
+    headers: { ...SB_HEADERS, Prefer: prefer },
+    body: JSON.stringify(rows),  // array → PostgREST bulk insert in one roundtrip
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.warn(`    ✗ sbBulkUpsert FAILED for ${table} ${rows.length} rows (HTTP ${res.status}): ${errBody.slice(0, 200)}`);
+  }
+  return res.ok;
+}
+
 // ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
@@ -1649,25 +1678,25 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
         console.log(`    Deals → ${result.recent_deals.length} recent deals`);
       }
 
-      // Step 6: Upsert partners as firm_investors
+      // Step 6: Bulk-upsert partners as firm_investors.
+      // Previously: one sbUpsert call per partner (O(n) round-trips per firm).
+      // Now: single POST with the full partner array (1 round-trip regardless of partner count).
       if (result.current_partners?.length) {
-        for (const name of result.current_partners) {
-          const nameParts = name.trim().split(/\s+/);
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ") || "";
-
-          // Pass onConflict so PostgREST performs UPDATE on duplicate (firm_id, full_name) pairs
-          // instead of failing/inserting a duplicate row.
-          await sbUpsert("firm_investors", {
+        const now = new Date().toISOString();
+        const partnerRows = result.current_partners.map((name) => {
+          const parts = name.trim().split(/\s+/);
+          return {
             firm_id: firm.id,
             full_name: name.trim(),
-            first_name: firstName,
-            last_name: lastName,
+            first_name: parts[0] || "",
+            last_name: parts.slice(1).join(" ") || "",
             is_active: true,
-            updated_at: new Date().toISOString(),
-          }, "firm_id,full_name");
-        }
-        console.log(`    Partners → ${result.current_partners.length} investors`);
+            updated_at: now,
+          };
+        });
+        // Single PostgREST call with the full array — conflict on (firm_id, full_name)
+        await sbBulkUpsert("firm_investors", partnerRows, "firm_id,full_name");
+        console.log(`    Partners → ${result.current_partners.length} investors (1 bulk call)`);
       }
 
       enriched++;

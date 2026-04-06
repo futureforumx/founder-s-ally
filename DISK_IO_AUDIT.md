@@ -1,5 +1,5 @@
-# Supabase Disk IO Audit — Vekta App
-**Date:** 2026-04-03
+# Disk IO Audit — Vekta App
+**Date:** 2026-04-04 (fully resolved)
 **Project:** `zmnlsdohtwztneamvwaq` (vekta, us-east-1)
 **Trigger:** "Your project is about to deplete its Disk IO Budget"
 

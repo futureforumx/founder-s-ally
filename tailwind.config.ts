@@ -268,6 +268,22 @@ export default {
           "0%": { transform: "translateX(-150%)" },
           "100%": { transform: "translateX(400%)" },
         },
+        /** Sidebar Vyta trigger — slow opacity/scale breathe (no filter keyframes: avoids img flicker) */
+        "aurora-icon-pulse": {
+          "0%, 100%": { opacity: "0.82", transform: "scale(1)" },
+          "50%": { opacity: "1", transform: "scale(1.035)" },
+        },
+        "aurora-text-pulse": {
+          "0%, 100%": {
+            color: "rgba(255, 255, 255, 0.66)",
+            textShadow: "0 0 6px rgba(196, 176, 232, 0.22), 0 0 14px rgba(166, 103, 255, 0.1)",
+          },
+          "50%": {
+            color: "rgba(255, 255, 255, 0.88)",
+            textShadow:
+              "0 0 8px rgba(196, 176, 232, 0.32), 0 0 18px rgba(166, 103, 255, 0.22)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -284,6 +300,8 @@ export default {
         "drop-in": "drop-in 0.3s ease-out forwards",
         "shake": "shake 0.4s ease-in-out",
         "shimmer": "shimmer 2.5s linear infinite",
+        "aurora-icon-pulse": "aurora-icon-pulse 5.5s ease-in-out infinite",
+        "aurora-text-pulse": "aurora-text-pulse 5.5s ease-in-out 0.25s infinite",
       },
     },
   },

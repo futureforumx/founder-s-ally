@@ -56,7 +56,7 @@ export function AdminRecordUpdates() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await invokeEdgeFunction("admin-record-updates");
+      const { data, error } = await invokeEdgeFunction("admin-record-updates", { preferClerkSessionToken: true });
       if (error) {
         let detail = error.message;
         const ctx = (error as { context?: Response }).context;

@@ -6,6 +6,8 @@ import {
   isGodModeEmail,
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
+import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
+import { clerkGetUser, clerkPrimaryEmail } from "../_shared/clerk-backend.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,28 +43,25 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
-    if (authError || !caller) throw new Error("Unauthorized");
+    const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseKey);
+    if ("error" in resolved) throw new Error(resolved.error);
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Verify caller is admin/god
-    const { data: callerRole } = await adminClient
-      .from("user_roles")
-      .select("permission")
-      .eq("user_id", caller.id)
-      .maybeSingle();
+    const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
+    const { data: roleRows } = await adminClient.from("user_roles").select("permission").in("user_id", roleIds);
+    let roleFromDb: AppPermission | null = null;
+    for (const row of roleRows ?? []) {
+      roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
+    }
 
     const callerPermission = clampGodModeToDesignatedEmail(
       highestPermission(
-        asPermission(callerRole?.permission),
-        asPermission(caller.user_metadata?.role),
-        autoPermissionForEmail(caller.email),
+        roleFromDb,
+        asPermission(resolved.user_metadata?.role),
+        autoPermissionForEmail(resolved.email),
       ),
-      caller.email,
+      resolved.email,
     );
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 
@@ -72,8 +71,17 @@ Deno.serve(async (req) => {
     }
 
     const { data: targetUserData, error: targetUserError } = await adminClient.auth.admin.getUserById(target_user_id);
-    if (targetUserError || !targetUserData?.user) throw new Error("Target user not found");
-    const targetEmail = targetUserData.user.email;
+    let targetEmail: string | null = targetUserData?.user?.email ?? null;
+    if (targetUserError || !targetEmail) {
+      const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
+      if (!clerkSecret) {
+        throw new Error("Target user not found (set CLERK_SECRET_KEY to manage Clerk users)");
+      }
+      const clerkUser = await clerkGetUser(clerkSecret, target_user_id);
+      if (!clerkUser) throw new Error("Target user not found");
+      targetEmail = clerkPrimaryEmail(clerkUser);
+      if (!targetEmail) throw new Error("Target user has no email in Clerk");
+    }
 
     // GOD MODE is reserved for one user.
     if (permission === "god" && !isGodModeEmail(targetEmail)) {
@@ -95,10 +103,12 @@ Deno.serve(async (req) => {
 
     if (upsertError) throw upsertError;
 
-    // Also update user_metadata for legacy compatibility
-    await adminClient.auth.admin.updateUserById(target_user_id, {
-      user_metadata: { role: permission === "user" ? "user" : permission },
-    });
+    // Supabase Auth row (legacy); skip when the ID is Clerk-only.
+    if (!targetUserError && targetUserData?.user) {
+      await adminClient.auth.admin.updateUserById(target_user_id, {
+        user_metadata: { role: permission === "user" ? "user" : permission },
+      });
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

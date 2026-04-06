@@ -1,6 +1,17 @@
 import { supabase, getSupabaseBearerForFunctions, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
 
 type InvokeOptions = NonNullable<Parameters<typeof supabase.functions.invoke>[1]>;
+
+/** Extra options for {@link invokeEdgeFunction}. */
+export type InvokeEdgeFunctionOptions = InvokeOptions & {
+  /**
+   * Use Clerk session JWT first (`sub` = `user_…`) so `user_roles` and other Clerk-keyed rows match.
+   * Default uses `getSupabaseBearerForFunctions()` which prefers the Clerk **supabase** template
+   * (often `sub` = Supabase UUID) — that breaks admin RBAC keyed by Clerk id.
+   */
+  preferClerkSessionToken?: boolean;
+};
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 
@@ -20,20 +31,23 @@ function publishableKey(): string {
  */
 export async function invokeEdgeFunction(
   name: string,
-  options?: InvokeOptions
+  options?: InvokeEdgeFunctionOptions,
 ) {
+  const { preferClerkSessionToken, ...rest } = options ?? {};
   if (!isSupabaseConfigured) {
-    return supabase.functions.invoke(name, options);
+    return supabase.functions.invoke(name, rest);
   }
-  const bearer = await getSupabaseBearerForFunctions();
+  const bearer =
+    preferClerkSessionToken === true
+      ? await getEdgeFunctionAuthToken()
+      : await getSupabaseBearerForFunctions();
   const anonKey = publishableKey();
-  const base = options ?? {};
-  const mergedHeaders = headersToRecord(base.headers);
+  const mergedHeaders = headersToRecord(rest.headers);
   if (bearer) mergedHeaders.Authorization = `Bearer ${bearer}`;
   if (anonKey && mergedHeaders.apikey == null) mergedHeaders.apikey = anonKey;
   return supabase.functions.invoke(name, {
-    ...base,
+    ...rest,
     headers: mergedHeaders,
-    timeout: base.timeout ?? DEFAULT_TIMEOUT_MS,
+    timeout: rest.timeout ?? DEFAULT_TIMEOUT_MS,
   });
 }
