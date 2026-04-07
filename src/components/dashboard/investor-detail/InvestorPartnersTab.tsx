@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ArrowUpRight, User } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { investorPersonImageUrl } from "@/components/ui/investor-person-avatar";
 import type { VCPerson, VCFirm } from "@/hooks/useVCDirectory";
 
 interface InvestorPartnersTabProps {
@@ -35,6 +36,9 @@ export function InvestorPartnersTab({ firmId, firmName, partners, onSelectPerson
               className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-accent/40 hover:shadow-sm transition-all group"
             >
               <Avatar className="h-12 w-12 border border-border shrink-0">
+                {investorPersonImageUrl(p.profile_image_url, p.avatar_url) && (
+                  <AvatarImage src={investorPersonImageUrl(p.profile_image_url, p.avatar_url)!} alt={p.full_name} />
+                )}
                 <AvatarFallback className="text-sm font-bold bg-secondary text-muted-foreground">
                   {p.full_name.split(" ").map(n => n[0]).join("")}
                 </AvatarFallback>

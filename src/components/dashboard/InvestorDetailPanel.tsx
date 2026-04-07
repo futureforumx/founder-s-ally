@@ -60,6 +60,8 @@ function investorPartnerToVCPerson(p: InvestorPartner, firmId: string): VCPerson
     first_name: parts[0] ?? null,
     last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
     is_active: p.is_active,
+    avatar_url: p.avatar_url ?? null,
+    profile_image_url: p.avatar_url ?? null,
   } as VCPerson;
 }
 

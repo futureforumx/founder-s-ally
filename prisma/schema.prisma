@@ -403,7 +403,11 @@ model VCPerson {
   title          String?
   role           String?
   bio            String? @db.Text
-  avatar_url     String?
+  avatar_url              String?
+  avatar_source_url       String?
+  avatar_source_type      String?
+  avatar_last_verified_at DateTime?
+  avatar_confidence       Float?
 
   email        String?
   phone        String?

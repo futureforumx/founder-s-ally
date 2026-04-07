@@ -7,6 +7,7 @@ export interface InvestorPartner {
   full_name: string;
   title: string | null;
   is_active: boolean;
+  avatar_url: string | null;
 }
 
 export interface FirmDeal {
@@ -86,8 +87,8 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
         .eq("id", firmId)
         .maybeSingle(),
       supabase
-        .from("investor_partners")
-        .select("id, full_name, title, is_active")
+        .from("firm_investors")
+        .select("id, full_name, title, is_active, avatar_url")
         .eq("firm_id", firmId)
         .order("full_name"),
       supabase

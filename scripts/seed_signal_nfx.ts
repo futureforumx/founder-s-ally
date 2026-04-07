@@ -18,6 +18,11 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient, type FirmType, type SourceType } from "@prisma/client";
+import {
+  fetchAndUploadHeadshot,
+  isThirdPartyAvatarUrl,
+  validateCanonicalAvatarUrl,
+} from "./lib/r2-headshots";
 
 const INVESTORS_URL = "https://signal.nfx.com/investors";
 const UA =
@@ -270,14 +275,41 @@ async function main() {
       },
     });
 
+    // Canonicalize avatar: upload third-party URL to R2
+    let canonicalAvatarUrl: string | null = null;
+    const sourceAvatarUrl = row.avatar_url;
+    if (sourceAvatarUrl) {
+      const personId = existing?.id ?? `${row.firm_slug}_${row.person_slug}`;
+      try {
+        const upload = await fetchAndUploadHeadshot(sourceAvatarUrl, personId, { skipIfExists: true });
+        if (upload.success && upload.r2_url) {
+          canonicalAvatarUrl = upload.r2_url;
+        } else {
+          console.warn(`  avatar upload failed for ${row.person_name}: ${upload.error}`);
+        }
+      } catch (e) {
+        console.warn(`  avatar upload error for ${row.person_name}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+
     const pData = {
       title: null as string | null,
-      avatar_url: row.avatar_url,
+      avatar_url: canonicalAvatarUrl,
+      avatar_source_url: sourceAvatarUrl,
+      avatar_source_type: "signal_nfx" as string,
+      avatar_last_verified_at: canonicalAvatarUrl ? new Date() : null,
+      avatar_confidence: canonicalAvatarUrl ? 0.8 : null,
       website_url: row.investor_profile_url,
     };
 
     if (existing) {
-      await prisma.vCPerson.update({ where: { id: existing.id }, data: pData });
+      // Only overwrite avatar if we got a new R2 URL, or existing is third-party
+      const updateData = { ...pData };
+      if (!canonicalAvatarUrl && existing.avatar_url && !isThirdPartyAvatarUrl(existing.avatar_url)) {
+        // Keep existing canonical avatar if new upload failed
+        delete (updateData as Record<string, unknown>).avatar_url;
+      }
+      await prisma.vCPerson.update({ where: { id: existing.id }, data: updateData });
     } else {
       await prisma.vCPerson.create({
         data: {

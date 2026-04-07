@@ -24,6 +24,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
+import { validateCanonicalAvatarUrl } from "./lib/r2-headshots";
 
 // ---------------------------------------------------------------------------
 // Config & env loading
@@ -285,6 +286,17 @@ async function syncPeople(byPrismaId: Map<string, string>) {
         byPersonId.get(person.id) ??
         byFirmName.get(`${supabaseFirmId}::${normalizeName(fullName)}`);
 
+      // Validate avatar_url is canonical (R2) — refuse to sync third-party URLs
+      const avatarUrl = person.avatar_url ?? null;
+      const avatarValidation = validateCanonicalAvatarUrl(avatarUrl);
+      if (avatarValidation) {
+        // Avatar is third-party or malformed — don't propagate it to Supabase
+        // The backfill script should fix these
+        if (avatarUrl) {
+          console.warn(`  ⚠ ${fullName}: avatar_url rejected (${avatarValidation}), not syncing avatar`);
+        }
+      }
+
       const payload = {
         prisma_person_id: person.id,
         firm_id: supabaseFirmId,
@@ -294,7 +306,11 @@ async function syncPeople(byPrismaId: Map<string, string>) {
         preferred_name: person.preferred_name ?? null,
         title: person.title ?? null,
         is_active: person.is_actively_investing,
-        avatar_url: person.avatar_url ?? null,
+        avatar_url: avatarValidation ? null : avatarUrl,
+        avatar_source_url: person.avatar_source_url ?? null,
+        avatar_source_type: person.avatar_source_type ?? null,
+        avatar_last_verified_at: person.avatar_last_verified_at?.toISOString() ?? null,
+        avatar_confidence: person.avatar_confidence ?? null,
         bio: person.bio ?? null,
         email: person.email ?? null,
         phone: person.phone ?? null,
