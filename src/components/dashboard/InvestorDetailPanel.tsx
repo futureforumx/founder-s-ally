@@ -690,7 +690,13 @@ export function InvestorDetailPanel({
 
                     {activeTab === "Activity" && (
                       <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
-                        <ActivityDashboard firmName={effectiveInvestor.name} companySector={companyData?.sector || undefined} />
+                        <ActivityDashboard
+                          firmName={effectiveInvestor.name}
+                          firmDisplayName={liveProfile?.firm_name ?? effectiveInvestor.name}
+                          firmRecordsId={(liveProfile?.source === "live" ? liveProfile.id : null) ?? null}
+                          companySector={companyData?.sector || undefined}
+                          deals={liveProfile?.source === "live" ? liveProfile.deals : undefined}
+                        />
                       </motion.div>
                     )}
 
@@ -728,6 +734,8 @@ export function InvestorDetailPanel({
                           portfolioLoading={liveLoading && !liveProfile}
                           leadPartnerName={liveProfile?.lead_partner}
                           partnerNamesLower={partnerNamesLower}
+                          firmRecordsId={(liveProfile?.source === "live" ? liveProfile.id : null) ?? null}
+                          firmDisplayName={liveProfile?.firm_name ?? effectiveInvestor.name}
                           onInvestorClick={(name) => {
                             const match = mergedPartners.find(
                               (p) => p.full_name.toLowerCase() === name.toLowerCase()

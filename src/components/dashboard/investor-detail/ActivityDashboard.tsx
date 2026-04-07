@@ -1,119 +1,329 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, ExternalLink, TrendingUp, TrendingDown, Minus, Pause, Play, ArrowUpDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2 } from "lucide-react";
+import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import type { FirmDeal } from "@/hooks/useInvestorProfile";
 
-interface DealMonth {
-  month: string;
-  seed: number;
-  seriesA: number;
-  other: number;
-  details: string;
-  // Sector breakdown
-  saas: number;
-  fintech: number;
-  health: number;
-  sectorDetails: string;
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface FundRecord {
+  id: string;
+  fund_name: string;
+  fund_status?: string | null;
+  vintage_year?: number | null;
+  size_usd?: number | null;
+  actively_deploying?: boolean | null;
+  deployed_pct?: number | null;
+  strategy?: string | null;
 }
 
-interface RecentDeal {
-  company: string;
-  initial: string;
-  domain?: string;
-  description: string;
-  amount: string;
-  stage: string;
-  role: string;
-  date: string;
-  sector: string;
+interface DealRow {
+  id: string;
+  firm_id: string;
+  company_name: string;
+  amount: string | null;
+  stage: string | null;
+  date_announced: string | null;
+  created_at: string;
 }
 
 interface ActivityDashboardProps {
   firmName: string;
+  firmDisplayName?: string | null;
+  firmRecordsId?: string | null;
   companySector?: string;
+  /** Pre-loaded deals from liveProfile — supplements DB query */
+  deals?: FirmDeal[] | null;
 }
 
-const DEAL_MONTHS: DealMonth[] = [
-  { month: "Apr", seed: 2, seriesA: 0, other: 1, saas: 1, fintech: 1, health: 1, details: "Led 2 Pre-Seed, 1 Bridge", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
-  { month: "May", seed: 3, seriesA: 1, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 3 Seed, participated 1 Series A", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
-  { month: "Jun", seed: 1, seriesA: 1, other: 1, saas: 1, fintech: 1, health: 1, details: "Led 1 Seed, 1 Series A, 1 Growth", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
-  { month: "Jul", seed: 4, seriesA: 0, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 4 Seed rounds", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
-  { month: "Aug", seed: 2, seriesA: 2, other: 0, saas: 1, fintech: 2, health: 1, details: "Led 2 Seed, participated 2 Series A", sectorDetails: "1 SaaS, 2 Fintech, 1 Health" },
-  { month: "Sep", seed: 3, seriesA: 1, other: 1, saas: 2, fintech: 2, health: 1, details: "Led 3 Seed, 1 Series A, 1 Bridge", sectorDetails: "2 SaaS, 2 Fintech, 1 Health" },
-  { month: "Oct", seed: 5, seriesA: 1, other: 0, saas: 3, fintech: 1, health: 2, details: "Led 5 Seed, participated 1 Series A", sectorDetails: "3 SaaS, 1 Fintech, 2 Health" },
-  { month: "Nov", seed: 2, seriesA: 2, other: 1, saas: 2, fintech: 1, health: 2, details: "Led 2 Seed, 2 Series A, 1 SPV", sectorDetails: "2 SaaS, 1 Fintech, 2 Health" },
-  { month: "Dec", seed: 3, seriesA: 0, other: 0, saas: 1, fintech: 1, health: 1, details: "Led 3 Seed rounds", sectorDetails: "1 SaaS, 1 Fintech, 1 Health" },
-  { month: "Jan", seed: 4, seriesA: 2, other: 1, saas: 3, fintech: 2, health: 2, details: "Led 4 Seed, 2 Series A, 1 Bridge", sectorDetails: "3 SaaS, 2 Fintech, 2 Health" },
-  { month: "Feb", seed: 3, seriesA: 1, other: 0, saas: 2, fintech: 1, health: 1, details: "Led 3 Seed, participated 1 Series A", sectorDetails: "2 SaaS, 1 Fintech, 1 Health" },
-  { month: "Mar", seed: 5, seriesA: 2, other: 1, saas: 3, fintech: 2, health: 3, details: "Led 5 Seed, 2 Series A, 1 Growth", sectorDetails: "3 SaaS, 2 Fintech, 3 Health" },
-];
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-const RECENT_DEALS: RecentDeal[] = [
-  { company: "NovaBuild", initial: "N", domain: "procore.com", description: "B2B SaaS for Construction", amount: "$4M", stage: "Seed", role: "Led Round", date: "Mar 2026", sector: "PropTech" },
-  { company: "Synthara Bio", initial: "S", domain: "modernatx.com", description: "AI drug discovery platform", amount: "$12M", stage: "Series A", role: "Co-led", date: "Feb 2026", sector: "Biotech" },
-  { company: "GridShift", initial: "G", domain: "tesla.com", description: "Smart grid optimization", amount: "$8M", stage: "Series A", role: "Led Round", date: "Jan 2026", sector: "Climate" },
-  { company: "CodeVault", initial: "C", domain: "github.com", description: "Developer security tooling", amount: "$1.5M", stage: "Pre-Seed", role: "Participated", date: "Dec 2025", sector: "DevTools" },
-];
+const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
-type SortField = "date" | "stage" | "sector";
-type SortDir = "asc" | "desc";
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const STAGE_ORDER: Record<string, number> = { "Pre-Seed": 0, "Seed": 1, "Series A": 2, "Series B": 3, "Series C": 4 };
-
-const MONTH_ORDER: Record<string, number> = {
-  "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-  "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
-};
-
-function parseDateValue(d: string): number {
-  const parts = d.split(" ");
-  const month = MONTH_ORDER[parts[0]] || 0;
-  const year = parseInt(parts[1] || "2025", 10);
-  return year * 100 + month;
+function fmtUsd(n: number | null | undefined): string {
+  if (n == null) return "—";
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
 }
 
-function sortDeals(deals: RecentDeal[], field: SortField, dir: SortDir): RecentDeal[] {
-  return [...deals].sort((a, b) => {
-    let cmp = 0;
-    if (field === "date") cmp = parseDateValue(a.date) - parseDateValue(b.date);
-    else if (field === "stage") cmp = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
-    else cmp = a.sector.localeCompare(b.sector);
-    return dir === "desc" ? -cmp : cmp;
+function parseAmountUsd(amount: string | null): number | null {
+  if (!amount) return null;
+  const lower = amount.toLowerCase().replace(/[,\s]/g, "");
+  const multiplier = lower.includes("billion") || /\db$/.test(lower) ? 1e9
+    : lower.includes("million") || lower.includes("mn") || /\dm$/.test(lower) ? 1e6
+    : lower.includes("thousand") || /\dk$/.test(lower) ? 1e3
+    : 1;
+  const num = parseFloat(lower.replace(/[^0-9.]/g, ""));
+  return isNaN(num) ? null : num * multiplier;
+}
+
+function inferStage(amount: string | null): "Pre-Seed" | "Seed" | "Series A" | "Series B+" | null {
+  const usd = parseAmountUsd(amount);
+  if (usd == null) return null;
+  if (usd < 1_500_000) return "Pre-Seed";
+  if (usd < 8_000_000) return "Seed";
+  if (usd < 30_000_000) return "Series A";
+  return "Series B+";
+}
+
+function dealDate(d: DealRow): Date {
+  return new Date(d.date_announced ?? d.created_at);
+}
+
+/** Build a 12-month rolling array ending at the current month */
+function buildMonthBuckets(deals: DealRow[]): { label: string; count: number; stages: Record<string, number> }[] {
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth(); // 0-indexed
+    const matching = deals.filter((deal) => {
+      const dt = dealDate(deal);
+      return dt.getFullYear() === year && dt.getMonth() === month;
+    });
+    const stages: Record<string, number> = {};
+    matching.forEach((deal) => {
+      const s = inferStage(deal.amount) ?? "Unknown";
+      stages[s] = (stages[s] ?? 0) + 1;
+    });
+    return { label: MONTH_LABELS[month], count: matching.length, stages };
   });
 }
 
-const stageColor = (stage: string) => {
-  if (stage.toLowerCase().includes("seed") || stage.toLowerCase().includes("pre-seed")) return "bg-success/15 text-success border-success/20";
-  if (stage.toLowerCase().includes("series a")) return "bg-accent/15 text-accent border-accent/20";
-  return "bg-muted text-muted-foreground border-border";
-};
+const STAGE_ORDER: Record<string, number> = { "Pre-Seed": 0, "Seed": 1, "Series A": 2, "Series B+": 3 };
 
-export function ActivityDashboard({ firmName, companySector }: ActivityDashboardProps) {
+// ── Data hooks ───────────────────────────────────────────────────────────────
+
+function useActiveFund(firmRecordsId: string | null, firmDisplayName: string | null) {
+  return useQuery<FundRecord | null>({
+    queryKey: ["activity-active-fund", firmRecordsId, firmDisplayName?.toLowerCase()],
+    queryFn: async () => {
+      let resolvedId = firmRecordsId?.trim() ?? null;
+      if (!resolvedId && firmDisplayName?.trim()) {
+        const { data: fr } = await DB
+          .from("firm_records")
+          .select("id")
+          .ilike("firm_name", firmDisplayName.trim())
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        resolvedId = (fr as { id: string } | null)?.id ?? null;
+      }
+      if (!resolvedId) return null;
+
+      const { data, error } = await DB
+        .from("fund_records")
+        .select("id, fund_name, fund_status, vintage_year, size_usd, actively_deploying, deployed_pct, strategy")
+        .eq("firm_id", resolvedId)
+        .is("deleted_at", null)
+        .order("vintage_year", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return (data as FundRecord | null) ?? null;
+    },
+    enabled: Boolean((firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    retry: false,
+  });
+}
+
+function useRecentDeals(firmRecordsId: string | null, firmDisplayName: string | null) {
+  return useQuery<DealRow[]>({
+    queryKey: ["activity-deals", firmRecordsId, firmDisplayName?.toLowerCase()],
+    queryFn: async () => {
+      let resolvedId = firmRecordsId?.trim() ?? null;
+      if (!resolvedId && firmDisplayName?.trim()) {
+        const { data: fr } = await DB
+          .from("firm_records")
+          .select("id")
+          .ilike("firm_name", firmDisplayName.trim())
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        resolvedId = (fr as { id: string } | null)?.id ?? null;
+      }
+      if (!resolvedId) return [];
+      const { data, error } = await DB
+        .from("firm_recent_deals")
+        .select("id, firm_id, company_name, amount, stage, date_announced, created_at")
+        .eq("firm_id", resolvedId)
+        .order("date_announced", { ascending: false, nullsFirst: false });
+      if (error) return [];
+      return (data ?? []) as DealRow[];
+    },
+    enabled: Boolean((firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    retry: false,
+  });
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function CurrentFundCard({ fund, loading }: { fund: FundRecord | null | undefined; loading: boolean }) {
+  const pct = fund?.deployed_pct ?? null;
+  const radius = 28;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDash = pct != null ? (Math.min(pct, 100) / 100) * circumference : 0;
+  const isDeploying = fund?.actively_deploying === true;
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
+        <Skeleton className="h-[68px] w-[68px] rounded-full shrink-0" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!fund) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
+        <div className="shrink-0 h-[68px] w-[68px] rounded-full border border-border/60 flex items-center justify-center bg-secondary/30">
+          <Landmark className="h-5 w-5 text-muted-foreground/40" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Current Fund</p>
+          <p className="text-sm font-semibold text-muted-foreground">No fund data</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">Not yet synced from VC directory</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
+      <div className="shrink-0 relative">
+        <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
+          <circle cx="34" cy="34" r={radius} fill="none" stroke="hsl(var(--border))" strokeWidth="5" />
+          {pct != null && (
+            <circle
+              cx="34" cy="34" r={radius}
+              fill="none"
+              stroke={isDeploying ? "hsl(var(--success))" : "hsl(var(--muted-foreground))"}
+              strokeWidth="5"
+              strokeDasharray={`${strokeDash} ${circumference}`}
+              strokeLinecap="round"
+              className="transition-all duration-700"
+            />
+          )}
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">
+          {pct != null ? `${pct.toFixed(0)}%` : "—"}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Current Fund</p>
+        <p className="text-sm font-bold text-foreground leading-tight truncate">{fund.fund_name}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {fund.vintage_year ? `Vintage ${fund.vintage_year} · ` : ""}
+          {fund.size_usd ? `${fmtUsd(fund.size_usd)} · ` : ""}
+          {pct != null ? `Est. ${pct.toFixed(0)}% Deployed` : "Deployment data pending"}
+        </p>
+        {isDeploying && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+            </span>
+            <span className="text-[10px] font-semibold text-success">Actively Writing Checks</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+
+export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, companySector, deals: dealsProp }: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const [autoCycle, setAutoCycle] = useState(true);
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
-  const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
   const [focusAutoCycle, setFocusAutoCycle] = useState(true);
-  const [sortField, setSortField] = useState<SortField>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const sortedDeals = useMemo(() => sortDeals(RECENT_DEALS, sortField, sortDir), [sortField, sortDir]);
+  const { data: activeFund, isLoading: fundLoading } = useActiveFund(firmRecordsId ?? null, firmDisplayName ?? firmName);
+  const { data: dbDeals = [], isLoading: dealsLoading } = useRecentDeals(firmRecordsId ?? null, firmDisplayName ?? firmName);
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortField(field); setSortDir("desc"); }
-  };
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Merge DB deals with prop deals (prop deals may have more context)
+  const allDeals = useMemo((): DealRow[] => {
+    const db = dbDeals ?? [];
+    // If we have prop deals but no DB deals, convert prop deals to DealRow shape
+    if (db.length === 0 && dealsProp?.length) {
+      return dealsProp.map((d) => ({
+        id: d.id,
+        firm_id: "",
+        company_name: d.company_name,
+        amount: d.amount,
+        stage: d.stage,
+        date_announced: d.date_announced,
+        created_at: d.date_announced ?? new Date().toISOString(),
+      }));
+    }
+    return db;
+  }, [dbDeals, dealsProp]);
 
+  const buckets = useMemo(() => buildMonthBuckets(allDeals), [allDeals]);
+  const maxCount = useMemo(() => Math.max(...buckets.map((b) => b.count), 1), [buckets]);
+  const totalDeals = useMemo(() => allDeals.length, [allDeals]);
+
+  // Investment pace: last 6 months vs previous 6
+  const { pace, prevPace, trendPct, trendDir } = useMemo(() => {
+    const recent6 = buckets.slice(6).reduce((s, b) => s + b.count, 0);
+    const prev6 = buckets.slice(0, 6).reduce((s, b) => s + b.count, 0);
+    const currentPace = +(recent6 / 6).toFixed(1);
+    const previousPace = +(prev6 / 6).toFixed(1);
+    const change = previousPace > 0 ? Math.round(((currentPace - previousPace) / previousPace) * 100) : 0;
+    const dir: "up" | "down" | "flat" = change > 5 ? "up" : change < -5 ? "down" : "flat";
+    return { pace: currentPace, prevPace: previousPace, trendPct: Math.abs(change), trendDir: dir };
+  }, [buckets]);
+
+  // Stage distribution from real deal data
+  const stageBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allDeals.forEach((d) => {
+      const stage = inferStage(d.amount) ?? "Unknown";
+      counts[stage] = (counts[stage] ?? 0) + 1;
+    });
+    const total = Object.values(counts).reduce((s, n) => s + n, 0);
+    return Object.entries(counts)
+      .filter(([k]) => k !== "Unknown")
+      .sort((a, b) => (STAGE_ORDER[a[0]] ?? 99) - (STAGE_ORDER[b[0]] ?? 99))
+      .map(([stage, count]) => ({ stage, pct: total > 0 ? Math.round((count / total) * 100) : 0 }));
+  }, [allDeals]);
+
+  // Sector distribution from stage field (which holds company category)
+  const sectorBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allDeals.forEach((d) => {
+      const tag = d.stage?.trim();
+      if (tag) counts[tag] = (counts[tag] ?? 0) + 1;
+    });
+    const total = Object.values(counts).reduce((s, n) => s + n, 0);
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([sector, count]) => ({ sector, pct: total > 0 ? Math.round((count / total) * 100) : 0 }));
+  }, [allDeals]);
+
+  // Auto-cycle timers
   const startCycle = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setPaceView(v => v === "pace" ? "trend" : "pace");
-    }, 5000);
+    intervalRef.current = setInterval(() => setPaceView((v) => v === "pace" ? "trend" : "pace"), 5000);
   }, []);
-
   useEffect(() => {
     if (autoCycle) startCycle();
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -122,364 +332,303 @@ export function ActivityDashboard({ firmName, companySector }: ActivityDashboard
   useEffect(() => {
     if (focusAutoCycle) {
       if (focusIntervalRef.current) clearInterval(focusIntervalRef.current);
-      focusIntervalRef.current = setInterval(() => {
-        setFocusView(v => v === "stage" ? "sector" : "stage");
-      }, 5000);
+      focusIntervalRef.current = setInterval(() => setFocusView((v) => v === "stage" ? "sector" : "stage"), 5000);
     }
     return () => { if (focusIntervalRef.current) clearInterval(focusIntervalRef.current); };
   }, [focusAutoCycle]);
-  const maxTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.seed + m.seriesA + m.other)), []);
-  const maxSectorTotal = useMemo(() => Math.max(...DEAL_MONTHS.map(m => m.saas + m.fintech + m.health)), []);
-  const deployedPct = 40;
 
-  // Compute pace & trend from heatmap data
-  const { pace, prevPace, trendPct, trendDir } = useMemo(() => {
-    const recent6 = DEAL_MONTHS.slice(-6);
-    const prev6 = DEAL_MONTHS.slice(0, 6);
-    const recentTotal = recent6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
-    const prevTotal = prev6.reduce((s, m) => s + m.seed + m.seriesA + m.other, 0);
-    const currentPace = +(recentTotal / 6).toFixed(1);
-    const previousPace = +(prevTotal / 6).toFixed(1);
-    const change = previousPace > 0 ? Math.round(((currentPace - previousPace) / previousPace) * 100) : 0;
-    const dir: "up" | "down" | "flat" = change > 3 ? "up" : change < -3 ? "down" : "flat";
-    return { pace: currentPace, prevPace: previousPace, trendPct: Math.abs(change), trendDir: dir };
-  }, []);
+  // Stage color helpers
+  const STAGE_COLORS: Record<string, string> = {
+    "Pre-Seed": "bg-success/15 text-success",
+    "Seed": "bg-success/20 text-success",
+    "Series A": "bg-accent/15 text-accent",
+    "Series B+": "bg-primary/15 text-primary",
+  };
+  const SECTOR_COLORS = ["bg-primary/15 text-primary", "bg-warning/15 text-warning", "bg-destructive/15 text-destructive"];
 
-  // SVG circular progress
-  const radius = 28;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDash = (deployedPct / 100) * circumference;
+  const hasEnoughData = totalDeals > 0;
 
   return (
     <div className="space-y-4">
       {/* Row 1: Fund Pulse Bento */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Card 1: Fund Status */}
-        <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
-          <div className="shrink-0">
-            <svg width="68" height="68" viewBox="0 0 68 68" className="transform -rotate-90">
-              <circle cx="34" cy="34" r={radius} fill="none" stroke="hsl(var(--border))" strokeWidth="5" />
-              <circle
-                cx="34" cy="34" r={radius}
-                fill="none"
-                stroke="hsl(var(--success))"
-                strokeWidth="5"
-                strokeDasharray={`${strokeDash} ${circumference}`}
-                strokeLinecap="round"
-                className="transition-all duration-700"
-              />
-            </svg>
-            <span className="block text-center text-[10px] font-bold text-foreground mt-0.5">{deployedPct}%</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Current Fund</p>
-            <p className="text-sm font-bold text-foreground leading-tight">Fund III</p>
-            <p className="text-[10px] text-muted-foreground">Vintage 2024 · Est. 40% Deployed</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
-              </span>
-              <span className="text-[10px] font-semibold text-success">Actively Writing Checks</span>
-            </div>
-          </div>
-        </div>
 
+        {/* Card 1: Current Fund (live from fund_records) */}
+        <CurrentFundCard fund={activeFund} loading={fundLoading} />
+
+        {/* Card 2: Investment Pace (live from deal data) */}
         <div
           className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center items-center text-center relative overflow-hidden cursor-pointer select-none"
-          onClick={() => {
-            if (autoCycle) {
-              setAutoCycle(false);
-            } else {
-              setAutoCycle(true);
-            }
-          }}
+          onClick={() => setAutoCycle((v) => !v)}
         >
           <button
             className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setAutoCycle(v => !v);
-            }}
+            onClick={(e) => { e.stopPropagation(); setAutoCycle((v) => !v); }}
           >
             {autoCycle ? <Pause className="w-3 h-3 text-muted-foreground" /> : <Play className="w-3 h-3 text-muted-foreground" />}
           </button>
 
-          <AnimatePresence mode="wait">
-            {paceView === "pace" ? (
-              <motion.div
-                key="pace"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2 }}
-                className="flex flex-col items-center"
-              >
-                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Investment Pace</p>
-                <p className="text-4xl font-black text-foreground leading-none">{pace}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">New deals / month (6mo avg)</p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="trend"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2 }}
-                className="flex flex-col items-center"
-              >
-                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">6-Month Trend</p>
-                <div className={`flex items-center gap-1.5 ${
-                  trendDir === "up" ? "text-success" : trendDir === "down" ? "text-destructive" : "text-muted-foreground"
-                }`}>
-                  {trendDir === "up" && <TrendingUp className="w-6 h-6" />}
-                  {trendDir === "down" && <TrendingDown className="w-6 h-6" />}
-                  {trendDir === "flat" && <Minus className="w-6 h-6" />}
-                  <span className="text-3xl font-black leading-none">
-                    {trendDir === "flat" ? "0%" : `${trendDir === "up" ? "+" : "-"}${trendPct}%`}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">
-                  {prevPace} → {pace} deals/mo
-                </p>
-                <div className={`text-[9px] font-semibold mt-1 px-2 py-0.5 rounded-full ${
-                  trendDir === "up" ? "bg-success/10 text-success" : trendDir === "down" ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"
-                }`}>
-                  {trendDir === "up" ? "Accelerating" : trendDir === "down" ? "Decelerating" : "Steady pace"}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {dealsLoading ? (
+            <div className="space-y-2 w-full flex flex-col items-center">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-10 w-16" />
+              <Skeleton className="h-3 w-36" />
+            </div>
+          ) : !hasEnoughData ? (
+            <div className="flex flex-col items-center gap-1.5">
+              <BarChart2 className="h-6 w-6 text-muted-foreground/30" />
+              <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Investment Pace</p>
+              <p className="text-xs text-muted-foreground/60">No deal data recorded yet</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              {paceView === "pace" ? (
+                <motion.div key="pace" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2 }} className="flex flex-col items-center">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Investment Pace</p>
+                  <p className="text-4xl font-black text-foreground leading-none">{pace}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Deals / month (6mo avg)</p>
+                  <p className="text-[9px] text-muted-foreground/60 mt-0.5">{totalDeals} total deals tracked</p>
+                </motion.div>
+              ) : (
+                <motion.div key="trend" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2 }} className="flex flex-col items-center">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">6-Month Trend</p>
+                  <div className={`flex items-center gap-1.5 ${trendDir === "up" ? "text-success" : trendDir === "down" ? "text-destructive" : "text-muted-foreground"}`}>
+                    {trendDir === "up" && <TrendingUp className="w-6 h-6" />}
+                    {trendDir === "down" && <TrendingDown className="w-6 h-6" />}
+                    {trendDir === "flat" && <Minus className="w-6 h-6" />}
+                    <span className="text-3xl font-black leading-none">
+                      {trendDir === "flat" ? "0%" : `${trendDir === "up" ? "+" : "-"}${trendPct}%`}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{prevPace} → {pace} deals/mo</p>
+                  <div className={`text-[9px] font-semibold mt-1 px-2 py-0.5 rounded-full ${trendDir === "up" ? "bg-success/10 text-success" : trendDir === "down" ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"}`}>
+                    {trendDir === "up" ? "Accelerating" : trendDir === "down" ? "Decelerating" : "Steady pace"}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
 
-        {/* Card 3: Stage Bias */}
+        {/* Card 3: Stage / Sector Bias (computed from live deals) */}
         <div
           className="rounded-xl border border-border bg-card p-4 flex flex-col justify-center relative overflow-hidden cursor-pointer select-none"
-          onClick={() => setFocusAutoCycle(v => !v)}
+          onClick={() => setFocusAutoCycle((v) => !v)}
         >
           <button
             className="absolute top-2.5 right-2.5 p-1 rounded-md hover:bg-secondary transition-colors"
-            onClick={(e) => { e.stopPropagation(); setFocusAutoCycle(v => !v); }}
+            onClick={(e) => { e.stopPropagation(); setFocusAutoCycle((v) => !v); }}
           >
             {focusAutoCycle ? <Pause className="w-3 h-3 text-muted-foreground" /> : <Play className="w-3 h-3 text-muted-foreground" />}
           </button>
 
-          <AnimatePresence mode="wait">
-            {focusView === "stage" ? (
-              <motion.div
-                key="focus-stage"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2 }}
-              >
-                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Stage</p>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/15 text-success">70% Seed</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-accent/15 text-accent">30% Series A</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2">Based on last 6 months of activity</p>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="focus-sector"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.2 }}
-              >
-                <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Sector</p>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-primary/15 text-primary">45% SaaS</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-warning/15 text-warning">30% Fintech</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 text-destructive">25% Health</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2">Based on last 6 months of activity</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {dealsLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <div className="flex gap-2">
+                <Skeleton className="h-7 w-20 rounded-full" />
+                <Skeleton className="h-7 w-20 rounded-full" />
+              </div>
+            </div>
+          ) : !hasEnoughData ? (
+            <div>
+              <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus</p>
+              <p className="text-xs text-muted-foreground/60">Insufficient data</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              {focusView === "stage" ? (
+                <motion.div key="focus-stage" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2 }}>
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Stage</p>
+                  {stageBreakdown.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {stageBreakdown.map(({ stage, pct }) => (
+                        <span key={stage} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${STAGE_COLORS[stage] ?? "bg-muted text-muted-foreground"}`}>
+                          {pct}% {stage}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60">Stage data not available</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-2">Based on {totalDeals} recorded deal{totalDeals !== 1 ? "s" : ""}</p>
+                </motion.div>
+              ) : (
+                <motion.div key="focus-sector" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.2 }}>
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Focus · Sector</p>
+                  {sectorBreakdown.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {sectorBreakdown.map(({ sector, pct }, i) => (
+                        <span key={sector} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${SECTOR_COLORS[i] ?? "bg-muted text-muted-foreground"}`}>
+                          {pct > 0 ? `${pct}% ` : ""}{sector}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60">Sector data not available</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-2">Based on {totalDeals} recorded deal{totalDeals !== 1 ? "s" : ""}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
       </div>
 
-      {/* Row 2: Stacked Deal Heatmap */}
+      {/* Row 2: Deal Heatmap (live, by month) */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div>
               <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Deal Heatmap</p>
-              <p className="text-[10px] text-muted-foreground">12-month rolling activity</p>
+              <p className="text-[10px] text-muted-foreground">12-month rolling · {totalDeals} deal{totalDeals !== 1 ? "s" : ""} recorded</p>
             </div>
-            <div className="flex items-center bg-secondary rounded-lg p-0.5">
-              <button
-                onClick={() => setHeatmapMode("stage")}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                  heatmapMode === "stage"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Stage
-              </button>
-              <button
-                onClick={() => setHeatmapMode("sector")}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                  heatmapMode === "sector"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Sector
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
-            {heatmapMode === "stage" ? (
-              <>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-primary/60" /> SaaS</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-warning/60" /> Fintech</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-destructive/40" /> Health</span>
-              </>
+            {hasEnoughData && (
+              <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                <button
+                  onClick={() => setHeatmapMode("stage")}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${heatmapMode === "stage" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Stage
+                </button>
+                <button
+                  onClick={() => setHeatmapMode("sector")}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${heatmapMode === "sector" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Sector
+                </button>
+              </div>
             )}
           </div>
+          {hasEnoughData && (
+            <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-success/60" /> Seed</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent/60" /> Series A</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/30" /> Other</span>
+            </div>
+          )}
         </div>
-        <TooltipProvider delayDuration={0}>
+
+        {dealsLoading ? (
           <div className="flex items-end gap-1.5 h-24">
-            {DEAL_MONTHS.map((m) => {
-              if (heatmapMode === "stage") {
-                const total = m.seed + m.seriesA + m.other;
-                const seedH = (m.seed / maxTotal) * 100;
-                const seriesH = (m.seriesA / maxTotal) * 100;
-                const otherH = (m.other / maxTotal) * 100;
-                return (
-                  <Tooltip key={m.month}>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
-                        <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
-                        {m.other > 0 && (
-                          <div className="w-full rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />
-                        )}
-                        {m.seriesA > 0 && (
-                          <div className="w-full bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${seriesH}%` }} />
-                        )}
-                        {m.seed > 0 && (
-                          <div className={`w-full bg-success/40 group-hover:bg-success/60 transition-colors ${m.other === 0 && m.seriesA === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${seedH}%` }} />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
-                      <p className="font-bold">{m.month}: {total} deals</p>
-                      <p className="text-background/70">{m.details}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              } else {
-                const total = m.saas + m.fintech + m.health;
-                const saasH = (m.saas / maxSectorTotal) * 100;
-                const fintechH = (m.fintech / maxSectorTotal) * 100;
-                const healthH = (m.health / maxSectorTotal) * 100;
-                return (
-                  <Tooltip key={m.month}>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
-                        <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{total}</span>
-                        {m.health > 0 && (
-                          <div className="w-full rounded-t-sm bg-destructive/30 group-hover:bg-destructive/50 transition-colors" style={{ height: `${healthH}%` }} />
-                        )}
-                        {m.fintech > 0 && (
-                          <div className="w-full bg-warning/40 group-hover:bg-warning/60 transition-colors" style={{ height: `${fintechH}%` }} />
-                        )}
-                        {m.saas > 0 && (
-                          <div className={`w-full bg-primary/40 group-hover:bg-primary/60 transition-colors ${m.health === 0 && m.fintech === 0 ? 'rounded-t-sm' : ''} rounded-b-sm`} style={{ height: `${saasH}%` }} />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
-                      <p className="font-bold">{m.month}: {total} deals</p>
-                      <p className="text-background/70">{m.sectorDetails}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-            })}
-          </div>
-          <div className="flex gap-1.5 mt-1">
-            {DEAL_MONTHS.map((m) => (
-              <span key={m.month} className="flex-1 text-center text-[8px] text-muted-foreground">{m.month}</span>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <Skeleton key={i} className="flex-1 rounded-sm" style={{ height: `${20 + Math.random() * 60}%` }} />
             ))}
           </div>
-        </TooltipProvider>
+        ) : !hasEnoughData ? (
+          <div className="h-24 flex items-center justify-center">
+            <div className="text-center">
+              <BarChart2 className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground/50">Deal history data not yet available for {firmDisplayName ?? firmName}</p>
+            </div>
+          </div>
+        ) : (
+          <TooltipProvider delayDuration={0}>
+            <div className="flex items-end gap-1.5 h-24">
+              {buckets.map((b) => {
+                const seedCount = b.stages["Seed"] ?? 0;
+                const preCount = b.stages["Pre-Seed"] ?? 0;
+                const aCount = b.stages["Series A"] ?? 0;
+                const otherCount = b.count - seedCount - preCount - aCount;
+                const seedH = ((seedCount + preCount) / maxCount) * 100;
+                const aH = (aCount / maxCount) * 100;
+                const otherH = (Math.max(otherCount, 0) / maxCount) * 100;
+                return (
+                  <Tooltip key={b.label}>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 flex flex-col items-center justify-end cursor-pointer group" style={{ height: "100%" }}>
+                        {b.count > 0 && (
+                          <span className="text-[9px] font-bold text-muted-foreground mb-0.5 group-hover:text-foreground transition-colors">{b.count}</span>
+                        )}
+                        {otherH > 0 && <div className="w-full rounded-t-sm bg-muted-foreground/20 group-hover:bg-muted-foreground/40 transition-colors" style={{ height: `${otherH}%` }} />}
+                        {aH > 0 && <div className="w-full bg-accent/40 group-hover:bg-accent/60 transition-colors" style={{ height: `${aH}%` }} />}
+                        {seedH > 0 && <div className={`w-full bg-success/40 group-hover:bg-success/60 transition-colors ${otherH === 0 && aH === 0 ? "rounded-t-sm" : ""} rounded-b-sm`} style={{ height: `${seedH}%` }} />}
+                        {b.count === 0 && <div className="w-full rounded-sm bg-border/30" style={{ height: "4px" }} />}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-foreground text-background text-[10px] px-2.5 py-1.5 rounded-lg shadow-xl border-0 max-w-[200px]">
+                      <p className="font-bold">{b.label}: {b.count} deal{b.count !== 1 ? "s" : ""}</p>
+                      {b.count > 0 && (
+                        <p className="text-background/70">
+                          {Object.entries(b.stages).map(([s, n]) => `${n} ${s}`).join(", ")}
+                        </p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            <div className="flex gap-1.5 mt-1">
+              {buckets.map((b) => (
+                <span key={b.label} className="flex-1 text-center text-[8px] text-muted-foreground">{b.label}</span>
+              ))}
+            </div>
+          </TooltipProvider>
+        )}
       </div>
 
-      {/* Row 3: Recent Transactions — compact table */}
+      {/* Row 3: Recent Transactions (live from firm_recent_deals) */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Recent Transactions</p>
-          <div className="flex items-center gap-1">
-            {(["date", "stage", "sector"] as SortField[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => toggleSort(f)}
-                className={`flex items-center gap-0.5 text-[9px] uppercase font-bold px-2 py-1 rounded-md transition-colors ${
-                  sortField === f ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                }`}
-              >
-                {f}
-                {sortField === f && (
-                  <ArrowUpDown className="w-2.5 h-2.5" />
-                )}
-              </button>
-            ))}
-          </div>
+          {!hasEnoughData && !dealsLoading && (
+            <p className="text-[9px] text-muted-foreground/60">No transactions recorded</p>
+          )}
         </div>
         <div className="divide-y divide-border">
-          {sortedDeals.map((deal) => {
-            const sectorMatch = companySector && deal.sector.toLowerCase().includes(companySector.toLowerCase());
-            return (
-              <div key={deal.company} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0 overflow-hidden">
-                  <img
-                    src={`https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${deal.domain || 'example.com'}&size=64`}
-                    alt={deal.company}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      if (img.src.includes("gstatic")) {
-                        img.src = `https://www.google.com/s2/favicons?domain=${deal.domain || 'example.com'}&sz=64`;
-                      } else {
-                        img.style.display = 'none';
-                        const parent = img.parentElement;
-                        if (parent) {
-                          const span = document.createElement('span');
-                          span.textContent = deal.initial;
-                          parent.appendChild(span);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-foreground">{deal.company}</span>
-                    {sectorMatch && (
-                      <Sparkles className="h-2.5 w-2.5 text-warning" />
+          {dealsLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
+            ))
+          ) : !hasEnoughData ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-xs text-muted-foreground/50">Transaction history not yet available for {firmDisplayName ?? firmName}</p>
+            </div>
+          ) : (
+            allDeals.slice(0, 8).map((deal) => {
+              const stage = inferStage(deal.amount);
+              const dateStr = deal.date_announced
+                ? new Date(deal.date_announced).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                : new Date(deal.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+              const sectorMatch = companySector && deal.stage?.toLowerCase().includes(companySector.toLowerCase());
+              const initial = deal.company_name.charAt(0).toUpperCase();
+              const stageColor = stage === "Seed" || stage === "Pre-Seed"
+                ? "bg-success/15 text-success border-success/20"
+                : stage === "Series A"
+                  ? "bg-accent/15 text-accent border-accent/20"
+                  : "bg-muted text-muted-foreground border-border";
+
+              return (
+                <div key={deal.id} className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0">
+                    {initial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-foreground">{deal.company_name}</span>
+                      {sectorMatch && <span className="text-[8px] text-warning">★</span>}
+                    </div>
+                    {deal.stage && (
+                      <p className="text-[10px] text-muted-foreground truncate">{deal.stage}</p>
                     )}
                   </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0 w-16 text-center">{dateStr}</span>
+                  {deal.amount && (
+                    <span className="text-[10px] font-medium text-foreground shrink-0 w-14 text-right">{deal.amount}</span>
+                  )}
+                  {stage && (
+                    <Badge className={`text-[9px] px-1.5 py-0 shrink-0 ${stageColor}`}>{stage}</Badge>
+                  )}
+                  <ExternalLink className="w-3 h-3 text-muted-foreground/40 group-hover:text-accent shrink-0 transition-colors" />
                 </div>
-                <span className="text-[10px] text-muted-foreground shrink-0 w-16 text-center">{deal.date}</span>
-                <span className="text-[10px] font-medium text-foreground shrink-0 w-10 text-center">{deal.amount}</span>
-                <Badge className={`text-[9px] px-1.5 py-0 shrink-0 ${stageColor(deal.stage)}`}>{deal.stage}</Badge>
-                <span className="text-[9px] text-muted-foreground shrink-0 w-14 text-center">{deal.role === "Led Round" ? "Led" : deal.role === "Co-led" ? "Co-led" : "Follow"}</span>
-                <span className="text-[9px] text-muted-foreground shrink-0 w-14 text-right">{deal.sector}</span>
-                <ExternalLink className="w-3 h-3 text-muted-foreground/40 group-hover:text-accent shrink-0 transition-colors" />
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>
