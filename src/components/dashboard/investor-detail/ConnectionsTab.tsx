@@ -174,9 +174,6 @@ export function ConnectionsTab({
           )}
           {hasSocialLinks && (
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/70">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1.5 shrink-0">
-                Social
-              </span>
               {linkedinHref ? (
                 <a
                   href={linkedinHref}
@@ -206,11 +203,10 @@ export function ConnectionsTab({
                   href={websiteHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-accent hover:border-accent/30 transition-colors"
-                  title="Website"
+                  className="text-xs font-medium text-muted-foreground hover:text-accent transition-colors"
                   aria-label={`${investorName} website`}
                 >
-                  <Globe className="w-4 h-4" />
+                  {websiteHref.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                 </a>
               ) : null}
             </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search, ExternalLink, X, Building2, User, Tag, Layers, Calendar, Plus, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,28 +9,26 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
+import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+
+const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
 interface PortfolioTabProps {
   companySector?: string;
   onInvestorClick?: (partnerName: string) => void;
-  /** When set (including `[]`), list uses `firm_recent_deals` for this firm instead of demo data */
+  /** Pre-loaded deals from InvestorDetailPanel (live-source firms). When undefined, the tab queries directly. */
   firmDeals?: FirmDeal[] | null;
   portfolioLoading?: boolean;
   leadPartnerName?: string | null;
   /** Partner names on the firm card (JSON + DB) — used to link deal rows to people */
   partnerNamesLower?: Set<string>;
+  /** UUID of this firm in firm_records — used for direct querying */
+  firmRecordsId?: string | null;
+  /** Display name used as fallback for name-based lookup */
+  firmDisplayName?: string | null;
 }
 
 type CompatibilityStatus = "compatible" | "conflict" | "unknown";
-
-const RECENT_INVESTMENTS = [
-  { name: "NovaBuild", stage: "Seed", sector: "PropTech", amount: "$4M", date: "Jan 2026", website: "novabuild.io", description: "AI-driven workflow automation for commercial construction sites.", partner: "Sarah Chen", role: "LEAD" as const, partnerInDb: true },
-  { name: "Synthara Bio", stage: "Series A", sector: "Biotech", amount: "$12M", date: "Nov 2025", website: "syntharabio.com", description: "Computational drug discovery platform accelerating preclinical timelines.", partner: "James Park", role: "LEAD" as const, partnerInDb: true },
-  { name: "GridShift Energy", stage: "Series A", sector: "Climate", amount: "$8M", date: "Sep 2025", website: "gridshift.energy", description: "Smart grid optimization software for renewable energy providers.", partner: "Sarah Chen", role: "CO-LED" as const, partnerInDb: true },
-  { name: "CodeVault", stage: "Pre-Seed", sector: "DevTools", amount: "$1.5M", date: "Jul 2025", website: "codevault.dev", description: "Developer-first security tooling for CI/CD pipelines.", partner: "David Liu", role: "PARTICIPATED" as const, partnerInDb: false },
-  { name: "FinLedger", stage: "Seed", sector: "Fintech", amount: "$3M", date: "May 2025", website: "finledger.io", description: "Real-time reconciliation engine for digital asset custodians.", partner: "James Park", role: "LEAD" as const, partnerInDb: true },
-  { name: "MedScope AI", stage: "Series A", sector: "HealthTech", amount: "$10M", date: "Mar 2025", website: "medscope.ai", description: "Clinical decision support powered by multimodal medical imaging.", partner: "Sarah Chen", role: "CO-LED" as const, partnerInDb: false },
-];
 
 type InvestmentRow = {
   key: string;
@@ -44,6 +43,23 @@ type InvestmentRow = {
   role: "LEAD" | "CO-LED" | "PARTICIPATED";
   partnerInDb: boolean;
 };
+
+/** Infer investment stage from deal amount string */
+function inferStageFromAmount(amount: string | null | undefined): string {
+  if (!amount) return "—";
+  const m = amount.replace(/[$,MmKkBb\s]/g, "");
+  const raw = parseFloat(m);
+  if (Number.isNaN(raw)) return "—";
+  const lower = amount.toLowerCase();
+  const mult = lower.includes("b") ? 1000 : lower.includes("k") ? 0.001 : 1;
+  const usd = raw * mult;
+  if (usd < 1) return "Pre-Seed";
+  if (usd < 5) return "Seed";
+  if (usd < 20) return "Series A";
+  if (usd < 50) return "Series B";
+  if (usd < 150) return "Series C";
+  return "Growth";
+}
 
 function formatDealDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -61,26 +77,67 @@ function guessPortfolioWebsite(companyName: string): string {
   return slug ? `${slug}.com` : "company.com";
 }
 
-const MOCK_INVESTMENT_ROWS: InvestmentRow[] = RECENT_INVESTMENTS.map((co) => ({
-  key: co.name,
-  name: co.name,
-  stage: co.stage,
-  sector: co.sector,
-  amount: co.amount,
-  date: co.date,
-  website: co.website,
-  description: co.description,
-  partner: co.partner,
-  role: co.role,
-  partnerInDb: co.partnerInDb,
-}));
+/** Fetches firm_recent_deals for a firm by firmRecordsId, with name-based fallback */
+function usePortfolioDeals(
+  firmRecordsId: string | null | undefined,
+  firmDisplayName: string | null | undefined,
+  skip: boolean
+) {
+  return useQuery({
+    queryKey: ["portfolio-deals", firmRecordsId, firmDisplayName?.toLowerCase().trim()],
+    enabled: !skip && Boolean(firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured,
+    retry: false,
+    queryFn: async (): Promise<FirmDeal[]> => {
+      let resolvedId = firmRecordsId?.trim() ?? null;
 
-const NOTABLE_EXITS = ["Stripe", "Figma"];
-const TOP_UNICORNS = [
-  { name: "Stripe", website: "stripe.com" },
-  { name: "Figma", website: "figma.com" },
-  { name: "Notion", website: "notion.so" },
-];
+      if (!resolvedId && firmDisplayName?.trim()) {
+        const { data: fr } = await DB
+          .from("firm_records")
+          .select("id")
+          .ilike("firm_name", firmDisplayName.trim())
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        resolvedId = (fr as { id: string } | null)?.id ?? null;
+      }
+
+      if (!resolvedId) return [];
+
+      const { data, error } = await DB
+        .from("firm_recent_deals")
+        .select("id, company_name, stage, amount, date_announced, created_at")
+        .eq("firm_id", resolvedId)
+        .order("date_announced", { ascending: false, nullsFirst: false });
+
+      if (error) throw new Error(error.message);
+      return (data ?? []) as FirmDeal[];
+    },
+  });
+}
+
+function dealToRow(
+  d: FirmDeal,
+  lead: string,
+  partnerNamesLower: Set<string> | undefined
+): InvestmentRow {
+  const partnerLabel = lead || "—";
+  const inDb = !!lead && (partnerNamesLower?.has(lead.toLowerCase().trim()) ?? false);
+  const inferredStage = inferStageFromAmount(d.amount);
+  const sector = d.stage?.trim() || "—"; // stage column holds category/description in this schema
+  return {
+    key: d.id,
+    name: d.company_name,
+    stage: inferredStage,
+    sector,
+    amount: d.amount?.trim() || "—",
+    date: formatDealDate(d.date_announced ?? (d as any).created_at),
+    website: guessPortfolioWebsite(d.company_name),
+    description: sector !== "—" ? sector : `Portfolio company — ${d.company_name}.`,
+    partner: partnerLabel,
+    role: "LEAD",
+    partnerInDb: inDb,
+  };
+}
 
 function useCountUp(target: number, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -169,7 +226,7 @@ const COMPAT_CONFIG: Record<CompatibilityStatus, {
     iconClass: "text-destructive",
     cardClass: "bg-destructive/5 border-destructive/20",
     title: "Portfolio Collision",
-    subtitle: "High risk. They lead a $4M Seed round in your direct competitor, Synthara Bio.",
+    subtitle: "A portfolio company matches your sector. Review the list below for potential conflicts.",
   },
   unknown: {
     icon: HelpCircle,
@@ -204,7 +261,7 @@ const STATUS_DEFINITIONS: { status: CompatibilityStatus; title: string; icon: ty
   },
 ];
 
-function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
+function CompatibilityCard({ status, sectorMatches }: { status: CompatibilityStatus; sectorMatches: number }) {
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const cfg = COMPAT_CONFIG[status];
@@ -256,20 +313,14 @@ function CompatibilityCard({ status }: { status: CompatibilityStatus }) {
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Companies Scanned</span>
-                <span className="text-sm font-bold text-foreground">142</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Sector Matches (SaaS)</span>
-                <span className="text-sm font-bold text-foreground">32</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Direct Competitors</span>
-                <span className="text-sm font-bold text-success">0</span>
+                <span className="text-sm text-muted-foreground">Sector Matches</span>
+                <span className={`text-sm font-bold ${sectorMatches > 0 ? "text-destructive" : "text-success"}`}>{sectorMatches}</span>
               </div>
             </div>
-            <div className="p-4 bg-success/5 border-t border-success/20 text-xs text-success font-medium">
-              No immediate competitive threats detected in their active portfolio.
+            <div className={`p-4 border-t text-xs font-medium ${sectorMatches > 0 ? "bg-destructive/5 border-destructive/20 text-destructive" : "bg-success/5 border-success/20 text-success"}`}>
+              {sectorMatches > 0
+                ? `${sectorMatches} sector match${sectorMatches > 1 ? "es" : ""} found in their portfolio — review carefully.`
+                : "No immediate competitive threats detected in their active portfolio."}
             </div>
           </motion.div>
         )}
@@ -386,6 +437,8 @@ export function PortfolioTab({
   portfolioLoading,
   leadPartnerName,
   partnerNamesLower,
+  firmRecordsId,
+  firmDisplayName,
 }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
@@ -396,38 +449,28 @@ export function PortfolioTab({
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isLivePortfolio = firmDeals !== undefined;
+  // firmDeals passed in → no need to query; otherwise query directly
+  const skipQuery = firmDeals !== undefined;
+  const { data: queriedDeals, isLoading: queryLoading } = usePortfolioDeals(
+    firmRecordsId,
+    firmDisplayName,
+    skipQuery
+  );
+
+  const allDeals: FirmDeal[] = firmDeals ?? queriedDeals ?? [];
+  const isLoading = portfolioLoading || (!skipQuery && queryLoading);
+
+  const lead = (leadPartnerName || "").trim();
 
   const investmentRows = useMemo((): InvestmentRow[] => {
-    if (!isLivePortfolio) return MOCK_INVESTMENT_ROWS;
-    const lead = (leadPartnerName || "").trim();
-    const partnerNorm = (n: string) => n.toLowerCase().trim();
-    return (firmDeals ?? []).map((d) => {
-      const partnerLabel = lead || "—";
-      const inDb =
-        !!lead &&
-        (partnerNamesLower?.has(partnerNorm(lead)) ?? false);
-      return {
-        key: d.id,
-        name: d.company_name,
-        stage: d.stage?.trim() || "—",
-        sector: "—",
-        amount: d.amount?.trim() || "—",
-        date: formatDealDate(d.date_announced),
-        website: guessPortfolioWebsite(d.company_name),
-        description: `Portfolio company — ${d.company_name}.`,
-        partner: partnerLabel,
-        role: "LEAD",
-        partnerInDb: inDb,
-      };
-    });
-  }, [isLivePortfolio, firmDeals, leadPartnerName, partnerNamesLower]);
+    return allDeals.map((d) => dealToRow(d, lead, partnerNamesLower));
+  }, [allDeals, lead, partnerNamesLower]);
 
   const allSectors = useMemo(
     () => [...new Set(investmentRows.map((i) => i.sector).filter((s) => s !== "—"))],
     [investmentRows]
   );
-  const allStages = useMemo(() => [...new Set(investmentRows.map((i) => i.stage))], [investmentRows]);
+  const allStages = useMemo(() => [...new Set(investmentRows.map((i) => i.stage).filter((s) => s !== "—"))], [investmentRows]);
   const allPartners = useMemo(
     () => [...new Set(investmentRows.map((i) => i.partner).filter((p) => p !== "—"))],
     [investmentRows]
@@ -458,13 +501,6 @@ export function PortfolioTab({
     investmentRows.forEach((co) => {
       if (co.date.toLowerCase().includes(q) && !results.some((r) => r.value === co.date && r.category === "Date"))
         results.push({ label: co.date, category: "Date", icon: Calendar, value: co.date });
-    });
-    investmentRows.forEach((co) => {
-      if (
-        co.description.toLowerCase().includes(q) &&
-        !results.some((r) => r.value === co.name && r.category === "Keyword Match")
-      )
-        results.push({ label: co.name, category: "Keyword Match", icon: Sparkles, value: co.name });
     });
     return results.slice(0, 8);
   }, [searchQuery, allSectors, allStages, allPartners, investmentRows]);
@@ -513,18 +549,19 @@ export function PortfolioTab({
     });
   }, [investmentRows, searchQuery, sectorFilter, stageFilter]);
 
+  const sectorMatches = useMemo(() => {
+    if (!companySector) return 0;
+    return investmentRows.filter(
+      (inv) => inv.sector !== "—" && inv.sector.toLowerCase().includes(companySector.toLowerCase())
+    ).length;
+  }, [companySector, investmentRows]);
+
   const compatibilityStatus: CompatibilityStatus = useMemo(() => {
-    if (!companySector) return "unknown";
-    const hasMatch = investmentRows.some((inv) =>
-      inv.sector !== "—" ? inv.sector.toLowerCase().includes(companySector.toLowerCase()) : false
-    );
-    if (isLivePortfolio && !hasMatch) return "unknown";
-    return hasMatch ? "conflict" : "compatible";
-  }, [companySector, investmentRows, isLivePortfolio]);
+    if (!companySector || investmentRows.length === 0) return "unknown";
+    return sectorMatches > 0 ? "conflict" : "compatible";
+  }, [companySector, investmentRows, sectorMatches]);
 
-  const activePortfolioCount = isLivePortfolio ? investmentRows.length : 142;
-
-  if (portfolioLoading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -551,16 +588,13 @@ export function PortfolioTab({
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Active Portfolio
             </p>
-            <CountUpNumber target={activePortfolioCount} label="Active Portfolio" />
-            {!isLivePortfolio ? (
+            {investmentRows.length > 0 ? (
               <>
-                <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-success bg-success/10 px-2 py-0.5 rounded-full w-max mx-auto">
-                  <TrendingUp className="w-3 h-3" /> +14 this year
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">Top Sector: <span className="font-semibold text-foreground">SaaS (32%)</span></p>
+                <CountUpNumber target={investmentRows.length} label="Active Portfolio" />
+                <p className="text-[10px] text-muted-foreground mt-1.5">From firm record · recent deals</p>
               </>
             ) : (
-              <p className="text-[10px] text-muted-foreground mt-1.5">From firm record · recent deals</p>
+              <p className="text-lg font-semibold text-muted-foreground">—</p>
             )}
           </div>
 
@@ -569,18 +603,8 @@ export function PortfolioTab({
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Exits
             </p>
-            {isLivePortfolio ? (
-              <p className="text-lg font-semibold text-muted-foreground">—</p>
-            ) : (
-              <>
-                <CountUpNumber target={38} label="Exits" />
-                <p className="text-[10px] text-muted-foreground mt-2">
-                  Notable: {NOTABLE_EXITS.map((name, i) => (
-                    <span key={name}><strong className="text-foreground">{name}</strong>{i < NOTABLE_EXITS.length - 1 ? ", " : ""}</span>
-                  ))}
-                </p>
-              </>
-            )}
+            <p className="text-lg font-semibold text-muted-foreground">—</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Not yet tracked</p>
           </div>
 
           {/* Unicorns */}
@@ -588,24 +612,13 @@ export function PortfolioTab({
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
               Unicorns
             </p>
-            {isLivePortfolio ? (
-              <p className="text-lg font-semibold text-muted-foreground">—</p>
-            ) : (
-              <>
-                <CountUpNumber target={12} label="Unicorns" />
-                <div className="flex items-center justify-center mt-2 -space-x-2">
-                  {TOP_UNICORNS.map((u) => (
-                    <CompanyLogo key={u.name} website={u.website} name={u.name} size="w-6 h-6" />
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">& 9 more</p>
-              </>
-            )}
+            <p className="text-lg font-semibold text-muted-foreground">—</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Not yet tracked</p>
           </div>
         </div>
 
         {/* Smart Compatibility Card */}
-        <CompatibilityCard status={compatibilityStatus} />
+        <CompatibilityCard status={compatibilityStatus} sectorMatches={sectorMatches} />
       </div>
 
       {/* Recent Investments List */}
@@ -692,107 +705,115 @@ export function PortfolioTab({
           </div>
         </div>
 
-        <div className="flex flex-col w-full">
-          {/* Column Headers (desktop only) */}
-          <div className="hidden md:grid grid-cols-12 gap-3 items-center px-4 pb-3 border-b border-border">
-            <span className="col-span-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Company</span>
-            <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stage</span>
-            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sector</span>
-            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Investment</span>
-            <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</span>
-            <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Investor</span>
+        {investmentRows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+            <Building2 className="w-8 h-8 opacity-30" />
+            <p className="text-sm font-medium">No portfolio data available</p>
+            <p className="text-xs opacity-60">Deal records for this firm have not been loaded yet.</p>
           </div>
+        ) : (
+          <div className="flex flex-col w-full">
+            {/* Column Headers */}
+            <div className="hidden md:grid grid-cols-12 gap-3 items-center px-4 pb-3 border-b border-border">
+              <span className="col-span-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Company</span>
+              <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Stage</span>
+              <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sector</span>
+              <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Investment</span>
+              <span className="col-span-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</span>
+              <span className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Investor</span>
+            </div>
 
-          <TooltipProvider delayDuration={300}>
-            {filteredInvestments.map((co) => {
-              const isSectorMatch =
-                companySector &&
-                co.sector !== "—" &&
-                co.sector.toLowerCase().includes(companySector.toLowerCase());
-              return (
-                <div
-                  key={co.key}
-                  className={`group grid grid-cols-12 gap-3 items-center px-4 py-3 border-b border-border hover:bg-secondary/40 transition-colors cursor-pointer ${
-                    isSectorMatch ? "bg-primary/5 border-l-4 border-l-primary" : ""
-                  }`}
-                >
-                  {/* Col 1: Company (4 cols) */}
-                  <div className="col-span-12 md:col-span-4 flex items-center gap-3">
-                    <CompanyLogo website={co.website} name={co.name} size="w-9 h-9" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-foreground truncate">{co.name}</span>
-                        {isSectorMatch && (
-                          <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary shrink-0">
-                            <Sparkles className="w-2.5 h-2.5" /> Relevant
-                          </span>
-                        )}
+            <TooltipProvider delayDuration={300}>
+              {filteredInvestments.map((co) => {
+                const isSectorMatch =
+                  companySector &&
+                  co.sector !== "—" &&
+                  co.sector.toLowerCase().includes(companySector.toLowerCase());
+                return (
+                  <div
+                    key={co.key}
+                    className={`group grid grid-cols-12 gap-3 items-center px-4 py-3 border-b border-border hover:bg-secondary/40 transition-colors cursor-pointer ${
+                      isSectorMatch ? "bg-primary/5 border-l-4 border-l-primary" : ""
+                    }`}
+                  >
+                    {/* Col 1: Company (4 cols) */}
+                    <div className="col-span-12 md:col-span-4 flex items-center gap-3">
+                      <CompanyLogo website={co.website} name={co.name} size="w-9 h-9" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-foreground truncate">{co.name}</span>
+                          {isSectorMatch && (
+                            <span className="flex items-center gap-0.5 text-[9px] font-semibold text-primary shrink-0">
+                              <Sparkles className="w-2.5 h-2.5" /> Relevant
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{co.description}</p>
+                    </div>
+
+                    {/* Col 2: Stage (1 col) */}
+                    <div className="col-span-4 md:col-span-1">
+                      <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.stage}</Badge>
+                    </div>
+
+                    {/* Col 3: Sector (2 cols) */}
+                    <div className="col-span-4 md:col-span-2">
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.sector}</Badge>
+                    </div>
+
+                    {/* Col 4: Investment Amount & Role (2 cols) */}
+                    <div className="col-span-4 md:col-span-2 flex flex-col items-start gap-1">
+                      <span className="text-sm font-bold text-foreground">{co.amount}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                        co.role === "LEAD" ? "bg-primary/10 text-primary" :
+                        co.role === "CO-LED" ? "bg-accent/10 text-accent-foreground" :
+                        "bg-secondary text-muted-foreground"
+                      }`}>{co.role}</span>
+                    </div>
+
+                    {/* Col 5: Date (1 col) */}
+                    <div className="col-span-6 md:col-span-1">
+                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{co.date}</span>
+                    </div>
+
+                    {/* Col 6: Investor (2 cols) */}
+                    <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
+                      {co.partner !== "—" && co.partnerInDb ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
+                          className="flex items-center gap-2 text-muted-foreground hover:text-primary cursor-pointer transition-colors group/investor"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                            {co.partner.charAt(0)}
+                          </div>
+                          <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap transition-colors">{co.partner}</span>
+                          <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/investor:opacity-100 transition-opacity shrink-0" />
+                        </button>
+                      ) : co.partner !== "—" ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setMissingProfilePartner(co.partner); }}
+                          className="flex items-center gap-2 text-muted-foreground cursor-pointer group/missing"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-secondary border border-dashed border-muted-foreground/40 flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
+                            {co.partner.charAt(0)}
+                          </div>
+                          <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap border-b border-dashed border-muted-foreground/40 group-hover/missing:border-foreground/60 group-hover/missing:text-foreground transition-colors">{co.partner}</span>
+                          <Plus className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/missing:opacity-100 transition-opacity shrink-0" />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      )}
                     </div>
                   </div>
-
-                  {/* Col 2: Stage (1 col) */}
-                  <div className="col-span-4 md:col-span-1">
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.stage}</Badge>
-                  </div>
-
-                  {/* Col 3: Sector (2 cols) */}
-                  <div className="col-span-4 md:col-span-2">
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium whitespace-nowrap">{co.sector}</Badge>
-                  </div>
-
-                  {/* Col 4: Investment Amount & Role (2 cols) */}
-                  <div className="col-span-4 md:col-span-2 flex flex-col items-start gap-1">
-                    <span className="text-sm font-bold text-foreground">{co.amount}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                      co.role === "LEAD" ? "bg-primary/10 text-primary" :
-                      co.role === "CO-LED" ? "bg-accent/10 text-accent-foreground" :
-                      "bg-secondary text-muted-foreground"
-                    }`}>{co.role}</span>
-                  </div>
-
-                  {/* Col 5: Date (1 col) */}
-                  <div className="col-span-6 md:col-span-1">
-                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{co.date}</span>
-                  </div>
-
-                  {/* Col 6: Investor (2 cols) — Conditional Routing */}
-                  <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
-                    {co.partner !== "—" && co.partnerInDb ? (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onInvestorClick?.(co.partner); }}
-                        className="flex items-center gap-2 text-muted-foreground hover:text-primary cursor-pointer transition-colors group/investor"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
-                          {co.partner.charAt(0)}
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap transition-colors">{co.partner}</span>
-                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/investor:opacity-100 transition-opacity shrink-0" />
-                      </button>
-                    ) : co.partner !== "—" ? (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setMissingProfilePartner(co.partner); }}
-                        className="flex items-center gap-2 text-muted-foreground cursor-pointer group/missing"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-secondary border border-dashed border-muted-foreground/40 flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
-                          {co.partner.charAt(0)}
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap border-b border-dashed border-muted-foreground/40 group-hover/missing:border-foreground/60 group-hover/missing:text-foreground transition-colors">{co.partner}</span>
-                        <Plus className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover/missing:opacity-100 transition-opacity shrink-0" />
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">—</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </TooltipProvider>
-          {filteredInvestments.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6">No investments match your filters.</p>
-          )}
-        </div>
+                );
+              })}
+            </TooltipProvider>
+            {filteredInvestments.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-6">No investments match your filters.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

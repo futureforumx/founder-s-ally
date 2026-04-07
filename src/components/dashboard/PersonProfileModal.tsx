@@ -326,16 +326,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   </div>
                 </div>
 
-                {/* ── Quick-Contact Bar ── */}
-                <div className="flex flex-wrap gap-3 mb-6">
+                {/* ── Contact & Socials ── */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-6">
+                  {/* Rate button — keep as button since it triggers an action */}
                   <button
                     type="button"
                     onClick={() => setReviewOpen(true)}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
+                      "inline-flex items-center gap-1.5 text-sm font-medium transition-colors",
                       myPersonRateDisplay
                         ? myPersonRateDisplay.className
-                        : "border-2 border-warning/30 text-warning hover:bg-warning/5",
+                        : "text-warning hover:text-warning/80",
                     )}
                     aria-label={
                       myPersonRateDisplay
@@ -343,50 +344,46 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         : "Rate this investor"
                     }
                   >
-                    <Star className="h-4 w-4 shrink-0" /> {myPersonRateDisplay?.label ?? "Rate"}
+                    <Star className="h-3.5 w-3.5 shrink-0" /> {myPersonRateDisplay?.label ?? "Rate"}
                   </button>
+
+                  {/* Email */}
                   {person.email ? (
                     emailRevealed ? (
                       <a
                         href={`mailto:${person.email}`}
-                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <Mail className="w-4 h-4" /> {person.email}
+                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                        <span>{person.email}</span>
                       </a>
                     ) : (
                       <button
                         onClick={() => setEmailRevealed(true)}
-                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <Mail className="w-4 h-4" /> Get Email
+                        <Mail className="w-3.5 h-3.5 shrink-0" />
+                        <span>Show email</span>
                       </button>
                     )
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button className="inline-flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-xl text-sm font-semibold cursor-not-allowed opacity-60">
-                            <Mail className="w-4 h-4" /> Email Unavailable
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>No email on file for this investor.</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {socialLinks.map(({ key, href, icon: Icon, label, hoverClass }) => (
+                  ) : null}
+
+                  {/* Social links — icon + label as plain text links */}
+                  {socialLinks.map(({ key, href, icon: Icon, label }) => (
                     <a
                       key={key}
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={label}
                       aria-label={label}
-                      className={cn(
-                        "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-all duration-200 hover:scale-105",
-                        hoverClass,
-                      )}
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {key === "website"
+                          ? href.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")
+                          : label}
+                      </span>
                     </a>
                   ))}
                 </div>

@@ -280,6 +280,59 @@ async function insertLogoAsset(params: {
   return !error;
 }
 
+// ── Avatar write-back with validation guard ────────────────────────────────────
+
+/**
+ * Write a canonical R2 URL back to firm_investors.avatar_url, plus provenance
+ * metadata. Rejects writes that fail basic sanity checks (not http/https,
+ * not pointing at the R2 public base) to prevent future bad-data writes.
+ */
+export async function writeBackHeadshotCanonical(params: {
+  investorId:  string;
+  r2CdnUrl:    string;
+  sourceUrl:   string;
+  sourceType:  string;
+  confidence?: number;
+}): Promise<void> {
+  const { investorId, r2CdnUrl, sourceUrl, sourceType, confidence = 1.0 } = params;
+
+  // Guard: must be an absolute http/https URL
+  let parsed: URL;
+  try {
+    parsed = new URL(r2CdnUrl);
+  } catch {
+    throw new Error(`writeBackHeadshotCanonical: not a valid URL: ${r2CdnUrl}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`writeBackHeadshotCanonical: non-http URL: ${r2CdnUrl}`);
+  }
+
+  // Guard: must be a known R2 public URL (prevents writing arbitrary third-party CDNs)
+  const r2Base = PUBLIC_BASE_HEADSHOTS.replace(/\/$/, "");
+  if (r2Base && !r2CdnUrl.startsWith(r2Base)) {
+    throw new Error(
+      `writeBackHeadshotCanonical: URL is not from R2 public base (${r2Base}): ${r2CdnUrl}`,
+    );
+  }
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("firm_investors")
+    .update({
+      avatar_url:               r2CdnUrl,
+      avatar_source_url:        sourceUrl,
+      avatar_source_type:       "r2_canonical",
+      avatar_confidence:        confidence,
+      avatar_last_verified_at:  new Date().toISOString(),
+      avatar_needs_review:      false,
+    })
+    .eq("id", investorId);
+
+  if (error) {
+    throw new Error(`writeBackHeadshotCanonical DB error (${investorId}): ${error.message}`);
+  }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**

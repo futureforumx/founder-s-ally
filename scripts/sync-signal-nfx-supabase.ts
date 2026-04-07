@@ -147,9 +147,16 @@ async function main() {
     const inv = invByName.get(invNorm);
     if (inv) {
       const invPatch: Record<string, any> = {};
-      // avatar_url: Signal NFX overrides (trusted source)
-      if (row.avatar_url && inv.avatar_url !== row.avatar_url)
-        invPatch.avatar_url = row.avatar_url;
+      // avatar_url: only accept if URL is well-formed and not truncated
+      if (row.avatar_url && inv.avatar_url !== row.avatar_url) {
+        const rawUrl = (row.avatar_url as string).trim();
+        const looksValid = rawUrl.startsWith("http") && !rawUrl.endsWith("(") && !rawUrl.endsWith("%20(");
+        if (looksValid) {
+          invPatch.avatar_url = rawUrl;
+          invPatch.avatar_source_url = rawUrl;
+          invPatch.avatar_source_type = "nfx";
+        }
+      }
       // Signal NFX profile URL — always set/override
       if (inv.signal_nfx_url !== row.investor_profile_url)
         invPatch.signal_nfx_url = row.investor_profile_url;
