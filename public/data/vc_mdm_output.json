@@ -52640,7 +52640,9 @@
       "firm_id": "1517fund.com",
       "full_name": "Zak Slayback",
       "title": "Principal",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9845c690-e256-4acd-99f7-8a6bf05fb583.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9845c690-e256-4acd-99f7-8a6bf05fb583.jpg"
     },
     {
       "id": "donna-harris-1776.ventures",
@@ -52906,14 +52908,18 @@
       "firm_id": "1confirmation.com",
       "full_name": "Brett Shear",
       "title": "Cofounder & General Partner",
-      "email": "brettharrisonshear@gmail.com"
+      "email": "brettharrisonshear@gmail.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fdd466ac-d8cc-4b06-a1d8-6c9948c7a7e4.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fdd466ac-d8cc-4b06-a1d8-6c9948c7a7e4.jpg"
     },
     {
       "id": "mike-tomaino-1confirmation.com",
       "firm_id": "1confirmation.com",
       "full_name": "Mike Tomaino",
       "title": "Founder & Managing Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/14f1c246-4fd6-4908-a167-5984b6f9d2c5.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/14f1c246-4fd6-4908-a167-5984b6f9d2c5.jpg"
     },
     {
       "id": "nick-tomaino-1confirmation.com",
@@ -53578,7 +53584,9 @@
       "firm_id": "4490ventures.com",
       "full_name": "Dan Malven",
       "title": "Managing Director",
-      "email": "dm@4490ventures.com"
+      "email": "dm@4490ventures.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6070424e-1b3b-4441-add3-9fc6f6fb2b28.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6070424e-1b3b-4441-add3-9fc6f6fb2b28.webp"
     },
     {
       "id": "gian-fulgoni-4490ventures.com",
@@ -54166,7 +54174,9 @@
       "firm_id": "7wireventures.com",
       "full_name": "Alyssa Jaffee",
       "title": "Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/50d5bff4-a521-45f2-b032-e54f2bbd4c9f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/50d5bff4-a521-45f2-b032-e54f2bbd4c9f.jpg"
     },
     {
       "id": "david-schonthal-7wireventures.com",
@@ -54481,7 +54491,9 @@
       "firm_id": "a16z.com",
       "full_name": "Andrew Chen",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7db5da6e-b8e7-46e7-9e64-b85d06b38227.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7db5da6e-b8e7-46e7-9e64-b85d06b38227.jpg"
     },
     {
       "id": "angela-strange-a16z.com",
@@ -55188,7 +55200,9 @@
       "firm_id": "accel.com",
       "full_name": "Ryan Sweeney",
       "title": null,
-      "email": "rjs@accel.com"
+      "email": "rjs@accel.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b0cf60db-6dff-4a9b-b349-ee41b3f3c65b.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b0cf60db-6dff-4a9b-b349-ee41b3f3c65b.jpg"
     },
     {
       "id": "sameer-gandhi-accel.com",
@@ -56455,7 +56469,9 @@
       "firm_id": "actoneventures.com",
       "full_name": "Alex Guerrero",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5ad167bb-7d14-4ff2-919e-4793376f0aa0.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5ad167bb-7d14-4ff2-919e-4793376f0aa0.jpg"
     },
     {
       "id": "michael-silton-actoneventures.com",
@@ -57253,7 +57269,9 @@
       "firm_id": "afore.vc",
       "full_name": "Anamitra Banerji",
       "title": "Co-Founder and Managing Partner",
-      "email": "anamitra@afore.vc"
+      "email": "anamitra@afore.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/05ab965f-2963-4f0f-8a1c-39907cdbc06d.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/05ab965f-2963-4f0f-8a1c-39907cdbc06d.jpg"
     },
     {
       "id": "gaurav-jain-afore.vc",
@@ -57274,7 +57292,9 @@
       "firm_id": "afsquare.com",
       "full_name": "Troy Carter",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a20e0ea3-6030-40e1-9c03-c255272cfe1d.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a20e0ea3-6030-40e1-9c03-c255272cfe1d.jpg"
     },
     {
       "id": "jordan-gaspar-afventures.vc",
@@ -57939,7 +57959,9 @@
       "firm_id": "album.vc",
       "full_name": "Sid Krommenhoek",
       "title": "Partner",
-      "email": "sid@album.vc"
+      "email": "sid@album.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/bbca59b4-558b-44c0-8e18-d104623e8037.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/bbca59b4-558b-44c0-8e18-d104623e8037.jpg"
     },
     {
       "id": "aashima-gupta-alchemistaccelerator.com",
@@ -58394,7 +58416,9 @@
       "firm_id": "alleycorp.com",
       "full_name": "Wendy Tsu",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/758bd240-83ef-4e87-b688-86bb5df977a8.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/758bd240-83ef-4e87-b688-86bb5df977a8.jpg"
     },
     {
       "id": "seth-bernstein-alliancebernstein.com",
@@ -58625,7 +58649,9 @@
       "firm_id": "allosventures.com",
       "full_name": "John McIlwraith",
       "title": "Co-Founder & Managing Director",
-      "email": "john@allosventures.com"
+      "email": "john@allosventures.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dfc922bb-aa6a-42bb-8c72-09db1e156d46.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dfc922bb-aa6a-42bb-8c72-09db1e156d46.jpg"
     },
     {
       "id": "julie-whitehead-allosventures.com",
@@ -58737,7 +58763,9 @@
       "firm_id": "almazcapital.com",
       "full_name": "Alexander Galitsky",
       "title": "Co-Founder and Managing Partner",
-      "email": "Alexanderg@almazcapital.com"
+      "email": "Alexanderg@almazcapital.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a0a22a9e-fd41-4559-9e05-bc4c5f06c0ca.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a0a22a9e-fd41-4559-9e05-bc4c5f06c0ca.jpg"
     },
     {
       "id": "charles-ryan-almazcapital.com",
@@ -58821,7 +58849,9 @@
       "firm_id": "alpaca.vc",
       "full_name": "Aubrie Pagano",
       "title": "General Partner",
-      "email": "aubrie@alpaca.vc"
+      "email": "aubrie@alpaca.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fe7e3da3-9e8e-42e8-a9d1-6575152d5eaf.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fe7e3da3-9e8e-42e8-a9d1-6575152d5eaf.png"
     },
     {
       "id": "daniel-fetner-alpaca.vc",
@@ -58877,7 +58907,9 @@
       "firm_id": "alphaedison.com",
       "full_name": "Nate Redmond",
       "title": "Managing Partner",
-      "email": "nate@alphaedison.com"
+      "email": "nate@alphaedison.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2ad06f61-b04e-4854-a44c-e270ead4c803.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2ad06f61-b04e-4854-a44c-e270ead4c803.png"
     },
     {
       "id": "nick-grouf-alphaedison.com",
@@ -58954,7 +58986,9 @@
       "firm_id": "alphavp.com",
       "full_name": "Brian Smiga",
       "title": "Co-founder and Managing Partner",
-      "email": "brian@alphavp.com"
+      "email": "brian@alphavp.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0d086ce9-d956-4643-acc0-9987767c6ea2.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0d086ce9-d956-4643-acc0-9987767c6ea2.jpg"
     },
     {
       "id": "steve-brotman-alphavp.com",
@@ -60123,7 +60157,9 @@
       "firm_id": "amecloudventures.com",
       "full_name": "Jerry Yang",
       "title": "Founding Partner",
-      "email": "jerry@amecloudventures.com"
+      "email": "jerry@amecloudventures.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/cf8a7c3f-b3af-456d-95cd-87f42774270c.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/cf8a7c3f-b3af-456d-95cd-87f42774270c.png"
     },
     {
       "id": "nick-adams-amecloudventures.com",
@@ -60606,7 +60642,9 @@
       "firm_id": "amplify.la",
       "full_name": "Oded Noy",
       "title": "Managing Partner",
-      "email": "oded@amplify.la"
+      "email": "oded@amplify.la",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4a5e691c-cee0-4213-aa6d-3608ab8443f6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4a5e691c-cee0-4213-aa6d-3608ab8443f6.jpg"
     },
     {
       "id": "paul-bricault-amplify.la",
@@ -60662,7 +60700,9 @@
       "firm_id": "amplovc.com",
       "full_name": "Leymah Gbowee",
       "title": "Board Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c5fea873-bcaa-4443-9067-a680c1dc1d48.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c5fea873-bcaa-4443-9067-a680c1dc1d48.jpg"
     },
     {
       "id": "sheel-tyle-amplovc.com",
@@ -61411,7 +61451,9 @@
       "firm_id": "anorak.vc",
       "full_name": "Greg Castle",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/992882d0-a6d2-4d12-90d2-c7de61b9a050.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/992882d0-a6d2-4d12-90d2-c7de61b9a050.jpg"
     },
     {
       "id": "gregory-castle-anorak.vc",
@@ -62608,7 +62650,9 @@
       "firm_id": "archcap.com",
       "full_name": "Matt Ocko",
       "title": "Managing Director",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e0aae957-024d-44a0-a6b2-426bb16cb78e.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e0aae957-024d-44a0-a6b2-426bb16cb78e.jpg"
     },
     {
       "id": "chris-keller-archeancapital.com",
@@ -63266,7 +63310,9 @@
       "firm_id": "arenavc.com",
       "full_name": "Francis Shih",
       "title": "Principal",
-      "email": "francis@arenavc.com"
+      "email": "francis@arenavc.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/be78cad1-03a7-4666-aa26-83e38952e2bd.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/be78cad1-03a7-4666-aa26-83e38952e2bd.jpg"
     },
     {
       "id": "jeff-lo-arenavc.com",
@@ -64092,7 +64138,9 @@
       "firm_id": "array.vc",
       "full_name": "Shruti Gandhi",
       "title": "Managing Partner",
-      "email": "deals@array.vc"
+      "email": "deals@array.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/345c1950-b0db-419e-87fe-a106d2855359.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/345c1950-b0db-419e-87fe-a106d2855359.jpg"
     },
     {
       "id": "geoffrey-arone-arringtonxrpcapital.com",
@@ -64827,7 +64875,9 @@
       "firm_id": "assemble.vc",
       "full_name": "Richard Dulude",
       "title": "Principal",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ad4c0b8-da5f-4a97-bb9f-1ba7a5050b6f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ad4c0b8-da5f-4a97-bb9f-1ba7a5050b6f.jpg"
     },
     {
       "id": "lou-lange-assetman.com",
@@ -66108,7 +66158,9 @@
       "firm_id": "atxseedventures.com",
       "full_name": "Chris Shonk",
       "title": "Managing Director",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/55a88eda-9ba6-4387-aff6-228cdeca3377.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/55a88eda-9ba6-4387-aff6-228cdeca3377.jpg"
     },
     {
       "id": "danielle-allen-atxseedventures.com",
@@ -66934,7 +66986,9 @@
       "firm_id": "av.co",
       "full_name": "Austin Walne",
       "title": "Partner",
-      "email": "austin@av.co"
+      "email": "austin@av.co",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/f8eae774-fa49-4ed7-8cad-f19e59ab4478.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/f8eae774-fa49-4ed7-8cad-f19e59ab4478.webp"
     },
     {
       "id": "stuart-peterson-av.co",
@@ -68810,7 +68864,9 @@
       "firm_id": "baincapitalventures.com",
       "full_name": "Sarah Smith",
       "title": "Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0cd86c58-e128-4b4f-8dfc-4dc04d7b0d06.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0cd86c58-e128-4b4f-8dfc-4dc04d7b0d06.jpg"
     },
     {
       "id": "scott-friend-baincapitalventures.com",
@@ -69188,7 +69244,9 @@
       "firm_id": "bam.vc",
       "full_name": "Richard Jun",
       "title": "Co-Founder, Managing Director",
-      "email": "richard@bam.vc"
+      "email": "richard@bam.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/286a79f9-505c-48bb-ab37-b0867b2c1efe.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/286a79f9-505c-48bb-ab37-b0867b2c1efe.jpg"
     },
     {
       "id": "shamin-walsh-bam.vc",
@@ -69629,7 +69687,9 @@
       "firm_id": "base.ventures",
       "full_name": "Kirby Harris",
       "title": "Founder & Managing Partner",
-      "email": "kirby@basevc.com"
+      "email": "kirby@basevc.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b5ba191c-e63f-4fc6-82b0-7e42cb8f69ad.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b5ba191c-e63f-4fc6-82b0-7e42cb8f69ad.jpg"
     },
     {
       "id": "lisa-parks-base.ventures",
@@ -69797,7 +69857,9 @@
       "firm_id": "battery.com",
       "full_name": "Neeraj Agrawal",
       "title": "General Partner",
-      "email": "neeraj@battery.com"
+      "email": "neeraj@battery.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7369087d-9699-4adf-86d1-9767931d0db7.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7369087d-9699-4adf-86d1-9767931d0db7.jpg"
     },
     {
       "id": "roger-lee-battery.com",
@@ -70329,7 +70391,9 @@
       "firm_id": "bcapgroup.com",
       "full_name": "Gabe Greenbaum",
       "title": "General Partner",
-      "email": "gabe@bcapgroup.com"
+      "email": "gabe@bcapgroup.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fee96aba-5597-4318-be6b-f8111f56c05d.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fee96aba-5597-4318-be6b-f8111f56c05d.jpg"
     },
     {
       "id": "howard-morgan-bcapgroup.com",
@@ -70686,7 +70750,9 @@
       "firm_id": "bdventures.com",
       "full_name": "John Kispert",
       "title": "Managing Partner",
-      "email": "john@bdventures.com"
+      "email": "john@bdventures.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fec6dd8e-254d-40b1-9090-73ddd70789d6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fec6dd8e-254d-40b1-9090-73ddd70789d6.jpg"
     },
     {
       "id": "rob-r-ukropina-bdventures.com",
@@ -70987,7 +71053,9 @@
       "firm_id": "beepartners.vc",
       "full_name": "Michael Berolzheimer",
       "title": "Founder and Managing Partner",
-      "email": "michael@beepartners.vc"
+      "email": "michael@beepartners.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0a733c81-c676-4a0a-b587-45d301da23ae.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0a733c81-c676-4a0a-b587-45d301da23ae.jpg"
     },
     {
       "id": "michael-t-berolzheimer-beepartners.vc",
@@ -71295,7 +71363,9 @@
       "firm_id": "benchmark.com",
       "full_name": "Chetan Puttagunta",
       "title": "General Partner",
-      "email": "chetan@benchmark.com"
+      "email": "chetan@benchmark.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/627af4af-1fcd-441f-a348-c8b55ceda546.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/627af4af-1fcd-441f-a348-c8b55ceda546.jpg"
     },
     {
       "id": "kevin-harvey-benchmark.com",
@@ -72212,7 +72282,9 @@
       "firm_id": "betterfoodventures.com",
       "full_name": "Michael Rose",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e36ed91b-c68b-4b7f-bbb8-53971e791659.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e36ed91b-c68b-4b7f-bbb8-53971e791659.jpg"
     },
     {
       "id": "david-vanegmond-bettorcapital.com",
@@ -72247,7 +72319,9 @@
       "firm_id": "bfgpartners.com",
       "full_name": "Dayton Miller",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/abeaa261-c7e9-4392-9f34-8877a017511f.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/abeaa261-c7e9-4392-9f34-8877a017511f.png"
     },
     {
       "id": "gregg-e-johnson-biacapital.com",
@@ -73640,14 +73714,18 @@
       "firm_id": "bonfirevc.com",
       "full_name": "Brett Queener",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/d1609ad2-1279-4794-ac02-78c7fdd6b5c5.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/d1609ad2-1279-4794-ac02-78c7fdd6b5c5.jpg"
     },
     {
       "id": "adam-draper-boost.vc",
       "firm_id": "boost.vc",
       "full_name": "Adam Draper",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/14940587-aaeb-4a89-b513-8c9548feaed0.avif",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/14940587-aaeb-4a89-b513-8c9548feaed0.avif"
     },
     {
       "id": "mark-strehlow-bootstraplabs.com",
@@ -74095,14 +74173,18 @@
       "firm_id": "btv.vc",
       "full_name": "Jake Gibson",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/969a1562-4486-4362-a4c1-595d40d2de6d.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/969a1562-4486-4362-a4c1-595d40d2de6d.jpg"
     },
     {
       "id": "sheel-mohnot-btv.vc",
       "firm_id": "btv.vc",
       "full_name": "Sheel Mohnot",
       "title": "Co-founder and General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7437c758-05db-412a-aeb9-952a25bf4008.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7437c758-05db-412a-aeb9-952a25bf4008.jpg"
     },
     {
       "id": "henrik-jones-buckhillcapital.com",
@@ -74249,7 +74331,9 @@
       "firm_id": "bvp.com",
       "full_name": "Adam Fisher",
       "title": "Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/65ea53bd-c976-4970-a27c-21d6812d1c16.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/65ea53bd-c976-4970-a27c-21d6812d1c16.jpg"
     },
     {
       "id": "alex-ferrara-bvp.com",
@@ -74487,7 +74571,9 @@
       "firm_id": "capitalfactory.com",
       "full_name": "Joshua Baer",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/06d1dabc-a7b9-4183-9a95-a7d691dddb08.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/06d1dabc-a7b9-4183-9a95-a7d691dddb08.png"
     },
     {
       "id": "allison-caragan-capitalg.com",
@@ -74732,7 +74818,9 @@
       "firm_id": "cherubic.com",
       "full_name": "Andrew Dudum",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/feccc5d3-d4eb-4ea9-9b7f-0a575cf01374.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/feccc5d3-d4eb-4ea9-9b7f-0a575cf01374.webp"
     },
     {
       "id": "rob-chesney-chicagoventures.com",
@@ -74865,7 +74953,9 @@
       "firm_id": "clearvisionequity.com",
       "full_name": "Mitch Patridge",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/74b69e38-8273-4364-81d4-e3dc374e981a.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/74b69e38-8273-4364-81d4-e3dc374e981a.jpg"
     },
     {
       "id": "sarah-kunst-cleocap.com",
@@ -74886,7 +74976,9 @@
       "firm_id": "clocktowerventures.com",
       "full_name": "Ben Savage",
       "title": "Partner",
-      "email": "ben@clocktowerventures.com"
+      "email": "ben@clocktowerventures.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5ba25b61-498c-4a09-be50-026f40df9c3e.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5ba25b61-498c-4a09-be50-026f40df9c3e.jpg"
     },
     {
       "id": "benjamin-savage-clocktowerventures.com",
@@ -74942,7 +75034,9 @@
       "firm_id": "coatue.com",
       "full_name": "Matt Mazzeo",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8ec4a841-f68c-455e-8151-247f7fa560ca.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8ec4a841-f68c-455e-8151-247f7fa560ca.jpg"
     },
     {
       "id": "rick-hess-cobalt.la",
@@ -74963,7 +75057,9 @@
       "firm_id": "coelius.vc",
       "full_name": "Zach Coelius",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/d34f067d-d3dc-4897-b8ef-3a78aaec16a1.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/d34f067d-d3dc-4897-b8ef-3a78aaec16a1.jpg"
     },
     {
       "id": "zachery-k-coelius-coelius.vc",
@@ -75264,7 +75360,9 @@
       "firm_id": "corevc.com",
       "full_name": "Arjan Schütte",
       "title": "Founder & Managing Partner",
-      "email": "arjan@corevc.com"
+      "email": "arjan@corevc.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ccc602fa-db9f-4d6c-96fc-81c9e6ba5372.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ccc602fa-db9f-4d6c-96fc-81c9e6ba5372.jpg"
     },
     {
       "id": "joanna-earl-coreventuresgroup.com",
@@ -75390,7 +75488,9 @@
       "firm_id": "cowboy.vc",
       "full_name": "Aileen Lee",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fa92617e-69ca-424c-b806-df856b00ec99.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/fa92617e-69ca-424c-b806-df856b00ec99.jpg"
     },
     {
       "id": "jessica-karr-coyote.ventures",
@@ -75530,7 +75630,9 @@
       "firm_id": "crv.com",
       "full_name": "Devdutt Yellurkar",
       "title": "General Partner",
-      "email": "devdutt@crv.com"
+      "email": "devdutt@crv.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b3fd8dba-e572-4f67-8a7a-8a726e4169b3.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b3fd8dba-e572-4f67-8a7a-8a726e4169b3.webp"
     },
     {
       "id": "devdutt-yullerkar-crv.com",
@@ -75551,7 +75653,9 @@
       "firm_id": "crv.com",
       "full_name": "Saar Gur",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8bfb2af8-1cb8-4665-ab57-06f4bef6d71b.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8bfb2af8-1cb8-4665-ab57-06f4bef6d71b.jpg"
     },
     {
       "id": "john-hamel-cueball.com",
@@ -75775,7 +75879,9 @@
       "firm_id": "deerfield.com",
       "full_name": "James Flynn",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/862931f2-04c1-4509-8416-3d19b275a832.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/862931f2-04c1-4509-8416-3d19b275a832.jpg"
     },
     {
       "id": "jonathan-isler-deerfield.com",
@@ -76062,7 +76168,9 @@
       "firm_id": "dundeeventurecapital.com",
       "full_name": "Greg Beaufait",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/97942d77-9ee8-4638-8f50-3f008ed34286.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/97942d77-9ee8-4638-8f50-3f008ed34286.jpg"
     },
     {
       "id": "henry-ellenbogen-durablecap.com",
@@ -76573,7 +76681,9 @@
       "firm_id": "equal.vc",
       "full_name": "Rick Zullo",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8d47e6c2-de91-4ea5-8f76-640afe4224ed.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8d47e6c2-de91-4ea5-8f76-640afe4224ed.jpg"
     },
     {
       "id": "ziad-moukheiber-eqxfund.com",
@@ -76629,7 +76739,9 @@
       "firm_id": "everywhere.vc",
       "full_name": "Jenny Fielding",
       "title": "Founder & General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8dda368d-8e11-4718-bdb5-da042702595e.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8dda368d-8e11-4718-bdb5-da042702595e.webp"
     },
     {
       "id": "jr-smith-evolutionequity.com",
@@ -76720,7 +76832,9 @@
       "firm_id": "exa.ai",
       "full_name": "Katie Stanton",
       "title": "Founder and General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e01149e4-5d62-4edb-9288-668bd4a190ff.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/e01149e4-5d62-4edb-9288-668bd4a190ff.jpg"
     },
     {
       "id": "maha-ibrahim-exa.ai",
@@ -76909,7 +77023,9 @@
       "firm_id": "felicis.com",
       "full_name": "Wesley Chan",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/26732a14-6868-4a87-b091-93abb9bd7e0d.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/26732a14-6868-4a87-b091-93abb9bd7e0d.jpg"
     },
     {
       "id": "carmen-rico-felixcap.com",
@@ -76972,7 +77088,9 @@
       "firm_id": "fifthwall.com",
       "full_name": "Brendan Wallace",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8014a3c4-aa77-4255-9728-ee11ef935e99.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8014a3c4-aa77-4255-9728-ee11ef935e99.jpg"
     },
     {
       "id": "ela-madej-fiftyyears.com",
@@ -77063,14 +77181,18 @@
       "firm_id": "finventurestudio.com",
       "full_name": "Ryan Falvey",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8a75fd7d-8539-4654-ba4a-16ca91cb4705.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8a75fd7d-8539-4654-ba4a-16ca91cb4705.jpg"
     },
     {
       "id": "john-fein-firebrandvc.com",
       "firm_id": "firebrandvc.com",
       "full_name": "John Fein",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7c8760b8-6984-447e-a606-719177843785.svg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7c8760b8-6984-447e-a606-719177843785.svg"
     },
     {
       "id": "vinay-singh-firesideventures.com",
@@ -77147,7 +77269,9 @@
       "firm_id": "firstround.com",
       "full_name": "Hayley Barna",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c851599b-5c0d-4f1e-a743-e07017332797.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c851599b-5c0d-4f1e-a743-e07017332797.jpg"
     },
     {
       "id": "josh-kopelman-firstround.com",
@@ -77273,14 +77397,18 @@
       "firm_id": "flybridge.com",
       "full_name": "Chip Hazard",
       "title": "Co-Founder & Investment Partner, (XFactor Ventures); General Partner (Flybridge)",
-      "email": "chip@flybridge.com"
+      "email": "chip@flybridge.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/86c7b5dd-33ab-46f4-b553-08ad2719055f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/86c7b5dd-33ab-46f4-b553-08ad2719055f.jpg"
     },
     {
       "id": "jesse-middleton-flybridge.com",
       "firm_id": "flybridge.com",
       "full_name": "Jesse Middleton",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/711643cb-c987-4351-aca3-d1eb18441f56.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/711643cb-c987-4351-aca3-d1eb18441f56.jpg"
     },
     {
       "id": "artur-davydenko-flyerone.vc",
@@ -77350,7 +77478,9 @@
       "firm_id": "footwork.vc",
       "full_name": "Nikhil Basu Trivedi",
       "title": "Co-Founder and General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/191e8cc9-4c77-44e1-b987-f5a65103bbe9.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/191e8cc9-4c77-44e1-b987-f5a65103bbe9.jpg"
     },
     {
       "id": "eurie-kim-forerunnerventures.com",
@@ -77364,7 +77494,9 @@
       "firm_id": "forerunnerventures.com",
       "full_name": "Kirsten Green",
       "title": "Founder and Managing Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/89d13867-4ea6-40dc-b04b-1df2c99fa7ab.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/89d13867-4ea6-40dc-b04b-1df2c99fa7ab.jpg"
     },
     {
       "id": "matt-buten-foresitecapital.com",
@@ -77651,7 +77783,9 @@
       "firm_id": "fusion-vc.com",
       "full_name": "Guy Katsovich",
       "title": "Managing Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ec8e8d32-176b-4b16-9c66-256f05674808.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ec8e8d32-176b-4b16-9c66-256f05674808.jpg"
     },
     {
       "id": "homan-yuen-fusionfund.com",
@@ -78022,7 +78156,9 @@
       "firm_id": "gladebrookcapital.com",
       "full_name": "Linda Guo",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5fd8c93a-65a9-40a5-8c7c-b432d3640370.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5fd8c93a-65a9-40a5-8c7c-b432d3640370.jpg"
     },
     {
       "id": "rudina-seseri-glasswing.vc",
@@ -78148,7 +78284,9 @@
       "firm_id": "goldengate.vc",
       "full_name": "Justin Hall",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0846db26-b60e-44e4-beb2-885b4a7a9275.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0846db26-b60e-44e4-beb2-885b4a7a9275.jpg"
     },
     {
       "id": "lynn-polakoff-baine-goldenseeds.com",
@@ -78400,7 +78538,9 @@
       "firm_id": "greatoaksvc.com",
       "full_name": "Henry McNamara",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/65e37206-49b1-49df-b626-8ff1642780a6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/65e37206-49b1-49df-b626-8ff1642780a6.jpg"
     },
     {
       "id": "matt-shalhoub-greenacrecapital.ca",
@@ -78939,7 +79079,9 @@
       "firm_id": "hcvc.co",
       "full_name": "Jerry Yang",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/cf8a7c3f-b3af-456d-95cd-87f42774270c.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/cf8a7c3f-b3af-456d-95cd-87f42774270c.png"
     },
     {
       "id": "mac-dabah-hdscapital.com",
@@ -79170,7 +79312,9 @@
       "firm_id": "homebrew.co",
       "full_name": "Satya Patel",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4ca4bc92-1435-4599-b9a5-7c76154e910f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4ca4bc92-1435-4599-b9a5-7c76154e910f.jpg"
     },
     {
       "id": "rob-kniaz-hoxtonventures.com",
@@ -79233,7 +79377,9 @@
       "firm_id": "hustlefund.vc",
       "full_name": "Elizabeth Yin",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/54acb2ba-b6b5-4ba7-b5b2-1b60c6436816.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/54acb2ba-b6b5-4ba7-b5b2-1b60c6436816.jpg"
     },
     {
       "id": "jan-miczaika-hvcapital.com",
@@ -80038,7 +80184,9 @@
       "firm_id": "karlinvc.com",
       "full_name": "Tx Zhuo",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2fe52a15-be28-492a-9bba-b54b5646d9bf.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2fe52a15-be28-492a-9bba-b54b5646d9bf.jpg"
     },
     {
       "id": "nik-berman-kaszek.com",
@@ -80724,7 +80872,9 @@
       "firm_id": "longjourney.vc",
       "full_name": "Cyan Banister",
       "title": "Co-Founder & General Partner",
-      "email": "cyan@longjourney.vc"
+      "email": "cyan@longjourney.vc",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b0826377-a467-4609-a318-809d0ade111c.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b0826377-a467-4609-a318-809d0ade111c.jpg"
     },
     {
       "id": "cyan-bannister-longjourney.vc",
@@ -80976,7 +81126,9 @@
       "firm_id": "macventurecapital.com",
       "full_name": "Marlon Nichols",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2d06cb88-a5f3-4628-82c2-1f34fc9e0425.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/2d06cb88-a5f3-4628-82c2-1f34fc9e0425.jpg"
     },
     {
       "id": "matt-mcilwain-madrona.com",
@@ -81557,7 +81709,9 @@
       "firm_id": "miramarvp.com",
       "full_name": "Bruce Hallett",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/609a12fd-848a-4bbd-9ca6-12a8b3bec40f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/609a12fd-848a-4bbd-9ca6-12a8b3bec40f.jpg"
     },
     {
       "id": "douglas-crawford-missionbaycapital.com",
@@ -81620,7 +81774,9 @@
       "firm_id": "moderneventures.com",
       "full_name": "Constance Freedman",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ab72b9d-3827-49fb-b1c7-1a62fa4af545.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ab72b9d-3827-49fb-b1c7-1a62fa4af545.jpg"
     },
     {
       "id": "sam-delisi-moderneventures.com",
@@ -82292,7 +82448,9 @@
       "firm_id": "nfx.com",
       "full_name": "James Currier",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/76d6e07b-5c9f-4167-88c2-3a1407718bac.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/76d6e07b-5c9f-4167-88c2-3a1407718bac.jpg"
     },
     {
       "id": "morgan-beller-nfx.com",
@@ -82432,7 +82590,9 @@
       "firm_id": "northzone.com",
       "full_name": "Pär-Jörgen Pärson",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9e66215c-7f7a-4810-835c-7b63851ca547.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9e66215c-7f7a-4810-835c-7b63851ca547.jpg"
     },
     {
       "id": "wendy-schadeck-xiao-schadeck-northzone.com",
@@ -82523,7 +82683,9 @@
       "firm_id": "nvp.com",
       "full_name": "Sean Jacobsohn",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c145e771-cc7c-4494-aead-5f265d9145bd.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c145e771-cc7c-4494-aead-5f265d9145bd.jpg"
     },
     {
       "id": "john-hans-morris-nyca.com",
@@ -83006,14 +83168,18 @@
       "firm_id": "parade.vc",
       "full_name": "Shawn Merani",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4b31ff43-c922-45cc-a7f6-4262f87ba853.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4b31ff43-c922-45cc-a7f6-4262f87ba853.jpg"
     },
     {
       "id": "sebastian-vidal-parallel18.com",
       "firm_id": "parallel18.com",
       "full_name": "Sebastian Vidal",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5873d600-1f60-4dd6-a1a8-9f50a07cc695.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5873d600-1f60-4dd6-a1a8-9f50a07cc695.jpg"
     },
     {
       "id": "edward-lando-pareto20.com",
@@ -83258,7 +83424,9 @@
       "firm_id": "pillar.vc",
       "full_name": "Sarah Hodges",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/77555cbd-cad4-4e44-956e-59a3a02861fb.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/77555cbd-cad4-4e44-956e-59a3a02861fb.jpg"
     },
     {
       "id": "neil-callahan-pilotgrowth.com",
@@ -83706,7 +83874,9 @@
       "firm_id": "qedinvestors.com",
       "full_name": "Frank Rotman",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5bf03921-6ddd-4ce4-8827-0652d140f5d6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/5bf03921-6ddd-4ce4-8827-0652d140f5d6.jpg"
     },
     {
       "id": "nigel-w-morris-qedinvestors.com",
@@ -83755,7 +83925,9 @@
       "firm_id": "questm.com",
       "full_name": "Brian Matthews",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/187bd347-02a8-4303-a683-1e588fad20b0.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/187bd347-02a8-4303-a683-1e588fad20b0.jpg"
     },
     {
       "id": "andrew-ogawa-questvp.com",
@@ -83825,7 +83997,9 @@
       "firm_id": "race.capital",
       "full_name": "Phil Chen",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a6ef4310-ac34-44e0-85ad-f9b5b5952453.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a6ef4310-ac34-44e0-85ad-f9b5b5952453.jpg"
     },
     {
       "id": "jocelyn-lehman-rachelzoeventures.com",
@@ -83874,7 +84048,9 @@
       "firm_id": "raine.com",
       "full_name": "Gordon Rubenstein",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ee548e6-dd57-4ef2-80bf-7924adfdaee5.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ee548e6-dd57-4ef2-80bf-7924adfdaee5.jpg"
     },
     {
       "id": "ron-rofe-rainfall.com",
@@ -84126,7 +84302,9 @@
       "firm_id": "remotefirstcapital.com",
       "full_name": "Andreas Klinger",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6c67cbbd-765b-4a12-b348-5f03fdcc9ba9.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6c67cbbd-765b-4a12-b348-5f03fdcc9ba9.jpg"
     },
     {
       "id": "susan-alban-renegadepartners.com",
@@ -84455,7 +84633,9 @@
       "firm_id": "rtp.vc",
       "full_name": "Dimitri Boguslavsky",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a40e0cd9-89b6-4969-8e67-da874cbdba0a.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a40e0cd9-89b6-4969-8e67-da874cbdba0a.jpg"
     },
     {
       "id": "maria-krajukhina-rtp.vc",
@@ -84497,7 +84677,9 @@
       "firm_id": "s28capital.com",
       "full_name": "Andrew Miklas",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6b8e482e-2372-4be7-b48b-4bc350bab4d8.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6b8e482e-2372-4be7-b48b-4bc350bab4d8.jpg"
     },
     {
       "id": "sohail-prasad-s2capital.vc",
@@ -84644,7 +84826,9 @@
       "firm_id": "sante.com",
       "full_name": "Louis Bock",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a959e046-cc00-42c6-8c45-3135d5fe9155.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/a959e046-cc00-42c6-8c45-3135d5fe9155.jpg"
     },
     {
       "id": "nino-nikola-marakovic-sapphireventures.com",
@@ -84679,7 +84863,9 @@
       "firm_id": "scalevp.com",
       "full_name": "Andy Vitus",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dd114dcc-d9c4-431b-8bee-cd97b9791384.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dd114dcc-d9c4-431b-8bee-cd97b9791384.jpg"
     },
     {
       "id": "ariel-tseitlin-scalevp.com",
@@ -84700,7 +84886,9 @@
       "firm_id": "scalevp.com",
       "full_name": "Stephan Eberle",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/296f1515-6913-4ba6-9f0e-183ae2184a7f.avif",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/296f1515-6913-4ba6-9f0e-183ae2184a7f.avif"
     },
     {
       "id": "haim-sadger-scapitalvc.com",
@@ -84770,7 +84958,9 @@
       "firm_id": "scv.vc",
       "full_name": "Constance Freedman",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ab72b9d-3827-49fb-b1c7-1a62fa4af545.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7ab72b9d-3827-49fb-b1c7-1a62fa4af545.jpg"
     },
     {
       "id": "peter-sally-seaeventures.com",
@@ -85162,7 +85352,9 @@
       "firm_id": "signiaventurepartners.com",
       "full_name": "Linus Liang",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b42621e1-6d53-4347-a3d5-8cbd1c043636.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/b42621e1-6d53-4347-a3d5-8cbd1c043636.jpg"
     },
     {
       "id": "frank-lin-silascapital.com",
@@ -85295,7 +85487,9 @@
       "firm_id": "slow.co",
       "full_name": "Sam Lessin",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/43a5aad9-664d-4a55-abc5-bbd277cfd65a.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/43a5aad9-664d-4a55-abc5-bbd277cfd65a.jpg"
     },
     {
       "id": "yoni-rechtman-slow.co",
@@ -85337,7 +85531,9 @@
       "firm_id": "socialleverage.com",
       "full_name": "Gary Benitt",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ae75010f-7395-489c-be28-07eb5df8c3b6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/ae75010f-7395-489c-be28-07eb5df8c3b6.jpg"
     },
     {
       "id": "mike-edelhart-socialstarts.com",
@@ -85512,14 +85708,18 @@
       "firm_id": "soundventures.com",
       "full_name": "Ashton Kutcher",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dba7e15a-2eeb-4ba1-a36e-3f75b9981b57.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/dba7e15a-2eeb-4ba1-a36e-3f75b9981b57.png"
     },
     {
       "id": "dylan-itzikowitz-southparkcommons.com",
       "firm_id": "southparkcommons.com",
       "full_name": "Dylan Itzikowitz",
       "title": "Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7503b36c-c2b0-4ccf-a4e8-588a3eefab8a.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/7503b36c-c2b0-4ccf-a4e8-588a3eefab8a.jpg"
     },
     {
       "id": "finn-meeks-southparkcommons.com",
@@ -85540,7 +85740,9 @@
       "firm_id": "sova.vc",
       "full_name": "Alexander Chikunov",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4228ad3e-1b38-48d6-98ad-86f9852d3fa4.png",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/4228ad3e-1b38-48d6-98ad-86f9852d3fa4.png"
     },
     {
       "id": "russell-bjorkman-sovereignscapital.com",
@@ -85848,7 +86050,9 @@
       "firm_id": "startupbootcamp.org",
       "full_name": "Alex Farcet",
       "title": "CEO/MD",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6e7241a7-5498-4a0d-8c36-c9de1679bf5c.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/6e7241a7-5498-4a0d-8c36-c9de1679bf5c.jpg"
     },
     {
       "id": "christian-seale-startupbootcamp.org",
@@ -86261,7 +86465,9 @@
       "firm_id": "tandemcap.com",
       "full_name": "Doug Renert",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0d0c694f-f532-419b-9ab1-fb8029c86db9.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0d0c694f-f532-419b-9ab1-fb8029c86db9.jpg"
     },
     {
       "id": "rob-eldridge-tapas.capital",
@@ -86513,7 +86719,9 @@
       "firm_id": "tenoneten.net",
       "full_name": "David Waxman",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/de8f27e2-8a7b-4783-824d-1940a5a44799.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/de8f27e2-8a7b-4783-824d-1940a5a44799.jpg"
     },
     {
       "id": "wayne-boulais-tensilityvc.com",
@@ -86632,7 +86840,9 @@
       "firm_id": "thefund.vc",
       "full_name": "Jenny Fielding",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8dda368d-8e11-4718-bdb5-da042702595e.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/8dda368d-8e11-4718-bdb5-da042702595e.webp"
     },
     {
       "id": "jenny-fielding-fielding-thefund.vc",
@@ -86660,7 +86870,9 @@
       "firm_id": "thehouse.fund",
       "full_name": "Jeremy Fiance",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ec57c77-2133-44f6-ac50-04ef32e36a36.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ec57c77-2133-44f6-ac50-04ef32e36a36.jpg"
     },
     {
       "id": "tasha-seitz-theimpactengine.com",
@@ -86926,7 +87138,9 @@
       "firm_id": "toddandrahulangelfund.com",
       "full_name": "Rahul Vohra",
       "title": "Founder & CEO",
-      "email": "rahul@superhuman.com"
+      "email": "rahul@superhuman.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/794c503a-65f1-478d-a75b-c5748899e4f6.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/794c503a-65f1-478d-a75b-c5748899e4f6.jpg"
     },
     {
       "id": "aaron-fleishman-tolacapital.com",
@@ -87192,7 +87406,9 @@
       "firm_id": "truewealthvc.com",
       "full_name": "Abbie Strabala",
       "title": "Associate",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9d04e403-6822-4a5a-8478-18f83d43aaa4.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9d04e403-6822-4a5a-8478-18f83d43aaa4.jpg"
     },
     {
       "id": "sara-t-brand-truewealthvc.com",
@@ -87360,7 +87576,9 @@
       "firm_id": "uluventures.com",
       "full_name": "Miriam Rivera",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/655a71f3-86c5-48ce-9723-ad922cbae787.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/655a71f3-86c5-48ce-9723-ad922cbae787.jpg"
     },
     {
       "id": "steve-reale-uluventures.com",
@@ -87430,7 +87648,9 @@
       "firm_id": "underscore.vc",
       "full_name": "Richard Dulude",
       "title": "General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ad4c0b8-da5f-4a97-bb9f-1ba7a5050b6f.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/9ad4c0b8-da5f-4a97-bb9f-1ba7a5050b6f.jpg"
     },
     {
       "id": "bhaskar-majumdar-unicornivc.com",
@@ -87815,7 +88035,9 @@
       "firm_id": "venrock.com",
       "full_name": "Bong Koh",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c4767780-b37b-4b1f-86d7-d890763ac189.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/c4767780-b37b-4b1f-86d7-d890763ac189.jpg"
     },
     {
       "id": "audrey-soussan-ventechvc.com",
@@ -88312,7 +88534,9 @@
       "firm_id": "whitebuffalo.capital",
       "full_name": "Alexander Hughes",
       "title": null,
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/676796b4-7599-4d1f-91b8-85ebf5e10dca.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/676796b4-7599-4d1f-91b8-85ebf5e10dca.jpg"
     },
     {
       "id": "russell-samuels-whitecapvp.com",
@@ -88417,7 +88641,9 @@
       "firm_id": "wischoff.com",
       "full_name": "Nichole Wischoff",
       "title": "Founder & General Partner",
-      "email": "nichole@wischoff.com"
+      "email": "nichole@wischoff.com",
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0241cabc-5447-4b9b-809f-d41d3532bed8.jpg",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/0241cabc-5447-4b9b-809f-d41d3532bed8.jpg"
     },
     {
       "id": "jeffrey-katzenberg-wndrco.com",
@@ -88704,7 +88930,9 @@
       "firm_id": "zeroprime.vc",
       "full_name": "Pete Soderling",
       "title": "Founder & General Partner",
-      "email": null
+      "email": null,
+      "profile_image_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/637f9984-6436-425b-9a02-5bb02da8bead.webp",
+      "avatar_url": "https://pub-98d379698ccd4d45bd78d9c70aba33d5.r2.dev/637f9984-6436-425b-9a02-5bb02da8bead.webp"
     },
     {
       "id": "yang-tran-zeroprime.vc",
