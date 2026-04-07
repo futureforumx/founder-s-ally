@@ -279,8 +279,9 @@ async function main() {
   type FirmRow = { id: string; firm_name: string; website_url: string | null; logo_url: string | null };
 
   const extra = (FORCE
-    ? "&deleted_at=is.null"
-    : "&logo_url=is.null&deleted_at=is.null")
+    ? ""
+    : "&logo_url=is.null")
+    + "&website_url=not.is.null&website_url=neq."
     + "&firm_type=neq.individual";
 
   const firms = await sbGet<FirmRow>("firm_records", "id,firm_name,website_url,logo_url", extra);

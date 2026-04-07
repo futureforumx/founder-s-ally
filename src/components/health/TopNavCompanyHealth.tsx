@@ -166,6 +166,13 @@ export function TopNavCompanyHealth({
     [trackInteraction],
   );
 
+  const handleNavigateToDataRoom = useCallback(() => {
+    onNavigateToDataRoom?.();
+    setModalOpen(false);
+    setHealthSurface("tabs");
+    setActiveTab("overview");
+  }, [onNavigateToDataRoom]);
+
   useEffect(() => {
     setLogoImgError(false);
   }, [logoUrl]);
@@ -572,7 +579,9 @@ export function TopNavCompanyHealth({
                     </div>
                   )}
 
-                  <HealthFinancialsUnitEconomicsSection className="mt-8" />
+                  {(activeTab === "overview" || activeTab === "financial") && (
+                    <HealthFinancialsUnitEconomicsSection className="mt-8" />
+                  )}
                 </>
               )}
             </div>

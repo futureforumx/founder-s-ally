@@ -11,6 +11,7 @@ import {
   Radar,
   Search,
   Sparkles,
+  Tags,
   TrendingUp,
   User,
   X,
@@ -147,6 +148,7 @@ function IntelligenceCard({
   onWatchlist,
   onNote,
   onAlert,
+  categoryLane,
 }: {
   ev: IntelligenceFeedEvent;
   onDismiss: (id: string) => void;
@@ -154,6 +156,7 @@ function IntelligenceCard({
   onWatchlist: (id: string) => void;
   onNote: (id: string) => void;
   onAlert: (id: string) => void;
+  categoryLane?: boolean;
 }) {
   const imp = signalMeter(Number(ev.importance_score));
   const rel = signalMeter(Number(ev.relevance_score));
@@ -161,7 +164,12 @@ function IntelligenceCard({
   const entities = ev.entities || [];
 
   return (
-    <article className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm hover:border-border transition-colors">
+    <article
+      className={cn(
+        "rounded-2xl border border-border/70 bg-card p-4 shadow-sm hover:border-border transition-colors",
+        categoryLane && "border-l-[3px] border-l-sky-500/50 pl-[calc(1rem-3px)]",
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span
           className={cn(
@@ -499,32 +507,65 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
               ? "Customer"
               : "M&A / Strategic Moves";
 
+  const subcopy =
+    variant === "category"
+      ? "Sector composition, taxonomy shifts, and category-defining moves — surfaced as ranked signals, not noise."
+      : "Structured events ranked by relevance — not raw headlines. Act on what changes your strategy.";
+
+  const summaryEyebrow =
+    variant === "category" ? "Category pulse — last 24 hours" : "Last 24 hours — snapshot";
+
+  const isCategoryLane = variant === "category";
+
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       <div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
-            <Radar className="h-4 w-4" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">{headline}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Structured events ranked by relevance — not raw headlines. Act on what changes your strategy.
-            </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                isCategoryLane
+                  ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
+                  : "bg-accent/15 text-accent",
+              )}
+            >
+              {isCategoryLane ? <Tags className="h-4 w-4" /> : <Radar className="h-4 w-4" />}
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">{headline}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl leading-relaxed">{subcopy}</p>
+            </div>
           </div>
         </div>
+        {isCategoryLane && (
+          <div className="mt-4 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-transparent px-4 py-3 dark:from-sky-500/10 dark:to-transparent">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-200">
+              Market lane · Category
+            </p>
+            <p className="mt-1 text-xs text-foreground/85 leading-relaxed">
+              Use filters to narrow by entity and timeframe. High-signal and watchlist toggles help you stay inside
+              the moves that reframe how buyers and investors think about your space.
+            </p>
+          </div>
+        )}
       </div>
 
       <section aria-label="Signal summary">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Last 24 hours — snapshot
+          {summaryEyebrow}
         </p>
         <SummaryStrip data={summary} />
       </section>
 
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         <div className="flex-1 min-w-0 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center">
+          <div
+            className={cn(
+              "flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center",
+              isCategoryLane && "rounded-2xl border border-border/50 bg-card/40 p-3 sm:p-4",
+            )}
+          >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
@@ -586,7 +627,9 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
             </div>
           ) : events.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-              No events match these filters. Try another timeframe or clear watchlist-only.
+              {isCategoryLane
+                ? "No category signals match these filters. Widen the timeframe, clear watchlist-only, or try a different entity type."
+                : "No events match these filters. Try another timeframe or clear watchlist-only."}
             </div>
           ) : (
             <div className="space-y-4">
@@ -599,6 +642,7 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
                   onWatchlist={openWatch}
                   onNote={openNote}
                   onAlert={handleAlert}
+                  categoryLane={isCategoryLane}
                 />
               ))}
               {hasMore && (
@@ -617,7 +661,9 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
         </div>
 
         <aside className="w-full lg:w-72 shrink-0 space-y-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Context</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {isCategoryLane ? "Category context" : "Context"}
+          </p>
           <SideRail
             trendingInvestors={sideRail?.trendingInvestors || []}
             newFunds={sideRail?.newFunds || []}

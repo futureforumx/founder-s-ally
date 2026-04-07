@@ -4,7 +4,10 @@ import { SectorAlignment } from "./SectorAlignment";
 import { StageTimeline } from "./StageTimeline";
 import { InvestorThemes } from "./InvestorThemes";
 import { DealDynamics } from "./DealDynamics";
+import { AverageDealSizeCard } from "./AverageDealSizeCard";
 import { GeographicFocus } from "./GeographicFocus";
+import { FirmFundsSection } from "./FirmFundsSection";
+import type { FirmDeal, InvestorPartner } from "@/hooks/useInvestorProfile";
 
 type ExpandedPanel = "sector" | "stage" | "themes" | "geo" | null;
 
@@ -14,6 +17,20 @@ interface ThesisTabContentProps {
   companyData: any;
   enrichedData: any;
   displayName: string;
+  minCheckUsd?: number | null;
+  maxCheckUsd?: number | null;
+  firmDeals?: FirmDeal[] | null;
+  dealSizePartners?: InvestorPartner[] | null;
+  typicalCheckHint?: string | null;
+  directorySweetSpot?: string | null;
+  /** `firm_records.id` UUID — loads `fund_records` from the Supabase DB */
+  firmRecordsId?: string | null;
+  /** Firm display name — fallback resolver when firmRecordsId is unavailable */
+  firmDisplayName?: string | null;
+  /** Whether the firm is currently deploying (`firm_records.is_actively_deploying`) — used as fallback. */
+  isActivelyDeploying?: boolean | null;
+  /** AUM string from `firm_records` or static JSON — used as fallback fund display. */
+  firmAum?: string | null;
 }
 
 export function ThesisTabContent({
@@ -22,6 +39,16 @@ export function ThesisTabContent({
   companyData,
   enrichedData,
   displayName,
+  minCheckUsd,
+  maxCheckUsd,
+  firmDeals,
+  dealSizePartners,
+  typicalCheckHint,
+  directorySweetSpot,
+  firmRecordsId,
+  firmDisplayName,
+  isActivelyDeploying,
+  firmAum,
 }: ThesisTabContentProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
 
@@ -100,7 +127,15 @@ export function ThesisTabContent({
               onToggleExpand={() => toggle("themes")}
             />
           </div>
-          <div className="lg:col-span-1 h-full">
+          <div className="lg:col-span-1 flex h-full flex-col gap-3">
+            <AverageDealSizeCard
+              minCheckUsd={minCheckUsd}
+              maxCheckUsd={maxCheckUsd}
+              deals={firmDeals}
+              partners={dealSizePartners ?? null}
+              typicalCheckHint={typicalCheckHint ?? null}
+              directorySweetSpot={directorySweetSpot ?? null}
+            />
             <DealDynamics />
           </div>
           <div className="lg:col-span-1 h-full">
@@ -110,6 +145,13 @@ export function ThesisTabContent({
             />
           </div>
         </div>
+
+        <FirmFundsSection
+          firmRecordsId={firmRecordsId?.trim() || null}
+          firmName={firmDisplayName?.trim() || null}
+          isActivelyDeploying={isActivelyDeploying ?? null}
+          firmAum={firmAum ?? null}
+        />
       </div>
     </motion.div>
   );

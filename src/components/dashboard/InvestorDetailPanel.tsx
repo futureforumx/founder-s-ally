@@ -22,7 +22,7 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { ScoreTilesRow, type TileId } from "./investor-detail/ScoreTilesRow";
-import { useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
+import { useInvestorProfile, useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
 import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -217,6 +217,13 @@ export function InvestorDetailPanel({
     liveProfile?.source === "live"
       ? liveProfile.id
       : investorDbIdFromEntry ?? resolvedFirmId ?? null;
+
+  /** When name-resolve fell back to JSON, fetch `firm_records` + `firm_recent_deals` via `databaseFirmId`. */
+  const firmRecordsUuidForSupplemental =
+    liveProfile?.source === "live" ? null : databaseFirmId;
+  const supplementalFirmQuery = useInvestorProfile(firmRecordsUuidForSupplemental);
+  const dealSizeProfile =
+    liveProfile?.source === "live" ? liveProfile : supplementalFirmQuery.data ?? null;
 
   const firmRecordXSupplement = useFirmRecordXUrlSupplement(liveProfile ?? undefined, vcFirm ?? undefined, databaseFirmId);
   const effectiveFirmXUrl = useMemo(
@@ -694,6 +701,21 @@ export function InvestorDetailPanel({
                         companyData={companyData}
                         enrichedData={enrichedData}
                         displayName={displayName}
+                        minCheckUsd={dealSizeProfile?.min_check_size ?? null}
+                        maxCheckUsd={dealSizeProfile?.max_check_size ?? null}
+                        firmDeals={dealSizeProfile?.deals ?? null}
+                        dealSizePartners={dealSizeProfile?.partners ?? null}
+                        typicalCheckHint={enrichedData?.profile?.typicalCheckSize ?? null}
+                        directorySweetSpot={vcFirm?.sweet_spot ?? null}
+                        firmRecordsId={
+                          // firm_records.id (UUID) is the FK for fund_records.firm_id
+                          (liveProfile?.source === "live" ? liveProfile.id : null) ?? null
+                        }
+                        firmDisplayName={
+                          liveProfile?.firm_name ?? vcFirm?.name ?? null
+                        }
+                        isActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
+                        firmAum={dealSizeProfile?.aum ?? vcFirm?.aum ?? null}
                       />
                     
                     )}

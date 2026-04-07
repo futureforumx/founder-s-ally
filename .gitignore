@@ -58,3 +58,5 @@ data/imports/signal-nfx-lists.json
 data/imports/signal-nfx-featured.json
 data/imports/founder-s-ally-*.json
 data/enriched/*.json
+.aidesigner/*
+!.aidesigner/.gitkeep
