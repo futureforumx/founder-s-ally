@@ -22,6 +22,10 @@ export interface InvestorPartner {
   city: string | null;
   state: string | null;
   country: string | null;
+  /** Present when loaded from `firm_investors` (Supabase). */
+  check_size_min?: number | null;
+  check_size_max?: number | null;
+  sweet_spot?: string | null;
 }
 
 export interface FirmDeal {
@@ -62,6 +66,10 @@ export interface InvestorProfile {
   sentiment_detail: string | null;
   recent_deals: string[] | null;
   last_enriched_at: string | null;
+  /** `firm_records.prisma_firm_id` — the cuid that links to `vc_firms.id` / `vc_funds.firm_id`. */
+  prisma_firm_id: string | null;
+  /** Whether the firm is currently deploying capital (`firm_records.is_actively_deploying`). */
+  is_actively_deploying: boolean | null;
   // Joined relations
   partners: InvestorPartner[];
   deals: FirmDeal[];
@@ -108,6 +116,8 @@ function mapJsonFirm(firm: any): InvestorProfile {
     sentiment_detail: firm.description ?? null,
     recent_deals: null,
     last_enriched_at: null,
+    prisma_firm_id: null,
+    is_actively_deploying: null,
     partners: [],
     deals: [],
     source: "json-fallback",
@@ -182,6 +192,8 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       sentiment_detail: firm.sentiment_detail,
       recent_deals: firm.recent_deals,
       last_enriched_at: firm.last_enriched_at,
+      prisma_firm_id: typeof firm.prisma_firm_id === "string" ? firm.prisma_firm_id : null,
+      is_actively_deploying: typeof firm.is_actively_deploying === "boolean" ? firm.is_actively_deploying : null,
       partners: (partnersRes.data ?? []).map((p: any) => ({
         ...p,
         bio: sanitizeText(p.bio) || generateInvestorBio({

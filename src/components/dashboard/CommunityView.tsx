@@ -1612,7 +1612,7 @@ export function CommunityView({
           ],
           sparkline: [3, 4, 5, 4, 6, 7],
           cluster: "professionals" as CohortCluster,
-          isPrimary: true,
+          isPrimary: false,
         },
         {
           id: "local",
@@ -1681,7 +1681,7 @@ export function CommunityView({
         ],
         sparkline: [3, 4, 5, 4, 6, 7],
         cluster: "professionals" as CohortCluster,
-        isPrimary: true,
+        isPrimary: false,
       },
       {
         id: "local",
@@ -2165,7 +2165,6 @@ export function CommunityView({
         <div className="flex min-w-max items-stretch gap-2.5 lg:min-w-0 lg:w-full lg:gap-3">
           {cohorts.map((cohort, cohortIdx) => {
             const Icon = cohort.icon;
-            const isPrimary = cohort.isPrimary;
 
             if (isInvestorSearch || isOperatorHubLayout) {
               return (
@@ -2176,24 +2175,18 @@ export function CommunityView({
                   className={cn(
                     "group flex min-h-0 snap-start shrink-0 flex-col rounded-lg border px-3.5 py-3 text-left",
                     "w-[220px] transition-[border-color,box-shadow,background-color] duration-200 lg:min-w-0 lg:w-auto lg:flex-1",
-                    isPrimary
-                      ? "border-foreground/[0.135] bg-muted/[0.42] shadow-[0_1px_2px_rgba(0,0,0,0.045)] dark:border-white/[0.175] dark:bg-white/[0.082]"
-                      : "border-border/42 bg-card/97 shadow-[0_1px_1px_rgba(0,0,0,0.022)] dark:border-white/[0.09] dark:bg-white/[0.038]",
+                    "border-border/42 bg-card/97 shadow-[0_1px_1px_rgba(0,0,0,0.022)] dark:border-white/[0.09] dark:bg-white/[0.038]",
                     "hover:border-border/70 hover:shadow-[0_2px_10px_rgba(0,0,0,0.045)] hover:bg-card dark:hover:border-white/16 dark:hover:bg-white/[0.055]",
-                    isPrimary &&
-                      "hover:border-foreground/[0.155] hover:shadow-[0_2px_10px_rgba(0,0,0,0.052)] dark:hover:border-white/19",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={cn(
-                        "min-w-0 text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-muted-foreground",
-                        isPrimary && "text-foreground/50",
-                      )}
-                    >
+                    <span className="min-w-0 text-[10px] font-medium uppercase leading-none tracking-[0.06em] text-muted-foreground">
                       {cohort.cluster}
                     </span>
-                    <span className="flex shrink-0 items-center justify-center text-blue-400 transition-colors group-hover:text-blue-300 dark:text-blue-300 dark:group-hover:text-blue-200" aria-hidden>
+                    <span
+                      className="flex shrink-0 items-center justify-center text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+                      aria-hidden
+                    >
                       <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </span>
                   </div>
@@ -2203,7 +2196,7 @@ export function CommunityView({
                       className={cn(
                         "font-semibold tabular-nums text-foreground",
                         "leading-[0.92] tracking-[-0.028em]",
-                        isPrimary ? "text-[31px]" : "text-[26px]",
+                        "text-[26px]",
                       )}
                     >
                       {cohort.value}
@@ -2213,12 +2206,7 @@ export function CommunityView({
                     </p>
                   </div>
 
-                  <div
-                    className={cn(
-                      "mt-4 border-t pt-3 dark:border-white/[0.1]",
-                      isPrimary ? "border-border/58 dark:border-white/[0.115]" : "border-border/40",
-                    )}
-                  >
+                  <div className="mt-4 border-t border-border/40 pt-3 dark:border-white/[0.1]">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
                         {cohort.timeframe}
@@ -2228,7 +2216,7 @@ export function CommunityView({
                           stats={cohort.trendStats}
                           initialDelayMs={2200 + cohortIdx * 550}
                         />
-                        <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={isPrimary} />
+                        <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={false} />
                       </div>
                     </div>
                   </div>
@@ -2243,44 +2231,25 @@ export function CommunityView({
                 className={[
                   "group relative snap-start shrink-0 flex flex-col justify-between overflow-hidden rounded-xl px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
                   "w-[220px] lg:w-auto lg:min-w-0 lg:flex-1",
-                  isPrimary
-                    ? "border border-accent/30 bg-gradient-to-br from-accent/[0.10] to-card shadow-sm hover:border-accent/50"
-                    : "border border-border bg-card shadow-sm hover:border-accent/40",
+                  "border border-border bg-card shadow-sm hover:border-border/80",
                 ].join(" ")}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60">
                     {cohort.cluster}
                   </span>
-                  <Icon
-                    className={[
-                      "h-3.5 w-3.5",
-                      isPrimary ? "text-accent/60" : "text-muted-foreground/50",
-                    ].join(" ")}
-                  />
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground" />
                 </div>
 
                 <div className="mt-3">
-                  <p
-                    className={[
-                      "leading-none font-bold tracking-tight transition-colors",
-                      isPrimary
-                        ? "text-[32px] text-foreground group-hover:text-accent"
-                        : "text-[26px] text-foreground group-hover:text-accent",
-                    ].join(" ")}
-                  >
+                  <p className="text-[26px] font-bold leading-none tracking-tight text-foreground transition-colors group-hover:text-foreground">
                     {cohort.value}
                   </p>
                   <p className="mt-1.5 text-[12px] font-semibold text-foreground leading-tight">{cohort.label}</p>
                 </div>
 
                 {/* Same footer strip as investor-search / Operators cohort cards */}
-                <div
-                  className={cn(
-                    "mt-4 border-t pt-3 dark:border-white/[0.1]",
-                    isPrimary ? "border-border/58 dark:border-white/[0.115]" : "border-border/40",
-                  )}
-                >
+                <div className="mt-4 border-t border-border/40 pt-3 dark:border-white/[0.1]">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
                       {cohort.timeframe}
@@ -2290,7 +2259,7 @@ export function CommunityView({
                         stats={cohort.trendStats}
                         initialDelayMs={2200 + cohortIdx * 550}
                       />
-                      <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={isPrimary} />
+                      <CohortFooterSparkline cohortId={cohort.id} values={cohort.sparkline} isPrimary={false} />
                     </div>
                   </div>
                 </div>
@@ -2560,16 +2529,10 @@ export function CommunityView({
                 transition={{ type: "spring", damping: 30, stiffness: 320 }}
               >
                 {/* Header */}
-                <div className={[
-                  "shrink-0 px-5 pt-5 pb-4 border-b border-border",
-                  cohort.isPrimary ? "bg-gradient-to-br from-accent/[0.08] to-card" : "",
-                ].join(" ")}>
+                <div className="shrink-0 border-b border-border bg-card px-5 pt-5 pb-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={[
-                        "inline-flex items-center justify-center rounded-lg p-1.5",
-                        cohort.isPrimary ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground",
-                      ].join(" ")}>
+                      <span className="inline-flex items-center justify-center rounded-lg bg-muted p-1.5 text-muted-foreground">
                         <Icon className="h-4 w-4" />
                       </span>
                       <div>
@@ -2585,10 +2548,7 @@ export function CommunityView({
                     </button>
                   </div>
                   <div className="mt-4 flex items-end gap-3">
-                    <p className={[
-                      "leading-none font-bold tracking-tight",
-                      cohort.isPrimary ? "text-[40px] text-accent" : "text-[34px] text-foreground",
-                    ].join(" ")}>
+                    <p className="text-[34px] font-bold leading-none tracking-tight text-foreground">
                       {cohort.value}
                     </p>
                     <div className="mb-1 flex flex-col gap-0.5">
@@ -2604,10 +2564,7 @@ export function CommunityView({
                       {cohort.sparkline.map((bar, idx) => (
                         <span
                           key={idx}
-                          className={[
-                            "w-[4px] rounded-[2px]",
-                            cohort.isPrimary ? "bg-accent/55" : "bg-muted-foreground/35",
-                          ].join(" ")}
+                          className="w-[4px] rounded-[2px] bg-muted-foreground/35"
                           style={{ height: `${Math.max(5, bar * 3)}px` }}
                         />
                       ))}

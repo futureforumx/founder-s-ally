@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "aidesigner": {
+      "type": "http",
+      "url": "https://api.aidesigner.ai/api/v1/mcp"
+    },
+    "stitch": {
+      "url": "https://stitch.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${STITCH_GOOGLE_API_KEY}"
+      }
+    }
+  }
+}

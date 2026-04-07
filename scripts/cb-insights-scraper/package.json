@@ -1,0 +1,16 @@
+{
+  "name": "cb-insights-scraper",
+  "version": "1.0.0",
+  "description": "Playwright scraper to enrich firm_records and firm_investors from CB Insights",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scraper.mjs",
+    "scrape:headed": "HEADLESS=false node scraper.mjs",
+    "scrape:dry": "DRY_RUN=true node scraper.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "playwright": "^1.44.0",
+    "dotenv": "^16.4.5"
+  }
+}

@@ -162,6 +162,37 @@ enum DeadLetterStatus {
   RESOLVED         @map("Resolved")
 }
 
+/// Source type for fund evidence (where the fund data was discovered).
+enum FundSourceType {
+  OFFICIAL_WEBSITE
+  SEC_FILING
+  CRUNCHBASE
+  PITCHBOOK
+  PREQIN
+  NEWS_ARTICLE
+  PRESS_RELEASE
+  LP_DISCLOSURE
+  SECONDARY_AGGREGATOR
+  AI_INFERRED
+  MANUAL
+  OTHER
+}
+
+/// Review queue item status.
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+/// Review queue entity type.
+enum ReviewEntityType {
+  FUND
+  FUND_ALIAS
+  FIRM_FUND_LINK
+}
+
 // --- Operator Network Graph Enums ---
 
 /// Normalized functional area for an operator role.
@@ -417,23 +448,34 @@ model VCFund {
   firm_id String
   firm    VCFirm @relation(fields: [firm_id], references: [id], onDelete: Cascade)
 
-  fund_name    String
-  fund_number  Int?
-  vintage_year Int?
-  open_date    DateTime? @db.Timestamptz(6)
-  close_date   DateTime? @db.Timestamptz(6)
+  fund_name            String
+  /// Lowercase, normalized form for dedup matching (roman→arabic, no LP/LLC suffix, collapsed whitespace).
+  normalized_fund_name String?
+  fund_number          Int?
+  vintage_year         Int?
+  open_date            DateTime? @db.Timestamptz(6)
+  close_date           DateTime? @db.Timestamptz(6)
 
   status     FundStatus @default(ACTIVE) @map("fund_status")
   fund_type  FundType   @default(TRADITIONAL)
   source_url String?
   confidence Decimal?   @default(0.00) @db.Decimal(3, 2)
 
-  size_usd          Float?
-  aum_usd           Float?
+  /// Investment strategy descriptor (e.g. "early-stage B2B SaaS", "growth equity").
+  strategy String? @db.Text
+  /// ISO 4217 currency code (default: USD).
+  currency String? @default("USD") @db.VarChar(3)
+
+  size_usd            Float?
+  aum_usd             Float?
   /// Tier from `aum_usd` / `size_usd` on this vehicle (see `AumBand`).
-  aum_band          AumBand?
-  committed_capital Float?
-  gp_commit_usd     Float?
+  aum_band            AumBand?
+  committed_capital   Float?
+  gp_commit_usd       Float?
+  /// Stated target fund size (USD).
+  target_size_usd     Float?
+  /// Final close amount (USD).
+  final_close_size_usd Float?
 
   management_fee_pct    Float?
   carry_pct             Float?
@@ -477,11 +519,15 @@ model VCFund {
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
-  investments     VCInvestment[]
-  score_snapshots VCScoreSnapshot[]
-  reg_d_filings   RegDFiling[]
+  investments      VCInvestment[]
+  score_snapshots  VCScoreSnapshot[]
+  reg_d_filings    RegDFiling[]
+  aliases          VCFundAlias[]
+  source_evidence  VCFundSourceEvidence[]
 
+  @@unique([firm_id, normalized_fund_name])
   @@index([firm_id])
+  @@index([normalized_fund_name])
   @@index([status])
   @@index([fund_type])
   @@index([actively_deploying])
@@ -1102,6 +1148,97 @@ model OperatorRelationship {
   @@index([targetCompanyId])
   @@index([edgeType])
   @@map("operator_relationships")
+}
+
+// =============================================================================
+// VCFundAlias — alternate fund names for dedup (roman/arabic, LP suffix, etc.)
+// =============================================================================
+
+model VCFundAlias {
+  id      String @id @default(cuid())
+  fund_id String
+  fund    VCFund @relation(fields: [fund_id], references: [id], onDelete: Cascade)
+
+  /// The alternate name as found in a source.
+  alias_value      String @db.Text
+  /// Normalized form for matching.
+  normalized_value String @db.Text
+
+  /// Provenance: importer name, URL, "merge", "admin", etc.
+  source     String?
+  notes      String? @db.Text
+  confidence Float?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([fund_id, normalized_value])
+  @@index([normalized_value])
+  @@map("vc_fund_aliases")
+}
+
+// =============================================================================
+// VCFundSourceEvidence — traceable evidence for every fund write
+// =============================================================================
+
+model VCFundSourceEvidence {
+  id      String @id @default(cuid())
+  fund_id String
+  fund    VCFund @relation(fields: [fund_id], references: [id], onDelete: Cascade)
+
+  /// Which field(s) this evidence supports (e.g. "size_usd", "vintage_year", "*" for whole record).
+  field_name String @default("*")
+
+  source_type       FundSourceType
+  source_url        String?        @db.Text
+  /// Short quote or excerpt from the source that supports this data.
+  evidence_quote    String?        @db.Text
+  /// 0.00–1.00 confidence from this particular source.
+  source_confidence Decimal        @default(0.50) @db.Decimal(3, 2)
+  /// Full raw payload from the source (for audit / re-extraction).
+  raw_payload       Json?
+
+  discovered_at DateTime @default(now())
+  created_at    DateTime @default(now())
+
+  @@index([fund_id])
+  @@index([source_type])
+  @@index([source_confidence])
+  @@map("vc_fund_source_evidence")
+}
+
+// =============================================================================
+// EnrichmentReviewQueue — ambiguous records flagged for human review
+// =============================================================================
+
+model EnrichmentReviewQueue {
+  id String @id @default(cuid())
+
+  entity_type ReviewEntityType
+  /// ID of the entity under review (fund_id, alias_id, etc.)
+  entity_id   String
+  /// Optional firm context.
+  firm_id     String?
+
+  /// Human-readable reason this was flagged.
+  reason       String  @db.Text
+  /// Structured context for the reviewer (candidate data, conflict details, etc.)
+  review_data  Json?
+  status       ReviewStatus @default(PENDING)
+
+  /// Who resolved it (user ID or "system").
+  resolved_by  String?
+  resolved_at  DateTime?
+  resolution_notes String? @db.Text
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([entity_type, status])
+  @@index([firm_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("enrichment_review_queue")
 }
 
 // =============================================================================
