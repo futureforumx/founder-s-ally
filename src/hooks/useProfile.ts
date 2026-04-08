@@ -5,6 +5,8 @@ import {
   normalizeProfileRowForRead,
   normalizeProfileRowsForRead,
 } from "@/lib/profileRead"; // full-row reads: profiles table + normalization (see module doc there)
+import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
+import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 
 export interface Profile {
   id: string;
@@ -66,34 +68,98 @@ export function useProfile() {
   const upsertProfile = useCallback(
     async (updates: Partial<Profile>): Promise<{ ok: true } | { ok: false; error: string }> => {
       if (!user) return { ok: false, error: "Not signed in" };
-      try {
-        const payload = { ...updates, user_id: user.id, updated_at: new Date().toISOString() };
 
-        if (profile) {
-          const { error } = await (supabase as any)
-            .from("profiles")
-            .update(payload)
-            .eq("user_id", user.id);
-          if (error) {
-            console.warn("Failed to update profile:", error);
-            return { ok: false, error: error.message };
+      const p = updates as any;
+
+      // ── Path 1: Vercel API route (primary, works in both dev and production) ──────
+      // Uses Clerk JWT verified server-side + Supabase service role key on the server.
+      // No Clerk JWT template or Supabase third-party auth config required.
+      try {
+        const clerkJwt = await getClerkSessionToken();
+        if (clerkJwt) {
+          const apiUrl = "/api/save-profile";
+          const body: Record<string, unknown> = {};
+          const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"] as const;
+          for (const k of allowed) if (k in p && p[k] !== undefined) body[k] = p[k];
+
+          const resp = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${clerkJwt}`,
+            },
+            body: JSON.stringify(body),
+          });
+
+          if (resp.ok) {
+            const json = await resp.json() as { ok?: boolean; error?: string };
+            if (json.ok) {
+              await fetchProfile();
+              return { ok: true };
+            }
+            if (json.error) return { ok: false, error: json.error };
+          } else if (resp.status !== 404) {
+            // 404 means the API route isn't deployed yet — fall through to next path
+            const text = await resp.text();
+            return { ok: false, error: `Save failed (${resp.status}): ${text.slice(0, 200)}` };
           }
-        } else {
-          const { error } = await (supabase as any).from("profiles").insert(payload);
-          if (error) {
-            console.warn("Failed to insert profile:", error);
-            return { ok: false, error: error.message };
-          }
+        }
+      } catch {
+        // Network error or API not available — fall through
+      }
+
+      // ── Path 2: SECURITY DEFINER RPC (if SQL migration has been applied) ─────────
+      const { data: rpcData, error: rpcError } = await (supabaseVcDirectory as any).rpc(
+        "upsert_own_profile",
+        {
+          p_user_id:      user.id,
+          p_full_name:    p.full_name    ?? null,
+          p_title:        p.title        ?? null,
+          p_bio:          p.bio          ?? null,
+          p_location:     p.location     ?? null,
+          p_avatar_url:   p.avatar_url   ?? null,
+          p_linkedin_url: p.linkedin_url ?? null,
+          p_twitter_url:  p.twitter_url  ?? null,
+          p_user_type:    p.user_type    ?? "founder",
+          p_resume_url:   p.resume_url   ?? null,
+        },
+      );
+
+      if (!rpcError) {
+        const result = rpcData as { ok?: boolean; error?: string } | null;
+        if (result?.ok === false) {
+          return { ok: false, error: result.error ?? "upsert_own_profile returned ok=false" };
         }
         await fetchProfile();
         return { ok: true };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn("Error upserting profile:", err);
-        return { ok: false, error: msg };
       }
+
+      // ── Path 3: Edge function (if complete-founder-onboarding is deployed) ────────
+      const edgeResult = await completeFounderOnboardingEdge({
+        userId: user.id,
+        profile: {
+          full_name:                p.full_name     ?? undefined,
+          title:                    p.title         ?? undefined,
+          bio:                      p.bio           ?? undefined,
+          location:                 p.location      ?? undefined,
+          avatar_url:               p.avatar_url    ?? undefined,
+          linkedin_url:             p.linkedin_url  ?? undefined,
+          twitter_url:              p.twitter_url   ?? undefined,
+          user_type:                p.user_type     ?? undefined,
+          has_completed_onboarding: p.has_completed_onboarding ?? true,
+          has_seen_settings_tour:   p.has_seen_settings_tour   ?? undefined,
+          company_id:               p.company_id    ?? undefined,
+        },
+      });
+
+      if (edgeResult.ok) {
+        await fetchProfile();
+        return { ok: true };
+      }
+
+      return { ok: false, error: `Profile save unavailable. All paths failed. Last error: ${edgeResult.error}` };
     },
-    [user, profile, fetchProfile],
+    [user, fetchProfile],
   );
 
   return { profile, loading, upsertProfile, refetch: fetchProfile };

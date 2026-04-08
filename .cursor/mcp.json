@@ -9,6 +9,10 @@
       "headers": {
         "X-Goog-Api-Key": "${STITCH_GOOGLE_API_KEY}"
       }
+    },
+    "supabase-vekta": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=zmnlsdohtwztneamvwaq",
+      "headers": {}
     }
   }
 }
