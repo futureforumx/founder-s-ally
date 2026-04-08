@@ -58,6 +58,10 @@ function saveProfileDevPlugin(env: Record<string, string>) {
           }
         } catch { /* ok */ }
 
+        // Body _uid as fallback hint (validated against same pattern)
+        const bodyUid = typeof body._uid === "string" ? body._uid.trim() : "";
+        if (!userId && bodyUid) userId = bodyUid;
+
         if (!userId || !/^user_[A-Za-z0-9]{20,}$/.test(userId)) {
           res.writeHead(401, cors);
           res.end(JSON.stringify({ error: "Could not extract valid Clerk user ID from token" }));

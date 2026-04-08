@@ -74,38 +74,46 @@ export function useProfile() {
       // ── Path 1: Vercel API route (primary, works in both dev and production) ──────
       // Uses Clerk JWT verified server-side + Supabase service role key on the server.
       // No Clerk JWT template or Supabase third-party auth config required.
-      try {
-        const clerkJwt = await getClerkSessionToken();
+      {
+        const clerkJwt = await getClerkSessionToken().catch(() => null);
         if (clerkJwt) {
-          const apiUrl = "/api/save-profile";
-          const body: Record<string, unknown> = {};
-          const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"] as const;
-          for (const k of allowed) if (k in p && p[k] !== undefined) body[k] = p[k];
+          try {
+            const apiUrl = "/api/save-profile";
+            const body: Record<string, unknown> = { _uid: user.id };
+            const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"] as const;
+            for (const k of allowed) if (k in p && p[k] !== undefined) body[k] = p[k];
 
-          const resp = await fetch(apiUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${clerkJwt}`,
-            },
-            body: JSON.stringify(body),
-          });
+            const resp = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${clerkJwt}`,
+              },
+              body: JSON.stringify(body),
+            });
 
-          if (resp.ok) {
-            const json = await resp.json() as { ok?: boolean; error?: string };
-            if (json.ok) {
-              await fetchProfile();
-              return { ok: true };
+            // Only treat as "not deployed" if it's a 404 AND the body isn't JSON
+            if (resp.status === 404) {
+              // API route not yet deployed — fall through to next path
+            } else if (!resp.ok) {
+              const text = await resp.text().catch(() => `HTTP ${resp.status}`);
+              return { ok: false, error: `Save failed (${resp.status}): ${text.slice(0, 200)}` };
+            } else {
+              const contentType = resp.headers.get("content-type") ?? "";
+              if (contentType.includes("application/json")) {
+                const json = await resp.json() as { ok?: boolean; error?: string };
+                if (json.ok) {
+                  await fetchProfile();
+                  return { ok: true };
+                }
+                if (json.error) return { ok: false, error: json.error };
+              }
+              // Non-JSON 200 means the SPA catch-all served index.html (route not active) — fall through
             }
-            if (json.error) return { ok: false, error: json.error };
-          } else if (resp.status !== 404) {
-            // 404 means the API route isn't deployed yet — fall through to next path
-            const text = await resp.text();
-            return { ok: false, error: `Save failed (${resp.status}): ${text.slice(0, 200)}` };
+          } catch {
+            // Network error — fall through
           }
         }
-      } catch {
-        // Network error or API not available — fall through
       }
 
       // ── Path 2: SECURITY DEFINER RPC (if SQL migration has been applied) ─────────
