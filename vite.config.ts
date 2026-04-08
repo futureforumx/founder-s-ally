@@ -1,11 +1,128 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+/**
+ * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
+ * works the same as the deployed Vercel serverless function.
+ * Uses SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY from the shell environment (.env.local).
+ */
+function saveProfileDevPlugin(env: Record<string, string>) {
+  return {
+    name: "save-profile-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/save-profile", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        // Read body
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        // Get user ID from Clerk JWT (decode sub without verification for dev convenience)
+        const authHeader = (req.headers.authorization ?? "") as string;
+        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+        if (!token) {
+          res.writeHead(401, cors);
+          res.end(JSON.stringify({ error: "Missing bearer token" }));
+          return;
+        }
+
+        let userId: string | null = null;
+        try {
+          const parts = token.split(".");
+          if (parts.length >= 2) {
+            let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+            while (b64.length % 4) b64 += "=";
+            const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+            userId = typeof payload.sub === "string" ? payload.sub : null;
+          }
+        } catch { /* ok */ }
+
+        if (!userId || !/^user_[A-Za-z0-9]{20,}$/.test(userId)) {
+          res.writeHead(401, cors);
+          res.end(JSON.stringify({ error: "Could not extract valid Clerk user ID from token" }));
+          return;
+        }
+
+        // Write to Supabase with service role key
+        const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const serviceKey  = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceKey) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set" }));
+          return;
+        }
+
+        const ALLOWED = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"];
+        const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        for (const k of ALLOWED) if (k in body && body[k] !== undefined) patch[k] = body[k];
+
+        // Check if row exists
+        const sel = await fetch(
+          `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=id&limit=1`,
+          { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+        );
+        const rows = sel.ok ? await sel.json() : [];
+        const exists = Array.isArray(rows) && rows.length > 0;
+
+        let dbRes: Response;
+        if (exists) {
+          dbRes = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}`,
+            {
+              method: "PATCH",
+              headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify(patch),
+            },
+          );
+        } else {
+          dbRes = await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+            method: "POST",
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ user_id: userId, full_name: "", user_type: "founder", is_public: true, ...patch }),
+          });
+        }
+
+        if (!dbRes.ok) {
+          const errText = await dbRes.text();
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: `DB write failed (${dbRes.status}): ${errText}` }));
+          return;
+        }
+
+        res.writeHead(200, cors);
+        res.end(JSON.stringify({ ok: true }));
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
-  const plugins = [react(), mode === "development" && componentTagger()].filter(Boolean);
+  // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
+  const env = loadEnv(mode, process.cwd(), "");
+  const plugins = [react(), mode === "development" && componentTagger(), mode === "development" && saveProfileDevPlugin(env)].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
   const devHost = process.env.DEV_HOST || "127.0.0.1";
   const devPort = Number(process.env.DEV_PORT || "5173");
