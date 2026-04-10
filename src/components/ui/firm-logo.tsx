@@ -121,7 +121,7 @@ function extractDomain(url: string): string {
  * non-obvious domains (e.g. Sequoia → sequoiacap.com) are handled immediately
  * without a network round-trip.
  */
-function resolveDomain(websiteUrl?: string | null, firmName?: string): string | null {
+export function resolveFirmDomain(websiteUrl?: string | null, firmName?: string): string | null {
   // 1. Explicit website always wins
   if (websiteUrl) return extractDomain(websiteUrl);
   // 2. Curated lookup by exact firm name (case-insensitive)
@@ -137,20 +137,21 @@ function resolveDomain(websiteUrl?: string | null, firmName?: string): string | 
   return null;
 }
 
-type Tier = 1 | 2 | 3 | 4;
+type Tier = 1 | 2 | 3 | 4 | 5;
 
 function computeInitialTier(logoUrl?: string | null, domain?: string | null): Tier {
   if (logoUrl) return 1;
   if (domain) return 2;
-  return 4;
+  return 5;
 }
 
 /**
- * 4-tier logo fallback:
+ * 5-tier logo fallback:
  *  1. logo_url from database (explicit, highest fidelity)
  *  2. Google gstatic faviconV2 — high-quality favicons
  *  3. Google s2/favicons — secondary fallback
- *  4. Styled initial letter placeholder
+ *  4. Direct website favicon (/favicon.ico)
+ *  5. Styled initial letter placeholder
  *
  * Domain resolution order:
  *  a. Explicit websiteUrl prop
@@ -158,7 +159,7 @@ function computeInitialTier(logoUrl?: string | null, domain?: string | null): Ti
  *  c. Falls through to initials if no domain found
  */
 export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className = "", onClick }: FirmLogoProps) {
-  const domain = resolveDomain(websiteUrl, firmName);
+  const domain = resolveFirmDomain(websiteUrl, firmName);
   const [tier, setTier] = useState<Tier>(() => computeInitialTier(logoUrl, domain));
 
   // Re-sync when props change (e.g. async DB data arrives after mount)
@@ -174,14 +175,17 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
     : null;
   // Tier 3: Google s2 favicons — secondary fallback
   const s2Url = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
+  // Tier 4: direct website favicon — bypasses Google endpoints entirely
+  const directUrl = domain ? `https://${domain}/favicon.ico` : null;
 
   const handleError = useCallback(() => {
     setTier((prev) => {
-      if (prev === 1) return gstaticUrl ? 2 : s2Url ? 3 : 4;
-      if (prev === 2) return s2Url ? 3 : 4;
-      return 4;
+      if (prev === 1) return gstaticUrl ? 2 : s2Url ? 3 : directUrl ? 4 : 5;
+      if (prev === 2) return s2Url ? 3 : directUrl ? 4 : 5;
+      if (prev === 3) return directUrl ? 4 : 5;
+      return 5;
     });
-  }, [gstaticUrl, s2Url]);
+  }, [gstaticUrl, s2Url, directUrl]);
 
   const initial = firmName?.charAt(0).toUpperCase() || "?";
 
@@ -193,6 +197,7 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
     tier === 1 ? logoUrl :
     tier === 2 ? gstaticUrl :
     tier === 3 ? s2Url :
+    tier === 4 ? directUrl :
     null;
 
   return (

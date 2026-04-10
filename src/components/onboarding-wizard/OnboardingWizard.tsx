@@ -10,25 +10,13 @@ import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEd
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import type { OnboardingState } from "@/components/onboarding-wizard/types";
+import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { ProgressBar } from "./ProgressBar";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
-
-function googleFaviconFromWebsite(websiteUrl?: string | null, size = 128): string | null {
-  const raw = (websiteUrl || "").trim();
-  if (!raw) return null;
-  try {
-    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    const domain = new URL(normalized).hostname.replace(/^www\./, "");
-    if (!domain) return null;
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
-  } catch {
-    return null;
-  }
-}
 
 function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: string): CompanyData {
   const fundBits = [
@@ -169,7 +157,7 @@ export function OnboardingWizard() {
       };
 
       const execSummary = buildExecutiveSummaryForDb(state);
-      const derivedLogoUrl = googleFaviconFromWebsite(state.websiteUrl, 128);
+      const derivedLogoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: state.websiteUrl, size: 128 });
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,

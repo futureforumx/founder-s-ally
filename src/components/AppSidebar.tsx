@@ -9,6 +9,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 
 type ViewType =
+  | "home"
   | "company"
   | "dashboard"
   | "industry"
@@ -212,7 +213,14 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
       )}
     >
       <div className="border-b border-white/[0.04] px-[14px] pb-2.5 pt-4">
-        <BrandLogo variant="white" className="w-[104px] opacity-100" />
+        <button
+          type="button"
+          onClick={() => goView("home")}
+          aria-label="Go to home"
+          className="block w-full rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#a667ff]/40"
+        >
+          <BrandLogo variant="white" className="w-[104px] opacity-100" />
+        </button>
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col px-[10px] pb-2 pt-2">

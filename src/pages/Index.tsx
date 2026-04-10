@@ -17,6 +17,7 @@ import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
 import { CompanyView } from "@/components/dashboard/CompanyView";
+import { HomeView } from "@/components/dashboard/HomeView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
@@ -32,8 +33,10 @@ import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
+import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 
 type ViewType =
+  | "home"
   | "company"
   | "dashboard"
   | "industry"
@@ -101,18 +104,32 @@ function intelligencePageVariant(v: ViewType): IntelligenceVariant | null {
   }
 }
 
+function getStoredCompanyProfile(): CompanyData | null {
+  try {
+    const savedProfile = localStorage.getItem("company-profile");
+    if (!savedProfile) return null;
+
+    const parsedProfile = JSON.parse(savedProfile);
+    return parsedProfile?.name ? parsedProfile : null;
+  } catch {
+    return null;
+  }
+}
+
 function getStoredCompanyLogoUrl(): string | null {
   try {
     const explicitLogoUrl = localStorage.getItem("company-logo-url");
     if (explicitLogoUrl) return explicitLogoUrl;
 
-    const savedProfile = localStorage.getItem("company-profile");
-    if (!savedProfile) return null;
-
-    const parsedProfile = JSON.parse(savedProfile);
-    return typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
-      ? parsedProfile.logo_url.trim()
-      : null;
+    const parsedProfile = getStoredCompanyProfile();
+    return getPrimaryCompanyLogoUrl({
+      logoUrl:
+        typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
+          ? parsedProfile.logo_url.trim()
+          : null,
+      websiteUrl: parsedProfile?.website ?? null,
+      size: 128,
+    });
   } catch {
     return null;
   }
@@ -262,24 +279,21 @@ const Index = () => {
     window.addEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
     return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
   }, []);
-  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
-    try {
-      const saved = localStorage.getItem("company-profile");
-      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
-    } catch {}
-    return null;
-  });
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => getStoredCompanyProfile());
 
   const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => getStoredCompanyLogoUrl());
   useEffect(() => {
     const sync = () => {
+      setCompanyData(getStoredCompanyProfile());
       setNavLogoUrl(getStoredCompanyLogoUrl());
     };
     window.addEventListener("storage", sync);
+    window.addEventListener("company-profile-changed", sync);
     window.addEventListener("company-logo-changed", sync);
     const interval = setInterval(sync, 2000);
     return () => {
       window.removeEventListener("storage", sync);
+      window.removeEventListener("company-profile-changed", sync);
       window.removeEventListener("company-logo-changed", sync);
       clearInterval(interval);
     };
@@ -475,15 +489,8 @@ const Index = () => {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
       if (company.website) {
-        const domain = (() => {
-          try {
-            let u = company.website.trim();
-            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-            return new URL(u).hostname.replace(/^www\./, "");
-          } catch { return null; }
-        })();
-        if (domain) {
-          const logoUrl = `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
+        const logoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: company.website, size: 128 });
+        if (logoUrl) {
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -567,6 +574,7 @@ const Index = () => {
         <GlobalTopNav
           companyName={companyData?.name}
           logoUrl={navLogoUrl}
+          websiteUrl={companyData?.website ?? null}
           hasProfile={!!companyData?.name}
           lastSyncedAt={lastSyncedAt}
           syncFlash={syncFlash}
@@ -586,7 +594,9 @@ const Index = () => {
           personalCompletion={personalCompletion}
         />
         <div className="px-8 pt-16 pb-6">
-          {activeView === "dashboard" ? (
+          {activeView === "home" ? (
+            <HomeView onViewChange={(v) => setActiveView(v as ViewType)} companyName={companyData?.name} />
+          ) : activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
                 <div>

@@ -8,6 +8,7 @@ import { SmartSelect, AI_SUGGESTED_TEXT_CLASS } from "@/components/onboarding/Sm
 import { SectorCombobox } from "@/components/onboarding/SectorCombobox";
 import { EnhancedDropzone } from "@/components/onboarding/EnhancedDropzone";
 import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
+import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 
 import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
 
@@ -385,13 +386,7 @@ Rules:
   };
 
   const faviconUrl = useMemo(() => {
-    if (!website.trim()) return null;
-    try {
-      const url = new URL(website.trim().startsWith("http") ? website.trim() : `https://${website.trim()}`);
-      return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=128`;
-    } catch {
-      return null;
-    }
+    return getPrimaryCompanyLogoUrl({ websiteUrl: website, size: 128 });
   }, [website]);
 
   // Reset favicon error when URL changes

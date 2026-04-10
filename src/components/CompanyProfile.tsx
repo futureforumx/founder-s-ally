@@ -22,6 +22,7 @@ import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
+import { extractCompanyDomain, getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -57,13 +58,7 @@ const STEP_LABELS: Record<AnalyzeStepKey, string> = {
 const TLDS = [".com", ".io", ".ai", ".org", ".net", ".co", ".dev", ".app", ".xyz", ".tech", ".gg", ".so", ".sh"];
 
 function extractDomain(url: string): string | null {
-  try {
-    let u = url.trim();
-    if (!u) return null;
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    const hostname = new URL(u).hostname.replace(/^www\./, "");
-    return hostname || null;
-  } catch { return null; }
+  return extractCompanyDomain(url);
 }
 
 /**
@@ -399,8 +394,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const saved = localStorage.getItem("company-profile");
       if (saved) {
         const p = JSON.parse(saved);
-        const domain = p.website ? extractDomain(p.website) : null;
-        if (domain) return faviconSrc(domain);
+        const logo = getPrimaryCompanyLogoUrl({ websiteUrl: p.website ?? null, size: 32 });
+        if (logo) return logo;
       }
     } catch {}
     return null;
@@ -409,19 +404,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   // Favicon + nav logo when website changes — gstatic faviconV2 primary, s2 fallback on img error only
   useEffect(() => {
-    const domain = extractDomain(form.website);
-    if (!domain) {
+    const faviconCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 32 });
+    if (!faviconCandidate) {
       setFaviconUrl(null);
       setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
       return;
     }
-    setFaviconUrl(gstaticFaviconSrc(domain, 32));
+    setFaviconUrl(faviconCandidate);
 
     const t = window.setTimeout(() => {
-      const d = extractDomain(form.website);
-      if (!d) return;
-      setFaviconUrl(gstaticFaviconSrc(d, 32));
-      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : gstaticFaviconSrc(d, 128)));
+      const nextFaviconCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 32 });
+      const nextLogoCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 128 });
+      if (!nextFaviconCandidate || !nextLogoCandidate) return;
+      setFaviconUrl(nextFaviconCandidate);
+      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : nextLogoCandidate));
     }, 300);
 
     return () => {

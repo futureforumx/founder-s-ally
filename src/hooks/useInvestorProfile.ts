@@ -70,6 +70,8 @@ export interface InvestorProfile {
   prisma_firm_id: string | null;
   /** Whether the firm is currently deploying capital (`firm_records.is_actively_deploying`). */
   is_actively_deploying: boolean | null;
+  /** Actual firm headcount from `firm_records.total_headcount` (not DB row count). */
+  total_headcount: number | null;
   // Joined relations
   partners: InvestorPartner[];
   deals: FirmDeal[];
@@ -118,6 +120,7 @@ function mapJsonFirm(firm: any): InvestorProfile {
     last_enriched_at: null,
     prisma_firm_id: null,
     is_actively_deploying: null,
+    total_headcount: null,
     partners: [],
     deals: [],
     source: "json-fallback",
@@ -194,6 +197,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       last_enriched_at: firm.last_enriched_at,
       prisma_firm_id: typeof firm.prisma_firm_id === "string" ? firm.prisma_firm_id : null,
       is_actively_deploying: typeof firm.is_actively_deploying === "boolean" ? firm.is_actively_deploying : null,
+      total_headcount: typeof firm.total_headcount === "number" ? firm.total_headcount : null,
       partners: (partnersRes.data ?? []).map((p: any) => ({
         ...p,
         bio: sanitizeText(p.bio) || generateInvestorBio({
