@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, Building2, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 
 export type HealthMetricKey = "market" | "financial" | "gtm" | "defensibility";
 
@@ -16,6 +17,7 @@ export type CompanyHealthMetric = {
 export type CompanyHealthProps = {
   name: string;
   logoUrl?: string;
+  websiteUrl?: string;
   overallHealth: { score: number; delta: number };
   metrics: CompanyHealthMetric[];
   tabs: string[];
@@ -304,6 +306,7 @@ function HealthControlTabs({
 export function CompanyHealthHeader({
   name,
   logoUrl,
+  websiteUrl,
   hasProfile = true,
   overallHealth,
   metrics,
@@ -315,8 +318,6 @@ export function CompanyHealthHeader({
   metadataLine = "5 live signals",
   metadataLineTooltip,
 }: CompanyHealthHeaderProps) {
-  const [logoErr, setLogoErr] = useState(false);
-
   const defaultLiveSignalsTooltip = useMemo(
     () => (
       <div className="space-y-2">
@@ -341,10 +342,6 @@ export function CompanyHealthHeader({
     [metrics],
   );
 
-  useEffect(() => {
-    setLogoErr(false);
-  }, [logoUrl]);
-
   return (
     <div className="overflow-hidden rounded-lg border border-border/50 bg-muted/10 dark:bg-muted/10">
       <div className="px-3 py-2.5 sm:px-3.5 sm:py-3">
@@ -362,20 +359,16 @@ export function CompanyHealthHeader({
                     "border border-border/22 bg-muted/20 shadow-none dark:border-white/[0.07] dark:bg-white/[0.04]",
                   )}
                 >
-                  {logoUrl && !logoErr ? (
-                    <img
-                      src={logoUrl}
-                      alt=""
-                      className="h-full w-full object-contain p-1 opacity-[0.97]"
-                      onError={() => setLogoErr(true)}
-                    />
-                  ) : hasProfile ? (
-                    <span className="text-lg font-semibold tabular-nums text-muted-foreground/90 sm:text-xl">
-                      {name.charAt(0).toUpperCase() || "?"}
-                    </span>
-                  ) : (
-                    <Building2 className="h-7 w-7 text-muted-foreground/40 sm:h-8 sm:w-8" aria-hidden />
-                  )}
+                  <CompanySettingsLogo
+                    companyName={name}
+                    logoUrl={logoUrl}
+                    websiteUrl={websiteUrl}
+                    size={128}
+                    hasProfile={hasProfile}
+                    imgClassName="h-full w-full object-contain p-1 opacity-[0.97]"
+                    initialClassName="text-lg font-semibold tabular-nums text-muted-foreground/90 sm:text-xl"
+                    iconClassName="h-7 w-7 text-muted-foreground/40 sm:h-8 sm:w-8"
+                  />
                 </div>
                 <div className="min-w-0 flex flex-col justify-center gap-0.5 leading-tight">
                   <h2 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{name}</h2>

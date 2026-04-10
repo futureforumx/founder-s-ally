@@ -110,11 +110,24 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
   );
 }
 
-export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
+export function PersonProfileModal({ person, firm: firmProp, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session } = useAuth();
   const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+
+  // When firm prop is missing (DB partner whose ID isn't in the JSON directory),
+  // synthesise a display-only firm from fields stamped onto the VCPerson by investorPartnerToVCPerson.
+  const firm = firmProp ?? (
+    (person as any)?._firm_website_url || person?.primary_firm_name
+      ? {
+          id: person?.firm_id ?? "",
+          name: person?.primary_firm_name ?? "",
+          website_url: (person as any)?._firm_website_url ?? null,
+          logo_url: (person as any)?._firm_logo_url ?? null,
+        } as VCFirm
+      : null
+  );
   const handleClose = useCallback(() => {
     window.requestAnimationFrame(() => {
       startTransition(() => {

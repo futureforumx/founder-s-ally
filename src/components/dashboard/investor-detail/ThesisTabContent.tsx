@@ -67,7 +67,7 @@ export function ThesisTabContent({
       >
         {expanded === "sector" && (
           <SectorAlignment
-            vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map((s: string) => s.trim())}
+            vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
             primarySector={companyData?.sector}
             secondarySectors={(companyData as any)?.subsectors || []}
             isExpanded
@@ -106,7 +106,7 @@ export function ThesisTabContent({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div className="lg:col-span-1 h-full">
             <SectorAlignment
-              vcSectors={vcFirm?.sectors || effectiveInvestor.sector.split(", ").map((s: string) => s.trim())}
+              vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
               primarySector={companyData?.sector}
               secondarySectors={(companyData as any)?.subsectors || []}
               onToggleExpand={() => toggle("sector")}

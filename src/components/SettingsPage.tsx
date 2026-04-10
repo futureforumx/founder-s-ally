@@ -157,8 +157,13 @@ export function SettingsPage() {
       } catch {}
     };
     window.addEventListener("storage", sync);
+    window.addEventListener("company-profile-changed", sync);
     const interval = setInterval(sync, 2000);
-    return () => { window.removeEventListener("storage", sync); clearInterval(interval); };
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("company-profile-changed", sync);
+      clearInterval(interval);
+    };
   }, []);
 
   // Auto-save indicator lifecycle
@@ -354,7 +359,45 @@ function TabWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-// StickyFormFooter removed — autosave handles persistence
+// ── Save Profile Button ──
+function SaveProfileButton({ onSave }: { onSave: () => Promise<boolean> }) {
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const handleClick = async () => {
+    setState("saving");
+    const ok = await onSave();
+    if (ok) {
+      setState("saved");
+      setTimeout(() => setState("idle"), 2500);
+    } else {
+      setState("error");
+      setTimeout(() => setState("idle"), 3000);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      onClick={handleClick}
+      disabled={state === "saving"}
+      className={cn(
+        "rounded-full px-5 h-9 text-sm font-medium gap-2 transition-all",
+        state === "saved" && "bg-success text-success-foreground hover:bg-success/90 border-success",
+        state === "error" && "bg-destructive/10 text-destructive border-destructive/40 hover:bg-destructive/20",
+      )}
+    >
+      {state === "saving" ? (
+        <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</>
+      ) : state === "saved" ? (
+        <><Check className="h-3.5 w-3.5" />Saved</>
+      ) : state === "error" ? (
+        <><X className="h-3.5 w-3.5" />Save failed — retry</>
+      ) : (
+        <><Check className="h-3.5 w-3.5" />Save changes</>
+      )}
+    </Button>
+  );
+}
 
 // ── Account Tab ──
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
@@ -411,7 +454,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
         .maybeSingle();
       if (comp) dbUpdates.company_id = comp.id;
     }
-    await upsertProfile(dbUpdates as any);
+    const result = await upsertProfile(dbUpdates as any);
+    if (!result.ok) throw new Error(result.error);
   }, [userId, upsertProfile]);
 
   const { save: autosave, saveImmediate } = useAutosave(persistProfile);
@@ -1007,9 +1051,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
             </div>
             <Separator className="my-2" />
             <div className="flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
+              <SaveProfileButton
+                onSave={async () => {
                   const missing: string[] = [];
                   if (!firstName.trim()) missing.push("first name");
                   if (!lastName.trim()) missing.push("last name");
@@ -1023,22 +1066,28 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
                     toast.error("Please complete all required fields", {
                       description: `Missing: ${missing.join(", ")}.`,
                     });
-                    return;
+                    return false;
                   }
                   setPersonalValidateAttempt(false);
-                  saveImmediate({
-                    name: joinFullName(firstName, lastName),
-                    title: title.trim(),
-                    location: location.trim(),
-                    bio: bio.trim(),
-                  });
-                  toast.success("Profile details confirmed");
+                  try {
+                    await persistProfile({
+                      name: joinFullName(firstName, lastName),
+                      title: title.trim(),
+                      location: location.trim(),
+                      bio: bio.trim(),
+                      userType,
+                      linkedinUrl: linkedinUrl.trim(),
+                      twitterUrl: twitterUrl.trim(),
+                    });
+                    return true;
+                  } catch (err: any) {
+                    toast.error("Failed to save profile", {
+                      description: err?.message ?? "Please try again.",
+                    });
+                    return false;
+                  }
                 }}
-                className="rounded-full px-5 h-9 text-sm font-medium gap-2 border-border"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Confirm Details
-              </Button>
+              />
             </div>
           </div>
         </div>

@@ -36,6 +36,7 @@ export interface TopNavCompanyHealthProps {
   analysisResult?: AnalysisResult | null;
   companyName?: string | null;
   logoUrl?: string | null;
+  websiteUrl?: string | null;
   hasProfile?: boolean;
   /** Navigate to Raise → Data Room (e.g. from Documents edit controls). */
   onNavigateToDataRoom?: () => void;
@@ -118,6 +119,7 @@ export function TopNavCompanyHealth({
   analysisResult,
   companyName,
   logoUrl,
+  websiteUrl,
   hasProfile = false,
   onNavigateToDataRoom,
 }: TopNavCompanyHealthProps) {
@@ -128,7 +130,6 @@ export function TopNavCompanyHealth({
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
   const [scoreLineProgress, setScoreLineProgress] = useState(0);
-  const [logoImgError, setLogoImgError] = useState(false);
   const trackedHoverOpenRef = useRef(false);
   const openTriggerRef = useRef<"hover" | "tap" | null>(null);
   const trackedModalOpenRef = useRef(false);
@@ -172,10 +173,6 @@ export function TopNavCompanyHealth({
     setHealthSurface("tabs");
     setActiveTab("overview");
   }, [onNavigateToDataRoom]);
-
-  useEffect(() => {
-    setLogoImgError(false);
-  }, [logoUrl]);
 
   useEffect(() => {
     if (score != null) return;
@@ -462,6 +459,7 @@ export function TopNavCompanyHealth({
               <CompanyHealthHeader
                 name={hasProfile ? companyName || "My Company" : "My Company"}
                 logoUrl={logoUrl ?? undefined}
+                websiteUrl={websiteUrl ?? undefined}
                 hasProfile={hasProfile}
                 overallHealth={{ score: derived.score, delta: derived.trendPct }}
                 metrics={[

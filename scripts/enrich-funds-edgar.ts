@@ -315,47 +315,54 @@ async function searchByCompanyName(term: string): Promise<CompanyHit[]> {
 
   const html = await res.text();
 
-  // EDGAR company-search HTML: each result row has TWO anchors with the same href
-  // (CIK page URL). The first shows the numeric CIK, the second shows the company name.
+  // Actual EDGAR HTML structure (verified):
+  //   <td valign="top" scope="row">
+  //     <a href="/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001477817&amp;...">0001477817</a>
+  //   </td>
+  //   <td scope="row">SEQUOIA CAPITAL 2010, L.P.</td>   ← plain text, NO anchor
+  //   <td ...><a href="...State=CA...">CA</a></td>
   //
-  //   <td scope="row"><a href="...action=getcompany&CIK=0001368155&...">0001368155</a></td>
-  //   <td nowrap><a href="...action=getcompany&CIK=0001368155&...">SEQUOIA CAPITAL FUND XI LP</a></td>
-  //
-  // Strategy: collect ALL anchor texts grouped by CIK. The non-numeric text is the name.
-  // Handles both &CIK= (plain) and &amp;CIK= (HTML-encoded) in hrefs.
+  // So: CIK is the link text inside the first <td>; company name is the plain text of the second <td>.
 
   const results: CompanyHit[] = [];
-  const cikToTexts = new Map<string, string[]>();
+  const seen = new Set<string>();
 
-  // Match every anchor whose href contains "action=getcompany" and "CIK=<digits>"
-  const anchorRe = /<a\s[^>]*href="([^"]*action=getcompany[^"]*)"[^>]*>([^<]+)<\/a>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = anchorRe.exec(html)) !== null) {
-    const href = m[1];
-    const text = m[2].trim();
-    if (!text) continue;
+  // Match each table row and extract CIK + company name from the first two <td> cells.
+  // The CIK td contains an <a> whose text is the 10-digit number.
+  // The company name td contains plain text (no anchor).
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowM: RegExpExecArray | null;
 
-    // Extract CIK: handles ?CIK=, &CIK=, &amp;CIK=
-    const cikM = href.match(/[?&](?:amp;)?CIK=(\d+)/i);
-    if (!cikM) continue;
+  while ((rowM = rowRe.exec(html)) !== null) {
+    const row = rowM[1];
 
-    const cik = cikM[1].padStart(10, "0");
-    if (!cikToTexts.has(cik)) cikToTexts.set(cik, []);
-    cikToTexts.get(cik)!.push(text);
-  }
+    // Extract all <td> cells in this row
+    const cells: string[] = [];
+    const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellM: RegExpExecArray | null;
+    while ((cellM = cellRe.exec(row)) !== null) {
+      cells.push(cellM[1].trim());
+    }
 
-  // For each CIK, pick the first non-numeric / non-type-code text as the company name
-  for (const [cik, texts] of cikToTexts) {
-    // Skip pure digit strings (the CIK display) and single-letter type codes like "D"
-    const name = texts.find((t) => !/^\d+$/.test(t) && t.length > 2);
-    if (name) {
+    if (cells.length < 2) continue;
+
+    // First cell: should contain an <a> whose text is the 10-digit CIK
+    const cikAnchorM = cells[0].match(/<a[^>]*>(\d{10})<\/a>/i);
+    if (!cikAnchorM) continue;
+    const cik = cikAnchorM[1];
+
+    // Second cell: plain text (strip any residual HTML tags)
+    const name = cells[1].replace(/<[^>]+>/g, "").trim();
+    if (!name || name.length < 3) continue;
+
+    if (!seen.has(cik)) {
+      seen.add(cik);
       results.push({ cik, entity_name: name });
     }
   }
 
   console.log(`    [edgar/company] ${results.length} issuer(s) found`);
   if (results.length > 0) {
-    // Show first few so we can verify the names look right
     const preview = results.slice(0, 5).map((r) => `"${r.entity_name}"`).join(", ");
     console.log(`    [edgar/company] sample: ${preview}`);
   }
@@ -933,33 +940,25 @@ async function processFirm(firm: FirmRow, audit: AuditSummary): Promise<void> {
 
   // Step 2: For each matched CIK, retrieve their Form D filing history via
   //         data.sec.gov/submissions/CIK{padded}.json — one API call per fund entity.
-  const seenAccessions = new Map<string, EdgarHit>();
+  //
+  //         Each CIK = one fund LP (e.g. "SEQUOIA CAPITAL FUND XV LP").
+  //         That entity may have filed D + multiple D/A amendments over the years.
+  //         We only want the SINGLE most recent filing per entity — the latest D/A
+  //         if one exists, otherwise the original D. This prevents the same fund
+  //         from appearing multiple times in the output.
+  const seenAccessions = new Map<string, EdgarHit>(); // accession → hit (one per CIK)
+
   for (const ch of Array.from(seenCiks.values())) {
     const filings = await getFormDFilingsForCik(ch.cik, ch.entity_name);
-    // Keep only the most recent D (and most recent D/A if it's newer than D)
-    // to avoid re-processing dozens of amendments for the same fund.
-    let latestD: EdgarHit | null = null;
-    for (const f of filings) {
-      if (!seenAccessions.has(f.accession_no)) {
-        // Use the most recent D (not D/A) as the canonical filing
-        if (f.form_type === "D" || !latestD) {
-          latestD = f;
-        }
-        seenAccessions.set(f.accession_no, f);
-      }
-    }
-    // If there are many amendments, only process the latest one to save API calls
-    if (latestD && filings.length > 3) {
-      // Prune to just the latest D + latest D/A (the two most recent)
-      const keep = filings
-        .slice()
-        .sort((a, b) => b.file_date.localeCompare(a.file_date))
-        .slice(0, 2);
-      for (const acc of Array.from(seenAccessions.keys())) {
-        if (!keep.find((k) => k.accession_no === acc)) {
-          seenAccessions.delete(acc);
-        }
-      }
+    if (!filings.length) continue;
+
+    // Sort descending by file_date — most recent first
+    filings.sort((a, b) => b.file_date.localeCompare(a.file_date));
+
+    // Pick the single most recent filing (D or D/A) for this entity
+    const best = filings[0];
+    if (!seenAccessions.has(best.accession_no)) {
+      seenAccessions.set(best.accession_no, best);
     }
   }
 

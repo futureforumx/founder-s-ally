@@ -75,21 +75,32 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
   return null;
 }
 
-function investorPartnerToVCPerson(p: InvestorPartner, firmId: string): VCPerson {
+function investorPartnerToVCPerson(
+  p: InvestorPartner,
+  firmId: string,
+  firmName?: string | null,
+  firmWebsiteUrl?: string | null,
+  firmLogoUrl?: string | null,
+): VCPerson {
   const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
   return {
     id: p.id,
     full_name: p.full_name,
     title: p.title,
     firm_id: firmId,
+    primary_firm_name: firmName ?? null,
     first_name: p.first_name ?? parts[0] ?? null,
     last_name: p.last_name ?? (parts.length > 1 ? parts.slice(1).join(" ") : null),
     is_active: p.is_active,
     avatar_url: p.avatar_url ?? null,
+    profile_image_url: p.avatar_url ?? null,
     email: p.email ?? null,
     linkedin_url: p.linkedin_url ?? null,
     x_url: p.x_url ?? null,
     website_url: p.website_url ?? null,
+    // Firm display fields used by PersonProfileModal when firm prop is unavailable
+    _firm_website_url: firmWebsiteUrl ?? null,
+    _firm_logo_url: firmLogoUrl ?? null,
     bio: p.bio ?? null,
     city: p.city ?? null,
     state: p.state ?? null,
@@ -268,7 +279,13 @@ export function InvestorDetailPanel({
     for (const p of liveProfile?.partners ?? []) {
       byName.set(
         p.full_name.toLowerCase().trim(),
-        investorPartnerToVCPerson(p, firmKey || p.id)
+        investorPartnerToVCPerson(
+          p,
+          firmKey || p.id,
+          liveProfile?.firm_name,
+          liveProfile?.website_url,
+          liveProfile?.logo_url,
+        )
       );
     }
     for (const p of vcPartners) {
@@ -402,7 +419,8 @@ export function InvestorDetailPanel({
     effectiveInvestor?.websiteUrl?.trim() ||
     null;
 
-  const heroPartnerCount = mergedPartners.length > 0 ? mergedPartners.length : null;
+  // Prefer firm's actual headcount from DB; fall back to null (don't show DB row count)
+  const heroHeadcount = liveProfile?.total_headcount ?? null;
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at
     ? new Date(liveProfile.last_enriched_at)
@@ -426,7 +444,7 @@ export function InvestorDetailPanel({
   const metaFacts = [
     { label: "AUM", value: heroAum },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
-    { label: "Team", value: heroPartnerCount ? String(heroPartnerCount) : "—" },
+    { label: "Team", value: heroHeadcount ? `${heroHeadcount} people` : "—" },
   ];
 
   const handleClose = () => {
@@ -517,16 +535,16 @@ export function InvestorDetailPanel({
                                 <span className="font-medium">{heroAum}</span>
                               </span>
                             )}
-                            {heroAum && (heroPartnerCount != null || heroLocation) && (
+                            {heroAum && (heroHeadcount != null || heroLocation) && (
                               <span className="text-border/50 select-none">·</span>
                             )}
-                            {heroPartnerCount != null && (
+                            {heroHeadcount != null && (
                               <span className="flex items-center gap-1 text-foreground/70">
                                 <Users className="w-[11px] h-[11px] opacity-40 shrink-0" />
-                                <span className="font-medium">{heroPartnerCount} partners</span>
+                                <span className="font-medium">{heroHeadcount} people</span>
                               </span>
                             )}
-                            {heroPartnerCount != null && heroLocation && (
+                            {heroHeadcount != null && heroLocation && (
                               <span className="text-border/50 select-none">·</span>
                             )}
                             {heroLocation && (
