@@ -187,6 +187,21 @@ const getAliasKeys = (normalizedName: string) => {
   return keys;
 };
 
+const normalizeWebsiteHost = (websiteUrl?: string | null) => {
+  const raw = websiteUrl?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return parsed.hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return raw
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split("/")[0]
+      .toLowerCase();
+  }
+};
+
 /** Match grid rows to mock “Trending Investors” seeds (badges when DB has no is_trending). */
 const MOCK_TRENDING_INVESTOR_KEYS = (() => {
   const s = new Set<string>();
@@ -2041,7 +2056,7 @@ export function CommunityView({
   const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
     setInvestorInitialTab("Updates");
     const vcMatch = getVCFirmMatch(entry.name);
-    if (vcMatch) setSelectedVCFirm(vcMatch);
+    setSelectedVCFirm(vcMatch ?? null);
     setSelectedInvestor(entry);
   }, [getVCFirmMatch]);
 
@@ -2056,9 +2071,35 @@ export function CommunityView({
   const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
     setInvestorInitialTab("Activity");
     const vcMatch = getVCFirmMatch(entry.name);
-    if (vcMatch) setSelectedVCFirm(vcMatch);
+    setSelectedVCFirm(vcMatch ?? null);
     setSelectedInvestor(entry);
   }, [getVCFirmMatch]);
+
+  const selectedInvestorMatchedVCFirm = useMemo(() => {
+    if (!selectedInvestor || selectedInvestor.category !== "investor" || !selectedVCFirm) return null;
+
+    const investorKey = normalizeFirmName(selectedInvestor.name);
+    const vcFirmKey = normalizeFirmName(selectedVCFirm.name);
+    if (investorKey === vcFirmKey) return selectedVCFirm;
+
+    const investorAliasKeys = getAliasKeys(investorKey);
+    const vcFirmAliasKeys = getAliasKeys(vcFirmKey);
+    if (investorAliasKeys.includes(vcFirmKey) || vcFirmAliasKeys.includes(investorKey)) {
+      return selectedVCFirm;
+    }
+
+    if (selectedInvestor._firmId && selectedInvestor._firmId === selectedVCFirm.id) {
+      return selectedVCFirm;
+    }
+
+    const investorWebsiteHost = normalizeWebsiteHost(selectedInvestor._websiteUrl);
+    const vcFirmWebsiteHost = normalizeWebsiteHost(selectedVCFirm.website_url);
+    if (investorWebsiteHost && vcFirmWebsiteHost && investorWebsiteHost === vcFirmWebsiteHost) {
+      return selectedVCFirm;
+    }
+
+    return null;
+  }, [selectedInvestor, selectedVCFirm]);
 
   const handleInvestorPreviewDeploying = useCallback(
     (inv: InvestorPreviewModel) => {
@@ -2643,17 +2684,21 @@ export function CommunityView({
                     ? selectedInvestor._firmId.trim()
                     : null,
                 /** Panel reads `logo_url`; directory cards use `_logoUrl` (+ VC JSON match). */
-                logo_url: selectedInvestor._logoUrl ?? selectedVCFirm?.logo_url ?? null,
-                websiteUrl: selectedInvestor._websiteUrl ?? selectedVCFirm?.website_url ?? null,
+                logo_url: selectedInvestor._logoUrl ?? selectedInvestorMatchedVCFirm?.logo_url ?? null,
+                websiteUrl: selectedInvestor._websiteUrl ?? selectedInvestorMatchedVCFirm?.website_url ?? null,
               }
             : null
         }
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
-        onClose={() => { setSelectedInvestor(null); setInvestorInitialTab("Updates"); }}
+        onClose={() => {
+          setSelectedInvestor(null);
+          setSelectedVCFirm(null);
+          setInvestorInitialTab("Updates");
+        }}
         initialTab={investorInitialTab}
-        vcFirm={selectedVCFirm}
-        vcPartners={selectedVCFirm ? getVCPartners(selectedVCFirm.id) : []}
+        vcFirm={selectedInvestorMatchedVCFirm}
+        vcPartners={selectedInvestorMatchedVCFirm ? getVCPartners(selectedInvestorMatchedVCFirm.id) : []}
         onSelectPerson={(person) => {
           setSelectedInvestor(null);
           setSelectedVCFirm(null);

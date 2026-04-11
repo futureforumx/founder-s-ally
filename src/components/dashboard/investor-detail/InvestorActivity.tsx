@@ -55,28 +55,6 @@ interface UpdateCard {
   display_tags: string[];
 }
 
-// ── Legacy mock data types (used as fallback) ──
-
-interface BlogPost {
-  id: string;
-  title: string;
-  publishedAt: string;
-  excerpt: string;
-  publication: string;
-  url: string;
-}
-
-type OtherUpdateKind = "investment" | "fund_news" | "team" | "thesis" | "other";
-
-interface OtherUpdate {
-  id: string;
-  kind: OtherUpdateKind;
-  headline: string;
-  summary: string;
-  at: string;
-  url?: string;
-}
-
 // ── Card type → filter mapping ──
 
 const CARD_TYPE_TO_FILTER: Record<UpdateCardType, InvestorUpdateFilter> = {
@@ -130,18 +108,6 @@ const TYPE_CONFIG: Record<UpdateCardType, { icon: typeof Building2; badgeClass: 
   "Other": { icon: FileText, badgeClass: "bg-muted text-muted-foreground border-border" },
 };
 
-// ── Seeded mock data (deterministic per firm name) — used as fallback ──
-
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function pick<T>(arr: T[], seed: number, i: number): T {
-  return arr[(seed + i * 17) % arr.length];
-}
-
 function formatDisplayDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString(undefined, {
@@ -165,123 +131,6 @@ function relativeOrShort(iso: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 14) return `${days}d ago`;
   return formatDisplayDate(iso);
-}
-
-function daysAgoIso(seed: number, baseDays: number, hourJitter: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - baseDays - (seed % 3));
-  d.setHours(9 + (hourJitter % 8), (seed + hourJitter) % 55, 0, 0);
-  return d.toISOString();
-}
-
-function buildMockCards(firm: string, seed: number): UpdateCard[] {
-  const slug = firm.replace(/\s+/g, "-").toLowerCase();
-  return [
-    {
-      type: "Thesis / Insight",
-      display_source: pick([`${firm} Insights`, "Medium", "Substack"], seed, 0),
-      display_date: formatDisplayDate(daysAgoIso(seed, 1, 10)),
-      title: `Why ${firm} is doubling down on vertical AI workflows`,
-      subtitle: "Enterprise buyers want agents inside existing compliance boundaries—not generic chat.",
-      why_it_matters: "Signals this firm is actively deploying in vertical AI—relevant if you're building in a regulated stack.",
-      url: `https://example.com/blog/${slug}/vertical-ai`,
-      image_url: "https://picsum.photos/seed/vertical-ai/800/400",
-      estimated_read_time_minutes: 4,
-      impact_level: "medium",
-      display_tags: ["Thesis", "AI", "Enterprise"],
-    },
-    {
-      type: "Thesis / Insight",
-      display_source: "Medium",
-      display_date: formatDisplayDate(daysAgoIso(seed, 4, 14)),
-      title: "The bar for Series A efficiency just moved again",
-      subtitle: "Runway discipline and a path to profitable growth are now table stakes.",
-      why_it_matters: "Understand exactly what metrics this firm will scrutinize before your A round.",
-      url: `https://medium.com/search?q=${encodeURIComponent(firm)}`,
-      image_url: "https://picsum.photos/seed/series-a-bar/800/400",
-      estimated_read_time_minutes: 3,
-      impact_level: "medium",
-      display_tags: ["Series A", "Metrics", "Efficiency"],
-    },
-    {
-      type: "Investment",
-      display_source: "Crunchbase",
-      display_date: formatDisplayDate(daysAgoIso(seed, 2, 14)),
-      title: `${firm} co-led $28M Series A in LatticeMind`,
-      subtitle: "Applied LLM stack for industrial quality control with Fortune 500 strategic angels.",
-      why_it_matters: "Shows active conviction in B2B AI—check their portfolio overlap with your sector.",
-      url: `https://www.crunchbase.com/textsearch?q=${encodeURIComponent(firm)}`,
-      image_url: "https://picsum.photos/seed/latticemind/800/400",
-      estimated_read_time_minutes: 2,
-      impact_level: "high",
-      display_tags: ["Investment", "Series A", "B2B AI"],
-    },
-    {
-      type: "Fund news",
-      display_source: "Firm blog",
-      display_date: formatDisplayDate(daysAgoIso(seed, 3, 9)),
-      title: "Fund IV first close oversubscribed",
-      subtitle: "Targeting early-stage B2B and fintech with the same core partnership.",
-      why_it_matters: "Fresh dry powder means this firm is actively deploying—great timing to reach out.",
-      url: "",
-      image_url: "https://picsum.photos/seed/fund-close/800/400",
-      estimated_read_time_minutes: 2,
-      impact_level: "high",
-      display_tags: ["New fund", "Funding", "B2B"],
-    },
-    {
-      type: "Team update",
-      display_source: "LinkedIn",
-      display_date: formatDisplayDate(daysAgoIso(seed, 5, 11)),
-      title: "Priya Nair promoted to Partner",
-      subtitle: "Previously principal covering enterprise infrastructure; led two breakout seed deals.",
-      why_it_matters: "New partner coverage means fresh mandates—she may be looking to lead her first deals.",
-      url: "",
-      image_url: "https://picsum.photos/seed/team-priya/800/400",
-      estimated_read_time_minutes: 1,
-      impact_level: "high",
-      display_tags: ["Hiring", "Partner", "Promotion"],
-    },
-    {
-      type: "Investment",
-      display_source: "Crunchbase",
-      display_date: formatDisplayDate(daysAgoIso(seed, 8, 10)),
-      title: `Seed round in HarborStack (${firm} lead)`,
-      subtitle: "Developer platform for maritime logistics APIs; repeat founder team from Stripe alum network.",
-      why_it_matters: "Reveals the firm's appetite for developer-first, infra plays at seed stage.",
-      url: `https://www.crunchbase.com/textsearch?q=HarborStack`,
-      image_url: "https://picsum.photos/seed/harborstack/800/400",
-      estimated_read_time_minutes: 2,
-      impact_level: "medium",
-      display_tags: ["Seed", "DevTools", "Logistics"],
-    },
-    {
-      type: "Press / Media",
-      display_source: "Podcast",
-      display_date: formatDisplayDate(daysAgoIso(seed, 11, 15)),
-      title: "Featured on Invest Like the Best",
-      subtitle: "45-minute conversation on portfolio construction and avoiding hype cycles in AI infra.",
-      why_it_matters: "Listen to understand their current conviction and what they're avoiding.",
-      url: "",
-      image_url: "https://picsum.photos/seed/podcast-itb/800/400",
-      estimated_read_time_minutes: 45,
-      impact_level: "low",
-      display_tags: ["Podcast", "Insight"],
-    },
-    {
-      type: "Thesis / Insight",
-      display_source: "Firm blog",
-      display_date: formatDisplayDate(daysAgoIso(seed, 21, 12)),
-      title: "Published annual letter to founders",
-      subtitle: "Themes: capital efficiency, AI copilots with measurable ROI, and vertical SaaS resilience.",
-      why_it_matters: "Annual letters reveal real thesis shifts—read before you pitch.",
-      url: "",
-      image_url: "https://picsum.photos/seed/annual-letter/800/400",
-      estimated_read_time_minutes: 6,
-      impact_level: "medium",
-      display_tags: ["Annual letter", "Thesis", "AI"],
-    },
-  ];
 }
 
 // ── Filter chips ──
@@ -494,9 +343,9 @@ export function InvestorActivity({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
   const [filter, setFilter] = useState<InvestorUpdateFilter>("all");
-  const [liveCards, setLiveCards] = useState<UpdateCard[] | null>(null);
+  const [liveCards, setLiveCards] = useState<UpdateCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [dataSource, setDataSource] = useState<"ai" | "fallback" | "mock" | "empty">("mock");
+  const [dataSource, setDataSource] = useState<"ai" | "fallback" | "empty">("empty");
 
   // ── Fetch from edge function ──
   const fetchUpdates = useCallback(async () => {
@@ -510,16 +359,15 @@ export function InvestorActivity({
       if (error) throw error;
       if (data?.cards && data.cards.length > 0) {
         setLiveCards(data.cards);
-        setDataSource(data.source ?? "ai");
+        setDataSource(data.source === "fallback" ? "fallback" : "ai");
       } else {
-        // No real signals yet — fall back to mock
-        setLiveCards(null);
-        setDataSource("mock");
+        setLiveCards([]);
+        setDataSource("empty");
       }
     } catch (err) {
-      console.warn("investor-updates fetch failed, using mock data:", err);
-      setLiveCards(null);
-      setDataSource("mock");
+      console.warn("investor-updates fetch failed:", err);
+      setLiveCards([]);
+      setDataSource("empty");
     } finally {
       setIsLoading(false);
     }
@@ -535,13 +383,7 @@ export function InvestorActivity({
     return () => clearInterval(interval);
   }, []);
 
-  // ── Mock fallback ──
-  const mockCards = useMemo(() => {
-    const seed = hashString(`${firmName || "Unknown"}|${firmId ?? ""}`);
-    return buildMockCards(firmName || "This firm", seed);
-  }, [firmName, firmId]);
-
-  const cards = liveCards ?? mockCards;
+  const cards = liveCards;
 
   // ── Filtered views ──
   const visiblePosts = useMemo(
@@ -596,7 +438,9 @@ export function InvestorActivity({
               ? "Loading updates…"
               : dataSource === "ai"
                 ? `Live · ${cards.length} updates · ${lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                : `Intelligence feed · updated ${lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                : dataSource === "fallback"
+                  ? `Indexed feed · ${cards.length} updates · ${lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                  : `No live updates found · checked ${lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
           </span>
         </div>
         <button

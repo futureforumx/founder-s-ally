@@ -19,7 +19,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 
-type ViewType = "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
+type ViewType = "home" | "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
 interface AppSidebarChakraProps {
   activeView: ViewType;
@@ -83,7 +83,16 @@ export function AppSidebarChakra({ activeView, onViewChange }: AppSidebarChakraP
     >
       {/* Logo */}
       <Box p={5}>
-        <BrandLogo variant="white" className="w-[112px]" />
+        <Box
+          as="button"
+          type="button"
+          onClick={() => onViewChange("home")}
+          aria-label="Go to start page"
+          display="block"
+          width="100%"
+        >
+          <BrandLogo variant="white" className="w-[112px]" />
+        </Box>
       </Box>
 
       {/* Navigation */}
