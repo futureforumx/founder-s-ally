@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
@@ -24,6 +25,7 @@ import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich"
 import { ScoreTilesRow, type TileId } from "./investor-detail/ScoreTilesRow";
 import { useInvestorProfile, useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
 import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
+import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
@@ -218,6 +220,28 @@ export function InvestorDetailPanel({
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
   const displayName = effectiveInvestor?.name || "";
+  const explicitVcDirId =
+    typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
+      ? vcDirectoryFirmIdHint.trim()
+      : null;
+  const vcDirectoryFirmId = explicitVcDirId ?? vcFirm?.id ?? null;
+  const firmRecordIdFromVcDirectoryQuery = useQuery<string | null>({
+    queryKey: ["firm-record-id-from-vc-directory", vcDirectoryFirmId],
+    enabled: Boolean(vcDirectoryFirmId),
+    staleTime: 60_000,
+    queryFn: async () => {
+      if (!vcDirectoryFirmId?.trim()) return null;
+      const { data, error } = await supabase
+        .from("firm_records")
+        .select("id")
+        .eq("prisma_firm_id", vcDirectoryFirmId.trim())
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { id: string } | null)?.id ?? null;
+    },
+  });
+  const firmRecordIdFromVcDirectory = firmRecordIdFromVcDirectoryQuery.data ?? null;
 
   const investorDbIdFromEntry =
     typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
@@ -227,7 +251,12 @@ export function InvestorDetailPanel({
   const databaseFirmId =
     liveProfile?.source === "live"
       ? liveProfile.id
-      : investorDbIdFromEntry ?? resolvedFirmId ?? null;
+      : (investorDbIdFromEntry && looksLikeFirmRecordsUuid(investorDbIdFromEntry)
+          ? investorDbIdFromEntry
+          : null) ??
+        resolvedFirmId ??
+        firmRecordIdFromVcDirectory ??
+        null;
 
   /** When name-resolve fell back to JSON, fetch `firm_records` + `firm_recent_deals` via `databaseFirmId`. */
   const firmRecordsUuidForSupplemental =
@@ -245,11 +274,12 @@ export function InvestorDetailPanel({
       null,
     [liveProfile?.x_url, vcFirm?.x_url, firmRecordXSupplement.data],
   );
+  const resolvedLiveFirmId = useMemo(
+    () => (liveProfile?.source === "live" ? liveProfile.id : databaseFirmId ?? null),
+    [liveProfile?.source, liveProfile?.id, databaseFirmId],
+  );
+  const resolvedLiveFirmDisplayName = dealSizeProfile?.firm_name ?? liveProfile?.firm_name ?? effectiveInvestor?.name ?? null;
 
-  const explicitVcDirId =
-    typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
-      ? vcDirectoryFirmIdHint.trim()
-      : null;
   const reviewVcFirmId =
     explicitVcDirId ??
     databaseFirmId ??
@@ -334,12 +364,24 @@ export function InvestorDetailPanel({
 
     (async () => {
       // Use live profile ID if available, else resolve by name
-      let firmId = liveProfile?.id;
+      let firmId =
+        (liveProfile?.source === "live" ? liveProfile.id : null) ??
+        databaseFirmId ??
+        firmRecordIdFromVcDirectory;
       if (!firmId) {
         const { data: firms } = await supabase
           .from("firm_records")
           .select("id")
           .ilike("firm_name", displayName.trim())
+          .is("deleted_at", null)
+          .limit(1);
+        firmId = firms?.[0]?.id;
+      }
+      if (!firmId) {
+        const { data: firms } = await supabase
+          .from("firm_records")
+          .select("id")
+          .ilike("firm_name", `%${displayName.trim()}%`)
           .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
@@ -355,7 +397,7 @@ export function InvestorDetailPanel({
           { onConflict: "founder_id,firm_id,action_type" }
         );
     })();
-  }, [displayName, session?.user?.id]);
+  }, [databaseFirmId, displayName, firmRecordIdFromVcDirectory, liveProfile?.id, liveProfile?.source, session?.user?.id]);
 
   // Reset viewed ref when panel closes
   useEffect(() => {
@@ -710,10 +752,14 @@ export function InvestorDetailPanel({
                       <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <ActivityDashboard
                           firmName={effectiveInvestor.name}
-                          firmDisplayName={liveProfile?.firm_name ?? effectiveInvestor.name}
-                          firmRecordsId={(liveProfile?.source === "live" ? liveProfile.id : null) ?? null}
+                          firmDisplayName={resolvedLiveFirmDisplayName ?? effectiveInvestor.name}
+                          firmRecordsId={resolvedLiveFirmId}
+                          vcDirectoryFirmId={vcDirectoryFirmId}
                           companySector={companyData?.sector || undefined}
-                          deals={liveProfile?.source === "live" ? liveProfile.deals : undefined}
+                          deals={dealSizeProfile?.deals ?? undefined}
+                          fallbackAum={dealSizeProfile?.aum ?? vcFirm?.aum ?? null}
+                          fallbackIsActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
+                          fallbackRecentDeals={dealSizeProfile?.recent_deals ?? null}
                         />
                       </motion.div>
                     )}
@@ -748,12 +794,13 @@ export function InvestorDetailPanel({
                       <motion.div key="portfolio" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="space-y-5">
                         <PortfolioTab
                           companySector={companyData?.sector || effectiveInvestor.sector}
-                          firmDeals={liveProfile?.source === "live" ? liveProfile.deals : undefined}
-                          portfolioLoading={liveLoading && !liveProfile}
+                          firmDeals={dealSizeProfile?.deals ?? undefined}
+                          portfolioLoading={(liveLoading && !liveProfile) || supplementalFirmQuery.isLoading}
                           leadPartnerName={liveProfile?.lead_partner}
                           partnerNamesLower={partnerNamesLower}
-                          firmRecordsId={(liveProfile?.source === "live" ? liveProfile.id : null) ?? null}
-                          firmDisplayName={liveProfile?.firm_name ?? effectiveInvestor.name}
+                          firmRecordsId={resolvedLiveFirmId}
+                          vcDirectoryFirmId={vcDirectoryFirmId}
+                          firmDisplayName={resolvedLiveFirmDisplayName ?? effectiveInvestor.name}
                           onInvestorClick={(name) => {
                             const match = mergedPartners.find(
                               (p) => p.full_name.toLowerCase() === name.toLowerCase()
