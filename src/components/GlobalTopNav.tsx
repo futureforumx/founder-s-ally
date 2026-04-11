@@ -37,6 +37,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 
 type ViewType =
+  | "home"
   | "company"
   | "dashboard"
   | "industry"
@@ -96,6 +97,7 @@ interface GlobalTopNavProps {
 
 // ── View metadata for breadcrumbs ──
 const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: { id: ViewType; label: string }[] }> = {
+  home: { section: "Home", label: "Start" },
   dashboard: { section: "Mission Control", label: "Company" },
   industry: { section: "Mission Control", label: "Industry" },
   competitive: { section: "Mission Control", label: "Competitive" },
@@ -164,16 +166,16 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "events", label: "Events" },
   ]},
   messages: { section: "Community", label: "Messages" },
-  "market-intelligence": { section: "Pulse", label: "Brief" },
-  "market-category": { section: "Pulse", label: "Category" },
-  "market-funding": { section: "Pulse", label: "Funding" },
-  "market-regulatory": { section: "Pulse", label: "Regulatory" },
-  "market-customer": { section: "Pulse", label: "Customer" },
-  "market-ma": { section: "Pulse", label: "M&A / Strategic Moves" },
+  "market-intelligence": { section: "Activity", label: "Brief" },
+  "market-category": { section: "Activity", label: "Category" },
+  "market-funding": { section: "Activity", label: "Funding" },
+  "market-regulatory": { section: "Activity", label: "Regulatory" },
+  "market-customer": { section: "Activity", label: "Customer" },
+  "market-ma": { section: "Activity", label: "M&A / Strategic Moves" },
   "market-investors": { section: "Raise", label: "Investors" },
-  "market-market": { section: "Pulse", label: "Category" },
-  "market-tech": { section: "Pulse", label: "Funding" },
-  "market-network": { section: "Pulse", label: "M&A / Strategic Moves" },
+  "market-market": { section: "Activity", label: "Category" },
+  "market-tech": { section: "Activity", label: "Funding" },
+  "market-network": { section: "Activity", label: "M&A / Strategic Moves" },
 
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
@@ -593,6 +595,12 @@ export function GlobalTopNav({
     (v: ViewType) => {
       const resolved = v === "data-room" ? ("market-data-room" as ViewType) : v;
       const intel = MARKET_INTEL_SEGMENT_IDS.has(resolved);
+      if (resolved === "investor-search") {
+        onInvestorSearchChipChange?.("all");
+        onInvestorSearchQueryChange?.("");
+      } else if (resolved === "directory") {
+        onInvestorSearchQueryChange?.("");
+      }
       if (intel) {
         if (location.pathname !== "/intelligence") navigate("/intelligence");
       } else if (location.pathname === "/intelligence") {
@@ -601,7 +609,7 @@ export function GlobalTopNav({
       onViewChange?.(resolved);
       if (resolved === "investors") dispatchInvestorsAllFocus();
     },
-    [location.pathname, navigate, onViewChange]
+    [location.pathname, navigate, onInvestorSearchChipChange, onInvestorSearchQueryChange, onViewChange]
   );
 
   const handlePulseClick = useCallback(() => {

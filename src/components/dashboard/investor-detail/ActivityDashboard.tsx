@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2 } from "lucide-react";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
+import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,9 +36,13 @@ interface ActivityDashboardProps {
   firmName: string;
   firmDisplayName?: string | null;
   firmRecordsId?: string | null;
+  vcDirectoryFirmId?: string | null;
   companySector?: string;
   /** Pre-loaded deals from liveProfile — supplements DB query */
   deals?: FirmDeal[] | null;
+  fallbackAum?: string | null;
+  fallbackIsActivelyDeploying?: boolean | null;
+  fallbackRecentDeals?: string[] | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,23 +105,59 @@ function buildMonthBuckets(deals: DealRow[]): { label: string; count: number; st
 
 const STAGE_ORDER: Record<string, number> = { "Pre-Seed": 0, "Seed": 1, "Series A": 2, "Series B+": 3 };
 
+async function resolveFirmRecordId(
+  firmRecordsId: string | null,
+  vcDirectoryFirmId: string | null,
+  firmDisplayName: string | null,
+): Promise<string | null> {
+  const trimmedFirmId = firmRecordsId?.trim() ?? null;
+  if (trimmedFirmId && looksLikeFirmRecordsUuid(trimmedFirmId)) return trimmedFirmId;
+
+  const candidateVcDirectoryId =
+    vcDirectoryFirmId?.trim() ??
+    (trimmedFirmId && !looksLikeFirmRecordsUuid(trimmedFirmId) ? trimmedFirmId : null);
+  if (candidateVcDirectoryId) {
+    const { data: byPrisma } = await DB
+      .from("firm_records")
+      .select("id")
+      .eq("prisma_firm_id", candidateVcDirectoryId)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    const prismaId = (byPrisma as { id: string } | null)?.id ?? null;
+    if (prismaId) return prismaId;
+  }
+
+  if (!firmDisplayName?.trim()) return null;
+  const trimmed = firmDisplayName.trim();
+
+  const { data: exact } = await DB
+    .from("firm_records")
+    .select("id")
+    .ilike("firm_name", trimmed)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  const exactId = (exact as { id: string } | null)?.id ?? null;
+  if (exactId) return exactId;
+
+  const { data: partial } = await DB
+    .from("firm_records")
+    .select("id")
+    .ilike("firm_name", `%${trimmed}%`)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  return (partial as { id: string } | null)?.id ?? null;
+}
+
 // ── Data hooks ───────────────────────────────────────────────────────────────
 
-function useActiveFund(firmRecordsId: string | null, firmDisplayName: string | null) {
+function useActiveFund(firmRecordsId: string | null, vcDirectoryFirmId: string | null, firmDisplayName: string | null) {
   return useQuery<FundRecord | null>({
-    queryKey: ["activity-active-fund", firmRecordsId, firmDisplayName?.toLowerCase()],
+    queryKey: ["activity-active-fund", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase()],
     queryFn: async () => {
-      let resolvedId = firmRecordsId?.trim() ?? null;
-      if (!resolvedId && firmDisplayName?.trim()) {
-        const { data: fr } = await DB
-          .from("firm_records")
-          .select("id")
-          .ilike("firm_name", firmDisplayName.trim())
-          .is("deleted_at", null)
-          .limit(1)
-          .maybeSingle();
-        resolvedId = (fr as { id: string } | null)?.id ?? null;
-      }
+      const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
       if (!resolvedId) return null;
 
       const { data, error } = await DB
@@ -130,26 +171,16 @@ function useActiveFund(firmRecordsId: string | null, firmDisplayName: string | n
       if (error) return null;
       return (data as FundRecord | null) ?? null;
     },
-    enabled: Boolean((firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    enabled: Boolean((firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
     retry: false,
   });
 }
 
-function useRecentDeals(firmRecordsId: string | null, firmDisplayName: string | null) {
+function useRecentDeals(firmRecordsId: string | null, vcDirectoryFirmId: string | null, firmDisplayName: string | null) {
   return useQuery<DealRow[]>({
-    queryKey: ["activity-deals", firmRecordsId, firmDisplayName?.toLowerCase()],
+    queryKey: ["activity-deals", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase()],
     queryFn: async () => {
-      let resolvedId = firmRecordsId?.trim() ?? null;
-      if (!resolvedId && firmDisplayName?.trim()) {
-        const { data: fr } = await DB
-          .from("firm_records")
-          .select("id")
-          .ilike("firm_name", firmDisplayName.trim())
-          .is("deleted_at", null)
-          .limit(1)
-          .maybeSingle();
-        resolvedId = (fr as { id: string } | null)?.id ?? null;
-      }
+      const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
       if (!resolvedId) return [];
       const { data, error } = await DB
         .from("firm_recent_deals")
@@ -159,14 +190,24 @@ function useRecentDeals(firmRecordsId: string | null, firmDisplayName: string | 
       if (error) return [];
       return (data ?? []) as DealRow[];
     },
-    enabled: Boolean((firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    enabled: Boolean((firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
     retry: false,
   });
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function CurrentFundCard({ fund, loading }: { fund: FundRecord | null | undefined; loading: boolean }) {
+function CurrentFundCard({
+  fund,
+  loading,
+  fallbackAum,
+  fallbackIsActivelyDeploying,
+}: {
+  fund: FundRecord | null | undefined;
+  loading: boolean;
+  fallbackAum?: string | null;
+  fallbackIsActivelyDeploying?: boolean | null;
+}) {
   const pct = fund?.deployed_pct ?? null;
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
@@ -194,8 +235,19 @@ function CurrentFundCard({ fund, loading }: { fund: FundRecord | null | undefine
         </div>
         <div className="min-w-0">
           <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Current Fund</p>
-          <p className="text-sm font-semibold text-muted-foreground">No fund data</p>
-          <p className="text-[10px] text-muted-foreground/60 mt-0.5">Not yet synced from VC directory</p>
+          {fallbackAum ? (
+            <>
+              <p className="text-sm font-semibold text-foreground">{fallbackAum} AUM</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                {fallbackIsActivelyDeploying ? "Actively deploying" : "Firm-level data available; fund breakdown pending"}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">No fund data</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">Not yet synced from VC directory</p>
+            </>
+          )}
         </div>
       </div>
     );
@@ -246,7 +298,17 @@ function CurrentFundCard({ fund, loading }: { fund: FundRecord | null | undefine
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, companySector, deals: dealsProp }: ActivityDashboardProps) {
+export function ActivityDashboard({
+  firmName,
+  firmDisplayName,
+  firmRecordsId,
+  vcDirectoryFirmId,
+  companySector,
+  deals: dealsProp,
+  fallbackAum,
+  fallbackIsActivelyDeploying,
+  fallbackRecentDeals,
+}: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
   const [autoCycle, setAutoCycle] = useState(true);
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
@@ -255,8 +317,16 @@ export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, co
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { data: activeFund, isLoading: fundLoading } = useActiveFund(firmRecordsId ?? null, firmDisplayName ?? firmName);
-  const { data: dbDeals = [], isLoading: dealsLoading } = useRecentDeals(firmRecordsId ?? null, firmDisplayName ?? firmName);
+  const { data: activeFund, isLoading: fundLoading } = useActiveFund(
+    firmRecordsId ?? null,
+    vcDirectoryFirmId ?? null,
+    firmDisplayName ?? firmName,
+  );
+  const { data: dbDeals = [], isLoading: dealsLoading } = useRecentDeals(
+    firmRecordsId ?? null,
+    vcDirectoryFirmId ?? null,
+    firmDisplayName ?? firmName,
+  );
 
   // Merge DB deals with prop deals (prop deals may have more context)
   const allDeals = useMemo((): DealRow[] => {
@@ -354,7 +424,12 @@ export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, co
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
         {/* Card 1: Current Fund (live from fund_records) */}
-        <CurrentFundCard fund={activeFund} loading={fundLoading} />
+        <CurrentFundCard
+          fund={activeFund}
+          loading={fundLoading}
+          fallbackAum={fallbackAum}
+          fallbackIsActivelyDeploying={fallbackIsActivelyDeploying}
+        />
 
         {/* Card 2: Investment Pace (live from deal data) */}
         <div
@@ -585,12 +660,12 @@ export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, co
                 <Skeleton className="h-5 w-14 rounded-full" />
               </div>
             ))
-          ) : !hasEnoughData ? (
+          ) : !hasEnoughData && !(fallbackRecentDeals && fallbackRecentDeals.length > 0) ? (
             <div className="px-4 py-8 text-center">
               <p className="text-xs text-muted-foreground/50">Transaction history not yet available for {firmDisplayName ?? firmName}</p>
             </div>
           ) : (
-            allDeals.slice(0, 8).map((deal) => {
+            hasEnoughData ? allDeals.slice(0, 8).map((deal) => {
               const stage = inferStage(deal.amount);
               const dateStr = deal.date_announced
                 ? new Date(deal.date_announced).toLocaleDateString("en-US", { month: "short", year: "numeric" })
@@ -627,7 +702,19 @@ export function ActivityDashboard({ firmName, firmDisplayName, firmRecordsId, co
                   <ExternalLink className="w-3 h-3 text-muted-foreground/40 group-hover:text-accent shrink-0 transition-colors" />
                 </div>
               );
-            })
+            }) : (fallbackRecentDeals ?? []).slice(0, 8).map((deal, i) => (
+              <div key={`${firmName}-fallback-deal-${i}`} className="flex items-center gap-3 px-4 py-2 hover:bg-secondary/50 transition-colors">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary border border-border text-[10px] font-bold text-muted-foreground shrink-0">
+                  {(deal.charAt(0).toUpperCase() || "?")}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-foreground truncate">{deal}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground truncate">Firm-level recent deal signal</p>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
