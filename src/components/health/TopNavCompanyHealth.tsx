@@ -3,6 +3,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  Building2,
   Minus,
   Shield,
   Target,
@@ -11,7 +12,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { HealthDashboard, HealthFinancialsUnitEconomicsSection } from "@/components/HealthDashboard";
+import { HealthDashboard, getHealthBenchmarks, getHealthStatus } from "@/components/HealthDashboard";
 import { cn } from "@/lib/utils";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import {
@@ -21,12 +22,11 @@ import {
   publishCompanyHealthSignals,
   type TopNavView,
 } from "@/lib/companyHealthSignals";
-import { CompanyHealthHeader } from "@/components/health/CompanyHealthHeader";
-import { CompanyHealthDataSourcesPanel } from "@/components/health/CompanyHealthDataSourcesPanel";
 import { fetchIntelligenceSummary, type IntelligenceSummaryStrip } from "@/lib/intelligenceFeedApi";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
 
 type HealthTab = "overview" | "market" | "financial" | "gtm" | "defensibility";
+type GaugeStatus = "healthy" | "warning" | "critical";
 
 export interface TopNavCompanyHealthProps {
   score?: number | null;
@@ -36,10 +36,7 @@ export interface TopNavCompanyHealthProps {
   analysisResult?: AnalysisResult | null;
   companyName?: string | null;
   logoUrl?: string | null;
-  websiteUrl?: string | null;
   hasProfile?: boolean;
-  /** Navigate to Raise → Data Room (e.g. from Documents edit controls). */
-  onNavigateToDataRoom?: () => void;
 }
 
 const tabs: Array<{ id: HealthTab; label: string }> = [
@@ -82,30 +79,13 @@ function Sparkline({ values, className }: { values: number[]; className?: string
 }
 
 function viewContextNote(view: TopNavView) {
-  if (
-    [
-      "market-intelligence",
-      "market-category",
-      "market-funding",
-      "market-regulatory",
-      "market-customer",
-      "market-ma",
-      "market-investors",
-      "market-market",
-      "market-tech",
-      "market-network",
-    ].includes(view)
-  ) {
+  if (["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(view)) {
     return "Markets context: relative position and competitor pressure are folded into this score.";
   }
-  if (
-    ["investors", "investor-search", "directory", "connections", "network", "market-data-room", "data-room"].includes(
-      view,
-    )
-  ) {
+  if (["investors", "investor-search", "directory", "connections", "network"].includes(view)) {
     return "Raise readiness context: investor fit and momentum signals are weighted in this score.";
   }
-  if (["audit", "workspace"].includes(view)) {
+  if (["data-room", "audit", "workspace"].includes(view)) {
     return "Workflows context: internal execution and benchmark discipline are reflected here.";
   }
   return "Pulse context: recent operating shifts are reflected across score drivers.";
@@ -119,17 +99,15 @@ export function TopNavCompanyHealth({
   analysisResult,
   companyName,
   logoUrl,
-  websiteUrl,
   hasProfile = false,
-  onNavigateToDataRoom,
 }: TopNavCompanyHealthProps) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<HealthTab>("overview");
-  const [healthSurface, setHealthSurface] = useState<"tabs" | "data">("tabs");
   const [tick, setTick] = useState(0);
   const [summary, setSummary] = useState<IntelligenceSummaryStrip | null>(null);
   const [scoreLineProgress, setScoreLineProgress] = useState(0);
+  const [logoImgError, setLogoImgError] = useState(false);
   const trackedHoverOpenRef = useRef(false);
   const openTriggerRef = useRef<"hover" | "tap" | null>(null);
   const trackedModalOpenRef = useRef(false);
@@ -167,12 +145,9 @@ export function TopNavCompanyHealth({
     [trackInteraction],
   );
 
-  const handleNavigateToDataRoom = useCallback(() => {
-    onNavigateToDataRoom?.();
-    setModalOpen(false);
-    setHealthSurface("tabs");
-    setActiveTab("overview");
-  }, [onNavigateToDataRoom]);
+  useEffect(() => {
+    setLogoImgError(false);
+  }, [logoUrl]);
 
   useEffect(() => {
     if (score != null) return;
@@ -240,6 +215,40 @@ export function TopNavCompanyHealth({
     };
   }, [derived.drivers]);
 
+  const marketBenchmarks = useMemo(() => getHealthBenchmarks("market", stage ?? undefined, sector ?? undefined), [stage, sector]);
+
+  const tileStatuses = useMemo(
+    () => ({
+      market: getHealthStatus(derived.marketPosition, marketBenchmarks.market),
+      financial: getHealthStatus(derived.financialHealth, marketBenchmarks.financial),
+      gtm: getHealthStatus(derived.gtmStrength, marketBenchmarks.gtm),
+      defensibility: getHealthStatus(derived.defensibility, marketBenchmarks.moat),
+    }),
+    [derived.marketPosition, derived.financialHealth, derived.gtmStrength, derived.defensibility, marketBenchmarks],
+  );
+
+  const tileTone = useCallback((statusLevel: GaugeStatus) => {
+    if (statusLevel === "healthy") {
+      return {
+        bg: "bg-emerald-500/[0.03]",
+        value: "text-emerald-600",
+        badge: "bg-emerald-500/10 text-emerald-700/85",
+      };
+    }
+    if (statusLevel === "warning") {
+      return {
+        bg: "bg-amber-500/[0.03]",
+        value: "text-amber-600",
+        badge: "bg-amber-500/10 text-amber-700/85",
+      };
+    }
+    return {
+      bg: "bg-rose-500/[0.03]",
+      value: "text-rose-600",
+      badge: "bg-rose-500/10 text-rose-700/85",
+    };
+  }, []);
+
   useEffect(() => {
     if (hoverOpen && !trackedHoverOpenRef.current) {
       trackedHoverOpenRef.current = true;
@@ -262,6 +271,21 @@ export function TopNavCompanyHealth({
   }, [activeTab, modalOpen, trackInteraction]);
 
   useEffect(() => {
+    if (!modalOpen) {
+      setScoreLineProgress(0);
+      return;
+    }
+
+    const raf = window.requestAnimationFrame(() => {
+      setScoreLineProgress(1);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [modalOpen]);
+
+  useEffect(() => {
     if (!modalOpen) return;
     if (tabBurstTimerRef.current != null) window.clearTimeout(tabBurstTimerRef.current);
     tabBurstTimerRef.current = window.setTimeout(() => {
@@ -278,21 +302,14 @@ export function TopNavCompanyHealth({
 
   const trendIcon =
     derived.trendPct > 0 ? (
-      <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
+      <ArrowUpRight className="h-3.5 w-3.5" />
     ) : derived.trendPct < 0 ? (
-      <ArrowDownRight className="h-3.5 w-3.5" strokeWidth={2} />
+      <ArrowDownRight className="h-3.5 w-3.5" />
     ) : (
-      <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+      <Minus className="h-3.5 w-3.5" />
     );
 
   const trendText = `${derived.trendPct > 0 ? "+" : ""}${derived.trendPct}%`;
-
-  const trendArrowClass =
-    derived.trendPct > 0
-      ? "text-emerald-600 dark:text-emerald-400"
-      : derived.trendPct < 0
-        ? "text-rose-600 dark:text-rose-400"
-        : "text-muted-foreground";
 
   return (
     <>
@@ -329,51 +346,20 @@ export function TopNavCompanyHealth({
                 }
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-2 rounded-xl border px-3 transition-all",
-                "border-zinc-300/55 bg-background/75 text-foreground shadow-sm shadow-zinc-950/[0.03]",
-                "backdrop-blur-sm hover:border-zinc-400/45 hover:bg-muted/35 hover:shadow-md",
-                "dark:border-zinc-600/50 dark:bg-zinc-950/35 dark:shadow-black/20 dark:hover:border-zinc-500/45 dark:hover:bg-zinc-900/45",
+                "inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold tabular-nums transition-all",
+                "backdrop-blur-sm hover:shadow-sm",
+                status.border,
+                status.bg,
+                status.text,
               )}
             >
-              <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:inline">
-                Health
-              </span>
-              <span
-                className={cn(
-                  "animate-health-metric-glow text-sm font-semibold tabular-nums leading-none will-change-[filter]",
-                  status.text,
-                )}
-              >
-                {derived.score}
-              </span>
-              <span
-                className={cn(
-                  "inline-flex animate-health-metric-glow items-center justify-center will-change-[filter]",
-                  trendArrowClass,
-                )}
-                aria-hidden
-              >
+              <span className="hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:inline">Health</span>
+              <span className="text-sm leading-none">{derived.score}</span>
+              <span className="inline-flex items-center gap-0.5 text-[11px] leading-none">
                 {trendIcon}
-              </span>
-              <span
-                className={cn(
-                  "rounded-md border border-slate-200/90 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-slate-600",
-                  "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
-                  "dark:border-zinc-700/90 dark:bg-zinc-900/55 dark:text-zinc-400 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
-                )}
-              >
                 {trendText}
               </span>
-              <span className="relative flex h-2 w-2 shrink-0 items-center justify-center" title={status.label}>
-                <span
-                  className={cn(
-                    "absolute inline-flex h-1.5 w-1.5 rounded-full animate-health-dot-pulse",
-                    status.dot,
-                  )}
-                  aria-hidden
-                />
-                <span className={cn("relative h-1.5 w-1.5 rounded-full shadow-sm", status.dot)} />
-              </span>
+              <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
             </button>
           </PopoverTrigger>
 
@@ -447,140 +433,277 @@ export function TopNavCompanyHealth({
         open={modalOpen}
         onOpenChange={(open) => {
           setModalOpen(open);
-          if (!open) {
-            setActiveTab("overview");
-            setHealthSurface("tabs");
-          }
+          if (!open) setActiveTab("overview");
         }}
       >
         <DialogContent className="left-0 top-0 h-screen max-h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 p-0">
-          <div className="flex h-full min-h-0 flex-col bg-background">
-            <div className="shrink-0 border-b border-border/60 px-5 pt-3 pb-3 pr-14 sm:pr-16">
-              <CompanyHealthHeader
-                name={hasProfile ? companyName || "My Company" : "My Company"}
-                logoUrl={logoUrl ?? undefined}
-                websiteUrl={websiteUrl ?? undefined}
-                hasProfile={hasProfile}
-                overallHealth={{ score: derived.score, delta: derived.trendPct }}
-                metrics={[
-                  { key: "market", label: "Market", score: derived.marketPosition, delta: familyImpact.market },
-                  { key: "financial", label: "Financial", score: derived.financialHealth, delta: familyImpact.financial },
-                  { key: "gtm", label: "GTM", score: derived.gtmStrength, delta: familyImpact.gtm },
-                  { key: "defensibility", label: "Defensibility", score: derived.defensibility, delta: familyImpact.defensibility },
-                ]}
-                tabs={tabs.map((t) => t.label)}
-                activeTab={
-                  healthSurface === "data"
-                    ? "\u200b"
-                    : tabs.find((t) => t.id === activeTab)?.label ?? tabs[0]?.label ?? "Overview"
-                }
-                onTabChange={(label) => {
-                  setHealthSurface("tabs");
-                  const next = tabs.find((t) => t.label === label)?.id;
-                  if (next) setActiveTab(next);
-                }}
-                dataSurfaceActive={healthSurface === "data"}
-                onDataClick={() => {
-                  setHealthSurface((s) => {
-                    const next = s === "data" ? "tabs" : "data";
-                    trackInteractionThrottled("health_data_surface", 1000, { surface: next });
-                    return next;
-                  });
-                }}
-              />
+          <div className="flex h-full flex-col bg-background">
+            <div className="border-b border-border/60 px-5 pt-1 pb-1">
+              <div className="flex items-start justify-between gap-2 pr-8">
+                <div>
+                  <p className="m-0 inline-flex items-center gap-1.5 text-[10px] font-mono uppercase leading-none tracking-wide text-success/80">
+                    <span
+                      className="h-2 w-2 rounded-full bg-success animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+                      aria-hidden
+                    />
+                    Always On Intelligence
+                  </p>
+                  <div className="mt-0 flex items-center gap-4">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-muted/30">
+                      {logoUrl && !logoImgError ? (
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          className="h-full w-full object-contain rounded-xl"
+                          onError={() => setLogoImgError(true)}
+                        />
+                      ) : hasProfile ? (
+                        <span className="text-base font-bold text-muted-foreground">
+                          {companyName?.charAt(0).toUpperCase() || "?"}
+                        </span>
+                      ) : (
+                        <Building2 className="h-6 w-6 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="space-y-1.5 py-0.5">
+                      <h2 className="text-[1.5rem] font-bold leading-tight tracking-tight text-foreground">
+                        {hasProfile ? companyName || "My Company" : "My Company"}
+                      </h2>
+                      <p className="text-xs uppercase leading-snug tracking-[0.08em] text-muted-foreground/80">Company Health</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 sm:auto-rows-fr">
+                  <div
+                    className={cn(
+                      "relative col-span-2 overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem] sm:col-span-1 sm:row-span-2",
+                      "flex flex-col justify-between",
+                      derived.score >= 70
+                        ? "bg-emerald-500/[0.03]"
+                        : derived.score >= 40
+                          ? "bg-amber-500/[0.03]"
+                          : "bg-rose-500/[0.03]",
+                    )}
+                  >
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
+                    <div className="mt-2 flex items-end justify-between gap-1.5">
+                      <p className={cn("text-[1.75rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          derived.trendPct > 0
+                            ? "bg-emerald-500/10 text-emerald-700/85"
+                            : derived.trendPct < 0
+                              ? "bg-rose-500/10 text-rose-700/85"
+                              : "bg-muted/70 text-muted-foreground",
+                        )}
+                      >
+                        {derived.trendPct > 0 ? "+" : ""}
+                        {derived.trendPct}%
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className={cn(
+                          "block h-full origin-left animate-pulse transition-transform duration-700 ease-out",
+                          derived.score >= 70
+                            ? "bg-gradient-to-r from-emerald-500/70 via-emerald-400/45 to-transparent"
+                            : derived.score >= 40
+                              ? "bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent"
+                              : "bg-gradient-to-r from-rose-500/70 via-rose-400/45 to-transparent",
+                        )}
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.market).bg)}>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Market</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.market).value)}>{derived.marketPosition}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          tileTone(tileStatuses.market).badge,
+                        )}
+                      >
+                        {familyImpact.market > 0 ? "+" : ""}
+                        {familyImpact.market.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-sky-500/70 via-sky-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.financial).bg)}>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.financial).value)}>{derived.financialHealth}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          tileTone(tileStatuses.financial).badge,
+                        )}
+                      >
+                        {familyImpact.financial > 0 ? "+" : ""}
+                        {familyImpact.financial.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-violet-500/70 via-violet-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.gtm).bg)}>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">GTM</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.gtm).value)}>{derived.gtmStrength}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          tileTone(tileStatuses.gtm).badge,
+                        )}
+                      >
+                        {familyImpact.gtm > 0 ? "+" : ""}
+                        {familyImpact.gtm.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-orange-500/70 via-orange-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={cn("relative overflow-hidden rounded-lg px-[0.675rem] py-[0.675rem]", tileTone(tileStatuses.defensibility).bg)}>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Defensibility</p>
+                    <div className="mt-1 flex items-center justify-between gap-1.5">
+                      <p className={cn("text-[1.05rem] font-bold tabular-nums leading-none", tileTone(tileStatuses.defensibility).value)}>{derived.defensibility}</p>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                          tileTone(tileStatuses.defensibility).badge,
+                        )}
+                      >
+                        {familyImpact.defensibility > 0 ? "+" : ""}
+                        {familyImpact.defensibility.toFixed(1)}
+                      </span>
+                    </div>
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
+                      <span
+                        className="block h-full origin-left animate-pulse bg-gradient-to-r from-amber-500/70 via-amber-400/45 to-transparent transition-transform duration-700 ease-out"
+                        style={{ transform: `scaleX(${scoreLineProgress})` }}
+                      />
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-0 border-t border-border/60 bg-muted/15 pt-0.5">
+                <div className="flex flex-wrap gap-1 rounded-xl bg-muted/35 p-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                      activeTab === tab.id
+                        ? "bg-background/95 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-background/40 hover:text-foreground/90",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+                </div>
+              </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 pb-10">
-              {healthSurface === "data" ? (
-                <CompanyHealthDataSourcesPanel onEditDocumentsInDataRoom={handleNavigateToDataRoom} />
-              ) : (
-                <>
-                  {activeTab === "overview" && (
-                    <HealthDashboard
-                      hideFinancialsSection
-                      stage={stage ?? undefined}
-                      sector={sector ?? undefined}
-                      analysisResult={analysisResult}
-                      familyScores={{
-                        market: derived.marketPosition,
-                        financial: derived.financialHealth,
-                        gtm: derived.gtmStrength,
-                        defensibility: derived.defensibility,
-                      }}
-                    />
-                  )}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {activeTab === "overview" && (
+                <HealthDashboard
+                  stage={stage ?? undefined}
+                  sector={sector ?? undefined}
+                  analysisResult={analysisResult}
+                  familyScores={{
+                    market: derived.marketPosition,
+                    financial: derived.financialHealth,
+                    gtm: derived.gtmStrength,
+                    defensibility: derived.defensibility,
+                  }}
+                />
+              )}
 
-                  {activeTab !== "overview" && (
-                    <div className="space-y-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {topDrivers
-                          .filter((driver) => (activeTab === "market" ? driver.family === "market" : true))
-                          .filter((driver) => (activeTab === "financial" ? driver.family === "financial" : true))
-                          .filter((driver) => (activeTab === "gtm" ? driver.family === "gtm" : true))
-                          .filter((driver) => (activeTab === "defensibility" ? driver.family === "defensibility" : true))
-                          .map((driver) => (
-                            <div key={driver.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
-                              <p className="text-sm font-medium text-foreground">{driver.label}</p>
-                              <p
-                                className={cn(
-                                  "mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
-                                  driver.impact >= 0
-                                    ? "bg-emerald-500/10 text-emerald-600"
-                                    : "bg-rose-500/10 text-rose-600",
-                                )}
-                              >
-                                {driver.impact >= 0 ? "+" : ""}
-                                {driver.impact.toFixed(1)} impact
-                              </p>
-                            </div>
-                          ))}
-                      </div>
+              {activeTab !== "overview" && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {topDrivers
+                      .filter((driver) => (activeTab === "market" ? driver.family === "market" : true))
+                      .filter((driver) => (activeTab === "financial" ? driver.family === "financial" : true))
+                      .filter((driver) => (activeTab === "gtm" ? driver.family === "gtm" : true))
+                      .filter((driver) => (activeTab === "defensibility" ? driver.family === "defensibility" : true))
+                      .map((driver) => (
+                        <div key={driver.id} className="rounded-xl border border-border/60 bg-card/50 p-4">
+                          <p className="text-sm font-medium text-foreground">{driver.label}</p>
+                          <p
+                            className={cn(
+                              "mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+                              driver.impact >= 0
+                                ? "bg-emerald-500/10 text-emerald-600"
+                                : "bg-rose-500/10 text-rose-600",
+                            )}
+                          >
+                            {driver.impact >= 0 ? "+" : ""}
+                            {driver.impact.toFixed(1)} impact
+                          </p>
+                        </div>
+                      ))}
+                  </div>
 
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                            <BarChart3 className="h-3.5 w-3.5" />
-                            Pulse
-                          </p>
-                          <p className="mt-2 text-sm text-foreground">Health driver deltas feed Pulse alerts for high-priority shifts.</p>
-                        </div>
-                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                            <Target className="h-3.5 w-3.5" />
-                            Markets
-                          </p>
-                          <p className="mt-2 text-sm text-foreground">Relative competitor pressure and category momentum refine positioning.</p>
-                        </div>
-                        <div className="rounded-xl border border-border/60 bg-card/50 p-4">
-                          <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                            <Wallet className="h-3.5 w-3.5" />
-                            Raise Readiness
-                          </p>
-                          <p className="mt-2 text-sm text-foreground">Financial + GTM signals update readiness narrative for investor conversations.</p>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                        <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                          <Shield className="h-3.5 w-3.5" />
-                          {tabs.find((tab) => tab.id === activeTab)?.label}
-                        </p>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                          {analysisResult?.executiveSummary ||
-                            "This panel mirrors the same Company Health model used across dashboard, market intelligence, and workflows, with instant top-nav access."}
-                        </p>
-                        <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-foreground">
-                          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                          {viewContextNote(activeView)}
-                        </div>
-                      </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        Pulse
+                      </p>
+                      <p className="mt-2 text-sm text-foreground">Health driver deltas feed Pulse alerts for high-priority shifts.</p>
                     </div>
-                  )}
+                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <Target className="h-3.5 w-3.5" />
+                        Markets
+                      </p>
+                      <p className="mt-2 text-sm text-foreground">Relative competitor pressure and category momentum refine positioning.</p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                      <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <Wallet className="h-3.5 w-3.5" />
+                        Raise Readiness
+                      </p>
+                      <p className="mt-2 text-sm text-foreground">Financial + GTM signals update readiness narrative for investor conversations.</p>
+                    </div>
+                  </div>
 
-                  {(activeTab === "overview" || activeTab === "financial") && (
-                    <HealthFinancialsUnitEconomicsSection className="mt-8" />
-                  )}
-                </>
+                  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                    <p className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                      <Shield className="h-3.5 w-3.5" />
+                      {tabs.find((tab) => tab.id === activeTab)?.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {analysisResult?.executiveSummary ||
+                        "This panel mirrors the same Company Health model used across dashboard, market intelligence, and workflows, with instant top-nav access."}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-foreground">
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                      {viewContextNote(activeView)}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>

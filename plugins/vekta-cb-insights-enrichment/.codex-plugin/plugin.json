@@ -1,0 +1,50 @@
+{
+  "name": "vekta-cb-insights-enrichment",
+  "version": "[TODO: 1.2.0]",
+  "description": "Enrich investor and firm records with CB Insights data for the VEKTA APP.",
+  "author": {
+    "name": "[TODO: Author Name]",
+    "email": "[TODO: author@example.com]",
+    "url": "[TODO: https://github.com/author]"
+  },
+  "homepage": "[TODO: https://docs.example.com/plugin]",
+  "repository": "[TODO: https://github.com/author/plugin]",
+  "license": "[TODO: MIT]",
+  "keywords": [
+    "cb-insights",
+    "data-enrichment",
+    "investors",
+    "firms"
+  ],
+  "skills": "./skills/",
+  "hooks": "[TODO: ./hooks.json]",
+  "mcpServers": "[TODO: ./.mcp.json]",
+  "apps": "[TODO: ./.app.json]",
+  "interface": {
+    "displayName": "VEKTA CB Insights Enrichment",
+    "shortDescription": "Enrich investor and firm records with CB Insights data.",
+    "longDescription": "Research, normalize, and prepare CB Insights enrichments for investor and firm records used by the VEKTA APP.",
+    "developerName": "VEKTA",
+    "category": "Research",
+    "capabilities": [
+      "Research",
+      "Write"
+    ],
+    "websiteURL": "[TODO: https://openai.com/]",
+    "privacyPolicyURL": "[TODO: https://openai.com/policies/row-privacy-policy/]",
+    "termsOfServiceURL": "[TODO: https://openai.com/policies/row-terms-of-use/]",
+    "defaultPrompt": [
+      "Enrich these investor records with CB Insights data.",
+      "Find missing firm details from CB Insights and normalize them.",
+      "Review ambiguous CB Insights matches before import."
+    ],
+    "brandColor": "[TODO: #3B82F6]",
+    "composerIcon": "[TODO: ./assets/icon.png]",
+    "logo": "[TODO: ./assets/logo.png]",
+    "screenshots": [
+      "[TODO: ./assets/screenshot1.png]",
+      "[TODO: ./assets/screenshot2.png]",
+      "[TODO: ./assets/screenshot3.png]"
+    ]
+  }
+}

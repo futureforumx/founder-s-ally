@@ -58,5 +58,11 @@ data/imports/signal-nfx-lists.json
 data/imports/signal-nfx-featured.json
 data/imports/founder-s-ally-*.json
 data/enriched/*.json
+.adv-cache/
+data/cb-insights/
+data/portfolio-enrichment-results.json
+scripts/cb-insights-scraper/scraper-progress.json
+scripts/cb-insights-scraper/scraper-results.json
+data/signal-nfx-investor-lists.json
 .aidesigner/*
 !.aidesigner/.gitkeep
