@@ -59,6 +59,8 @@ const CONCURRENCY   = eInt("SIGNAL_CONCURRENCY", 2);
 const DELAY_MS      = eInt("SIGNAL_DELAY_MS", 300);
 const LOG_FILE      = "/tmp/enrich-firm-records-signal-nfx.log";
 const AUTH_FILE     = e("SIGNAL_AUTH_FILE") || join(process.cwd(), "data", "signal-nfx-auth.json");
+const DB_PAGE_SIZE  = eInt("SIGNAL_DB_PAGE_SIZE", 200);
+const DB_RETRIES    = eInt("SIGNAL_DB_RETRIES", 4);
 
 // Browser fallback config (local Playwright with stealth + auth cookies)
 const HEADLESS = !["false", "0", "no"].includes((e("SIGNAL_HEADLESS") || "true").toLowerCase());
@@ -74,6 +76,27 @@ function log(msg: string) {
   const line = `[${new Date().toISOString()}] ${msg}`;
   console.log(line);
   try { appendFileSync(LOG_FILE, line + "\n"); } catch { /* ignore */ }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryDbQuery<T>(label: string, fn: () => Promise<{ data: T; error: { message: string } | null }>): Promise<T> {
+  let attempt = 0;
+  let lastError: string | null = null;
+
+  while (attempt < DB_RETRIES) {
+    attempt += 1;
+    const { data, error } = await fn();
+    if (!error) return data;
+    lastError = error.message;
+    const delay = Math.min(8_000, 750 * attempt);
+    log(`  ⚠ ${label} failed (attempt ${attempt}/${DB_RETRIES}): ${error.message}`);
+    if (attempt < DB_RETRIES) await sleep(delay);
+  }
+
+  throw new Error(`${label}: ${lastError ?? "unknown error"}`);
 }
 
 // ── Counters for pass 3 ──────────────────────────────────────────────────────
@@ -499,18 +522,19 @@ async function enrichFromLocationsJsonb(): Promise<void> {
 
   const allRows: Array<{ id: string; locations: any; hq_city: string | null; hq_state: string | null; hq_country: string | null }> = [];
   let from = 0;
-  const PAGE = 1000;
+  const PAGE = DB_PAGE_SIZE;
 
   while (true) {
-    const { data, error } = await supabase
-      .from("firm_records")
-      .select("id, locations, hq_city, hq_state, hq_country")
-      .not("locations", "is", null)
-      .is("deleted_at", null)
-      .or("hq_city.is.null,hq_state.is.null,hq_country.is.null")
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`loadLocations: ${error.message}`);
+    const data = await retryDbQuery(
+      "loadLocations",
+      () => supabase
+        .from("firm_records")
+        .select("id, locations, hq_city, hq_state, hq_country")
+        .not("locations", "is", null)
+        .is("deleted_at", null)
+        .or("hq_city.is.null,hq_state.is.null,hq_country.is.null")
+        .range(from, from + PAGE - 1),
+    );
     if (!data?.length) break;
     allRows.push(...data);
     if (data.length < PAGE) break;
@@ -551,18 +575,19 @@ async function crossPollinateInvestorStubs(): Promise<void> {
 
   const allStubs: Array<FirmRow> = [];
   let from = 0;
-  const PAGE = 1000;
+  const PAGE = DB_PAGE_SIZE;
 
   while (true) {
-    const { data, error } = await supabase
-      .from("firm_records")
-      .select("id, firm_name, signal_nfx_url, description, founded_year, linkedin_url, website_url, hq_city, hq_state, hq_country, stage_focus, thesis_verticals")
-      .like("signal_nfx_url", "%signal.nfx.com/investors/%")
-      .is("deleted_at", null)
-      .or("description.is.null,founded_year.is.null,linkedin_url.is.null,hq_city.is.null")
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`loadStubs: ${error.message}`);
+    const data = await retryDbQuery(
+      "loadStubs",
+      () => supabase
+        .from("firm_records")
+        .select("id, firm_name, signal_nfx_url, description, founded_year, linkedin_url, website_url, hq_city, hq_state, hq_country, stage_focus, thesis_verticals")
+        .like("signal_nfx_url", "%signal.nfx.com/investors/%")
+        .is("deleted_at", null)
+        .or("description.is.null,founded_year.is.null,linkedin_url.is.null,hq_city.is.null")
+        .range(from, from + PAGE - 1),
+    );
     if (!data?.length) break;
     allStubs.push(...data);
     if (data.length < PAGE) break;
@@ -659,18 +684,19 @@ async function signalFetchEnrich(): Promise<void> {
   // Load firms with /firms/ slugs still missing fields
   const allRows: FirmRow[] = [];
   let from = 0;
-  const PAGE = 1000;
+  const PAGE = DB_PAGE_SIZE;
 
   while (true) {
-    const { data, error } = await supabase
-      .from("firm_records")
-      .select("id, firm_name, signal_nfx_url, description, founded_year, linkedin_url, website_url, hq_city, hq_state, hq_country, thesis_verticals, stage_focus")
-      .like("signal_nfx_url", "%signal.nfx.com/firms/%")
-      .is("deleted_at", null)
-      .or("description.is.null,founded_year.is.null,linkedin_url.is.null,hq_city.is.null,website_url.is.null")
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`loadFirms: ${error.message}`);
+    const data = await retryDbQuery(
+      "loadFirms",
+      () => supabase
+        .from("firm_records")
+        .select("id, firm_name, signal_nfx_url, description, founded_year, linkedin_url, website_url, hq_city, hq_state, hq_country, thesis_verticals, stage_focus")
+        .like("signal_nfx_url", "%signal.nfx.com/firms/%")
+        .is("deleted_at", null)
+        .or("description.is.null,founded_year.is.null,linkedin_url.is.null,hq_city.is.null,website_url.is.null")
+        .range(from, from + PAGE - 1),
+    );
     if (!data?.length) break;
     allRows.push(...data);
     if (data.length < PAGE) break;
