@@ -17,15 +17,12 @@ import { CompetitorsView } from "@/components/CompetitorsView";
 import { OnboardingStepper } from "@/components/OnboardingStepper";
 import { AnalysisTerminal } from "@/components/AnalysisTerminal";
 import { CompanyView } from "@/components/dashboard/CompanyView";
-import { HomeView } from "@/components/dashboard/HomeView";
 import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
+import { HomeView } from "@/components/dashboard/HomeView";
 import { IndustryView } from "@/components/dashboard/IndustryView";
 import { CommunityView } from "@/components/dashboard/CommunityView";
-import { GlobalTopNav, type InvestorDirectoryPick } from "@/components/GlobalTopNav";
-import {
-  IntelligencePage,
-  type IntelligenceVariant,
-} from "@/components/intelligence/IntelligencePage";
+import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
@@ -33,7 +30,6 @@ import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
-import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 
 type ViewType =
   | "home"
@@ -44,16 +40,10 @@ type ViewType =
   | "audit"
   | "benchmarks"
   | "market-intelligence"
-  | "market-category"
-  | "market-funding"
-  | "market-regulatory"
-  | "market-customer"
-  | "market-ma"
   | "market-investors"
   | "market-market"
   | "market-tech"
   | "market-network"
-  | "market-data-room"
   | "investors"
   | "investor-search"
   | "network"
@@ -69,67 +59,18 @@ type ViewType =
   | "workspace"
   | "settings";
 
-/** `/intelligence` feed tabs only (Raise / Data Room use home `/`). */
-const INTEL_FEED_VIEWS: ViewType[] = [
-  "market-intelligence",
-  "market-category",
-  "market-funding",
-  "market-regulatory",
-  "market-customer",
-  "market-ma",
-];
-
-const LEGACY_INTEL_VIEW_MAP: Partial<Record<ViewType, ViewType>> = {
-  "market-market": "market-category",
-  "market-tech": "market-funding",
-  "market-network": "market-ma",
-};
-
-function intelligencePageVariant(v: ViewType): IntelligenceVariant | null {
-  switch (v) {
-    case "market-intelligence":
-      return "brief";
-    case "market-category":
-      return "category";
-    case "market-funding":
-      return "funding";
-    case "market-regulatory":
-      return "regulatory";
-    case "market-customer":
-      return "customer";
-    case "market-ma":
-      return "ma";
-    default:
-      return null;
-  }
-}
-
-function getStoredCompanyProfile(): CompanyData | null {
-  try {
-    const savedProfile = localStorage.getItem("company-profile");
-    if (!savedProfile) return null;
-
-    const parsedProfile = JSON.parse(savedProfile);
-    return parsedProfile?.name ? parsedProfile : null;
-  } catch {
-    return null;
-  }
-}
-
 function getStoredCompanyLogoUrl(): string | null {
   try {
     const explicitLogoUrl = localStorage.getItem("company-logo-url");
     if (explicitLogoUrl) return explicitLogoUrl;
 
-    const parsedProfile = getStoredCompanyProfile();
-    return getPrimaryCompanyLogoUrl({
-      logoUrl:
-        typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
-          ? parsedProfile.logo_url.trim()
-          : null,
-      websiteUrl: parsedProfile?.website ?? null,
-      size: 128,
-    });
+    const savedProfile = localStorage.getItem("company-profile");
+    if (!savedProfile) return null;
+
+    const parsedProfile = JSON.parse(savedProfile);
+    return typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
+      ? parsedProfile.logo_url.trim()
+      : null;
   } catch {
     return null;
   }
@@ -205,69 +146,28 @@ const Index = () => {
     } catch {
       /* ignore */
     }
-    return "dashboard";
+    return "home";
   });
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
-  const [investorGridScrollTo, setInvestorGridScrollTo] = useState<{
-    vcFirmId: string;
-    nonce: number;
-  } | null>(null);
   const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
 
   useEffect(() => {
-    if (location.pathname !== "/intelligence") return;
-    setActiveView((prev) => {
-      const mapped = LEGACY_INTEL_VIEW_MAP[prev];
-      if (mapped) return mapped;
-      if (INTEL_FEED_VIEWS.includes(prev)) return prev;
-      return "market-intelligence";
-    });
+    if (location.pathname === "/intelligence") {
+      setActiveView("market-intelligence");
+    }
   }, [location.pathname]);
 
   useEffect(() => {
     const v = searchParams.get("view");
-    if (!v) return;
-
-    if (v === "data-room") {
-      setActiveView("market-data-room");
-      return;
+    if (v === "intelligence" || v === "market-intelligence") {
+      setActiveView("market-intelligence");
     }
     if (v === "settings") {
       setActiveView("settings");
-      return;
     }
-
-    const intelFromQuery: Record<string, ViewType> = {
-      intelligence: "market-intelligence",
-      "market-intelligence": "market-intelligence",
-      "market-category": "market-category",
-      "market-funding": "market-funding",
-      "market-regulatory": "market-regulatory",
-      "market-customer": "market-customer",
-      "market-ma": "market-ma",
-      "market-market": "market-category",
-      "market-tech": "market-funding",
-      "market-network": "market-ma",
-      "market-investors": "market-investors",
-      "market-data-room": "market-data-room",
-    };
-
-    const next = intelFromQuery[v];
-    if (next) setActiveView(next);
   }, [searchParams]);
-
-  useEffect(() => {
-    if (activeView === "data-room") setActiveView("market-data-room");
-  }, [activeView]);
-
-  /** Clear investor directory search when leaving the investor-search surface (nav input is controlled from here). */
-  useEffect(() => {
-    if (activeView === "investor-search") return;
-    setInvestorListQuery("");
-    setInvestorGridScrollTo(null);
-  }, [activeView]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -279,21 +179,25 @@ const Index = () => {
     window.addEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
     return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
   }, []);
-  const [companyData, setCompanyData] = useState<CompanyData | null>(() => getStoredCompanyProfile());
+  const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
+    try {
+      const saved = localStorage.getItem("company-profile");
+      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+    } catch {}
+    return null;
+  });
 
   const [navLogoUrl, setNavLogoUrl] = useState<string | null>(() => getStoredCompanyLogoUrl());
   useEffect(() => {
     const sync = () => {
-      setCompanyData(getStoredCompanyProfile());
-      setNavLogoUrl(getStoredCompanyLogoUrl());
+      const url = getStoredCompanyLogoUrl();
+      setNavLogoUrl(prev => url !== prev ? url : prev);
     };
     window.addEventListener("storage", sync);
-    window.addEventListener("company-profile-changed", sync);
     window.addEventListener("company-logo-changed", sync);
     const interval = setInterval(sync, 2000);
     return () => {
       window.removeEventListener("storage", sync);
-      window.removeEventListener("company-profile-changed", sync);
       window.removeEventListener("company-logo-changed", sync);
       clearInterval(interval);
     };
@@ -458,11 +362,6 @@ const Index = () => {
       console.warn("[onboarding] profile/workspace sync:", e);
     }
 
-    // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
-    try {
-      localStorage.setItem("company-profile-verified", "true");
-    } catch {}
-
     if (analysis.stageClassification) {
       setStageClassification(analysis.stageClassification);
     }
@@ -489,8 +388,15 @@ const Index = () => {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
       if (company.website) {
-        const logoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: company.website, size: 128 });
-        if (logoUrl) {
+        const domain = (() => {
+          try {
+            let u = company.website.trim();
+            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+            return new URL(u).hostname.replace(/^www\./, "");
+          } catch { return null; }
+        })();
+        if (domain) {
+          const logoUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
           localStorage.setItem("company-logo-url", logoUrl);
           setNavLogoUrl(logoUrl);
           window.dispatchEvent(new Event("company-logo-changed"));
@@ -547,12 +453,6 @@ const Index = () => {
     if (q.trim()) setActiveView("investor-search");
   }, []);
 
-  const handleInvestorDirectoryPick = useCallback((pick: InvestorDirectoryPick) => {
-    if (pick.vcFirmId) {
-      setInvestorGridScrollTo({ vcFirmId: pick.vcFirmId, nonce: Date.now() });
-    }
-  }, []);
-
   return (
     <div className="flex h-screen overflow-hidden">
       {showOnboarding && !profileComplete && (
@@ -574,7 +474,6 @@ const Index = () => {
         <GlobalTopNav
           companyName={companyData?.name}
           logoUrl={navLogoUrl}
-          websiteUrl={companyData?.website ?? null}
           hasProfile={!!companyData?.name}
           lastSyncedAt={lastSyncedAt}
           syncFlash={syncFlash}
@@ -586,7 +485,6 @@ const Index = () => {
           onInvestorSearchChipChange={handleInvestorNavChip}
           investorSearchQuery={investorListQuery}
           onInvestorSearchQueryChange={handleInvestorSearchQuery}
-          onInvestorDirectoryPick={handleInvestorDirectoryPick}
           onInvestorSuggestionSelect={handleInvestorSuggestion}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
@@ -595,7 +493,10 @@ const Index = () => {
         />
         <div className="px-8 pt-16 pb-6">
           {activeView === "home" ? (
-            <HomeView onViewChange={(v) => setActiveView(v as ViewType)} companyName={companyData?.name} />
+            <HomeView
+              companyName={companyData?.name}
+              onViewChange={(view) => setActiveView(view as ViewType)}
+            />
           ) : activeView === "dashboard" ? (
             <div className="space-y-0">
               <div className="flex items-center justify-between mb-2">
@@ -697,7 +598,6 @@ const Index = () => {
               variant={activeView === "investor-search" ? "investor-search" : "directory"}
               investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
               investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
-              investorScrollTo={activeView === "investor-search" ? investorGridScrollTo : undefined}
             />
           ) : activeView === "connections" ? (
             <div className="space-y-4">
@@ -711,8 +611,6 @@ const Index = () => {
             <GroupsView />
           ) : activeView === "events" ? (
             <EventsView />
-          ) : activeView === "market-data-room" ? (
-            <DeckAuditView />
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeckAuditView />
           ) : activeView === "resources" ? (
@@ -721,10 +619,16 @@ const Index = () => {
             <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
           ) : activeView === "settings" ? (
             <SettingsPage />
+          ) : activeView === "market-intelligence" ? (
+            <IntelligencePage variant="all" />
           ) : activeView === "market-investors" ? (
-            <div className="h-full" />
-          ) : intelligencePageVariant(activeView) != null ? (
-            <IntelligencePage variant={intelligencePageVariant(activeView)!} />
+            <IntelligencePage variant="investors" />
+          ) : activeView === "market-market" ? (
+            <IntelligencePage variant="market" />
+          ) : activeView === "market-tech" ? (
+            <IntelligencePage variant="tech" />
+          ) : activeView === "market-network" ? (
+            <IntelligencePage variant="network" />
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 
 const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
@@ -24,6 +25,8 @@ interface PortfolioTabProps {
   partnerNamesLower?: Set<string>;
   /** UUID of this firm in firm_records — used for direct querying */
   firmRecordsId?: string | null;
+  /** VC directory id used to resolve `firm_records.prisma_firm_id` when needed. */
+  vcDirectoryFirmId?: string | null;
   /** Display name used as fallback for name-based lookup */
   firmDisplayName?: string | null;
 }
@@ -80,15 +83,35 @@ function guessPortfolioWebsite(companyName: string): string {
 /** Fetches firm_recent_deals for a firm by firmRecordsId, with name-based fallback */
 function usePortfolioDeals(
   firmRecordsId: string | null | undefined,
+  vcDirectoryFirmId: string | null | undefined,
   firmDisplayName: string | null | undefined,
   skip: boolean
 ) {
   return useQuery({
-    queryKey: ["portfolio-deals", firmRecordsId, firmDisplayName?.toLowerCase().trim()],
-    enabled: !skip && Boolean(firmRecordsId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured,
+    queryKey: ["portfolio-deals", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase().trim()],
+    enabled: !skip && Boolean(firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured,
     retry: false,
     queryFn: async (): Promise<FirmDeal[]> => {
-      let resolvedId = firmRecordsId?.trim() ?? null;
+      const trimmedFirmRecordsId = firmRecordsId?.trim() ?? null;
+      let resolvedId =
+        trimmedFirmRecordsId && looksLikeFirmRecordsUuid(trimmedFirmRecordsId)
+          ? trimmedFirmRecordsId
+          : null;
+
+      const candidateVcDirectoryId =
+        vcDirectoryFirmId?.trim() ??
+        (trimmedFirmRecordsId && !looksLikeFirmRecordsUuid(trimmedFirmRecordsId) ? trimmedFirmRecordsId : null);
+
+      if (!resolvedId && candidateVcDirectoryId) {
+        const { data: prismaMatch } = await DB
+          .from("firm_records")
+          .select("id")
+          .eq("prisma_firm_id", candidateVcDirectoryId)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        resolvedId = (prismaMatch as { id: string } | null)?.id ?? null;
+      }
 
       if (!resolvedId && firmDisplayName?.trim()) {
         const { data: fr } = await DB
@@ -99,6 +122,17 @@ function usePortfolioDeals(
           .limit(1)
           .maybeSingle();
         resolvedId = (fr as { id: string } | null)?.id ?? null;
+      }
+
+      if (!resolvedId && firmDisplayName?.trim()) {
+        const { data: partial } = await DB
+          .from("firm_records")
+          .select("id")
+          .ilike("firm_name", `%${firmDisplayName.trim()}%`)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        resolvedId = (partial as { id: string } | null)?.id ?? null;
       }
 
       if (!resolvedId) return [];
@@ -438,6 +472,7 @@ export function PortfolioTab({
   leadPartnerName,
   partnerNamesLower,
   firmRecordsId,
+  vcDirectoryFirmId,
   firmDisplayName,
 }: PortfolioTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -449,15 +484,17 @@ export function PortfolioTab({
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // firmDeals passed in → no need to query; otherwise query directly
-  const skipQuery = firmDeals !== undefined;
+  const hasPreloadedDeals = Array.isArray(firmDeals) && firmDeals.length > 0;
+  // Only skip the direct query when the panel already has real deal rows.
+  const skipQuery = hasPreloadedDeals;
   const { data: queriedDeals, isLoading: queryLoading } = usePortfolioDeals(
     firmRecordsId,
+    vcDirectoryFirmId,
     firmDisplayName,
     skipQuery
   );
 
-  const allDeals: FirmDeal[] = firmDeals ?? queriedDeals ?? [];
+  const allDeals: FirmDeal[] = hasPreloadedDeals ? firmDeals : queriedDeals ?? firmDeals ?? [];
   const isLoading = portfolioLoading || (!skipQuery && queryLoading);
 
   const lead = (leadPartnerName || "").trim();
