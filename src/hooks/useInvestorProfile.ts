@@ -231,16 +231,29 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
 // ── By-name variant (resolves name → id, then fetches) ──
 async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
   try {
+    const trimmed = firmName.trim();
     const { data, error } = await supabase
       .from("firm_records")
       .select("id")
-      .ilike("firm_name", firmName.trim())
+      .ilike("firm_name", trimmed)
       .is("deleted_at", null)
       .limit(1);
 
     if (error) throw error;
     if (data && data.length > 0) {
       return fetchInvestorProfile(data[0].id);
+    }
+
+    const { data: partial, error: partialError } = await supabase
+      .from("firm_records")
+      .select("id")
+      .ilike("firm_name", `%${trimmed}%`)
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (partialError) throw partialError;
+    if (partial && partial.length > 0) {
+      return fetchInvestorProfile(partial[0].id);
     }
 
     // Name not in DB — try JSON fallback

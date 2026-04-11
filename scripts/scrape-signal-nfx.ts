@@ -95,6 +95,7 @@ if (!SUPA_URL) throw new Error("SUPABASE_URL not set");
 if (!SUPA_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
 
 const supabase = createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false } });
+const DB_RETRIES = eInt("SIGNAL_DB_RETRIES", 4);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,40 @@ type InvestorProfile = {
   coInvestors: CoInvestor[];
   sectorRankings: string[];
 };
+
+function isMissingScalar(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return !normalized || normalized === "n/a" || normalized === "unknown" || normalized === "undetermined";
+  }
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryDb<T>(
+  label: string,
+  fn: () => Promise<{ data: T; error: { message: string } | null }>
+): Promise<T> {
+  let attempt = 0;
+  let lastError: string | null = null;
+
+  while (attempt < DB_RETRIES) {
+    attempt += 1;
+    const { data, error } = await fn();
+    if (!error) return data;
+    lastError = error.message;
+    if (attempt < DB_RETRIES) {
+      await sleep(Math.min(8000, 750 * attempt));
+    }
+  }
+
+  throw new Error(`${label}: ${lastError ?? "unknown error"}`);
+}
 
 // ── Browser helpers ───────────────────────────────────────────────────────────
 
@@ -511,12 +546,15 @@ async function scrapeProfile(page: Page, slug: string): Promise<InvestorProfile 
 
 async function upsertProfile(profile: InvestorProfile): Promise<void> {
   // 1. Find firm by name
-  const { data: firms } = await supabase
-    .from("firm_records")
-    .select("id, website_url, aum, hq_city, hq_state, hq_country, signal_nfx_url, logo_url")
-    .ilike("firm_name", profile.firmName || "__NOMATCH__")
-    .is("deleted_at", null)
-    .limit(1);
+  const firms = await retryDb(
+    "signal firm lookup",
+    () => supabase
+      .from("firm_records")
+      .select("id, website_url, aum, hq_city, hq_state, hq_country, signal_nfx_url, logo_url")
+      .ilike("firm_name", profile.firmName || "__NOMATCH__")
+      .is("deleted_at", null)
+      .limit(1)
+  );
 
   const firm = firms?.[0];
 
@@ -532,36 +570,82 @@ async function upsertProfile(profile: InvestorProfile): Promise<void> {
       `https://signal.nfx.com/firms/${(profile.firmName || "").toLowerCase().replace(/\s+/g, "-")}`;
     if (Object.keys(fp).length > 0) {
       fp.updated_at = new Date().toISOString();
-      await supabase.from("firm_records").update(fp).eq("id", firm.id);
+      await retryDb(
+        "signal firm update",
+        () => supabase.from("firm_records").update(fp).eq("id", firm.id).select("id")
+      );
     }
 
-    // 2. Upsert investor into firm_investors
-    const ip: Record<string, any> = {
-      firm_id:         firm.id,
-      full_name:       profile.fullName,
-      updated_at:      new Date().toISOString(),
-    };
-    if (profile.title)                          ip.title           = profile.title;
-    if (profile.avatarUrl)                      ip.avatar_url      = profile.avatarUrl;
-    if (profile.linkedinUrl)                    ip.linkedin_url    = profile.linkedinUrl;
-    if (profile.xUrl)                           ip.x_url           = profile.xUrl;
-    if (profile.websiteUrl)                     ip.website_url     = profile.websiteUrl;
-    if (profile.city)                           ip.city            = profile.city;
-    if (profile.state)                          ip.state           = profile.state;
-    if (profile.country)                        ip.country         = profile.country;
-    if (profile.checkSizeMin != null)           ip.check_size_min  = profile.checkSizeMin;
-    if (profile.checkSizeMax != null)           ip.check_size_max  = profile.checkSizeMax;
-    if (profile.sweetSpot    != null)           ip.sweet_spot      = profile.sweetSpot;
-    if (profile.networks.length > 0)            ip.networks        = profile.networks;
-    if (profile.pastInvestments.length > 0)     ip.past_investments = profile.pastInvestments;
-    if (profile.coInvestors.length > 0)         ip.co_investors    = profile.coInvestors;
-    if (profile.sectorRankings.length > 0)      ip.personal_thesis_tags = profile.sectorRankings;
-                                                ip.signal_nfx_url  = profile.profileUrl;
+    // 2. Fill missing investor fields conservatively.
+    const existingInvestors = await retryDb(
+      "signal investor lookup",
+      () => supabase
+        .from("firm_investors")
+        .select("id, title, avatar_url, linkedin_url, x_url, website_url, city, state, country, check_size_min, check_size_max, sweet_spot, networks, past_investments, co_investors, personal_thesis_tags")
+        .eq("firm_id", firm.id)
+        .ilike("full_name", profile.fullName)
+        .is("deleted_at", null)
+        .limit(1)
+    );
 
-    await supabase
-      .from("firm_investors")
-      .upsert(ip, { onConflict: "firm_id,full_name", ignoreDuplicates: false })
-      .select("id");
+    const existingInvestor = existingInvestors?.[0];
+    const patch: Record<string, any> = {};
+
+    if (!existingInvestor) {
+      patch.firm_id = firm.id;
+      patch.full_name = profile.fullName;
+      if (profile.title) patch.title = profile.title;
+      if (profile.avatarUrl) patch.avatar_url = profile.avatarUrl;
+      if (profile.linkedinUrl) patch.linkedin_url = profile.linkedinUrl;
+      if (profile.xUrl) patch.x_url = profile.xUrl;
+      if (profile.websiteUrl) patch.website_url = profile.websiteUrl;
+      if (profile.city) patch.city = profile.city;
+      if (profile.state) patch.state = profile.state;
+      if (profile.country) patch.country = profile.country;
+      if (profile.checkSizeMin != null) patch.check_size_min = profile.checkSizeMin;
+      if (profile.checkSizeMax != null) patch.check_size_max = profile.checkSizeMax;
+      if (profile.sweetSpot != null) patch.sweet_spot = profile.sweetSpot;
+      if (profile.networks.length > 0) patch.networks = profile.networks;
+      if (profile.pastInvestments.length > 0) patch.past_investments = profile.pastInvestments;
+      if (profile.coInvestors.length > 0) patch.co_investors = profile.coInvestors;
+      if (profile.sectorRankings.length > 0) patch.personal_thesis_tags = profile.sectorRankings;
+      patch.updated_at = new Date().toISOString();
+
+      await retryDb(
+        "signal investor upsert",
+        () => supabase
+          .from("firm_investors")
+          .upsert(patch, { onConflict: "firm_id,full_name", ignoreDuplicates: false })
+          .select("id")
+      );
+      return;
+    }
+
+    if (isMissingScalar(existingInvestor.title) && profile.title) patch.title = profile.title;
+    if (isMissingScalar(existingInvestor.avatar_url) && profile.avatarUrl) patch.avatar_url = profile.avatarUrl;
+    if (isMissingScalar(existingInvestor.linkedin_url) && profile.linkedinUrl) patch.linkedin_url = profile.linkedinUrl;
+    if (isMissingScalar(existingInvestor.x_url) && profile.xUrl) patch.x_url = profile.xUrl;
+    if (isMissingScalar(existingInvestor.website_url) && profile.websiteUrl) patch.website_url = profile.websiteUrl;
+    if (isMissingScalar(existingInvestor.city) && profile.city) patch.city = profile.city;
+    if (isMissingScalar(existingInvestor.state) && profile.state) patch.state = profile.state;
+    if (isMissingScalar(existingInvestor.country) && profile.country) patch.country = profile.country;
+    if (isMissingScalar(existingInvestor.check_size_min) && profile.checkSizeMin != null) patch.check_size_min = profile.checkSizeMin;
+    if (isMissingScalar(existingInvestor.check_size_max) && profile.checkSizeMax != null) patch.check_size_max = profile.checkSizeMax;
+    if (isMissingScalar(existingInvestor.sweet_spot) && profile.sweetSpot != null) patch.sweet_spot = profile.sweetSpot;
+    if (isMissingScalar(existingInvestor.networks) && profile.networks.length > 0) patch.networks = profile.networks;
+    if (isMissingScalar(existingInvestor.past_investments) && profile.pastInvestments.length > 0) patch.past_investments = profile.pastInvestments;
+    if (isMissingScalar(existingInvestor.co_investors) && profile.coInvestors.length > 0) patch.co_investors = profile.coInvestors;
+    if (isMissingScalar(existingInvestor.personal_thesis_tags) && profile.sectorRankings.length > 0) {
+      patch.personal_thesis_tags = profile.sectorRankings;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = new Date().toISOString();
+      await retryDb(
+        "signal investor update",
+        () => supabase.from("firm_investors").update(patch).eq("id", existingInvestor.id).select("id")
+      );
+    }
   }
 }
 
@@ -651,7 +735,7 @@ async function main() {
         saved++;
       }
 
-      if (i < todo.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
+      if (i < todo.length - 1) await sleep(DELAY_MS);
     }
 
     console.log(`\n${"─".repeat(68)}`);
