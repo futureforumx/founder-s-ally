@@ -46,6 +46,7 @@ const UPLOAD_HEADSHOTS  = eBool("SIGNAL_UPLOAD_HEADSHOTS");
 const AUTH_FILE  = e("SIGNAL_AUTH_FILE") || join(process.cwd(), "data", "signal-nfx-auth.json");
 const LOG_FILE   = "/tmp/signal-nfx-filter-sweep.log";
 const DATA_FILE  = "/tmp/signal-nfx-investors.jsonl";
+const DB_RETRIES = eInt("SIGNAL_DB_RETRIES", 4);
 
 if (!SUPA_URL) throw new Error("SUPABASE_URL not set");
 if (!SUPA_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
@@ -59,6 +60,39 @@ function log(msg: string) {
   const line = `[${ts}] ${msg}`;
   console.log(line);
   appendFileSync(LOG_FILE, line + "\n");
+}
+
+function isMissingScalar(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return !normalized || normalized === "n/a" || normalized === "unknown" || normalized === "undetermined";
+  }
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryDb<T>(
+  label: string,
+  fn: () => Promise<{ data: T; error: { message: string; code?: string } | null }>
+): Promise<T> {
+  let attempt = 0;
+  let lastError: string | null = null;
+
+  while (attempt < DB_RETRIES) {
+    attempt += 1;
+    const { data, error } = await fn();
+    if (!error) return data;
+    lastError = error.message;
+    log(`  ⚠ ${label} failed (attempt ${attempt}/${DB_RETRIES}): ${error.message}`);
+    if (attempt < DB_RETRIES) await sleep(Math.min(8000, 750 * attempt));
+  }
+
+  throw new Error(`${label}: ${lastError ?? "unknown error"}`);
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -413,13 +447,31 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
   let firmId: string | null = null;
 
   if (inv.firm_name) {
-    // Try to find existing firm by name (case-insensitive) or slug
-    const { data: existing } = await supabase
-      .from("firm_records")
-      .select("id, website_url, signal_nfx_url")
-      .or(`firm_name.ilike.${inv.firm_name}${inv.firm_slug ? `,slug.eq.${inv.firm_slug}` : ""}`)
-      .is("deleted_at", null)
-      .limit(1);
+    // Try slug first, then fall back to a name match. Avoid raw OR strings because
+    // firm names can contain commas and punctuation that break PostgREST parsing.
+    let existing: Array<{ id: string; website_url: string | null; signal_nfx_url: string | null }> = [];
+    if (inv.firm_slug) {
+      existing = await retryDb(
+        "signal api firm lookup by slug",
+        () => supabase
+          .from("firm_records")
+          .select("id, website_url, signal_nfx_url")
+          .eq("slug", inv.firm_slug!)
+          .is("deleted_at", null)
+          .limit(1)
+      );
+    }
+    if (!existing?.length) {
+      existing = await retryDb(
+        "signal api firm lookup by name",
+        () => supabase
+          .from("firm_records")
+          .select("id, website_url, signal_nfx_url")
+          .ilike("firm_name", inv.firm_name!)
+          .is("deleted_at", null)
+          .limit(1)
+      );
+    }
 
     if (existing?.[0]) {
       firmId = existing[0].id;
@@ -431,7 +483,10 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
         fp.signal_nfx_url = `https://signal.nfx.com/firms/${inv.firm_slug}`;
 
       if (Object.keys(fp).length > 1) {
-        await supabase.from("firm_records").update(fp).eq("id", firmId);
+        await retryDb(
+          "signal api firm update",
+          () => supabase.from("firm_records").update(fp).eq("id", firmId).select("id")
+        );
       }
     } else {
       // Create a new firm record from Signal data
@@ -461,11 +516,14 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
       if (createErr) {
         // Slug conflict — try to fetch the conflicting row
         if (createErr.code === "23505") {
-          const { data: conflict } = await supabase
-            .from("firm_records")
-            .select("id")
-            .eq("slug", firmSlug)
-            .limit(1);
+          const conflict = await retryDb(
+            "signal api firm conflict lookup",
+            () => supabase
+              .from("firm_records")
+              .select("id")
+              .eq("slug", firmSlug)
+              .limit(1)
+          );
           firmId = conflict?.[0]?.id || null;
         } else {
           throw new Error(`firm insert: ${createErr.message}`);
@@ -499,42 +557,76 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
     if (!stubErr) firmId = stub?.id || null;
     else if (stubErr.code === "23505") {
       // Slug conflict — fetch existing
-      const { data: conflict } = await supabase
-        .from("firm_records")
-        .select("id")
-        .eq("slug", stubSlug)
-        .limit(1);
+      const conflict = await retryDb(
+        "signal api stub conflict lookup",
+        () => supabase
+          .from("firm_records")
+          .select("id")
+          .eq("slug", stubSlug)
+          .limit(1)
+      );
       firmId = conflict?.[0]?.id || null;
     }
   }
 
   if (!firmId) return; // give up if we still can't get a firm
 
-  const ip: Record<string, any> = {
-    firm_id: firmId,
-    full_name: inv.full_name,
-    updated_at: now,
-  };
+  const existingInvestors = await retryDb(
+    "signal api investor lookup",
+    () => supabase
+      .from("firm_investors")
+      .select("id, slug, title, avatar_url, check_size_min, check_size_max, sweet_spot, stage_focus, personal_thesis_tags")
+      .eq("firm_id", firmId)
+      .ilike("full_name", inv.full_name)
+      .is("deleted_at", null)
+      .limit(1)
+  );
 
-  if (inv.position)                  ip.title               = inv.position;
-  if (inv.avatar_url)                ip.avatar_url          = inv.avatar_url;
-  if (inv.min_investment != null)    ip.check_size_min      = inv.min_investment;
-  if (inv.max_investment != null)    ip.check_size_max      = inv.max_investment;
-  if (inv.target_investment != null) ip.sweet_spot          = inv.target_investment;
-  // stage_focus on firm_investors is also an array — map to valid enum values
-  const mappedPersonStage = mapStageFocus(inv.stage_focus);
-  if (mappedPersonStage.length > 0) ip.stage_focus = mappedPersonStage;
-  // personal_thesis_tags stores raw Signal labels (text array, no enum)
-  if (inv.stage_focus.length > 0 || inv.sector_focus.length > 0)
-    ip.personal_thesis_tags = [...inv.stage_focus, ...inv.sector_focus];
+    const mappedPersonStage = mapStageFocus(inv.stage_focus);
+    const thesisTags = [...inv.stage_focus, ...inv.sector_focus];
+  const existingInvestor = existingInvestors?.[0];
+  let upserted: { id?: string; slug?: string } | null = null;
 
-  const { data: upserted, error: upsertErr } = await supabase
-    .from("firm_investors")
-    .upsert(ip, { onConflict: "firm_id,full_name", ignoreDuplicates: false })
-    .select("id, slug")
-    .single();
+  if (!existingInvestor) {
+    const ip: Record<string, any> = {
+      firm_id: firmId,
+      full_name: inv.full_name,
+      updated_at: now,
+    };
+    if (inv.position) ip.title = inv.position;
+    if (inv.avatar_url) ip.avatar_url = inv.avatar_url;
+    if (inv.min_investment != null) ip.check_size_min = inv.min_investment;
+    if (inv.max_investment != null) ip.check_size_max = inv.max_investment;
+    if (inv.target_investment != null) ip.sweet_spot = inv.target_investment;
+    if (mappedPersonStage.length > 0) ip.stage_focus = mappedPersonStage;
+    if (thesisTags.length > 0) ip.personal_thesis_tags = thesisTags;
+    upserted = await retryDb(
+      "signal api investor upsert",
+      () => supabase
+        .from("firm_investors")
+        .upsert(ip, { onConflict: "firm_id,full_name", ignoreDuplicates: false })
+        .select("id, slug")
+        .single()
+    );
+  } else {
+    const patch: Record<string, any> = {};
+    if (isMissingScalar(existingInvestor.title) && inv.position) patch.title = inv.position;
+    if (isMissingScalar(existingInvestor.avatar_url) && inv.avatar_url) patch.avatar_url = inv.avatar_url;
+    if (isMissingScalar(existingInvestor.check_size_min) && inv.min_investment != null) patch.check_size_min = inv.min_investment;
+    if (isMissingScalar(existingInvestor.check_size_max) && inv.max_investment != null) patch.check_size_max = inv.max_investment;
+    if (isMissingScalar(existingInvestor.sweet_spot) && inv.target_investment != null) patch.sweet_spot = inv.target_investment;
+    if (isMissingScalar(existingInvestor.stage_focus) && mappedPersonStage.length > 0) patch.stage_focus = mappedPersonStage;
+    if (isMissingScalar(existingInvestor.personal_thesis_tags) && thesisTags.length > 0) patch.personal_thesis_tags = thesisTags;
 
-  if (upsertErr) throw new Error(`investor upsert: ${upsertErr.message}`);
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = now;
+      await retryDb(
+        "signal api investor update",
+        () => supabase.from("firm_investors").update(patch).eq("id", existingInvestor.id).select("id, slug").single()
+      );
+    }
+    upserted = { id: existingInvestor.id, slug: existingInvestor.slug };
+  }
 
   // Optionally upload headshot to R2
   if (UPLOAD_HEADSHOTS && inv.avatar_url && upserted?.id) {
