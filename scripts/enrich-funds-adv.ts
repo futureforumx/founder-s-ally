@@ -191,60 +191,55 @@ interface PrimeBrokerRow { filing_id: string; reference_id: string; firm_name: s
 interface MarketingRow { filing_id: string; reference_id: string; firm_name: string; }
 
 // ---------------------------------------------------------------------------
-// CSV streaming parser (no dependencies)
+// CSV parsing helpers
 // ---------------------------------------------------------------------------
 
+/** Parse a single CSV line (no newlines inside quoted fields assumed — valid for SEC bulk CSVs). */
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { fields.push(field); field = ""; }
+      else if (ch !== '\r') field += ch;
+    }
+  }
+  fields.push(field);
+  return fields;
+}
+
+/** Stream a CSV file line by line using readline (O(1) memory per row). */
+async function* streamCSVLines(filePath: string): AsyncGenerator<{ headers: string[]; row: string[] }> {
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({
+    input: createReadStream(filePath, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+
+  let headers: string[] | null = null;
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    const row = parseCSVLine(line);
+    if (!headers) {
+      headers = row.map((h) => h.trim());
+      continue;
+    }
+    yield { headers, row };
+  }
+}
+
+/** Small CSV files can still be read fully into memory. */
 function* parseCSVLines(text: string): Generator<string[]> {
-  let i = 0;
-  const len = text.length;
-
-  while (i < len) {
-    const row: string[] = [];
-    let field = "";
-    let inQuotes = false;
-
-    while (i < len) {
-      const ch = text[i];
-
-      if (inQuotes) {
-        if (ch === '"') {
-          if (i + 1 < len && text[i + 1] === '"') {
-            // escaped quote
-            field += '"';
-            i += 2;
-          } else {
-            inQuotes = false;
-            i++;
-          }
-        } else {
-          field += ch;
-          i++;
-        }
-      } else {
-        if (ch === '"') {
-          inQuotes = true;
-          i++;
-        } else if (ch === ",") {
-          row.push(field);
-          field = "";
-          i++;
-        } else if (ch === "\r") {
-          i++;
-        } else if (ch === "\n") {
-          i++;
-          break;
-        } else {
-          field += ch;
-          i++;
-        }
-      }
-    }
-
-    row.push(field);
-
-    if (row.length > 1 || row[0] !== "") {
-      yield row;
-    }
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t) yield parseCSVLine(t);
   }
 }
 
@@ -284,17 +279,43 @@ async function fetchWithRetry(
   throw last;
 }
 
+// Find an entry within a ZIP file whose path matches the given regex.
+async function findZipEntry(zipPath: string, pattern: RegExp): Promise<string | null> {
+  const { execSync } = await import("node:child_process");
+  const listing = execSync(`unzip -l "${zipPath}"`, {
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  for (const line of listing.split("\n")) {
+    // Lines look like: "  35164445  09-03-2025 13:58   adv-filing-data-.../ERA_ADV_Base_...csv"
+    // Extract the last whitespace-delimited token ending in .csv (the entry path)
+    const m = line.match(/(\S+\.csv)\s*$/i);
+    if (m && pattern.test(m[1])) return m[1];
+  }
+  return null;
+}
+
 // Extract a single named file from a local ZIP to a local path.
 // Uses unzip system command for simplicity + correctness with large ZIPs.
+// entryName may be an exact string or a RegExp pattern (auto-detected).
 async function extractFromZip(
   zipPath: string,
-  entryName: string,
+  entryName: string | RegExp,
   outPath: string
 ): Promise<void> {
   const { execSync } = await import("node:child_process");
-  // unzip -p: pipe contents to stdout; redirect to outPath
-  console.log(`  Extracting ${entryName} from ${basename(zipPath)}...`);
-  execSync(`unzip -p "${zipPath}" "${entryName}" > "${outPath}"`, {
+
+  let resolvedEntry: string;
+  if (entryName instanceof RegExp) {
+    const found = await findZipEntry(zipPath, entryName);
+    if (!found) throw new Error(`No ZIP entry matching ${entryName} in ${basename(zipPath)}`);
+    resolvedEntry = found;
+  } else {
+    resolvedEntry = entryName;
+  }
+
+  console.log(`  Extracting ${resolvedEntry} from ${basename(zipPath)}...`);
+  execSync(`unzip -p "${zipPath}" "${resolvedEntry}" > "${outPath}"`, {
     stdio: ["ignore", "ignore", "pipe"],
     maxBuffer: 2 * 1024 * 1024 * 1024, // 2 GB
   });
@@ -368,47 +389,37 @@ function cachedOrDownload(
 
 async function loadAdviserBase(csvPath: string): Promise<Map<string, AdviserRecord>> {
   console.log("Loading adviser base...");
+  // ERA_ADV_Base is 34MB — OK to read fully
   const text = readFileSync(csvPath, "utf8");
-  const gen = parseCSVLines(text);
+  const lines = text.split("\n");
 
-  const { value: headerRow } = gen.next();
-  if (!headerRow) throw new Error("Empty IA_ADV_Base.csv");
-  const headers = headerRow.map((h) => h.trim());
-
-  // Find column indices (headers vary between releases)
-  const idx = (name: string): number => {
-    const i = headers.indexOf(name);
-    if (i < 0) throw new Error(`Column "${name}" not found in IA_ADV_Base. Headers: ${headers.join(", ")}`);
-    return i;
-  };
-
-  // Try common header name variants
-  const filingIdCol = findCol(headers, ["FilingID", "Filing ID", "FILINGID"]);
-  const crdCol = findCol(headers, ["CRD#", "CRD Number", "CRD_NUMBER", "CRD"]);
-  const secFileCol = findCol(headers, [
-    "SECFileNumber",
-    "SEC File Number",
-    "SEC_FILE_NUMBER",
-    "SEC Number",
-  ]);
-  const nameCol = findCol(headers, [
-    "CompanyName",
-    "Company Name",
-    "COMPANY_NAME",
-    "LegalName",
-    "Legal Name",
-  ]);
+  let headers: string[] | null = null;
+  let filingIdCol = -1, crdCol = -1, secFileCol = -1, nameCol = -1;
 
   const advisers = new Map<string, AdviserRecord>();
-  let count = 0;
 
-  for (const row of Array.from(gen)) {
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    const row = parseCSVLine(t);
+
+    if (!headers) {
+      headers = row.map((h) => h.trim());
+      // ERA_ADV_Base columns use Form ADV section numbers as header names:
+      //   FilingID, FormVersion, DateSubmitted, 1A (registrant name),
+      //   1D (SEC file#), 1E1 (CRD#), ...
+      filingIdCol = findCol(headers, ["FilingID", "Filing ID", "FILINGID"]);
+      crdCol = findCol(headers, ["1E1", "CRD#", "CRD Number", "CRD_NUMBER", "CRD"]);
+      secFileCol = findCol(headers, ["1D", "SECFileNumber", "SEC File Number", "SEC Number"]);
+      nameCol = findCol(headers, ["1A", "CompanyName", "Company Name", "LegalName", "Legal Name"]);
+      continue;
+    }
+
     if (row.length < 3) continue;
-    const rec = mapRow(headers, row);
-    const crd = (rec[headers[crdCol]] || "").trim();
-    const secNum = (rec[headers[secFileCol]] || "").trim();
-    const legalName = (rec[headers[nameCol]] || "").trim();
-    const filingId = (rec[headers[filingIdCol]] || "").trim();
+    const crd = (row[crdCol] || "").trim();
+    const secNum = (row[secFileCol] || "").trim();
+    const legalName = (row[nameCol] || "").trim();
+    const filingId = (row[filingIdCol] || "").trim();
 
     if (!crd || !legalName) continue;
 
@@ -420,7 +431,6 @@ async function loadAdviserBase(csvPath: string): Promise<Map<string, AdviserReco
       normalized_legal_name: normalizeAdviserName(legalName),
       filing_id: filingId,
     });
-    count++;
   }
 
   console.log(`  Loaded ${advisers.size.toLocaleString()} adviser records`);
@@ -443,48 +453,47 @@ function findCol(headers: string[], candidates: string[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// Load sub-tables: auditors, prime brokers, marketers
+// Load sub-tables: auditors, prime brokers, marketers (streaming)
 // ---------------------------------------------------------------------------
 
 // Returns Map<filingId_referenceId, name>
 async function loadSubTable(
   csvPath: string,
-  nameColumns: string[]
+  nameColumns: string[],
+  targetFilingIds: Set<string> | null
 ): Promise<Map<string, string>> {
   if (!existsSync(csvPath)) return new Map();
 
-  const text = readFileSync(csvPath, "utf8");
-  const gen = parseCSVLines(text);
-  const { value: headerRow } = gen.next();
-  if (!headerRow) return new Map();
-  const headers = headerRow.map((h) => h.trim());
-
-  const filingIdCol = findCol(headers, ["FilingID", "Filing ID"]);
-  const refIdCol = findCol(headers, ["ReferenceID", "Reference ID"]);
-  let nameCol = -1;
-  for (const nc of nameColumns) {
-    const i = headers.indexOf(nc);
-    if (i >= 0) { nameCol = i; break; }
-  }
-  if (nameCol < 0) {
-    // Try case-insensitive
-    const lowerNames = nameColumns.map((n) => n.toLowerCase());
-    for (let i = 0; i < headers.length; i++) {
-      if (lowerNames.includes(headers[i].toLowerCase())) {
-        nameCol = i;
-        break;
-      }
-    }
-  }
-  if (nameCol < 0) return new Map();
-
   const out = new Map<string, string>();
-  for (const row of Array.from(gen)) {
-    const rec = mapRow(headers, row);
-    const fid = (rec[headers[filingIdCol]] || "").trim();
-    const rid = (rec[headers[refIdCol]] || "").trim();
-    const name = (rec[headers[nameCol]] || "").trim();
-    if (fid && name) {
+  let headers: string[] | null = null;
+  let filingIdCol = -1;
+  let refIdCol = -1;
+  let nameCol = -1;
+
+  for await (const { headers: h, row } of streamCSVLines(csvPath)) {
+    if (!headers) {
+      headers = h;
+      filingIdCol = findCol(headers, ["FilingID", "Filing ID"]);
+      refIdCol = findCol(headers, ["ReferenceID", "Reference ID"]);
+      // Find name column
+      const lowerCandidates = nameColumns.map((n) => n.toLowerCase());
+      for (let i = 0; i < headers.length; i++) {
+        if (lowerCandidates.includes(headers[i].toLowerCase())) {
+          nameCol = i;
+          break;
+        }
+      }
+      if (nameCol < 0) return out; // column not found
+      continue;
+    }
+
+    const fid = (row[filingIdCol] || "").trim();
+    if (!fid) continue;
+    if (targetFilingIds && !targetFilingIds.has(fid)) continue;
+
+    const rid = (row[refIdCol] || "").trim();
+    const name = (row[nameCol] || "").trim();
+    if (name) {
       const key = `${fid}__${rid}`;
       if (!out.has(key)) out.set(key, name);
     }
@@ -493,79 +502,75 @@ async function loadSubTable(
 }
 
 // ---------------------------------------------------------------------------
-// Load IA_Schedule_D_7B1.csv — fund details
+// Load IA_Schedule_D_7B1.csv — fund details (streaming, memory-efficient)
 // ---------------------------------------------------------------------------
 
+// Only loads rows for filing IDs in targetFilingIds. Pass null to load all.
 // Returns Map<filingId, ScheduleD7B1Row[]>
-async function loadScheduleD7B1(csvPath: string): Promise<Map<string, ScheduleD7B1Row[]>> {
-  console.log("Loading Schedule D 7B1 fund table...");
-  const text = readFileSync(csvPath, "utf8");
-  const gen = parseCSVLines(text);
-  const { value: headerRow } = gen.next();
-  if (!headerRow) throw new Error("Empty 7B1 CSV");
-  const headers = headerRow.map((h) => h.trim());
+async function loadScheduleD7B1(
+  csvPath: string,
+  targetFilingIds: Set<string> | null
+): Promise<Map<string, ScheduleD7B1Row[]>> {
+  const filterCount = targetFilingIds ? targetFilingIds.size : "all";
+  console.log(`Loading Schedule D 7B1 fund table (filtering to ${filterCount} advisers)...`);
 
-  // Column indices from confirmed headers:
-  // "FilingID","Fund Name","Fund ID","ReferenceID","State","Country",
-  // "3(c)(1) Exclusion","3(c)(7) Exclusion","Master Fund","Feeder Fund",
-  // "Master Fund Name","Master Fund ID","Fund of Funds","Fund Invested Self or Related",
-  // "Fund Invested in Securities","Fund Type","Fund Type Other","Gross Asset Value",
-  // "Minimum Investment","Owners","%Owned You or Related","%Owned Funds",
-  // "Sales Limited","%Owned Non-US","Subadviser","Other IAs Advise",
-  // "Clients Solicited","Percentage Invested","Exempt from Registration",
-  // "Annual Audit","GAAP","FS Distributed","Unqualified Opinion",
-  // "Prime Brokers","Custodians","Administrator","% Assets Valued","Marketing"
-
-  const get = (row: Record<string, string>, ...names: string[]): string => {
+  const get = (headers: string[], row: string[], ...names: string[]): string => {
     for (const n of names) {
-      const v = row[n];
-      if (v !== undefined) return v.trim();
+      const i = headers.indexOf(n);
+      if (i >= 0 && row[i] !== undefined) return row[i].trim();
     }
     return "";
   };
 
   const byFiling = new Map<string, ScheduleD7B1Row[]>();
   let total = 0;
+  let skipped = 0;
+  let headers: string[] | null = null;
 
-  for (const row of Array.from(gen)) {
+  for await (const { headers: h, row } of streamCSVLines(csvPath)) {
+    if (!headers) { headers = h; continue; }
     if (row.length < 5) continue;
-    const rec = mapRow(headers, row);
-    const fid = get(rec, "FilingID", "Filing ID").trim();
+
+    const fid = get(headers, row, "FilingID", "Filing ID").trim();
     if (!fid) continue;
 
-    const fundType = get(rec, "Fund Type", "FundType");
-    const lowerType = fundType.toLowerCase();
-    if (ACCEPTED_FUND_TYPES.size > 0 && !ACCEPTED_FUND_TYPES.has(lowerType)) {
+    // Filter to target filing IDs (pre-matched advisers)
+    if (targetFilingIds && !targetFilingIds.has(fid)) {
+      skipped++;
       continue;
     }
 
+    const fundType = get(headers, row, "Fund Type", "FundType");
+    const lowerType = fundType.toLowerCase();
+    if (ACCEPTED_FUND_TYPES.size > 0 && !ACCEPTED_FUND_TYPES.has(lowerType)) continue;
+
     const r: ScheduleD7B1Row = {
       filing_id: fid,
-      fund_name: get(rec, "Fund Name", "FundName"),
-      fund_id: get(rec, "Fund ID", "FundID"),
-      reference_id: get(rec, "ReferenceID", "Reference ID"),
-      state: get(rec, "State"),
-      country: get(rec, "Country"),
-      exclusion_3c1: get(rec, "3(c)(1) Exclusion"),
-      exclusion_3c7: get(rec, "3(c)(7) Exclusion"),
-      master_fund: get(rec, "Master Fund"),
-      feeder_fund: get(rec, "Feeder Fund"),
-      fund_of_funds: get(rec, "Fund of Funds"),
+      fund_name: get(headers, row, "Fund Name", "FundName"),
+      fund_id: get(headers, row, "Fund ID", "FundID"),
+      reference_id: get(headers, row, "ReferenceID", "Reference ID"),
+      state: get(headers, row, "State"),
+      country: get(headers, row, "Country"),
+      exclusion_3c1: get(headers, row, "3(c)(1) Exclusion"),
+      exclusion_3c7: get(headers, row, "3(c)(7) Exclusion"),
+      master_fund: get(headers, row, "Master Fund"),
+      feeder_fund: get(headers, row, "Feeder Fund"),
+      fund_of_funds: get(headers, row, "Fund of Funds"),
       fund_type: fundType,
-      fund_type_other: get(rec, "Fund Type Other"),
-      gross_asset_value: get(rec, "Gross Asset Value"),
-      minimum_investment: get(rec, "Minimum Investment"),
-      owners: get(rec, "Owners"),
-      pct_owned_related: get(rec, "%Owned You or Related"),
-      pct_owned_funds: get(rec, "%Owned Funds"),
-      sales_limited: get(rec, "Sales Limited"),
-      pct_owned_non_us: get(rec, "%Owned Non-US"),
-      is_subadviser: get(rec, "Subadviser"),
-      other_ias: get(rec, "Other IAs Advise"),
-      clients_solicited: get(rec, "Clients Solicited"),
-      exempt_from_reg: get(rec, "Exempt from Registration"),
-      annual_audit: get(rec, "Annual Audit"),
-      marketing: get(rec, "Marketing"),
+      fund_type_other: get(headers, row, "Fund Type Other"),
+      gross_asset_value: get(headers, row, "Gross Asset Value"),
+      minimum_investment: get(headers, row, "Minimum Investment"),
+      owners: get(headers, row, "Owners"),
+      pct_owned_related: get(headers, row, "%Owned You or Related"),
+      pct_owned_funds: get(headers, row, "%Owned Funds"),
+      sales_limited: get(headers, row, "Sales Limited"),
+      pct_owned_non_us: get(headers, row, "%Owned Non-US"),
+      is_subadviser: get(headers, row, "Subadviser"),
+      other_ias: get(headers, row, "Other IAs Advise"),
+      clients_solicited: get(headers, row, "Clients Solicited"),
+      exempt_from_reg: get(headers, row, "Exempt from Registration"),
+      annual_audit: get(headers, row, "Annual Audit"),
+      marketing: get(headers, row, "Marketing"),
     };
 
     if (!r.fund_name) continue;
@@ -576,7 +581,7 @@ async function loadScheduleD7B1(csvPath: string): Promise<Map<string, ScheduleD7
   }
 
   console.log(
-    `  Loaded ${total.toLocaleString()} fund rows across ${byFiling.size.toLocaleString()} filings`
+    `  Loaded ${total.toLocaleString()} fund rows across ${byFiling.size.toLocaleString()} advisers (${skipped.toLocaleString()} rows skipped)`
   );
   return byFiling;
 }
@@ -585,6 +590,7 @@ async function loadScheduleD7B1(csvPath: string): Promise<Map<string, ScheduleD7
 // Adviser name normalization
 // ---------------------------------------------------------------------------
 
+/** Normalize an ADVISER legal name — strips entity suffixes AND common adviser words. */
 function normalizeAdviserName(name: string): string {
   return name
     .toLowerCase()
@@ -592,6 +598,18 @@ function normalizeAdviserName(name: string): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Normalize a FIRM name for token matching — only strips true legal entity suffixes,
+ *  preserving brand words like "Capital", "Partners", "Management". */
+function normalizeFirmNameTokens(name: string): string[] {
+  const normalized = name
+    .toLowerCase()
+    .replace(/,?\s+(llc|lp|l\.p\.|l\.l\.c\.|inc\.?|incorporated|ltd\.?|co\.|corp\.?|gp)\.?\s*$/gi, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.split(/\s+/).filter((t) => t.length > 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -663,7 +681,40 @@ function matchAdviserToFirm(adviser: AdviserRecord, firms: FirmRow[]): MatchResu
     };
   }
 
-  // 3. Fuzzy normalized name match (Jaccard ≥ 0.75 against firm_name OR legal_name)
+  // 3. Firm-name token subset: all firm's significant tokens appear in adviser name
+  //    Handles "Sequoia Capital" → tokens ["sequoia","capital"] all in "sequoia capital operations"
+  //    Uses light normalization that preserves brand words like "Capital", "Partners"
+  const subsetMatches: FirmRow[] = [];
+  for (const f of firms) {
+    const names = [f.firm_name, f.legal_name].filter(Boolean) as string[];
+    for (const n of names) {
+      const firmTokens = normalizeFirmNameTokens(n).filter((t) => t.length > 2);
+      if (firmTokens.length >= 2 && firmTokens.every((t) => advNorm.includes(t))) {
+        if (!subsetMatches.includes(f)) subsetMatches.push(f);
+        break;
+      }
+    }
+  }
+  if (subsetMatches.length === 1) {
+    return {
+      firm_id: subsetMatches[0].id,
+      match_method: "legal_name_fuzzy",
+      confidence: 0.85,
+      ambiguous: false,
+      candidates: subsetMatches,
+    };
+  }
+  if (subsetMatches.length > 1) {
+    return {
+      firm_id: null,
+      match_method: "legal_name_fuzzy",
+      confidence: 0.0,
+      ambiguous: true,
+      candidates: subsetMatches,
+    };
+  }
+
+  // 4. Jaccard fuzzy normalized name match (≥ 0.75)
   let bestScore = 0;
   let bestFirm: FirmRow | null = null;
   const candidates: FirmRow[] = [];
@@ -959,26 +1010,45 @@ async function main(): Promise<void> {
 
   const part1ZipPath = cachePath("adv-part1.zip");
   const part2ZipPath = cachePath("adv-part2.zip");
-  const baseCSVPath = cachePath("IA_ADV_Base.csv");
+  // Local cache filenames (output paths — independent of entry names inside ZIP)
+  const baseCSVPath = cachePath("ERA_ADV_Base.csv");
   const fund7B1Path = cachePath("IA_Schedule_D_7B1.csv");
   const audit7B1A22Path = cachePath("IA_Schedule_D_7B1A22.csv");
   const primeBroker7B1A24Path = cachePath("IA_Schedule_D_7B1A24.csv");
   const marketing7B1A28Path = cachePath("IA_Schedule_D_7B1A28.csv");
 
-  // Download Part 1 ZIP if needed (for IA_ADV_Base.csv)
+  // Delete any 0-byte cached files that may have resulted from a failed prior extraction
+  for (const p of [baseCSVPath, fund7B1Path, audit7B1A22Path, primeBroker7B1A24Path, marketing7B1A28Path]) {
+    if (existsSync(p) && statSync(p).size === 0) {
+      const { unlinkSync } = await import("node:fs");
+      unlinkSync(p);
+      console.log(`  Deleted 0-byte cache file: ${basename(p)}`);
+    }
+  }
+  // Also clean up old wrongly-named cache file
+  const oldBasePath = cachePath("IA_ADV_Base.csv");
+  if (existsSync(oldBasePath) && statSync(oldBasePath).size === 0) {
+    const { unlinkSync } = await import("node:fs");
+    unlinkSync(oldBasePath);
+  }
+
+  // Download Part 1 ZIP if needed (for ERA_ADV_Base.csv)
+  // Entry name uses a date-suffixed filename in a subdirectory — detect by pattern.
   if (!existsSync(baseCSVPath) || FORCE_DOWNLOAD) {
     if (!existsSync(part1ZipPath) || FORCE_DOWNLOAD) {
       await cachedOrDownload("adv-part1.zip", ADV_PART1_ZIP);
     }
-    await extractFromZip(part1ZipPath, "IA_ADV_Base.csv", baseCSVPath);
+    await extractFromZip(part1ZipPath, /ERA_ADV_Base.*\.csv$/i, baseCSVPath);
   }
 
   // Download Part 2 ZIP if needed (for 7B1 and sub-tables)
+  // Entry names include date suffixes — detect by pattern.
   const part2Files = [
-    { name: "IA_Schedule_D_7B1.csv", path: fund7B1Path },
-    { name: "IA_Schedule_D_7B1A22.csv", path: audit7B1A22Path },
-    { name: "IA_Schedule_D_7B1A24.csv", path: primeBroker7B1A24Path },
-    { name: "IA_Schedule_D_7B1A28.csv", path: marketing7B1A28Path },
+    // Match 7B1 main table but NOT 7B1A22/7B1A24/7B1A28 sub-tables
+    { pattern: /IA_Schedule_D_7B1[^A].*\.csv$/i, path: fund7B1Path },
+    { pattern: /IA_Schedule_D_7B1A22.*\.csv$/i, path: audit7B1A22Path },
+    { pattern: /IA_Schedule_D_7B1A24.*\.csv$/i, path: primeBroker7B1A24Path },
+    { pattern: /IA_Schedule_D_7B1A28.*\.csv$/i, path: marketing7B1A28Path },
   ];
 
   const needPart2 = part2Files.some(
@@ -991,9 +1061,9 @@ async function main(): Promise<void> {
     for (const f of part2Files) {
       if (!existsSync(f.path) || FORCE_DOWNLOAD) {
         try {
-          await extractFromZip(part2ZipPath, f.name, f.path);
-        } catch {
-          console.warn(`  Warning: ${f.name} not found in ZIP, skipping.`);
+          await extractFromZip(part2ZipPath, f.pattern, f.path);
+        } catch (err) {
+          console.warn(`  Warning: ${f.pattern} not found in ZIP, skipping. (${(err as Error).message})`);
         }
       }
     }
@@ -1002,40 +1072,9 @@ async function main(): Promise<void> {
   }
   console.log();
 
-  // ── Step 2: Load data ───────────────────────────────────────────────────
+  // ── Step 2: Load adviser base + firms, pre-match to get target filing IDs ──
 
   const advisers = await loadAdviserBase(baseCSVPath);
-  const fundsByFiling = await loadScheduleD7B1(fund7B1Path);
-
-  // Sub-tables (best-effort)
-  const auditTable = await loadSubTable(audit7B1A22Path, [
-    "Auditor Name",
-    "AuditorName",
-    "Name",
-    "AccountantName",
-    "Accountant Name",
-  ]);
-  const primeBrokerTable = await loadSubTable(primeBroker7B1A24Path, [
-    "Firm Name",
-    "FirmName",
-    "PrimeBrokerName",
-    "Prime Broker Name",
-    "Name",
-  ]);
-  const marketingTable = await loadSubTable(marketing7B1A28Path, [
-    "Firm Name",
-    "FirmName",
-    "MarketingName",
-    "Marketing Name",
-    "Name",
-  ]);
-
-  console.log(
-    `  Sub-tables: auditors=${auditTable.size}, prime brokers=${primeBrokerTable.size}, marketing=${marketingTable.size}`
-  );
-  console.log();
-
-  // ── Step 3: Load firm_records from Supabase ─────────────────────────────
 
   console.log("Loading firm_records from Supabase...");
   const { data: firmData, error: firmError } = await supabase
@@ -1046,17 +1085,54 @@ async function main(): Promise<void> {
   if (firmError) throw new Error(`firm_records query failed: ${firmError.message}`);
   const firms: FirmRow[] = firmData || [];
   console.log(`  ${firms.length.toLocaleString()} firms loaded`);
-  console.log();
 
-  // Build lookup maps for O(1) matching
-  const firmsBySecFile = new Map<string, FirmRow>();
-  const firmsByCrd = new Map<string, FirmRow>();
-  for (const f of firms) {
-    if (f.sec_file_number) firmsBySecFile.set(f.sec_file_number.toLowerCase(), f);
-    if (f.adviser_crd_number) firmsByCrd.set(f.adviser_crd_number, f);
+  // Pre-match: determine which adviser filing IDs are relevant before
+  // streaming the huge 7B1 CSV, so we only load the rows we need.
+  const targetFilingIds = new Set<string>();
+  const adviserMatchCache = new Map<string, ReturnType<typeof matchAdviserToFirm>>();
+  let preMatchCount = 0;
+
+  for (const [crd, adviser] of Array.from(advisers.entries())) {
+    if (TARGET_CRD && crd !== TARGET_CRD) continue;
+    if (preMatchCount >= MAX_ADVISERS) break;
+
+    const match = matchAdviserToFirm(adviser, firms);
+    adviserMatchCache.set(crd, match);
+
+    // Include filing ID if: matched to a firm, ambiguous (review queue), or PFIN-based
+    if (match.firm_id || match.ambiguous || adviser.filing_id) {
+      // For matched advisers include always; for no-match, only if PFIN mode could still write
+      targetFilingIds.add(adviser.filing_id);
+    }
+    if (match.firm_id || match.ambiguous) preMatchCount++;
   }
 
-  // ── Step 4: Match advisers → firms, process funds ─────────────────────
+  console.log(
+    `  Pre-matched ${preMatchCount} advisers → ${targetFilingIds.size} target filing IDs`
+  );
+  console.log();
+
+  // ── Step 3: Stream 7B1 + sub-tables (filtered to target filing IDs) ────
+
+  const fundsByFiling = await loadScheduleD7B1(fund7B1Path, targetFilingIds);
+
+  // Sub-tables (best-effort, also filtered)
+  const auditTable = await loadSubTable(audit7B1A22Path, [
+    "Auditor Name", "AuditorName", "Name", "AccountantName", "Accountant Name",
+  ], targetFilingIds);
+  const primeBrokerTable = await loadSubTable(primeBroker7B1A24Path, [
+    "Firm Name", "FirmName", "PrimeBrokerName", "Prime Broker Name", "Name",
+  ], targetFilingIds);
+  const marketingTable = await loadSubTable(marketing7B1A28Path, [
+    "Firm Name", "FirmName", "MarketingName", "Marketing Name", "Name",
+  ], targetFilingIds);
+
+  console.log(
+    `  Sub-tables: auditors=${auditTable.size}, prime brokers=${primeBrokerTable.size}, marketing=${marketingTable.size}`
+  );
+  console.log();
+
+  // ── Step 4: Process advisers → upsert funds ───────────────────────────
 
   const stats = {
     advisersMatched: 0,
@@ -1082,8 +1158,8 @@ async function main(): Promise<void> {
     if (processedAdvisers >= MAX_ADVISERS) break;
     processedAdvisers++;
 
-    // Match adviser to a firm
-    const match = matchAdviserToFirm(adviser, firms);
+    // Use pre-computed match (avoids O(n) scan per adviser in the hot loop)
+    const match = adviserMatchCache.get(crd) ?? matchAdviserToFirm(adviser, firms);
 
     if (match.ambiguous) {
       stats.advisersAmbiguous++;

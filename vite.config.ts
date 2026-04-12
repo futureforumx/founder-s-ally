@@ -2,6 +2,9 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { resolveFirmWebsiteContact } from "./api/_firmWebsiteContact";
+import { resolveFirmWebsiteTeam } from "./api/_firmWebsiteTeam";
+import { resolvePersonWebsiteProfile } from "./api/_personWebsiteProfile";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -122,11 +125,168 @@ function saveProfileDevPlugin(env: Record<string, string>) {
   };
 }
 
+function firmWebsiteContactDevPlugin() {
+  return {
+    name: "firm-website-contact-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/firm-website-contact", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const websiteUrl = typeof body.websiteUrl === "string" ? body.websiteUrl.trim() : "";
+        if (!websiteUrl) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "websiteUrl is required" }));
+          return;
+        }
+
+        try {
+          const contact = await resolveFirmWebsiteContact(websiteUrl);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify(contact));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Contact lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
+function firmWebsiteTeamDevPlugin() {
+  return {
+    name: "firm-website-team-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/firm-website-team", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const websiteUrl = typeof body.websiteUrl === "string" ? body.websiteUrl.trim() : "";
+        if (!websiteUrl) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "websiteUrl is required" }));
+          return;
+        }
+
+        try {
+          const people = await resolveFirmWebsiteTeam(websiteUrl);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ people }));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Team lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
+function personWebsiteProfileDevPlugin() {
+  return {
+    name: "person-website-profile-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/person-website-profile", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const firmWebsiteUrl = typeof body.firmWebsiteUrl === "string" ? body.firmWebsiteUrl.trim() : "";
+        const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
+        const title = typeof body.title === "string" ? body.title.trim() : null;
+
+        if (!firmWebsiteUrl || !fullName) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "firmWebsiteUrl and fullName are required" }));
+          return;
+        }
+
+        try {
+          const profile = await resolvePersonWebsiteProfile({ firmWebsiteUrl, fullName, title });
+          res.writeHead(200, cors);
+          res.end(JSON.stringify(profile));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Profile lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
   const env = loadEnv(mode, process.cwd(), "");
-  const plugins = [react(), mode === "development" && componentTagger(), mode === "development" && saveProfileDevPlugin(env)].filter(Boolean);
+  const plugins = [
+    react(),
+    mode === "development" && componentTagger(),
+    mode === "development" && saveProfileDevPlugin(env),
+    mode === "development" && firmWebsiteContactDevPlugin(),
+    mode === "development" && firmWebsiteTeamDevPlugin(),
+    mode === "development" && personWebsiteProfileDevPlugin(),
+  ].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
   const devHost = process.env.DEV_HOST || "127.0.0.1";
   const devPort = Number(process.env.DEV_PORT || "5173");

@@ -484,6 +484,10 @@ async function loadVCData(): Promise<VCData> {
         .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCFirm => Boolean(row));
 
+      // If Supabase returned 0 firms (e.g. RLS blocking anon reads, empty table),
+      // treat it the same as an error and fall back to the static JSON.
+      if (firms.length === 0) throw new Error("vc_firms query returned 0 rows");
+
       const people = (peopleRes.data || [])
         .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCPerson => Boolean(row));

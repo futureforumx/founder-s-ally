@@ -1,7 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
-import MuxPlayer, { type MuxCSSProperties } from "@mux/mux-player-react";
 import { Loader2 } from "lucide-react";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
@@ -129,11 +128,6 @@ function authHeroPlayback(isSignUp: boolean): AuthHeroPlayback {
   return { mode: "none" };
 }
 
-const muxPlayerHeroStyle: MuxCSSProperties = {
-  "--media-object-fit": "cover",
-  "--media-object-position": "center",
-};
-
 /** Native hero background video: fill parent; dimensions forced in CSS with !important. */
 const authHeroNativeVideoClass =
   "auth-hero-native-video pointer-events-none absolute inset-0 h-full w-full object-cover";
@@ -155,6 +149,14 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
   useEffect(() => {
     setMuxIndex(0);
   }, [isSignUp, muxIdsKey]);
+
+  useEffect(() => {
+    if (playback.mode !== "mux" || playback.ids.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setMuxIndex((i) => (i + 1) % playback.ids.length);
+    }, 12000);
+    return () => window.clearInterval(intervalId);
+  }, [playback]);
 
   if (playback.mode === "none") {
     return (
@@ -188,26 +190,19 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
   const { ids } = playback;
   const activeId = ids[muxIndex % ids.length]!;
   const muxLoop = ids.length <= 1;
+  const muxEmbedSrc = `https://player.mux.com/${activeId}?autoplay=1&muted=1&playsinline=1&loop=${muxLoop ? 1 : 0}&controls=0`;
 
   return (
     <AuthHeroMediaStage>
       <div className="auth-hero-mux relative h-full w-full min-h-0 overflow-hidden">
-        <MuxPlayer
+        <iframe
           key={activeId}
-          playbackId={activeId}
-          streamType="on-demand"
-          muted
-          autoPlay
-          loop={muxLoop}
-          playsInline
-          nohotkeys
-          proudlyDisplayMuxBadge={false}
-          thumbnailTime={0}
-          capRenditionToPlayerSize={false}
-          style={muxPlayerHeroStyle}
-          className="auth-hero-mux-player block h-full w-full pointer-events-none"
-          onEnded={muxLoop ? undefined : () => setMuxIndex((i) => (i + 1) % ids.length)}
-          {...{ "media-object-fit": "cover" }}
+          src={muxEmbedSrc}
+          title="Authentication hero video"
+          className="auth-hero-mux-player block h-full w-full pointer-events-none border-0"
+          allow="autoplay; fullscreen"
+          loading="eager"
+          tabIndex={-1}
         />
       </div>
     </AuthHeroMediaStage>

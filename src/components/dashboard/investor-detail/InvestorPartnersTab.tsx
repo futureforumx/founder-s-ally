@@ -58,7 +58,7 @@ export function InvestorPartnersTab({
                   imageUrls={investorPersonImageCandidates({
                     profile_image_url: p.profile_image_url,
                     avatar_url: p.avatar_url,
-                    firmWebsiteUrl: null,
+                    firmWebsiteUrl: firmWebsiteUrl,
                     title: p.title,
                     role: p.role,
                     investorType: p.investor_type,
