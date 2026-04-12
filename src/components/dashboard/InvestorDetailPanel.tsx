@@ -470,7 +470,27 @@ export function InvestorDetailPanel({
       }
     }
 
-    return Array.from(byName.values());
+    const SENIORITY_ORDER: Record<string, number> = {
+      managing_partner: 0, c_suite: 0, general_partner: 1, partner: 2,
+      venture_partner: 3, principal: 4, associate: 5, analyst: 6, scout: 7, other: 8,
+    };
+    function seniorityRank(p: VCPerson): number {
+      const s = (p.seniority ?? p.investor_type ?? "").toLowerCase().replace(/\s+/g, "_");
+      return SENIORITY_ORDER[s] ?? 9;
+    }
+    const ORG_NAME_RE = /\b(capital|ventures?|fund|funds|management|investments|holdings|advisors|advisory|partnership|associates?|technologies|labs|innovation|foundation|trust)\b/i;
+    function looksLikeOrgName(name: string): boolean {
+      if (ORG_NAME_RE.test(name)) return true;
+      const words = name.trim().split(/\s+/);
+      // Single-word entries are probably not people
+      if (words.length < 2) return true;
+      // More than 5 words is probably a sentence fragment, not a name
+      if (words.length > 5) return true;
+      return false;
+    }
+    return Array.from(byName.values())
+      .filter((p) => p.is_active !== false && !looksLikeOrgName(p.full_name))
+      .sort((a, b) => seniorityRank(a) - seniorityRank(b) || a.full_name.localeCompare(b.full_name));
   }, [
     websitePartners,
     liveProfile?.partners,

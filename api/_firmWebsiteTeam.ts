@@ -23,22 +23,6 @@ const SOCIAL_LINK_RE = /href=["']([^"']*(?:linkedin\.com|x\.com|twitter\.com)[^"
 const MAILTO_RE = /mailto:([^"'? ]+)/i;
 const NAME_RE = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){1,3})\b/g;
 
-const TITLE_KEYWORDS = [
-  "partner",
-  "principal",
-  "associate",
-  "analyst",
-  "venture partner",
-  "managing partner",
-  "general partner",
-  "founder",
-  "co-founder",
-  "operator",
-  "advisor",
-  "investor",
-  "president",
-  "vice president",
-] as const;
 
 function normalizeWebsiteUrl(raw: string): string | null {
   const trimmed = raw.trim();
@@ -82,40 +66,89 @@ function normalizeNameKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Words that appear in VC firm names but not in person names
+const ORG_WORD_RE = /\b(capital|ventures|venture|fund|funds|management|investments|holdings|advisors|advisory|partnership|associates|technologies|technology|labs|innovation|foundation|trust|kleiner|perkins|caufield|accel|andreessen|horowitz)\b/i;
+// Words that signal navigational / descriptive context, not a person
+const NON_NAME_CONTEXT_RE = /\b(since|early\s+at|formerly|portfolio|our\s+team|meet\s+the|partnered)\b/i;
+
 function isLikelyPersonName(name: string): boolean {
   if (name.length < 5 || name.length > 60) return false;
+  // Reject UI / nav phrases
   if (/\b(cookie|privacy|terms|contact|team|about|linkedin|twitter|x\.com)\b/i.test(name)) return false;
-  return name.split(/\s+/).length >= 2;
+  // Reject org-style names
+  if (ORG_WORD_RE.test(name)) return false;
+  // Reject names with contextual non-person words
+  if (NON_NAME_CONTEXT_RE.test(name)) return false;
+  // Must be 2-4 space-separated words (person first/last, optionally middle)
+  const wordCount = name.trim().split(/\s+/).length;
+  return wordCount >= 2 && wordCount <= 4;
 }
 
-function chooseName(text: string): string | null {
+// Prefer names found inside heading tags — much more reliable on team pages
+const HEADING_TAG_RE = /<h[2-5][^>]*>([\s\S]*?)<\/h[2-5]>/gi;
+
+function chooseName(html: string, text: string): string | null {
+  // 1. Try heading tags first — team pages put the person's name in <h2>–<h5>
+  let m: RegExpExecArray | null;
+  while ((m = HEADING_TAG_RE.exec(html)) !== null) {
+    const inner = stripTags(m[1] ?? "").trim();
+    if (isLikelyPersonName(inner)) return inner;
+    // heading may have multiple words — check NAME_RE within it
+    const nameMatch = inner.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){1,3})\b/);
+    if (nameMatch?.[1] && isLikelyPersonName(nameMatch[1])) return nameMatch[1];
+  }
+  HEADING_TAG_RE.lastIndex = 0;
+  // 2. Fall back to pattern matching in plain text
   const matches = Array.from(text.matchAll(NAME_RE))
-    .map((m) => m[1]?.trim())
+    .map((n) => n[1]?.trim())
     .filter((value): value is string => Boolean(value) && isLikelyPersonName(value));
-  if (matches.length === 0) return null;
   return matches[0] ?? null;
 }
+
+// Word-boundary regex so "partnered since" doesn't match "partner"
+// "investor" intentionally excluded — too generic, matches "Investor Relations" nav sections
+const TITLE_KW_RE = new RegExp(
+  `\\b(${[
+    "managing partner", "general partner", "venture partner",
+    "partner", "principal", "associate", "analyst",
+    "founder", "co-founder", "advisor",
+    "president", "vice president", "managing director",
+    "chief executive", "chief operating", "chief financial",
+    "investment manager", "portfolio manager",
+  ].join("|")})\\b`,
+  "i",
+);
 
 function chooseTitle(text: string): string | null {
   const normalized = stripTags(text);
   const lines = normalized.split(/\s{2,}|\n+/).map((line) => line.trim()).filter(Boolean);
-  const candidate = lines.find((line) =>
-    TITLE_KEYWORDS.some((keyword) => line.toLowerCase().includes(keyword)),
-  );
-  return candidate && candidate.length <= 100 ? candidate : null;
+  const candidate = lines.find((line) => TITLE_KW_RE.test(line));
+  // Reject lines that are too long or look like sentence fragments / bios
+  if (!candidate) return null;
+  if (candidate.length > 80) return null;
+  if (candidate.split(/\s+/).length > 8) return null;
+  return candidate;
 }
 
-function chooseImage(snippet: string, baseUrl: string): string | null {
+function chooseImage(block: string, fullName: string, baseUrl: string): string | null {
+  const nameIdx = block.toLowerCase().indexOf(fullName.toLowerCase());
+  const images: Array<{ url: string; pos: number }> = [];
+  IMG_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = IMG_RE.exec(snippet)) !== null) {
+  while ((match = IMG_RE.exec(block)) !== null) {
     const src = match[1]?.trim();
     if (!src) continue;
     const url = normalizeMaybeUrl(src, baseUrl);
     if (!url) continue;
-    if (/logo|icon|favicon/i.test(url)) continue;
-    return url;
+    if (/logo|icon|favicon|banner|bg[-_]/i.test(url)) continue;
+    images.push({ url, pos: match.index });
   }
-  return null;
+  if (images.length === 0) return null;
+  // Pick the image closest to the person's name — avoids grabbing an adjacent person's photo
+  if (nameIdx >= 0) {
+    images.sort((a, b) => Math.abs(a.pos - nameIdx) - Math.abs(b.pos - nameIdx));
+  }
+  return images[0].url;
 }
 
 function chooseLocation(text: string): string | null {
@@ -137,6 +170,7 @@ async function fetchHtml(url: string): Promise<string | null> {
 }
 
 function extractHrefs(html: string, baseUrl: string): string[] {
+  HREF_RE.lastIndex = 0;
   const urls: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = HREF_RE.exec(html)) !== null) {
@@ -184,12 +218,27 @@ function extractBlocks(html: string): string[] {
 
 const MIN_PERSON_SCORE = 6;
 
+function hasNameInHeading(block: string): boolean {
+  HEADING_TAG_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = HEADING_TAG_RE.exec(block)) !== null) {
+    const inner = stripTags(m[1] ?? "").trim();
+    if (isLikelyPersonName(inner)) { HEADING_TAG_RE.lastIndex = 0; return true; }
+    const nameMatch = inner.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z.'-]+){1,3})\b/);
+    if (nameMatch?.[1] && isLikelyPersonName(nameMatch[1])) { HEADING_TAG_RE.lastIndex = 0; return true; }
+  }
+  HEADING_TAG_RE.lastIndex = 0;
+  return false;
+}
+
 function scoreBlock(block: string, text: string): number {
   let score = 0;
   if (IMG_RE.test(block)) score += 4;
   IMG_RE.lastIndex = 0;
-  if (TITLE_KEYWORDS.some((kw) => text.toLowerCase().includes(kw))) score += 4;
-  if (NAME_RE.test(text)) score += 3;
+  if (TITLE_KW_RE.test(text)) score += 4;
+  // Name in a heading tag is a strong signal; plain text name is weak
+  if (hasNameInHeading(block)) score += 3;
+  else if (NAME_RE.test(text)) score += 1;
   NAME_RE.lastIndex = 0;
   if (SOCIAL_LINK_RE.test(block)) score += 2;
   SOCIAL_LINK_RE.lastIndex = 0;
@@ -210,9 +259,18 @@ function stripHtmlEntities(text: string): string {
 
 function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWebsiteTeamPerson | null {
   const text = stripTags(block);
+
+  // Hard gate: a real person card always has a VC job title OR a social/contact link.
+  // This rejects "values" sections, mission statements, nav links, etc.
+  const hasTitleKw = TITLE_KW_RE.test(text);
+  const hasSocial = SOCIAL_LINK_RE.test(block);
+  SOCIAL_LINK_RE.lastIndex = 0;
+  const hasContact = MAILTO_RE.test(block);
+  if (!hasTitleKw && !hasSocial && !hasContact) return null;
+
   if (scoreBlock(block, text) < MIN_PERSON_SCORE) return null;
 
-  const fullName = chooseName(text);
+  const fullName = chooseName(block, text);
   if (!fullName) return null;
 
   const hrefs = extractHrefs(block, pageUrl);
@@ -235,7 +293,7 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
     linkedin_url: linkedin,
     x_url: x,
     website_url: website,
-    profile_image_url: chooseImage(block, pageUrl),
+    profile_image_url: chooseImage(block, fullName, pageUrl),
     bio: stripHtmlEntities(text).slice(0, 500) || null,
     location: chooseLocation(text),
     source_page_url: pageUrl,

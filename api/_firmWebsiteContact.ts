@@ -45,6 +45,7 @@ function normalizeMaybeUrl(url: string, baseUrl?: string): string | null {
 }
 
 function extractHrefs(html: string, baseUrl: string): string[] {
+  HREF_RE.lastIndex = 0;
   const urls: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = HREF_RE.exec(html)) !== null) {
@@ -146,6 +147,7 @@ export async function resolveFirmWebsiteContact(websiteUrl: string): Promise<Fir
     if (!html) continue;
 
     let emailMatch: RegExpExecArray | null;
+    EMAIL_RE.lastIndex = 0;
     while ((emailMatch = EMAIL_RE.exec(html)) !== null) {
       const email = emailMatch[1]?.trim();
       if (email) emails.add(email);

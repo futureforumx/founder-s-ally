@@ -528,7 +528,14 @@ export function useVCDirectory() {
   const peopleByFirm = useMemo(() => {
     if (!data) return new Map<string, VCPerson[]>();
     const m = new Map<string, VCPerson[]>();
+    const now = new Date();
     for (const p of data.people) {
+      // Skip explicitly-inactive people
+      if (p.is_active === false) continue;
+      // Skip people whose affiliation with this firm has ended
+      if (p.affiliation_end_date && new Date(p.affiliation_end_date) < now) continue;
+      // Skip entries with no meaningful name
+      if (!p.full_name?.trim()) continue;
       const arr = m.get(p.firm_id) || [];
       arr.push(p);
       m.set(p.firm_id, arr);
