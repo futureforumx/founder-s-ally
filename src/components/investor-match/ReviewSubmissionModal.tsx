@@ -104,15 +104,24 @@ async function resolveVcFirmId(
 ): Promise<string | null> {
   const trimmed = hint?.trim();
   if (trimmed) return trimmed;
-  const { data, error } = await (
+  const name = firmName.trim();
+  // Try vc_firms first (VC directory)
+  const { data: vcData, error: vcError } = await (
     supabaseVcDirectory as unknown as { from: (t: string) => any }
   )
     .from("vc_firms")
     .select("id")
-    .ilike("firm_name", firmName.trim())
+    .ilike("firm_name", name)
     .limit(1);
-  if (error || !data?.[0]?.id) return null;
-  return data[0].id as string;
+  if (!vcError && vcData?.[0]?.id) return vcData[0].id as string;
+  // Fallback: try investor_database (main app table)
+  const { data: dbData, error: dbError } = await supabase
+    .from("investor_database")
+    .select("id")
+    .ilike("firm_name", name)
+    .limit(1);
+  if (!dbError && (dbData as any)?.[0]?.id) return (dbData as any)[0].id as string;
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,11 +428,6 @@ export function ReviewSubmissionModal({
 
     try {
       const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmId);
-      if (!resolvedFirmId) {
-        throw new Error(
-          "Could not resolve this firm in the VC directory. Open the investor from search so we have a match.",
-        );
-      }
 
       const pid = personId?.trim() || null;
 
@@ -434,6 +438,8 @@ export function ReviewSubmissionModal({
         answers,
         tags: selectedTags,
         remember_who: rememberWho.trim() || undefined,
+        // Preserve firm name so ratings can be linked even when vc_firm_id is null
+        firm_name: firmName.trim() || undefined,
       };
 
       // Derive legacy score columns for backward-compat with aggregation
