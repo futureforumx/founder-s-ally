@@ -29,6 +29,49 @@ export interface LiveInvestorEntry {
   recent_deals?: string[] | null;
 }
 
+export interface LiveInvestorPersonEntry {
+  id: string;
+  firm_id: string;
+  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  title: string | null;
+  is_active: boolean;
+  avatar_url: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  bio: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  stage_focus: string[];
+  sector_focus: string[];
+  personal_thesis_tags: string[];
+  check_size_min: number | null;
+  check_size_max: number | null;
+  sweet_spot: string | null;
+  firm: {
+    id: string;
+    firm_name: string;
+    logo_url: string | null;
+    website_url: string | null;
+    thesis_verticals: string[];
+    stage_focus: string[];
+    location: string | null;
+    firm_type: string | null;
+    is_actively_deploying: boolean | null;
+    founder_reputation_score: number | null;
+    headcount: string | null;
+    aum: string | null;
+    is_trending: boolean | null;
+    is_popular: boolean | null;
+    is_recent: boolean | null;
+    recent_deals: string[] | null;
+  } | null;
+}
+
 // Transform DB rows into DirectoryEntry-compatible shape
 function mapDbInvestor(row: any): LiveInvestorEntry {
   return {
@@ -123,6 +166,122 @@ export function useInvestorDirectory() {
     gcTime: 60 * 60 * 1000,    // Keep in memory cache for 1 hour
     refetchOnWindowFocus: false, // Was: true — this was the primary seq-scan driver
     refetchInterval: 60 * 60 * 1000, // Was: 10 min — 1 hour is plenty for static directory
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useInvestorPeopleDirectory(limit = 5000) {
+  return useQuery({
+    queryKey: ["investor-people-directory", limit],
+    queryFn: async (): Promise<LiveInvestorPersonEntry[]> => {
+      const { data, error } = await supabase
+        .from("firm_investors")
+        .select(
+          [
+            "id",
+            "firm_id",
+            "full_name",
+            "first_name",
+            "last_name",
+            "title",
+            "is_active",
+            "avatar_url",
+            "email",
+            "linkedin_url",
+            "x_url",
+            "website_url",
+            "bio",
+            "city",
+            "state",
+            "country",
+            "stage_focus",
+            "sector_focus",
+            "personal_thesis_tags",
+            "check_size_min",
+            "check_size_max",
+            "sweet_spot",
+            "firm:firm_records!firm_investors_firm_id_fkey(",
+            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,location,firm_type,",
+            "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals",
+            ")",
+          ].join(""),
+        )
+        .is("deleted_at", null)
+        .eq("ready_for_live", true)
+        .order("full_name")
+        .limit(limit);
+
+      if (error) throw error;
+
+      return (data ?? [])
+        .map((row: any) => ({
+          id: row.id,
+          firm_id: row.firm_id,
+          full_name: row.full_name,
+          first_name: row.first_name ?? null,
+          last_name: row.last_name ?? null,
+          title: row.title ?? null,
+          is_active: row.is_active ?? true,
+          avatar_url: row.avatar_url ?? null,
+          email: row.email ?? null,
+          linkedin_url: row.linkedin_url ?? null,
+          x_url: row.x_url ?? null,
+          website_url: row.website_url ?? null,
+          bio:
+            row.bio ||
+            generateInvestorBio({
+              full_name: row.full_name,
+              first_name: row.first_name,
+              last_name: row.last_name,
+              title: row.title,
+              firm_name: row.firm?.firm_name,
+              personal_thesis_tags: row.personal_thesis_tags,
+              stage_focus: row.stage_focus,
+              check_size_min: row.check_size_min,
+              check_size_max: row.check_size_max,
+              sweet_spot: row.sweet_spot,
+              city: row.city,
+              state: row.state,
+              country: row.country,
+            }),
+          city: row.city ?? null,
+          state: row.state ?? null,
+          country: row.country ?? null,
+          stage_focus: Array.isArray(row.stage_focus) ? row.stage_focus.filter(Boolean) : [],
+          sector_focus: Array.isArray(row.sector_focus) ? row.sector_focus.filter(Boolean) : [],
+          personal_thesis_tags: Array.isArray(row.personal_thesis_tags) ? row.personal_thesis_tags.filter(Boolean) : [],
+          check_size_min: typeof row.check_size_min === "number" ? row.check_size_min : null,
+          check_size_max: typeof row.check_size_max === "number" ? row.check_size_max : null,
+          sweet_spot: row.sweet_spot ?? null,
+          firm: row.firm
+            ? {
+                id: row.firm.id,
+                firm_name: row.firm.firm_name,
+                logo_url: row.firm.logo_url ?? null,
+                website_url: row.firm.website_url ?? null,
+                thesis_verticals: Array.isArray(row.firm.thesis_verticals) ? row.firm.thesis_verticals.filter(Boolean) : [],
+                stage_focus: Array.isArray(row.firm.stage_focus) ? row.firm.stage_focus.filter(Boolean) : [],
+                location: row.firm.location ?? null,
+                firm_type: row.firm.firm_type ?? null,
+                is_actively_deploying:
+                  typeof row.firm.is_actively_deploying === "boolean" ? row.firm.is_actively_deploying : null,
+                founder_reputation_score:
+                  typeof row.firm.founder_reputation_score === "number" ? row.firm.founder_reputation_score : null,
+                headcount: row.firm.headcount ?? null,
+                aum: row.firm.aum ?? null,
+                is_trending: typeof row.firm.is_trending === "boolean" ? row.firm.is_trending : null,
+                is_popular: typeof row.firm.is_popular === "boolean" ? row.firm.is_popular : null,
+                is_recent: typeof row.firm.is_recent === "boolean" ? row.firm.is_recent : null,
+                recent_deals: Array.isArray(row.firm.recent_deals) ? row.firm.recent_deals.filter(Boolean) : null,
+              }
+            : null,
+        }))
+        .filter((row) => row.firm && row.full_name.trim().length > 0);
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 60 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
 }
