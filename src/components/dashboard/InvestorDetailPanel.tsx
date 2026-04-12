@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Zap, MessageSquare, CheckCircle2,
+  X, Zap, BookmarkPlus, CheckCircle2,
   ArrowUpRight, Landmark, Target, MapPin, Users, Star,
 } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
@@ -331,7 +331,7 @@ export function InvestorDetailPanel({ investor, companyName, companyData, onClos
                         <Star className="h-4 w-4" /> Rate
                       </button>
                       <button className="inline-flex items-center gap-2 rounded-xl border-2 border-border px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors">
-                        <MessageSquare className="h-4 w-4" /> Request Intro
+                        <BookmarkPlus className="h-4 w-4" /> Track
                       </button>
                       <button
                         onClick={handleClose}
