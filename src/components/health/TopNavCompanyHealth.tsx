@@ -486,22 +486,22 @@ export function TopNavCompanyHealth({
                     )}
                   >
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Health</p>
-                    <div className="mt-2 flex items-end justify-between gap-1.5">
-                      <p className={cn("text-[1.75rem] font-extrabold tabular-nums leading-none", status.text)}>{derived.score}</p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
-                          derived.trendPct > 0
-                            ? "bg-emerald-500/10 text-emerald-700/85"
-                            : derived.trendPct < 0
-                              ? "bg-rose-500/10 text-rose-700/85"
-                              : "bg-muted/70 text-muted-foreground",
-                        )}
-                      >
-                        {derived.trendPct > 0 ? "+" : ""}
-                        {derived.trendPct}%
-                      </span>
-                    </div>
+                    <p className={cn("flex flex-1 items-center justify-start text-[2.5rem] font-extrabold tabular-nums leading-none", status.text)}>
+                      {derived.score}
+                    </p>
+                    <span
+                      className={cn(
+                        "self-center inline-flex rounded-sm px-1 py-px text-[9px] font-medium leading-none tabular-nums",
+                        derived.trendPct > 0
+                          ? "bg-emerald-500/10 text-emerald-700/85"
+                          : derived.trendPct < 0
+                            ? "bg-rose-500/10 text-rose-700/85"
+                            : "bg-muted/70 text-muted-foreground",
+                      )}
+                    >
+                      {derived.trendPct > 0 ? "+" : ""}
+                      {derived.trendPct}%
+                    </span>
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/35" aria-hidden>
                       <span
                         className={cn(

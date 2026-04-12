@@ -32,6 +32,12 @@ interface Connection {
   instrument: string;
 }
 
+interface WebsiteContactLookup {
+  email: string | null;
+  linkedinUrl: string | null;
+  xUrl: string | null;
+}
+
 function normalizeExternalHref(url: string): string {
   const t = url.trim();
   if (!t) return t;
@@ -84,6 +90,7 @@ export function ConnectionsTab({
 }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [websiteContact, setWebsiteContact] = useState<WebsiteContactLookup | null>(null);
 
   useEffect(() => {
     if (!investorName) {
@@ -112,12 +119,50 @@ export function ConnectionsTab({
     return () => { cancelled = true; };
   }, [investorName, currentUserId]);
 
-  const linkedinHref = linkedinUrl?.trim() ? normalizeExternalHref(linkedinUrl.trim()) : null;
-  const xHref = xUrl?.trim() ? xProfileHref(xUrl.trim()) : null;
+  useEffect(() => {
+    const missingContactFields = !email?.trim() || !linkedinUrl?.trim() || !xUrl?.trim();
+    if (!websiteUrl?.trim() || !missingContactFields) {
+      setWebsiteContact(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchWebsiteContact() {
+      try {
+        const res = await fetch("/api/firm-website-contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ websiteUrl }),
+        });
+        if (!res.ok) throw new Error(`Contact lookup failed (${res.status})`);
+        const data = (await res.json()) as WebsiteContactLookup;
+        if (!cancelled) {
+          setWebsiteContact({
+            email: data.email ?? null,
+            linkedinUrl: data.linkedinUrl ?? null,
+            xUrl: data.xUrl ?? null,
+          });
+        }
+      } catch {
+        if (!cancelled) setWebsiteContact(null);
+      }
+    }
+
+    fetchWebsiteContact();
+    return () => {
+      cancelled = true;
+    };
+  }, [email, linkedinUrl, websiteUrl, xUrl]);
+
+  const resolvedEmail = email?.trim() || websiteContact?.email || null;
+  const resolvedLinkedinUrl = linkedinUrl?.trim() || websiteContact?.linkedinUrl || null;
+  const resolvedXUrl = xUrl?.trim() || websiteContact?.xUrl || null;
+  const linkedinHref = resolvedLinkedinUrl ? normalizeExternalHref(resolvedLinkedinUrl) : null;
+  const xHref = resolvedXUrl ? xProfileHref(resolvedXUrl) : null;
   const websiteHref = websiteUrl?.trim() ? normalizeExternalHref(websiteUrl.trim()) : null;
   const hasSocialLinks = !!(linkedinHref || xHref || websiteHref);
   const hasContactCard =
-    !!(investorId || email?.trim() || location?.trim() || hasSocialLinks);
+    !!(investorId || resolvedEmail || location?.trim() || hasSocialLinks);
 
   if (loading) {
     return (
@@ -139,16 +184,16 @@ export function ConnectionsTab({
       {/* Contact Details */}
       {hasContactCard ? (
         <div className="rounded-2xl border border-border bg-card px-5 py-4 space-y-3">
-          {email?.trim() ? (
+          {resolvedEmail ? (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <Mail className="w-3.5 h-3.5 text-accent" />
               </div>
               <a
-                href={`mailto:${email.trim()}`}
+                href={`mailto:${resolvedEmail}`}
                 className="text-sm font-medium text-foreground hover:text-accent transition-colors"
               >
-                {email.trim()}
+                {resolvedEmail}
               </a>
             </div>
           ) : investorId ? (

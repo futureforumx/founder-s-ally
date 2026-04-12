@@ -1658,13 +1658,12 @@ export function CommunityView({
     const hasRealFounders = realFounderEntries.length > 0;
     const hasRealCompanies = realCompanyEntries.length > 0;
     const hasRealOperators = realOperatorEntries.length > 0;
+
     // Filter mock entries: replace categories where we have real data
     const mockEntries = ALL_ENTRIES.filter(e => {
       if (e.category === "founder" && hasRealFounders) return false;
       if (e.category === "company" && hasRealCompanies) return false;
       if (e.category === "operator" && hasRealOperators) return false;
-      // Mock investors are always replaced by vcEntries (2,805 firms from JSON)
-      if (e.category === "investor") return false;
       return true;
     });
 
@@ -1719,18 +1718,9 @@ export function CommunityView({
             : (e._dealVelocityScore ?? null),
         };
       }),
-      // Always include VC firm entries as the investor backbone.
-      // Layer live investor people on top (deduped by firm name so we don't
-      // double-count people whose firm already appears in vcEntries).
       ...vcEntries,
-      ...liveInvestorPersonEntries.filter(p => {
-        const firmName = (p as any)._investorFirmName;
-        if (!firmName) return true;
-        // Keep the person entry only if their firm isn't already in vcEntries
-        return !vcEntries.some(v => v.name.toLowerCase() === firmName.toLowerCase());
-      }),
     ];
-  }, [vcEntries, liveInvestorPersonEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
+  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
 
@@ -2859,7 +2849,7 @@ export function CommunityView({
         onSelectPerson={(person) => {
           setSelectedInvestor(null);
           setSelectedVCFirm(null);
-          setSelectedVCPersonFirm(getFirmForPerson(person.id) ?? null);
+          setSelectedVCPersonFirm(selectedInvestorMatchedVCFirm ?? getFirmForPerson(person.id) ?? null);
           setTimeout(() => setSelectedVCPerson(person), 200);
         }}
         onCloseVCFirm={() => setSelectedVCFirm(null)}
