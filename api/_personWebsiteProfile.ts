@@ -59,6 +59,7 @@ function stripTags(html: string): string {
 }
 
 function extractHrefs(html: string, baseUrl: string): string[] {
+  HREF_RE.lastIndex = 0;
   const urls: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = HREF_RE.exec(html)) !== null) {
@@ -134,35 +135,52 @@ function chooseSocialUrl(urls: string[], kind: "linkedin" | "x"): string | null 
   );
 }
 
-function personMatchIndex(html: string, fullName: string): number {
-  return html.toLowerCase().indexOf(fullName.toLowerCase());
-}
-
-function extractSnippet(html: string, fullName: string): string | null {
-  const idx = personMatchIndex(html, fullName);
+function extractSnippet(html: string, fullName: string): { snippet: string; nameOffset: number } | null {
+  const idx = html.toLowerCase().indexOf(fullName.toLowerCase());
   if (idx < 0) return null;
   const start = Math.max(0, idx - 1500);
   const end = Math.min(html.length, idx + 3000);
-  return html.slice(start, end);
+  return { snippet: html.slice(start, end), nameOffset: idx - start };
 }
 
-function extractImage(snippet: string, baseUrl: string): string | null {
-  const images: string[] = [];
+function extractImage(snippet: string, nameOffset: number, baseUrl: string): string | null {
+  const images: Array<{ url: string; pos: number }> = [];
+  IMG_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = IMG_RE.exec(snippet)) !== null) {
     const src = match[1]?.trim();
     if (!src) continue;
     const absolute = normalizeMaybeUrl(src, baseUrl);
     if (!absolute) continue;
-    const lower = absolute.toLowerCase();
-    if (lower.includes("logo") || lower.includes("icon") || lower.includes("favicon")) continue;
-    images.push(absolute);
+    if (/logo|icon|favicon|banner|background|bg[-_]/i.test(absolute)) continue;
+    images.push({ url: absolute, pos: match.index });
   }
-  return images[0] ?? null;
+  if (images.length === 0) return null;
+  // Return the image closest to the name mention — not just the first one in the snippet.
+  // This avoids grabbing the previous person's photo when they appear within the before-window.
+  images.sort((a, b) => Math.abs(a.pos - nameOffset) - Math.abs(b.pos - nameOffset));
+  return images[0].url;
+}
+
+function aggressiveStripHtml(html: string): string {
+  return html
+    // Remove script/style blocks first
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    // Strip tags, handling quoted attrs with > inside and unclosed tags
+    .replace(/<(?:"[^"]*"|'[^']*'|[^>"'])*>?/g, " ")
+    // Strip any leftover tag fragments (unclosed at end)
+    .replace(/<[^<>]{0,300}$/, " ")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractBio(snippet: string, fullName: string, title?: string | null): string | null {
-  const text = stripTags(snippet);
+  const text = aggressiveStripHtml(snippet);
   const idx = text.toLowerCase().indexOf(fullName.toLowerCase());
   const afterName = idx >= 0 ? text.slice(idx + fullName.length).trim() : text;
   const cleaned = afterName
@@ -230,14 +248,14 @@ export async function resolvePersonWebsiteProfile(input: {
 
   const candidatePages = collectCandidatePages(websiteUrl, homepageHtml);
   const scannedUrls: string[] = [];
-  const matchedSnippets: Array<{ snippet: string; pageUrl: string }> = [];
+  const matchedSnippets: Array<{ snippet: string; nameOffset: number; pageUrl: string }> = [];
 
   for (const pageUrl of candidatePages) {
     const html = pageUrl === websiteUrl ? homepageHtml : await fetchHtml(pageUrl);
     scannedUrls.push(pageUrl);
     if (!html) continue;
-    const snippet = extractSnippet(html, input.fullName);
-    if (snippet) matchedSnippets.push({ snippet, pageUrl });
+    const result = extractSnippet(html, input.fullName);
+    if (result) matchedSnippets.push({ snippet: result.snippet, nameOffset: result.nameOffset, pageUrl });
   }
 
   if (matchedSnippets.length === 0) {
@@ -261,6 +279,7 @@ export async function resolvePersonWebsiteProfile(input: {
 
   for (const match of matchedSnippets) {
     let emailMatch: RegExpExecArray | null;
+    EMAIL_RE.lastIndex = 0;
     while ((emailMatch = EMAIL_RE.exec(match.snippet)) !== null) {
       const email = emailMatch[1]?.trim();
       if (email) emails.push(email);
@@ -274,7 +293,7 @@ export async function resolvePersonWebsiteProfile(input: {
       }
     }
 
-    if (!headshotUrl) headshotUrl = extractImage(match.snippet, match.pageUrl);
+    if (!headshotUrl) headshotUrl = extractImage(match.snippet, match.nameOffset, match.pageUrl);
     if (!bio) bio = extractBio(match.snippet, input.fullName, input.title);
     if (!location) location = extractLocation(match.snippet);
   }

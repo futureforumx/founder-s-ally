@@ -246,8 +246,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     if (!person) return null;
     return (
       sanitizeText(person.background_summary) ||
-      sanitizeText(person.bio) ||
       sanitizeText(websiteProfile?.bio) ||
+      sanitizeText(person.bio) ||
       null
     );
   }, [person, websiteProfile?.bio]);
@@ -367,8 +367,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
                   <InvestorPersonAvatar
                     imageUrls={investorPersonImageCandidates({
-                      profile_image_url: person.profile_image_url || websiteProfile?.headshotUrl,
-                      avatar_url: person.avatar_url || websiteProfile?.headshotUrl,
+                      profile_image_url: websiteProfile?.headshotUrl || person.profile_image_url,
+                      avatar_url: websiteProfile?.headshotUrl || person.avatar_url,
                       firmWebsiteUrl: firm?.website_url ?? null,
                       title: person.title,
                       role: person.role,
