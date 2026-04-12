@@ -4,6 +4,7 @@ import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
   DollarSign, Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow,
+  Landmark,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
+import { useInvestorDirectory, useInvestorPeopleDirectory } from "@/hooks/useInvestorDirectory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,13 +87,22 @@ interface DirectoryEntry {
   _logoUrl?: string | null;
   _matchScore?: number | null;
   _firmId?: string | null;
+  _vcFirmId?: string | null;
   _websiteUrl?: string | null;
   _isTrending?: boolean;
   _isPopular?: boolean;
   _isRecent?: boolean;
   /** Deal velocity score (0–100) derived from recent deal count. */
   _dealVelocityScore?: number | null;
+  _investorEntityType?: "firm" | "person";
+  _investorFirmName?: string | null;
+  _personData?: VCPerson | null;
+  _personFirm?: VCFirm | null;
   competitors?: string[];
+}
+
+function isInvestorPersonEntry(entry: DirectoryEntry): boolean {
+  return entry.category === "investor" && entry._investorEntityType === "person" && Boolean(entry._personData);
 }
 
 // ── Mock data: Suggested ──
@@ -535,6 +545,7 @@ function InvestorCard({
   /** VC JSON firm id for scroll-to / querySelector anchoring */
   anchorVcFirmId?: string | null;
 }) {
+  const isPerson = founder._investorEntityType === "person";
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore;
@@ -546,6 +557,9 @@ function InvestorCard({
   const velocityColor = velocityScore != null ? (velocityScore >= 70 ? "text-success" : velocityScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const velocityLabel = velocityScore == null ? null : velocityScore >= 80 ? "Hot" : velocityScore >= 60 ? "Active" : velocityScore >= 35 ? "Moderate" : "Slow";
   const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
+  const subtitle = isPerson
+    ? [founder.model, founder._investorFirmName].filter(Boolean).join(" · ")
+    : null;
 
   return (
     <Card
@@ -558,13 +572,30 @@ function InvestorCard({
         {/* ── Row 1: Logo left, Alerts right ── */}
         <div className="flex items-start justify-between gap-2.5">
           {/* Logo */}
-          <FirmLogo
-            firmName={founder.name}
-            logoUrl={logoUrl}
-            websiteUrl={websiteUrl}
-            size="lg"
-            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-          />
+          {isPerson ? (
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card text-sm font-bold text-muted-foreground shadow-sm">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={founder.name}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                founder.initial
+              )}
+            </div>
+          ) : (
+            <FirmLogo
+              firmName={founder.name}
+              logoUrl={logoUrl}
+              websiteUrl={websiteUrl}
+              size="lg"
+              onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+            />
+          )}
 
           {/* Upper right: status icons (deploying + trending/popular/recent) on one row */}
           <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
@@ -615,6 +646,9 @@ function InvestorCard({
         {/* ── Row 2: Name + badges + scores (no long description) ── */}
         <div>
           <h3 className="text-[15px] font-bold leading-tight text-foreground">{founder.name}</h3>
+          {subtitle ? (
+            <p className="mt-0.5 line-clamp-1 text-[10px] font-medium text-muted-foreground">{subtitle}</p>
+          ) : null}
           {(investorSector || investorStage) ? (
             <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug">
               {investorSector ? (
@@ -707,9 +741,14 @@ function InvestorCard({
               <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location || "—"}
             </span>
           )}
+          {isPerson && founder._investorFirmName ? (
+            <span className="inline-flex items-center gap-1">
+              <Landmark className="h-2.5 w-2.5 shrink-0" /> {founder._investorFirmName}
+            </span>
+          ) : null}
           {(founder._aum || founder.model) && (
             <span className="inline-flex items-center gap-1">
-              <DollarSign className="h-2.5 w-2.5 shrink-0" /> {founder._aum || founder.model}
+              <DollarSign className="h-2.5 w-2.5 shrink-0" /> {founder._aum || (!isPerson ? founder.model : null)}
             </span>
           )}
           {founder._headcount && (
@@ -1337,6 +1376,7 @@ export function CommunityView({
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
+  const [selectedVCPersonFirm, setSelectedVCPersonFirm] = useState<VCFirm | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
@@ -1368,6 +1408,7 @@ export function CommunityView({
 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
   const { data: dbInvestors } = useInvestorDirectory();
+  const { data: liveInvestorPeople } = useInvestorPeopleDirectory();
 
   // Build lookup maps with normalized keys and aliases
   const dbInvestorMap = useMemo(() => {
@@ -1401,9 +1442,97 @@ export function CommunityView({
     [vcFirmMap]
   );
 
+  const liveInvestorPersonEntries = useMemo<DirectoryEntry[]>(() => {
+    return (liveInvestorPeople ?? []).map((person) => {
+      const firmName = person.firm?.firm_name ?? "Unknown Firm";
+      const vcFirmMatch = getVCFirmMatch(firmName);
+      const stageFocus = person.stage_focus.length > 0 ? person.stage_focus : person.firm?.stage_focus ?? [];
+      const sectorFocus = person.sector_focus.length > 0 ? person.sector_focus : person.firm?.thesis_verticals ?? [];
+      const location = [person.city, person.state, person.country].filter(Boolean).join(", ") || person.firm?.location || "";
+      const title = person.title?.trim() || "Investor";
+      const personFirm: VCFirm = {
+        id: vcFirmMatch?.id ?? person.firm_id,
+        name: firmName,
+        x_url: null,
+        description: person.firm?.thesis_verticals?.join(", ") || null,
+        aum: person.firm?.aum ?? null,
+        aum_band: null,
+        sweet_spot: person.sweet_spot ?? null,
+        stages: stageFocus,
+        sectors: sectorFocus,
+        logo_url: person.firm?.logo_url ?? null,
+        website_url: person.firm?.website_url ?? null,
+        aliases: null,
+      };
+      const personData: VCPerson = {
+        id: person.id,
+        full_name: person.full_name,
+        first_name: person.first_name,
+        last_name: person.last_name,
+        title: person.title,
+        firm_id: person.firm_id,
+        primary_firm_name: firmName,
+        is_active: person.is_active,
+        avatar_url: person.avatar_url,
+        profile_image_url: person.avatar_url,
+        email: person.email,
+        linkedin_url: person.linkedin_url,
+        x_url: person.x_url,
+        website_url: person.website_url,
+        bio: person.bio,
+        city: person.city,
+        state: person.state,
+        country: person.country,
+        stage_focus: person.stage_focus,
+        sector_focus: person.sector_focus,
+        personal_thesis_tags: person.personal_thesis_tags,
+        check_size: {
+          min_usd: person.check_size_min,
+          max_usd: person.check_size_max,
+          average_usd: null,
+        },
+      } as VCPerson;
+
+      return {
+        name: person.full_name,
+        sector: sectorFocus.slice(0, 2).join(", ") || "Generalist",
+        stage: collapseStagesToRange(stageFocus) || stageFocus.slice(0, 2).join(", ") || "Multi-stage",
+        description: person.bio || `${title} at ${firmName}`,
+        location,
+        model: title,
+        initial: person.full_name.charAt(0).toUpperCase(),
+        matchReason: null,
+        category: "investor" as const,
+        _sectors: sectorFocus,
+        _stages: stageFocus,
+        _firmType: person.firm?.firm_type || "Institutional",
+        _isActivelyDeploying: person.firm?.is_actively_deploying ?? true,
+        _founderSentimentScore: person.firm?.founder_reputation_score ?? null,
+        _headcount: person.firm?.headcount ?? null,
+        _aum: person.firm?.aum ?? null,
+        _aumBand: investorAumBandLabel(person.firm?.aum ?? null),
+        _logoUrl: person.avatar_url || person.firm?.logo_url || null,
+        _isTrending: isInvestorTrendingMerged(person.firm?.is_trending, false, firmName),
+        _isPopular: person.firm?.is_popular ?? false,
+        _isRecent: person.firm?.is_recent ?? false,
+        _firmId: person.firm_id,
+        _vcFirmId: vcFirmMatch?.id ?? null,
+        _websiteUrl: person.website_url || person.firm?.website_url || null,
+        _dealVelocityScore: computeDealVelocityScore(
+          person.firm?.recent_deals ?? null,
+          person.firm?.is_actively_deploying ?? null,
+        ),
+        _investorEntityType: "person",
+        _investorFirmName: firmName,
+        _personData: personData,
+        _personFirm: vcFirmMatch ?? personFirm,
+      };
+    });
+  }, [liveInvestorPeople, getVCFirmMatch]);
+
   const investorAnchorVcFirmId = useCallback(
     (e: DirectoryEntry) =>
-      e.category === "investor" ? getVCFirmMatch(e.name)?.id ?? e._firmId ?? null : null,
+      e.category === "investor" ? e._vcFirmId ?? getVCFirmMatch(e.name)?.id ?? e._firmId ?? null : null,
     [getVCFirmMatch],
   );
 
@@ -1529,12 +1658,14 @@ export function CommunityView({
     const hasRealFounders = realFounderEntries.length > 0;
     const hasRealCompanies = realCompanyEntries.length > 0;
     const hasRealOperators = realOperatorEntries.length > 0;
+    const hasLiveInvestorPeople = liveInvestorPersonEntries.length > 0;
 
     // Filter mock entries: replace categories where we have real data
     const mockEntries = ALL_ENTRIES.filter(e => {
       if (e.category === "founder" && hasRealFounders) return false;
       if (e.category === "company" && hasRealCompanies) return false;
       if (e.category === "operator" && hasRealOperators) return false;
+      if (e.category === "investor" && hasLiveInvestorPeople) return false;
       return true;
     });
 
@@ -1589,9 +1720,9 @@ export function CommunityView({
             : (e._dealVelocityScore ?? null),
         };
       }),
-      ...vcEntries,
+      ...(hasLiveInvestorPeople ? liveInvestorPersonEntries : vcEntries),
     ];
-  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
+  }, [vcEntries, liveInvestorPersonEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
 
@@ -2054,7 +2185,16 @@ export function CommunityView({
 
   // When clicking an investor card, try to resolve VCFirm for rich profile
   const handleInvestorClick = useCallback((entry: DirectoryEntry) => {
+    if (isInvestorPersonEntry(entry) && entry._personData) {
+      setSelectedInvestor(null);
+      setSelectedVCFirm(null);
+      setSelectedVCPersonFirm(entry._personFirm ?? null);
+      setSelectedVCPerson(entry._personData);
+      return;
+    }
     setInvestorInitialTab("Updates");
+    setSelectedVCPerson(null);
+    setSelectedVCPersonFirm(null);
     const vcMatch = getVCFirmMatch(entry.name);
     setSelectedVCFirm(vcMatch ?? null);
     setSelectedInvestor(entry);
@@ -2069,7 +2209,16 @@ export function CommunityView({
   );
 
   const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
+    if (isInvestorPersonEntry(entry) && entry._personData) {
+      setSelectedInvestor(null);
+      setSelectedVCFirm(null);
+      setSelectedVCPersonFirm(entry._personFirm ?? null);
+      setSelectedVCPerson(entry._personData);
+      return;
+    }
     setInvestorInitialTab("Activity");
+    setSelectedVCPerson(null);
+    setSelectedVCPersonFirm(null);
     const vcMatch = getVCFirmMatch(entry.name);
     setSelectedVCFirm(vcMatch ?? null);
     setSelectedInvestor(entry);
@@ -2702,17 +2851,24 @@ export function CommunityView({
         onSelectPerson={(person) => {
           setSelectedInvestor(null);
           setSelectedVCFirm(null);
+          setSelectedVCPersonFirm(getFirmForPerson(person.id) ?? null);
           setTimeout(() => setSelectedVCPerson(person), 200);
         }}
         onCloseVCFirm={() => setSelectedVCFirm(null)}
       />
       <PersonProfileModal
         person={selectedVCPerson}
-        firm={selectedVCPerson ? getFirmForPerson(selectedVCPerson.id) : null}
-        onClose={() => setSelectedVCPerson(null)}
-        onNavigateToFirm={(firmId) => {
-          const firm = getFirmById(firmId);
+        firm={selectedVCPerson ? (selectedVCPersonFirm ?? getFirmForPerson(selectedVCPerson.id)) : null}
+        onClose={() => {
           setSelectedVCPerson(null);
+          setSelectedVCPersonFirm(null);
+        }}
+        onNavigateToFirm={(firmId) => {
+          const firm =
+            getFirmById(firmId) ??
+            (selectedVCPersonFirm && selectedVCPersonFirm.id === firmId ? selectedVCPersonFirm : null);
+          setSelectedVCPerson(null);
+          setSelectedVCPersonFirm(null);
           if (firm) {
             setTimeout(() => setSelectedVCFirm(firm), 200);
           }
