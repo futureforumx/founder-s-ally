@@ -1,35 +1,34 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { ConnectionsPage } from "@/components/ConnectionsPage";
-import { SettingsPage } from "@/components/SettingsPage";
-import { GroupsView } from "@/components/community/GroupsView";
-import { EventsView } from "@/components/community/EventsView";
-import { HelpCenter } from "@/components/HelpCenter";
-
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { getCompletionPercent, EMPTY_FORM } from "@/components/company-profile/types";
 import { SectorClassification } from "@/components/SectorTags";
-import { DeckAuditView } from "@/components/DeckAuditView";
-import { CompetitiveBenchmarking } from "@/components/CompetitiveBenchmarking";
-import { InvestorMatch } from "@/components/InvestorMatch";
-import { CompetitorsView } from "@/components/CompetitorsView";
-import { OnboardingStepper } from "@/components/OnboardingStepper";
-import { AnalysisTerminal } from "@/components/AnalysisTerminal";
-import { CompanyView } from "@/components/dashboard/CompanyView";
-import { CompetitiveView } from "@/components/dashboard/CompetitiveView";
 import { HomeView } from "@/components/dashboard/HomeView";
-import { IndustryView } from "@/components/dashboard/IndustryView";
-import { CommunityView } from "@/components/dashboard/CommunityView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
-import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
-import { useCapTable } from "@/hooks/useCapTable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
+
+const ConnectionsPage = lazy(() => import("@/components/ConnectionsPage").then((module) => ({ default: module.ConnectionsPage })));
+const SettingsPage = lazy(() => import("@/components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const GroupsView = lazy(() => import("@/components/community/GroupsView").then((module) => ({ default: module.GroupsView })));
+const EventsView = lazy(() => import("@/components/community/EventsView").then((module) => ({ default: module.EventsView })));
+const HelpCenter = lazy(() => import("@/components/HelpCenter").then((module) => ({ default: module.HelpCenter })));
+const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((module) => ({ default: module.DeckAuditView })));
+const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((module) => ({ default: module.CompetitiveBenchmarking })));
+const InvestorMatch = lazy(() => import("@/components/InvestorMatch").then((module) => ({ default: module.InvestorMatch })));
+const CompetitorsView = lazy(() => import("@/components/CompetitorsView").then((module) => ({ default: module.CompetitorsView })));
+const OnboardingStepper = lazy(() => import("@/components/OnboardingStepper").then((module) => ({ default: module.OnboardingStepper })));
+const AnalysisTerminal = lazy(() => import("@/components/AnalysisTerminal").then((module) => ({ default: module.AnalysisTerminal })));
+const CompanyView = lazy(() => import("@/components/dashboard/CompanyView").then((module) => ({ default: module.CompanyView })));
+const CompetitiveView = lazy(() => import("@/components/dashboard/CompetitiveView").then((module) => ({ default: module.CompetitiveView })));
+const IndustryView = lazy(() => import("@/components/dashboard/IndustryView").then((module) => ({ default: module.IndustryView })));
+const CommunityView = lazy(() => import("@/components/dashboard/CommunityView").then((module) => ({ default: module.CommunityView })));
+const IntelligencePage = lazy(() => import("@/components/intelligence/IntelligencePage").then((module) => ({ default: module.IntelligencePage })));
 
 type ViewType =
   | "home"
@@ -115,9 +114,26 @@ function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: Analysis
   return patch;
 }
 
+function SectionLoader({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border/60 bg-card/70 px-6 py-10 text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function DeferredSection({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return <Suspense fallback={<SectionLoader label={label} />}>{children}</Suspense>;
+}
+
 const Index = () => {
   const { user: authUser } = useAuth();
-  const capTable = useCapTable();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   // Read post-onboarding-view on first Index mount (not module load) so /onboarding can set it first.
@@ -195,11 +211,13 @@ const Index = () => {
     };
     window.addEventListener("storage", sync);
     window.addEventListener("company-logo-changed", sync);
-    const interval = setInterval(sync, 2000);
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", sync);
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("company-logo-changed", sync);
-      clearInterval(interval);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", sync);
     };
   }, []);
 
@@ -456,17 +474,21 @@ const Index = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       {showOnboarding && !profileComplete && (
-        <OnboardingStepper
-          onComplete={handleOnboardingComplete}
-          onSkip={() => setShowOnboarding(false)}
-        />
+        <DeferredSection label="Loading onboarding…">
+          <OnboardingStepper
+            onComplete={handleOnboardingComplete}
+            onSkip={() => setShowOnboarding(false)}
+          />
+        </DeferredSection>
       )}
 
       {showTerminal && (
-        <AnalysisTerminal
-          companyName={companyData?.name}
-          onComplete={handleTerminalComplete}
-        />
+        <DeferredSection label="Loading analysis…">
+          <AnalysisTerminal
+            companyName={companyData?.name}
+            onComplete={handleTerminalComplete}
+          />
+        </DeferredSection>
       )}
 
       <AppSidebar activeView={activeView} onViewChange={setActiveView} />
@@ -507,13 +529,15 @@ const Index = () => {
               </div>
 
               <div className="mt-6 animate-fade-in">
-                <CompanyView
-                  companyData={companyData}
-                  analysisResult={analysisResult}
-                  onMetricEdit={handleMetricEdit}
-                  onNavigateProfile={() => setActiveView("company")}
-                  stageClassification={stageClassification}
-                />
+                <DeferredSection label="Loading mission control…">
+                  <CompanyView
+                    companyData={companyData}
+                    analysisResult={analysisResult}
+                    onMetricEdit={handleMetricEdit}
+                    onNavigateProfile={() => setActiveView("company")}
+                    stageClassification={stageClassification}
+                  />
+                </DeferredSection>
               </div>
             </div>
           ) : activeView === "industry" ? (
@@ -522,11 +546,13 @@ const Index = () => {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Industry</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Sector heatmaps and full market landscape</p>
               </div>
-              <IndustryView
-                sector={companyData?.sector}
-                onNavigateBenchmarks={() => setActiveView("benchmarks")}
-                onNavigateProfile={() => setActiveView("company")}
-              />
+              <DeferredSection label="Loading industry view…">
+                <IndustryView
+                  sector={companyData?.sector}
+                  onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                  onNavigateProfile={() => setActiveView("company")}
+                />
+              </DeferredSection>
             </div>
           ) : activeView === "competitive" ? (
             <div className="space-y-6">
@@ -534,103 +560,137 @@ const Index = () => {
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Competitive</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Benchmarking, scorecard, and competitive context</p>
               </div>
-              <CompetitiveView
-                companyData={companyData}
-                analysisResult={analysisResult}
-                onNavigateProfile={() => setActiveView("company")}
-              />
+              <DeferredSection label="Loading competitive view…">
+                <CompetitiveView
+                  companyData={companyData}
+                  analysisResult={analysisResult}
+                  onNavigateProfile={() => setActiveView("company")}
+                />
+              </DeferredSection>
             </div>
           ) : activeView === "benchmarks" ? (
-            <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
+            <DeferredSection label="Loading benchmarks…">
+              <CompetitiveBenchmarking metricTable={analysisResult?.metricTable} companyData={companyData} analysisResult={analysisResult} onScrollToProfile={() => setActiveView("company")} isLocked={!isProfileVerified} />
+            </DeferredSection>
           ) : activeView === "competitors" ? (
-            <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
-              if (companyData && !companyData.competitors.includes(name)) {
-                const updated = { ...companyData, competitors: [...companyData.competitors, name] };
-                setCompanyData(updated);
-                try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
-              }
-            }} onCompetitorsChanged={(names) => {
-              if (companyData) {
-                const sorted = [...names].sort();
-                const current = [...companyData.competitors].sort();
-                if (JSON.stringify(sorted) !== JSON.stringify(current)) {
-                  const updated = { ...companyData, competitors: names };
+            <DeferredSection label="Loading competitors…">
+              <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
+                if (companyData && !companyData.competitors.includes(name)) {
+                  const updated = { ...companyData, competitors: [...companyData.competitors, name] };
                   setCompanyData(updated);
                   try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
                 }
-              }
-            }} />
+              }} onCompetitorsChanged={(names) => {
+                if (companyData) {
+                  const sorted = [...names].sort();
+                  const current = [...companyData.competitors].sort();
+                  if (JSON.stringify(sorted) !== JSON.stringify(current)) {
+                    const updated = { ...companyData, competitors: names };
+                    setCompanyData(updated);
+                    try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                  }
+                }
+              }} />
+            </DeferredSection>
           ) : activeView === "investors" ? (
-            <InvestorMatch
-              companyData={companyData}
-              analysisResult={analysisResult}
-              sectorClassification={sectorClassification}
-              isLocked={!isProfileVerified}
-              externalBackers={capTable.backers}
-              externalTotalRaised={capTable.totalRaised}
-              vcReviewBootstrap={vcReviewBootstrap}
-              onVcReviewBootstrapConsumed={() => setVcReviewBootstrap(null)}
-            />
+            <DeferredSection label="Loading investor workflow…">
+              <InvestorMatch
+                companyData={companyData}
+                analysisResult={analysisResult}
+                sectorClassification={sectorClassification}
+                isLocked={!isProfileVerified}
+                vcReviewBootstrap={vcReviewBootstrap}
+                onVcReviewBootstrapConsumed={() => setVcReviewBootstrap(null)}
+              />
+            </DeferredSection>
           ) : activeView === "sector" ? (
             <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Sector</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Your sector positioning and benchmarks</p>
               </div>
-              <IndustryView
-                variant="sectorFocus"
-                sector={companyData?.sector}
-                onNavigateBenchmarks={() => setActiveView("benchmarks")}
-                onNavigateProfile={() => setActiveView("company")}
-              />
+              <DeferredSection label="Loading sector view…">
+                <IndustryView
+                  variant="sectorFocus"
+                  sector={companyData?.sector}
+                  onNavigateBenchmarks={() => setActiveView("benchmarks")}
+                  onNavigateProfile={() => setActiveView("company")}
+                />
+              </DeferredSection>
             </div>
           ) : activeView === "network" ? (
-            <CommunityView
-              companyData={companyData}
-              analysisResult={analysisResult}
-              onNavigateProfile={() => setActiveView("company")}
-              variant="directory"
-              initialScope="operators"
-            />
+            <DeferredSection label="Loading network view…">
+              <CommunityView
+                companyData={companyData}
+                analysisResult={analysisResult}
+                onNavigateProfile={() => setActiveView("company")}
+                variant="directory"
+                initialScope="operators"
+              />
+            </DeferredSection>
           ) : activeView === "directory" || activeView === "investor-search" ? (
-            <CommunityView
-              companyData={companyData}
-              analysisResult={analysisResult}
-              onNavigateProfile={() => setActiveView("company")}
-              variant={activeView === "investor-search" ? "investor-search" : "directory"}
-              investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
-              investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
-            />
+            <DeferredSection label="Loading directory…">
+              <CommunityView
+                companyData={companyData}
+                analysisResult={analysisResult}
+                onNavigateProfile={() => setActiveView("company")}
+                variant={activeView === "investor-search" ? "investor-search" : "directory"}
+                investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
+                investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
+              />
+            </DeferredSection>
           ) : activeView === "connections" ? (
             <div className="space-y-4">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">Connections</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Network intelligence, warm intros, and founder experiences</p>
               </div>
-              <ConnectionsPage />
+              <DeferredSection label="Loading connections…">
+                <ConnectionsPage />
+              </DeferredSection>
             </div>
           ) : activeView === "groups" ? (
-            <GroupsView />
+            <DeferredSection label="Loading groups…">
+              <GroupsView />
+            </DeferredSection>
           ) : activeView === "events" ? (
-            <EventsView />
+            <DeferredSection label="Loading events…">
+              <EventsView />
+            </DeferredSection>
           ) : activeView === "audit" || activeView === "data-room" ? (
-            <DeckAuditView />
+            <DeferredSection label="Loading deck tools…">
+              <DeckAuditView />
+            </DeferredSection>
           ) : activeView === "resources" ? (
-            <HelpCenter />
+            <DeferredSection label="Loading help center…">
+              <HelpCenter />
+            </DeferredSection>
           ) : activeView === "workspace" ? (
             <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
           ) : activeView === "settings" ? (
-            <SettingsPage />
+            <DeferredSection label="Loading settings…">
+              <SettingsPage />
+            </DeferredSection>
           ) : activeView === "market-intelligence" ? (
-            <IntelligencePage variant="all" />
+            <DeferredSection label="Loading intelligence…">
+              <IntelligencePage variant="all" />
+            </DeferredSection>
           ) : activeView === "market-investors" ? (
-            <IntelligencePage variant="investors" />
+            <DeferredSection label="Loading investor intelligence…">
+              <IntelligencePage variant="investors" />
+            </DeferredSection>
           ) : activeView === "market-market" ? (
-            <IntelligencePage variant="market" />
+            <DeferredSection label="Loading market intelligence…">
+              <IntelligencePage variant="market" />
+            </DeferredSection>
           ) : activeView === "market-tech" ? (
-            <IntelligencePage variant="tech" />
+            <DeferredSection label="Loading tech intelligence…">
+              <IntelligencePage variant="tech" />
+            </DeferredSection>
           ) : activeView === "market-network" ? (
-            <IntelligencePage variant="network" />
+            <DeferredSection label="Loading network intelligence…">
+              <IntelligencePage variant="network" />
+            </DeferredSection>
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Coming soon</div>
           )}

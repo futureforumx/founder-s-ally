@@ -58,13 +58,21 @@ const sharedAuthOptions = {
 } as const;
 
 /**
- * Clerk session JWT is not verifiable by PostgREST unless you add Clerk’s `supabase` JWT template.
- * VC directory reads use this client instead: publishable key only → `anon` role + RLS policies on `vc_*`.
+ * Used for VC directory reads. Passes the Clerk JWT when available (→ `authenticated` role),
+ * falling back to `anon` when unauthenticated. Both roles have SELECT policies on `vc_*` tables.
  */
 export const supabaseVcDirectory = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       global: {
         fetch: (...args) => fetch(...args),
+      },
+      accessToken: async () => {
+        try {
+          return await accessTokenGetter();
+        } catch (e) {
+          console.warn("[SupabaseVcDirectory] accessToken failed", e);
+          return null;
+        }
       },
       ...sharedAuthOptions,
     })

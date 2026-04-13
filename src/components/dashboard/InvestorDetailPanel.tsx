@@ -108,8 +108,8 @@ function investorPartnerToVCPerson(
     first_name: p.first_name ?? parts[0] ?? null,
     last_name: p.last_name ?? (parts.length > 1 ? parts.slice(1).join(" ") : null),
     is_active: p.is_active,
-    avatar_url: p.avatar_url ?? null,
-    profile_image_url: p.avatar_url ?? null,
+    profile_image_url: p.profile_image_url ?? p.avatar_url ?? null,
+    avatar_url: p.avatar_url ?? p.profile_image_url ?? null,
     email: p.email ?? null,
     linkedin_url: p.linkedin_url ?? null,
     x_url: p.x_url ?? null,
@@ -404,7 +404,6 @@ export function InvestorDetailPanel({
     explicitVcDirId ??
     databaseFirmId ??
     vcFirm?.id ??
-    (liveProfile?.source === "json-fallback" ? liveProfile?.id ?? null : null) ??
     null;
   const reviewVcPersonId =
     typeof reviewPersonIdHint === "string" && reviewPersonIdHint.trim()

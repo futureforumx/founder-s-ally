@@ -20,7 +20,7 @@ Sentry.init({
   enabled: sentryCaptureEvents,
   sendDefaultPii: true,
   integrations: [Sentry.browserTracingIntegration()],
-  tracesSampleRate: 1.0,
+  tracesSampleRate: import.meta.env.PROD ? 0.05 : 0,
 });
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
@@ -28,7 +28,7 @@ const { key: clerkKey, source: clerkKeySource } = readClerkPublishableKeyWithSou
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
 
 // #region agent log
-{
+if (import.meta.env.DEV) {
   const pk = clerkKey;
   const keyKind = !pk ? "empty" : pk.startsWith("pk_live_") ? "live" : pk.startsWith("pk_test_") ? "test" : "other";
   fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {

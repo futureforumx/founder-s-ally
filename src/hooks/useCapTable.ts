@@ -34,13 +34,16 @@ function rowToBacker(row: CapTableRow): CapBacker {
   };
 }
 
-export function useCapTable() {
+export function useCapTable(enabled = true) {
   const { user } = useAuth();
   const [backers, setBackers] = useState<CapBacker[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchBackers = useCallback(async () => {
-    if (!user) return;
+    if (!enabled || !user) {
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase.from("cap_table").select("*").eq("user_id", user.id);
       if (error) {
@@ -55,14 +58,14 @@ export function useCapTable() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [enabled, user]);
 
   // Initial fetch
   useEffect(() => { fetchBackers(); }, [fetchBackers]);
 
   // Realtime subscription for two-way sync
   useEffect(() => {
-    if (!user) return;
+    if (!enabled || !user) return;
     try {
       const channel = supabase
         .channel("cap-table-sync")
@@ -83,7 +86,7 @@ export function useCapTable() {
       console.warn("Error setting up realtime subscription:", err);
       return;
     }
-  }, [user, fetchBackers]);
+  }, [enabled, user, fetchBackers]);
 
   const addInvestor = useCallback(async (name: string, opts?: { entityType?: string; instrument?: string; amount?: number; date?: string }) => {
     if (!user) { toast.error("Please sign in."); return null; }
