@@ -322,8 +322,6 @@ type DirectoryClient = {
 };
 
 // ── Singleton Cache ──
-// NOTE: Cache is intentionally NOT pre-populated with mock/JSON data.
-// If the live DB returns 0 results, callers receive an empty list — not fake investors.
 let cachedData: VCData | null = null;
 let loadingPromise: Promise<VCData> | null = null;
 
@@ -455,42 +453,65 @@ function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
   };
 }
 
+async function loadStaticVCData(): Promise<VCData> {
+  const res = await fetch("/data/vc_mdm_output.json");
+  if (!res.ok) throw new Error(`VC data HTTP ${res.status}`);
+  const d = (await res.json()) as VCData;
+  const firms = (d.firms || [])
+    .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
+    .map((firm) => ({
+      ...firm,
+      x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
+      website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
+    }));
+  return { firms, people: d.people || [] };
+}
+
 async function loadVCData(): Promise<VCData> {
   if (cachedData) return cachedData;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const directory = supabaseVcDirectory as unknown as DirectoryClient;
-    const [firmRes, peopleRes] = await Promise.all([
-      directory.from("vc_firms").select("*").is("deleted_at", null),
-      directory.from("vc_people").select("*").is("deleted_at", null),
-    ]);
+    try {
+      const [firmRes, peopleRes] = await Promise.all([
+        directory.from("vc_firms").select("*").is("deleted_at", null),
+        directory.from("vc_people").select("*").is("deleted_at", null),
+      ]);
 
-    if (firmRes.error) {
-      console.error("[useVCDirectory] vc_firms query failed:", firmRes.error.message);
+      if (firmRes.error) throw new Error(firmRes.error.message);
+      if (peopleRes.error) {
+        console.error("[useVCDirectory] vc_people query failed:", peopleRes.error.message);
+      }
+
+      const firms = (firmRes.data || [])
+        .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCFirm => Boolean(row));
+
+      const people = ((peopleRes.error ? [] : peopleRes.data) || [])
+        .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCPerson => Boolean(row));
+
+      // 0 firms means auth/RLS wasn't ready yet — don't cache, let the retry loop handle it
+      if (firms.length === 0) {
+        console.warn("[useVCDirectory] vc_firms returned 0 rows — will retry");
+        loadingPromise = null;
+        return { firms: [], people: [] };
+      }
+
+      cachedData = { firms, people };
+      return cachedData;
+    } catch (err) {
+      console.warn("[useVCDirectory] Supabase failed, falling back to static JSON:", err);
       loadingPromise = null;
-      return { firms: [], people: [] };
+      try {
+        const fallback = await loadStaticVCData();
+        cachedData = fallback;
+        return fallback;
+      } catch (fallbackErr) {
+        console.error("[useVCDirectory] Static JSON fallback also failed:", fallbackErr);
+        return { firms: [], people: [] };
+      }
     }
-    if (peopleRes.error) {
-      console.error("[useVCDirectory] vc_people query failed:", peopleRes.error.message);
-    }
-
-    const firms = (firmRes.data || [])
-      .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
-      .filter((row): row is VCFirm => Boolean(row));
-
-    const people = ((peopleRes.error ? [] : peopleRes.data) || [])
-      .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
-      .filter((row): row is VCPerson => Boolean(row));
-
-    // Don't cache an empty result — auth/RLS may not have been ready; caller will retry
-    if (firms.length === 0) {
-      console.warn("[useVCDirectory] vc_firms returned 0 rows — caller will retry with backoff");
-      loadingPromise = null;
-      return { firms: [], people: [] };
-    }
-
-    cachedData = { firms, people };
-    return cachedData;
   })();
   return loadingPromise;
 }
@@ -522,24 +543,33 @@ export function useVCDirectory() {
     function attempt() {
       loadVCData().then((d) => {
         if (cancelled) return;
-        // If we got 0 firms it likely means auth/RLS wasn't ready — retry with backoff
+        // 0 firms = auth/RLS not ready yet — retry with backoff, then fall back to JSON
         if (d.firms.length === 0 && retries < MAX_RETRIES) {
           retries++;
           setTimeout(() => { if (!cancelled) attempt(); }, 600 * retries);
+        } else if (d.firms.length === 0) {
+          // Exhausted retries — load static JSON directly
+          loadStaticVCData().then((fallback) => {
+            if (cancelled) return;
+            setData(fallback);
+            setLoading(false);
+            setError(null);
+          }).catch(() => {
+            if (cancelled) return;
+            setData({ firms: [], people: [] });
+            setLoading(false);
+            setError("Investor directory unavailable.");
+          });
         } else {
           setData(d);
           setLoading(false);
-          setError(
-            d.firms.length === 0
-              ? "Live VC directory is unavailable right now."
-              : null,
-          );
+          setError(null);
         }
       }).catch(() => {
         if (!cancelled) {
           setData({ firms: [], people: [] });
           setLoading(false);
-          setError("Live VC directory is unavailable right now.");
+          setError("Investor directory unavailable.");
         }
       });
     }
