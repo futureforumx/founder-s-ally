@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, startTransition, useEffect } from "react";
+import { useMemo, useCallback, startTransition, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
@@ -16,6 +16,17 @@ import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm, VCPersonInvestment } from "@/hooks/useVCDirectory";
+import { sanitizeText } from "@/lib/sanitizeText";
+
+type WebsiteDerivedPersonProfile = {
+  headshotUrl: string | null;
+  email: string | null;
+  linkedinUrl: string | null;
+  xUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  websiteUrl: string | null;
+};
 
 interface PersonProfileModalProps {
   person: VCPerson | null;
@@ -112,9 +123,9 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session } = useAuth();
-  const [emailRevealed, setEmailRevealed] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  const [websiteProfile, setWebsiteProfile] = useState<WebsiteDerivedPersonProfile | null>(null);
   const handleClose = useCallback(() => {
     window.requestAnimationFrame(() => {
       startTransition(() => {
@@ -130,6 +141,73 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.affiliations?.[0]?.firm_name?.trim() ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+
+  useEffect(() => {
+    setWebsiteProfile(null);
+  }, [person?.id, firm?.id]);
+
+  useEffect(() => {
+    const firmWebsiteUrl = firm?.website_url?.trim() || null;
+    const fullName = person?.full_name?.trim() || null;
+    const title = person?.title?.trim() || person?.role?.trim() || null;
+    const needsWebsiteEnrichment = Boolean(
+      person &&
+      firmWebsiteUrl &&
+      (
+        !person.profile_image_url?.trim() ||
+        !person.avatar_url?.trim() ||
+        !person.email?.trim() ||
+        !person.linkedin_url?.trim() ||
+        !person.x_url?.trim() ||
+        !person.bio?.trim() ||
+        !person.background_summary?.trim() ||
+        !(person.raw_location?.trim() || person.city?.trim() || person.state?.trim() || person.country?.trim())
+      ),
+    );
+
+    if (!needsWebsiteEnrichment || !firmWebsiteUrl || !fullName) {
+      setWebsiteProfile(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchWebsiteProfile() {
+      try {
+        const res = await fetch("/api/person-website-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firmWebsiteUrl, fullName, title }),
+        });
+        if (!res.ok) throw new Error(`Profile lookup failed (${res.status})`);
+        const data = (await res.json()) as WebsiteDerivedPersonProfile;
+        if (!cancelled) setWebsiteProfile(data);
+      } catch {
+        if (!cancelled) setWebsiteProfile(null);
+      }
+    }
+
+    fetchWebsiteProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    firm?.website_url,
+    person,
+    person?.avatar_url,
+    person?.background_summary,
+    person?.bio,
+    person?.city,
+    person?.country,
+    person?.email,
+    person?.full_name,
+    person?.linkedin_url,
+    person?.profile_image_url,
+    person?.raw_location,
+    person?.role,
+    person?.state,
+    person?.title,
+    person?.x_url,
+  ]);
 
   const { starRatings: myPersonRatingJson } = useLatestMyVcRating(
     session?.user?.id,
@@ -160,13 +238,24 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     const raw = person.raw_location?.trim();
     if (raw) return raw;
     const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(p?.trim()));
-    return parts.length ? parts.join(", ") : null;
-  }, [person]);
+    if (parts.length) return parts.join(", ");
+    return websiteProfile?.location?.trim() || null;
+  }, [person, websiteProfile?.location]);
 
   const backgroundText = useMemo(() => {
     if (!person) return null;
-    return person.background_summary?.trim() || person.bio?.trim() || null;
-  }, [person]);
+    return (
+      sanitizeText(person.background_summary) ||
+      sanitizeText(websiteProfile?.bio) ||
+      sanitizeText(person.bio) ||
+      null
+    );
+  }, [person, websiteProfile?.bio]);
+
+  const resolvedEmail = useMemo(
+    () => person?.email?.trim() || websiteProfile?.email?.trim() || null,
+    [person?.email, websiteProfile?.email],
+  );
 
   const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
 
@@ -194,7 +283,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const socialLinks = useMemo(() => {
     if (!person) return [];
     const items: { key: string; href: string; icon: LucideIcon; label: string; hoverClass: string }[] = [];
-    const linkedin = personSocialHref(person.linkedin_url);
+    const linkedin = personSocialHref(person.linkedin_url || websiteProfile?.linkedinUrl);
     if (linkedin) {
       items.push({
         key: "linkedin",
@@ -204,7 +293,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]",
       });
     }
-    const x = personSocialHref(person.x_url);
+    const x = personSocialHref(person.x_url || websiteProfile?.xUrl);
     if (x) {
       items.push({
         key: "x",
@@ -217,6 +306,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     const websiteRaw =
       person.website_url?.trim() ||
       (person as VCPerson & { personal_website_url?: string | null }).personal_website_url?.trim() ||
+      websiteProfile?.websiteUrl?.trim() ||
       null;
     const website = personSocialHref(websiteRaw);
     if (website) {
@@ -229,7 +319,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     return items;
-  }, [person]);
+  }, [person, websiteProfile?.linkedinUrl, websiteProfile?.websiteUrl, websiteProfile?.xUrl]);
 
   return (
     <AnimatePresence>
@@ -277,16 +367,16 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
                   <InvestorPersonAvatar
                     imageUrls={investorPersonImageCandidates({
-                      profile_image_url: person.profile_image_url,
-                      avatar_url: person.avatar_url,
+                      profile_image_url: websiteProfile?.headshotUrl || person.profile_image_url,
+                      avatar_url: websiteProfile?.headshotUrl || person.avatar_url,
                       firmWebsiteUrl: firm?.website_url ?? null,
                       title: person.title,
                       role: person.role,
                       investorType: person.investor_type,
-                      email: person.email,
-                      website_url: person.website_url,
-                      linkedin_url: person.linkedin_url,
-                      x_url: person.x_url,
+                      email: person.email || websiteProfile?.email,
+                      website_url: person.website_url || websiteProfile?.websiteUrl,
+                      linkedin_url: person.linkedin_url || websiteProfile?.linkedinUrl,
+                      x_url: person.x_url || websiteProfile?.xUrl,
                       personal_website_url: person.personal_website_url,
                       full_name: person.full_name,
                     })}
@@ -345,29 +435,20 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   >
                     <Star className="h-4 w-4 shrink-0" /> {myPersonRateDisplay?.label ?? "Rate"}
                   </button>
-                  {person.email ? (
-                    emailRevealed ? (
-                      <a
-                        href={`mailto:${person.email}`}
-                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
-                      >
-                        <Mail className="w-4 h-4" /> {person.email}
-                      </a>
-                    ) : (
-                      <button
-                        onClick={() => setEmailRevealed(true)}
-                        className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
-                      >
-                        <Mail className="w-4 h-4" /> Get Email
-                      </button>
-                    )
+                  {resolvedEmail ? (
+                    <a
+                      href={`mailto:${resolvedEmail}`}
+                      className="inline-flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                    >
+                      <Mail className="w-4 h-4" /> {resolvedEmail}
+                    </a>
                   ) : (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button className="inline-flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-xl text-sm font-semibold cursor-not-allowed opacity-60">
+                          <div className="inline-flex items-center gap-2 bg-muted text-muted-foreground px-4 py-2 rounded-xl text-sm font-semibold opacity-60">
                             <Mail className="w-4 h-4" /> Email Unavailable
-                          </button>
+                          </div>
                         </TooltipTrigger>
                         <TooltipContent>No email on file for this investor.</TooltipContent>
                       </Tooltip>

@@ -1,19 +1,14 @@
 /**
  * Render-time text sanitizer for user-facing fields (bio, description, summary).
  *
- * Defence-in-depth: database is cleaned periodically, but new enrichment
- * passes or imports may introduce HTML/SVG scraping artefacts. This utility
- * strips them before display so the UI never renders raw markup.
- *
- * Rules:
- *   1. Strip all HTML/XML/SVG tags
- *   2. Decode common HTML entities
- *   3. Collapse runs of whitespace into single spaces
- *   4. Trim leading/trailing whitespace
- *   5. Return null for empty or too-short results (< 15 chars)
+ * Strips HTML tags (including malformed/unclosed ones), decodes entities,
+ * collapses whitespace, and rejects results that are too short to be useful.
  */
 
-const TAG_RE = /<[^>]+>/g;
+// Handles: normal tags, quoted attrs with > inside, unclosed tags at end of string
+const TAG_RE = /<(?:"[^"]*"|'[^']*'|[^>"'])*>?/g;
+// Remove anything that still looks like a leftover tag fragment after the above
+const LEFTOVER_TAG_RE = /<[^<>]{0,200}$/g;
 const WHITESPACE_RE = /\s+/g;
 
 const ENTITIES: Record<string, string> = {
@@ -31,7 +26,8 @@ export function sanitizeText(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
   let clean = raw
-    .replace(TAG_RE, " ")
+    .replace(TAG_RE, " ")            // strip well-formed + quoted-attr tags
+    .replace(LEFTOVER_TAG_RE, " ")   // strip unclosed tag fragments at end
     .replace(ENTITY_RE, (m) => ENTITIES[m] ?? m)
     .replace(WHITESPACE_RE, " ")
     .trim();

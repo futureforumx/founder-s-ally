@@ -484,6 +484,10 @@ async function loadVCData(): Promise<VCData> {
         .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCFirm => Boolean(row));
 
+      // If Supabase returned 0 firms (e.g. RLS blocking anon reads, empty table),
+      // treat it the same as an error and fall back to the static JSON.
+      if (firms.length === 0) throw new Error("vc_firms query returned 0 rows");
+
       const people = (peopleRes.data || [])
         .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCPerson => Boolean(row));
@@ -524,7 +528,14 @@ export function useVCDirectory() {
   const peopleByFirm = useMemo(() => {
     if (!data) return new Map<string, VCPerson[]>();
     const m = new Map<string, VCPerson[]>();
+    const now = new Date();
     for (const p of data.people) {
+      // Skip explicitly-inactive people
+      if (p.is_active === false) continue;
+      // Skip people whose affiliation with this firm has ended
+      if (p.affiliation_end_date && new Date(p.affiliation_end_date) < now) continue;
+      // Skip entries with no meaningful name
+      if (!p.full_name?.trim()) continue;
       const arr = m.get(p.firm_id) || [];
       arr.push(p);
       m.set(p.firm_id, arr);

@@ -48,6 +48,20 @@ interface CompanyContext {
   description?: string;
 }
 
+type WebsiteTeamPerson = {
+  id: string;
+  full_name: string;
+  title: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  profile_image_url: string | null;
+  bio: string | null;
+  location: string | null;
+  source_page_url: string;
+};
+
 interface InvestorDetailPanelProps {
   investor: InvestorEntry | null;
   companyName?: string;
@@ -132,6 +146,67 @@ function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
   } as VCPerson;
 }
 
+function websiteTeamPersonToVCPerson(
+  p: WebsiteTeamPerson,
+  firmId: string,
+  firmName?: string | null,
+  firmWebsiteUrl?: string | null,
+  firmLogoUrl?: string | null,
+): VCPerson {
+  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  return {
+    id: p.id,
+    full_name: p.full_name,
+    title: p.title,
+    firm_id: firmId,
+    primary_firm_name: firmName ?? null,
+    first_name: parts[0] ?? null,
+    last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
+    is_active: true,
+    profile_image_url: p.profile_image_url ?? null,
+    avatar_url: p.profile_image_url ?? null,
+    email: p.email ?? null,
+    linkedin_url: p.linkedin_url ?? null,
+    x_url: p.x_url ?? null,
+    website_url: p.website_url ?? p.source_page_url ?? null,
+    _firm_website_url: firmWebsiteUrl ?? null,
+    _firm_logo_url: firmLogoUrl ?? null,
+    bio: p.bio ?? null,
+    city: p.location ?? null,
+  } as VCPerson;
+}
+
+function mergePartnerPerson(primary: VCPerson, secondary: VCPerson): VCPerson {
+  return {
+    ...secondary,
+    ...primary,
+    id: primary.id || secondary.id,
+    firm_id: primary.firm_id || secondary.firm_id,
+    full_name: primary.full_name || secondary.full_name,
+    first_name: primary.first_name ?? secondary.first_name ?? null,
+    last_name: primary.last_name ?? secondary.last_name ?? null,
+    title: primary.title ?? secondary.title ?? null,
+    role: primary.role ?? secondary.role ?? null,
+    profile_image_url: primary.profile_image_url ?? secondary.profile_image_url ?? null,
+    avatar_url: primary.avatar_url ?? secondary.avatar_url ?? null,
+    email: primary.email ?? secondary.email ?? null,
+    linkedin_url: primary.linkedin_url ?? secondary.linkedin_url ?? null,
+    x_url: primary.x_url ?? secondary.x_url ?? null,
+    website_url: primary.website_url ?? secondary.website_url ?? null,
+    bio: primary.bio ?? secondary.bio ?? null,
+    city: primary.city ?? secondary.city ?? null,
+    state: primary.state ?? secondary.state ?? null,
+    country: primary.country ?? secondary.country ?? null,
+    primary_firm_name: primary.primary_firm_name ?? secondary.primary_firm_name ?? null,
+    _firm_website_url: (primary as VCPerson & { _firm_website_url?: string | null })._firm_website_url
+      ?? (secondary as VCPerson & { _firm_website_url?: string | null })._firm_website_url
+      ?? null,
+    _firm_logo_url: (primary as VCPerson & { _firm_logo_url?: string | null })._firm_logo_url
+      ?? (secondary as VCPerson & { _firm_logo_url?: string | null })._firm_logo_url
+      ?? null,
+  } as VCPerson;
+}
+
 export function InvestorDetailPanel({
   investor,
   companyName,
@@ -170,6 +245,7 @@ export function InvestorDetailPanel({
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
+  const [websitePartners, setWebsitePartners] = useState<WebsiteTeamPerson[]>([]);
   const { data: userCredits } = useUserCredits();
   const isAdmin = userCredits?.tier === "admin";
 
@@ -208,6 +284,18 @@ export function InvestorDetailPanel({
       websiteUrl: vcFirm.website_url ?? null,
     };
   }, [investor, vcFirm]);
+  const firmWebsiteUrl = firstNonEmpty(
+    liveProfile?.website_url,
+    effectiveInvestor?.websiteUrl,
+    vcFirm?.website_url,
+  );
+  const heroName = liveProfile?.firm_name ?? effectiveInvestor?.name ?? "";
+  /** Live row may lag or have empty string; keep search/grid logo from entry or VC directory. */
+  const heroLogo = firstNonEmpty(
+    liveProfile?.logo_url,
+    effectiveInvestor?.logo_url,
+    vcFirm?.logo_url,
+  );
 
   useEffect(() => {
     if (!openReviewModalOnMount || !effectiveInvestor) return;
@@ -216,6 +304,38 @@ export function InvestorDetailPanel({
     setReviewOpen(true);
     onReviewBootstrapConsumed?.();
   }, [openReviewModalOnMount, effectiveInvestor, onReviewBootstrapConsumed]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!firmWebsiteUrl) {
+      setWebsitePartners([]);
+      return;
+    }
+
+    fetch("/api/firm-website-team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ websiteUrl: firmWebsiteUrl }),
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { people?: WebsiteTeamPerson[]; error?: string };
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return Array.isArray(data.people) ? data.people : [];
+      })
+      .then((people) => {
+        if (!cancelled) setWebsitePartners(people);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn("[InvestorDetailPanel] firm website team lookup failed:", error);
+          setWebsitePartners([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firmWebsiteUrl]);
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
@@ -306,38 +426,86 @@ export function InvestorDetailPanel({
     const firmKey = databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? "";
     const byName = new Map<string, VCPerson>();
 
+    // 1. DB people load first as the authoritative base
     for (const p of liveProfile?.partners ?? []) {
-      byName.set(
-        p.full_name.toLowerCase().trim(),
-        investorPartnerToVCPerson(
-          p,
-          firmKey || p.id,
-          liveProfile?.firm_name,
-          liveProfile?.website_url,
-          liveProfile?.logo_url,
-        )
+      const key = p.full_name.toLowerCase().trim();
+      const incoming = investorPartnerToVCPerson(
+        p,
+        firmKey || p.id,
+        liveProfile?.firm_name,
+        liveProfile?.website_url,
+        liveProfile?.logo_url,
       );
+      byName.set(key, byName.has(key) ? mergePartnerPerson(byName.get(key)!, incoming) : incoming);
     }
     for (const p of vcPartners) {
       const k = p.full_name.toLowerCase().trim();
-      if (!byName.has(k)) byName.set(k, p);
+      byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, p) : p);
     }
+
+    // 2. Static partner fallback if still empty
     if (byName.size === 0 && effectiveInvestor?.name) {
       for (const p of getPartnersForFirm(effectiveInvestor.name)) {
         const k = p.full_name.toLowerCase().trim();
-        if (!byName.has(k)) byName.set(k, partnerPersonToVCPerson(p, firmKey || vcFirm?.id || p.id));
+        const incoming = partnerPersonToVCPerson(p, firmKey || vcFirm?.id || p.id);
+        byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, incoming) : incoming);
       }
     }
-    return Array.from(byName.values());
+
+    // 3. Website people ENRICH existing records or ADD new ones — never filter
+    for (const p of websitePartners) {
+      const normalized = websiteTeamPersonToVCPerson(
+        p,
+        firmKey || p.id,
+        liveProfile?.firm_name ?? effectiveInvestor?.name ?? vcFirm?.name ?? null,
+        firmWebsiteUrl,
+        heroLogo,
+      );
+      const key = normalized.full_name.toLowerCase().trim();
+      if (byName.has(key)) {
+        // DB person wins for most fields; website fills in missing ones (e.g. profile_image_url)
+        byName.set(key, mergePartnerPerson(byName.get(key)!, normalized));
+      } else {
+        byName.set(key, normalized);
+      }
+    }
+
+    const SENIORITY_ORDER: Record<string, number> = {
+      managing_partner: 0, c_suite: 0, general_partner: 1, partner: 2,
+      venture_partner: 3, principal: 4, associate: 5, analyst: 6, scout: 7, other: 8,
+    };
+    function seniorityRank(p: VCPerson): number {
+      const s = (p.seniority ?? p.investor_type ?? "").toLowerCase().replace(/\s+/g, "_");
+      return SENIORITY_ORDER[s] ?? 9;
+    }
+    const ORG_NAME_RE = /\b(capital|ventures?|fund|funds|management|investments|holdings|advisors|advisory|partnership|associates?|technologies|labs|innovation|foundation|trust)\b/i;
+    function looksLikeOrgName(name: string): boolean {
+      if (ORG_NAME_RE.test(name)) return true;
+      const words = name.trim().split(/\s+/);
+      // Single-word entries are probably not people
+      if (words.length < 2) return true;
+      // More than 5 words is probably a sentence fragment, not a name
+      if (words.length > 5) return true;
+      return false;
+    }
+    return Array.from(byName.values())
+      .filter((p) => p.is_active !== false && !looksLikeOrgName(p.full_name))
+      .sort((a, b) => seniorityRank(a) - seniorityRank(b) || a.full_name.localeCompare(b.full_name));
   }, [
+    websitePartners,
     liveProfile?.partners,
+    liveProfile?.firm_name,
+    liveProfile?.website_url,
+    liveProfile?.logo_url,
     liveProfile?.id,
     vcPartners,
     databaseFirmId,
     explicitVcDirId,
     vcFirm?.id,
+    vcFirm?.name,
     effectiveInvestor?.name,
-    resolvedFirmId,
+    firmWebsiteUrl,
+    heroLogo,
   ]);
 
   const partnerNamesLower = useMemo(
@@ -421,13 +589,6 @@ export function InvestorDetailPanel({
   }, [effectiveInvestor, enrichedData]);
 
   // Prefer live profile data, fallback to vcFirm/effectiveInvestor
-  const heroName = liveProfile?.firm_name ?? effectiveInvestor?.name ?? "";
-  /** Live row may lag or have empty string; keep search/grid logo from entry or VC directory. */
-  const heroLogo = firstNonEmpty(
-    liveProfile?.logo_url,
-    effectiveInvestor?.logo_url,
-    vcFirm?.logo_url,
-  );
   const heroInitial = heroName.charAt(0).toUpperCase() || "?";
   const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
   const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;

@@ -602,29 +602,39 @@ async function loginToCBI(page: Page): Promise<void> {
 }
 
 /**
- * Scrape the Investments tab on a CB Insights firm profile.
+ * Scrape the Investments/Portfolio tab on a CB Insights firm profile.
+ * Handles both /profiles/c/ (company) and /profiles/i/ (investor) URL types.
  * Returns both recent and notable/historical investments.
  */
 async function scrapeCBIInvestmentsTab(page: Page, profileUrl: string, firmName: string): Promise<PortfolioCompany[]> {
   const results: PortfolioCompany[] = [];
 
   try {
-    // Navigate to the profile's Investments tab
-    // CBI uses ?tab=investments or a dedicated /investments path
+    // Determine base URL and preferred tab parameter
+    // /profiles/i/ = investor profile → try "portfolio" tab
+    // /profiles/c/ = company profile  → try "investments" tab
     const baseUrl = profileUrl.split("?")[0];
-    const investUrl = `${baseUrl}?tab=investments`;
+    const isInvestorProfile = baseUrl.includes("/profiles/i/");
+    const primaryTabParam   = isInvestorProfile ? "portfolio" : "investments";
+    const investUrl = `${baseUrl}?tab=${primaryTabParam}`;
 
     await page.goto(investUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await sleep(3000);
 
-    // Click the Investments tab if it exists as a nav item
-    try {
-      const investTab = page.locator('[role="tab"]:has-text("Investments"), a:has-text("Investments"), button:has-text("Investments")');
-      if (await investTab.first().isVisible({ timeout: 3000 })) {
-        await investTab.first().click();
-        await sleep(2000);
-      }
-    } catch { /* tab may already be active */ }
+    // Click the matching tab if it exists as a nav item (try multiple labels)
+    const tabLabels = isInvestorProfile
+      ? ["Portfolio", "Investments", "portfolio", "investments"]
+      : ["Investments", "Portfolio", "investments", "portfolio"];
+    for (const label of tabLabels) {
+      try {
+        const tab = page.locator(`[role="tab"]:has-text("${label}"), a:has-text("${label}"), button:has-text("${label}")`);
+        if (await tab.first().isVisible({ timeout: 2000 })) {
+          await tab.first().click();
+          await sleep(2000);
+          break;
+        }
+      } catch { /* try next */ }
+    }
 
     // Scroll down to load more investments (lazy loading)
     for (let scroll = 0; scroll < 5; scroll++) {

@@ -13,11 +13,12 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function setCors(res: VercelResponse): VercelResponse {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "authorization, content-type");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  return res;
+}
 
 // Clerk JWKS — verify against the instance's actual JWKS so no secret key is needed.
 // Falls back to the generic Clerk API JWKS which works for most deployments.
@@ -57,11 +58,11 @@ const ALLOWED_KEYS = [
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS pre-flight
   if (req.method === "OPTIONS") {
-    return res.status(200).setHeaders(CORS_HEADERS).end();
+    return setCors(res).status(200).end();
   }
 
   if (req.method !== "POST") {
-    return res.status(405).setHeaders(CORS_HEADERS).json({ error: "Method not allowed" });
+    return setCors(res).status(405).json({ error: "Method not allowed" });
   }
 
   // Parse body first so _uid fallback is available
@@ -69,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     body = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
   } catch {
-    return res.status(400).setHeaders(CORS_HEADERS).json({ error: "Invalid JSON body" });
+    return setCors(res).status(400).json({ error: "Invalid JSON body" });
   }
 
   // Verify Clerk JWT; fall back to _uid body hint (validated to Clerk ID format)
@@ -108,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!userId) {
-    return res.status(401).setHeaders(CORS_HEADERS).json({ error: "Missing bearer token or valid user ID" });
+    return setCors(res).status(401).json({ error: "Missing bearer token or valid user ID" });
   }
 
   // Build safe patch from whitelisted keys
@@ -123,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceKey) {
-    return res.status(500).setHeaders(CORS_HEADERS).json({
+    return setCors(res).status(500).json({
       error: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured in environment",
     });
   }
@@ -142,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (existing) {
     const { error } = await admin.from("profiles").update(patch).eq("user_id", userId);
     if (error) {
-      return res.status(500).setHeaders(CORS_HEADERS).json({ error: error.message });
+      return setCors(res).status(500).json({ error: error.message });
     }
   } else {
     const { error } = await admin.from("profiles").insert({
@@ -153,9 +154,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...patch,
     });
     if (error) {
-      return res.status(500).setHeaders(CORS_HEADERS).json({ error: error.message });
+      return setCors(res).status(500).json({ error: error.message });
     }
   }
 
-  return res.status(200).setHeaders(CORS_HEADERS).json({ ok: true });
+  return setCors(res).status(200).json({ ok: true });
 }
