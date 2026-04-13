@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabaseVcDirectory } from "@/integrations/supabase/client";
 
 // ── JSON Schema Types ──
@@ -321,6 +322,8 @@ type DirectoryClient = {
 };
 
 // ── Singleton Cache ──
+// NOTE: Cache is intentionally NOT pre-populated with mock/JSON data.
+// If the live DB returns 0 results, callers receive an empty list — not fake investors.
 let cachedData: VCData | null = null;
 let loadingPromise: Promise<VCData> | null = null;
 
@@ -452,71 +455,89 @@ function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
   };
 }
 
-async function loadStaticVCData(): Promise<VCData> {
-  const res = await fetch("/data/vc_mdm_output.json");
-  if (!res.ok) throw new Error(`VC data HTTP ${res.status}`);
-  const d = (await res.json()) as VCData;
-  const firms = (d.firms || [])
-    .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
-    .map((firm) => ({
-      ...firm,
-      x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
-      website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
-    }));
-  return { firms, people: d.people || [] };
-}
-
 async function loadVCData(): Promise<VCData> {
   if (cachedData) return cachedData;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
     const directory = supabaseVcDirectory as unknown as DirectoryClient;
-    try {
-      const [firmRes, peopleRes] = await Promise.all([
-        directory.from("vc_firms").select("*").is("deleted_at", null),
-        directory.from("vc_people").select("*").is("deleted_at", null),
-      ]);
+    const [firmRes, peopleRes] = await Promise.all([
+      directory.from("vc_firms").select("*").is("deleted_at", null),
+      directory.from("vc_people").select("*").is("deleted_at", null),
+    ]);
 
-      if (firmRes.error) throw new Error(firmRes.error.message);
-      if (peopleRes.error) throw new Error(peopleRes.error.message);
-
-      const firms = (firmRes.data || [])
-        .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
-        .filter((row): row is VCFirm => Boolean(row));
-
-      // If Supabase returned 0 firms (e.g. RLS blocking anon reads, empty table),
-      // treat it the same as an error and fall back to the static JSON.
-      if (firms.length === 0) throw new Error("vc_firms query returned 0 rows");
-
-      const people = (peopleRes.data || [])
-        .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
-        .filter((row): row is VCPerson => Boolean(row));
-
-      cachedData = { firms, people };
-      return cachedData;
-    } catch (err) {
-      console.error("[useVCDirectory] Failed live vc_* load, falling back to static JSON:", err);
-      try {
-        const fallback = await loadStaticVCData();
-        cachedData = fallback;
-        return fallback;
-      } catch (fallbackErr) {
-        console.error("[useVCDirectory] Failed static fallback load:", fallbackErr);
-        return { firms: [], people: [] };
-      }
+    if (firmRes.error) {
+      console.error("[useVCDirectory] vc_firms query failed:", firmRes.error.message);
+      loadingPromise = null;
+      return { firms: [], people: [] };
     }
+    if (peopleRes.error) {
+      console.error("[useVCDirectory] vc_people query failed:", peopleRes.error.message);
+      loadingPromise = null;
+      return { firms: [], people: [] };
+    }
+
+    const firms = (firmRes.data || [])
+      .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
+      .filter((row): row is VCFirm => Boolean(row));
+
+    const people = (peopleRes.data || [])
+      .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
+      .filter((row): row is VCPerson => Boolean(row));
+
+    // Don't cache an empty result — auth/RLS may not have been ready; caller will retry
+    if (firms.length === 0) {
+      console.warn("[useVCDirectory] vc_firms returned 0 rows — caller will retry with backoff");
+      loadingPromise = null;
+      return { firms: [], people: [] };
+    }
+
+    cachedData = { firms, people };
+    return cachedData;
   })();
   return loadingPromise;
 }
 
 export function useVCDirectory() {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<VCData | null>(cachedData);
   const [loading, setLoading] = useState(!cachedData);
+  const loadedForUser = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    if (cachedData) { setData(cachedData); setLoading(false); return; }
-    loadVCData().then((d) => { setData(d); setLoading(false); });
-  }, []);
+    // Wait until auth has settled before loading so the Clerk JWT is available
+    if (authLoading) return;
+    // Already have cached data and haven't changed user — nothing to do
+    if (cachedData && loadedForUser.current === (user?.id ?? null)) {
+      setData(cachedData);
+      setLoading(false);
+      return;
+    }
+    loadedForUser.current = user?.id ?? null;
+    setLoading(true);
+
+    let cancelled = false;
+    let retries = 0;
+    const MAX_RETRIES = 5;
+
+    function attempt() {
+      loadVCData().then((d) => {
+        if (cancelled) return;
+        // If we got 0 firms it likely means auth/RLS wasn't ready — retry with backoff
+        if (d.firms.length === 0 && retries < MAX_RETRIES) {
+          retries++;
+          setTimeout(() => { if (!cancelled) attempt(); }, 600 * retries);
+        } else {
+          setData(d);
+          setLoading(false);
+        }
+      }).catch(() => {
+        if (!cancelled) { setData({ firms: [], people: [] }); setLoading(false); }
+      });
+    }
+
+    attempt();
+    return () => { cancelled = true; };
+  }, [authLoading, user?.id]);
 
   const firmMap = useMemo(() => {
     if (!data) return new Map<string, VCFirm>();
