@@ -152,23 +152,38 @@ async function loginToCBInsights(page) {
 
   // Wait for email input
   const emailInput = page.locator(
-    'input[name="email"], input[type="email"], input[placeholder*="email" i], input[id*="email" i], input[name="username"]'
-  );
+    'input[name="email"]:visible, input[type="email"]:visible, input[placeholder*="email" i]:visible, input[id*="email" i]:visible, input[name="username"]:visible'
+  ).first();
   await emailInput.waitFor({ state: "visible", timeout: 20000 });
 
   await emailInput.click();
   await emailInput.fill(CBI_EMAIL);
   await sleep(500);
 
+  // Some CB Insights login flows are 2-step (email -> continue -> password).
+  const passwordVisibleNow = await page.locator(
+    'input[name="password"]:visible, input[type="password"]:visible'
+  ).first().isVisible().catch(() => false);
+  if (!passwordVisibleNow) {
+    const continueBtn = page.locator(
+      'button:has-text("Continue"):visible, button:has-text("Next"):visible, button[type="submit"]:visible'
+    ).first();
+    if (await continueBtn.isVisible().catch(() => false)) {
+      await continueBtn.click();
+      await sleep(800);
+    }
+  }
+
   const passwordInput = page.locator(
-    'input[name="password"], input[type="password"]'
-  );
+    'input[name="password"]:visible, input[type="password"]:visible'
+  ).first();
+  await passwordInput.waitFor({ state: "visible", timeout: 20000 });
   await passwordInput.click();
   await passwordInput.fill(CBI_PASSWORD);
   await sleep(500);
 
   const submitBtn = page.locator(
-    'button[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Login"), button:has-text("Continue"), input[type="submit"]'
+    'button[type="submit"]:visible, button:has-text("Log in"):visible, button:has-text("Sign in"):visible, button:has-text("Login"):visible, button:has-text("Continue"):visible, input[type="submit"]:visible'
   );
   await submitBtn.first().click();
   console.log("  🔄 Credentials submitted, waiting for redirect away from /login...");

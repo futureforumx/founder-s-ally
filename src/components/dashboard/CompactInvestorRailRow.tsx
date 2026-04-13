@@ -3,10 +3,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { InvestorPreviewModel } from "./InvestorPreviewRow";
-
-function formatStageForDisplay(stage: string): string {
-  return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
-}
+import { formatStageForDisplay } from "@/lib/stageUtils";
 
 function stableMatchScore(name: string, explicit: number | null | undefined): number {
   if (explicit != null) return explicit;

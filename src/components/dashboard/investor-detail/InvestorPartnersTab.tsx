@@ -3,6 +3,7 @@ import { CheckCircle2, ArrowUpRight } from "lucide-react";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
 import type { VCPerson } from "@/hooks/useVCDirectory";
+import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 
 interface InvestorPartnersTabProps {
   firmId: string;
@@ -15,7 +16,7 @@ interface InvestorPartnersTabProps {
 }
 
 function partnerDisplayRole(p: VCPerson): string | null {
-  const t = p.title?.trim();
+  const t = sanitizePersonTitle(p.title, p.full_name);
   if (t) return t;
   const r = p.role?.trim();
   if (r) return r;

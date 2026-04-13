@@ -1,9 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow,
+  DollarSign, Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow, Pencil,
   Landmark,
 } from "lucide-react";
 import {
@@ -21,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
 import { useFounderProfiles, useCompanyDirectory, useOperatorProfiles, type FounderProfile } from "@/hooks/useProfile";
+import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { FounderCarousel } from "./FounderCarousel";
 import { InvestorSuggestedTrendingRails } from "./InvestorSuggestedTrendingRails";
 import type { InvestorPreviewModel } from "./InvestorPreviewRow";
@@ -38,7 +40,22 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
+import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
 import type { AumBand } from "@prisma/client";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -105,6 +122,254 @@ interface DirectoryEntry {
 
 function isInvestorPersonEntry(entry: DirectoryEntry): boolean {
   return entry.category === "investor" && entry._investorEntityType === "person" && Boolean(entry._personData);
+}
+
+function isUuid(value: string | null | undefined): value is string {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+type AdminEditableRecord =
+  | {
+      type: "firm";
+      id: string;
+      name: string;
+      website_url: string | null;
+      location: string | null;
+      description: string | null;
+      firm_type: string | null;
+      aum: string | null;
+    }
+  | {
+      type: "investor";
+      id: string;
+      full_name: string;
+      title: string | null;
+      email: string | null;
+      linkedin_url: string | null;
+      x_url: string | null;
+      bio: string | null;
+    };
+
+function getAdminEditableRecord(entry: DirectoryEntry): AdminEditableRecord | null {
+  if (entry.category !== "investor") return null;
+  if (entry._investorEntityType === "person" && isUuid(entry._personData?.id)) {
+    return {
+      type: "investor",
+      id: entry._personData.id.trim(),
+      full_name: entry._personData.full_name ?? entry.name,
+      title: entry._personData.title ?? entry.model ?? null,
+      email: entry._personData.email ?? null,
+      linkedin_url: entry._personData.linkedin_url ?? null,
+      x_url: entry._personData.x_url ?? null,
+      bio: entry._personData.bio ?? entry.description ?? null,
+    };
+  }
+  if (isUuid(entry._firmId)) {
+    return {
+      type: "firm",
+      id: entry._firmId.trim(),
+      name: entry.name,
+      website_url: entry._websiteUrl ?? null,
+      location: entry.location || null,
+      description: entry.description || null,
+      firm_type: entry._firmType ?? null,
+      aum: entry._aum ?? null,
+    };
+  }
+  return null;
+}
+
+function sanitizeOptionalField(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function AdminRecordEditDialog({
+  record,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  record: AdminEditableRecord | null;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [firmName, setFirmName] = useState("");
+  const [firmWebsite, setFirmWebsite] = useState("");
+  const [firmLocation, setFirmLocation] = useState("");
+  const [firmDescription, setFirmDescription] = useState("");
+  const [firmType, setFirmType] = useState("");
+  const [firmAum, setFirmAum] = useState("");
+
+  const [investorName, setInvestorName] = useState("");
+  const [investorTitle, setInvestorTitle] = useState("");
+  const [investorEmail, setInvestorEmail] = useState("");
+  const [investorLinkedin, setInvestorLinkedin] = useState("");
+  const [investorXUrl, setInvestorXUrl] = useState("");
+  const [investorBio, setInvestorBio] = useState("");
+
+  useEffect(() => {
+    if (!record) return;
+    if (record.type === "firm") {
+      setFirmName(record.name);
+      setFirmWebsite(record.website_url ?? "");
+      setFirmLocation(record.location ?? "");
+      setFirmDescription(record.description ?? "");
+      setFirmType(record.firm_type ?? "");
+      setFirmAum(record.aum ?? "");
+      return;
+    }
+    setInvestorName(record.full_name);
+    setInvestorTitle(record.title ?? "");
+    setInvestorEmail(record.email ?? "");
+    setInvestorLinkedin(record.linkedin_url ?? "");
+    setInvestorXUrl(record.x_url ?? "");
+    setInvestorBio(record.bio ?? "");
+  }, [record]);
+
+  async function handleSave() {
+    if (!record) return;
+    setSaving(true);
+    try {
+      if (record.type === "firm") {
+        const cleanName = firmName.trim();
+        if (!cleanName) {
+          toast.error("Firm name is required.");
+          return;
+        }
+        const { error } = await supabase
+          .from("firm_records")
+          .update({
+            firm_name: cleanName,
+            website_url: sanitizeOptionalField(firmWebsite),
+            location: sanitizeOptionalField(firmLocation),
+            description: sanitizeOptionalField(firmDescription),
+            firm_type: sanitizeOptionalField(firmType),
+            aum: sanitizeOptionalField(firmAum),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", record.id);
+        if (error) throw error;
+        toast.success("Firm record updated.");
+      } else {
+        const cleanName = investorName.trim();
+        if (!cleanName) {
+          toast.error("Investor name is required.");
+          return;
+        }
+        const { error } = await supabase
+          .from("firm_investors")
+          .update({
+            full_name: cleanName,
+            title: sanitizeOptionalField(investorTitle),
+            email: sanitizeOptionalField(investorEmail),
+            linkedin_url: sanitizeOptionalField(investorLinkedin),
+            x_url: sanitizeOptionalField(investorXUrl),
+            bio: sanitizeOptionalField(investorBio),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", record.id);
+        if (error) throw error;
+        toast.success("Investor record updated.");
+      }
+
+      await onSaved();
+      onOpenChange(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update record.";
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{record?.type === "investor" ? "Edit Investor Record" : "Edit Firm Record"}</DialogTitle>
+          <DialogDescription>
+            Changes are applied directly to the live directory record.
+          </DialogDescription>
+        </DialogHeader>
+        {record?.type === "firm" ? (
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-name">Firm Name</Label>
+              <Input id="firm-name" value={firmName} onChange={(e) => setFirmName(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-website">Website</Label>
+              <Input id="firm-website" value={firmWebsite} onChange={(e) => setFirmWebsite(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-location">Location</Label>
+              <Input id="firm-location" value={firmLocation} onChange={(e) => setFirmLocation(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-type">Firm Type</Label>
+              <Input id="firm-type" value={firmType} onChange={(e) => setFirmType(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-aum">AUM</Label>
+              <Input id="firm-aum" value={firmAum} onChange={(e) => setFirmAum(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="firm-description">Description</Label>
+              <Textarea
+                id="firm-description"
+                value={firmDescription}
+                onChange={(e) => setFirmDescription(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-name">Investor Name</Label>
+              <Input id="investor-name" value={investorName} onChange={(e) => setInvestorName(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-title">Title</Label>
+              <Input id="investor-title" value={investorTitle} onChange={(e) => setInvestorTitle(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-email">Email</Label>
+              <Input id="investor-email" value={investorEmail} onChange={(e) => setInvestorEmail(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-linkedin">LinkedIn</Label>
+              <Input
+                id="investor-linkedin"
+                value={investorLinkedin}
+                onChange={(e) => setInvestorLinkedin(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-x">X URL</Label>
+              <Input id="investor-x" value={investorXUrl} onChange={(e) => setInvestorXUrl(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="investor-bio">Bio</Label>
+              <Textarea id="investor-bio" value={investorBio} onChange={(e) => setInvestorBio(e.target.value)} rows={4} />
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ── Mock data: Suggested ──
@@ -444,74 +709,6 @@ function firmTypeBadgeTooltipText(firmType: string): string {
 }
 
 /** Spaces around en/em dashes in stage ranges (e.g. Seed–Growth → Seed – Growth). */
-function formatStageForDisplay(stage: string): string {
-  return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
-}
-
-function normalizeStageKey(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[\u2013\u2014-]/g, " ");
-}
-
-/** Canonical ordering for VC stage focus (low → high). Unknown labels sort after known. */
-const STAGE_ORDER: Record<string, number> = {
-  "friends and family": 0,
-  "pre-seed": 1,
-  "pre seed": 1,
-  "seed": 2,
-  "series a": 3,
-  "series b": 4,
-  "series b+": 5,
-  "series c": 6,
-  "series c+": 7,
-  "series d": 8,
-  "series e": 9,
-  "growth": 10,
-  "late stage": 11,
-  "late": 11,
-  "multi-stage": 12,
-  "multistage": 12,
-};
-
-function stageRank(s: string): number {
-  const k = normalizeStageKey(s);
-  if (k in STAGE_ORDER) return STAGE_ORDER[k];
-  const m = k.match(/^series ([a-e])(\+)?$/);
-  if (m) {
-    const letter = m[1];
-    const plus = m[2] === "+";
-    const base = { a: 3, b: 4, c: 6, d: 8, e: 9 }[letter];
-    if (base != null) return plus ? base + 0.15 : base;
-  }
-  return 100;
-}
-
-/**
- * Card subtitle: "Seed – Series B" instead of "Seed, Series A, Series B".
- * Preserves single labels and existing range strings.
- */
-function collapseStagesToRange(stages: string[]): string | null {
-  const uniq: string[] = [];
-  const seen = new Set<string>();
-  for (const s of stages) {
-    const t = s.trim();
-    if (!t) continue;
-    const key = normalizeStageKey(t);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    uniq.push(t);
-  }
-  if (uniq.length === 0) return null;
-  if (uniq.length === 1) return formatStageForDisplay(uniq[0]);
-  const sorted = [...uniq].sort((a, b) => stageRank(a) - stageRank(b));
-  const lo = sorted[0];
-  const hi = sorted[sorted.length - 1];
-  if (normalizeStageKey(lo) === normalizeStageKey(hi)) return formatStageForDisplay(lo);
-  return formatStageForDisplay(`${lo}\u2013${hi}`);
-}
 
 function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
   const sector = entry.sector?.trim() || null;
@@ -539,6 +736,8 @@ function InvestorCard({
   onClick,
   onDeployingClick,
   anchorVcFirmId,
+  showAdminEdit,
+  onAdminEdit,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
@@ -546,6 +745,8 @@ function InvestorCard({
   onDeployingClick?: () => void;
   /** VC JSON firm id for scroll-to / querySelector anchoring */
   anchorVcFirmId?: string | null;
+  showAdminEdit?: boolean;
+  onAdminEdit?: () => void;
 }) {
   const isPerson = founder._investorEntityType === "person";
   const websiteUrl = founder._websiteUrl || null;
@@ -599,8 +800,32 @@ function InvestorCard({
             />
           )}
 
-          {/* Upper right: status icons (deploying + trending/popular/recent) on one row */}
+          {/* Upper right: edit + status icons (deploying + trending/popular/recent) */}
           <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
+            {showAdminEdit ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdminEdit?.();
+                      }}
+                      aria-label="Edit record"
+                      className="mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] bg-popover/95 backdrop-blur-md p-2.5">
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground">Admin edit</span> — update this investor or firm record.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             <div
               className={
                 founder._isActivelyDeploying !== false
@@ -993,6 +1218,8 @@ function FounderCard({
   onDeployingClick,
   anchorVcFirmId,
   operatorHubLayout,
+  showAdminEdit,
+  onAdminEdit,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
@@ -1001,6 +1228,8 @@ function FounderCard({
   anchorVcFirmId?: string | null;
   /** Match investor-search density when browsing Operators scope. */
   operatorHubLayout?: boolean;
+  showAdminEdit?: boolean;
+  onAdminEdit?: () => void;
 }) {
   if (operatorHubLayout && founder.category === "operator") {
     return <OperatorHubCard founder={founder} trending={trending} onClick={onClick} />;
@@ -1015,6 +1244,8 @@ function FounderCard({
         onClick={onClick}
         onDeployingClick={onDeployingClick}
         anchorVcFirmId={anchorVcFirmId}
+        showAdminEdit={showAdminEdit}
+        onAdminEdit={onAdminEdit}
       />
     );
   }
@@ -1125,6 +1356,8 @@ function CarouselCard({
   onDeployingClick,
   anchorVcFirmId,
   operatorHubLayout,
+  showAdminEdit,
+  onAdminEdit,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
@@ -1132,6 +1365,8 @@ function CarouselCard({
   onDeployingClick?: () => void;
   anchorVcFirmId?: string | null;
   operatorHubLayout?: boolean;
+  showAdminEdit?: boolean;
+  onAdminEdit?: () => void;
 }) {
   return (
     <div className="min-w-[300px] w-80 shrink-0 snap-start">
@@ -1142,6 +1377,8 @@ function CarouselCard({
         onDeployingClick={onDeployingClick}
         anchorVcFirmId={anchorVcFirmId}
         operatorHubLayout={operatorHubLayout}
+        showAdminEdit={showAdminEdit}
+        onAdminEdit={onAdminEdit}
       />
     </div>);
 
@@ -1369,6 +1606,8 @@ export function CommunityView({
   investorScrollTo,
   initialScope,
 }: CommunityViewProps) {
+  const queryClient = useQueryClient();
+  const { isAppAdmin } = useAppAdmin();
   const isInvestorSearch = variant === "investor-search";
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const activeInvestorTab = investorTab ?? "all";
@@ -1382,6 +1621,7 @@ export function CommunityView({
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [selectedVCPersonFirm, setSelectedVCPersonFirm] = useState<VCFirm | null>(null);
+  const [adminEditRecord, setAdminEditRecord] = useState<AdminEditableRecord | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
@@ -2125,14 +2365,19 @@ export function CommunityView({
     };
   }, [getDbMatch, getVCFirmMatch]);
 
+  // Strip mock investor *carousel* seeds only on Network directory + Investors tab (grid already lists investors).
+  // Do not strip when `investor-search`: that variant feeds `InvestorSuggestedTrendingRails` from these arrays;
+  // stripping there left both rails and carousel hidden (showInvestorRails false && !isInvestorSearch for carousels).
+  const hideMockInvestorCarouselSeeds = !isInvestorSearch && activeScope === "investors";
+
   const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
+    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
     .map(enrichInvestorSeedEntry);
 
   const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
+    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
     .map(enrichInvestorSeedEntry);
 
   const investorRailSuggested = useMemo(
@@ -2279,6 +2524,15 @@ export function CommunityView({
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();
+
+  const handleAdminRecordSaved = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["investor-directory"] }),
+      queryClient.invalidateQueries({ queryKey: ["investor-people-directory"] }),
+      queryClient.invalidateQueries({ queryKey: ["investor-profile"] }),
+      queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] }),
+    ]);
+  }, [queryClient]);
 
   return (
     <div className="space-y-2">
@@ -2469,12 +2723,10 @@ export function CommunityView({
         </div>
       </div>
 
-      {/* Global Entity Tabs — hidden for investor-search; Operators hub omits Investors */}
+      {/* Global Entity Tabs — hidden for investor-search; Investors omitted (dedicated investor-search / nav) */}
       {!isInvestorSearch && (
       <div className="flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 w-fit shadow-sm backdrop-blur-sm">
-        {(isOperatorHubLayout
-          ? GLOBAL_TABS.filter((t) => t.id !== "investors")
-          : GLOBAL_TABS).map((tab) => {
+        {GLOBAL_TABS.filter((t) => t.id !== "investors").map((tab) => {
           const Icon = tab.icon;
           const isActive = activeScope === tab.id;
           return (
@@ -2535,6 +2787,8 @@ export function CommunityView({
                     anchorVcFirmId={investorAnchorVcFirmId(entry)}
                     onClick={() => (entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry))}
                     onDeployingClick={() => handleDeployingClick(entry)}
+                    showAdminEdit={isAppAdmin && Boolean(getAdminEditableRecord(entry))}
+                    onAdminEdit={() => setAdminEditRecord(getAdminEditableRecord(entry))}
                   />
                 ))}
               </FounderCarousel>
@@ -2551,6 +2805,8 @@ export function CommunityView({
                     anchorVcFirmId={investorAnchorVcFirmId(entry)}
                     onClick={() => (entry.category === "investor" ? handleInvestorClick(entry) : setSelectedFounder(entry))}
                     onDeployingClick={() => handleDeployingClick(entry)}
+                    showAdminEdit={isAppAdmin && Boolean(getAdminEditableRecord(entry))}
+                    onAdminEdit={() => setAdminEditRecord(getAdminEditableRecord(entry))}
                   />
                 ))}
               </FounderCarousel>
@@ -2664,6 +2920,8 @@ export function CommunityView({
                       anchorVcFirmId={investorAnchorVcFirmId(founder)}
                       onClick={() => founder.category === "investor" ? handleInvestorClick(founder) : setSelectedFounder(founder)}
                       onDeployingClick={() => handleDeployingClick(founder)}
+                      showAdminEdit={isAppAdmin && Boolean(getAdminEditableRecord(founder))}
+                      onAdminEdit={() => setAdminEditRecord(getAdminEditableRecord(founder))}
                     />
                   )}
                   {isLoadingMore &&
@@ -2896,6 +3154,14 @@ export function CommunityView({
           setSelectedVCPerson(null);
           setSelectedVCPersonFirm(null);
         }}
+      />
+      <AdminRecordEditDialog
+        record={adminEditRecord}
+        open={Boolean(adminEditRecord)}
+        onOpenChange={(next) => {
+          if (!next) setAdminEditRecord(null);
+        }}
+        onSaved={handleAdminRecordSaved}
       />
       
     </div>);

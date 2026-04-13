@@ -97,11 +97,12 @@ async function verifyClerkJwt(
   const dec = decodeJwt(token);
   const issRaw = dec.iss;
   if (typeof issRaw !== "string" || !issRaw.trim()) throw new Error("JWT missing iss");
-  const iss = issRaw.replace(/\/$/, "");
+  const iss = issRaw.replace(/\/$/, ""); // strip trailing slash for URL construction only
   if (!isLikelyClerkIssuer(iss)) throw new Error("Not a Clerk issuer");
 
   const jwks = createRemoteJWKSet(new URL(`${iss}/.well-known/jwks.json`));
-  const opts: JWTVerifyOptions = { issuer: iss, clockTolerance: 120 };
+  // Use the original issRaw (not stripped) so jwtVerify matches the JWT's exact iss claim.
+  const opts: JWTVerifyOptions = { issuer: issRaw, clockTolerance: 120 };
   const aud = audienceOption(dec);
   if (aud !== undefined) opts.audience = aud;
 
@@ -157,16 +158,29 @@ export async function resolveAdminCaller(
 
   try {
     const { identityUserIds, canonicalId, email, user_metadata } = await verifyClerkJwt(token);
+    console.log("[resolveAdminCaller] Clerk JWT verified, id:", canonicalId, "email:", email);
     return { id: canonicalId, identityUserIds, email, user_metadata };
-  } catch {
-    /* fall through */
+  } catch (clerkErr) {
+    const msg = (clerkErr as Error).message;
+    console.warn("[resolveAdminCaller] verifyClerkJwt failed:", msg);
+    // If it looked like a Clerk token but verification failed, surface the reason directly.
+    if (msg !== "Not a Clerk issuer" && msg !== "JWT missing iss") {
+      return { error: `Clerk JWT verification failed: ${msg}` };
+    }
+    /* fall through to Supabase auth */
   }
 
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader! } },
   });
-  const { data: { user: caller }, error: authError } = await userClient.auth.getUser();
-  if (authError || !caller) return { error: "Unauthorized" };
+  let caller = null;
+  try {
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) return { error: "Unauthorized" };
+    caller = user;
+  } catch {
+    return { error: "Unauthorized" };
+  }
 
   return {
     id: caller.id,

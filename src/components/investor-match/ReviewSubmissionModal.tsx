@@ -23,6 +23,11 @@ import {
   type ReviewWizardStep,
 } from "@/lib/reviewModalWizard";
 import { nonInvestorTagsForOverallScore } from "@/lib/reviewFormContent";
+import {
+  isInvestorReviewsPersonIdSchemaCacheError,
+  pickInvestorReviewRowForPerson,
+  upsertInvestorReviewWithSchemaFallback,
+} from "@/lib/investorReviewFallback";
 import { isContextStepValidUnlinked, isEvaluationStepValidUnlinked } from "@/lib/reviewWizard";
 import { cn } from "@/lib/utils";
 import { isMissingVcRatingsTableError } from "@/lib/vcRatingsTableErrors";
@@ -446,75 +451,12 @@ async function upsertVcRatingRow(opts: {
    * with `sub` = founder_id / author_user_id. Retrying as anon surfaces misleading RLS errors.
    */
   const upsertInvestorReviewFallback = async (): Promise<{ savedAsRevision: boolean }> => {
-    const starRatings =
-      payload.star_ratings && typeof payload.star_ratings === "object"
-        ? (payload.star_ratings as Record<string, unknown>)
-        : {};
-
-    const firmNameFromPayload =
-      typeof starRatings.firm_name === "string" && starRatings.firm_name.trim().length > 0
-        ? starRatings.firm_name.trim()
-        : "";
-    const derivedFirmId =
-      typeof payload.vc_firm_id === "string" && payload.vc_firm_id.trim().length > 0
-        ? payload.vc_firm_id.trim()
-        : firmNameFromPayload || "unknown-firm";
-
-    const npsRaw = payload.nps;
-    const npsScore =
-      typeof npsRaw === "number" && Number.isFinite(npsRaw) ? npsRaw : 0;
-
-    const personKey =
-      typeof payload.vc_person_id === "string" && payload.vc_person_id.trim().length > 0
-        ? payload.vc_person_id.trim()
-        : "";
-
-    const investorPayload = {
-      founder_id: userId,
-      firm_id: derivedFirmId,
-      person_id: personKey,
-      interaction_type:
-        typeof payload.interaction_type === "string" && payload.interaction_type.trim()
-          ? payload.interaction_type
-          : "investor_relationship",
-      nps_score: npsScore,
-      did_respond: false,
-      comment: typeof payload.comment === "string" ? payload.comment : null,
-      star_ratings: starRatings,
-      is_anonymous: typeof payload.anonymous === "boolean" ? payload.anonymous : true,
-    };
-
-    const { data: existing, error: selectErr } = await db
-      .from("investor_reviews")
-      .select("id")
-      .eq("founder_id", userId)
-      .eq("firm_id", derivedFirmId)
-      .eq("person_id", personKey)
-      .maybeSingle();
-
-    throwIfSupabaseError(selectErr, "Could not save your review.");
-
-    const updatePatch = {
-      interaction_type: investorPayload.interaction_type,
-      nps_score: investorPayload.nps_score,
-      did_respond: investorPayload.did_respond,
-      comment: investorPayload.comment,
-      star_ratings: investorPayload.star_ratings,
-      is_anonymous: investorPayload.is_anonymous,
-    };
-
-    if (existing?.id) {
-      const { error: updateError } = await db
-        .from("investor_reviews")
-        .update(updatePatch)
-        .eq("id", existing.id)
-        .eq("founder_id", userId);
-      throwIfSupabaseError(updateError, "Could not save your review.");
-      return { savedAsRevision: false };
-    }
-
-    const { error: insertError } = await db.from("investor_reviews").insert(investorPayload);
-    throwIfSupabaseError(insertError, "Could not save your review.");
+    const { error: upsertError } = await upsertInvestorReviewWithSchemaFallback({
+      db,
+      userId,
+      payload,
+    });
+    throwIfSupabaseError(upsertError, "Could not save your review.");
     return { savedAsRevision: false };
   };
 
@@ -880,15 +822,37 @@ export function ReviewSubmissionModal({
           reviewIdForVcRatings = typeof row?.id === "string" && row.id.trim() ? row.id.trim() : null;
         } else if (error && isMissingVcRatingsTableError(error) && !cancelled) {
           const personKey = pid?.trim() ?? "";
-          const { data: invRows, error: invErr } = await supabase
+          const exactResult = await supabase
             .from("investor_reviews")
             .select("comment, star_ratings, created_at, is_anonymous")
             .eq("founder_id", user.id)
             .eq("firm_id", resolvedFirmId)
             .eq("person_id", personKey)
             .order("created_at", { ascending: false })
-            .limit(1);
-          if (cancelled || invErr || !invRows?.length) return;
+            .limit(5);
+
+          let invRows: unknown[] = [];
+          if (exactResult.error && isInvestorReviewsPersonIdSchemaCacheError(exactResult.error)) {
+            const legacyResult = await supabase
+              .from("investor_reviews")
+              .select("comment, star_ratings, created_at, is_anonymous")
+              .eq("founder_id", user.id)
+              .eq("firm_id", resolvedFirmId)
+              .order("created_at", { ascending: false })
+              .limit(20);
+            if (cancelled || legacyResult.error) return;
+            const picked = pickInvestorReviewRowForPerson(
+              (legacyResult.data ?? []) as Array<{ star_ratings?: unknown; created_at?: string | null }>,
+              personKey,
+            );
+            invRows = picked ? [picked] : [];
+          } else if (!exactResult.error) {
+            invRows = exactResult.data ?? [];
+          } else {
+            return;
+          }
+
+          if (cancelled || invRows.length === 0) return;
           const ir = invRows[0] as {
             comment?: string | null;
             created_at?: string | null;

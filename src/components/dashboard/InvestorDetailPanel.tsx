@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
 import { cn } from "@/lib/utils";
+import { collapseStagesToRange } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -32,6 +33,7 @@ import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
+import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 import {
   isFirmStrategyClassification,
   STRATEGY_CLASSIFICATION_DEFINITIONS,
@@ -104,7 +106,7 @@ function investorPartnerToVCPerson(
   return {
     id: p.id,
     full_name: p.full_name,
-    title: p.title,
+    title: sanitizePersonTitle(p.title, p.full_name),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: p.first_name ?? parts[0] ?? null,
@@ -134,7 +136,7 @@ function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
   return {
     id: p.id,
     full_name: p.full_name,
-    title: p.title ?? null,
+    title: sanitizePersonTitle(p.title, p.full_name),
     firm_id: firmId,
     first_name: p.first_name ?? null,
     last_name: p.last_name ?? null,
@@ -163,7 +165,7 @@ function websiteTeamPersonToVCPerson(
   return {
     id: p.id,
     full_name: p.full_name,
-    title: p.title,
+    title: sanitizePersonTitle(p.title, p.full_name),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: parts[0] ?? null,
@@ -644,7 +646,9 @@ export function InvestorDetailPanel({
     "-";
   const heroStageFocus =
     liveProfile?.preferred_stage ??
-    vcFirm?.stages?.join(", ") ??
+    (vcFirm?.stages && vcFirm.stages.length > 0
+      ? collapseStagesToRange(vcFirm.stages.filter(Boolean)) ?? vcFirm.stages.join(", ")
+      : null) ??
     effectiveInvestor?.stage ??
     "-";
 
