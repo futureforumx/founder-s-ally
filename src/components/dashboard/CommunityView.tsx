@@ -1936,7 +1936,9 @@ export function CommunityView({
     setVisibleCount(PAGE_SIZE);
   }, [activeFilter, activeScope, activeInvestorTab, investorSort]);
 
-  const scopedAll = filterByScope(mergedEntries, activeScope).filter(e => isInvestorSearch || e.category !== "investor");
+  const scopedAll = filterByScope(mergedEntries, activeScope).filter(
+    (e) => e.category !== "investor" || isInvestorSearch || activeScope === "investors",
+  );
 
   const filteredAll = scopedAll.filter((f) => {
     const filterQ = activeFilter?.toLowerCase() || "";
