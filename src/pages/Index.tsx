@@ -29,6 +29,7 @@ const CompetitiveView = lazy(() => import("@/components/dashboard/CompetitiveVie
 const IndustryView = lazy(() => import("@/components/dashboard/IndustryView").then((module) => ({ default: module.IndustryView })));
 const CommunityView = lazy(() => import("@/components/dashboard/CommunityView").then((module) => ({ default: module.CommunityView })));
 const IntelligencePage = lazy(() => import("@/components/intelligence/IntelligencePage").then((module) => ({ default: module.IntelligencePage })));
+const MarketIntelligenceInvestors = lazy(() => import("@/components/market-intelligence/InvestorIntelligence").then((module) => ({ default: module.MarketIntelligenceInvestors })));
 
 type ViewType =
   | "home"
@@ -677,7 +678,7 @@ const Index = () => {
             </DeferredSection>
           ) : activeView === "market-investors" ? (
             <DeferredSection label="Loading investor intelligence…">
-              <IntelligencePage variant="investors" />
+              <MarketIntelligenceInvestors sector={companyData?.sector} stage={companyData?.stage} />
             </DeferredSection>
           ) : activeView === "market-market" ? (
             <DeferredSection label="Loading market intelligence…">
