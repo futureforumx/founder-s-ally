@@ -1382,6 +1382,9 @@ export function CommunityView({
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [selectedVCPersonFirm, setSelectedVCPersonFirm] = useState<VCFirm | null>(null);
+  // Saved so "Back to <firm>" in PersonProfileModal reopens the firm panel instead of closing entirely
+  const [personModalReturnInvestor, setPersonModalReturnInvestor] = useState<DirectoryEntry | null>(null);
+  const [personModalReturnVCFirm, setPersonModalReturnVCFirm] = useState<VCFirm | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
@@ -2873,6 +2876,9 @@ export function CommunityView({
         vcFirm={selectedInvestorMatchedVCFirm}
         vcPartners={selectedInvestorMatchedVCFirm ? getVCPartners(selectedInvestorMatchedVCFirm.id) : []}
         onSelectPerson={(person) => {
+          // Save current firm panel state so "Back to <firm>" can restore it
+          setPersonModalReturnInvestor(selectedInvestor);
+          setPersonModalReturnVCFirm(selectedInvestorMatchedVCFirm ?? selectedVCFirm);
           setSelectedInvestor(null);
           setSelectedVCFirm(null);
           setSelectedVCPersonFirm(selectedInvestorMatchedVCFirm ?? getFirmForPerson(person.id) ?? null);
@@ -2888,13 +2894,25 @@ export function CommunityView({
           setSelectedVCPersonFirm(null);
         }}
         onNavigateToFirm={(firmId) => {
-          const firm =
-            getFirmById(firmId) ??
-            (selectedVCPersonFirm && selectedVCPersonFirm.id === firmId ? selectedVCPersonFirm : null);
+          const returnInvestor = personModalReturnInvestor;
+          const returnVCFirm =
+            personModalReturnVCFirm?.id === firmId
+              ? personModalReturnVCFirm
+              : getFirmById(firmId) ??
+                (selectedVCPersonFirm?.id === firmId ? selectedVCPersonFirm : null);
           setSelectedVCPerson(null);
           setSelectedVCPersonFirm(null);
-          if (firm) {
-            setTimeout(() => setSelectedVCFirm(firm), 200);
+          setPersonModalReturnInvestor(null);
+          setPersonModalReturnVCFirm(null);
+          if (returnInvestor) {
+            // Came from a firm panel — go back to it
+            setTimeout(() => {
+              setSelectedInvestor(returnInvestor);
+              setSelectedVCFirm(returnVCFirm);
+              setInvestorInitialTab("Updates");
+            }, 200);
+          } else if (returnVCFirm) {
+            setTimeout(() => setSelectedVCFirm(returnVCFirm), 200);
           }
         }}
       />
