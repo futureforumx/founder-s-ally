@@ -280,7 +280,7 @@ export function InvestorDetailPanel({
     return {
       name: vcFirm.name,
       sector: vcFirm.sectors?.filter(Boolean).slice(0, 2).join(", ") || "Generalist",
-      stage: vcFirm.stages?.filter(Boolean).join(", ") || "Multi-stage",
+      stage: (() => { const s = vcFirm.stages?.filter(Boolean); return s?.length ? (s.length === 1 ? s[0] : `${s[0]} – ${s[s.length - 1]}`) : "Multi-stage"; })(),
       description: vcFirm.description || `${vcFirm.name} is an active investment firm.`,
       location: "",
       model: vcFirm.sweet_spot || vcFirm.aum || "",
@@ -644,7 +644,7 @@ export function InvestorDetailPanel({
     "-";
   const heroStageFocus =
     liveProfile?.preferred_stage ??
-    vcFirm?.stages?.join(", ") ??
+    (vcFirm?.stages?.length ? (vcFirm.stages.length === 1 ? vcFirm.stages[0] : `${vcFirm.stages[0]} – ${vcFirm.stages[vcFirm.stages.length - 1]}`) : undefined) ??
     effectiveInvestor?.stage ??
     "-";
 
