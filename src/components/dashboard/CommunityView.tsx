@@ -1382,9 +1382,6 @@ export function CommunityView({
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [selectedVCPersonFirm, setSelectedVCPersonFirm] = useState<VCFirm | null>(null);
-  // Saved so "Back to <firm>" in PersonProfileModal reopens the firm panel instead of closing entirely
-  const [personModalReturnInvestor, setPersonModalReturnInvestor] = useState<DirectoryEntry | null>(null);
-  const [personModalReturnVCFirm, setPersonModalReturnVCFirm] = useState<VCFirm | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
@@ -2868,21 +2865,22 @@ export function CommunityView({
         companyName={companyData?.name}
         companyData={companyData ? { name: companyData.name, sector: companyData.sector, stage: companyData.stage, model: companyData.businessModel?.join(", "), description: companyData.description } : null}
         onClose={() => {
+          // Also dismiss any open person modal when the firm panel closes
+          setSelectedVCPerson(null);
+          setSelectedVCPersonFirm(null);
           setSelectedInvestor(null);
           setSelectedVCFirm(null);
           setInvestorInitialTab("Updates");
         }}
+        hideBackdrop={!!selectedVCPerson}
         initialTab={investorInitialTab}
         vcFirm={selectedInvestorMatchedVCFirm}
         vcPartners={selectedInvestorMatchedVCFirm ? getVCPartners(selectedInvestorMatchedVCFirm.id) : []}
         onSelectPerson={(person) => {
-          // Save current firm panel state so "Back to <firm>" can restore it
-          setPersonModalReturnInvestor(selectedInvestor);
-          setPersonModalReturnVCFirm(selectedInvestorMatchedVCFirm ?? selectedVCFirm);
-          setSelectedInvestor(null);
-          setSelectedVCFirm(null);
+          // Keep the firm panel open — person modal layers on top (same z-index, later in DOM).
+          // "Back to <firm>" simply dismisses the person modal; firm panel is already visible.
           setSelectedVCPersonFirm(selectedInvestorMatchedVCFirm ?? getFirmForPerson(person.id) ?? null);
-          setTimeout(() => setSelectedVCPerson(person), 200);
+          setSelectedVCPerson(person);
         }}
         onCloseVCFirm={() => setSelectedVCFirm(null)}
       />
@@ -2893,27 +2891,10 @@ export function CommunityView({
           setSelectedVCPerson(null);
           setSelectedVCPersonFirm(null);
         }}
-        onNavigateToFirm={(firmId) => {
-          const returnInvestor = personModalReturnInvestor;
-          const returnVCFirm =
-            personModalReturnVCFirm?.id === firmId
-              ? personModalReturnVCFirm
-              : getFirmById(firmId) ??
-                (selectedVCPersonFirm?.id === firmId ? selectedVCPersonFirm : null);
+        onNavigateToFirm={() => {
+          // Firm panel is still open behind this modal — just close the person modal
           setSelectedVCPerson(null);
           setSelectedVCPersonFirm(null);
-          setPersonModalReturnInvestor(null);
-          setPersonModalReturnVCFirm(null);
-          if (returnInvestor) {
-            // Came from a firm panel — go back to it
-            setTimeout(() => {
-              setSelectedInvestor(returnInvestor);
-              setSelectedVCFirm(returnVCFirm);
-              setInvestorInitialTab("Updates");
-            }, 200);
-          } else if (returnVCFirm) {
-            setTimeout(() => setSelectedVCFirm(returnVCFirm), 200);
-          }
         }}
       />
       
