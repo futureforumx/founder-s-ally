@@ -1398,7 +1398,7 @@ export function CommunityView({
 
   // VC Directory: 2,805 firms + 5,247 people from JSON
   const {
-    firms: vcFirms, people: vcPeople, loading: vcLoading,
+    firms: vcFirms, people: vcPeople, loading: vcLoading, error: vcDirectoryError,
     firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
   } = useVCDirectory();
 
@@ -1666,6 +1666,7 @@ export function CommunityView({
 
     // Filter mock entries: replace categories where we have real data
     const mockEntries = ALL_ENTRIES.filter(e => {
+      if (e.category === "investor" && (isInvestorSearch || activeScope === "investors")) return false;
       if (e.category === "founder" && hasRealFounders) return false;
       if (e.category === "company" && hasRealCompanies) return false;
       if (e.category === "operator" && hasRealOperators) return false;
@@ -1725,9 +1726,11 @@ export function CommunityView({
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch]);
+  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch, isInvestorSearch, activeScope]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
+  const investorDirectoryUnavailable =
+    (isInvestorSearch || activeScope === "investors") && !vcLoading && vcFirms.length === 0;
 
   const hasProfile = !!companyData?.name;
 
@@ -2122,10 +2125,12 @@ export function CommunityView({
 
   const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
+    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
     .map(enrichInvestorSeedEntry);
 
   const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
+    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
     .map(enrichInvestorSeedEntry);
 
   const investorRailSuggested = useMemo(
@@ -2554,6 +2559,20 @@ export function CommunityView({
 
       {/* ═══════ All Grid ═══════ */}
       <div className="space-y-3 pt-4" data-section="all-grid">
+          {investorDirectoryUnavailable && (
+            <div className="rounded-2xl border border-destructive/25 bg-destructive/5 px-5 py-4 text-sm text-foreground">
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <div className="space-y-1">
+                  <p className="font-semibold">Live investor directory unavailable</p>
+                  <p className="text-muted-foreground">
+                    Investor cards are hidden until the live VC firm directory loads successfully. The app will not fall back to the tiny seed list anymore.
+                    {vcDirectoryError ? ` ${vcDirectoryError}` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Dynamic header for investor tabs */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">

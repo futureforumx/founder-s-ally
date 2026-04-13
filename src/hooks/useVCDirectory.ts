@@ -472,15 +472,13 @@ async function loadVCData(): Promise<VCData> {
     }
     if (peopleRes.error) {
       console.error("[useVCDirectory] vc_people query failed:", peopleRes.error.message);
-      loadingPromise = null;
-      return { firms: [], people: [] };
     }
 
     const firms = (firmRes.data || [])
       .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
       .filter((row): row is VCFirm => Boolean(row));
 
-    const people = (peopleRes.data || [])
+    const people = ((peopleRes.error ? [] : peopleRes.data) || [])
       .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
       .filter((row): row is VCPerson => Boolean(row));
 
@@ -501,6 +499,7 @@ export function useVCDirectory() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<VCData | null>(cachedData);
   const [loading, setLoading] = useState(!cachedData);
+  const [error, setError] = useState<string | null>(null);
   const loadedForUser = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -510,6 +509,7 @@ export function useVCDirectory() {
     if (cachedData && loadedForUser.current === (user?.id ?? null)) {
       setData(cachedData);
       setLoading(false);
+      setError(null);
       return;
     }
     loadedForUser.current = user?.id ?? null;
@@ -529,9 +529,18 @@ export function useVCDirectory() {
         } else {
           setData(d);
           setLoading(false);
+          setError(
+            d.firms.length === 0
+              ? "Live VC directory is unavailable right now."
+              : null,
+          );
         }
       }).catch(() => {
-        if (!cancelled) { setData({ firms: [], people: [] }); setLoading(false); }
+        if (!cancelled) {
+          setData({ firms: [], people: [] });
+          setLoading(false);
+          setError("Live VC directory is unavailable right now.");
+        }
       });
     }
 
@@ -592,6 +601,7 @@ export function useVCDirectory() {
     firms: data?.firms || [],
     people: data?.people || [],
     loading,
+    error,
     firmMap,
     peopleByFirm,
     getFirmById,

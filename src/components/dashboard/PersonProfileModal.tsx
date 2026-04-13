@@ -20,12 +20,16 @@ import { sanitizeText } from "@/lib/sanitizeText";
 
 type WebsiteDerivedPersonProfile = {
   headshotUrl: string | null;
+  title: string | null;
   email: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
   bio: string | null;
   location: string | null;
   websiteUrl: string | null;
+  profileUrl: string | null;
+  sectorFocus: string[];
+  portfolioCompanies: string[];
 };
 
 interface PersonProfileModalProps {
@@ -230,8 +234,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     if (byTitle) return byTitle;
     const byRole = person?.role?.trim();
     if (byRole) return byRole;
-    return null;
-  }, [person?.title, person?.role]);
+    return websiteProfile?.title?.trim() || null;
+  }, [person?.title, person?.role, websiteProfile?.title]);
 
   const displayLocation = useMemo(() => {
     if (!person) return null;
@@ -260,7 +264,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
 
   const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => s?.trim()) ?? [], [person?.stage_focus]);
-  const sectorFocusTags = useMemo(() => person?.sector_focus?.filter((s) => s?.trim()) ?? [], [person?.sector_focus]);
+  const sectorFocusTags = useMemo(
+    () => {
+      const explicit = person?.sector_focus?.filter((s) => s?.trim()) ?? [];
+      return explicit.length > 0 ? explicit : websiteProfile?.sectorFocus?.filter((s) => s?.trim()) ?? [];
+    },
+    [person?.sector_focus, websiteProfile?.sectorFocus],
+  );
   const qualityTags = useMemo(() => {
     if (!person) return [];
     const q = person.investment_criteria_qualities?.filter((s) => s?.trim()) ?? [];
@@ -279,6 +289,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   const hasPersonalFocus =
     stageFocusTags.length > 0 || sectorFocusTags.length > 0 || qualityTags.length > 0;
+
+  const displayPortfolioCompanies = useMemo(
+    () => websiteProfile?.portfolioCompanies?.filter((company) => company?.trim()) ?? [],
+    [websiteProfile?.portfolioCompanies],
+  );
 
   const socialLinks = useMemo(() => {
     if (!person) return [];
@@ -306,6 +321,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     const websiteRaw =
       person.website_url?.trim() ||
       (person as VCPerson & { personal_website_url?: string | null }).personal_website_url?.trim() ||
+      websiteProfile?.profileUrl?.trim() ||
       websiteProfile?.websiteUrl?.trim() ||
       null;
     const website = personSocialHref(websiteRaw);
@@ -319,7 +335,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     return items;
-  }, [person, websiteProfile?.linkedinUrl, websiteProfile?.websiteUrl, websiteProfile?.xUrl]);
+  }, [person, websiteProfile?.linkedinUrl, websiteProfile?.profileUrl, websiteProfile?.websiteUrl, websiteProfile?.xUrl]);
 
   return (
     <AnimatePresence>
@@ -534,6 +550,19 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                               </div>
                             );
                           })}
+                        </div>
+                      </div>
+                    ) : displayPortfolioCompanies.length > 0 ? (
+                      <div>
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                          Website portfolio
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {displayPortfolioCompanies.map((company) => (
+                            <Badge key={company} variant="secondary" className="px-2.5 py-1 text-[11px]">
+                              {company}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     ) : null}
