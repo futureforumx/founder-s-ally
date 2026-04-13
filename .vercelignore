@@ -19,7 +19,7 @@ founder-intel
 investor records
 scripts
 /supabase
-data
+/data
 *.log
 *.csv
 *.txt
