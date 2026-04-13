@@ -76,6 +76,8 @@ interface InvestorDetailPanelProps {
   vcDirectoryFirmIdHint?: string | null;
   /** `vc_people.id` when opening a partner-level review from Activity. */
   reviewPersonIdHint?: string | null;
+  /** When a person modal is layered on top, hide this panel's backdrop to avoid double-darkening. */
+  hideBackdrop?: boolean;
   /** After panel opens with an investor, open the review modal once (deep link). */
   openReviewModalOnMount?: boolean;
   onReviewBootstrapConsumed?: () => void;
@@ -221,6 +223,7 @@ export function InvestorDetailPanel({
   onSelectPerson,
   onCloseVCFirm,
   initialTab,
+  hideBackdrop = false,
   vcDirectoryFirmIdHint,
   reviewPersonIdHint,
   openReviewModalOnMount,
@@ -666,9 +669,10 @@ export function InvestorDetailPanel({
             key="investor-backdrop"
             className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm supports-[backdrop-filter]:bg-foreground/15"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: hideBackdrop ? 0 : 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            style={{ pointerEvents: hideBackdrop ? "none" : "auto" }}
             onClick={handleClose}
           />
 
