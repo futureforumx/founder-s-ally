@@ -585,11 +585,13 @@ const Index = () => {
               />
             </div>
           ) : activeView === "network" ? (
-            <div className="flex min-h-[50vh] items-center justify-center px-6">
-              <p className="text-center text-sm text-muted-foreground">
-                First NETWORK view — swap this panel when you wire the hub.
-              </p>
-            </div>
+            <CommunityView
+              companyData={companyData}
+              analysisResult={analysisResult}
+              onNavigateProfile={() => setActiveView("company")}
+              variant="directory"
+              initialScope="operators"
+            />
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <CommunityView
               companyData={companyData}

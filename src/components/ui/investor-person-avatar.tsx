@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getFaviconUrl } from "@/utils/company-utils";
 
 function md5(input: string): string {
   function rotateLeft(x: number, c: number) {
@@ -268,22 +267,18 @@ export function investorPersonImageCandidates({
 }): string[] {
   const normalizedEmail = trimOrNull(email)?.toLowerCase() ?? null;
   const xHandle = parseXPathHandle(x_url);
-  const websiteHost = parseHost(website_url);
-  const personalWebsiteHost = parseHost(personal_website_url);
   // NOTE: favicons (firm, website, X) are logos, not person headshots — excluded from all sources.
+  const linkedinProfile = isRealLinkedInProfile(linkedin_url) ? linkedin_url : null;
 
   const sources = [
-    // Direct uploads / stored headshots first (fastest, most reliable)
+    // 1. Direct/stored headshots first. This includes website-extracted headshots
+    // when callers pass them through `profile_image_url` / `avatar_url`.
     trimOrNull(profile_image_url),
     trimOrNull(avatar_url),
-    gravatarUrl(normalizedEmail),
-    gravatarUrl(email),
-    // External resolution services that return actual person photos
-    unavatarFrom(normalizedEmail),
+    // 2. Person-level social profiles
+    unavatarFrom(linkedinProfile),
     unavatarFromXHandle(xHandle),
-    unavatarFrom(linkedin_url),
-    unavatarFrom(websiteHost),
-    unavatarFrom(personalWebsiteHost),
+    // 3. Generic resolver as last "real person" attempt
     optionalResolverAvatar({
       full_name,
       email: normalizedEmail,
@@ -291,6 +286,10 @@ export function investorPersonImageCandidates({
       linkedin_url,
       x_url,
     }),
+    // 4. Weak fallbacks last
+    gravatarUrl(normalizedEmail),
+    gravatarUrl(email),
+    unavatarFrom(normalizedEmail),
   ].filter((value): value is string => Boolean(value));
 
   return Array.from(new Set(sources));
