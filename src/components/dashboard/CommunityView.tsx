@@ -2125,14 +2125,19 @@ export function CommunityView({
     };
   }, [getDbMatch, getVCFirmMatch]);
 
+  // Strip mock investor *carousel* seeds only on Network directory + Investors tab (grid already lists investors).
+  // Do not strip when `investor-search`: that variant feeds `InvestorSuggestedTrendingRails` from these arrays;
+  // stripping there left both rails and carousel hidden (showInvestorRails false && !isInvestorSearch for carousels).
+  const hideMockInvestorCarouselSeeds = !isInvestorSearch && activeScope === "investors";
+
   const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
+    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
     .map(enrichInvestorSeedEntry);
 
   const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
     .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && (isInvestorSearch || activeScope === "investors")))
+    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
     .map(enrichInvestorSeedEntry);
 
   const investorRailSuggested = useMemo(
