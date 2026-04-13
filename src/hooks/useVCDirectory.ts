@@ -321,10 +321,6 @@ type DirectoryClient = {
   };
 };
 
-// ── Singleton Cache ──
-let cachedData: VCData | null = null;
-let loadingPromise: Promise<VCData> | null = null;
-
 function deriveWebsiteUrlFromFirmId(id: string | null | undefined): string | null {
   if (!id) return null;
   const normalized = id.trim().toLowerCase().replace(/^https?:\/\//, "");
@@ -453,129 +449,107 @@ function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
   };
 }
 
-async function loadStaticVCData(): Promise<VCData> {
-  const res = await fetch("/data/vc_mdm_output.json");
-  if (!res.ok) throw new Error(`VC data HTTP ${res.status}`);
-  const d = (await res.json()) as VCData;
-  const firms = (d.firms || [])
-    .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
-    .map((firm) => ({
-      ...firm,
-      x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
-      website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
-    }));
-  return { firms, people: d.people || [] };
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA LOADING — TWO-PHASE DESIGN
+//
+// Phase 1 (GUARANTEED): Static JSON at /data/vc_mdm_output.json
+//   • Kicked off the moment this module is imported — before any component mounts.
+//   • 2,805 firms, always available. Investors will ALWAYS render from this source.
+//   • DO NOT remove this. DO NOT make investors conditional on Supabase.
+//
+// Phase 2 (OPTIONAL): Supabase vc_firms / vc_people
+//   • Attempted in the background after auth settles.
+//   • If it works and returns >0 firms, the data is silently upgraded.
+//   • If it fails for any reason, the static JSON stays in place. No retries needed.
+// ─────────────────────────────────────────────────────────────────────────────
 
-async function loadVCData(): Promise<VCData> {
-  if (cachedData) return cachedData;
-  if (loadingPromise) return loadingPromise;
-  loadingPromise = (async () => {
-    const directory = supabaseVcDirectory as unknown as DirectoryClient;
-    try {
-      const [firmRes, peopleRes] = await Promise.all([
-        directory.from("vc_firms").select("*").is("deleted_at", null),
-        directory.from("vc_people").select("*").is("deleted_at", null),
-      ]);
+let cachedData: VCData | null = null;
 
-      if (firmRes.error) throw new Error(firmRes.error.message);
-      if (peopleRes.error) {
-        console.error("[useVCDirectory] vc_people query failed:", peopleRes.error.message);
-      }
+// Singleton promise for the static JSON — kicked off at module init below.
+let _staticJsonPromise: Promise<VCData> | null = null;
 
-      const firms = (firmRes.data || [])
-        .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
-        .filter((row): row is VCFirm => Boolean(row));
-
-      const people = ((peopleRes.error ? [] : peopleRes.data) || [])
-        .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
-        .filter((row): row is VCPerson => Boolean(row));
-
-      // 0 firms means auth/RLS wasn't ready yet — don't cache, let the retry loop handle it
-      if (firms.length === 0) {
-        console.warn("[useVCDirectory] vc_firms returned 0 rows — will retry");
-        loadingPromise = null;
-        return { firms: [], people: [] };
-      }
-
-      cachedData = { firms, people };
-      return cachedData;
-    } catch (err) {
-      console.warn("[useVCDirectory] Supabase failed, falling back to static JSON:", err);
-      loadingPromise = null;
+function ensureStaticJson(): Promise<VCData> {
+  if (!_staticJsonPromise) {
+    _staticJsonPromise = (async () => {
       try {
-        const fallback = await loadStaticVCData();
-        cachedData = fallback;
-        return fallback;
-      } catch (fallbackErr) {
-        console.error("[useVCDirectory] Static JSON fallback also failed:", fallbackErr);
+        const res = await fetch("/data/vc_mdm_output.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = (await res.json()) as VCData;
+        const firms = (d.firms || [])
+          .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
+          .map((firm) => ({
+            ...firm,
+            x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
+            website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
+          }));
+        return { firms, people: d.people || [] };
+      } catch (err) {
+        console.error("[useVCDirectory] Failed to load static JSON:", err);
+        _staticJsonPromise = null; // allow retry next time
         return { firms: [], people: [] };
       }
-    }
-  })();
-  return loadingPromise;
+    })();
+  }
+  return _staticJsonPromise;
 }
+
+// Kick off the static JSON fetch immediately so it's in-flight before any component mounts.
+ensureStaticJson();
+
+// Track which user we last attempted a Supabase upgrade for (module-level so it
+// survives component remounts — we only need one upgrade attempt per session).
+let supabaseUpgradedForUser: string | null | undefined = undefined;
 
 export function useVCDirectory() {
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<VCData | null>(cachedData);
   const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState<string | null>(null);
-  const loadedForUser = useRef<string | null | undefined>(undefined);
 
+  // ── Phase 1: static JSON — always runs, investors always visible ──
   useEffect(() => {
-    // Wait until auth has settled before loading so the Clerk JWT is available
-    if (authLoading) return;
-    // Already have cached data and haven't changed user — nothing to do
-    if (cachedData && loadedForUser.current === (user?.id ?? null)) {
+    if (cachedData) {
       setData(cachedData);
       setLoading(false);
-      setError(null);
       return;
     }
-    loadedForUser.current = user?.id ?? null;
-    setLoading(true);
-
     let cancelled = false;
-    let retries = 0;
-    const MAX_RETRIES = 5;
-
-    function attempt() {
-      loadVCData().then((d) => {
-        if (cancelled) return;
-        // 0 firms = auth/RLS not ready yet — retry with backoff, then fall back to JSON
-        if (d.firms.length === 0 && retries < MAX_RETRIES) {
-          retries++;
-          setTimeout(() => { if (!cancelled) attempt(); }, 600 * retries);
-        } else if (d.firms.length === 0) {
-          // Exhausted retries — load static JSON directly
-          loadStaticVCData().then((fallback) => {
-            if (cancelled) return;
-            setData(fallback);
-            setLoading(false);
-            setError(null);
-          }).catch(() => {
-            if (cancelled) return;
-            setData({ firms: [], people: [] });
-            setLoading(false);
-            setError("Investor directory unavailable.");
-          });
-        } else {
-          setData(d);
-          setLoading(false);
-          setError(null);
-        }
-      }).catch(() => {
-        if (!cancelled) {
-          setData({ firms: [], people: [] });
-          setLoading(false);
-          setError("Investor directory unavailable.");
-        }
-      });
-    }
-
-    attempt();
+    ensureStaticJson().then((d) => {
+      if (cancelled) return;
+      if (d.firms.length > 0 && !cachedData) cachedData = d;
+      setData(d);
+      setLoading(false);
+    });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Phase 2: Supabase upgrade — silent background enhancement ──
+  useEffect(() => {
+    if (authLoading) return;
+    const userId = user?.id ?? null;
+    if (supabaseUpgradedForUser === userId) return; // already attempted
+    supabaseUpgradedForUser = userId;
+
+    const directory = supabaseVcDirectory as unknown as DirectoryClient;
+    Promise.all([
+      directory.from("vc_firms").select("*").is("deleted_at", null),
+      directory.from("vc_people").select("*").is("deleted_at", null),
+    ]).then(([firmRes, peopleRes]) => {
+      if (firmRes.error || !firmRes.data) return; // keep static data
+      const firms = (firmRes.data || [])
+        .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCFirm => Boolean(row));
+      if (firms.length === 0) return; // keep static data
+      const people = ((peopleRes.error ? [] : peopleRes.data) || [])
+        .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
+        .filter((row): row is VCPerson => Boolean(row));
+      cachedData = { firms, people };
+      setData(cachedData);
+      setError(null);
+    }).catch(() => {
+      // Supabase failed — static JSON is already showing, nothing to do
+    });
   }, [authLoading, user?.id]);
 
   const firmMap = useMemo(() => {
