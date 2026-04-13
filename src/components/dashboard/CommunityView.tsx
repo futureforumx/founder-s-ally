@@ -51,6 +51,8 @@ interface CommunityViewProps {
   investorListSearchQuery?: string;
   /** When `nonce` changes, scrolls the investor grid to the matching firm card (VC directory id). */
   investorScrollTo?: { vcFirmId: string; nonce: number } | null;
+  /** Pin the directory to a specific scope on first render (e.g. "operators" for the Network tab). */
+  initialScope?: EntityScope;
 }
 
 // ── Types ──
@@ -1365,11 +1367,14 @@ export function CommunityView({
   investorTab,
   investorListSearchQuery,
   investorScrollTo,
+  initialScope,
 }: CommunityViewProps) {
   const isInvestorSearch = variant === "investor-search";
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const activeInvestorTab = investorTab ?? "all";
-  const [activeScope, setActiveScope] = useState<EntityScope>(isInvestorSearch ? "investors" : "all");
+  const [activeScope, setActiveScope] = useState<EntityScope>(
+    initialScope ?? (isInvestorSearch ? "investors" : "all"),
+  );
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
