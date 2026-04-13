@@ -45263,12 +45263,13 @@
       "website_url": "https://swatequitypartners.com"
     },
     {
-      "id": "sway.capital",
+      "id": "swayvc.com",
       "name": "Sway Capital",
-      "description": null,
+      "description": "Sway Capital is a venture capital firm that invests in early to mid-stage technology companies.",
       "aum": null,
       "sweet_spot": null,
       "stages": [
+        "Pre-Seed",
         "Seed",
         "Series A",
         "Series B"
@@ -45279,22 +45280,6 @@
         "HealthTech, Biotech & Life Sciences",
         "Mobility, Transportation & Logistics",
         "PropTech & Construction Tech"
-      ],
-      "website_url": "https://sway.capital"
-    },
-    {
-      "id": "swayvc.com",
-      "name": "Sway Ventures",
-      "description": "Sway Ventures is a venture capital firm that invests in early to mid-stage technology companies.",
-      "aum": null,
-      "sweet_spot": null,
-      "stages": [
-        "Pre-Seed",
-        "Seed",
-        "Series A"
-      ],
-      "sectors": [
-        "Enterprise Software & SaaS"
       ],
       "website_url": "https://swayvc.com"
     },
@@ -86363,10 +86348,241 @@
       "email": null
     },
     {
+      "id": "brian-nugent-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Brian Nugent",
+      "title": "Co-Founder",
+      "email": null
+    },
+    {
+      "id": "bill-malloy-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Bill Malloy",
+      "title": "Co-Founder",
+      "email": null
+    },
+    {
+      "id": "greg-white-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Greg White",
+      "title": "President & COO",
+      "email": null
+    },
+    {
+      "id": "thalia-gietzen-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Thalia Gietzen",
+      "title": "CFO",
+      "email": null
+    },
+    {
+      "id": "john-mcguinness-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "John McGuinness",
+      "title": "Partner, General Counsel & Chief Compliance Officer",
+      "email": null
+    },
+    {
+      "id": "ken-denman-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Ken Denman",
+      "title": "Managing Director",
+      "email": null
+    },
+    {
+      "id": "najib-khouri-haddad-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Najib Khouri-Haddad",
+      "title": "Managing Director",
+      "email": null
+    },
+    {
+      "id": "andrew-trapani-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Andrew Trapani",
+      "title": "Managing Director",
+      "email": null
+    },
+    {
+      "id": "marlon-evans-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Marlon Evans",
+      "title": "Managing Director",
+      "email": null
+    },
+    {
+      "id": "shelly-kapoor-collins-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Shelly Kapoor Collins",
+      "title": "Managing Director",
+      "email": null
+    },
+    {
+      "id": "giovanni-agostinelli-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Giovanni Agostinelli",
+      "title": "Partner",
+      "email": null
+    },
+    {
+      "id": "albert-vazquez-agusti-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Albert Vazquez-Agusti",
+      "title": "Partner",
+      "email": null
+    },
+    {
       "id": "patrick-c-o-neil-swayvc.com",
       "firm_id": "swayvc.com",
       "full_name": "Patrick C. O'Neil",
-      "title": null,
+      "title": "Chief Marketing Officer",
+      "email": null
+    },
+    {
+      "id": "lani-oneill-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Lani O'Neill",
+      "title": "Partner",
+      "email": null
+    },
+    {
+      "id": "domini-kelly-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Domini Kelly",
+      "title": "Fund Administration",
+      "email": null
+    },
+    {
+      "id": "vincent-monteparte-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Vincent Monteparte",
+      "title": "Venture Partner",
+      "email": null
+    },
+    {
+      "id": "bret-awbrey-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Bret Awbrey",
+      "title": "VP, Finance",
+      "email": null
+    },
+    {
+      "id": "brennan-reif-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Brennan Reif",
+      "title": "Principal",
+      "email": null
+    },
+    {
+      "id": "terrence-battle-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Terrence Battle",
+      "title": "Principal",
+      "email": null
+    },
+    {
+      "id": "nick-johnson-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Nick Johnson",
+      "title": "Associate",
+      "email": null
+    },
+    {
+      "id": "tobin-armbrust-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Tobin Armbrust",
+      "title": "Producer",
+      "email": null
+    },
+    {
+      "id": "sam-howard-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Sam Howard",
+      "title": "Principal",
+      "email": null
+    },
+    {
+      "id": "kathleen-hamil-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Kathleen Hamil",
+      "title": "Manager, Fund Administration",
+      "email": null
+    },
+    {
+      "id": "jessica-gonzalez-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Jessica Gonzalez",
+      "title": "Accountant",
+      "email": null
+    },
+    {
+      "id": "najwa-nasif-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Najwa Nasif",
+      "title": "Manager of People",
+      "email": null
+    },
+    {
+      "id": "louay-karana-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Louay Karana",
+      "title": "Sr. Accounting Manager",
+      "email": null
+    },
+    {
+      "id": "megan-ellertson-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Megan Ellertson",
+      "title": "Office Manager, Executive Administration",
+      "email": null
+    },
+    {
+      "id": "nicholas-ferrall-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Nicholas Ferrall",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "kip-quackenbush-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Kip Quackenbush",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "andy-bair-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Andy Bair",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "donna-wells-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Donna Wells",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "yasmin-moaven-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Yasmin Moaven",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "marwan-fawaz-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "Marwan Fawaz",
+      "title": "Advisor",
+      "email": null
+    },
+    {
+      "id": "david-dill-swayvc.com",
+      "firm_id": "swayvc.com",
+      "full_name": "David Dill",
+      "title": "Advisor",
       "email": null
     },
     {
