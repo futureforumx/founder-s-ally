@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtSub, resolveEdgeUserId } from "../_shared/jwt-sub.ts";
+import { upsertInvestorReviewWithSchemaFallback } from "../../../src/lib/investorReviewFallback.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,39 +37,6 @@ function shouldFallbackToInvestorReviews(err: { code?: string; message?: string;
   if (err.code === "23503" && blob.includes("vc_ratings")) return true;
   if (err.code === "23514" && blob.includes("vc_ratings")) return true;
   return false;
-}
-
-function buildInvestorReviewUpsertRow(userId: string, payload: Record<string, unknown>): Record<string, unknown> {
-  const starRatings =
-    payload.star_ratings && typeof payload.star_ratings === "object" && !Array.isArray(payload.star_ratings)
-      ? (payload.star_ratings as Record<string, unknown>)
-      : {};
-  const firmNameFromStar =
-    typeof starRatings.firm_name === "string" && starRatings.firm_name.trim().length > 0
-      ? starRatings.firm_name.trim()
-      : "";
-  const derivedFirmId =
-    typeof payload.vc_firm_id === "string" && payload.vc_firm_id.trim().length > 0
-      ? payload.vc_firm_id.trim()
-      : firmNameFromStar || "unknown-firm";
-  const npsRaw = payload.nps;
-  const npsScore = typeof npsRaw === "number" && Number.isFinite(npsRaw) ? npsRaw : 0;
-  const rawPerson =
-    typeof payload.vc_person_id === "string" ? payload.vc_person_id.trim() : "";
-  return {
-    founder_id: userId,
-    firm_id: derivedFirmId,
-    person_id: rawPerson,
-    interaction_type:
-      typeof payload.interaction_type === "string" && payload.interaction_type.trim()
-        ? payload.interaction_type
-        : "investor_relationship",
-    nps_score: npsScore,
-    did_respond: false,
-    comment: typeof payload.comment === "string" ? payload.comment : null,
-    star_ratings: starRatings,
-    is_anonymous: typeof payload.anonymous === "boolean" ? payload.anonymous : true,
-  };
 }
 
 serve(async (req) => {
@@ -148,34 +116,11 @@ serve(async (req) => {
     });
 
   const tryInvestorReviewsUpsert = async (): Promise<{ error: { message?: string; code?: string; details?: string } | null }> => {
-    const invRow = buildInvestorReviewUpsertRow(userId, payload);
-    const firmId = String(invRow.firm_id ?? "");
-    const personId = String(invRow.person_id ?? "");
-
-    const { data: existing, error: selErr } = await admin
-      .from("investor_reviews")
-      .select("id")
-      .eq("founder_id", userId)
-      .eq("firm_id", firmId)
-      .eq("person_id", personId)
-      .maybeSingle();
-    if (selErr) return { error: selErr };
-
-    const updatePatch = {
-      interaction_type: invRow.interaction_type,
-      nps_score: invRow.nps_score,
-      did_respond: invRow.did_respond,
-      comment: invRow.comment,
-      star_ratings: invRow.star_ratings,
-      is_anonymous: invRow.is_anonymous,
-    };
-
-    if (existing?.id) {
-      const { error } = await admin.from("investor_reviews").update(updatePatch).eq("id", existing.id);
-      return { error };
-    }
-
-    const { error } = await admin.from("investor_reviews").insert(invRow);
+    const { error } = await upsertInvestorReviewWithSchemaFallback({
+      db: admin as unknown as { from: (table: string) => any },
+      userId,
+      payload,
+    });
     return { error };
   };
 

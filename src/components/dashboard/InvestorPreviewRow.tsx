@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import type { AumBand } from "@prisma/client";
 import { resolveAumBandFromUsd } from "@/lib/aumBand";
+import { formatStageForDisplay } from "@/lib/stageUtils";
 
 export type InvestorPreviewModel = {
   name: string;
@@ -81,11 +82,6 @@ function stableMatchScore(name: string, explicit: number | null | undefined): nu
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return 60 + Math.abs(h % 21);
-}
-
-/** Spaces around en/em dashes in stage ranges (e.g. Pre-Seed–Seed → Pre-Seed – Seed). Hyphens inside words (Pre-Seed) unchanged. */
-function formatStageForDisplay(stage: string): string {
-  return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
 }
 
 export function InvestorPreviewRow({

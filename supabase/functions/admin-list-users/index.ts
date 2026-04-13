@@ -6,7 +6,7 @@ import {
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
 import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
-import { clerkListAllUsers, clerkUserToListedAuthFields } from "../_shared/clerk-backend.ts";
+import { clerkListAllUsers, clerkUserToListedAuthFields, clerkGetUser, clerkPrimaryEmail } from "../_shared/clerk-backend.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,13 +53,32 @@ Deno.serve(async (req) => {
       roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
     }
 
+    // If email wasn't in the JWT, resolve it via the Clerk API before checking permissions.
+    let callerEmail = resolved.email;
+    if (!callerEmail && resolved.id.startsWith("user_")) {
+      const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
+      if (clerkSecret) {
+        try {
+          const u = await clerkGetUser(clerkSecret, resolved.id);
+          callerEmail = u ? (clerkPrimaryEmail(u) || null) : null;
+          console.log("[admin-list-users] resolved caller email:", callerEmail, "for id:", resolved.id);
+        } catch (emailErr) {
+          throw new Error(
+            `Admin access denied: Clerk API returned an error resolving caller identity ` +
+            `(${(emailErr as Error).message}). ` +
+            `Ensure CLERK_SECRET_KEY is a live key (sk_live_...) matching your Clerk instance.`,
+          );
+        }
+      }
+    }
+
     const callerPermission = clampGodModeToDesignatedEmail(
       highestPermission(
         roleFromDb,
         asPermission(resolved.user_metadata?.role),
-        autoPermissionForEmail(resolved.email),
+        autoPermissionForEmail(callerEmail),
       ),
-      resolved.email,
+      callerEmail,
     );
 
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");

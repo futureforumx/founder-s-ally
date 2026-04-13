@@ -17,6 +17,8 @@ import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm, VCPersonInvestment } from "@/hooks/useVCDirectory";
 import { sanitizeText } from "@/lib/sanitizeText";
+import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
+import { generateInvestorBio } from "@/lib/generateFallbacks";
 
 type WebsiteDerivedPersonProfile = {
   headshotUrl: string | null;
@@ -71,6 +73,16 @@ function personSocialHref(raw: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+function isLikelyPersonWebsiteHref(raw: string | null | undefined): boolean {
+  const href = personSocialHref(raw);
+  if (!href) return false;
+  const lower = href.toLowerCase();
+  if (/linkedin\.com|x\.com|twitter\.com/.test(lower)) return false;
+  if (/\.(jpg|jpeg|png|gif|webp|svg|avif|pdf)(\?|$)/.test(lower)) return false;
+  if (/\/wp-content\/uploads\//.test(lower)) return false;
+  return true;
 }
 
 function investmentSortMs(date: string | null | undefined): number {
@@ -145,18 +157,27 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.affiliations?.[0]?.firm_name?.trim() ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+  const resolvedFirmWebsiteUrl = useMemo(
+    () =>
+      firm?.website_url?.trim() ||
+      (person as VCPerson & { _firm_website_url?: string | null } | null)?._firm_website_url?.trim() ||
+      null,
+    [firm?.website_url, person],
+  );
 
   useEffect(() => {
     setWebsiteProfile(null);
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
-    const firmWebsiteUrl = firm?.website_url?.trim() || null;
     const fullName = person?.full_name?.trim() || null;
-    const title = person?.title?.trim() || person?.role?.trim() || null;
+    const title =
+      sanitizePersonTitle(person?.title, person?.full_name) ||
+      sanitizePersonTitle(person?.role, person?.full_name) ||
+      null;
     const needsWebsiteEnrichment = Boolean(
       person &&
-      firmWebsiteUrl &&
+      resolvedFirmWebsiteUrl &&
       (
         !person.profile_image_url?.trim() ||
         !person.avatar_url?.trim() ||
@@ -169,7 +190,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       ),
     );
 
-    if (!needsWebsiteEnrichment || !firmWebsiteUrl || !fullName) {
+    if (!needsWebsiteEnrichment || !resolvedFirmWebsiteUrl || !fullName) {
       setWebsiteProfile(null);
       return;
     }
@@ -180,7 +201,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         const res = await fetch("/api/person-website-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firmWebsiteUrl, fullName, title }),
+          body: JSON.stringify({ firmWebsiteUrl: resolvedFirmWebsiteUrl, fullName, title }),
         });
         if (!res.ok) throw new Error(`Profile lookup failed (${res.status})`);
         const data = (await res.json()) as WebsiteDerivedPersonProfile;
@@ -195,7 +216,6 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       cancelled = true;
     };
   }, [
-    firm?.website_url,
     person,
     person?.avatar_url,
     person?.background_summary,
@@ -211,6 +231,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.state,
     person?.title,
     person?.x_url,
+    resolvedFirmWebsiteUrl,
   ]);
 
   const { starRatings: myPersonRatingJson } = useLatestMyVcRating(
@@ -230,12 +251,12 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   } = useInvestorMapping(reviewFirmDisplayName || null);
 
   const investorTitle = useMemo(() => {
-    const byTitle = person?.title?.trim();
+    const byTitle = sanitizePersonTitle(person?.title, person?.full_name);
     if (byTitle) return byTitle;
-    const byRole = person?.role?.trim();
+    const byRole = sanitizePersonTitle(person?.role, person?.full_name);
     if (byRole) return byRole;
-    return websiteProfile?.title?.trim() || null;
-  }, [person?.title, person?.role, websiteProfile?.title]);
+    return sanitizePersonTitle(websiteProfile?.title, person?.full_name) || null;
+  }, [person?.full_name, person?.title, person?.role, websiteProfile?.title]);
 
   const displayLocation = useMemo(() => {
     if (!person) return null;
@@ -252,9 +273,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       sanitizeText(person.background_summary) ||
       sanitizeText(websiteProfile?.bio) ||
       sanitizeText(person.bio) ||
+      generateInvestorBio({
+        full_name: person.full_name,
+        first_name: person.first_name,
+        last_name: person.last_name,
+        title: investorTitle,
+        firm_name: firm?.name || person.primary_firm_name || null,
+        personal_thesis_tags: person.personal_thesis_tags,
+        stage_focus: person.stage_focus,
+        city: person.city,
+        state: person.state,
+        country: person.country,
+      }) ||
       null
     );
-  }, [person, websiteProfile?.bio]);
+  }, [firm?.name, investorTitle, person, websiteProfile?.bio]);
 
   const resolvedEmail = useMemo(
     () => person?.email?.trim() || websiteProfile?.email?.trim() || null,
@@ -324,7 +357,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       websiteProfile?.profileUrl?.trim() ||
       websiteProfile?.websiteUrl?.trim() ||
       null;
-    const website = personSocialHref(websiteRaw);
+    const website = isLikelyPersonWebsiteHref(websiteRaw) ? personSocialHref(websiteRaw) : null;
     if (website) {
       items.push({
         key: "website",

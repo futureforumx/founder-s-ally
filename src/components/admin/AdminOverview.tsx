@@ -1,4 +1,4 @@
-import { Wifi, ScrollText, Brain, ArrowRight, History } from "lucide-react";
+import { Wifi, ScrollText, Brain, ArrowRight, History, Users } from "lucide-react";
 
 const STATS = [
   { label: "Active Integrations", value: "7/7", color: "#39FF14" },
@@ -42,8 +42,9 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         {[
+          { key: "users", icon: Users, title: "Users", desc: "Manage permissions and monitor user activity" },
           { key: "record-updates", icon: History, title: "Record updates", desc: "Latest changes across firms, investors, companies, users" },
           { key: "api-health", icon: Wifi, title: "API Health", desc: "Monitor 7 integration endpoints" },
           { key: "sync-logs", icon: ScrollText, title: "Sync Logs", desc: "Search the sync black box" },

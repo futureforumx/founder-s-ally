@@ -68831,5 +68831,1199 @@
     "name": "Bill Reichert",
     "status": "updated",
     "timestamp": "2026-04-11T05:41:00.169Z"
+  },
+  {
+    "type": "firm",
+    "id": "66e449d0-5f31-46cf-b51c-6c3aebb74be5",
+    "name": "Azimuth Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:00.645Z"
+  },
+  {
+    "type": "firm",
+    "id": "4c1d2a84-4dae-4720-ab84-46dea46501c7",
+    "name": "WorldQuant Ventures",
+    "status": "updated",
+    "fields": [],
+    "timestamp": "2026-04-13T21:48:08.385Z"
+  },
+  {
+    "type": "firm",
+    "id": "87e6c495-5e3d-46e4-a370-8c129b64b392",
+    "name": "Breakthrough Energy Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:13.774Z"
+  },
+  {
+    "type": "firm",
+    "id": "c2468216-2382-45b2-91c8-e4009f12fb91",
+    "name": "Integra Groupe",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:19.146Z"
+  },
+  {
+    "type": "firm",
+    "id": "3b895adf-d16c-4b63-a355-01781fdd56f9",
+    "name": "E12 Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:24.329Z"
+  },
+  {
+    "type": "firm",
+    "id": "5dcdda4c-05f5-46f7-9617-22c57ae53622",
+    "name": "Hanwha Holdings USA",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:29.268Z"
+  },
+  {
+    "type": "firm",
+    "id": "11a315db-b26c-4dea-ba84-eee32b34fbd4",
+    "name": "Maximus Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:34.420Z"
+  },
+  {
+    "type": "firm",
+    "id": "0aed18d3-da71-4a10-b671-e9d8b04f5953",
+    "name": "SWaN & Legend Venture Partners",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:39.332Z"
+  },
+  {
+    "type": "firm",
+    "id": "3c9e4d4d-688d-4979-bf69-a6a9ec99f3d0",
+    "name": "Crossbeam Ventures",
+    "status": "updated",
+    "fields": [],
+    "timestamp": "2026-04-13T21:48:47.517Z"
+  },
+  {
+    "type": "firm",
+    "id": "808d70e7-6c0a-4b73-a83c-972d89eebb3e",
+    "name": "Yellow Rocks",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:52.419Z"
+  },
+  {
+    "type": "firm",
+    "id": "871de89d-95cb-4d46-a9b7-f5674d2dc59f",
+    "name": "WIND Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:48:57.738Z"
+  },
+  {
+    "type": "firm",
+    "id": "38246771-b3b6-4220-9b5e-5af37cffac5d",
+    "name": "Fortescue Ventures (ex. Foresight WAE technology fund)",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:02.983Z"
+  },
+  {
+    "type": "firm",
+    "id": "a9b00cb4-0531-4519-a8f2-79626c23eab7",
+    "name": "Improve Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:07.955Z"
+  },
+  {
+    "type": "firm",
+    "id": "d7e49cb5-4fa8-49f9-9a5d-2d89272f3ca6",
+    "name": "JVP Jerusalem Venture Partners",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:12.851Z"
+  },
+  {
+    "type": "firm",
+    "id": "93f81bc5-7f22-41df-8284-9a9a7fe2c5d8",
+    "name": "Krypton Venture Funds",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:17.747Z"
+  },
+  {
+    "type": "firm",
+    "id": "92eebce5-b296-41b7-ae62-83b594f3566d",
+    "name": "Libertystreet Advisors, Inc.",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:22.878Z"
+  },
+  {
+    "type": "firm",
+    "id": "17140b87-3039-4459-90ed-92f65bdda74b",
+    "name": "MGV Capital Group",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:49:27.751Z"
+  },
+  {
+    "type": "firm",
+    "id": "f71ca98a-5b80-40fc-b1c1-4403edf3288a",
+    "name": "New York Life Ventures",
+    "status": "error",
+    "error": "new row for relation \"firm_records\" violates check constraint \"chk_fr_founded_year\"",
+    "timestamp": "2026-04-13T21:49:58.991Z"
+  },
+  {
+    "type": "firm",
+    "id": "3aebe73f-e8ad-46d0-bd82-37ac2102c475",
+    "name": "Montechiaro Consultants",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:03.905Z"
+  },
+  {
+    "type": "firm",
+    "id": "41fd76e7-c109-4709-aff5-bb84145f8bb8",
+    "name": "Prospective Technologies VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:09.076Z"
+  },
+  {
+    "type": "firm",
+    "id": "0bd39a84-21f5-4be8-8156-5e6422ed4128",
+    "name": "RH Capital",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:13.964Z"
+  },
+  {
+    "type": "firm",
+    "id": "900f829f-561a-4ab9-939c-82d547c86e3b",
+    "name": "Riviera Holdings",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:18.845Z"
+  },
+  {
+    "type": "firm",
+    "id": "76926a5c-ce19-418c-ac43-4c6d3ce8cde6",
+    "name": "Rogue Womens Fund",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:23.723Z"
+  },
+  {
+    "type": "firm",
+    "id": "a0520c11-cf21-45ce-88f1-11f5ebcdd5a0",
+    "name": "Strike Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:28.622Z"
+  },
+  {
+    "type": "firm",
+    "id": "ceff41a3-80a9-46db-84ec-c9609fe7ec1a",
+    "name": "Staenberg Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:33.810Z"
+  },
+  {
+    "type": "firm",
+    "id": "892011ef-28e0-4e7c-9621-5df22c2cc117",
+    "name": "Tandem Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:38.708Z"
+  },
+  {
+    "type": "firm",
+    "id": "f3bd2f40-afa6-427b-971a-5efefc0b801d",
+    "name": "Studio Investments",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:43.677Z"
+  },
+  {
+    "type": "firm",
+    "id": "30a55484-882a-431d-97a8-26f3e2d74918",
+    "name": "USVP US Venture Partners",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:48.817Z"
+  },
+  {
+    "type": "firm",
+    "id": "831abe84-d059-4e6d-9b75-4280c0d24a10",
+    "name": "Vine VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:53.696Z"
+  },
+  {
+    "type": "firm",
+    "id": "018ac4d5-fe27-46dc-9e15-96381a21d12f",
+    "name": "Reach Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:50:58.588Z"
+  },
+  {
+    "type": "firm",
+    "id": "89a3ce41-5123-484d-882d-1293bcac2aa5",
+    "name": "Versatile VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:03.465Z"
+  },
+  {
+    "type": "firm",
+    "id": "690dd552-48c3-4449-bef7-922dc8ad8990",
+    "name": "TVC The Venture Collective",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:08.351Z"
+  },
+  {
+    "type": "firm",
+    "id": "d288e2e0-f0d4-4b86-9429-d44d54e0735c",
+    "name": "PSL Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:13.227Z"
+  },
+  {
+    "type": "firm",
+    "id": "e63fd762-a89c-441f-b421-f642c29efa4d",
+    "name": "ZavoVentures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:18.102Z"
+  },
+  {
+    "type": "firm",
+    "id": "b3739579-cac9-4539-b96d-857a911199f4",
+    "name": "Michael Taus",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:23.246Z"
+  },
+  {
+    "type": "firm",
+    "id": "ef8c1cfa-05ac-436e-a5dc-18173b7654ad",
+    "name": "SK Lee",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:28.140Z"
+  },
+  {
+    "type": "firm",
+    "id": "24627605-4e6c-4425-9d22-6f4ddf6e9aaf",
+    "name": "BGV Benhamou Global Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:33.035Z"
+  },
+  {
+    "type": "firm",
+    "id": "399fed5d-580d-418e-80aa-7171729fbec3",
+    "name": "Story Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:38.162Z"
+  },
+  {
+    "type": "firm",
+    "id": "58571d1a-765a-49a8-8892-a5b7853c64eb",
+    "name": "BGV Behind Genius Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:43.052Z"
+  },
+  {
+    "type": "firm",
+    "id": "00fb278a-a5dc-405e-8a5c-e7940f5e95b8",
+    "name": "Jacobs Asset Management",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:51:47.924Z"
+  },
+  {
+    "type": "firm",
+    "id": "2e49499d-03b5-4316-bc65-7c49b34385fd",
+    "name": "Visible Hands",
+    "status": "updated",
+    "fields": [],
+    "timestamp": "2026-04-13T21:51:55.622Z"
+  },
+  {
+    "type": "firm",
+    "id": "0941667f-bebd-42f2-bd87-3b64d061d24f",
+    "name": "E²JDJ",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:00.669Z"
+  },
+  {
+    "type": "firm",
+    "id": "01616f6d-7b9e-4a03-85ca-236d7b524778",
+    "name": "Graphene Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:05.557Z"
+  },
+  {
+    "type": "firm",
+    "id": "e113e7d2-477c-4822-9f6d-22faf227aca7",
+    "name": "f7 Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:10.456Z"
+  },
+  {
+    "type": "firm",
+    "id": "9944b466-91f7-4a89-81a1-5dbdec964d0a",
+    "name": "Acorn Bioventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:15.726Z"
+  },
+  {
+    "type": "firm",
+    "id": "e4fb6d29-4521-42ec-8ff9-5e1331ea215f",
+    "name": "Legion VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:20.600Z"
+  },
+  {
+    "type": "firm",
+    "id": "6943b05b-f62d-404a-8a45-c9de748dabc4",
+    "name": "Syndicate 708",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:25.885Z"
+  },
+  {
+    "type": "firm",
+    "id": "e9013711-a401-4372-81de-a9d695572ed8",
+    "name": "Founders Committee",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:31.021Z"
+  },
+  {
+    "type": "firm",
+    "id": "5f283d46-5bda-428e-97e1-fe36ef88b1ee",
+    "name": "Army Venture Capital Corp.",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:36.800Z"
+  },
+  {
+    "type": "firm",
+    "id": "d33e4602-d6c4-4885-b3fd-fe5fe1e12bbe",
+    "name": "Macaby Ventures Fund",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:41.697Z"
+  },
+  {
+    "type": "firm",
+    "id": "700de84b-9294-4849-8697-74e6f9071f3c",
+    "name": "Ensemble VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:46.986Z"
+  },
+  {
+    "type": "firm",
+    "id": "b690b6a7-6159-4671-a42c-db7dac491f0a",
+    "name": "FoundersEdge",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:51.871Z"
+  },
+  {
+    "type": "firm",
+    "id": "477b68bc-c686-48c7-ace6-b69152dda98a",
+    "name": "Adventure Fund",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:52:56.742Z"
+  },
+  {
+    "type": "firm",
+    "id": "ca029186-6413-4cf5-932e-883cb47501a5",
+    "name": "Atlantic Bridge",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:02.191Z"
+  },
+  {
+    "type": "firm",
+    "id": "c083dd04-4b82-438d-990a-355c28b3424d",
+    "name": "Heroic Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:09.832Z"
+  },
+  {
+    "type": "firm",
+    "id": "342788a9-888a-466f-9596-acd29eb6bf56",
+    "name": "Bay Grove",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:16.086Z"
+  },
+  {
+    "type": "firm",
+    "id": "03666aa8-b27d-4a5e-adc7-bfb185ae8a39",
+    "name": "Cisco Climate Commitment",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:21.095Z"
+  },
+  {
+    "type": "firm",
+    "id": "4990edcf-f3b5-4bce-a49a-1762130f0e28",
+    "name": "TDK Ventures Fund 3",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:26.411Z"
+  },
+  {
+    "type": "firm",
+    "id": "76f2f98f-3c37-42c9-9613-c1b556bcd581",
+    "name": "Banner Capital Fund II",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:31.348Z"
+  },
+  {
+    "type": "firm",
+    "id": "58be8b46-4453-40f5-b1c8-f338ab9f1539",
+    "name": "GulfX Capital",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:36.331Z"
+  },
+  {
+    "type": "firm",
+    "id": "71be7e1c-7b05-4966-b6f6-9f4bbc9fd5d9",
+    "name": "Galaxy Venture Capital (GVC)",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:41.705Z"
+  },
+  {
+    "type": "firm",
+    "id": "e425519f-b3e5-4fd8-b2a1-9dc22953b65a",
+    "name": "Dmitry Korsunsky",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:47.476Z"
+  },
+  {
+    "type": "firm",
+    "id": "c0129ae9-baef-4549-8f48-1255147540bb",
+    "name": "Bay Street Capital Holdings",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:52.826Z"
+  },
+  {
+    "type": "firm",
+    "id": "63e51b21-3048-42d8-9240-80d47c2b4e5e",
+    "name": "Capital Midwest",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:53:57.726Z"
+  },
+  {
+    "type": "firm",
+    "id": "68605501-b49d-4648-a00a-5676346e6c2e",
+    "name": "Salfati Group Venture (SGV)",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:02.651Z"
+  },
+  {
+    "type": "firm",
+    "id": "b6295955-a978-4505-abe2-58743972b136",
+    "name": "Wei Capital Management",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:07.602Z"
+  },
+  {
+    "type": "firm",
+    "id": "83a6cd47-5258-468a-89cf-2b12005d5248",
+    "name": "Converge VC",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:12.809Z"
+  },
+  {
+    "type": "firm",
+    "id": "cd477a76-46c6-4699-821d-33c6b1774ece",
+    "name": "Alani Capital",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:17.950Z"
+  },
+  {
+    "type": "firm",
+    "id": "25a5c295-58ee-485d-bf6c-a244ffae7d0f",
+    "name": "Beta University",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:23.222Z"
+  },
+  {
+    "type": "firm",
+    "id": "63104f2e-95c9-445b-8d69-0f7933724f0e",
+    "name": "Blu Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:28.369Z"
+  },
+  {
+    "type": "firm",
+    "id": "29038846-e439-42a1-a509-ee74074ec8a8",
+    "name": "Fintech Start",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:33.489Z"
+  },
+  {
+    "type": "firm",
+    "id": "605a768f-c2c3-4aad-8ca8-e9b9eca4d772",
+    "name": "Alpine Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:38.684Z"
+  },
+  {
+    "type": "firm",
+    "id": "4d514b5d-2263-42f7-8fd3-a4407f5d7fdf",
+    "name": "BackFuture Ventures",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:43.699Z"
+  },
+  {
+    "type": "firm",
+    "id": "a3a89d7a-217e-42f6-8d5e-796992b9e2d7",
+    "name": "iiM (Innovation in Motion)",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:48.914Z"
+  },
+  {
+    "type": "firm",
+    "id": "1a5c7732-c6be-47c4-b77c-4f0e4db677cc",
+    "name": "Babak Kia",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:53.931Z"
+  },
+  {
+    "type": "firm",
+    "id": "307c2e98-1a3c-4fb1-8efb-25bacfe95fbc",
+    "name": "128vc",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:54:58.811Z"
+  },
+  {
+    "type": "firm",
+    "id": "e98bb5f9-c5af-45f1-a5f8-7f09bf383803",
+    "name": "ATP Fund",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:55:03.693Z"
+  },
+  {
+    "type": "firm",
+    "id": "39bf0826-dc58-44ab-b4ed-bfc66c98e89e",
+    "name": "BIP Capital",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:55:08.566Z"
+  },
+  {
+    "type": "firm",
+    "id": "21ab94c0-82ef-4c1c-8dcd-dfa998d09821",
+    "name": "InsurTech Fund",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:55:13.808Z"
+  },
+  {
+    "type": "investor",
+    "id": "5369e09e-ea5d-4547-b36d-ad8e2c8f005d",
+    "name": "Zaina Orbai",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:55:22.848Z"
+  },
+  {
+    "type": "investor",
+    "id": "a5167928-07c2-482c-a0a7-ddb646b1be4d",
+    "name": "Noah Nagle",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:55:32.729Z"
+  },
+  {
+    "type": "investor",
+    "id": "d5a03a8a-f2ee-4e92-b992-4b13a63f1ea0",
+    "name": "Raj Sandhu",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:55:41.580Z"
+  },
+  {
+    "type": "investor",
+    "id": "f8ca909d-5550-4925-b11c-599e15f0570d",
+    "name": "Ricardo Salomão",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:55:51.479Z"
+  },
+  {
+    "type": "investor",
+    "id": "f94797b2-4d7d-4ea5-ab75-1eb03bd7985b",
+    "name": "Robin Behlau",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:56:00.389Z"
+  },
+  {
+    "type": "investor",
+    "id": "de753db8-aeda-487d-a50e-a2b59dfd6ea4",
+    "name": "Ryann Lai",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:56:09.320Z"
+  },
+  {
+    "type": "investor",
+    "id": "057aabfb-46b7-40a6-85b0-4cade099042b",
+    "name": "Daniel Chalfon",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:56:19.228Z"
+  },
+  {
+    "type": "investor",
+    "id": "67d9e47b-6fe8-460b-8366-b4bbb73164b6",
+    "name": "Nikolay Shapovalov",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:56:28.195Z"
+  },
+  {
+    "type": "investor",
+    "id": "c3784eed-0238-4724-bb54-da43d55f58e5",
+    "name": "Noah Lowy",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:56:38.071Z"
+  },
+  {
+    "type": "investor",
+    "id": "7cedaa52-7af1-4233-b5d1-11abd5ae1355",
+    "name": "Rebecca Offensend",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:56:47.082Z"
+  },
+  {
+    "type": "investor",
+    "id": "bc26159d-7d0a-44d6-816b-956b74d2db76",
+    "name": "Sam Kirschner",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:56:55.698Z"
+  },
+  {
+    "type": "investor",
+    "id": "7320c9c5-faee-4f75-9251-014c4205ac83",
+    "name": "Ron Boger",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:57:06.198Z"
+  },
+  {
+    "type": "investor",
+    "id": "dc76eadd-c5db-480a-b9c5-1e72bff137cd",
+    "name": "Sharon Vosmek",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:57:15.251Z"
+  },
+  {
+    "type": "investor",
+    "id": "1ab79844-2059-4e5d-8e5d-510cc91c33e4",
+    "name": "Zain Khan",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:57:24.118Z"
+  },
+  {
+    "type": "investor",
+    "id": "3a13e496-2aff-433e-824c-1831ab31f6e5",
+    "name": "Noah Breslow",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:57:33.028Z"
+  },
+  {
+    "type": "investor",
+    "id": "81d09ce8-66e5-4111-9046-42b7013ba47e",
+    "name": "Paul Condolora",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:57:41.694Z"
+  },
+  {
+    "type": "investor",
+    "id": "009629d0-cb0d-49c4-8269-f2cd9f3d3b59",
+    "name": "Ping Li",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:57:50.642Z"
+  },
+  {
+    "type": "investor",
+    "id": "be9e9e5d-c4e3-4bac-a711-f3a1375c79a1",
+    "name": "Regina Zurutuza",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:58:00.552Z"
+  },
+  {
+    "type": "investor",
+    "id": "d4b5cf31-da1a-4230-84a5-1c1f7426d8ec",
+    "name": "Reid Christian",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:58:09.387Z"
+  },
+  {
+    "type": "investor",
+    "id": "17ade225-da9d-491f-b183-095fee352090",
+    "name": "Rob Hopfner",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:58:18.298Z"
+  },
+  {
+    "type": "investor",
+    "id": "e10d5eae-b406-4f96-8964-8096abb0cbb5",
+    "name": "Samuel Clemens",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:58:27.200Z"
+  },
+  {
+    "type": "investor",
+    "id": "4ee21850-63d9-419e-97bb-52e8a03df6c3",
+    "name": "Steve Taub",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:58:37.090Z"
+  },
+  {
+    "type": "investor",
+    "id": "3a43f07e-3bca-4862-bb29-d62af5fe48f5",
+    "name": "Oleg Rogynskyy",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:58:45.950Z"
+  },
+  {
+    "type": "investor",
+    "id": "5b0c3110-0920-4fca-ad8a-3a378b6cbccf",
+    "name": "Patric Hellermann",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:58:54.820Z"
+  },
+  {
+    "type": "investor",
+    "id": "fbb61b25-666d-47a9-86db-13be97e8cb1c",
+    "name": "Pradeep Aswani",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:59:03.631Z"
+  },
+  {
+    "type": "investor",
+    "id": "5f6bf74e-0bef-4c42-b643-426ffa5f6b47",
+    "name": "Simon Bartmann",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:59:13.504Z"
+  },
+  {
+    "type": "investor",
+    "id": "576167f6-8e3b-4cc7-935f-be8758b5a9ec",
+    "name": "Zack Smotherman",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:59:22.326Z"
+  },
+  {
+    "type": "investor",
+    "id": "540d0b78-396c-4868-bfde-d846e0faad24",
+    "name": "Sophia Zhao",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:59:32.488Z"
+  },
+  {
+    "type": "investor",
+    "id": "b06267ed-e346-469e-b56e-f34fefbfbe27",
+    "name": "Stacia Tan",
+    "status": "updated",
+    "timestamp": "2026-04-13T21:59:41.519Z"
+  },
+  {
+    "type": "investor",
+    "id": "f0de1188-168c-49fb-b120-18c201d9fc79",
+    "name": "Ken Singer",
+    "status": "not_found",
+    "timestamp": "2026-04-13T21:59:51.590Z"
+  },
+  {
+    "type": "investor",
+    "id": "ebf16784-8923-4959-a05d-d613551a0fcd",
+    "name": "Stefan Walter",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:00.567Z"
+  },
+  {
+    "type": "investor",
+    "id": "c6136054-03f1-43fd-bbe3-69be186db124",
+    "name": "Paolo Gesess",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:09.497Z"
+  },
+  {
+    "type": "investor",
+    "id": "c045fe4e-f48f-4ee7-adcf-5557fbfd7d99",
+    "name": "Peter Fallon",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:18.548Z"
+  },
+  {
+    "type": "investor",
+    "id": "6d49e60b-a655-4605-8332-145575e8063b",
+    "name": "Rebecca Norlander",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:27.639Z"
+  },
+  {
+    "type": "investor",
+    "id": "3ed7bd68-a57e-4ff3-bb72-b4fbfc6b7dc7",
+    "name": "Raymond Choi",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:36.822Z"
+  },
+  {
+    "type": "investor",
+    "id": "3d2be74c-de23-4c0d-8d5b-bd6be3865287",
+    "name": "Erik Pavia",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:00:46.880Z"
+  },
+  {
+    "type": "investor",
+    "id": "039e8d68-9927-4a70-a94d-c74e25435ca7",
+    "name": "Robert Faber",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:00:55.678Z"
+  },
+  {
+    "type": "investor",
+    "id": "e1396641-481e-43a9-8a8f-e61239b62e49",
+    "name": "Corporate Development Manager",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:01:05.821Z"
+  },
+  {
+    "type": "investor",
+    "id": "eeb23a63-3eab-4b3e-a559-2ed801870e90",
+    "name": "Tim Komada",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:14.657Z"
+  },
+  {
+    "type": "investor",
+    "id": "856e66a1-7eeb-41ef-bd12-b27a16b1e235",
+    "name": "Christian John",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:23.623Z"
+  },
+  {
+    "type": "investor",
+    "id": "4511bfdf-2c7c-4976-9fe1-cbbb144891a3",
+    "name": "Philip Austin",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:32.763Z"
+  },
+  {
+    "type": "investor",
+    "id": "c7c37030-61d3-4abf-81fc-29513bfe9f99",
+    "name": "Zak Doric",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:41.737Z"
+  },
+  {
+    "type": "investor",
+    "id": "0494afb1-6c59-494f-80de-5c3aadd25cad",
+    "name": "Ekkta Bathija",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:50.407Z"
+  },
+  {
+    "type": "investor",
+    "id": "a366933c-1363-455c-91df-b7dd3cdb9b6f",
+    "name": "Shiran Shalev",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:01:59.620Z"
+  },
+  {
+    "type": "investor",
+    "id": "9b1bb070-4371-490e-95c7-49d05badf887",
+    "name": "Steven Weinstein",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:10.758Z"
+  },
+  {
+    "type": "investor",
+    "id": "ee50e139-6890-427b-b743-61734e87d829",
+    "name": "Peter Kolomiets",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:20.007Z"
+  },
+  {
+    "type": "investor",
+    "id": "fbc24758-8b7f-4d3c-9b65-87b0a7d8b275",
+    "name": "Priscilla Tyler",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:28.935Z"
+  },
+  {
+    "type": "investor",
+    "id": "39978a14-89a8-4da4-b6c0-f72bde17466d",
+    "name": "Amrit Rao",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:37.636Z"
+  },
+  {
+    "type": "investor",
+    "id": "3614a994-24d8-455f-a005-70b7acc39aa0",
+    "name": "Brett Bolkowy",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:46.361Z"
+  },
+  {
+    "type": "investor",
+    "id": "92fb17ee-90c2-4f3a-9000-c66c185dfeb1",
+    "name": "Jacob Mullins",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:02:55.037Z"
+  },
+  {
+    "type": "investor",
+    "id": "b0ad3d5d-197b-4a56-90ba-24cc7196338d",
+    "name": "Zelda Zhao",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:03:03.887Z"
+  },
+  {
+    "type": "investor",
+    "id": "c4416bc5-c4e6-4e13-a1eb-0004e857010a",
+    "name": "Louise Haworth",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:03:12.514Z"
+  },
+  {
+    "type": "investor",
+    "id": "155110ef-eb8c-4056-b127-f52b3f15e7dc",
+    "name": "Susanne Najafi",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:03:21.416Z"
+  },
+  {
+    "type": "investor",
+    "id": "1ef64923-aecb-4094-9ac0-c8f12528f74a",
+    "name": "Ram Jambunathan",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:03:31.414Z"
+  },
+  {
+    "type": "investor",
+    "id": "8273a9c0-4f74-4bd1-a8d3-2c4e46ace5e3",
+    "name": "Rexhep Dollaku",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:03:40.371Z"
+  },
+  {
+    "type": "investor",
+    "id": "04998819-0bf6-4b9c-a604-37eb585249f7",
+    "name": "Roger Blott",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:03:49.377Z"
+  },
+  {
+    "type": "investor",
+    "id": "72b01081-90b9-4979-b585-40366a1b0716",
+    "name": "Sophie Bakalar",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:03:59.272Z"
+  },
+  {
+    "type": "investor",
+    "id": "e64c0326-d6ac-44b3-abf5-aba2c6ea9385",
+    "name": "Matteo Fortunato Condello",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:04:08.147Z"
+  },
+  {
+    "type": "investor",
+    "id": "d2cf5d3d-f550-4010-a776-4bb483ac28cd",
+    "name": "Richard Chen",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:04:17.066Z"
+  },
+  {
+    "type": "investor",
+    "id": "8bfc9a06-ac40-4bd5-849c-09d20364b5a6",
+    "name": "Rich Grant",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:04:26.946Z"
+  },
+  {
+    "type": "investor",
+    "id": "d27b22ce-f78e-4d3f-b7c3-b8a8fe54bc32",
+    "name": "Jeff Lu",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:04:35.755Z"
+  },
+  {
+    "type": "investor",
+    "id": "c00c8a5b-c461-444e-a7ce-be46154969a0",
+    "name": "Ryan Collins",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:04:44.770Z"
+  },
+  {
+    "type": "investor",
+    "id": "c80e7263-c5e0-4a11-be6d-4611163fe9f7",
+    "name": "Sarah Du",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:04:53.628Z"
+  },
+  {
+    "type": "investor",
+    "id": "f28422ef-3f43-4294-9446-040f261a3165",
+    "name": "Zeca Magalhães",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:05:02.529Z"
+  },
+  {
+    "type": "investor",
+    "id": "fd74b76e-4119-46bd-a09a-f242231def41",
+    "name": "Christian Mærsk-Møller",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:05:12.611Z"
+  },
+  {
+    "type": "investor",
+    "id": "5a8915ba-f3c6-4133-abe5-b2903362dbaa",
+    "name": "Jalak Jobanputra",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:05:22.541Z"
+  },
+  {
+    "type": "investor",
+    "id": "7bd84875-8062-4be9-bc1e-ee8dadf460f1",
+    "name": "Liz Factor",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:05:31.408Z"
+  },
+  {
+    "type": "investor",
+    "id": "bd7df7db-9580-45c4-9b7d-cd65f2223a69",
+    "name": "Sam Gyimah",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:05:40.840Z"
+  },
+  {
+    "type": "investor",
+    "id": "a434c8e6-9b3f-40c1-9cd2-0b0242332de2",
+    "name": "Thierry Laugel",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:05:49.862Z"
+  },
+  {
+    "type": "investor",
+    "id": "79d25d86-b05a-4f29-856e-3721db5c9664",
+    "name": "Sébastien Le Roy",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:05:59.801Z"
+  },
+  {
+    "type": "investor",
+    "id": "a7de20d5-2295-4e08-aaf4-92dcb511d0ed",
+    "name": "Thomas Hessler",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:06:09.190Z"
+  },
+  {
+    "type": "investor",
+    "id": "7a58830e-45ae-456e-bc53-6fad073af324",
+    "name": "Thomas Selby",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:06:19.338Z"
+  },
+  {
+    "type": "investor",
+    "id": "ad336e0b-67eb-4089-8a4a-7cfeb78d8594",
+    "name": "Andrew Goldner",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:06:29.105Z"
+  },
+  {
+    "type": "investor",
+    "id": "57e6eb25-f790-41c5-b3fb-c9489bc4f06f",
+    "name": "Allan Jean-Baptiste",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:06:38.032Z"
+  },
+  {
+    "type": "investor",
+    "id": "c28c078d-3ee6-430c-b92a-9f8fdfbf96a3",
+    "name": "Max Kilberg",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:06:48.056Z"
+  },
+  {
+    "type": "investor",
+    "id": "c9e3e83e-c452-4398-a1af-978126bbad0d",
+    "name": "William Guttman",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:06:56.865Z"
+  },
+  {
+    "type": "investor",
+    "id": "cd0822b6-d5f0-4317-8f58-9154910fb3c2",
+    "name": "Stephen Saad",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:07:05.518Z"
+  },
+  {
+    "type": "investor",
+    "id": "a8ceb681-9ba6-420d-ac7c-002636f3b37b",
+    "name": "Whitney Williams",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:07:14.467Z"
+  },
+  {
+    "type": "investor",
+    "id": "585515b0-5722-4a63-b891-2a9ae691956e",
+    "name": "Amy Goodwin",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:07:24.417Z"
+  },
+  {
+    "type": "investor",
+    "id": "c26d3188-ea62-4e22-8830-fafce56ec61b",
+    "name": "Sierra Peterson",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:07:34.317Z"
+  },
+  {
+    "type": "investor",
+    "id": "f7a2eeea-ca37-4793-8ad6-4d8d38ef4cab",
+    "name": "Shane Gray",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:07:43.474Z"
+  },
+  {
+    "type": "investor",
+    "id": "2e0a93db-201e-469d-af0b-eaa24883e5aa",
+    "name": "Susan Mason",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:07:52.418Z"
+  },
+  {
+    "type": "investor",
+    "id": "d5c2884e-2ccf-4e68-b6d5-371c85885a2b",
+    "name": "Victor Charpentier",
+    "status": "not_found",
+    "timestamp": "2026-04-13T22:08:02.472Z"
+  },
+  {
+    "type": "investor",
+    "id": "a28f2fcd-ca5b-4333-80e1-d14452c8c5a7",
+    "name": "Zane Lackey",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:11.324Z"
+  },
+  {
+    "type": "investor",
+    "id": "d2be07ac-987d-4bdb-80a6-c21913330e62",
+    "name": "Zhen Rong Yap",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:20.187Z"
+  },
+  {
+    "type": "investor",
+    "id": "3ae94ee3-29b1-4c0e-a456-78556b4c336d",
+    "name": "Zia Uddin",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:29.093Z"
+  },
+  {
+    "type": "investor",
+    "id": "53c2aeb6-c148-4569-8257-6ab66ec7ab77",
+    "name": "Shu Cao",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:38.128Z"
+  },
+  {
+    "type": "investor",
+    "id": "11ec2c36-eb4c-4499-927c-d2d8c96e49a4",
+    "name": "Sude Makili",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:48.487Z"
+  },
+  {
+    "type": "investor",
+    "id": "0360cabf-644b-4dcc-9253-4e2f87ec5180",
+    "name": "Teymour Boutros-Gali",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:08:57.442Z"
+  },
+  {
+    "type": "investor",
+    "id": "210ab921-d247-46a1-9cb7-492f40a97ad9",
+    "name": "Tony Chao",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:09:06.370Z"
+  },
+  {
+    "type": "investor",
+    "id": "39f98b51-32f4-49a9-81e2-68475d5edf5e",
+    "name": "Matt Maurer",
+    "status": "updated",
+    "timestamp": "2026-04-13T22:09:15.601Z"
   }
 ]

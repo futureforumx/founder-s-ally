@@ -68,6 +68,28 @@ async function sbGet<T>(table: string, select: string, extra = ""): Promise<T[]>
   return res.json();
 }
 
+async function sbGetPaged<T>(
+  table: string,
+  select: string,
+  extra = "",
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=${pageSize}&offset=${offset}${extra}`,
+      { headers: SB },
+    );
+    if (!res.ok) throw new Error(`GET ${table}: ${res.status} ${await res.text()}`);
+    const rows = await res.json() as T[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    offset += rows.length;
+  }
+  return all;
+}
+
 async function sbPatch(table: string, id: string, patch: Record<string, unknown>): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -151,6 +173,7 @@ type AiExtractedPerson = {
 
 type Config = {
   maxFirms: number;
+  startOffset: number;
   delayMs: number;
   timeoutMs: number;
   dryRun: boolean;
@@ -243,6 +266,7 @@ function envInt(name: string, fallback: number): number {
 function configFromEnv(): Config {
   return {
     maxFirms: Math.max(1, envInt("INVESTOR_TEAM_MAX_FIRMS", 100)),
+    startOffset: Math.max(0, envInt("INVESTOR_TEAM_START_OFFSET", 0)),
     delayMs: Math.max(0, envInt("INVESTOR_TEAM_DELAY_MS", 200)),
     timeoutMs: Math.max(1500, envInt("INVESTOR_TEAM_TIMEOUT_MS", 12000)),
     dryRun: envBool("INVESTOR_TEAM_DRY_RUN", false),
@@ -385,14 +409,19 @@ Return JSON:
       "substack_url": "string or null",
       "investment_themes": ["string"],
       "articles": [{ "title": "string", "url": "string", "published_at": "YYYY-MM-DD or null", "platform": "medium|substack|linkedin|twitter|company_blog|other", "summary": "string or null" }],
-      "portfolio_companies": ["string"]
-      },
-        "location": "City, State or City, Country — null if unknown",
-        "investment_stages": ["Pre-Seed|Seed|Series A|Series B|Series C|Growth|Late Stage|IPO"],
-        "investment_sectors": ["Fintech|Enterprise SaaS|AI|Health Tech|Biotech|Consumer|Climate|Mobility|Industrial|Cybersecurity|Media|Web3|EdTech|GovTech|Hardware|Robotics|Marketplace|AgriTech|PropTech"]
-      }
+      "portfolio_companies": ["string"],
+      "location": "City, State or City, Country — null if unknown",
+      "investment_stages": ["Pre-Seed|Seed|Series A|Series B|Series C|Growth|Late Stage|IPO"],
+      "investment_sectors": ["Fintech|Enterprise SaaS|AI|Health Tech|Biotech|Consumer|Climate|Mobility|Industrial|Cybersecurity|Media|Web3|EdTech|GovTech|Hardware|Robotics|Marketplace|AgriTech|PropTech"]
+    }
   ]
 }
+
+Rules:
+- first_name and last_name must contain only the person's name (no title, no honorifics).
+- title must contain only the role (e.g. "Senior Associate"), never the person's name.
+- email must be a literal email address only (no "mailto:" prefix, no extra text).
+- portfolio_companies must contain company names only, not categories or sentence fragments.
 
 --- PAGE CONTENT (truncated) ---
 ${markdown.slice(0, 60_000)}`;
@@ -868,6 +897,34 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
+function socialAvatarUrl(profileUrl: string | null | undefined): string | null {
+  const normalized = normalizeUrl(profileUrl ?? "");
+  return normalized ? `https://unavatar.io/${encodeURIComponent(normalized)}` : null;
+}
+
+function isLikelyHeadshotUrl(rawUrl: string | null | undefined): boolean {
+  const normalized = normalizeUrl(rawUrl ?? "");
+  if (!normalized) return false;
+  const lower = normalized.toLowerCase();
+  if (!/\.(jpg|jpeg|png|webp|avif)(\?|$)/.test(lower)) return false;
+  if (/(logo|favicon|icon|sprite|banner|hero|background|wordmark|placeholder)/.test(lower)) return false;
+  return true;
+}
+
+function resolvePreferredAvatarUrl(
+  websiteAvatarUrl: string | null | undefined,
+  linkedinUrl: string | null | undefined,
+  xUrl: string | null | undefined,
+): string | null {
+  const websiteAvatar = normalizeUrl(websiteAvatarUrl ?? "");
+  if (websiteAvatar && isLikelyHeadshotUrl(websiteAvatar)) return websiteAvatar;
+  const liAvatar = socialAvatarUrl(linkedinUrl);
+  if (liAvatar) return liAvatar;
+  const xAvatar = socialAvatarUrl(xUrl);
+  if (xAvatar) return xAvatar;
+  return null;
+}
+
 function toAbsoluteUrl(href: string, baseUrl: string): string | null {
   const h = href.trim();
   if (!h || h === "#" || h.startsWith("javascript:")) return null;
@@ -895,6 +952,42 @@ function parseHost(url: string): string {
 
 function uniq<T>(vals: T[]): T[] {
   return [...new Set(vals)];
+}
+
+const NON_COMPANY_TOKENS_RE =
+  /^(portfolio|investments?|deals?|investment notes|source|visit website|learn more|all companies|active|exited|acquired|ipo|healthcare|cybersecurity|data \+ ai|enterprise|consumer\/marketplace)$/i;
+
+function isLikelyCompanyName(value: string): boolean {
+  const v = value.trim().replace(/\s+/g, " ");
+  if (!v || v.length < 2 || v.length > 70) return false;
+  if (NON_COMPANY_TOKENS_RE.test(v)) return false;
+  if (/https?:\/\//i.test(v) || /@/.test(v)) return false;
+  if (/[!?]/.test(v)) return false;
+  if (/^(the|and|for|with)\b/i.test(v)) return false;
+  if (!/[A-Za-z]/.test(v)) return false;
+  // Avoid sentence-like fragments.
+  if (v.split(/\s+/).length > 5) return false;
+  return true;
+}
+
+function sanitizeCompanyNames(values: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of values) {
+    const cleaned = raw.replace(/^[-•*]\s*/, "").trim();
+    if (!isLikelyCompanyName(cleaned)) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(cleaned);
+  }
+  return out;
+}
+
+function chunk<T>(vals: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < vals.length; i += size) out.push(vals.slice(i, i + size));
+  return out;
 }
 
 function firstNonEmpty(...vals: Array<string | null | undefined>): string | undefined {
@@ -1007,15 +1100,76 @@ async function fetchPage(url: string, cfg: Config): Promise<PageFetch & { markdo
 
 function discoverTeamPages(homeUrl: string, homeHtml: string): string[] {
   const host = parseHost(homeUrl);
+  const normalizeNoHash = (url: string): string => {
+    try {
+      const u = new URL(url);
+      u.hash = "";
+      return u.toString();
+    } catch {
+      return url;
+    }
+  };
   const links = extractLinks(homeHtml, homeUrl)
     .filter((u) => parseHost(u) === host)
-    .filter((u) => TEAM_LINK_RE.test(u));
+    .filter((u) => TEAM_LINK_RE.test(u))
+    .map(normalizeNoHash);
 
   const hinted = TEAM_PATH_HINTS
     .map((path) => toAbsoluteUrl(path, homeUrl))
-    .filter((u): u is string => Boolean(u));
+    .filter((u): u is string => Boolean(u))
+    .map(normalizeNoHash);
 
-  return uniq([...hinted, ...links]).slice(0, 12);
+  return uniq([...hinted, ...links]).slice(0, 20);
+}
+
+function extractXmlLocs(xml: string): string[] {
+  return [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/gi)]
+    .map((m) => m[1]?.trim())
+    .filter((v): v is string => Boolean(v));
+}
+
+async function discoverTeamPagesFromSitemaps(homeUrl: string, cfg: Config): Promise<string[]> {
+  const host = parseHost(homeUrl);
+  const seeds = uniq([
+    toAbsoluteUrl("/sitemap_index.xml", homeUrl),
+    toAbsoluteUrl("/sitemap.xml", homeUrl),
+  ].filter((u): u is string => Boolean(u)));
+
+  const sitemapUrls: string[] = [];
+  const pageUrls: string[] = [];
+  const visited = new Set<string>();
+  const queue = [...seeds];
+
+  while (queue.length && visited.size < 16) {
+    const next = queue.shift();
+    if (!next || visited.has(next)) continue;
+    visited.add(next);
+    const xml = await fetchText(next, Math.min(cfg.timeoutMs, 20_000));
+    if (!xml || !xml.includes("<loc>")) continue;
+
+    const locs = extractXmlLocs(xml)
+      .map((u) => normalizeUrl(u))
+      .filter((u): u is string => Boolean(u))
+      .filter((u) => parseHost(u) === host);
+
+    if (/<sitemapindex/i.test(xml)) {
+      for (const loc of locs) {
+        if (visited.has(loc)) continue;
+        if (!/sitemap/i.test(loc)) continue;
+        sitemapUrls.push(loc);
+        queue.push(loc);
+      }
+      continue;
+    }
+
+    pageUrls.push(...locs);
+  }
+
+  const teamLike = pageUrls.filter((u) =>
+    /(\/team-member\/|\/team\/|\/people\/|\/partners?\/|\/leadership\/|\/investment-team\/|\/our-team\/)/i.test(u),
+  );
+
+  return uniq(teamLike).slice(0, 80);
 }
 
 function normName(name: string): string {
@@ -1026,7 +1180,10 @@ function isLikelyPersonName(raw: string): boolean {
   const t = raw.trim();
   if (t.length < 5 || t.length > 60) return false;
   if (/\d/.test(t)) return false;
+  if (/\b(wharf|street|st\.?|avenue|ave\.?|road|rd\.?|suite|floor|building|parkway|blvd|drive|dr\.?)\b/i.test(t)) return false;
+  if (/\b(ventures|capital|partners|management|holdings|group|corporation)\b/i.test(t)) return false;
   if (/^(not found|page not found|404)$/i.test(t)) return false;
+  if (/^(sector focus|stage focus|investment focus|visit website|view profile|team member|read more|learn more|portfolio|investments?)$/i.test(t)) return false;
   if (/^(our mission|board partner|brand partner|design partner|venture partner|founder\s*&\s*ceo|partner)$/i.test(t)) return false;
   if (/(team|portfolio|investments|contact|about|career|jobs|press|privacy|cookie)/i.test(t)) return false;
   if (!/^[A-Z][A-Za-z'.-]+(?:\s+[A-Z][A-Za-z'.-]+){1,3}$/.test(t)) return false;
@@ -1037,6 +1194,149 @@ function splitName(fullName: string): { first: string; last: string } {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length <= 1) return { first: parts[0] || "Investment", last: "Team" };
   return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function nameMatchesTeamMemberSlug(name: string, sourceUrl: string): boolean {
+  const match = sourceUrl.match(/\/team-member\/([^/?#]+)/i);
+  if (!match?.[1]) return true;
+  const slugTokens = match[1]
+    .replace(/-\d+$/, "")
+    .split("-")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  if (slugTokens.length < 2) return true;
+  const nameTokens = name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z]/g, ""))
+    .filter(Boolean);
+  if (nameTokens.length < 2) return false;
+  const intersection = slugTokens.filter((t) => nameTokens.includes(t));
+  return intersection.length >= 2;
+}
+
+function sanitizeEmail(raw: string | null | undefined): string | undefined {
+  const value = raw?.trim().toLowerCase();
+  if (!value) return undefined;
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) return undefined;
+  if (/example\.com$/.test(value)) return undefined;
+  return value;
+}
+
+function sanitizeExtractedName(raw: string | null | undefined): string | undefined {
+  const value = raw?.replace(/\s+/g, " ").trim();
+  if (!value) return undefined;
+  // Remove accidental "Name, Title" style payloads.
+  const candidate = value.split("|")[0].split(",")[0].trim();
+  if (!isLikelyPersonName(candidate)) return undefined;
+  return candidate;
+}
+
+function sanitizeExtractedTitle(raw: string | null | undefined, fullName: string): string | undefined {
+  const value = raw?.replace(/\s+/g, " ").trim();
+  if (!value) return undefined;
+  const escapedName = escapeRe(fullName);
+  const stripped = value
+    .replace(new RegExp(`^${escapedName}[\\s,:|\\-–—]*`, "i"), "")
+    .replace(new RegExp(`[\\s,:|\\-–—]*${escapedName}$`, "i"), "")
+    .trim();
+  if (!stripped) return undefined;
+  if (stripped.length > 110) return undefined;
+  if (/^(email|linkedin|x|twitter|portfolio|investments?|sector focus|location)$/i.test(stripped)) return undefined;
+  if (/https?:\/\//i.test(stripped) || /@/.test(stripped)) return undefined;
+  return stripped;
+}
+
+function normalizeExtractedPerson(raw: ExtractedPerson): ExtractedPerson | null {
+  const fullName = sanitizeExtractedName(raw.fullName);
+  if (!fullName) return null;
+  const title = sanitizeExtractedTitle(raw.title ?? raw.role, fullName);
+  const linkedinUrl = normalizeUrl(raw.linkedinUrl ?? "");
+  const xUrl = normalizeUrl(raw.xUrl ?? "");
+  const mediumUrl = normalizeUrl(raw.mediumUrl ?? "");
+  const substackUrl = normalizeUrl(raw.substackUrl ?? "");
+  const profileUrl = normalizeUrl(raw.profileUrl ?? "");
+  const avatarUrl = normalizeUrl(raw.avatarUrl ?? "");
+  const email = sanitizeEmail(raw.email);
+  const location = raw.location?.trim() || undefined;
+  return {
+    ...raw,
+    fullName,
+    title,
+    role: title,
+    email,
+    linkedinUrl: linkedinUrl || undefined,
+    xUrl: xUrl || undefined,
+    mediumUrl: mediumUrl || undefined,
+    substackUrl: substackUrl || undefined,
+    profileUrl: profileUrl || undefined,
+    avatarUrl: avatarUrl || undefined,
+    location,
+    investments: sanitizeCompanyNames(raw.investments ?? []),
+    themes: uniq((raw.themes ?? []).map((t) => t.trim()).filter(Boolean)),
+  };
+}
+
+function normalizeAiPerson(raw: AiExtractedPerson): {
+  first: string;
+  last: string;
+  fullName: string;
+  title?: string;
+  email?: string;
+  linkedinUrl?: string | null;
+  xUrl?: string | null;
+  mediumUrl?: string | null;
+  substackUrl?: string | null;
+  preferredAvatar: string | null;
+  portfolioCompanies: string[];
+} | null {
+  const rawFirst = raw.first_name?.trim();
+  const rawLast = raw.last_name?.trim();
+  if (!rawFirst || !rawLast) return null;
+
+  const combined = `${rawFirst} ${rawLast}`.replace(/\s+/g, " ").trim();
+  let fullName = sanitizeExtractedName(combined);
+  let inferredTitle: string | undefined;
+
+  if (!fullName) {
+    const tokens = combined.split(/\s+/).filter(Boolean);
+    for (let splitIdx = 2; splitIdx < tokens.length; splitIdx += 1) {
+      const nameCandidate = tokens.slice(0, splitIdx).join(" ");
+      if (!isLikelyPersonName(nameCandidate)) continue;
+      const roleCandidate = tokens.slice(splitIdx).join(" ");
+      const cleanRole = sanitizeExtractedTitle(roleCandidate, nameCandidate);
+      if (!cleanRole || !TITLE_RE.test(cleanRole)) continue;
+      fullName = nameCandidate;
+      inferredTitle = cleanRole;
+      break;
+    }
+  }
+
+  if (!fullName) return null;
+
+  const split = splitName(fullName);
+  const title = sanitizeExtractedTitle(raw.title ?? null, fullName) ?? inferredTitle;
+  const email = sanitizeEmail(raw.email ?? null);
+  const linkedinUrl = normalizeUrl(raw.linkedin_url ?? "") ?? null;
+  const xUrl = normalizeUrl(raw.x_url ?? "") ?? null;
+  const mediumUrl = normalizeUrl(raw.medium_url ?? "") ?? null;
+  const substackUrl = normalizeUrl(raw.substack_url ?? "") ?? null;
+  const preferredAvatar = resolvePreferredAvatarUrl(raw.avatar_url ?? null, linkedinUrl, xUrl);
+  const portfolioCompanies = sanitizeCompanyNames(raw.portfolio_companies ?? []);
+
+  return {
+    first: split.first,
+    last: split.last,
+    fullName,
+    title,
+    email,
+    linkedinUrl,
+    xUrl,
+    mediumUrl,
+    substackUrl,
+    preferredAvatar,
+    portfolioCompanies,
+  };
 }
 
 function extractEmails(s: string): string[] {
@@ -1092,7 +1392,12 @@ function extractThemes(text: string): string[] {
 
   function parseLocation(str: string): { city?: string; state?: string; country?: string } {
     if (!str?.trim()) return {};
-    const parts = str.split(",").map((s) => s.trim()).filter(Boolean);
+    const raw = str.trim().replace(/\s+/g, " ");
+    const cityStateTail = raw.match(/([A-Z][A-Za-z .'-]+),\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/);
+    if (cityStateTail) {
+      return { city: cityStateTail[1].trim(), state: cityStateTail[2].trim(), country: "USA" };
+    }
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
     if (parts.length === 0) return {};
     if (parts.length === 1) return { city: parts[0] };
     if (parts.length === 2) {
@@ -1157,9 +1462,15 @@ function summarizeInvestments(text: string): string[] {
     .split(/\n+/)
     .map((l) => l.trim())
     .filter(Boolean);
-  return lines
-    .filter((l) => INVESTMENT_WORD_RE.test(l))
-    .slice(0, 6);
+  const candidates: string[] = [];
+  for (const line of lines.filter((l) => INVESTMENT_WORD_RE.test(l))) {
+    const stripped = line.replace(/^(portfolio|investments?|deals?|backed(?: companies)?|notable investments?)\s*[:\-]?\s*/i, "");
+    for (const part of stripped.split(/,|;|\||\band\b/gi)) {
+      const token = part.trim();
+      if (token) candidates.push(token);
+    }
+  }
+  return sanitizeCompanyNames(candidates).slice(0, 20);
 }
 
 function extractJsonLdPeople(html: string, sourceUrl: string): ExtractedPerson[] {
@@ -1348,6 +1659,7 @@ function extractHeuristicPeople(html: string, text: string, sourceUrl: string): 
   for (const m of nameMatches) {
     const name = (m[1] || "").trim();
     if (!isLikelyPersonName(name)) continue;
+    if (!nameMatchesTeamMemberSlug(name, sourceUrl)) continue;
     if (new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g").exec(name) === null) continue;
 
     const idx = m.index || 0;
@@ -1361,6 +1673,17 @@ function extractHeuristicPeople(html: string, text: string, sourceUrl: string): 
       .split(/[\n|•·]/)
       .map((p) => p.trim())
       .find((p) => TITLE_RE.test(p) && p.length <= 110);
+    const titleNearName = (() => {
+      const clean = snippetText.replace(/\s+/g, " ").trim();
+      const re = new RegExp(
+        `${escapeRe(name)}\\s+([A-Z][A-Za-z&/\\-\\s]{2,80}?)(?:\\s+(Sector Focus|Stage Focus|Email|LinkedIn|Location|Portfolio|Investments?)\\b|$)`,
+        "i",
+      );
+      const match = clean.match(re);
+      if (!match?.[1]) return undefined;
+      return sanitizeExtractedTitle(match[1], name);
+    })();
+    const finalTitle = titleNearName || titleCandidate;
 
     const avatarMatch = snippet.match(/<img[^>]*src=["']([^"']+)["'][^>]*>/i);
     const avatarUrl = avatarMatch ? toAbsoluteUrl(avatarMatch[1], sourceUrl) : null;
@@ -1368,7 +1691,7 @@ function extractHeuristicPeople(html: string, text: string, sourceUrl: string): 
     let confidence = 0;
     if (social.linkedinUrl) confidence += 0.35;
     if (emails.length) confidence += 0.2;
-    if (titleCandidate) confidence += 0.2;
+    if (finalTitle) confidence += 0.2;
     if (avatarUrl) confidence += 0.15;
     if (snippetText.length > 80) confidence += 0.1;
     if (confidence < 0.35) continue;
@@ -1380,8 +1703,8 @@ function extractHeuristicPeople(html: string, text: string, sourceUrl: string): 
 
     out.push({
       fullName: name,
-      title: titleCandidate,
-      role: titleCandidate,
+      title: finalTitle,
+      role: finalTitle,
       bio: snippetText.length > 50 ? snippetText.slice(0, 600) : undefined,
       email: emails[0],
       linkedinUrl: social.linkedinUrl,
@@ -1454,7 +1777,9 @@ function extractHeuristicPeople(html: string, text: string, sourceUrl: string): 
 
 function mergePeople(raw: ExtractedPerson[]): ExtractedPerson[] {
   const byName = new Map<string, ExtractedPerson>();
-  for (const p of raw) {
+  for (const candidate of raw) {
+    const p = normalizeExtractedPerson(candidate);
+    if (!p) continue;
     const key = normName(p.fullName);
     if (!key) continue;
     const existing = byName.get(key);
@@ -1527,6 +1852,19 @@ function shouldReplace(current: string | null, incoming: string | undefined, ove
   return overwrite;
 }
 
+function shouldReplaceTitle(current: string | null, incoming: string | undefined, overwrite: boolean): boolean {
+  if (shouldReplace(current, incoming, overwrite)) return true;
+  const c = current?.trim().toLowerCase();
+  const i = incoming?.trim().toLowerCase();
+  if (!c || !i || c === i) return false;
+
+  // Allow non-overwrite upgrades when incoming title is clearly more specific.
+  if (i.includes(c) && i.length >= c.length + 3) return true;
+  const seniorityRe = /\b(senior|managing|general|founding|chief|co[- ]?founder|operating|venture)\b/i;
+  if (seniorityRe.test(i) && !seniorityRe.test(c)) return true;
+  return false;
+}
+
 function resolveExistingPerson(
   firm: FirmRow,
   extracted: ExtractedPerson,
@@ -1574,20 +1912,41 @@ async function main() {
     + (cfg.firmSlug ? `&slug=eq.${encodeURIComponent(cfg.firmSlug)}` : "")
     + `&order=updated_at.asc`;
 
-  const rawFirms = await sbGet<{ id: string; slug: string; firm_name: string; website_url: string | null }>(
+  const rawFirms = await sbGetPaged<{ id: string; slug: string; firm_name: string; website_url: string | null }>(
     "firm_records", "id,slug,firm_name,website_url", firmFilter
   );
-  const firmSlice = rawFirms.slice(0, cfg.maxFirms);
+  const firmSlice = rawFirms.slice(cfg.startOffset, cfg.startOffset + cfg.maxFirms);
 
   // ── Batch-load investors for those firms ───────────────────────────────────
   const firmIds = firmSlice.map((f) => f.id);
-  const allInvestors = firmIds.length
-    ? await sbGet<{ id: string; firm_id: string; first_name: string; last_name: string; email: string | null; linkedin_url: string | null; website_url: string | null }>(
+  const allInvestors: Array<{
+    id: string;
+    firm_id: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    linkedin_url: string | null;
+    website_url: string | null;
+  }> = [];
+  if (firmIds.length) {
+    // Avoid oversized URL filters on full runs.
+    for (const idBatch of chunk(firmIds, 120)) {
+      const rows = await sbGetPaged<{
+        id: string;
+        firm_id: string;
+        first_name: string;
+        last_name: string;
+        email: string | null;
+        linkedin_url: string | null;
+        website_url: string | null;
+      }>(
         "firm_investors",
         "id,firm_id,first_name,last_name,email,linkedin_url,website_url",
-        `&firm_id=in.(${firmIds.join(",")})&deleted_at=is.null`
-      )
-    : [];
+        `&firm_id=in.(${idBatch.join(",")})&deleted_at=is.null`,
+      );
+      allInvestors.push(...rows);
+    }
+  }
 
   const investorsByFirm = new Map<string, typeof allInvestors>();
   for (const inv of allInvestors) {
@@ -1596,10 +1955,12 @@ async function main() {
     investorsByFirm.set(inv.firm_id, arr);
   }
 
-  // Only process firms that already have at least one investor record
-  const firms: FirmRow[] = firmSlice
-    .filter((f) => (investorsByFirm.get(f.id)?.length ?? 0) > 0)
-    .map((f) => ({ ...f, investors: investorsByFirm.get(f.id)! }));
+  // Process all firms with websites. Existing investors are used for matching,
+  // but firms with zero current rows can still create new people from extraction.
+  const firms: FirmRow[] = firmSlice.map((f) => ({
+    ...f,
+    investors: investorsByFirm.get(f.id) ?? [],
+  }));
 
   const stats = {
     firmsScanned: firms.length,
@@ -1613,7 +1974,7 @@ async function main() {
 
   console.log("\n[team-sync] Starting investor team page sync");
   console.log(
-    `[team-sync] firms=${firms.length} dryRun=${cfg.dryRun} overwrite=${cfg.overwrite} useJina=${cfg.useJinaReader}`,
+    `[team-sync] firms=${firms.length} offset=${cfg.startOffset} max=${cfg.maxFirms} dryRun=${cfg.dryRun} overwrite=${cfg.overwrite} useJina=${cfg.useJinaReader}`,
   );
 
   for (let i = 0; i < firms.length; i += 1) {
@@ -1634,13 +1995,15 @@ async function main() {
       }
 
       const candidatePages = discoverTeamPages(website, home.html);
+      const sitemapPages = await discoverTeamPagesFromSitemaps(website, cfg);
+      const pagesToScan = uniq([...candidatePages, ...sitemapPages]).slice(0, 100);
       const extractedRaw: ExtractedPerson[] = [];
 
       if (cfg.firmSlug) {
-        console.log(`[team-sync]   candidate pages: ${candidatePages.join(', ') || '(none)'}`);
+        console.log(`[team-sync]   candidate pages: ${pagesToScan.join(', ') || '(none)'}`);
       }
 
-      for (const pageUrl of candidatePages) {
+      for (const pageUrl of pagesToScan) {
         const page = await fetchPage(pageUrl, cfg);
         if (!page) continue;
         const jsonLdPeople = extractJsonLdPeople(page.html, page.url);
@@ -1657,12 +2020,12 @@ async function main() {
 
       // --- AI extraction (primary when available) ---
       let aiPeople: AiExtractedPerson[] = [];
-      const primaryMarkdown = candidatePages.length > 0
-        ? (await fetchPage(candidatePages[0], cfg))?.markdown
+      const primaryMarkdown = pagesToScan.length > 0
+        ? (await fetchPage(pagesToScan[0], cfg))?.markdown
         : undefined;
 
       if (cfg.useAiExtraction && primaryMarkdown) {
-        aiPeople = await aiExtractPeople(firm.firm_name, primaryMarkdown, candidatePages[0]);
+        aiPeople = await aiExtractPeople(firm.firm_name, primaryMarkdown, pagesToScan[0]);
         console.log(`[team-sync]   AI extracted ${aiPeople.length} people`);
 
         // EXA: per-investor enrichment (social links, articles, themes)
@@ -1687,16 +2050,30 @@ async function main() {
         `&firm_id=eq.${firm.id}&deleted_at=is.null`
       );
       const byId = new Map(existingRows.map((p) => [p.id, p]));
+      const aiHandledNames = new Set<string>();
 
       // --- Process AI-extracted people (richer data) ---
       for (const ap of aiPeople) {
-        if (!ap.first_name?.trim() || !ap.last_name?.trim()) continue;
+        const normalizedAi = normalizeAiPerson(ap);
+        if (!normalizedAi) continue;
+        const aiFirst = normalizedAi.first;
+        const aiLast = normalizedAi.last;
+        const aiFullName = normalizedAi.fullName;
+        const aiTitle = normalizedAi.title;
+        const aiEmail = normalizedAi.email;
+        const aiLinkedinUrl = normalizedAi.linkedinUrl;
+        const aiXUrl = normalizedAi.xUrl;
+        const aiMediumUrl = normalizedAi.mediumUrl;
+        const aiSubstackUrl = normalizedAi.substackUrl;
+        const preferredAiAvatar = normalizedAi.preferredAvatar;
+        const cleanPortfolioCompanies = normalizedAi.portfolioCompanies;
+        aiHandledNames.add(normName(aiFullName));
 
         const existingAi = byId
           ? [...byId.values()].find(
               (r) =>
-                r.first_name.toLowerCase() === ap.first_name.toLowerCase() &&
-                r.last_name.toLowerCase() === ap.last_name.toLowerCase()
+                r.first_name.toLowerCase() === aiFirst.toLowerCase() &&
+                r.last_name.toLowerCase() === aiLast.toLowerCase()
             )
           : null;
 
@@ -1713,17 +2090,17 @@ async function main() {
           const updates: Record<string, unknown> = {
             team_page_scraped_at: new Date(),
           };
-          if (shouldReplace(existingAi.title, ap.title, cfg.overwrite)) updates.title = ap.title;
+          if (shouldReplaceTitle(existingAi.title, aiTitle, cfg.overwrite)) updates.title = aiTitle;
           if (shouldReplace(existingAi.bio, ap.bio, cfg.overwrite)) updates.bio = ap.bio;
-          if (shouldReplace(existingAi.email, ap.email, cfg.overwrite)) updates.email = ap.email;
-          if (shouldReplace(existingAi.avatar_url, ap.avatar_url, cfg.overwrite)) updates.avatar_url = ap.avatar_url;
-          if (shouldReplace(existingAi.linkedin_url, ap.linkedin_url, cfg.overwrite)) updates.linkedin_url = ap.linkedin_url;
-          if (shouldReplace(existingAi.x_url, ap.x_url, cfg.overwrite)) updates.x_url = ap.x_url;
-          if (shouldReplace((existingAi as Record<string, unknown>).medium_url as string | null, ap.medium_url, cfg.overwrite)) {
-            updates.medium_url = ap.medium_url;
+          if (shouldReplace(existingAi.email, aiEmail, cfg.overwrite)) updates.email = aiEmail;
+          if (shouldReplace(existingAi.avatar_url, preferredAiAvatar ?? undefined, cfg.overwrite)) updates.avatar_url = preferredAiAvatar;
+          if (shouldReplace(existingAi.linkedin_url, aiLinkedinUrl ?? undefined, cfg.overwrite)) updates.linkedin_url = aiLinkedinUrl;
+          if (shouldReplace(existingAi.x_url, aiXUrl ?? undefined, cfg.overwrite)) updates.x_url = aiXUrl;
+          if (shouldReplace((existingAi as Record<string, unknown>).medium_url as string | null, aiMediumUrl ?? undefined, cfg.overwrite)) {
+            updates.medium_url = aiMediumUrl;
           }
-          if (shouldReplace((existingAi as Record<string, unknown>).substack_url as string | null, ap.substack_url, cfg.overwrite)) {
-            updates.substack_url = ap.substack_url;
+          if (shouldReplace((existingAi as Record<string, unknown>).substack_url as string | null, aiSubstackUrl ?? undefined, cfg.overwrite)) {
+            updates.substack_url = aiSubstackUrl;
           }
           if (ap.location) {
             const loc = parseLocation(ap.location);
@@ -1733,16 +2110,16 @@ async function main() {
           }
           const aiNewStages = parseStageFocusFromStrings(ap.investment_stages ?? []);
           if (aiNewStages.length) {
-            const merged = uniq([...existingAi.stage_focus, ...aiNewStages]);
+            const merged = uniq([...(existingAi.stage_focus ?? []), ...aiNewStages]);
             updates.stage_focus = merged;
           }
           const aiNewSectors = parseSectorFocusFromStrings(ap.investment_sectors ?? []);
           if (aiNewSectors.length) {
-            const merged = uniq([...existingAi.sector_focus, ...aiNewSectors]);
+            const merged = uniq([...(existingAi.sector_focus ?? []), ...aiNewSectors]);
             updates.sector_focus = merged;
           }
-          if (ap.portfolio_companies?.length) {
-            const portfolioLine = `Portfolio: ${ap.portfolio_companies.slice(0, 15).join(", ")}`;
+          if (cleanPortfolioCompanies.length) {
+            const portfolioLine = `Portfolio: ${cleanPortfolioCompanies.slice(0, 15).join(", ")}`;
             if (!existingAi.background_summary?.includes("Portfolio:") || cfg.overwrite) {
               updates.background_summary = [existingAi.background_summary, portfolioLine].filter(Boolean).join("\n").slice(0, 4000);
             }
@@ -1770,26 +2147,26 @@ async function main() {
           stats.updatedPeople += 1;
 
           if (!cfg.dryRun) {
-            await upsertArticleSignals(firm.id, existingAi.id, newArticles, `${ap.first_name} ${ap.last_name}`);
+            await upsertArticleSignals(firm.id, existingAi.id, newArticles, aiFullName);
           }
         } else {
           const aiCreateLoc = ap.location ? parseLocation(ap.location) : {};
-          const portfolioSummary = ap.portfolio_companies?.length
-            ? `Portfolio: ${ap.portfolio_companies.slice(0, 15).join(", ")}`
+          const portfolioSummary = cleanPortfolioCompanies.length
+            ? `Portfolio: ${cleanPortfolioCompanies.slice(0, 15).join(", ")}`
             : null;
           const createData: Record<string, unknown> = {
             firm_id: firm.id,
-            full_name: `${ap.first_name.trim()} ${ap.last_name.trim()}`,
-            first_name: ap.first_name.trim(),
-            last_name: ap.last_name.trim(),
-            title: ap.title ?? null,
+            full_name: aiFullName,
+            first_name: aiFirst,
+            last_name: aiLast,
+            title: aiTitle ?? null,
             bio: ap.bio ?? null,
-            email: ap.email ?? null,
-            avatar_url: normalizeUrl(ap.avatar_url ?? "") ?? null,
-            linkedin_url: normalizeUrl(ap.linkedin_url ?? "") ?? null,
-            x_url: normalizeUrl(ap.x_url ?? "") ?? null,
-            medium_url: normalizeUrl(ap.medium_url ?? "") ?? null,
-            substack_url: normalizeUrl(ap.substack_url ?? "") ?? null,
+            email: aiEmail ?? null,
+            avatar_url: preferredAiAvatar,
+            linkedin_url: aiLinkedinUrl,
+            x_url: aiXUrl,
+            medium_url: aiMediumUrl,
+            substack_url: aiSubstackUrl,
             city: aiCreateLoc.city ?? null,
             state: aiCreateLoc.state ?? null,
             country: aiCreateLoc.country ?? null,
@@ -1803,7 +2180,7 @@ async function main() {
             const created = await sbPost<FirmInvestorRow>("firm_investors", createData);
             if (created) {
               byId.set(created.id, created);
-              await upsertArticleSignals(firm.id, created.id, newArticles, `${ap.first_name} ${ap.last_name}`);
+              await upsertArticleSignals(firm.id, created.id, newArticles, aiFullName);
             }
           }
           stats.createdPeople += 1;
@@ -1813,21 +2190,22 @@ async function main() {
       // --- Process heuristic-extracted people (for firms without AI results) ---
       for (const p of extracted) {
         // Skip if AI already handled this person
-        if (aiPeople.some((ap) => ap.first_name?.toLowerCase() === splitName(p.fullName).first.toLowerCase())) continue;
+        if (aiHandledNames.has(normName(p.fullName))) continue;
 
         const existing = resolveExistingPerson(firm, p, byId);
         const thesisTags = uniq((p.themes || []).map((t) => t.trim()).filter(Boolean));
+        const preferredHeuristicAvatar = resolvePreferredAvatarUrl(p.avatarUrl ?? null, p.linkedinUrl ?? null, p.xUrl ?? null);
 
         if (existing) {
           const updates: Record<string, unknown> = { team_page_scraped_at: new Date() };
 
-          if (shouldReplace(existing.title, p.title, cfg.overwrite)) updates.title = p.title;
+          if (shouldReplaceTitle(existing.title, p.title, cfg.overwrite)) updates.title = p.title;
           if (shouldReplace(existing.bio, p.bio, cfg.overwrite)) updates.bio = p.bio;
           if (shouldReplace(existing.email, p.email, cfg.overwrite)) updates.email = p.email;
           if (shouldReplace(existing.linkedin_url, p.linkedinUrl, cfg.overwrite)) updates.linkedin_url = p.linkedinUrl;
           if (shouldReplace(existing.x_url, p.xUrl, cfg.overwrite)) updates.x_url = p.xUrl;
           if (shouldReplace(existing.website_url, p.profileUrl, cfg.overwrite)) updates.website_url = p.profileUrl;
-          if (shouldReplace(existing.avatar_url, p.avatarUrl, cfg.overwrite)) updates.avatar_url = p.avatarUrl;
+          if (shouldReplace(existing.avatar_url, preferredHeuristicAvatar ?? undefined, cfg.overwrite)) updates.avatar_url = preferredHeuristicAvatar;
           if (shouldReplace((existing as Record<string, unknown>).medium_url as string | null, p.mediumUrl, cfg.overwrite)) {
             updates.medium_url = p.mediumUrl;
           }
@@ -1841,11 +2219,11 @@ async function main() {
             if (shouldReplace(existing.country, loc.country, cfg.overwrite)) updates.country = loc.country;
           }
           if (p.investmentStages.length) {
-            const merged = uniq([...existing.stage_focus, ...p.investmentStages]);
+            const merged = uniq([...(existing.stage_focus ?? []), ...p.investmentStages]);
             updates.stage_focus = merged;
           }
           if (p.investmentSectors.length) {
-            const merged = uniq([...existing.sector_focus, ...p.investmentSectors]);
+            const merged = uniq([...(existing.sector_focus ?? []), ...p.investmentSectors]);
             updates.sector_focus = merged;
           }
 
@@ -1897,7 +2275,7 @@ async function main() {
           medium_url: p.mediumUrl || null,
           substack_url: p.substackUrl || null,
           website_url: p.profileUrl || null,
-          avatar_url: p.avatarUrl || null,
+          avatar_url: preferredHeuristicAvatar,
           city: hCreateLoc.city ?? null,
           state: hCreateLoc.state ?? null,
           country: hCreateLoc.country ?? null,

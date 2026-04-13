@@ -24,6 +24,7 @@ const HREF_RE = /href=["']([^"'#]+)["']/gi;
 const IMG_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
 const BLOCK_TAGS_RE = /<\/?(?:p|div|li|ul|ol|section|article|br|h[1-6]|span|strong|em|figure|figcaption)[^>]*>/gi;
 const SECTION_STOP_RE = /^(email|linkedin|x|twitter|portfolio|articles|news|insights|team|people|contact|about)$/i;
+const GENERIC_EMAIL_LOCAL_RE = /^(hello|info|contact|team|support|admin|media|press|privacy|legal|jobs|careers)$/i;
 
 function emptyProfile(scannedUrls: string[] = []): PersonWebsiteProfile {
   return {
@@ -178,7 +179,13 @@ function chooseBestEmail(emails: string[]): string | null {
     new Set(
       emails
         .map((email) => email.trim().toLowerCase())
-        .filter((email) => email.includes("@") && !email.includes("example.com") && !email.includes("noreply")),
+        .filter((email) => {
+          if (!email.includes("@") || email.includes("example.com") || email.includes("noreply")) return false;
+          const local = email.split("@")[0] ?? "";
+          if (!local) return false;
+          if (GENERIC_EMAIL_LOCAL_RE.test(local)) return false;
+          return true;
+        }),
     ),
   );
   return cleaned[0] ?? null;
@@ -294,7 +301,8 @@ function extractImage(html: string, fullName: string, baseUrl: string): string |
     if (!src) continue;
     const absolute = normalizeMaybeUrl(src, baseUrl);
     if (!absolute) continue;
-    if (/logo|icon|favicon|banner|background|bg[-_]/i.test(absolute)) continue;
+    if (/logo|wordmark|icon|favicon|banner|background|bg[-_]|placeholder/i.test(absolute)) continue;
+    if (/\.svg(?:\?|$)/i.test(absolute)) continue;
     images.push({ url: absolute, pos: match.index });
   }
   if (images.length === 0) return null;
@@ -307,6 +315,8 @@ function extractFooterLocation(lines: string[]): string | null {
     const line = lines[i];
     const match = line.match(/([A-Z][A-Za-z .'-]+,\s*[A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/);
     if (!match?.[1]) continue;
+    const [city] = match[1].split(",").map((s) => s.trim());
+    if (!city || city.length < 3) continue;
     return match[1].trim();
   }
   return null;
@@ -326,7 +336,11 @@ function extractLocation(lines: string[], bio: string | null): string | null {
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
-    if (match?.[1]?.trim()) return match[1].trim();
+    const value = match?.[1]?.trim();
+    if (!value) continue;
+    const [city] = value.split(",").map((s) => s.trim());
+    if (!city || city.length < 3) continue;
+    return value;
   }
 
   return null;
@@ -340,10 +354,12 @@ function extractPortfolioCompanies(lines: string[]): string[] {
     const line = lines[i];
     if (!line) continue;
     if (/^(all companies|contact|jobs|copyright|legal & privacy)$/i.test(line)) break;
-    if (/^(visit website|learn more|healthcare|data \+ ai|cybersecurity)$/i.test(line)) continue;
+    if (/^(visit website|learn more|healthcare|data \+ ai|cybersecurity|about us|portfolio|email)$/i.test(line)) continue;
     if (/^(exited|acquired|ipo|stealth|active|public)$/i.test(line)) continue;
     if (line.length > 60 || /[.!?]/.test(line) || /@|https?:\/\//i.test(line)) continue;
+    if (/\d/.test(line)) continue;
     if (!/[A-Z]/.test(line) || line === line.toUpperCase()) continue;
+    if (line.split(/\s+/).length > 5) continue;
     out.push(line);
   }
   return uniqueStrings(out).slice(0, 20);
@@ -433,6 +449,12 @@ export async function resolvePersonWebsiteProfile(input: {
 
   const bestPage = pickBestPage(fetchedPages, input.fullName);
   if (!bestPage) {
+    return emptyProfile(scannedUrls);
+  }
+  const pageMentionsPerson =
+    findNameIndex(bestPage.lines, input.fullName) >= 0 ||
+    looksLikeProfileUrl(bestPage.url, websiteUrl, input.fullName);
+  if (!pageMentionsPerson) {
     return emptyProfile(scannedUrls);
   }
 
