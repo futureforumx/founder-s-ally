@@ -23,6 +23,10 @@ export interface InvestorPartner {
   city: string | null;
   state: string | null;
   country: string | null;
+  stage_focus?: string[] | null;
+  sector_focus?: string[] | null;
+  personal_thesis_tags?: string[] | null;
+  background_summary?: string | null;
   /** Present when loaded from `firm_investors` (Supabase). */
   check_size_min?: number | null;
   check_size_max?: number | null;
@@ -92,7 +96,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       .maybeSingle(),
     supabase
       .from("firm_investors")
-      .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, check_size_min, check_size_max, sweet_spot")
+      .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, sector_focus, background_summary, check_size_min, check_size_max, sweet_spot")
       .eq("firm_id", firmId)
       .is("deleted_at", null)
       .eq("ready_for_live", true)

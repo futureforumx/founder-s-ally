@@ -117,6 +117,10 @@ function investorPartnerToVCPerson(
     // Firm display fields used by PersonProfileModal when firm prop is unavailable
     _firm_website_url: firmWebsiteUrl ?? null,
     _firm_logo_url: firmLogoUrl ?? null,
+    stage_focus: p.stage_focus ?? null,
+    sector_focus: p.sector_focus ?? null,
+    personal_thesis_tags: p.personal_thesis_tags ?? [],
+    background_summary: p.background_summary ?? null,
     bio: p.bio ?? null,
     city: p.city ?? null,
     state: p.state ?? null,

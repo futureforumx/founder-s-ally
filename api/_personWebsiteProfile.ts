@@ -1,11 +1,15 @@
 type PersonWebsiteProfile = {
   headshotUrl: string | null;
+  title: string | null;
   email: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
   bio: string | null;
   location: string | null;
   websiteUrl: string | null;
+  profileUrl: string | null;
+  sectorFocus: string[];
+  portfolioCompanies: string[];
   scannedUrls: string[];
 };
 
@@ -18,6 +22,25 @@ const REQUEST_HEADERS = {
 const EMAIL_RE = /(?:mailto:)?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/gi;
 const HREF_RE = /href=["']([^"'#]+)["']/gi;
 const IMG_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+const BLOCK_TAGS_RE = /<\/?(?:p|div|li|ul|ol|section|article|br|h[1-6]|span|strong|em|figure|figcaption)[^>]*>/gi;
+const SECTION_STOP_RE = /^(email|linkedin|x|twitter|portfolio|articles|news|insights|team|people|contact|about)$/i;
+
+function emptyProfile(scannedUrls: string[] = []): PersonWebsiteProfile {
+  return {
+    headshotUrl: null,
+    title: null,
+    email: null,
+    linkedinUrl: null,
+    xUrl: null,
+    bio: null,
+    location: null,
+    websiteUrl: null,
+    profileUrl: null,
+    sectorFocus: [],
+    portfolioCompanies: [],
+    scannedUrls,
+  };
+}
 
 function normalizeWebsiteUrl(raw: string): string | null {
   const trimmed = raw.trim();
@@ -43,19 +66,49 @@ function normalizeMaybeUrl(raw: string, baseUrl?: string): string | null {
   }
 }
 
-function stripTags(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<\/?(?:p|div|li|section|article|br|h[1-6]|span|strong|em)[^>]*>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
+function decodeEntities(text: string): string {
+  return text
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, "\"")
     .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function stripTags(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(BLOCK_TAGS_RE, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\r/g, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .replace(/[ \t]+/g, " ")
+      .trim(),
+  );
+}
+
+function toLines(html: string): string[] {
+  return stripTags(html)
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/['.]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function extractHrefs(html: string, baseUrl: string): string[] {
@@ -71,9 +124,11 @@ function extractHrefs(html: string, baseUrl: string): string[] {
   return Array.from(new Set(urls));
 }
 
-function collectCandidatePages(baseUrl: string, html: string): string[] {
+function collectCandidatePages(baseUrl: string, html: string, fullName: string): string[] {
   const base = new URL(baseUrl);
   const host = normalizeHostname(base.hostname);
+  const nameSlug = slugifyName(fullName);
+  const bareNameSlug = nameSlug.replace(/-/g, "");
   const candidates = new Set<string>([
     base.toString(),
     normalizeMaybeUrl("/team", base.toString()) ?? "",
@@ -82,20 +137,25 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
     normalizeMaybeUrl("/partners", base.toString()) ?? "",
   ].filter(Boolean));
 
-  const keywords = ["team", "people", "about", "partners", "investors", "leadership"];
+  const keywords = ["team", "people", "about", "partners", "investors", "leadership", "team-member"];
   for (const href of extractHrefs(html, base.toString())) {
     try {
       const parsed = new URL(href);
       if (normalizeHostname(parsed.hostname) !== host) continue;
       const haystack = `${parsed.pathname} ${parsed.search}`.toLowerCase();
-      if (keywords.some((k) => haystack.includes(k))) candidates.add(parsed.toString());
-      if (candidates.size >= 8) break;
+      if (
+        keywords.some((k) => haystack.includes(k)) ||
+        haystack.includes(nameSlug) ||
+        haystack.replace(/[^a-z0-9]/g, "").includes(bareNameSlug)
+      ) {
+        candidates.add(parsed.toString());
+      }
     } catch {
       // ignore malformed href
     }
   }
 
-  return Array.from(candidates).slice(0, 8);
+  return Array.from(candidates).slice(0, 12);
 }
 
 async function fetchHtml(url: string): Promise<string | null> {
@@ -124,30 +184,112 @@ function chooseBestEmail(emails: string[]): string | null {
   return cleaned[0] ?? null;
 }
 
-function chooseSocialUrl(urls: string[], kind: "linkedin" | "x"): string | null {
+function chooseSocialUrl(
+  urls: string[],
+  kind: "linkedin" | "x",
+  fullName?: string,
+  websiteUrl?: string,
+): string | null {
   const hostNeedles = kind === "linkedin" ? ["linkedin.com/in/", "linkedin.com/company/"] : ["x.com/", "twitter.com/"];
   const blocked = kind === "linkedin" ? ["/share", "/jobs"] : ["/intent/", "/share", "/home", "/search", "/hashtag/"];
   return (
     urls.find((url) => {
       const lower = url.toLowerCase();
-      return hostNeedles.some((needle) => lower.includes(needle)) && !blocked.some((needle) => lower.includes(needle));
+      if (!hostNeedles.some((needle) => lower.includes(needle)) || blocked.some((needle) => lower.includes(needle))) {
+        return false;
+      }
+      if (kind !== "x") return true;
+      try {
+        const pathname = new URL(url).pathname.toLowerCase();
+        const handle = pathname.replace(/^\/+/, "").split("/")[0] ?? "";
+        const firmHost = websiteUrl ? normalizeHostname(new URL(websiteUrl).hostname).replace(/\.[a-z]{2,}$/i, "") : "";
+        const nameSlug = fullName ? slugifyName(fullName).replace(/-/g, "") : "";
+        if (!handle || handle === "share" || handle === "home") return false;
+        if (firmHost && handle.includes(firmHost.replace(/[^a-z0-9]/g, ""))) return false;
+        if (nameSlug && !handle.replace(/[^a-z0-9]/g, "").includes(nameSlug.slice(0, 6))) return false;
+        return true;
+      } catch {
+        return false;
+      }
     }) ?? null
   );
 }
 
-function extractSnippet(html: string, fullName: string): { snippet: string; nameOffset: number } | null {
-  const idx = html.toLowerCase().indexOf(fullName.toLowerCase());
-  if (idx < 0) return null;
-  const start = Math.max(0, idx - 1500);
-  const end = Math.min(html.length, idx + 3000);
-  return { snippet: html.slice(start, end), nameOffset: idx - start };
+function findNameIndex(lines: string[], fullName: string): number {
+  const lowerName = fullName.trim().toLowerCase();
+  return lines.findIndex((line) => line.trim().toLowerCase() === lowerName);
 }
 
-function extractImage(snippet: string, nameOffset: number, baseUrl: string): string | null {
+function extractTitle(lines: string[], fullName: string, fallbackTitle?: string | null): string | null {
+  const idx = findNameIndex(lines, fullName);
+  if (idx >= 0) {
+    for (let i = idx + 1; i < Math.min(lines.length, idx + 5); i += 1) {
+      const line = lines[i];
+      if (!line) continue;
+      if (line.toLowerCase() === lowerTrim(fallbackTitle)) return fallbackTitle?.trim() || line;
+      if (SECTION_STOP_RE.test(line) || /^sector focus$/i.test(line)) continue;
+      if (line.length > 80 || /@|https?:\/\//i.test(line)) continue;
+      return line;
+    }
+  }
+  return fallbackTitle?.trim() || null;
+}
+
+function lowerTrim(value?: string | null): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function extractSectionLines(lines: string[], label: string): string[] {
+  const start = lines.findIndex((line) => line.toLowerCase() === label.toLowerCase());
+  if (start < 0) return [];
+  const out: string[] = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line) continue;
+    if (SECTION_STOP_RE.test(line) || /^how i /i.test(line) || /^your /i.test(line) || /^best /i.test(line) || /^key to /i.test(line) || /^grew up in$/i.test(line)) {
+      break;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function extractSectorFocus(lines: string[]): string[] {
+  const section = extractSectionLines(lines, "Sector Focus");
+  return uniqueStrings(
+    section.filter((line) => line.length <= 60 && !/@|https?:\/\//i.test(line)),
+  ).slice(0, 12);
+}
+
+function extractBio(lines: string[], fullName: string, title?: string | null): string | null {
+  const idx = findNameIndex(lines, fullName);
+  if (idx < 0) return null;
+  const paragraphs: string[] = [];
+  for (let i = idx + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line) continue;
+    if (line === title) continue;
+    if (/^(sector focus|email|linkedin|x|twitter|portfolio)$/i.test(line)) continue;
+    if (/^how i /i.test(line) || /^your /i.test(line) || /^best /i.test(line) || /^key to /i.test(line) || /^grew up in$/i.test(line)) break;
+    if (/^(visit website|learn more|all companies)$/i.test(line)) continue;
+    if (line.length < 45) continue;
+    paragraphs.push(line);
+    if (paragraphs.join(" ").length >= 1200) break;
+  }
+  if (paragraphs.length === 0) return null;
+  return paragraphs.join("\n\n").slice(0, 4000);
+}
+
+function extractImage(html: string, fullName: string, baseUrl: string): string | null {
+  const nameIdx = html.toLowerCase().indexOf(fullName.toLowerCase());
   const images: Array<{ url: string; pos: number }> = [];
   IMG_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = IMG_RE.exec(snippet)) !== null) {
+  while ((match = IMG_RE.exec(html)) !== null) {
     const src = match[1]?.trim();
     if (!src) continue;
     const absolute = normalizeMaybeUrl(src, baseUrl);
@@ -156,61 +298,94 @@ function extractImage(snippet: string, nameOffset: number, baseUrl: string): str
     images.push({ url: absolute, pos: match.index });
   }
   if (images.length === 0) return null;
-  // Return the image closest to the name mention — not just the first one in the snippet.
-  // This avoids grabbing the previous person's photo when they appear within the before-window.
-  images.sort((a, b) => Math.abs(a.pos - nameOffset) - Math.abs(b.pos - nameOffset));
+  if (nameIdx >= 0) images.sort((a, b) => Math.abs(a.pos - nameIdx) - Math.abs(b.pos - nameIdx));
   return images[0].url;
 }
 
-function aggressiveStripHtml(html: string): string {
-  return html
-    // Remove script/style blocks first
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    // Strip tags, handling quoted attrs with > inside and unclosed tags
-    .replace(/<(?:"[^"]*"|'[^']*'|[^>"'])*>?/g, " ")
-    // Strip any leftover tag fragments (unclosed at end)
-    .replace(/<[^<>]{0,300}$/, " ")
-    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
-    .replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractBio(snippet: string, fullName: string, title?: string | null): string | null {
-  const text = aggressiveStripHtml(snippet);
-  const idx = text.toLowerCase().indexOf(fullName.toLowerCase());
-  const afterName = idx >= 0 ? text.slice(idx + fullName.length).trim() : text;
-  const cleaned = afterName
-    .replace(new RegExp(`^${title?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") ?? ""}[\\s,|:-]*`, "i"), "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (cleaned.length < 40) return null;
-  const pipeCount = (cleaned.match(/\|/g) ?? []).length;
-  const namedPeopleCount = (cleaned.match(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g) ?? []).length;
-  if (
-    pipeCount >= 3 ||
-    namedPeopleCount >= 5 ||
-    /sqs-html-content|newsletter|subscribe|cookie|privacy policy|terms of use/i.test(cleaned)
-  ) {
-    return null;
+function extractFooterLocation(lines: string[]): string | null {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const match = line.match(/([A-Z][A-Za-z .'-]+,\s*[A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/);
+    if (!match?.[1]) continue;
+    return match[1].trim();
   }
-  return cleaned.slice(0, 420).trim();
+  return null;
 }
 
-function extractLocation(snippet: string): string | null {
-  const text = stripTags(snippet);
+function extractLocation(lines: string[], bio: string | null): string | null {
+  const explicitLabel = extractSectionLines(lines, "Location");
+  if (explicitLabel.length > 0) return explicitLabel[0];
+
+  const footerLocation = extractFooterLocation(lines);
+  if (footerLocation) return footerLocation;
+
+  const text = [bio ?? "", ...lines].join(" ");
   const patterns = [
-    /\b(?:based in|located in|from)\s+([A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+){0,2})/i,
+    /\b(?:based in|located in|lives in)\s+([A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+){0,2})/i,
     /\b([A-Z][A-Za-z .'-]+,\s*[A-Z]{2})(?:\b|,)/,
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match?.[1]?.trim()) return match[1].trim();
   }
+
   return null;
+}
+
+function extractPortfolioCompanies(lines: string[]): string[] {
+  const start = lines.findIndex((line) => line.toLowerCase() === "portfolio");
+  if (start < 0) return [];
+  const out: string[] = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line) continue;
+    if (/^(all companies|contact|jobs|copyright|legal & privacy)$/i.test(line)) break;
+    if (/^(visit website|learn more|healthcare|data \+ ai|cybersecurity)$/i.test(line)) continue;
+    if (/^(exited|acquired|ipo|stealth|active|public)$/i.test(line)) continue;
+    if (line.length > 60 || /[.!?]/.test(line) || /@|https?:\/\//i.test(line)) continue;
+    if (!/[A-Z]/.test(line) || line === line.toUpperCase()) continue;
+    out.push(line);
+  }
+  return uniqueStrings(out).slice(0, 20);
+}
+
+function pickBestPage(
+  pages: Array<{ url: string; html: string; lines: string[] }>,
+  fullName: string,
+): { url: string; html: string; lines: string[] } | null {
+  const nameSlug = slugifyName(fullName);
+  const scored = pages
+    .map((page) => {
+      const lowerUrl = page.url.toLowerCase();
+      const exactNameLine = findNameIndex(page.lines, fullName) >= 0;
+      let score = 0;
+      if (lowerUrl.includes("/team-member/")) score += 6;
+      if (lowerUrl.includes(nameSlug)) score += 5;
+      if (exactNameLine) score += 4;
+      if (page.lines.some((line) => lowerTrim(line) === "portfolio")) score += 3;
+      if (page.lines.some((line) => lowerTrim(line) === "sector focus")) score += 2;
+      return { page, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.page ?? null;
+}
+
+function looksLikeProfileUrl(url: string, websiteUrl: string, fullName: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const base = new URL(websiteUrl);
+    if (normalizeHostname(parsed.hostname) !== normalizeHostname(base.hostname)) return false;
+    const lower = `${parsed.pathname}${parsed.search}`.toLowerCase();
+    const slug = slugifyName(fullName);
+    return (
+      lower.includes("/team-member/") ||
+      lower.includes(`/${slug}`) ||
+      lower.replace(/[^a-z0-9]/g, "").includes(slug.replace(/-/g, ""))
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function resolvePersonWebsiteProfile(input: {
@@ -220,92 +395,77 @@ export async function resolvePersonWebsiteProfile(input: {
 }): Promise<PersonWebsiteProfile> {
   const websiteUrl = normalizeWebsiteUrl(input.firmWebsiteUrl);
   if (!websiteUrl || !input.fullName.trim()) {
-    return {
-      headshotUrl: null,
-      email: null,
-      linkedinUrl: null,
-      xUrl: null,
-      bio: null,
-      location: null,
-      websiteUrl: null,
-      scannedUrls: [],
-    };
+    return emptyProfile();
   }
 
   const homepageHtml = await fetchHtml(websiteUrl);
   if (!homepageHtml) {
-    return {
-      headshotUrl: null,
-      email: null,
-      linkedinUrl: null,
-      xUrl: null,
-      bio: null,
-      location: null,
-      websiteUrl: null,
-      scannedUrls: [websiteUrl],
-    };
+    return emptyProfile([websiteUrl]);
   }
 
-  const candidatePages = collectCandidatePages(websiteUrl, homepageHtml);
+  const candidatePages = collectCandidatePages(websiteUrl, homepageHtml, input.fullName);
   const scannedUrls: string[] = [];
-  const matchedSnippets: Array<{ snippet: string; nameOffset: number; pageUrl: string }> = [];
+  const fetchedPages: Array<{ url: string; html: string; lines: string[] }> = [];
 
   for (const pageUrl of candidatePages) {
     const html = pageUrl === websiteUrl ? homepageHtml : await fetchHtml(pageUrl);
     scannedUrls.push(pageUrl);
     if (!html) continue;
-    const result = extractSnippet(html, input.fullName);
-    if (result) matchedSnippets.push({ snippet: result.snippet, nameOffset: result.nameOffset, pageUrl });
+    fetchedPages.push({ url: pageUrl, html, lines: toLines(html) });
   }
 
-  if (matchedSnippets.length === 0) {
-    return {
-      headshotUrl: null,
-      email: null,
-      linkedinUrl: null,
-      xUrl: null,
-      bio: null,
-      location: null,
-      websiteUrl: null,
-      scannedUrls,
-    };
-  }
-
-  const emails: string[] = [];
-  const urls: string[] = [];
-  let headshotUrl: string | null = null;
-  let bio: string | null = null;
-  let location: string | null = null;
-
-  for (const match of matchedSnippets) {
-    let emailMatch: RegExpExecArray | null;
-    EMAIL_RE.lastIndex = 0;
-    while ((emailMatch = EMAIL_RE.exec(match.snippet)) !== null) {
-      const email = emailMatch[1]?.trim();
-      if (email) emails.push(email);
-    }
-
-    for (const href of extractHrefs(match.snippet, match.pageUrl)) {
-      urls.push(href);
-      if (href.toLowerCase().startsWith("mailto:")) {
-        const email = href.slice("mailto:".length).split("?")[0]?.trim();
-        if (email) emails.push(email);
+  const profileHrefCandidates = new Set<string>();
+  for (const page of fetchedPages) {
+    for (const href of extractHrefs(page.html, page.url)) {
+      if (looksLikeProfileUrl(href, websiteUrl, input.fullName)) {
+        profileHrefCandidates.add(href);
       }
     }
-
-    if (!headshotUrl) headshotUrl = extractImage(match.snippet, match.nameOffset, match.pageUrl);
-    if (!bio) bio = extractBio(match.snippet, input.fullName, input.title);
-    if (!location) location = extractLocation(match.snippet);
   }
 
+  for (const profileUrl of profileHrefCandidates) {
+    if (scannedUrls.includes(profileUrl)) continue;
+    const html = await fetchHtml(profileUrl);
+    scannedUrls.push(profileUrl);
+    if (!html) continue;
+    fetchedPages.push({ url: profileUrl, html, lines: toLines(html) });
+  }
+
+  const bestPage = pickBestPage(fetchedPages, input.fullName);
+  if (!bestPage) {
+    return emptyProfile(scannedUrls);
+  }
+
+  const hrefs = extractHrefs(bestPage.html, bestPage.url);
+  const emails: string[] = [];
+  EMAIL_RE.lastIndex = 0;
+  let emailMatch: RegExpExecArray | null;
+  while ((emailMatch = EMAIL_RE.exec(bestPage.html)) !== null) {
+    const email = emailMatch[1]?.trim();
+    if (email) emails.push(email);
+  }
+  for (const href of hrefs) {
+    if (href.toLowerCase().startsWith("mailto:")) {
+      const email = href.slice("mailto:".length).split("?")[0]?.trim();
+      if (email) emails.push(email);
+    }
+  }
+
+  const title = extractTitle(bestPage.lines, input.fullName, input.title);
+  const bio = extractBio(bestPage.lines, input.fullName, title);
+
   return {
-    headshotUrl,
+    headshotUrl: extractImage(bestPage.html, input.fullName, bestPage.url),
+    title,
     email: chooseBestEmail(emails),
-    linkedinUrl: chooseSocialUrl(urls, "linkedin"),
-    xUrl: chooseSocialUrl(urls, "x"),
+    linkedinUrl: chooseSocialUrl(hrefs, "linkedin", input.fullName, websiteUrl),
+    xUrl: chooseSocialUrl(hrefs, "x", input.fullName, websiteUrl),
     bio,
-    location,
+    location: extractLocation(bestPage.lines, bio),
     websiteUrl,
+    profileUrl: bestPage.url,
+    sectorFocus: extractSectorFocus(bestPage.lines),
+    portfolioCompanies: extractPortfolioCompanies(bestPage.lines),
     scannedUrls,
   };
 }
