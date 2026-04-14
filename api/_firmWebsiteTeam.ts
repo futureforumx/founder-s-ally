@@ -189,19 +189,21 @@ function chooseName(html: string, text: string): string | null {
 
 // Strong signals — unlikely in random nav/footer copy alone
 const STRICT_TITLE_PARTS = [
-  "managing partner", "general partner", "venture partner",
+  "managing partner", "general partner", "venture partner", "investing partner",
   "co-founder", "cofounder",
-  "partner", "principal", "associate", "analyst", "scout",
+  "partner", "principal", "associate", "senior associate", "analyst", "scout",
   "founder", "advisor", "adviser",
   "president", "vice president", "managing director",
   "chief executive", "chief operating", "chief financial", "chief technology",
   "chief legal", "ceo", "coo", "cfo", "cto", "clo",
   "investment manager", "portfolio manager",
   "scientist in residence",
+  "entrepreneur in residence", "eir",
   "capital formation",
   "human resources", "people operations",
   "office manager", "executive assistant",
   "head of",
+  "board member", "board observer",
 ];
 const STRICT_TITLE_KW_RE = new RegExp(`\\b(${STRICT_TITLE_PARTS.join("|")})\\b`, "i");
 
@@ -337,7 +339,7 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
 
 function extractBlocks(html: string): string[] {
   const blocks = html
-    .split(/<\/(?:article|section|div|li|tr|figure|a)>/i)
+    .split(/<\/(?:article|section|div|li|tr|figure)>/i)
     .map((block) => block.trim())
     .filter(Boolean);
   return blocks.length > 0 ? blocks : [html];
