@@ -5,6 +5,7 @@ import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
 import { sanitizeText } from "@/lib/sanitizeText";
 import { generateInvestorBio, generateElevatorPitch } from "@/lib/generateFallbacks";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 // ── Types ──
 export interface InvestorPartner {
@@ -186,7 +187,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
 
 // ── By-name variant (resolves name → id, then fetches) ──
 async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
-  const trimmed = firmName.trim();
+  const trimmed = safeTrim(firmName);
   const { data, error } = await supabase
     .from("firm_records")
     .select("id")
@@ -229,8 +230,8 @@ export function useInvestorProfile(firmId: string | null) {
 /** Fetch a full investor profile by firm name (resolves to ID internally) */
 export function useInvestorProfileByName(firmName: string | null) {
   return useQuery<InvestorProfile>({
-    queryKey: ["investor-profile-name", firmName?.toLowerCase().trim()],
-    queryFn: () => fetchInvestorByName(firmName!),
+    queryKey: ["investor-profile-name", safeLower(firmName)],
+    queryFn: () => fetchInvestorByName(safeTrim(firmName)),
     enabled: !!firmName,
     placeholderData: (prev) => prev,
   });

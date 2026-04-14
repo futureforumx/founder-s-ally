@@ -3,6 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { getCompletionPercent, EMPTY_FORM, sanitizeCompanyData } from "@/components/company-profile/types";
+import { safeTrim } from "@/lib/utils";
 import { SectorClassification } from "@/components/SectorTags";
 import { HomeView } from "@/components/dashboard/HomeView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
@@ -189,7 +190,7 @@ const Index = () => {
   useEffect(() => {
     const handler = (e: Event) => {
       const d = (e as CustomEvent<VcReviewOpenDetail>).detail;
-      if (!d?.vcFirmId?.trim() || !d?.firmName?.trim() || !d?.ratingId?.trim()) return;
+      if (!safeTrim(d?.vcFirmId) || !safeTrim(d?.firmName) || !safeTrim(d?.ratingId)) return;
       setVcReviewBootstrap(d);
       setActiveView("investors");
     };

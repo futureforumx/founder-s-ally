@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import type { ReviewStep } from "@/lib/reviewWizard";
 import {
   deriveReviewDraftFromAnswers,
@@ -728,7 +728,7 @@ export function ReviewStepEvaluationUnlinked({
     <div className="space-y-6">
       <section className="space-y-3">
         <p className="text-sm font-bold leading-snug text-foreground">
-          How was your experience with {firmName.trim() || "this firm"}?
+          How was your experience with {safeTrim(firmName) || "this firm"}?
         </p>
         <OverallInteractionScale
           value={(answers.overall_interaction as string) ?? null}

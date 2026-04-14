@@ -82886,5 +82886,75 @@
     "name": "Elena Sakach",
     "status": "updated",
     "timestamp": "2026-04-14T02:46:26.037Z"
+  },
+  {
+    "type": "investor",
+    "id": "9c89a14b-58df-4240-8843-deb8574a3195",
+    "name": "Chris Calder",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:46:35.045Z"
+  },
+  {
+    "type": "investor",
+    "id": "d539a03a-5d24-4487-9712-ad28ff4fb614",
+    "name": "John  Werner",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:46:44.371Z"
+  },
+  {
+    "type": "investor",
+    "id": "f6c2f8e4-77d1-4246-9327-b2921a733cef",
+    "name": "Maxime Bucaille",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:47:03.123Z"
+  },
+  {
+    "type": "investor",
+    "id": "0efd63ff-0540-4aea-8f81-59d96cb380c4",
+    "name": "Asus",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:47:14.664Z"
+  },
+  {
+    "type": "investor",
+    "id": "27fd5d5e-0cfe-4ac3-bdb9-bfd61bd7dbfb",
+    "name": "Alex Eleftheriadis",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:47:26.205Z"
+  },
+  {
+    "type": "investor",
+    "id": "c6fd546f-4189-4f4e-9b79-0cbfd40b7201",
+    "name": "Liza Curcio-Rudy",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:47:37.741Z"
+  },
+  {
+    "type": "investor",
+    "id": "a09c6186-3d00-4ebc-b612-5a7d1a20c090",
+    "name": "Peter Baines",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:47:49.297Z"
+  },
+  {
+    "type": "investor",
+    "id": "a4bf0829-ff64-4102-a6dc-179e7fddde43",
+    "name": "Caroline Broder",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:48:00.844Z"
+  },
+  {
+    "type": "investor",
+    "id": "91dc2748-bcdb-4fb8-951e-76aa8d44a2e2",
+    "name": "Robby Greer",
+    "status": "error",
+    "error": "locator.click: Target page, context or browser has been closed",
+    "timestamp": "2026-04-14T02:48:12.382Z"
   }
 ]

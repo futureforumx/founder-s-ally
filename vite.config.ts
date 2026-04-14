@@ -211,9 +211,9 @@ function firmWebsiteTeamDevPlugin() {
         }
 
         try {
-          const people = await resolveFirmWebsiteTeam(websiteUrl);
+          const { people, teamMemberEstimate } = await resolveFirmWebsiteTeam(websiteUrl);
           res.writeHead(200, cors);
-          res.end(JSON.stringify({ people }));
+          res.end(JSON.stringify({ people, teamMemberEstimate }));
         } catch (error) {
           res.writeHead(500, cors);
           res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Team lookup failed" }));

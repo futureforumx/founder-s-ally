@@ -26,16 +26,28 @@ describe("company-logo helpers", () => {
     ).toBe("https://cdn.example.com/logo.png");
   });
 
-  it("builds the fallback chain from the saved website", () => {
+  it("builds the fallback chain from the saved website (direct favicon before Google proxies)", () => {
     expect(
       buildCompanyLogoCandidates({
         websiteUrl: "https://www.vekta.so",
         size: 64,
       }),
     ).toEqual([
+      "https://vekta.so/favicon.ico",
       "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://vekta.so&size=64",
       "https://www.google.com/s2/favicons?domain=vekta.so&sz=64",
-      "https://vekta.so/favicon.ico",
     ]);
+  });
+
+  it("ignores stored gstatic favicon URLs so fallbacks use the real site", () => {
+    const g =
+      "https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://1212.vc&size=128";
+    expect(
+      getPrimaryCompanyLogoUrl({
+        logoUrl: g,
+        websiteUrl: "https://1212.vc",
+        size: 128,
+      }),
+    ).toBe("https://1212.vc/favicon.ico");
   });
 });

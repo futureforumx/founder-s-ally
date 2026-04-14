@@ -17,6 +17,7 @@ import { useVCInteractions } from "@/hooks/useVCInteractions";
 import { InvestorDetailPanel, type InvestorEntry } from "@/components/dashboard/InvestorDetailPanel";
 import type { VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
 import { VEKTA_INVESTORS_ALL_FOCUS_EVENT } from "@/lib/investorMatchNavigation";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 // ── Types ──
 
@@ -111,11 +112,14 @@ function computeScore(
   const reasons: string[] = [];
   let coInvestLink: string | null = null;
 
-  if (sectorClass?.modern_tags?.length) {
-    const tagMatches = investor.thesis_verticals.filter(v =>
-      sectorClass.modern_tags.some(tag => {
-        const tLow = tag.toLowerCase();
-        const vLow = v.toLowerCase();
+  const thesisVerts = (investor.thesis_verticals ?? []).map((v) => String(v ?? ""));
+  const modernTags = (sectorClass?.modern_tags ?? []).map((t) => String(t ?? ""));
+
+  if (modernTags.length) {
+    const tagMatches = thesisVerts.filter((v) =>
+      modernTags.some((tag) => {
+        const tLow = safeLower(tag);
+        const vLow = safeLower(v);
         return vLow.includes(tLow) || tLow.includes(vLow) ||
           tLow.split(/[\s\-\/]/).some(w => w.length > 2 && vLow.includes(w)) ||
           vLow.split(/[\s\-\/]/).some(w => w.length > 2 && tLow.includes(w));
@@ -127,18 +131,18 @@ function computeScore(
     }
   }
 
-  const sectorToMatch = sectorClass?.primary_sector || company?.sector;
-  if (sectorToMatch && investor.thesis_verticals.some(v => {
-    const vLow = v.toLowerCase();
-    const sLow = sectorToMatch.toLowerCase();
+  const sectorToMatch = sectorClass?.primary_sector ?? company?.sector ?? null;
+  if (sectorToMatch != null && safeTrim(sectorToMatch) && thesisVerts.some((v) => {
+    const vLow = safeLower(v);
+    const sLow = safeLower(sectorToMatch);
     return vLow === sLow || vLow.includes(sLow) || sLow.includes(vLow);
   })) {
     score += score > 0 ? 20 : 40;
     reasons.push(`${sectorToMatch} focus`);
   }
 
-  if (analysis?.metrics?.mrr?.value) {
-    const mrr = parseFloat(analysis.metrics.mrr.value.replace(/[^0-9.]/g, ""));
+  if (analysis?.metrics?.mrr?.value != null && safeTrim(analysis.metrics.mrr.value)) {
+    const mrr = parseFloat(String(analysis.metrics.mrr.value).replace(/[^0-9.]/g, ""));
     if (!isNaN(mrr)) {
       const annualized = mrr * 12;
       if (annualized >= investor.min_check_size * 0.01 && annualized <= investor.max_check_size * 2) {
@@ -148,14 +152,15 @@ function computeScore(
     }
   }
 
-  if (company?.stage && investor.preferred_stage === company.stage) {
+  if (company?.stage && safeTrim(investor.preferred_stage) === safeTrim(company.stage)) {
     score += 10;
     reasons.push(`${company.stage} stage fit`);
   }
 
   if (confirmedBackers.length > 0) {
     const backerName = confirmedBackers[0]?.name;
-    if (backerName && investor.recent_deals.some(d => d.toLowerCase().includes(backerName.toLowerCase().split(" ")[0]))) {
+    const deals = (investor.recent_deals ?? []).map((d) => String(d ?? ""));
+    if (backerName && deals.some((d) => safeLower(d).includes(safeLower(backerName).split(/\s+/)[0] ?? ""))) {
       score += 15;
       coInvestLink = backerName;
       reasons.push(`co-invests with ${backerName}`);
@@ -255,7 +260,26 @@ export function InvestorMatch({
         )
         .is("deleted_at", null)
         .eq("ready_for_live", true);
-      if (!error && data) setInvestors(data as unknown as Investor[]);
+      if (!error && data) {
+        const rows = data as Record<string, unknown>[];
+        setInvestors(
+          rows.map((row) => ({
+            ...(row as unknown as Investor),
+            firm_name: String(row.firm_name ?? ""),
+            thesis_verticals: Array.isArray(row.thesis_verticals)
+              ? row.thesis_verticals.map((x) => String(x ?? ""))
+              : [],
+            recent_deals: Array.isArray(row.recent_deals)
+              ? row.recent_deals.map((x) => String(x ?? ""))
+              : [],
+            preferred_stage: row.preferred_stage == null ? null : String(row.preferred_stage),
+            location: row.location == null ? null : String(row.location),
+            lead_partner: row.lead_partner == null ? null : String(row.lead_partner),
+            market_sentiment: row.market_sentiment == null ? null : String(row.market_sentiment),
+            sentiment_detail: row.sentiment_detail == null ? null : String(row.sentiment_detail),
+          })) as Investor[],
+        );
+      }
       setLoading(false);
     })();
   }, []);
@@ -277,7 +301,7 @@ export function InvestorMatch({
       description: "",
       location: "",
       model: "",
-      initial: vcReviewBootstrap.firmName.charAt(0).toUpperCase(),
+      initial: (safeTrim(vcReviewBootstrap.firmName).charAt(0) || "?").toUpperCase(),
       matchReason: null,
       category: "investor" as const,
       investorDatabaseId: vcReviewBootstrap.investorDatabaseId ?? null,
@@ -308,7 +332,7 @@ export function InvestorMatch({
             amount: row.amount,
             amountLabel: fmt(row.amount),
             instrument: row.instrument,
-            logoLetter: row.investor_name.charAt(0).toUpperCase(),
+            logoLetter: String(row.investor_name ?? "?").charAt(0).toUpperCase(),
             date: row.date || row.created_at,
             ownershipPct: (row as any).ownership_pct ?? 0,
           }))
@@ -338,7 +362,7 @@ export function InvestorMatch({
     if (scoredInvestors.length === 0) return;
     const top5 = scoredInvestors.slice(0, 5);
     top5.forEach(async (inv) => {
-      const key = inv.firm_name.toLowerCase().trim();
+      const key = safeLower(inv.firm_name);
       if (enrichedData[key]) return;
       setEnrichingKeys(prev => new Set(prev).add(key));
       const result = await enrich(inv.firm_name);
@@ -357,7 +381,7 @@ export function InvestorMatch({
   useEffect(() => {
     if (confirmedBackers.length === 0) return;
     confirmedBackers.forEach(async (b) => {
-      const key = b.name.toLowerCase().trim();
+      const key = safeLower(b.name);
       if (enrichCache[key]) return;
       await enrich(b.name);
     });

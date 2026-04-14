@@ -1,3 +1,5 @@
+import { safeTrim } from "@/lib/utils";
+
 /**
  * generateFallbacks.ts
  *
@@ -38,11 +40,11 @@ function fmtUsd(n: number): string {
 
 export function generateInvestorBio(inv: InvestorFields): string | null {
   const name =
-    inv.first_name?.trim() ||
-    inv.full_name?.split(" ")[0]?.trim() ||
+    safeTrim(inv.first_name) ||
+    safeTrim(safeTrim(inv.full_name).split(" ")[0]) ||
     null;
-  const title = inv.title?.trim();
-  const firm = inv.firm_name?.trim();
+  const title = safeTrim(inv.title);
+  const firm = safeTrim(inv.firm_name);
 
   // Need at least a name + title or firm to say anything meaningful
   if (!title && !firm) return null;
@@ -60,10 +62,10 @@ export function generateInvestorBio(inv: InvestorFields): string | null {
 
   // Focus sentence — deduplicate tags that already appear as stages
   const stages = (inv.stage_focus ?? []).filter(Boolean).slice(0, 3);
-  const stageSet = new Set(stages.map((s) => s.toLowerCase()));
+  const stageSet = new Set(stages.map((s) => String(s).toLowerCase()));
   const tags = (inv.personal_thesis_tags ?? [])
     .filter(Boolean)
-    .filter((t) => !stageSet.has(t.toLowerCase()))
+    .filter((t) => !stageSet.has(String(t).toLowerCase()))
     .slice(0, 4);
 
   if (stages.length > 0 && tags.length > 0) {
@@ -105,7 +107,7 @@ interface FirmFields {
  */
 export function generateElevatorPitch(firm: FirmFields): string | null {
   // Prefer extracting first sentence from description
-  const desc = firm.description?.trim();
+  const desc = safeTrim(firm.description);
   if (desc && desc.length > 20) {
     // Find the first sentence boundary
     const sentenceEnd = desc.search(/[.!?]\s/);
@@ -121,7 +123,7 @@ export function generateElevatorPitch(firm: FirmFields): string | null {
   }
 
   // Fallback: build from structured fields
-  const name = firm.firm_name?.trim();
+  const name = safeTrim(firm.firm_name);
   if (!name) return null;
 
   const stages = (firm.stage_focus ?? []).filter(Boolean).slice(0, 3);

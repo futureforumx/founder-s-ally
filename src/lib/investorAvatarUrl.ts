@@ -1,3 +1,5 @@
+import { safeTrim } from "@/lib/utils";
+
 /**
  * R2-first investor avatars: UI uses a single stored URL (canonical `avatar_url`
  * on `firm_investors`, optionally `profile_image_url` during migration) and never
@@ -8,7 +10,7 @@ const BLOCKED_AVATAR_URL_RE =
   /unavatar\.io|gravatar\.com|ui-avatars\.com|googleusercontent\.com\/favicon|\/faviconV2\?|\/s2\/favicons/i;
 
 export function isBlockedExternalAvatarUrl(url: string | null | undefined): boolean {
-  const t = url?.trim();
+  const t = safeTrim(url);
   if (!t) return true;
   return BLOCKED_AVATAR_URL_RE.test(t);
 }
@@ -23,9 +25,9 @@ export type InvestorAvatarFields = {
  * known third-party resolver / favicon URLs.
  */
 export function investorPrimaryAvatarUrl(fields: InvestorAvatarFields): string | null {
-  const a = fields.avatar_url?.trim() || null;
+  const a = safeTrim(fields.avatar_url) || null;
   if (a && !isBlockedExternalAvatarUrl(a)) return a;
-  const p = fields.profile_image_url?.trim() || null;
+  const p = safeTrim(fields.profile_image_url) || null;
   if (p && !isBlockedExternalAvatarUrl(p)) return p;
   return null;
 }

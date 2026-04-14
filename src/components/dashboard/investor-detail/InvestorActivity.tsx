@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { buildClientFirmImageFallback, pickCardImageUrl } from "@/lib/activityCardImageUrl";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { FirmXPostsCard } from "./FirmXPostsCard";
 
@@ -334,11 +335,16 @@ export function InvestorActivity({
   firmName,
   firmId,
   xUrl,
+  firmLogoUrl,
+  firmWebsiteUrl,
 }: {
   firmName: string;
   firmId?: string;
   /** Firm-level X profile (`firm_records.x_url` or `vc_firms.x_url`) for embedded timeline on Posts. */
   xUrl?: string | null;
+  /** Hero / DB logo — used when card OG image is junk (matches edge `firmFallbackImage` minus Signal/CB fetch). */
+  firmLogoUrl?: string | null;
+  firmWebsiteUrl?: string | null;
 }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
@@ -383,7 +389,19 @@ export function InvestorActivity({
     return () => clearInterval(interval);
   }, []);
 
-  const cards = liveCards;
+  const clientFirmFallback = useMemo(
+    () => buildClientFirmImageFallback(firmLogoUrl, firmWebsiteUrl),
+    [firmLogoUrl, firmWebsiteUrl],
+  );
+
+  const cards = useMemo(
+    () =>
+      liveCards.map((c) => ({
+        ...c,
+        image_url: pickCardImageUrl(c.image_url, clientFirmFallback),
+      })),
+    [liveCards, clientFirmFallback],
+  );
 
   // ── Filtered views ──
   const visiblePosts = useMemo(

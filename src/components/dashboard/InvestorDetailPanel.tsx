@@ -7,7 +7,7 @@ import { cn, safeTrim } from "@/lib/utils";
 import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BookmarkPlus, CheckCircle2, Star } from "lucide-react";
+import { X, BookmarkPlus, CheckCircle2, Star, MapPin, DollarSign, Users, Briefcase } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -85,9 +85,9 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
-function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
+function firstNonEmpty(...values: unknown[]): string | null {
   for (const v of values) {
-    const t = typeof v === "string" ? v.trim() : "";
+    const t = safeTrim(v);
     if (t.length > 0) return t;
   }
   return null;
@@ -307,8 +307,6 @@ export function InvestorDetailPanel({
   );
   const liveProfile = liveQuery.data;
   const liveLoading = liveQuery.isLoading;
-  /** True while `placeholderData` is showing a prior firm's profile for the new query key. */
-  const liveIsPlaceholder = Boolean(liveQuery.isPlaceholderData);
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
@@ -669,12 +667,18 @@ export function InvestorDetailPanel({
         ? safeTrim(effectiveInvestor?.location)
         : null;
 
-    const profile =
-      liveProfile?.source === "live" && !liveIsPlaceholder ? liveProfile : null;
+    const enrichGeo = safeTrim(enrichedData?.profile?.geography);
+
+    const rawLive = liveProfile?.source === "live" ? liveProfile : null;
     const matched =
-      Boolean(profile) &&
+      Boolean(rawLive) &&
       Boolean(directoryName) &&
-      liveFirmRowMatchesDirectorySelection(profile!.firm_name, directoryName);
+      liveFirmRowMatchesDirectorySelection(rawLive.firm_name, directoryName);
+
+    // Trust HQ only when the live row matches the selected directory name — including while
+    // React Query is showing `placeholderData` from a prior fetch (same firm refetch stays matched;
+    // switching firms fails match so we never flash the previous firm's city).
+    const profile = matched ? rawLive : null;
 
     const liveResolved = profile
       ? resolveFirmDisplayLocation({
@@ -685,19 +689,19 @@ export function InvestorDetailPanel({
         })
       : null;
 
-    if (matched) {
-      return firstNonEmpty(liveResolved, safeTrim(profile!.address), directorySeed);
+    if (matched && profile) {
+      return firstNonEmpty(liveResolved, profile.address, directorySeed, enrichGeo);
     }
 
     // Name mismatch or no live row yet: never show another firm's HQ over the grid/rail seed line.
     if (directorySeed) return directorySeed;
-    return firstNonEmpty(liveResolved, safeTrim(profile?.address));
+    return firstNonEmpty(enrichGeo);
   }, [
     liveProfile,
-    liveIsPlaceholder,
     investor?.name,
     vcFirm?.name,
     effectiveInvestor?.location,
+    enrichedData?.profile?.geography,
     liveProfile?.hq_city,
     liveProfile?.hq_state,
     liveProfile?.hq_country,
@@ -727,8 +731,20 @@ export function InvestorDetailPanel({
     safeTrim(effectiveInvestor?.websiteUrl) ||
     null;
 
-  // Prefer firm's actual headcount from DB; fall back to null (don't show DB row count)
-  const heroHeadcount = liveProfile?.total_headcount ?? null;
+  /**
+   * Prefer the same list the Investors tab shows (`mergedPartners`) so the number matches the UI.
+   * When that list is still empty, fall back to `firm_records.total_headcount`.
+   */
+  const { heroHeadcount, heroHeadcountFromWebsite } = useMemo(() => {
+    const rawDb = dealSizeProfile?.total_headcount;
+    const dbHeadcount =
+      typeof rawDb === "number" && Number.isFinite(rawDb) && rawDb > 0 ? rawDb : null;
+    const mergedCount = mergedPartners.length;
+    const heroHeadcount = mergedCount > 0 ? mergedCount : dbHeadcount;
+    const heroHeadcountFromWebsite =
+      dbHeadcount == null ? mergedCount > 0 : mergedCount > (dbHeadcount ?? 0);
+    return { heroHeadcount, heroHeadcountFromWebsite };
+  }, [dealSizeProfile?.total_headcount, mergedPartners]);
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at
     ? new Date(liveProfile.last_enriched_at)
@@ -765,7 +781,12 @@ export function InvestorDetailPanel({
   const metaFacts = [
     { label: "AUM", value: heroAumDisplay ?? "—" },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
-    { label: "Team", value: heroHeadcount ? `${heroHeadcount} people` : "—" },
+    {
+      label: "Team",
+      value: heroHeadcount
+        ? `${heroHeadcountFromWebsite ? "~" : ""}${heroHeadcount} people`
+        : "—",
+    },
   ];
 
   const handleClose = () => {
@@ -850,43 +871,49 @@ export function InvestorDetailPanel({
                             </p>
                           )}
 
-                          {/* Meta — single row; location truncates when the header column is narrow */}
+                          {/* Meta — one row; hairline dividers + padding read cleaner than middots */}
                           <div
                             className={cn(
-                              "flex min-w-0 w-full flex-nowrap items-center gap-x-1.5 overflow-hidden text-[10px] leading-none text-foreground/70 sm:text-[11px]",
+                              "flex min-w-0 w-full flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]",
                               !heroTagline && "mt-2",
                             )}
                           >
-                            <span className="flex min-w-0 flex-1 items-baseline gap-1 overflow-hidden">
-                              <span className="shrink-0 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                Location
-                              </span>
-                              <span className="min-w-0 truncate font-medium text-foreground/80">
+                            <div
+                              role="group"
+                              className="flex min-w-0 min-h-[1.125rem] flex-1 items-center gap-1.5 overflow-hidden pr-3"
+                              aria-label={`Location: ${connectLocation ?? "unknown"}`}
+                            >
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                              <span
+                                className="min-w-0 truncate font-medium text-foreground/85"
+                                title={connectLocation ?? undefined}
+                              >
                                 {connectLocation ?? "—"}
                               </span>
-                            </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
-                            </span>
-                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                AUM
-                              </span>
+                            </div>
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3"
+                              title="Assets under management"
+                              aria-label={`AUM: ${heroAumDisplay ?? "unknown"}`}
+                            >
+                              <DollarSign className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span className="font-medium text-foreground/80">{heroAumDisplay ?? "—"}</span>
                             </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
-                            </span>
-                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                Headcount
-                              </span>
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3"
+                              title={
+                                heroHeadcountFromWebsite
+                                  ? "Matches the Investors list (directory + firm website)"
+                                  : "Team headcount"
+                              }
+                              aria-label={`Headcount: ${heroHeadcount != null ? String(heroHeadcount) : "unknown"}`}
+                            >
+                              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span className="font-medium text-foreground/80">
-                                {heroHeadcount != null ? `${heroHeadcount}` : "—"}
+                                {heroHeadcount != null
+                                  ? `${heroHeadcountFromWebsite ? "~" : ""}${heroHeadcount}`
+                                  : "—"}
                               </span>
-                            </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
                             </span>
                             <button
                               type="button"
@@ -900,12 +927,10 @@ export function InvestorDetailPanel({
                                   ? `Open Portfolio: ${heroInvestmentsTotal} total investments`
                                   : "Open Portfolio: total investments"
                               }
-                              className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap rounded-sm text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3 text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                             >
-                              <span className="text-[7px] font-semibold uppercase tracking-wide text-muted-foreground/90 underline-offset-2 decoration-border/60 hover:underline sm:text-[8px]">
-                                Total investments
-                              </span>
-                              <span className="font-medium text-foreground/80 tabular-nums">
+                              <Briefcase className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                              <span className="font-medium text-foreground/80 tabular-nums underline-offset-2 decoration-border/60 hover:underline">
                                 {heroInvestmentsTotal != null ? heroInvestmentsTotal : "—"}
                               </span>
                             </button>
@@ -1064,6 +1089,8 @@ export function InvestorDetailPanel({
                           firmName={effectiveInvestor.name}
                           firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? undefined}
                           xUrl={effectiveFirmXUrl}
+                          firmLogoUrl={heroLogo}
+                          firmWebsiteUrl={firmWebsiteUrl}
                         />
                       </motion.div>
                     )}

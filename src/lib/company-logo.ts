@@ -1,3 +1,5 @@
+import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
+
 export function extractCompanyDomain(websiteUrl?: string | null): string | null {
   if (!websiteUrl) return null;
 
@@ -23,13 +25,14 @@ export function buildCompanyLogoCandidates({
   size?: number;
 }): string[] {
   const domain = extractCompanyDomain(websiteUrl);
+  const stored = sanitizeFirmLogoUrlForDisplay(logoUrl);
   const candidates = [
-    logoUrl?.trim() || null,
+    stored,
+    domain ? `https://${domain}/favicon.ico` : null,
     domain
       ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=${size}`
       : null,
     domain ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}` : null,
-    domain ? `https://${domain}/favicon.ico` : null,
   ].filter((value): value is string => Boolean(value));
 
   return [...new Set(candidates)];

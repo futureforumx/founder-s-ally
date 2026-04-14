@@ -4,6 +4,7 @@ import { ArrowRight, Newspaper, Linkedin, Twitter, Users, TrendingUp, Star, Zap,
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { TimeRange } from "./TimeRangeControl";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 interface ScoredInvestor {
   id: string;
@@ -42,8 +43,8 @@ const LIVE_SIGNALS: Record<string, { text: string; time: string }> = {
   default: { text: "Partner viewed your profile 2 hours ago", time: "2h ago" },
 };
 
-function getLiveSignal(firmName: string) {
-  return LIVE_SIGNALS[firmName.toLowerCase()] || LIVE_SIGNALS.default;
+function getLiveSignal(firmName: unknown) {
+  return LIVE_SIGNALS[safeLower(firmName)] || LIVE_SIGNALS.default;
 }
 
 // ── Unified Feed ──
@@ -125,7 +126,7 @@ function ScoreTooltipContent({ investor }: { investor: ScoredInvestor }) {
 
 // ── Source Badge ──
 
-function SourceBadge({ source, firmName }: { source: "exa" | "gemini_grounded" | "local_db"; firmName: string }) {
+function SourceBadge({ source, firmName }: { source: "exa" | "gemini_grounded" | "local_db"; firmName: unknown }) {
   if (source === "exa") {
     const signal = getLiveSignal(firmName);
     return (
@@ -223,7 +224,7 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
 
             <div className="space-y-2">
               {topMatches.slice(0, 3).map((inv, rank) => {
-                const key = inv.firm_name.toLowerCase().trim();
+                const key = safeLower(inv.firm_name);
                 const enriched = enrichedData?.[key];
                 const isEnriching = enrichingKeys?.has(key);
                 const displayScore = ensureHighScore(inv.score, rank);
@@ -234,7 +235,7 @@ export function UpdatesTab({ topMatches, enrichedData, enrichingKeys, timeRange,
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-foreground font-bold text-sm shrink-0">
-                        {inv.firm_name.charAt(0)}
+                        {safeTrim(inv.firm_name).charAt(0) || "?"}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
