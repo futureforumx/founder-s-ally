@@ -11,7 +11,6 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { augmentFirmRecordsPatchWithFetch } from "./lib/firmRecordsCanonicalHqPolicy";
 
 function loadEnv() {
   for (const name of [".env", ".env.local"]) {
@@ -60,17 +59,10 @@ async function sbGet<T>(table: string, query: string): Promise<T[]> {
 }
 
 async function sbPatch(table: string, id: string, patch: Record<string, unknown>): Promise<void> {
-  let body: Record<string, unknown> = patch;
-  if (table === "firm_records") {
-    body = (await augmentFirmRecordsPatchWithFetch(SUPABASE_URL, HEADERS, id, patch, "normalize_firm_countries")) as Record<
-      string,
-      unknown
-    >;
-  }
   const res = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: "PATCH",
     headers: HEADERS,
-    body: JSON.stringify(body),
+    body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error(`PATCH ${table} ${id}: ${res.status} ${await res.text()}`);
 }
