@@ -2,11 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { resolvePersonWebsiteProfile } from "./_personWebsiteProfile.js";
-import {
-  appendPortfolioCompaniesJson,
-  PORTFOLIO_COMPANIES_JSON_MARKER,
-  splitBackgroundSummaryPortfolio,
-} from "../src/lib/investorBackgroundPortfolio";
+import { persistPersonWebsiteProfileToFirmInvestor } from "./_persistPersonWebsiteProfileToFirmInvestor";
 
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const SCRAPE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -120,71 +116,6 @@ async function ensureFirmInvestorIdByHostAndName(
   return inserted?.id ?? null;
 }
 
-async function persistProfileToFirmInvestor(
-  admin: ReturnType<typeof supabaseAdmin>,
-  firmInvestorId: string,
-  profile: {
-    headshotUrl: string | null;
-    title: string | null;
-    email: string | null;
-    linkedinUrl: string | null;
-    xUrl: string | null;
-    bio: string | null;
-    location: string | null;
-    portfolioCompanies?: string[];
-  },
-): Promise<void> {
-  if (!admin || !firmInvestorId) return;
-  const { data: inv } = await admin
-    .from("firm_investors")
-    .select("id, title, email, linkedin_url, x_url, bio, background_summary, city, state, country, avatar_url")
-    .eq("id", firmInvestorId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!inv?.id) return;
-
-  const patch: Record<string, unknown> = {
-    profile_image_last_fetched_at: new Date().toISOString(),
-  };
-  if (!safeTrim(inv.title) && safeTrim(profile.title)) patch.title = profile.title;
-  if (!safeTrim(inv.email) && safeTrim(profile.email)) patch.email = profile.email;
-  if (!safeTrim(inv.linkedin_url) && safeTrim(profile.linkedinUrl)) patch.linkedin_url = profile.linkedinUrl;
-  if (!safeTrim(inv.x_url) && safeTrim(profile.xUrl)) patch.x_url = profile.xUrl;
-  if (!safeTrim(inv.background_summary) && safeTrim(profile.bio)) patch.background_summary = profile.bio;
-  if (!safeTrim(inv.bio) && safeTrim(profile.bio)) patch.bio = profile.bio;
-  const loc = safeTrim(profile.location);
-  if (loc) {
-    if (!safeTrim(inv.city) && !safeTrim(inv.state)) {
-      const comma = loc.match(/^([^,]+),\s*([A-Z]{2})\b/);
-      if (comma) {
-        patch.city = comma[1].trim();
-        patch.state = comma[2].trim();
-      }
-    }
-  }
-  const headshot = safeTrim(profile.headshotUrl);
-  if (headshot && !safeTrim(inv.avatar_url)) patch.avatar_url = headshot;
-
-  const scrapedPortfolio = (profile.portfolioCompanies ?? []).map((s) => safeTrim(s)).filter(Boolean);
-  if (scrapedPortfolio.length) {
-    const existingSummary = safeTrim(inv.background_summary);
-    const { narrative: existingNarrative, companies: existingCos } =
-      splitBackgroundSummaryPortfolio(existingSummary);
-    const hasMarker = existingSummary.includes(PORTFOLIO_COMPANIES_JSON_MARKER);
-    if (!hasMarker || existingCos.length === 0) {
-      const narrativeBase =
-        existingNarrative ||
-        safeTrim(inv.bio) ||
-        safeTrim(profile.bio) ||
-        null;
-      const merged = appendPortfolioCompaniesJson(narrativeBase, scrapedPortfolio);
-      if (merged && merged !== existingSummary) patch.background_summary = merged;
-    }
-  }
-
-  await admin.from("firm_investors").update(patch).eq("id", firmInvestorId);
-}
-
 function supabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -237,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const age = Date.now() - new Date(cacheRow.fetched_at).getTime();
         if (age >= 0 && age < CACHE_TTL_MS) {
           if (resolvedFirmInvestorId) {
-            await persistProfileToFirmInvestor(
+            await persistPersonWebsiteProfileToFirmInvestor(
               admin,
               resolvedFirmInvestorId,
               cacheRow.profile as {
@@ -307,7 +238,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { onConflict: "cache_key" },
       );
 
-      if (resolvedFirmInvestorId) await persistProfileToFirmInvestor(admin, resolvedFirmInvestorId, profile);
+      if (resolvedFirmInvestorId) await persistPersonWebsiteProfileToFirmInvestor(admin, resolvedFirmInvestorId, profile);
     }
 
     return setCors(res).status(200).json({ ...profile, _cached: false });

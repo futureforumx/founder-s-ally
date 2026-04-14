@@ -6,6 +6,7 @@ import {
   useMemo,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
@@ -33,7 +34,10 @@ import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
-import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
+import { useInvestorDirectory, mapDbInvestor } from "@/hooks/useInvestorDirectory";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { normalizeForFirmSearch, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
+import { rpcSearchFirmInvestors, rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 import { collapseStagesToRangePreferringSpecificOverEarly } from "@/lib/stageUtils";
@@ -321,6 +325,35 @@ function nameMatchScore(name: string | null | undefined, qLower: string): number
   if (idx === 0) return 800;
   if (idx > 0 && (n[idx - 1] === " " || n[idx - 1] === "-" || n[idx - 1] === "/")) return 550;
   return 400;
+}
+
+function firmSearchDedupeKey(displayName: string): string {
+  return normalizeForFirmSearch(displayName, true).replace(/\s+/g, "");
+}
+
+/** Firm display names: substring score, then normalized match (aliases / “seven 11” ↔ “7 eleven”). */
+function firmNameMatchScore(name: string | null | undefined, qLower: string): number {
+  const base = nameMatchScore(name, qLower);
+  if (base >= 0) return base;
+  const qn = normalizeForFirmSearch(qLower, true);
+  const nn = normalizeForFirmSearch(name, true);
+  if (!qn || !nn) return -1;
+  if (nn === qn) return 920;
+  if (nn.startsWith(qn) || qn.startsWith(nn)) return 880;
+  if (nn.includes(qn) || qn.includes(nn)) return 700;
+  return -1;
+}
+
+/** Person names: substring score, then same normalization rules without corporate suffix stripping. */
+function personNameMatchScore(fullName: string | null | undefined, qLower: string): number {
+  const base = nameMatchScore(fullName, qLower);
+  if (base >= 0) return base;
+  if (!personDisplayNameMatchesQuery(fullName, qLower)) return -1;
+  const qn = normalizeForFirmSearch(qLower, false);
+  const nn = normalizeForFirmSearch(fullName, false);
+  if (nn === qn) return 920;
+  if (nn.includes(qn) || qn.includes(nn)) return 720;
+  return 520;
 }
 
 function personInitials(name: string): string {
@@ -683,6 +716,19 @@ export function GlobalTopNav({
   );
   const investorSearchTrim = safeTrim(investorSearchQuery);
 
+  const navInvestorSearchRpc = useQuery({
+    queryKey: ["global-nav-investor-search", investorSearchTrim],
+    queryFn: async () => {
+      const [firms, people] = await Promise.all([
+        rpcSearchFirmRecords(investorSearchTrim, 24, null, supabase),
+        rpcSearchFirmInvestors(investorSearchTrim, 16, supabase),
+      ]);
+      return { firms, people };
+    },
+    enabled: isInvestorArea && investorSearchTrim.length >= 2 && isSupabaseConfigured,
+    staleTime: 60_000,
+  });
+
   const investorTypeahead = useMemo(() => {
     if (!isInvestorArea || !investorSearchTrim) {
       return {
@@ -691,6 +737,8 @@ export function GlobalTopNav({
       };
     }
     const q = investorSearchTrim.toLowerCase();
+    const rpcFirmsRaw = navInvestorSearchRpc.data?.firms ?? [];
+    const rpcPeopleRaw = navInvestorSearchRpc.data?.people ?? [];
 
     type ScoredFirm = {
       kind: "firm";
@@ -711,11 +759,33 @@ export function GlobalTopNav({
     };
 
     const firmsScored: ScoredFirm[] = [];
+    const seenFirmDedupe = new Set<string>();
+
+    for (let i = 0; i < rpcFirmsRaw.length; i++) {
+      const inv = mapDbInvestor(rpcFirmsRaw[i]);
+      if (!inv.id || !inv.name) continue;
+      const dk = firmSearchDedupeKey(inv.name);
+      if (!dk || seenFirmDedupe.has(dk)) continue;
+      seenFirmDedupe.add(dk);
+      firmsScored.push({
+        kind: "firm",
+        id: inv.id,
+        name: inv.name,
+        subtitle: [inv.sector, inv.aum].filter(Boolean).join(" · ") || "Investor",
+        logoUrl: inv.logo_url ?? null,
+        websiteUrl: inv.website_url ?? null,
+        score: 1550 - i * 6,
+      });
+    }
+
     const vcNameKeys = new Set(vcFirms.map((f) => normalizeFirmNameKey(f.name)));
 
     for (const f of vcFirms) {
-      const score = nameMatchScore(f.name, q);
+      const dk = firmSearchDedupeKey(f.name);
+      if (dk && seenFirmDedupe.has(dk)) continue;
+      const score = firmNameMatchScore(f.name, q);
       if (score < 0) continue;
+      if (dk) seenFirmDedupe.add(dk);
       firmsScored.push({
         kind: "firm",
         id: f.id,
@@ -731,9 +801,12 @@ export function GlobalTopNav({
     for (const inv of liveFirmRecords ?? []) {
       const nk = normalizeFirmNameKey(inv.name);
       if (!nk || vcNameKeys.has(nk) || addedLiveKeys.has(nk)) continue;
-      const score = nameMatchScore(inv.name, q);
+      const dk = firmSearchDedupeKey(inv.name);
+      if (dk && seenFirmDedupe.has(dk)) continue;
+      const score = firmNameMatchScore(inv.name, q);
       if (score < 0) continue;
       addedLiveKeys.add(nk);
+      if (dk) seenFirmDedupe.add(dk);
       firmsScored.push({
         kind: "firm",
         id: inv.id,
@@ -747,10 +820,30 @@ export function GlobalTopNav({
 
     firmsScored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
+    const seenPersonKeys = new Set<string>();
     const peopleScored: ScoredPerson[] = [];
+
+    for (let i = 0; i < rpcPeopleRaw.length; i++) {
+      const hit = rpcPeopleRaw[i]!;
+      const pk = `${normalizeForFirmSearch(hit.full_name, false)}|${normalizeForFirmSearch(hit.firm_name, true)}`;
+      if (seenPersonKeys.has(pk)) continue;
+      seenPersonKeys.add(pk);
+      peopleScored.push({
+        kind: "person",
+        id: String(hit.id),
+        name: hit.full_name,
+        subtitle: hit.firm_name || "Partner",
+        firmId: String(hit.firm_id),
+        score: 1540 - i * 6,
+      });
+    }
+
     for (const p of vcPeople) {
-      const score = nameMatchScore(p.full_name, q);
+      const pk = `${normalizeForFirmSearch(p.full_name, false)}|${normalizeForFirmSearch(firmMap.get(p.firm_id)?.name ?? "", true)}`;
+      if (seenPersonKeys.has(pk)) continue;
+      const score = personNameMatchScore(p.full_name, q);
       if (score < 0) continue;
+      seenPersonKeys.add(pk);
       const firm = firmMap.get(p.firm_id);
       peopleScored.push({
         kind: "person",
@@ -805,7 +898,16 @@ export function GlobalTopNav({
 
     const flatRows: SearchDropdownRow[] = sections.flatMap((s) => s.rows);
     return { flatRows, sections };
-  }, [isInvestorArea, investorSearchTrim, suggestions, vcFirms, vcPeople, firmMap, liveFirmRecords]);
+  }, [
+    isInvestorArea,
+    investorSearchTrim,
+    suggestions,
+    vcFirms,
+    vcPeople,
+    firmMap,
+    liveFirmRecords,
+    navInvestorSearchRpc.data,
+  ]);
 
   const searchDropdownRows = investorTypeahead.flatRows;
 
