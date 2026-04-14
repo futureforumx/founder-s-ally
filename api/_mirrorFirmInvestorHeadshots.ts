@@ -18,7 +18,8 @@ function isBlockedExternalAvatarUrl(url: string | null | undefined): boolean {
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
-const MAX_ROWS_PER_REQUEST = 80;
+/** Page size when scanning `firm_investors` for a firm (mirrors all pages, not only the first batch). */
+const INVESTOR_PAGE_SIZE = 150;
 const MIRROR_CONCURRENCY = 6;
 
 const IMAGE_FETCH_HEADERS = {
@@ -192,51 +193,61 @@ export async function mirrorFirmInvestorHeadshotsForFirm(
   };
   if (!base.configured) return base;
 
-  const { data: rows, error } = await admin
-    .from("firm_investors")
-    .select("id, full_name, avatar_url, profile_image_url")
-    .eq("firm_id", firmRecordId)
-    .is("deleted_at", null)
-    .limit(MAX_ROWS_PER_REQUEST);
-
-  if (error || !rows?.length) return base;
-
-  const todo = (rows as InvestorRow[]).filter((r) => pickMirrorSource(r.avatar_url, r.profile_image_url));
-  base.candidates = todo.length;
-  if (todo.length === 0) return base;
-
   const bucket = e("CF_R2_BUCKET_HEADSHOTS");
+  let offset = 0;
 
-  const outcomes = await poolMap(todo, MIRROR_CONCURRENCY, async (row) => {
-    const source = pickMirrorSource(row.avatar_url, row.profile_image_url);
-    if (!source) return { ok: false as const, id: row.id };
-    const fetched = await fetchImageBytes(source);
-    if (!fetched) return { ok: false as const, id: row.id };
-    const ext = extFromContentType(fetched.contentType);
-    const keyWithExt = `${row.id}.${ext}`;
-    try {
-      const cdnUrl = await putHeadshotIfMissing(bucket, keyWithExt, fetched.buffer, fetched.contentType);
-      const patch: Record<string, unknown> = {
-        avatar_url: cdnUrl,
-        profile_image_url: cdnUrl,
-        avatar_source_url: source,
-        avatar_source_type: "r2_db_mirror",
-        avatar_confidence: 1,
-        avatar_last_verified_at: new Date().toISOString(),
-        avatar_needs_review: false,
-      };
-      const { error: upErr } = await admin.from("firm_investors").update(patch).eq("id", row.id);
-      if (upErr) return { ok: false as const, id: row.id };
-      return { ok: true as const, id: row.id };
-    } catch {
-      return { ok: false as const, id: row.id };
+  for (;;) {
+    const { data: rows, error } = await admin
+      .from("firm_investors")
+      .select("id, full_name, avatar_url, profile_image_url")
+      .eq("firm_id", firmRecordId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(offset, offset + INVESTOR_PAGE_SIZE - 1);
+
+    if (error) return base;
+    if (!rows?.length) break;
+
+    const todo = (rows as InvestorRow[]).filter((r) => pickMirrorSource(r.avatar_url, r.profile_image_url));
+    base.candidates += todo.length;
+
+    if (todo.length > 0) {
+      const outcomes = await poolMap(todo, MIRROR_CONCURRENCY, async (row) => {
+        const source = pickMirrorSource(row.avatar_url, row.profile_image_url);
+        if (!source) return { ok: false as const, id: row.id };
+        const fetched = await fetchImageBytes(source);
+        if (!fetched) return { ok: false as const, id: row.id };
+        const ext = extFromContentType(fetched.contentType);
+        const keyWithExt = `${row.id}.${ext}`;
+        try {
+          const cdnUrl = await putHeadshotIfMissing(bucket, keyWithExt, fetched.buffer, fetched.contentType);
+          const patch: Record<string, unknown> = {
+            avatar_url: cdnUrl,
+            profile_image_url: cdnUrl,
+            avatar_source_url: source,
+            avatar_source_type: "r2_db_mirror",
+            avatar_confidence: 1,
+            avatar_last_verified_at: new Date().toISOString(),
+            avatar_needs_review: false,
+          };
+          const { error: upErr } = await admin.from("firm_investors").update(patch).eq("id", row.id);
+          if (upErr) return { ok: false as const, id: row.id };
+          return { ok: true as const, id: row.id };
+        } catch {
+          return { ok: false as const, id: row.id };
+        }
+      });
+
+      for (const o of outcomes) {
+        if (o.ok) base.mirrored++;
+        else base.failed++;
+      }
     }
-  });
 
-  for (const o of outcomes) {
-    if (o.ok) base.mirrored++;
-    else base.failed++;
+    offset += rows.length;
+    if (rows.length < INVESTOR_PAGE_SIZE) break;
   }
+
   return base;
 }
 

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { FirmStrategyClassification } from "@/lib/firmStrategyClassifications";
 import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
 import { sanitizeText } from "@/lib/sanitizeText";
-import { generateInvestorBio, generateElevatorPitch } from "@/lib/generateFallbacks";
+import { generateInvestorBio } from "@/lib/generateFallbacks";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 import { safeLower, safeTrim } from "@/lib/utils";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
@@ -53,7 +53,10 @@ export interface InvestorProfile {
   /** Public X (Twitter) profile URL or handle, from `firm_records.x_url`. */
   x_url: string | null;
   linkedin_url: string | null;
+  /** Long-form firm copy (`firm_records.description` / `sentiment_detail`). */
   description: string | null;
+  /** Short line under the firm name (`firm_records.elevator_pitch`), max ~200 chars when set. */
+  elevator_pitch: string | null;
   email: string | null;
   address: string | null;
   hq_city: string | null;
@@ -73,6 +76,8 @@ export interface InvestorProfile {
   lead_partner: string | null;
   lead_or_follow: string | null;
   preferred_stage: string | null;
+  /** `firm_records.stage_focus` as plain strings for display fallbacks. */
+  stage_focus: string[];
   thesis_verticals: string[];
   /** Multi-tag strategy taxonomy (`firm_records.strategy_classifications`). */
   strategy_classifications: FirmStrategyClassification[];
@@ -128,18 +133,8 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     legal_name: typeof firm.legal_name === "string" ? firm.legal_name : null,
     x_url: pickFirmXUrl(firm as Record<string, unknown>),
     linkedin_url: typeof firm.linkedin_url === "string" ? firm.linkedin_url : null,
-    description: sanitizeText(firm.sentiment_detail) || sanitizeText(firm.description) || generateElevatorPitch({
-      firm_name: firm.firm_name,
-      description: firm.description,
-      stage_focus: firm.stage_focus,
-      thesis_verticals: firm.thesis_verticals,
-      hq_city: firm.hq_city,
-      hq_state: firm.hq_state,
-      hq_country: firm.hq_country,
-      entity_type: firm.entity_type,
-      min_check_size: firm.min_check_size,
-      max_check_size: firm.max_check_size,
-    }),
+    description: sanitizeText(firm.description) || sanitizeText(firm.sentiment_detail) || null,
+    elevator_pitch: sanitizeText(firm.elevator_pitch) || null,
     email: firm.email,
     address: firm.address,
     hq_city: firm.hq_city,
@@ -163,6 +158,9 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     lead_partner: firm.lead_partner,
     lead_or_follow: firm.lead_or_follow,
     preferred_stage: firm.preferred_stage,
+    stage_focus: Array.isArray(firm.stage_focus)
+      ? (firm.stage_focus as unknown[]).map((s) => String(s))
+      : [],
     thesis_verticals: firm.thesis_verticals ?? [],
     strategy_classifications: (firm.strategy_classifications ?? []) as FirmStrategyClassification[],
     min_check_size: firm.min_check_size,

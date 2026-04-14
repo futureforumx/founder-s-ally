@@ -1,3 +1,4 @@
+import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import { safeTrim } from "@/lib/utils";
 
 /**
@@ -112,14 +113,14 @@ export function generateElevatorPitch(firm: FirmFields): string | null {
     // Find the first sentence boundary
     const sentenceEnd = desc.search(/[.!?]\s/);
     if (sentenceEnd > 0 && sentenceEnd < 200) {
-      return desc.slice(0, sentenceEnd + 1);
+      return clampElevatorPitch(desc.slice(0, sentenceEnd + 1));
     }
     // If description is short enough, use it directly
-    if (desc.length <= 180) return desc;
+    if (desc.length <= 180) return clampElevatorPitch(desc);
     // Truncate at a word boundary
     const truncated = desc.slice(0, 160);
     const lastSpace = truncated.lastIndexOf(" ");
-    return (lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + "…";
+    return clampElevatorPitch((lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated) + "…");
   }
 
   // Fallback: build from structured fields
@@ -143,5 +144,5 @@ export function generateElevatorPitch(firm: FirmFields): string | null {
 
   if (loc) parts.push(`Based in ${loc}.`);
 
-  return parts.join(" ");
+  return clampElevatorPitch(parts.join(" "));
 }

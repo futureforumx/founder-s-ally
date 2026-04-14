@@ -28,6 +28,7 @@ export function InvestorPersonAvatar({
   size = "sm",
   loading = "lazy",
   fetchPriority = "auto",
+  referrerPolicy = "strict-origin-when-cross-origin",
 }: {
   /** Canonical R2 / stored headshot URL (preferred). */
   imageUrl?: string | null;
@@ -40,6 +41,8 @@ export function InvestorPersonAvatar({
   size?: "sm" | "md";
   loading?: "lazy" | "eager";
   fetchPriority?: "high" | "low" | "auto";
+  /** `no-referrer` often slows or breaks third-party CDNs; default is friendlier for headshots. */
+  referrerPolicy?: HTMLImageElement["referrerPolicy"] | "";
 }) {
   const chain = useMemo(() => {
     const fromProp = (imageUrls ?? []).map((v) => safeTrim(v)).filter(Boolean) as string[];
@@ -79,7 +82,7 @@ export function InvestorPersonAvatar({
           key={src}
           src={src}
           alt=""
-          referrerPolicy="no-referrer"
+          {...(referrerPolicy ? { referrerPolicy } : {})}
           width={size === "sm" ? 64 : 80}
           height={size === "sm" ? 64 : 80}
           loading={loading}

@@ -29,12 +29,15 @@ function PartnerCard({
   firmWebsiteUrl,
   firmLogoUrl,
   onSelectPerson,
+  listIndex,
 }: {
   p: VCPerson;
   firmName: string;
   firmWebsiteUrl: string | null;
   firmLogoUrl: string | null;
   onSelectPerson?: (person: VCPerson) => void;
+  /** List position for fetch priority (Investors tab is scrollable). */
+  listIndex: number;
 }) {
   const role = partnerDisplayRole(p);
   const extra = (p as VCPerson & { _extra_avatar_urls?: string[] })._extra_avatar_urls;
@@ -53,7 +56,8 @@ function PartnerCard({
         imageUrls={imageUrls}
         initials={safeTrim(p.full_name).charAt(0) || null}
         size="md"
-        loading="lazy"
+        loading={listIndex < 32 ? "eager" : "lazy"}
+        fetchPriority={listIndex < 12 ? "high" : "auto"}
         className="h-12 w-12 border border-border shrink-0 rounded-full"
       />
       <div className="min-w-0 flex-1">
@@ -90,7 +94,7 @@ export function InvestorPartnersTab({
 }: InvestorPartnersTabProps) {
   return (
     <div className="space-y-3">
-      {partners.map((p) => (
+      {partners.map((p, listIndex) => (
         <PartnerCard
           key={p.id}
           p={p}
@@ -98,6 +102,7 @@ export function InvestorPartnersTab({
           firmWebsiteUrl={firmWebsiteUrl ?? null}
           firmLogoUrl={firmLogoUrl ?? null}
           onSelectPerson={onSelectPerson}
+          listIndex={listIndex}
         />
       ))}
     </div>

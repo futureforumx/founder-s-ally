@@ -76,6 +76,8 @@
     "db:enrich:emails:waterfall": "tsx scripts/enrich-emails-waterfall.ts",
     "db:sync:investor-photos": "tsx scripts/sync-investor-photos-waterfall.ts",
     "db:sync:investor-teams": "tsx scripts/sync-investor-team-pages.ts",
+    "db:sync:investor-teams:all": "INVESTOR_TEAM_MAX_FIRMS=999999 tsx scripts/sync-investor-team-pages.ts",
+    "mirror:all-investor-headshots": "tsx scripts/mirror-all-investor-headshots-to-r2.ts",
     "db:refresh-investors": "rm -f data/us-investors-920.csv && US_INVESTORS_920_FETCH=1 npm run db:seed:us-investors",
     "db:generate:curated-investors": "tsx scripts/generate_curated_partners_json.ts",
     "supabase": "supabase",

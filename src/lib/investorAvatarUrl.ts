@@ -15,6 +15,43 @@ export function isBlockedExternalAvatarUrl(url: string | null | undefined): bool
   return BLOCKED_AVATAR_URL_RE.test(t);
 }
 
+const HEADSHOT_CDN_BASE = safeTrim(
+  typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_HEADSHOT_CDN_BASE
+    ? String(import.meta.env.VITE_HEADSHOT_CDN_BASE)
+    : "",
+).replace(/\/$/, "");
+
+/**
+ * Lower sort keys load first in the UI chain so we avoid slow sequential fallbacks
+ * (e.g. LinkedIn) when a mirrored R2 URL is also present.
+ */
+function investorAvatarUrlSortKey(url: string): number {
+  const u = url.toLowerCase();
+  if (HEADSHOT_CDN_BASE && url.startsWith(HEADSHOT_CDN_BASE)) return 0;
+  if (u.includes(".r2.dev")) return 0;
+  if (u.includes("r2.cloudflarestorage.com")) return 0;
+  if (u.includes("supabase.co/storage/v1/object")) return 1;
+  if (u.includes("imagedelivery.net")) return 1;
+  if (u.includes("cloudinary.com")) return 2;
+  if (u.includes("googleusercontent.com")) return 3;
+  if (u.includes("twimg.com")) return 6;
+  if (u.includes("licdn.com") || u.includes("linkedin.com")) return 9;
+  return 5;
+}
+
+/** Stable reorder: try fastest / most reliable hosts before slow third-party CDNs. */
+export function prioritizeInvestorAvatarUrls(urls: string[]): string[] {
+  if (urls.length <= 1) return urls;
+  return urls
+    .map((url, index) => ({ url, index }))
+    .sort((a, b) => {
+      const d = investorAvatarUrlSortKey(a.url) - investorAvatarUrlSortKey(b.url);
+      if (d !== 0) return d;
+      return a.index - b.index;
+    })
+    .map((x) => x.url);
+}
+
 export type InvestorAvatarFields = {
   avatar_url?: string | null;
   profile_image_url?: string | null;
@@ -39,20 +76,20 @@ export function investorAvatarUrlCandidates(fields: InvestorAvatarFields): strin
     if (!u || isBlockedExternalAvatarUrl(u)) continue;
     if (!out.includes(u)) out.push(u);
   }
-  return out;
+  return prioritizeInvestorAvatarUrls(out);
 }
 
 /** Same as `investorAvatarUrlCandidates`, then append extra URLs (e.g. additional merge fallbacks). */
 export function investorAvatarDisplayChain(
   fields: InvestorAvatarFields & { extra_urls?: Array<string | null | undefined> | null },
 ): string[] {
-  const out = investorAvatarUrlCandidates(fields);
+  const out = [...investorAvatarUrlCandidates(fields)];
   for (const u of fields.extra_urls ?? []) {
     const t = safeTrim(u);
     if (!t || isBlockedExternalAvatarUrl(t)) continue;
     if (!out.includes(t)) out.push(t);
   }
-  return out;
+  return prioritizeInvestorAvatarUrls(out);
 }
 
 /**
