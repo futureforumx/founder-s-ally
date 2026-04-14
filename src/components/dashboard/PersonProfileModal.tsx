@@ -138,7 +138,7 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
 }
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
-  const { session } = useAuth();
+  const { session, user: authUser } = useAuth();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [websiteProfile, setWebsiteProfile] = useState<WebsiteDerivedPersonProfile | null>(null);
@@ -235,10 +235,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   ]);
 
   const { starRatings: myPersonRatingJson } = useLatestMyVcRating(
-    session?.user?.id,
+    authUser?.id ?? session?.user?.id,
     reviewVcFirmId,
     person?.id ?? null,
     ratingRefresh,
+    reviewFirmDisplayName || null,
   );
   const myPersonRateDisplay = useMemo(
     () => formatMyReviewRateButton(myPersonRatingJson),
@@ -719,10 +720,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
           <ReviewSubmissionModal
             open={reviewOpen}
-            onClose={() => {
-              setReviewOpen(false);
-              setRatingRefresh((n) => n + 1);
-            }}
+            onClose={() => setReviewOpen(false)}
+            onReviewSaved={() => setRatingRefresh((n) => n + 1)}
             firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
             firmLogoUrl={firm?.logo_url ?? null}
             firmWebsiteUrl={firm?.website_url ?? null}

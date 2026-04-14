@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
@@ -141,10 +141,15 @@ function AuthHeroMediaStage({ children }: { children: ReactNode }) {
   );
 }
 
+/** Mux iframe needs delegated permissions so the player can start muted autoplay inside the frame (esp. Safari). */
+const MUX_IFRAME_ALLOW =
+  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
+
 function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
   const playback = useMemo(() => authHeroPlayback(isSignUp), [isSignUp]);
   const [muxIndex, setMuxIndex] = useState(0);
   const muxIdsKey = playback.mode === "mux" ? playback.ids.join("|") : "";
+  const nativeVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setMuxIndex(0);
@@ -157,6 +162,23 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
     }, 12000);
     return () => window.clearInterval(intervalId);
   }, [playback]);
+
+  const nativeVideoSrc = playback.mode === "video" ? playback.src : null;
+  useEffect(() => {
+    if (!nativeVideoSrc) return;
+    const el = nativeVideoRef.current;
+    if (!el) return;
+    el.defaultMuted = true;
+    el.muted = true;
+    const kick = () => {
+      void el.play().catch(() => {
+        /* Autoplay can still be blocked (MEI, Low Power Mode, browser setting). */
+      });
+    };
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) kick();
+    else el.addEventListener("loadeddata", kick, { once: true });
+    return () => el.removeEventListener("loadeddata", kick);
+  }, [nativeVideoSrc]);
 
   if (playback.mode === "none") {
     return (
@@ -174,6 +196,7 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
     return (
       <AuthHeroMediaStage>
         <video
+          ref={nativeVideoRef}
           key={src}
           className={authHeroNativeVideoClass}
           src={src}
@@ -200,7 +223,7 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
           src={muxEmbedSrc}
           title="Authentication hero video"
           className="auth-hero-mux-player block h-full w-full pointer-events-none border-0"
-          allow="autoplay; fullscreen"
+          allow={MUX_IFRAME_ALLOW}
           loading="eager"
           tabIndex={-1}
         />

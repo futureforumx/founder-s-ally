@@ -79,6 +79,8 @@ export interface ReviewSubmissionModalProps {
   initialStarRatings?: unknown;
   /** ISO timestamp of the existing review — used to enforce 48-hour edit window */
   initialCreatedAt?: string | null;
+  /** Called after a review is persisted so parents can refetch (e.g. header score + popover). */
+  onReviewSaved?: () => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,6 +531,7 @@ export function ReviewSubmissionModal({
   companyId = "",
   initialStarRatings,
   initialCreatedAt,
+  onReviewSaved,
 }: ReviewSubmissionModalProps) {
   const { user } = useAuth();
   const { firms, firmMap, getPartnersForFirm } = useVCDirectory();
@@ -1188,6 +1191,7 @@ export function ReviewSubmissionModal({
       }
 
       setSubmitted(true);
+      onReviewSaved?.();
       toast.success(
         reviewRecordId
           ? savedAsRevision

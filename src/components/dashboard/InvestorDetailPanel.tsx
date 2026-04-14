@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
 import { cn } from "@/lib/utils";
-import { collapseStagesToRange } from "@/lib/stageUtils";
+import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -40,7 +40,9 @@ import {
   STRATEGY_CLASSIFICATION_LABELS,
   formatStrategyClassificationLabel,
 } from "@/lib/firmStrategyClassifications";
+import { buildReviewPopoverSummary } from "@/lib/reviewModalWizard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface CompanyContext {
   name?: string;
@@ -235,6 +237,7 @@ export function InvestorDetailPanel({
   const [activeScoreTile, setActiveScoreTile] = useState<TileId | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  const [firmReviewPopoverOpen, setFirmReviewPopoverOpen] = useState(false);
   const bootstrapReviewOpenedRef = useRef(false);
 
   // Reset tab when initialTab or investor changes
@@ -248,9 +251,10 @@ export function InvestorDetailPanel({
 
   useEffect(() => {
     setActiveScoreTile(null);
+    setFirmReviewPopoverOpen(false);
   }, [investor?.name, vcFirm?.id]);
 
-  const { session } = useAuth();
+  const { session, user: authUser } = useAuth();
   const { enrich, cache: enrichCache } = useInvestorEnrich();
   const [enrichedData, setEnrichedData] = useState<EnrichResult | null>(null);
   const [resolvedFirmId, setResolvedFirmId] = useState<string | null>(null);
@@ -409,24 +413,37 @@ export function InvestorDetailPanel({
   );
   const resolvedLiveFirmDisplayName = dealSizeProfile?.firm_name ?? liveProfile?.firm_name ?? effectiveInvestor?.name ?? null;
 
-  const reviewVcFirmId =
-    explicitVcDirId ??
-    databaseFirmId ??
-    vcFirm?.id ??
-    null;
+  /**
+   * `vc_ratings.vc_firm_id` must be a directory `vc_firms.id`.
+   * When the matched `vcFirm` object is missing (alias / sync edge cases), fall back to the
+   * investor card’s UUID (`investorDatabaseId` / `_firmId`) — usually the same directory id.
+   */
+  const reviewVcFirmId = useMemo(() => {
+    if (explicitVcDirId?.trim()) return explicitVcDirId.trim();
+    if (vcFirm?.id?.trim()) return vcFirm.id.trim();
+    const inv = investor?.investorDatabaseId?.trim();
+    if (inv && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inv)) return inv;
+    return null;
+  }, [explicitVcDirId, vcFirm?.id, investor?.investorDatabaseId]);
   const reviewVcPersonId =
     typeof reviewPersonIdHint === "string" && reviewPersonIdHint.trim()
       ? reviewPersonIdHint.trim()
       : null;
+  const ratingUserId = authUser?.id ?? session?.user?.id;
+  const ratingFirmLabel = (heroName || displayName).trim() || null;
   const { starRatings: myFirmRatingJson, createdAt: myFirmRatingCreatedAt } = useLatestMyVcRating(
-    session?.user?.id,
+    ratingUserId,
     reviewVcFirmId,
     reviewVcPersonId,
     ratingRefresh,
-    displayName,
+    ratingFirmLabel,
   );
   const myFirmRateDisplay = useMemo(
     () => formatMyReviewRateButton(myFirmRatingJson),
+    [myFirmRatingJson],
+  );
+  const myFirmReviewPopover = useMemo(
+    () => buildReviewPopoverSummary(myFirmRatingJson),
     [myFirmRatingJson],
   );
 
@@ -644,13 +661,21 @@ export function InvestorDetailPanel({
     vcFirm?.sectors?.join(", ") ??
     effectiveInvestor?.sector ??
     "-";
-  const heroStageFocus =
-    liveProfile?.preferred_stage ??
-    (vcFirm?.stages && vcFirm.stages.length > 0
-      ? collapseStagesToRange(vcFirm.stages.filter(Boolean)) ?? vcFirm.stages.join(", ")
-      : null) ??
-    effectiveInvestor?.stage ??
-    "-";
+  const heroStageFocus = useMemo(
+    () =>
+      resolveInvestorHeroStageFocus({
+        preferredStage: liveProfile?.preferred_stage,
+        directoryStages: vcFirm?.stages ?? null,
+        deals: dealSizeProfile?.deals ?? null,
+        fallbackStage: effectiveInvestor?.stage ?? null,
+      }),
+    [
+      liveProfile?.preferred_stage,
+      vcFirm?.stages,
+      dealSizeProfile?.deals,
+      effectiveInvestor?.stage,
+    ],
+  );
 
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
 
@@ -826,15 +851,64 @@ export function InvestorDetailPanel({
                     <div className="flex items-center gap-1.5">
                       {/* Rate */}
                       {myFirmRateDisplay ? (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-                          className="inline-flex items-center gap-1 rounded-xl border border-border/50 bg-transparent px-2.5 py-[9px] leading-none transition-colors hover:bg-secondary/40"
-                          aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
-                        >
-                          <Star className={cn("h-3 w-3 shrink-0 fill-current animate-pulse", myFirmRateDisplay.colorClass)} />
-                          <span className={cn("text-[13px] font-bold animate-pulse", myFirmRateDisplay.colorClass)}>{myFirmRateDisplay.label}</span>
-                        </button>
+                        <Popover open={firmReviewPopoverOpen} onOpenChange={setFirmReviewPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-xl px-3 py-[9px] text-[13px] font-semibold leading-none transition-colors",
+                                myFirmRateDisplay.className,
+                              )}
+                              aria-label={`Your rating: ${myFirmRateDisplay.label}. ${myFirmRateDisplay.ariaDetail}. Click to view your review.`}
+                              aria-haspopup="dialog"
+                            >
+                              <Star className="h-3.5 w-3.5 shrink-0 fill-current" />
+                              {myFirmRateDisplay.label}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="end"
+                            sideOffset={6}
+                            className="z-[400] w-80 rounded-xl border-border/80 p-0 shadow-xl"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="border-b border-border/60 px-4 py-3">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                Your review
+                              </p>
+                              {myFirmReviewPopover ? (
+                                <p className="mt-1 text-sm font-semibold leading-snug text-foreground">
+                                  {myFirmReviewPopover.primary}
+                                </p>
+                              ) : (
+                                <p className="mt-1 text-sm font-semibold text-foreground">
+                                  {myFirmRateDisplay.label} — {myFirmRateDisplay.ariaDetail}
+                                </p>
+                              )}
+                            </div>
+                            {myFirmReviewPopover && myFirmReviewPopover.details.length > 0 ? (
+                              <ul className="max-h-[220px] space-y-2 overflow-y-auto px-4 py-3 text-[11px] leading-snug text-muted-foreground">
+                                {myFirmReviewPopover.details.map((line, i) => (
+                                  <li key={i}>{line}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <div className="border-t border-border/60 p-2">
+                              <button
+                                type="button"
+                                className="w-full rounded-lg bg-secondary/80 px-3 py-2 text-center text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                                onClick={() => {
+                                  setFirmReviewPopoverOpen(false);
+                                  setReviewOpen(true);
+                                }}
+                              >
+                                Edit review
+                              </button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       ) : (
                         <button
                           type="button"
@@ -1033,9 +1107,10 @@ export function InvestorDetailPanel({
       <ReviewSubmissionModal
         key="review-modal"
         open={reviewOpen}
-        onClose={() => {
-          setReviewOpen(false);
+        onClose={() => setReviewOpen(false)}
+        onReviewSaved={() => {
           setRatingRefresh((n) => n + 1);
+          setFirmReviewPopoverOpen(false);
         }}
         firmName={heroName}
         firmLogoUrl={heroLogo}
