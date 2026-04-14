@@ -25,9 +25,32 @@ export type InvestorAvatarFields = {
  * known third-party resolver / favicon URLs.
  */
 export function investorPrimaryAvatarUrl(fields: InvestorAvatarFields): string | null {
-  const a = safeTrim(fields.avatar_url) || null;
-  if (a && !isBlockedExternalAvatarUrl(a)) return a;
-  const p = safeTrim(fields.profile_image_url) || null;
-  if (p && !isBlockedExternalAvatarUrl(p)) return p;
-  return null;
+  const chain = investorAvatarUrlCandidates(fields);
+  return chain[0] ?? null;
+}
+
+/**
+ * Ordered list of displayable headshot URLs (avatar first, then profile), deduped.
+ * Use with `InvestorPersonAvatar` so a broken `avatar_url` does not hide a good `profile_image_url`.
+ */
+export function investorAvatarUrlCandidates(fields: InvestorAvatarFields): string[] {
+  const out: string[] = [];
+  for (const u of [safeTrim(fields.avatar_url), safeTrim(fields.profile_image_url)]) {
+    if (!u || isBlockedExternalAvatarUrl(u)) continue;
+    if (!out.includes(u)) out.push(u);
+  }
+  return out;
+}
+
+/** Same as `investorAvatarUrlCandidates`, then append extra URLs (e.g. additional merge fallbacks). */
+export function investorAvatarDisplayChain(
+  fields: InvestorAvatarFields & { extra_urls?: Array<string | null | undefined> | null },
+): string[] {
+  const out = investorAvatarUrlCandidates(fields);
+  for (const u of fields.extra_urls ?? []) {
+    const t = safeTrim(u);
+    if (!t || isBlockedExternalAvatarUrl(t)) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  return out;
 }

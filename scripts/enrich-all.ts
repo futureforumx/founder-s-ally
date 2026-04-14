@@ -548,6 +548,7 @@ type InvestorRow = {
   x_url: string | null;
   medium_url: string | null;
   substack_url: string | null;
+  website_url: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -1946,6 +1947,7 @@ async function extractInvestorsWithAI(
   substack_url?: string;
   investment_themes?: string[];
   portfolio_companies?: string[];
+  education_summary?: string;
   location?: string;
 }>> {
   const prompt = `Extract investment professionals from this VC firm team page for "${firmName}".
@@ -1955,6 +1957,7 @@ Return a JSON array. Each object:
 - title, bio, email, linkedin_url, x_url (Twitter/X profile URL only), website_url, medium_url, substack_url, avatar_url (absolute image URLs when shown on this page), location — use null when unknown
 - investment_themes: string[] of sectors/themes if listed for this person, else null
 - portfolio_companies: string[] of notable portfolio company NAMES or board seats explicitly tied to this person on the page (not the whole firm portfolio unless listed under their bio). Else null.
+- education_summary: concise education string from their profile text (school/program/degree). Example: "Stanford GSB (MBA); MIT (BS EECS)". Use null when unknown.
 
 Include partners, principals, MDs, VPs, associates, analysts, and investing team. You may include platform / IR / finance leads if they appear as named team cards with investing-adjacent titles.
 
@@ -2082,6 +2085,30 @@ function mergeBackgroundSummary(existing: string | null, addition: string | null
   return `${existing.trim()}\n\n${addition.trim()}`.slice(0, 8000);
 }
 
+function extractEducationSummaryFromText(text: string | null | undefined): string | undefined {
+  if (!text) return undefined;
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length < 30) return undefined;
+
+  const chunks = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const eduChunks = chunks.filter((chunk) =>
+    /\b(earned|received|holds?|graduated|studied|attended|alum|alumni|bachelor|master|mba|phd|doctorate|university|college|school)\b/i.test(
+      chunk
+    )
+  );
+  if (!eduChunks.length) return undefined;
+
+  return eduChunks
+    .slice(0, 2)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .slice(0, 280);
+}
+
 /** Web snippets: investments, boards, career context (not a substitute for verified CRM data). */
 async function enrichInvestorBackgroundWithExa(name: string, firmName: string): Promise<string | undefined> {
   if (!EXA_KEY) return undefined;
@@ -2159,6 +2186,10 @@ async function enrichInvestorWithExa(
   if (!patch.bio && bioChunks.length) {
     patch.bio = bioChunks[0]!.slice(0, 700).trim();
   }
+  if (!patch.education_summary && bioChunks.length) {
+    const edu = extractEducationSummaryFromText(bioChunks.join(" "));
+    if (edu) patch.education_summary = edu;
+  }
 
   return patch;
 }
@@ -2221,7 +2252,7 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
   // Get firms that have investors needing enrichment
   const { data: firms } = await sbQuery<{ id: string; firm_name: string; website_url: string | null }>(
     "firm_records",
-    `select=id,firm_name,website_url&deleted_at=is.null&website_url=not.is.null&order=firm_name.asc&limit=${MAX}`
+    `select=id,firm_name,website_url&deleted_at=is.null&order=firm_name.asc&limit=${MAX}`
   );
 
   if (!firms.length) {
@@ -2236,7 +2267,7 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
     // Get investors for this firm that are missing key fields
     const { data: investors } = await sbQuery<InvestorRow>(
       "firm_investors",
-      `select=*&firm_id=eq.${firm.id}&deleted_at=is.null&or=(title.is.null,bio.is.null,linkedin_url.is.null,email.is.null,avatar_url.is.null,x_url.is.null,background_summary.is.null,website_url.is.null,medium_url.is.null,substack_url.is.null)&limit=50`
+      `select=*&firm_id=eq.${firm.id}&deleted_at=is.null&full_name=not.is.null&or=(title.is.null,bio.is.null,linkedin_url.is.null,email.is.null,avatar_url.is.null,x_url.is.null,background_summary.is.null,website_url.is.null,medium_url.is.null,substack_url.is.null,education_summary.is.null)&limit=500`
     );
 
     if (!investors.length) continue;
@@ -2287,6 +2318,8 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
           if (!investor.website_url && matched.website_url) patch.website_url = matched.website_url;
           if (!investor.medium_url && matched.medium_url) patch.medium_url = matched.medium_url;
           if (!investor.substack_url && matched.substack_url) patch.substack_url = matched.substack_url;
+          if (!investor.education_summary && matched.education_summary)
+            patch.education_summary = matched.education_summary;
           if (matched.investment_themes?.length && !investor.personal_thesis_tags?.length)
             patch.personal_thesis_tags = matched.investment_themes;
           if (matched.location && !investor.city) {
@@ -2296,6 +2329,11 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
           }
           if (!investor.first_name && matched.first_name) patch.first_name = matched.first_name;
           if (!investor.last_name && matched.last_name) patch.last_name = matched.last_name;
+
+          if (!patch.education_summary && !investor.education_summary) {
+            const eduFromBio = extractEducationSummaryFromText(matched.bio);
+            if (eduFromBio) patch.education_summary = eduFromBio;
+          }
 
           const rawPc = matched.portfolio_companies;
           const companies = Array.isArray(rawPc)
@@ -2320,7 +2358,7 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
         // Enrich remaining gaps with Exa (LinkedIn, X, bio; broader search than before)
         const needsExa =
           !!EXA_KEY &&
-          (!investor.linkedin_url || !investor.x_url || !investor.bio);
+          (!investor.linkedin_url || !investor.x_url || !investor.bio || !investor.education_summary);
         if (needsExa) {
           const exaPatch = await enrichInvestorWithExa(investor.full_name, firm.firm_name);
           for (const [k, v] of Object.entries(exaPatch)) {
@@ -2342,7 +2380,11 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
         }
 
         // Enrich with People Data Labs for email/location/education
-        if ((!patch.email && !investor.email) || (!patch.city && !investor.city)) {
+        if (
+          (!patch.email && !investor.email) ||
+          (!patch.city && !investor.city) ||
+          (!patch.education_summary && !investor.education_summary)
+        ) {
           const firstName = patch.first_name || investor.first_name || investor.full_name.split(" ")[0];
           const lastName = patch.last_name || investor.last_name || investor.full_name.split(" ").slice(1).join(" ");
           if (firstName && lastName) {

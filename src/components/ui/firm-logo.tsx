@@ -106,6 +106,38 @@ const KNOWN_VC_DOMAINS: Record<string, string> = {
   "idc ventures": "idcventures.com",
 };
 
+/**
+ * High-quality logos for firms whose live `favicon.ico` / apple-touch assets are
+ * placeholders or unusable in UI. Keys: lowercase firm name; {@link KNOWN_DOMAIN_LOGO_URLS} for domain-only match.
+ * URLs must be stable HTTPS assets (e.g. Wikimedia Commons).
+ */
+const KNOWN_VC_LOGO_URLS: Record<string, string> = {
+  "sequoia capital":
+    "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+  "sequoia capital india":
+    "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+  "sequoia capital china":
+    "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+};
+
+const KNOWN_DOMAIN_LOGO_URLS: Record<string, string> = {
+  "sequoiacap.com":
+    "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+};
+
+/** Prefer DB logo; when absent, use a curated asset for well-known firms with bad favicons. */
+export function resolveKnownVcLogoUrl(firmName?: string, domain?: string | null): string | null {
+  if (domain) {
+    const d = domain.toLowerCase().trim();
+    if (KNOWN_DOMAIN_LOGO_URLS[d]) return KNOWN_DOMAIN_LOGO_URLS[d];
+  }
+  if (!firmName) return null;
+  const key = firmName.toLowerCase().trim();
+  if (KNOWN_VC_LOGO_URLS[key]) return KNOWN_VC_LOGO_URLS[key];
+  const partial = Object.entries(KNOWN_VC_LOGO_URLS).find(([k]) => key.startsWith(k) || k.startsWith(key));
+  return partial ? partial[1] : null;
+}
+
 /** Strip protocol, www, paths, and query strings to return a bare domain. */
 function extractDomain(url: string): string {
   return url
@@ -142,15 +174,16 @@ export function resolveFirmDomain(websiteUrl?: string | null, firmName?: string)
 
 type Tier = 1 | 2 | 3 | 4 | 5;
 
-function computeInitialTier(storedLogoUrl?: string | null, domain?: string | null): Tier {
-  if (storedLogoUrl) return 1;
+function computeInitialTier(primaryLogoUrl?: string | null, domain?: string | null): Tier {
+  if (primaryLogoUrl) return 1;
   if (domain) return 2;
   return 5;
 }
 
 /**
  * 5-tier logo fallback:
- *  1. logo_url from database (skipped if it is a third-party favicon proxy / generic globe URL)
+ *  1. logo_url from database, else curated high-res logo for firms with unusable favicons (e.g. Sequoia)
+ *     (stored URL skipped if it is a third-party favicon proxy / generic globe URL)
  *  2. Direct /favicon.ico on the firm's domain (real site asset before Google proxies)
  *  3. Google gstatic faviconV2
  *  4. Google s2/favicons
@@ -164,12 +197,16 @@ function computeInitialTier(storedLogoUrl?: string | null, domain?: string | nul
 export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className = "", onClick }: FirmLogoProps) {
   const domain = resolveFirmDomain(websiteUrl, firmName);
   const storedLogoUrl = sanitizeFirmLogoUrlForDisplay(logoUrl);
-  const [tier, setTier] = useState<Tier>(() => computeInitialTier(storedLogoUrl, domain));
+  const knownLogoUrl = resolveKnownVcLogoUrl(firmName, domain);
+  const primaryLogoUrl = storedLogoUrl ?? knownLogoUrl;
+  const [tier, setTier] = useState<Tier>(() => computeInitialTier(primaryLogoUrl, domain));
 
   // Re-sync when props change (e.g. async DB data arrives after mount)
   useEffect(() => {
-    setTier(computeInitialTier(sanitizeFirmLogoUrlForDisplay(logoUrl), domain));
-  }, [logoUrl, domain]);
+    const stored = sanitizeFirmLogoUrlForDisplay(logoUrl);
+    const known = resolveKnownVcLogoUrl(firmName, domain);
+    setTier(computeInitialTier(stored ?? known, domain));
+  }, [logoUrl, domain, firmName]);
 
   const sizeClass = SIZE_MAP[size];
 
@@ -195,7 +232,7 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
   } ${className}`;
 
   const currentSrc =
-    tier === 1 ? storedLogoUrl :
+    tier === 1 ? primaryLogoUrl :
     tier === 2 ? directUrl :
     tier === 3 ? gstaticUrl :
     tier === 4 ? s2Url :

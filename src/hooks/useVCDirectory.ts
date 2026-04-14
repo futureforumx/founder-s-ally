@@ -337,6 +337,10 @@ function toStringArray(value: unknown): string[] | null {
     .filter((item) => item.length > 0);
 }
 
+const FIRM_LOGO_URL_OVERRIDES: Record<string, string> = {
+  "1248 holdings": "https://12-48.com/wp-content/uploads/2020/03/1248-Black-1.png",
+};
+
 function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
   const id = typeof row.id === "string" ? row.id : null;
   const name =
@@ -355,6 +359,14 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
       : typeof row.website === "string"
         ? row.website
         : null;
+  const normalizedNameKey = safeTrim(name).toLowerCase();
+  const websiteFromRow = websiteRaw || deriveWebsiteUrlFromFirmId(id);
+  const websiteHost = safeTrim(websiteFromRow).toLowerCase();
+  const logoOverride =
+    FIRM_LOGO_URL_OVERRIDES[normalizedNameKey] ||
+    (websiteHost.includes("12-48.com")
+      ? "https://12-48.com/wp-content/uploads/2020/03/1248-Black-1.png"
+      : null);
 
   return {
     id,
@@ -383,8 +395,8 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
       toStringArray(row.sector_focus) ??
       toStringArray(row.thesis_verticals) ??
       null,
-    logo_url: typeof row.logo_url === "string" ? row.logo_url : null,
-    website_url: websiteRaw || deriveWebsiteUrlFromFirmId(id),
+    logo_url: logoOverride || (typeof row.logo_url === "string" ? row.logo_url : null),
+    website_url: websiteFromRow,
     aliases: toStringArray(row.aliases) ?? null,
   };
 }

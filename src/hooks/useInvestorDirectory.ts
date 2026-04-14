@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generateElevatorPitch } from "@/lib/generateFallbacks";
+import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
+import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
+import { pickHqLineFromLocationsJson } from "@/lib/firmLocationsJson";
 
 export interface LiveInvestorEntry {
   id: string;
@@ -75,6 +78,15 @@ export interface LiveInvestorPersonEntry {
 // Transform DB rows into DirectoryEntry-compatible shape
 function mapDbInvestor(row: any): LiveInvestorEntry {
   const firmName = String(row.firm_name ?? "").trim() || "Unknown firm";
+  const location =
+    resolveFirmDisplayLocation({
+      hq_city: row.hq_city,
+      hq_state: row.hq_state,
+      hq_country: row.hq_country,
+      legacyLocation: row.location,
+    }) ??
+    pickHqLineFromLocationsJson(row.locations) ??
+    "";
   return {
     id: String(row.id ?? ""),
     name: firmName,
@@ -90,7 +102,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
       hq_country: row.hq_country,
       entity_type: row.entity_type,
     }) || `${firmName} is an active investment firm.`,
-    location: String(row.location ?? "").trim(),
+    location,
     model: row.min_check_size && row.max_check_size
       ? `$${row.min_check_size >= 1_000_000 ? `${(row.min_check_size / 1_000_000).toFixed(0)}M` : `${(row.min_check_size / 1_000).toFixed(0)}K`}–$${row.max_check_size >= 1_000_000 ? `${(row.max_check_size / 1_000_000).toFixed(0)}M` : `${(row.max_check_size / 1_000).toFixed(0)}K`}`
       : "$1M–$10M",
@@ -100,7 +112,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     dataSource: "verified",
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
-    firm_type: row.firm_type || "Institutional",
+    firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type),
     is_actively_deploying: row.is_actively_deploying ?? true,
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
@@ -132,6 +144,7 @@ const DIRECTORY_COLUMNS = [
   "hq_state",
   "hq_country",
   "location",
+  "locations",
   "min_check_size",
   "max_check_size",
   "logo_url",
@@ -202,7 +215,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
             "check_size_max",
             "sweet_spot",
             "firm:firm_records!firm_investors_firm_id_fkey(",
-            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,location,firm_type,",
+            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,",
             "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals",
             ")",
           ].join(""),
@@ -219,7 +232,9 @@ export function useInvestorPeopleDirectory(limit = 5000) {
           (row: any) =>
             row?.firm && typeof row.full_name === "string" && row.full_name.trim().length > 0,
         )
-        .map((row: any) => ({
+        .map((row: any) => {
+          const firmName = row.firm?.firm_name ?? "";
+          return {
           id: row.id,
           firm_id: row.firm_id,
           full_name: row.full_name,
@@ -266,8 +281,16 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                 website_url: row.firm.website_url ?? null,
                 thesis_verticals: Array.isArray(row.firm.thesis_verticals) ? row.firm.thesis_verticals.filter(Boolean) : [],
                 stage_focus: Array.isArray(row.firm.stage_focus) ? row.firm.stage_focus.filter(Boolean) : [],
-                location: row.firm.location ?? null,
-                firm_type: row.firm.firm_type ?? null,
+                location:
+                  resolveFirmDisplayLocation({
+                    hq_city: row.firm.hq_city,
+                    hq_state: row.firm.hq_state,
+                    hq_country: row.firm.hq_country,
+                    legacyLocation: row.firm.location,
+                  }) ??
+                  pickHqLineFromLocationsJson(row.firm.locations) ??
+                  null,
+                firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm.firm_type),
                 is_actively_deploying:
                   typeof row.firm.is_actively_deploying === "boolean" ? row.firm.is_actively_deploying : null,
                 founder_reputation_score:
@@ -280,7 +303,8 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                 recent_deals: Array.isArray(row.firm.recent_deals) ? row.firm.recent_deals.filter(Boolean) : null,
               }
             : null,
-        }));
+        };
+        });
     },
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,

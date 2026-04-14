@@ -38,6 +38,7 @@ interface ThesisTabContentProps {
   isActivelyDeploying?: boolean | null;
   /** AUM string from `firm_records` or static JSON — used as fallback fund display. */
   firmAum?: string | null;
+  firmWebsiteUrl?: string | null;
 }
 
 export function ThesisTabContent({
@@ -56,6 +57,7 @@ export function ThesisTabContent({
   firmDisplayName,
   isActivelyDeploying,
   firmAum,
+  firmWebsiteUrl,
 }: ThesisTabContentProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
 
@@ -89,6 +91,7 @@ export function ThesisTabContent({
             currentThesis={enrichedData?.profile?.currentThesis}
             recentDeals={enrichedData?.profile?.recentDeals}
             firmName={displayName}
+            firmWebsiteUrl={firmWebsiteUrl ?? null}
             isExpanded
             onToggleExpand={() => toggle("themes")}
           />
@@ -131,6 +134,7 @@ export function ThesisTabContent({
               currentThesis={enrichedData?.profile?.currentThesis}
               recentDeals={enrichedData?.profile?.recentDeals}
               firmName={displayName}
+              firmWebsiteUrl={firmWebsiteUrl ?? null}
               onToggleExpand={() => toggle("themes")}
             />
           </div>

@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
+import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
 import type { AumBand } from "@prisma/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -712,6 +713,9 @@ function firmTypeBadgeTooltipText(firmType: string | number | null | undefined):
   const t = String(firmType ?? "Institutional")
     .trim()
     .toLowerCase();
+  if (t === "cvc") {
+    return "Corporate venture (CVC): strategic or balance-sheet capital from an operating company—distinct from independent funds that primarily deploy third-party LP capital.";
+  }
   if (t === "institutional") {
     return "Professional fund or firm investing pooled third-party (LP) capital—typical venture partnerships, corporate venture arms, and similar vehicles.";
   }
@@ -796,7 +800,13 @@ function InvestorCard({
   const velocityScore = (founder as any)._dealVelocityScore ?? null;
   const velocityColor = velocityScore != null ? (velocityScore >= 70 ? "text-success" : velocityScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const velocityLabel = velocityScore == null ? null : velocityScore >= 80 ? "Hot" : velocityScore >= 60 ? "Active" : velocityScore >= 35 ? "Moderate" : "Slow";
+  const MIN_DEPLOYING_VELOCITY_SCORE = 35;
+  const showAsActivelyDeploying =
+    founder._isActivelyDeploying !== false &&
+    (velocityScore == null || velocityScore >= MIN_DEPLOYING_VELOCITY_SCORE);
   const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
+  const firmTypeRaw = safeTextTrim(founder._firmType) || "INSTITUTIONAL";
+  const firmTypeBadgeLabel = formatFirmTypeLabel(firmTypeRaw) || "Institutional";
   const subtitle = isPerson
     ? [founder.model, founder._investorFirmName].filter(Boolean).join(" · ")
     : null;
@@ -1036,15 +1046,15 @@ function InvestorCard({
                   <Badge
                     variant="outline"
                     className={INVESTOR_CARD_META_BADGE}
-                    aria-label={`Firm type: ${safeTextTrim(founder._firmType) || "Institutional"}`}
+                    aria-label={`Firm type: ${firmTypeBadgeLabel}`}
                   >
-                    {safeTextTrim(founder._firmType) || "Institutional"}
+                    {firmTypeBadgeLabel}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
                   <p className="text-xs font-bold text-foreground">Firm type</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    {firmTypeBadgeTooltipText(safeTextTrim(founder._firmType) || "Institutional")}
+                    {firmTypeBadgeTooltipText(firmTypeRaw)}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -1068,24 +1078,24 @@ function InvestorCard({
                   <Badge
                     variant="outline"
                     className={
-                      founder._isActivelyDeploying !== false
+                      showAsActivelyDeploying
                         ? cn(INVESTOR_CARD_DEPLOY_ACTIVE_BADGE, "inline-flex items-center gap-0.5")
                         : cn(INVESTOR_CARD_DEPLOY_INACTIVE_BADGE, "inline-flex items-center gap-0.5")
                     }
                     aria-label={
-                      founder._isActivelyDeploying !== false
+                      showAsActivelyDeploying
                         ? "Actively deploying capital"
                         : "Not actively deploying"
                     }
                   >
                     <Activity className="h-2 w-2 shrink-0" aria-hidden />
-                    {founder._isActivelyDeploying !== false ? "Actively deploying" : "Not actively deploying"}
+                    {showAsActivelyDeploying ? "Actively deploying" : "Not actively deploying"}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
                   <p className="text-xs font-bold text-foreground">Deployment status</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    {deploymentStatusBadgeTooltipText(founder._isActivelyDeploying !== false)}
+                    {deploymentStatusBadgeTooltipText(showAsActivelyDeploying)}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -2670,6 +2680,34 @@ export function CommunityView({
     return null;
   }, [selectedInvestor, selectedVCFirm]);
 
+  const selectedInvestorVCPeople = useMemo(() => {
+    if (!selectedInvestor || selectedInvestor.category !== "investor") return [];
+    const selectedName = normalizeFirmName(selectedInvestor.name);
+    const selectedAliasKeys = new Set(getAliasKeys(selectedName));
+    const matchedFirmId = selectedInvestorMatchedVCFirm?.id ?? selectedInvestor._firmId ?? null;
+    return vcPeople.filter((person) => {
+      if (person.is_active === false) return false;
+      if (!safeTextTrim(person.full_name)) return false;
+      if (matchedFirmId && person.firm_id === matchedFirmId) return true;
+
+      const primaryFirm = safeTextTrim(person.primary_firm_name);
+      if (primaryFirm) {
+        const primaryKeys = getAliasKeys(normalizeFirmName(primaryFirm));
+        if (primaryKeys.some((k) => selectedAliasKeys.has(k))) return true;
+      }
+
+      const affiliations = Array.isArray(person.affiliations) ? person.affiliations : [];
+      for (const aff of affiliations) {
+        const affName = safeTextTrim(aff?.firm_name);
+        if (!affName) continue;
+        const affKeys = getAliasKeys(normalizeFirmName(affName));
+        if (affKeys.some((k) => selectedAliasKeys.has(k))) return true;
+      }
+
+      return false;
+    });
+  }, [selectedInvestor, selectedInvestorMatchedVCFirm?.id, vcPeople]);
+
   const handleInvestorPreviewDeploying = useCallback(
     (inv: InvestorPreviewModel) => {
       const entry =
@@ -3302,7 +3340,7 @@ export function CommunityView({
         hideBackdrop={!!selectedVCPerson}
         initialTab={investorInitialTab}
         vcFirm={selectedInvestorMatchedVCFirm}
-        vcPartners={selectedInvestorMatchedVCFirm ? getVCPartners(selectedInvestorMatchedVCFirm.id) : []}
+        vcPartners={selectedInvestorVCPeople}
         onSelectPerson={(person) => {
           // Keep the firm panel open — person modal layers on top (same z-index, later in DOM).
           // "Back to <firm>" simply dismisses the person modal; firm panel is already visible.

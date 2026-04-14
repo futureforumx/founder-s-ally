@@ -8,6 +8,7 @@ import { cn, safeTrim } from "@/lib/utils";
 import type { AumBand } from "@prisma/client";
 import { resolveAumBandFromUsd } from "@/lib/aumBand";
 import { formatStageForDisplay } from "@/lib/stageUtils";
+import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
 
 export type InvestorPreviewModel = {
   name: string;
@@ -262,7 +263,7 @@ export function InvestorPreviewRow({
             variant="outline"
             className="h-4 min-h-4 border-zinc-400/45 bg-transparent px-1 py-0 text-[7px] font-light uppercase tracking-[0.08em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
           >
-            {model._firmType || "Institutional"}
+            {formatFirmTypeLabel(model._firmType || "INSTITUTIONAL") || "Institutional"}
           </Badge>
           {aumBand ? (
             <Badge

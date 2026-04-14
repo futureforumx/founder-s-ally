@@ -36,6 +36,7 @@ import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
+import { collapseStagesToRangePreferringSpecificOverEarly } from "@/lib/stageUtils";
 
 type ViewType =
   | "home"
@@ -327,6 +328,11 @@ function personInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
+}
+
+function stageSubtitleRange(stages: readonly string[] | null | undefined): string | null {
+  if (!stages?.length) return null;
+  return collapseStagesToRangePreferringSpecificOverEarly(stages) ?? null;
 }
 
 function HighlightedName({ text, query }: { text: string; query: string }) {
@@ -714,7 +720,7 @@ export function GlobalTopNav({
         kind: "firm",
         id: f.id,
         name: f.name,
-        subtitle: [f.stages?.slice(0, 2).join(", "), f.aum].filter(Boolean).join(" · ") || "Investor",
+        subtitle: [stageSubtitleRange(f.stages), f.aum].filter(Boolean).join(" · ") || "Investor",
         logoUrl: f.logo_url ?? null,
         websiteUrl: f.website_url ?? null,
         score,
