@@ -82613,5 +82613,145 @@
     "name": "Tom Smalley",
     "status": "not_found",
     "timestamp": "2026-04-14T02:40:20.684Z"
+  },
+  {
+    "type": "investor",
+    "id": "14af9be8-c9f4-451b-a5f2-4fc9fe78137f",
+    "name": "Jurgen Hoekstra",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:40:29.936Z"
+  },
+  {
+    "type": "investor",
+    "id": "92336e10-c466-49fa-ab6d-f69219aed69b",
+    "name": "Sten-Roger Karlsen",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:40:39.043Z"
+  },
+  {
+    "type": "investor",
+    "id": "ee6ac9ef-109e-4cc7-b551-96d1e4a7bafa",
+    "name": "Sten Verland",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:40:47.990Z"
+  },
+  {
+    "type": "investor",
+    "id": "7d48286e-08c2-4e68-bc67-cda755b99bf7",
+    "name": "Karthik Ardhanareeswaran",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:40:57.119Z"
+  },
+  {
+    "type": "investor",
+    "id": "97fa8c2a-0434-426d-948d-eb194325ef59",
+    "name": "General Partner",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:41:07.245Z"
+  },
+  {
+    "type": "investor",
+    "id": "f20e0ba8-44df-45fe-a056-915a12080f1f",
+    "name": "Shir Edman",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:41:16.982Z"
+  },
+  {
+    "type": "investor",
+    "id": "e6046f3f-4890-4073-acef-0152d61b6611",
+    "name": "DORON ZAUER",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:41:26.104Z"
+  },
+  {
+    "type": "investor",
+    "id": "b435ab1b-7e82-4cf3-b0aa-b424443335bd",
+    "name": "Lou Guercia",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:41:35.654Z"
+  },
+  {
+    "type": "investor",
+    "id": "c607233e-3556-4f3f-806f-029a0b989887",
+    "name": "Namrata Jumani",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:41:45.030Z"
+  },
+  {
+    "type": "investor",
+    "id": "8c67e7e8-f420-4c36-bb99-a9ad3b2c13cf",
+    "name": "Ronny Vikdal",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:41:54.068Z"
+  },
+  {
+    "type": "investor",
+    "id": "ac1d1a87-30dd-4820-ad89-ba89bd17b374",
+    "name": "Finance Director",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:42:04.058Z"
+  },
+  {
+    "type": "investor",
+    "id": "c842816c-6e82-4f61-9494-30a66ce69de8",
+    "name": "ALEXANDRE FLAMANT",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:42:12.880Z"
+  },
+  {
+    "type": "investor",
+    "id": "6f02d735-d054-48e9-ab68-9a47a7766f60",
+    "name": "Sabrina Yang",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:42:23.270Z"
+  },
+  {
+    "type": "investor",
+    "id": "39a3ef03-29c1-45f0-bbe5-b620f62a4d35",
+    "name": "Graham Hancock",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:42:33.501Z"
+  },
+  {
+    "type": "investor",
+    "id": "35715bd3-375a-43a9-b54e-9f76b93d3451",
+    "name": "Karim Faris",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:42:42.811Z"
+  },
+  {
+    "type": "investor",
+    "id": "43c58ddb-7a33-48f6-b44b-ccbba86eb21f",
+    "name": "Operating Partner",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:42:53.004Z"
+  },
+  {
+    "type": "investor",
+    "id": "2895bdae-f43f-410c-9b77-49c435ad9641",
+    "name": "Anthony Glenning",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:43:01.862Z"
+  },
+  {
+    "type": "investor",
+    "id": "e707848c-68f9-434e-89fb-c85e5573166e",
+    "name": "Robert Cobuzzi",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:43:10.794Z"
+  },
+  {
+    "type": "investor",
+    "id": "4f8ac419-4cd3-4bf8-95c3-fdfdd2b01a76",
+    "name": "Ben Robbins",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:43:19.673Z"
+  },
+  {
+    "type": "investor",
+    "id": "ed5bc471-802f-49da-bc73-b86593217b16",
+    "name": "David Krane",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:43:28.518Z"
   }
 ]

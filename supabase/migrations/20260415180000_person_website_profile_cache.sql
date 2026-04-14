@@ -16,6 +16,9 @@ COMMENT ON TABLE public.person_website_profile_cache IS
   'Server-side cache for person-website-profile API responses (JSON payload).';
 
 ALTER TABLE public.firm_investors
+  ADD COLUMN IF NOT EXISTS profile_image_url text;
+
+ALTER TABLE public.firm_investors
   ADD COLUMN IF NOT EXISTS profile_image_last_fetched_at timestamptz;
 
 COMMENT ON COLUMN public.firm_investors.profile_image_last_fetched_at IS

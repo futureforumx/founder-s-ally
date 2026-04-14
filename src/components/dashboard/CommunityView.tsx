@@ -41,6 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
+import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { AumBand } from "@prisma/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -801,6 +802,10 @@ function InvestorCard({
                 <img
                   src={logoUrl}
                   alt={founder.name}
+                  width={44}
+                  height={44}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -1331,6 +1336,10 @@ function FounderCard({
               <img
                 src={founder._logoUrl}
                 alt={founder.name}
+                width={40}
+                height={40}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover rounded-xl"
                 onError={(e) => {
                   // Fall back to ui-avatars for a styled initials avatar
@@ -1343,6 +1352,10 @@ function FounderCard({
               <img
                 src={`https://ui-avatars.com/api/?name=${encodeURIComponent(founder.name)}&size=40&bold=true&background=random&color=fff&rounded=true`}
                 alt={founder.name}
+                width={40}
+                height={40}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover rounded-xl"
               />
             ) : (
@@ -1819,7 +1832,11 @@ export function CommunityView({
         _headcount: person.firm?.headcount ?? null,
         _aum: person.firm?.aum ?? null,
         _aumBand: investorAumBandLabel(person.firm?.aum ?? null),
-        _logoUrl: person.avatar_url || person.firm?.logo_url || null,
+        _logoUrl:
+          investorPrimaryAvatarUrl({
+            avatar_url: person.avatar_url,
+            profile_image_url: person.profile_image_url,
+          }) || person.firm?.logo_url || null,
         _isTrending: isInvestorTrendingMerged(person.firm?.is_trending, false, firmName),
         _isPopular: person.firm?.is_popular ?? false,
         _isRecent: person.firm?.is_recent ?? false,
