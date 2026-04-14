@@ -66,14 +66,111 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 function extractDomain(url) {
   if (!url) return null;
+  const trimmed = String(url).trim();
+  // CB dropdown often packs several hosts in one line, e.g. "foo.com (bar.io)•City…"
+  // URL() throws on that — parse the first hostname-like token instead.
+  const firstHost = trimmed.match(/^[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}/i);
+  if (firstHost) {
+    try {
+      const hostname = new URL(`https://${firstHost[0]}`).hostname;
+      return hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      /* fall through */
+    }
+  }
   try {
     const hostname = new URL(
-      url.startsWith("http") ? url : `https://${url}`
+      trimmed.startsWith("http") ? trimmed : `https://${trimmed}`
     ).hostname;
     return hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     return null;
   }
+}
+
+/** Every hostname-like token in a CB dropdown line (parentheticals, bullets, etc.). */
+function parseDomainsFromDropdownLine(line) {
+  if (!line || typeof line !== "string") return [];
+  const out = [];
+  const seen = new Set();
+  const re = /[a-z0-9](?:[a-z0-9-]*\.)+[a-z]{2,}/gi;
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    const host = m[0].toLowerCase().replace(/^www\./, "");
+    if (seen.has(host)) continue;
+    seen.add(host);
+    out.push(host);
+  }
+  return out;
+}
+
+function dropdownDomainsMatchTarget(resultDomainLine, targetDomain) {
+  if (!targetDomain) return false;
+  const t = targetDomain.toLowerCase().replace(/^www\./, "");
+  const candidates = parseDomainsFromDropdownLine(resultDomainLine);
+  if (candidates.length === 0) {
+    const single = extractDomain(resultDomainLine);
+    if (single) candidates.push(single);
+  }
+  for (const c of candidates) {
+    if (c === t) return true;
+    if (c.endsWith(`.${t}`) || t.endsWith(`.${c}`)) return true;
+  }
+  const tBase = t.split(".")[0];
+  for (const c of candidates) {
+    const cBase = c.split(".")[0];
+    if (cBase === tBase) return true;
+    if (cBase.length >= 4 && (c.includes(tBase) || t.includes(cBase))) return true;
+  }
+  return false;
+}
+
+/** Strong name match when legal name differs (e.g. "BGV Benhamou…" vs "Benhamou Global Ventures (BGV)"). */
+function tokenOverlapNameMatch(firmName, resultName) {
+  const STOP = new Set([
+    "individual",
+    "llc",
+    "inc",
+    "ltd",
+    "lp",
+    "plc",
+    "the",
+    "and",
+    "for",
+    "corp",
+    "corporation",
+    "company",
+    "holdings",
+    "group",
+    "fund",
+    "funds",
+    "management",
+    "advisors",
+    "advisory",
+    "vc",
+    "llp",
+  ]);
+  function tokens(s) {
+    const n = String(s)
+      .toLowerCase()
+      .replace(/\(([^)]*)\)/g, " $1 ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    return n.split(/\s+/).filter((x) => x.length >= 2 && !STOP.has(x));
+  }
+  const a = new Set(tokens(firmName));
+  const b = new Set(tokens(resultName));
+  if (a.size === 0 || b.size === 0) return false;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  const minS = Math.min(a.size, b.size);
+  const maxS = Math.max(a.size, b.size);
+  if (inter === minS && inter >= 3) return true;
+  if (minS >= 4 && inter / minS >= 0.85) return true;
+  if (minS >= 3 && inter === minS) return true;
+  // Acronym-heavy: same 3+ tokens, allow one extra token on one side (e.g. "ventures" vs "venture")
+  if (inter >= 3 && inter >= minS - 1 && maxS - inter <= 1) return true;
+  return false;
 }
 
 function sleep(ms) {
@@ -283,28 +380,19 @@ async function searchAndNavigate(page, firmName, targetDomain) {
 
   console.log(`    📋 ${dropdownResults.length} results in dropdown`);
 
-  // Match by domain
+  // Match: (1) any hostname on the dropdown line vs our website domain
+  // (2) token overlap for reordered / acronym names, (3) legacy compressed-string match
   let matchIdx = -1;
   if (targetDomain) {
-    // Exact domain match
-    matchIdx = dropdownResults.findIndex((r) => {
-      const d = extractDomain(r.domain);
-      return d && d === targetDomain;
-    });
-
-    // Fuzzy domain match (base domain overlap)
-    if (matchIdx === -1) {
-      const targetBase = targetDomain.split(".")[0];
-      matchIdx = dropdownResults.findIndex((r) => {
-        const d = extractDomain(r.domain);
-        if (!d) return false;
-        const rBase = d.split(".")[0];
-        return rBase === targetBase || d.includes(targetBase) || targetDomain.includes(rBase);
-      });
-    }
+    matchIdx = dropdownResults.findIndex((r) =>
+      dropdownDomainsMatchTarget(r.domain, targetDomain),
+    );
   }
 
-  // Name match fallback
+  if (matchIdx === -1) {
+    matchIdx = dropdownResults.findIndex((r) => tokenOverlapNameMatch(firmName, r.name));
+  }
+
   if (matchIdx === -1) {
     const cleanFirm = firmName.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/individual$/, "");
     matchIdx = dropdownResults.findIndex((r) => {
