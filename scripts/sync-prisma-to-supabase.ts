@@ -24,6 +24,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
+import { formatCanonicalHqLine } from "../src/lib/formatCanonicalHqLine";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ---------------------------------------------------------------------------
 // Config & env loading
@@ -189,18 +191,29 @@ async function syncFirms() {
 
       try {
         if (existingId) {
-          const { error } = await supabase
-            .from("firm_records")
-            .update(payload)
-            .eq("id", existingId);
+          const merged = (await augmentFirmRecordsPatchWithSupabase(
+            supabase,
+            existingId,
+            payload as Record<string, unknown>,
+            "prisma_sync",
+          )) as typeof payload;
+          const { error } = await supabase.from("firm_records").update(merged).eq("id", existingId);
           if (error) throw error;
           // Ensure prisma_firm_id is linked
           byPrismaId.set(firm.id, existingId);
           updated++;
         } else {
+          const hasHq = Boolean(firm.hq_city ?? firm.hq_state ?? firm.hq_country);
+          const insertPayload: Record<string, unknown> = { ...payload };
+          if (hasHq) {
+            insertPayload.location =
+              formatCanonicalHqLine(firm.hq_city, firm.hq_state, firm.hq_country) ?? null;
+            insertPayload.canonical_hq_source = "prisma_sync";
+            insertPayload.canonical_hq_set_at = new Date().toISOString();
+          }
           const { data: inserted_row, error } = await supabase
             .from("firm_records")
-            .insert(payload)
+            .insert(insertPayload as typeof payload)
             .select("id")
             .single();
           if (error) throw error;

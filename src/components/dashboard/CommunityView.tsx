@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  DollarSign, Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow, Pencil,
+  Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow, Pencil,
   Landmark,
 } from "lucide-react";
 import {
@@ -708,6 +708,26 @@ function firmTypeBadgeTooltipText(firmType: string): string {
   return `How we classify this investor’s structure and capital source (${firmType}).`;
 }
 
+function firmLocationBadgeTooltipText(location: string): string {
+  return `Firm location: ${location}. Headquarters or primary office for this investor.`;
+}
+
+function deploymentStatusBadgeTooltipText(isDeploying: boolean): string {
+  if (isDeploying) {
+    return "This fund is currently writing checks and evaluating new deals.";
+  }
+  return "We are not seeing active deployment signals for this firm right now (may still invest opportunistically).";
+}
+
+const INVESTOR_CARD_META_BADGE =
+  "h-5 min-h-5 max-w-[11rem] cursor-help truncate border-border/60 bg-secondary/30 px-1.5 py-0 text-[7.5px] font-semibold uppercase tracking-[0.07em] text-foreground/90 dark:bg-secondary/35";
+
+const INVESTOR_CARD_DEPLOY_ACTIVE_BADGE =
+  `${INVESTOR_CARD_META_BADGE} border-success/40 bg-success/10 text-success dark:text-success`;
+
+const INVESTOR_CARD_DEPLOY_INACTIVE_BADGE =
+  `${INVESTOR_CARD_META_BADGE} border-muted-foreground/25 text-muted-foreground`;
+
 /** Spaces around en/em dashes in stage ranges (e.g. Seed–Growth → Seed – Growth). */
 
 function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
@@ -961,35 +981,42 @@ function InvestorCard({
           </div>
         </div>
 
-        {/* ── Row 3: HQ · AUM · Headcount · Type ── */}
-        <div className="flex items-center gap-2.5 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground flex-wrap">
-          {founder.location && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location || "—"}
-            </span>
-          )}
-          {isPerson && founder._investorFirmName ? (
-            <span className="inline-flex items-center gap-1">
-              <Landmark className="h-2.5 w-2.5 shrink-0" /> {founder._investorFirmName}
-            </span>
-          ) : null}
-          {(founder._aum || founder.model) && (
-            <span className="inline-flex items-center gap-1">
-              <DollarSign className="h-2.5 w-2.5 shrink-0" /> {founder._aum || (!isPerson ? founder.model : null)}
-            </span>
-          )}
-          {founder._headcount && (
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-2.5 w-2.5 shrink-0" /> {founder._headcount}
-            </span>
-          )}
+        {/* ── Row 3: Firm location · type · size (AUM band) · deployment — badge row + detail line ── */}
+        <div className="space-y-1.5 border-t border-border/40 pt-1.5">
           <div className="flex flex-wrap items-center gap-1">
             <TooltipProvider delayDuration={200}>
+              {founder.location?.trim() ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        INVESTOR_CARD_META_BADGE,
+                        "inline-flex max-w-[12rem] items-center gap-0.5 normal-case font-medium tracking-normal",
+                      )}
+                      aria-label={`Firm location: ${founder.location}`}
+                    >
+                      <MapPin className="h-2 w-2 shrink-0 opacity-80" aria-hidden />
+                      <span className="truncate">
+                        {founder.location.trim().length > 34
+                          ? `${founder.location.trim().slice(0, 33)}…`
+                          : founder.location.trim()}
+                      </span>
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                    <p className="text-xs font-bold text-foreground">Firm location</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      {firmLocationBadgeTooltipText(founder.location.trim())}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge
                     variant="outline"
-                    className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                    className={INVESTOR_CARD_META_BADGE}
                     aria-label={`Firm type: ${founder._firmType || "Institutional"}`}
                   >
                     {founder._firmType || "Institutional"}
@@ -1005,24 +1032,60 @@ function InvestorCard({
               {aumBand ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-                      aria-label={`AUM band: ${aumBand}`}
-                    >
+                    <Badge variant="outline" className={INVESTOR_CARD_META_BADGE} aria-label={`Firm size (AUM band): ${aumBand}`}>
                       {aumBand}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
-                    <p className="text-xs font-bold text-foreground">AUM band</p>
+                    <p className="text-xs font-bold text-foreground">Firm size</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                       {aumBandBadgeTooltipText(aumBand)}
                     </p>
                   </TooltipContent>
                 </Tooltip>
               ) : null}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={
+                      founder._isActivelyDeploying !== false
+                        ? cn(INVESTOR_CARD_DEPLOY_ACTIVE_BADGE, "inline-flex items-center gap-0.5")
+                        : cn(INVESTOR_CARD_DEPLOY_INACTIVE_BADGE, "inline-flex items-center gap-0.5")
+                    }
+                    aria-label={
+                      founder._isActivelyDeploying !== false
+                        ? "Actively deploying capital"
+                        : "Not actively deploying"
+                    }
+                  >
+                    <Activity className="h-2 w-2 shrink-0" aria-hidden />
+                    {founder._isActivelyDeploying !== false ? "Actively deploying" : "Not actively deploying"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Deployment status</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {deploymentStatusBadgeTooltipText(founder._isActivelyDeploying !== false)}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           </div>
+          {(isPerson && founder._investorFirmName) || founder._headcount ? (
+            <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+              {isPerson && founder._investorFirmName ? (
+                <span className="inline-flex items-center gap-1">
+                  <Landmark className="h-2.5 w-2.5 shrink-0" /> {founder._investorFirmName}
+                </span>
+              ) : null}
+              {founder._headcount ? (
+                <span className="inline-flex items-center gap-1">
+                  <Users className="h-2.5 w-2.5 shrink-0" /> {founder._headcount}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>);
@@ -2457,10 +2520,12 @@ export function CommunityView({
 
   const handleInvestorPreviewClick = useCallback(
     (inv: InvestorPreviewModel) => {
-      const entry = mergedEntries.find((e) => e.category === "investor" && e.name === inv.name);
+      const entry =
+        mergedEntries.find((e) => e.category === "investor" && e.name === inv.name) ??
+        [...investorRailSuggested, ...investorRailTrending].find((e) => e.name === inv.name);
       if (entry) handleInvestorClick(entry);
     },
-    [mergedEntries, handleInvestorClick],
+    [mergedEntries, handleInvestorClick, investorRailSuggested, investorRailTrending],
   );
 
   const handleDeployingClick = useCallback((entry: DirectoryEntry) => {
@@ -2507,18 +2572,22 @@ export function CommunityView({
 
   const handleInvestorPreviewDeploying = useCallback(
     (inv: InvestorPreviewModel) => {
-      const entry = mergedEntries.find((e) => e.category === "investor" && e.name === inv.name);
+      const entry =
+        mergedEntries.find((e) => e.category === "investor" && e.name === inv.name) ??
+        [...investorRailSuggested, ...investorRailTrending].find((e) => e.name === inv.name);
       if (entry) handleDeployingClick(entry);
     },
-    [mergedEntries, handleDeployingClick],
+    [mergedEntries, handleDeployingClick, investorRailSuggested, investorRailTrending],
   );
 
   const handleOperatorPreviewClick = useCallback(
     (inv: InvestorPreviewModel) => {
-      const entry = mergedEntries.find((e) => e.category === "operator" && e.name === inv.name);
+      const entry =
+        mergedEntries.find((e) => e.category === "operator" && e.name === inv.name) ??
+        [...operatorRailSuggested, ...operatorRailTrending].find((e) => e.name === inv.name);
       if (entry) setSelectedFounder(entry);
     },
-    [mergedEntries],
+    [mergedEntries, operatorRailSuggested, operatorRailTrending],
   );
 
   const logoUrl = (() => {

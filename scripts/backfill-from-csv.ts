@@ -20,6 +20,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { augmentFirmRecordsPatchWithFetch } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ── Env ──────────────────────────────────────────────────────────────────────
 function loadEnv() {
@@ -60,9 +61,21 @@ async function sbGet<T>(table: string, select = "*", extra = ""): Promise<T[]> {
 }
 
 async function sbPatch(table: string, id: string, patch: Record<string, any>): Promise<boolean> {
-  if (DRY_RUN) { console.log(`  [DRY PATCH] ${table}.${id}:`, Object.keys(patch).join(", ")); return true; }
+  let body = patch;
+  if (table === "firm_records") {
+    body = (await augmentFirmRecordsPatchWithFetch(SUPABASE_URL, SB, id, patch, "csv_backfill")) as Record<
+      string,
+      any
+    >;
+  }
+  if (DRY_RUN) {
+    console.log(`  [DRY PATCH] ${table}.${id}:`, Object.keys(body).join(", "));
+    return true;
+  }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-    method: "PATCH", headers: { ...SB, Prefer: "return=minimal" }, body: JSON.stringify(patch),
+    method: "PATCH",
+    headers: { ...SB, Prefer: "return=minimal" },
+    body: JSON.stringify(body),
   });
   if (!res.ok) console.warn(`  ✗ PATCH failed ${table}.${id}: ${res.status} ${await res.text().catch(() => "")}`);
   return res.ok;

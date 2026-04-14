@@ -42,6 +42,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 loadEnvFiles([".env", ".env.local", ".env.enrichment"]);
 
@@ -492,9 +493,16 @@ async function patchFirm(id: string, patch: Record<string, any>): Promise<boolea
     log(`  [DRY] ${id}: ${Object.keys(patch).join(", ")}`);
     return true;
   }
+  const merged = (await augmentFirmRecordsPatchWithSupabase(
+    supabase,
+    id,
+    patch,
+    "signal_nfx_enrich",
+  )) as Record<string, any>;
+  if (!Object.keys(merged).length) return false;
   const { error } = await supabase
     .from("firm_records")
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .update({ ...merged, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) {
     log(`  ❌ patch ${id}: ${error.message}`);

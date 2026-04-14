@@ -39,6 +39,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
 
 // ── Env & config ─────────────────────────────────────────────────────────────
@@ -538,9 +539,13 @@ async function main() {
       console.log(`${prefix} ✏️   ${firm.firm_name}  →  [${fields}]  (wiki: "${title}")`);
 
       if (!DRY_RUN) {
+        const merged = (await augmentFirmRecordsPatchWithSupabase(supabase, firm.id, patch, "wikipedia_enrich")) as Record<
+          string,
+          unknown
+        >;
         const { error: err } = await supabase
           .from("firm_records")
-          .update({ ...patch, updated_at: new Date().toISOString() })
+          .update({ ...merged, updated_at: new Date().toISOString() })
           .eq("id", firm.id);
         if (err) console.error(`       ❌  ${err.message}`);
         else updated++;

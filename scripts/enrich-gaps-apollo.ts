@@ -40,6 +40,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ─── Env loading ─────────────────────────────────────────────────────────────
 
@@ -427,10 +428,13 @@ async function enrichFirms() {
         console.log(fields.join(", "));
         if (!DRY_RUN) {
           patch.last_enriched_at = new Date().toISOString();
-          const { error: updateErr } = await supabase
-            .from("firm_records")
-            .update(patch)
-            .eq("id", firm.id);
+          const merged = (await augmentFirmRecordsPatchWithSupabase(
+            supabase,
+            firm.id,
+            patch,
+            "apollo_gap_enrich",
+          )) as Record<string, unknown>;
+          const { error: updateErr } = await supabase.from("firm_records").update(merged).eq("id", firm.id);
           if (updateErr) throw updateErr;
         }
         enriched++;
