@@ -321,7 +321,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
             // Build readable reasons
             const reasonParts: string[] = [];
             if (investor.preferred_stage) reasonParts.push(`${investor.preferred_stage} Stage`);
-            if (investor.thesis_verticals.length > 0) reasonParts.push(investor.thesis_verticals[0]);
+            if ((investor.thesis_verticals ?? []).length > 0) reasonParts.push(investor.thesis_verticals[0]);
             reasonParts.push(`${formatCheckSize(investor.min_check_size)} Check`);
 
             const speed = getSpeedLabel(dims.responsiveness);
@@ -394,7 +394,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                         </p>
                       ) : !isEnriching ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {investor.thesis_verticals.slice(0, 4).map(v => (
+                          {(investor.thesis_verticals ?? []).slice(0, 4).map(v => (
                             <Badge key={v} variant="secondary" className="text-[10px] font-normal">{v}</Badge>
                           ))}
                         </div>

@@ -112,7 +112,7 @@ function computeScore(
   let coInvestLink: string | null = null;
 
   if (sectorClass?.modern_tags?.length) {
-    const tagMatches = investor.thesis_verticals.filter(v =>
+    const tagMatches = (investor.thesis_verticals ?? []).filter(v =>
       sectorClass.modern_tags.some(tag => {
         const tLow = tag.toLowerCase();
         const vLow = v.toLowerCase();
@@ -128,7 +128,7 @@ function computeScore(
   }
 
   const sectorToMatch = sectorClass?.primary_sector || company?.sector;
-  if (sectorToMatch && investor.thesis_verticals.some(v => {
+  if (sectorToMatch && (investor.thesis_verticals ?? []).some(v => {
     const vLow = v.toLowerCase();
     const sLow = sectorToMatch.toLowerCase();
     return vLow === sLow || vLow.includes(sLow) || sLow.includes(vLow);
@@ -155,7 +155,7 @@ function computeScore(
 
   if (confirmedBackers.length > 0) {
     const backerName = confirmedBackers[0]?.name;
-    if (backerName && investor.recent_deals.some(d => d.toLowerCase().includes(backerName.toLowerCase().split(" ")[0]))) {
+    if (backerName && (investor.recent_deals ?? []).some(d => d.toLowerCase().includes(backerName.toLowerCase().split(" ")[0]))) {
       score += 15;
       coInvestLink = backerName;
       reasons.push(`co-invests with ${backerName}`);
@@ -451,7 +451,7 @@ export function InvestorMatch({
           onViewInvestor={(inv) =>
             setSelectedInvestor({
               name: inv.firm_name,
-              sector: inv.thesis_verticals.slice(0, 2).join(", ") || "Generalist",
+              sector: (inv.thesis_verticals ?? []).slice(0, 2).join(", ") || "Generalist",
               stage: inv.preferred_stage || "Multi-stage",
               description: inv.reasoning,
               location: inv.location || "",
