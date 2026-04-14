@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { User } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import { investorPrimaryAvatarUrl, type InvestorAvatarFields } from "@/lib/investorAvatarUrl";
 
 export type { InvestorAvatarFields };
@@ -41,9 +41,9 @@ export function InvestorPersonAvatar({
   const [failed, setFailed] = useState(false);
   const src = useMemo(() => {
     const explicit = (imageUrls ?? [])
-      .map((value) => value?.trim())
+      .map((value) => safeTrim(value))
       .find((value): value is string => Boolean(value));
-    const primary = imageUrl?.trim() || explicit || null;
+    const primary = safeTrim(imageUrl) || explicit || null;
     return primary;
   }, [imageUrls, imageUrl]);
 
@@ -54,7 +54,7 @@ export function InvestorPersonAvatar({
   const sizeCls = size === "sm" ? "h-8 w-8" : "h-10 w-10";
   const iconSz = size === "sm" ? "h-4 w-4" : "h-5 w-5";
   const showImg = Boolean(src && !failed);
-  const letter = (initials?.trim().charAt(0) || "").toUpperCase();
+  const letter = (safeTrim(initials).charAt(0) || "").toUpperCase();
 
   return (
     <div

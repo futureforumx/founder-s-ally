@@ -1,3 +1,5 @@
+import { safeTrim } from "@/lib/utils";
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -10,10 +12,10 @@ export function sanitizePersonTitle(
   rawTitle: string | null | undefined,
   fullName?: string | null,
 ): string | null {
-  const title = rawTitle?.trim().replace(/\s+/g, " ") ?? "";
+  const title = safeTrim(rawTitle).replace(/\s+/g, " ");
   if (!title) return null;
 
-  const name = fullName?.trim().replace(/\s+/g, " ") ?? "";
+  const name = safeTrim(fullName).replace(/\s+/g, " ");
   if (!name) return title;
 
   const escapedName = escapeRegExp(name);

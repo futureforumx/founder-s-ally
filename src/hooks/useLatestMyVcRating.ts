@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchSelfPublishedVcRatingHydration } from "@/lib/vcRatingSelfLookup";
+import { safeTrim } from "@/lib/utils";
 
 /**
  * Latest published `vc_ratings.star_ratings` JSON for the current user + firm (+ optional person).
@@ -26,8 +27,8 @@ export function useLatestMyVcRating(
       return;
     }
 
-    const firm = vcFirmId?.trim();
-    const displayName = (firmName ?? "").trim();
+    const firm = safeTrim(vcFirmId);
+    const displayName = safeTrim(firmName);
 
     if (!firm && !displayName) {
       setStarRatings(null);

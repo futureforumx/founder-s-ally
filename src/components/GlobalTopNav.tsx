@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -33,6 +33,7 @@ import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
+import { useInvestorDirectory } from "@/hooks/useInvestorDirectory";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 
@@ -183,8 +184,8 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
 
 // ── Contextual AI suggestions per view ──
 function getContextSuggestions(view: ViewType, sector?: string | null, stage?: string | null): string[] {
-  const s = sector || "Technology";
-  const st = stage || "Seed";
+  const s = safeTrim(sector) || "Technology";
+  const st = safeTrim(stage) || "Seed";
   switch (view) {
     case "investor-search":
     case "investors":
@@ -297,6 +298,14 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Match CommunityView `normalizeFirmName` — dedupe MDM firms vs live `firm_records`. */
+function normalizeFirmNameKey(name: string | null | undefined): string {
+  return String(name ?? "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /** Higher = better match for ranking “most related”. */
 function nameMatchScore(name: string | null | undefined, qLower: string): number {
   const n = String(name ?? "")
@@ -314,17 +323,17 @@ function nameMatchScore(name: string | null | undefined, qLower: string): number
 }
 
 function personInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const parts = safeTrim(name).split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
 }
 
 function HighlightedName({ text, query }: { text: string; query: string }) {
-  const q = query.trim();
+  const q = safeTrim(query);
   if (!q) return <span className="font-medium text-foreground">{text}</span>;
   const re = new RegExp(`(${escapeRegExp(q)})`, "gi");
-  const parts = text.split(re);
+  const parts = String(text ?? "").split(re);
   const qLower = q.toLowerCase();
   return (
     <span className="font-medium text-foreground">
@@ -660,12 +669,13 @@ export function GlobalTopNav({
 
   const isInvestorArea = ["investors", "investor-search", "directory"].includes(activeView);
   const { firms: vcFirms, people: vcPeople, firmMap } = useVCDirectory();
+  const { data: liveFirmRecords } = useInvestorDirectory();
 
   const suggestions = useMemo(
     () => getContextSuggestions(activeView, userSector, userStage),
     [activeView, userSector, userStage],
   );
-  const investorSearchTrim = (investorSearchQuery ?? "").trim();
+  const investorSearchTrim = safeTrim(investorSearchQuery);
 
   const investorTypeahead = useMemo(() => {
     if (!isInvestorArea || !investorSearchTrim) {
@@ -695,6 +705,8 @@ export function GlobalTopNav({
     };
 
     const firmsScored: ScoredFirm[] = [];
+    const vcNameKeys = new Set(vcFirms.map((f) => normalizeFirmNameKey(f.name)));
+
     for (const f of vcFirms) {
       const score = nameMatchScore(f.name, q);
       if (score < 0) continue;
@@ -708,6 +720,25 @@ export function GlobalTopNav({
         score,
       });
     }
+
+    const addedLiveKeys = new Set<string>();
+    for (const inv of liveFirmRecords ?? []) {
+      const nk = normalizeFirmNameKey(inv.name);
+      if (!nk || vcNameKeys.has(nk) || addedLiveKeys.has(nk)) continue;
+      const score = nameMatchScore(inv.name, q);
+      if (score < 0) continue;
+      addedLiveKeys.add(nk);
+      firmsScored.push({
+        kind: "firm",
+        id: inv.id,
+        name: inv.name,
+        subtitle: [inv.sector, inv.aum].filter(Boolean).join(" · ") || "Investor",
+        logoUrl: inv.logo_url ?? null,
+        websiteUrl: inv.website_url ?? null,
+        score,
+      });
+    }
+
     firmsScored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
     const peopleScored: ScoredPerson[] = [];
@@ -768,7 +799,7 @@ export function GlobalTopNav({
 
     const flatRows: SearchDropdownRow[] = sections.flatMap((s) => s.rows);
     return { flatRows, sections };
-  }, [isInvestorArea, investorSearchTrim, suggestions, vcFirms, vcPeople, firmMap]);
+  }, [isInvestorArea, investorSearchTrim, suggestions, vcFirms, vcPeople, firmMap, liveFirmRecords]);
 
   const searchDropdownRows = investorTypeahead.flatRows;
 

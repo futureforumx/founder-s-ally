@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
 
 interface FirmLogoProps {
   firmName: string;
@@ -90,6 +91,8 @@ const KNOWN_VC_DOMAINS: Record<string, string> = {
   "venrock": "venrock.com",
   "wing venture capital": "wing.vc",
   "wing vc": "wing.vc",
+  "12/12 ventures": "1212.vc",
+  "12 12 ventures": "1212.vc",
   "collaborative fund": "collaborativefund.com",
   "lux capital": "luxcapital.com",
   "lux": "luxcapital.com",
@@ -139,18 +142,18 @@ export function resolveFirmDomain(websiteUrl?: string | null, firmName?: string)
 
 type Tier = 1 | 2 | 3 | 4 | 5;
 
-function computeInitialTier(logoUrl?: string | null, domain?: string | null): Tier {
-  if (logoUrl) return 1;
+function computeInitialTier(storedLogoUrl?: string | null, domain?: string | null): Tier {
+  if (storedLogoUrl) return 1;
   if (domain) return 2;
   return 5;
 }
 
 /**
  * 5-tier logo fallback:
- *  1. logo_url from database (explicit, highest fidelity)
- *  2. Google gstatic faviconV2 — high-quality favicons
- *  3. Google s2/favicons — secondary fallback
- *  4. Direct website favicon (/favicon.ico)
+ *  1. logo_url from database (skipped if it is a third-party favicon proxy / generic globe URL)
+ *  2. Direct /favicon.ico on the firm's domain (real site asset before Google proxies)
+ *  3. Google gstatic faviconV2
+ *  4. Google s2/favicons
  *  5. Styled initial letter placeholder
  *
  * Domain resolution order:
@@ -160,32 +163,30 @@ function computeInitialTier(logoUrl?: string | null, domain?: string | null): Ti
  */
 export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className = "", onClick }: FirmLogoProps) {
   const domain = resolveFirmDomain(websiteUrl, firmName);
-  const [tier, setTier] = useState<Tier>(() => computeInitialTier(logoUrl, domain));
+  const storedLogoUrl = sanitizeFirmLogoUrlForDisplay(logoUrl);
+  const [tier, setTier] = useState<Tier>(() => computeInitialTier(storedLogoUrl, domain));
 
   // Re-sync when props change (e.g. async DB data arrives after mount)
   useEffect(() => {
-    setTier(computeInitialTier(logoUrl, domain));
+    setTier(computeInitialTier(sanitizeFirmLogoUrlForDisplay(logoUrl), domain));
   }, [logoUrl, domain]);
 
   const sizeClass = SIZE_MAP[size];
 
-  // Tier 2: gstatic faviconV2 — high-quality favicons (Clearbit was deprecated)
+  const directUrl = domain ? `https://${domain}/favicon.ico` : null;
   const gstaticUrl = domain
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`
     : null;
-  // Tier 3: Google s2 favicons — secondary fallback
   const s2Url = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
-  // Tier 4: direct website favicon — bypasses Google endpoints entirely
-  const directUrl = domain ? `https://${domain}/favicon.ico` : null;
 
   const handleError = useCallback(() => {
     setTier((prev) => {
-      if (prev === 1) return gstaticUrl ? 2 : s2Url ? 3 : directUrl ? 4 : 5;
-      if (prev === 2) return s2Url ? 3 : directUrl ? 4 : 5;
-      if (prev === 3) return directUrl ? 4 : 5;
+      if (prev === 1) return directUrl ? 2 : gstaticUrl ? 3 : s2Url ? 4 : 5;
+      if (prev === 2) return gstaticUrl ? 3 : s2Url ? 4 : 5;
+      if (prev === 3) return s2Url ? 4 : 5;
       return 5;
     });
-  }, [gstaticUrl, s2Url, directUrl]);
+  }, [directUrl, gstaticUrl, s2Url]);
 
   const initial = firmName?.charAt(0).toUpperCase() || "?";
 
@@ -194,10 +195,10 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
   } ${className}`;
 
   const currentSrc =
-    tier === 1 ? logoUrl :
-    tier === 2 ? gstaticUrl :
-    tier === 3 ? s2Url :
-    tier === 4 ? directUrl :
+    tier === 1 ? storedLogoUrl :
+    tier === 2 ? directUrl :
+    tier === 3 ? gstaticUrl :
+    tier === 4 ? s2Url :
     null;
 
   return (

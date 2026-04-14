@@ -5,7 +5,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
-import { safeTrim } from "@/lib/utils";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 export interface InvestorTypeaheadResult {
   id: string;
@@ -64,8 +64,8 @@ export function InvestorSearchOmnibox({
 
     const fr: InvestorTypeaheadResult[] = firms
       .filter((f) => {
-        if (f.name.toLowerCase().includes(query)) return true;
-        if (f.aliases?.some((alias) => alias.toLowerCase().includes(query))) return true;
+        if (safeLower(f.name).includes(query)) return true;
+        if (f.aliases?.some((alias) => safeLower(alias).includes(query))) return true;
         return false;
       })
       .slice(0, MAX_RESULTS_PER_GROUP)
@@ -79,7 +79,7 @@ export function InvestorSearchOmnibox({
       }));
 
     const pr: InvestorTypeaheadResult[] = people
-      .filter((p) => p.full_name.toLowerCase().includes(query))
+      .filter((p) => safeLower(p.full_name).includes(query))
       .slice(0, MAX_RESULTS_PER_GROUP)
       .map((p) => {
         const firm = firmMap.get(p.firm_id);
@@ -103,7 +103,7 @@ export function InvestorSearchOmnibox({
 
   const showSelectionLead =
     selectionLead != null &&
-    value.trim().toLowerCase() === selectionLead.name.trim().toLowerCase();
+    value.trim().toLowerCase() === safeLower(selectionLead.name);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

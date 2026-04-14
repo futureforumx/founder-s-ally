@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { InvestorProfile } from "@/hooks/useInvestorProfile";
 import { looksLikeFirmRecordsUuid, pickFirmXUrl } from "@/lib/pickFirmXUrl";
+import { safeTrim } from "@/lib/utils";
 
 type VcFirmLike = { id: string; x_url?: string | null };
 
@@ -15,7 +16,7 @@ export function useFirmRecordXUrlSupplement(
   databaseFirmId: string | null | undefined,
 ) {
   const hasDirect =
-    Boolean(liveProfile?.x_url?.trim()) || Boolean(vcFirm?.x_url?.trim());
+    Boolean(safeTrim(liveProfile?.x_url)) || Boolean(safeTrim(vcFirm?.x_url));
 
   return useQuery({
     queryKey: [

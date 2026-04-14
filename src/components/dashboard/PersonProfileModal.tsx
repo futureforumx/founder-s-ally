@@ -176,10 +176,15 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
-    const fullName = safeTrim(person?.full_name) || null;
+    if (!person) {
+      setWebsiteProfile(null);
+      return;
+    }
+
+    const fullName = safeTrim(person.full_name) || null;
     const title =
-      sanitizePersonTitle(person?.title, person?.full_name) ||
-      sanitizePersonTitle(person?.role, person?.full_name) ||
+      sanitizePersonTitle(person.title, person.full_name) ||
+      sanitizePersonTitle(person.role, person.full_name) ||
       null;
     const hasStoredAvatar = Boolean(
       investorPrimaryAvatarUrl({
@@ -188,7 +193,6 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       }),
     );
     const needsWebsiteEnrichment = Boolean(
-      person &&
       resolvedFirmWebsiteUrl &&
       (
         !hasStoredAvatar ||

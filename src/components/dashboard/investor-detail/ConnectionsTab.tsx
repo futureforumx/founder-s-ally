@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ConnectionsGate } from "./ConnectionsGate";
 import { ContactRevealButton } from "./ContactRevealButton";
 import { supabase } from "@/integrations/supabase/client";
+import { safeTrim } from "@/lib/utils";
 
 interface Connection {
   user_id: string;
@@ -120,8 +121,9 @@ export function ConnectionsTab({
   }, [investorName, currentUserId]);
 
   useEffect(() => {
-    const missingContactFields = !email?.trim() || !linkedinUrl?.trim() || !xUrl?.trim();
-    if (!websiteUrl?.trim() || !missingContactFields) {
+    const missingContactFields =
+      !safeTrim(email) || !safeTrim(linkedinUrl) || !safeTrim(xUrl);
+    if (!safeTrim(websiteUrl) || !missingContactFields) {
       setWebsiteContact(null);
       return;
     }
@@ -154,15 +156,16 @@ export function ConnectionsTab({
     };
   }, [email, linkedinUrl, websiteUrl, xUrl]);
 
-  const resolvedEmail = email?.trim() || websiteContact?.email || null;
-  const resolvedLinkedinUrl = linkedinUrl?.trim() || websiteContact?.linkedinUrl || null;
-  const resolvedXUrl = xUrl?.trim() || websiteContact?.xUrl || null;
+  const resolvedEmail = safeTrim(email) || websiteContact?.email || null;
+  const resolvedLinkedinUrl = safeTrim(linkedinUrl) || websiteContact?.linkedinUrl || null;
+  const resolvedXUrl = safeTrim(xUrl) || websiteContact?.xUrl || null;
   const linkedinHref = resolvedLinkedinUrl ? normalizeExternalHref(resolvedLinkedinUrl) : null;
   const xHref = resolvedXUrl ? xProfileHref(resolvedXUrl) : null;
-  const websiteHref = websiteUrl?.trim() ? normalizeExternalHref(websiteUrl.trim()) : null;
+  const wTrim = safeTrim(websiteUrl);
+  const websiteHref = wTrim ? normalizeExternalHref(wTrim) : null;
   const hasSocialLinks = !!(linkedinHref || xHref || websiteHref);
   const hasContactCard =
-    !!(investorId || resolvedEmail || location?.trim() || hasSocialLinks);
+    !!(investorId || resolvedEmail || safeTrim(location) || hasSocialLinks);
 
   if (loading) {
     return (
@@ -209,12 +212,12 @@ export function ConnectionsTab({
               />
             </div>
           ) : null}
-          {location?.trim() && (
+          {safeTrim(location) && (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <MapPin className="w-3.5 h-3.5 text-accent" />
               </div>
-              <p className="text-sm font-medium text-foreground">{location.trim()}</p>
+              <p className="text-sm font-medium text-foreground">{safeTrim(location)}</p>
             </div>
           )}
           {hasSocialLinks && (

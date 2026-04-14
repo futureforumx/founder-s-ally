@@ -25,8 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const people = await resolveFirmWebsiteTeam(websiteUrl);
-    return setCors(res).status(200).json({ people });
+    const { people, teamMemberEstimate } = await resolveFirmWebsiteTeam(websiteUrl);
+    return setCors(res).status(200).json({ people, teamMemberEstimate });
   } catch (error) {
     return setCors(res).status(500).json({
       error: error instanceof Error ? error.message : "Team lookup failed",

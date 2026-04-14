@@ -1932,6 +1932,50 @@ export function CommunityView({
       });
   }, [vcFirms, getDbMatch]);
 
+  /** Firms that exist in live `firm_records` but not in MDM JSON / `vc_firms` — otherwise they are unsearchable. */
+  const dbOnlyFirmEntries: DirectoryEntry[] = useMemo(() => {
+    if (!dbInvestors?.length) return [];
+    const vcNameKeys = new Set(vcFirms.map((f) => normalizeFirmName(f.name)));
+    const out: DirectoryEntry[] = [];
+    const seenIds = new Set<string>();
+    for (const inv of dbInvestors) {
+      if (!inv.id || seenIds.has(inv.id)) continue;
+      seenIds.add(inv.id);
+      const nk = normalizeFirmName(inv.name);
+      if (!nk || vcNameKeys.has(nk)) continue;
+      out.push({
+        name: inv.name,
+        sector: inv.sector || "Generalist",
+        stage: inv.stage || "Multi-stage",
+        description: inv.description,
+        location: inv.location || "",
+        model: inv.model || "",
+        initial: inv.initial,
+        matchReason: null,
+        category: "investor" as const,
+        _sectors: [] as string[],
+        _stages: [] as string[],
+        _firmType: inv.firm_type || "Institutional",
+        _isActivelyDeploying: inv.is_actively_deploying ?? true,
+        _founderSentimentScore: inv.founder_reputation_score ?? null,
+        _headcount: inv.headcount ?? null,
+        _aum: inv.aum ?? null,
+        _aumBand: investorAumBandLabel(inv.aum ?? null),
+        _logoUrl: inv.logo_url ?? null,
+        _isTrending: inv.is_trending ?? false,
+        _isPopular: inv.is_popular ?? false,
+        _isRecent: inv.is_recent ?? false,
+        _firmId: inv.id,
+        _websiteUrl: inv.website_url ?? null,
+        _dealVelocityScore: computeDealVelocityScore(
+          inv.recent_deals ?? null,
+          inv.is_actively_deploying ?? null,
+        ),
+      });
+    }
+    return out;
+  }, [dbInvestors, vcFirms]);
+
   // Convert real founder profiles to DirectoryEntry format
   const realFounderEntries: DirectoryEntry[] = useMemo(() => {
     return realFounders.map(f => ({
@@ -2021,6 +2065,7 @@ export function CommunityView({
       ...realFounderEntries,
       ...realCompanyEntries,
       ...realOperatorEntries,
+      ...dbOnlyFirmEntries,
       ...mockEntries.map(e => {
         if (e.category !== "investor") {
           return {
@@ -2070,7 +2115,17 @@ export function CommunityView({
       }),
       ...vcEntries,
     ];
-  }, [vcEntries, realFounderEntries, realCompanyEntries, realOperatorEntries, getDbMatch, getVCFirmMatch, isInvestorSearch, activeScope]);
+  }, [
+    vcEntries,
+    dbOnlyFirmEntries,
+    realFounderEntries,
+    realCompanyEntries,
+    realOperatorEntries,
+    getDbMatch,
+    getVCFirmMatch,
+    isInvestorSearch,
+    activeScope,
+  ]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
   const investorDirectoryUnavailable =
