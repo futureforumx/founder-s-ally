@@ -8,6 +8,13 @@ import { AverageDealSizeCard } from "./AverageDealSizeCard";
 import { GeographicFocus } from "./GeographicFocus";
 import { FirmFundsSection } from "./FirmFundsSection";
 import type { FirmDeal, InvestorPartner } from "@/hooks/useInvestorProfile";
+import { safeTrim } from "@/lib/utils";
+
+function splitSectorList(raw: unknown): string[] {
+  const s = safeTrim(raw);
+  if (!s) return [];
+  return s.split(", ").map((x) => safeTrim(x)).filter(Boolean);
+}
 
 type ExpandedPanel = "sector" | "stage" | "themes" | "geo" | null;
 
@@ -31,6 +38,7 @@ interface ThesisTabContentProps {
   isActivelyDeploying?: boolean | null;
   /** AUM string from `firm_records` or static JSON — used as fallback fund display. */
   firmAum?: string | null;
+  firmWebsiteUrl?: string | null;
 }
 
 export function ThesisTabContent({
@@ -49,6 +57,7 @@ export function ThesisTabContent({
   firmDisplayName,
   isActivelyDeploying,
   firmAum,
+  firmWebsiteUrl,
 }: ThesisTabContentProps) {
   const [expanded, setExpanded] = useState<ExpandedPanel>(null);
 
@@ -67,7 +76,7 @@ export function ThesisTabContent({
       >
         {expanded === "sector" && (
           <SectorAlignment
-            vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
+            vcSectors={vcFirm?.sectors || splitSectorList(effectiveInvestor?.sector)}
             primarySector={companyData?.sector}
             secondarySectors={(companyData as any)?.subsectors || []}
             isExpanded
@@ -82,6 +91,7 @@ export function ThesisTabContent({
             currentThesis={enrichedData?.profile?.currentThesis}
             recentDeals={enrichedData?.profile?.recentDeals}
             firmName={displayName}
+            firmWebsiteUrl={firmWebsiteUrl ?? null}
             isExpanded
             onToggleExpand={() => toggle("themes")}
           />
@@ -106,7 +116,7 @@ export function ThesisTabContent({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div className="lg:col-span-1 h-full">
             <SectorAlignment
-              vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
+              vcSectors={vcFirm?.sectors || splitSectorList(effectiveInvestor?.sector)}
               primarySector={companyData?.sector}
               secondarySectors={(companyData as any)?.subsectors || []}
               onToggleExpand={() => toggle("sector")}
@@ -124,6 +134,7 @@ export function ThesisTabContent({
               currentThesis={enrichedData?.profile?.currentThesis}
               recentDeals={enrichedData?.profile?.recentDeals}
               firmName={displayName}
+              firmWebsiteUrl={firmWebsiteUrl ?? null}
               onToggleExpand={() => toggle("themes")}
             />
           </div>
@@ -147,8 +158,8 @@ export function ThesisTabContent({
         </div>
 
         <FirmFundsSection
-          firmRecordsId={firmRecordsId?.trim() || null}
-          firmName={firmDisplayName?.trim() || null}
+          firmRecordsId={safeTrim(firmRecordsId) || null}
+          firmName={safeTrim(firmDisplayName) || null}
           isActivelyDeploying={isActivelyDeploying ?? null}
           firmAum={firmAum ?? null}
         />

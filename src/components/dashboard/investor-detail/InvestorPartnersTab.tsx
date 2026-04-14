@@ -1,9 +1,10 @@
 import { CheckCircle2, ArrowUpRight } from "lucide-react";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
-import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
+import { investorAvatarDisplayChain } from "@/lib/investorAvatarUrl";
 import type { VCPerson } from "@/hooks/useVCDirectory";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
+import { safeTrim } from "@/lib/utils";
 
 interface InvestorPartnersTabProps {
   firmName: string;
@@ -17,7 +18,7 @@ interface InvestorPartnersTabProps {
 function partnerDisplayRole(p: VCPerson): string | null {
   const t = sanitizePersonTitle(p.title, p.full_name);
   if (t) return t;
-  const r = p.role?.trim();
+  const r = safeTrim(p.role);
   if (r) return r;
   return null;
 }
@@ -28,17 +29,22 @@ function PartnerCard({
   firmWebsiteUrl,
   firmLogoUrl,
   onSelectPerson,
+  listIndex,
 }: {
   p: VCPerson;
   firmName: string;
   firmWebsiteUrl: string | null;
   firmLogoUrl: string | null;
   onSelectPerson?: (person: VCPerson) => void;
+  /** List position for fetch priority (Investors tab is scrollable). */
+  listIndex: number;
 }) {
   const role = partnerDisplayRole(p);
-  const imageUrl = investorPrimaryAvatarUrl({
+  const extra = (p as VCPerson & { _extra_avatar_urls?: string[] })._extra_avatar_urls;
+  const imageUrls = investorAvatarDisplayChain({
     avatar_url: p.avatar_url,
     profile_image_url: p.profile_image_url,
+    extra_urls: extra,
   });
 
   return (
@@ -47,10 +53,11 @@ function PartnerCard({
       className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-accent/40 hover:shadow-sm transition-all group"
     >
       <InvestorPersonAvatar
-        imageUrl={imageUrl}
-        initials={p.full_name?.trim().charAt(0) || null}
+        imageUrls={imageUrls}
+        initials={safeTrim(p.full_name).charAt(0) || null}
         size="md"
-        loading="lazy"
+        loading={listIndex < 32 ? "eager" : "lazy"}
+        fetchPriority={listIndex < 12 ? "high" : "auto"}
         className="h-12 w-12 border border-border shrink-0 rounded-full"
       />
       <div className="min-w-0 flex-1">
@@ -87,7 +94,7 @@ export function InvestorPartnersTab({
 }: InvestorPartnersTabProps) {
   return (
     <div className="space-y-3">
-      {partners.map((p) => (
+      {partners.map((p, listIndex) => (
         <PartnerCard
           key={p.id}
           p={p}
@@ -95,6 +102,7 @@ export function InvestorPartnersTab({
           firmWebsiteUrl={firmWebsiteUrl ?? null}
           firmLogoUrl={firmLogoUrl ?? null}
           onSelectPerson={onSelectPerson}
+          listIndex={listIndex}
         />
       ))}
     </div>

@@ -4,18 +4,19 @@
  * Fills ALL empty fields on firm_records and firm_investors by running
  * multiple enrichment phases in sequence:
  *
- *   Phase 1 — Firm Profile Enrichment (Apollo / Clay / Explorium)
- *             Fills: description, linkedin_url, x_url, crunchbase_url,
- *             founded_year, total_headcount, hq_city/state/country, aum
+ *   Phase 1 — Firm Profile Enrichment (Exa/Tavily + Firecrawl + LLM)
+ *             Fills: description, thesis_verticals (e.g. Climate Tech), team-based
+ *             total_headcount when the site lists people, website_url, and optional
+ *             portfolio company names → firm_recent_deals (source_name=firm_website)
  *
  *   Phase 2 — Tri-Force Pipeline (Perplexity + Exa + AI formatting)
  *             Fills: aum, recent_deals, current_partners (firm_investors)
  *
- *   Phase 3 — Firm Investor Enrichment (Team page scraping + Exa + PDL + Lusha)
+ *   Phase 3 — Firm Investor Enrichment (Team page scraping + Exa + PDL)
  *             Fills: first_name, last_name, title, bio, avatar_url, email,
- *             linkedin_url, x_url, medium_url, substack_url,
- *             sector_focus, stage_focus, personal_thesis_tags,
- *             city, state, country, education_summary, background_summary
+ *             linkedin_url, x_url, website_url, medium_url, substack_url,
+ *             personal_thesis_tags, city/state/country, education_summary,
+ *             background_summary, past_investments (company list from page + web)
  *
  *   Phase 4 — Email Backfill (multi-provider waterfall)
  *             Fills: email on firm_investors with no email
@@ -331,6 +332,66 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Lowercase normalized company key for firm_recent_deals upserts (aligns with portfolio pipeline). */
+function normalizePortfolioCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[''`´]/g, "")
+    .replace(/[^a-z0-9\s&+]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type FirmWebsitePortfolioUpsert = {
+  firm_id: string;
+  company_name: string;
+  normalized_company_name: string;
+  source_name: string;
+  source_url: string | null;
+  source_confidence: number;
+  investment_status: string;
+  stage: string | null;
+  updated_at: string;
+};
+
+/** Upserts portfolio names scraped from the firm's own site (does not replace Signal/CBI rows). */
+async function upsertWebsitePortfolioCompanies(
+  firmId: string,
+  names: string[],
+  websiteUrl: string | null
+): Promise<number> {
+  const now = new Date().toISOString();
+  const rows: FirmWebsitePortfolioUpsert[] = [];
+  const seen = new Set<string>();
+  for (const raw of names.slice(0, 60)) {
+    const company_name = String(raw ?? "").trim();
+    if (company_name.length < 2) continue;
+    const normalized_company_name = normalizePortfolioCompanyName(company_name);
+    if (!normalized_company_name) continue;
+    const dedupe = `${firmId}:${normalized_company_name}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    rows.push({
+      firm_id: firmId,
+      company_name,
+      normalized_company_name,
+      source_name: "firm_website",
+      source_url: websiteUrl?.trim() || null,
+      source_confidence: 0.65,
+      investment_status: "unknown",
+      stage: "Portfolio (website)",
+      updated_at: now,
+    });
+  }
+  if (!rows.length) return 0;
+  const ok = await sbBulkUpsert(
+    "firm_recent_deals",
+    rows as unknown as Record<string, any>[],
+    "firm_id,normalized_company_name"
+  );
+  return ok ? rows.length : 0;
+}
+
 function domainFromUrl(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   try {
@@ -487,6 +548,7 @@ type InvestorRow = {
   x_url: string | null;
   medium_url: string | null;
   substack_url: string | null;
+  website_url: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -495,6 +557,8 @@ type InvestorRow = {
   personal_thesis_tags: string[] | null;
   education_summary: string | null;
   background_summary: string | null;
+  /** jsonb array of { company, ... } — optional on select */
+  past_investments: unknown[] | null;
   investment_style: string | null;
   check_size_min: number | null;
   check_size_max: number | null;
@@ -834,12 +898,14 @@ async function discoverTeamPageWithExa(firmName: string, domain: string | null):
   return null;
 }
 
+type FirmAiExtract = { patch: EnrichPatch; portfolioNames: string[] };
+
 async function extractFirmDataWithAI(
   firmName: string,
   searchText: string,
   websiteText: string,
   firm: FirmRow
-): Promise<[EnrichPatch, string]> {
+): Promise<[EnrichPatch, string, string[]]> {
   const emptyFields: string[] = [];
 
   // Core identity
@@ -873,30 +939,62 @@ async function extractFirmDataWithAI(
   if (!firm.stage_focus?.length) emptyFields.push(`stage_focus (JSON array of stages they invest in — ONLY use values from: ${VALID_STAGE_FOCUS.join(", ")})`);
   if (!firm.stage_min) emptyFields.push(`stage_min (earliest stage they invest — ONLY use: ${VALID_STAGE_FOCUS.join(", ")})`);
   if (!firm.stage_max) emptyFields.push(`stage_max (latest stage they invest — ONLY use: ${VALID_STAGE_FOCUS.join(", ")})`);
-  if (!firm.thesis_verticals?.length) emptyFields.push("thesis_verticals (JSON array of sector/vertical strings they focus on, e.g. [\"Fintech\", \"SaaS\", \"AI/ML\", \"Healthcare\"])");
+  if (!firm.thesis_verticals?.length) {
+    emptyFields.push(
+      "thesis_verticals (JSON array of sectors/themes stated on the firm's site or in === FIRM WEBSITE === — short labels like \"Climate Tech\", \"Enterprise SaaS\", \"Fintech\", \"Healthcare\", \"AI/ML\", \"Deep Tech\", \"Consumer\"; prefer nav/hero/thesis copy over generic guesses)",
+    );
+  }
   if (!firm.sector_scope) emptyFields.push(`sector_scope (one of: ${VALID_SECTOR_SCOPE.join(", ")})`);
   if (!firm.thesis_orientation) emptyFields.push(`thesis_orientation (one of: ${VALID_THESIS_ORIENTATION.join(", ")})`);
   if (!firm.geo_focus?.length) emptyFields.push("geo_focus (JSON array of geographies they invest in, e.g. [\"US\", \"Latin America\", \"Global\"])");
   if (firm.is_actively_deploying === null) emptyFields.push("is_actively_deploying (boolean — true if actively investing now, false if not)");
 
-  // Team basics
-  if (!firm.total_headcount) emptyFields.push("total_headcount (total number of employees as integer)");
+  // Team basics — prefer roster size from Team/People content when present in === FIRM WEBSITE ===
+  if (!firm.total_headcount) {
+    emptyFields.push(
+      "total_headcount (integer: when === FIRM WEBSITE === lists investment-team people with names, return the count of distinct people on that roster; if the site only states a single total headcount/team-size number with no roster, use that; use null if ambiguous or unknown — do not guess)",
+    );
+  }
   if (!firm.founded_year) emptyFields.push("founded_year (4-digit integer year the firm was founded)");
 
-  if (emptyFields.length === 0) return [{}, "SKIPPED_ALL_POPULATED"];
+  const wantsWebsitePortfolio = websiteText.length >= 400;
+  if (emptyFields.length === 0 && !wantsWebsitePortfolio) {
+    return [{}, "SKIPPED_ALL_POPULATED", []];
+  }
+  if (wantsWebsitePortfolio && !emptyFields.some((f) => f.startsWith("website_portfolio_companies"))) {
+    emptyFields.push(
+      "website_portfolio_companies (JSON array of distinct portfolio company names explicitly listed on the firm's website in === FIRM WEBSITE === — logo grids, /portfolio, \"companies we back\"; exclude press headlines and the VC's own brand; use [] if none)",
+    );
+  }
+
+  if (emptyFields.length === 0) {
+    return [{}, "SKIPPED_ALL_POPULATED", []];
+  }
 
   const combined = [
     websiteText ? `=== FIRM WEBSITE ===\n${websiteText}` : "",
     searchText ? `=== WEB RESEARCH ===\n${searchText}` : "",
   ].filter(Boolean).join("\n\n");
 
-  if (!combined || combined.length < 50) return [{}, "SKIPPED_NO_INPUT"];
+  if (!combined || combined.length < 50) return [{}, "SKIPPED_NO_INPUT", []];
 
-  // Sanitizes raw AI JSON output into a valid DB patch
-  function sanitizePatch(parsed: Record<string, any>): EnrichPatch {
+  // Sanitizes raw AI JSON: firm_records patch + website portfolio names (separate table)
+  function sanitizeFirmExtract(parsed: Record<string, any>): FirmAiExtract {
     const patch: EnrichPatch = {};
+    const portfolioNames: string[] = [];
     for (const [k, v] of Object.entries(parsed)) {
       if (v == null || v === "" || v === "null" || v === "unknown") continue;
+
+      if (k === "website_portfolio_companies") {
+        const arr = Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
+        for (const s of arr) {
+          if (typeof s !== "string") continue;
+          const t = s.trim();
+          if (t.length > 1 && t.length < 120) portfolioNames.push(t);
+        }
+        continue;
+      }
+
       // Skip already-populated fields
       const existing = (firm as any)[k];
       if (existing != null && (Array.isArray(existing) ? existing.length > 0 : true)) continue;
@@ -950,7 +1048,7 @@ async function extractFirmDataWithAI(
       // String fields — just store as-is
       patch[k] = v;
     }
-    return patch;
+    return { patch, portfolioNames };
   }
 
   const prompt = `Extract data about the VC firm "${firmName}" from the sources below.
@@ -963,16 +1061,17 @@ STRICT RULES:
 - Only include fields listed above
 - Use null if uncertain — never guess or hallucinate
 - For enum fields, use ONLY the exact values shown — do not invent new values
-- For array fields (stage_focus, thesis_verticals, geo_focus), return a JSON array even if only one item
+- For array fields (stage_focus, thesis_verticals, geo_focus, website_portfolio_companies), return a JSON array even if only one item
 - For check sizes and headcount: integer only, no $ symbols or commas
 - For URLs: full URL starting with https://
 - For stage_focus: only use exact values from the allowed list
+- For website_portfolio_companies: only companies shown as investments/portfolio on the firm's own site content — not news articles
 
 Sources:
 ${combined.slice(0, 12_000)}`;
 
   // Helper: call Groq with a specific model tracked under its own virtual host key
-  async function tryGroq(model: string, trackHost: string): Promise<EnrichPatch | null> {
+  async function tryGroq(model: string, trackHost: string): Promise<FirmAiExtract | null> {
     if (!GROQ_KEY || !isAvailable(trackHost)) return null;
     const label = model.includes("70b") ? "GROQ_70B" : "GROQ_8B";
     console.log(`    → [${label}_EXTRACT] trying ${model}...`);
@@ -999,7 +1098,7 @@ ${combined.slice(0, 12_000)}`;
         console.log(`    ✓ [${label}_EXTRACT] succeeded`);
         const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
         const parsed = JSON.parse(cleaned);
-        return sanitizePatch(parsed);
+        return sanitizeFirmExtract(parsed);
       }
       console.log(`    ↷ [${label}_EXTRACT] → no content in response`);
     } catch (e) {
@@ -1009,7 +1108,7 @@ ${combined.slice(0, 12_000)}`;
   }
 
   // Helper: call Gemini for structured extraction; tracked per model under distinct virtual hosts
-  async function tryGemini(model: string, apiKey: string, trackHost: string): Promise<EnrichPatch | null> {
+  async function tryGemini(model: string, apiKey: string, trackHost: string): Promise<FirmAiExtract | null> {
     if (!apiKey || !isAvailable(trackHost)) return null;
     const label = model.includes("2.5") ? "GEMINI_25" : "GEMINI_20";
     console.log(`    → [${label}_EXTRACT] trying ${model}...`);
@@ -1029,7 +1128,7 @@ ${combined.slice(0, 12_000)}`;
       const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (content) {
         console.log(`    ✓ [${label}_EXTRACT] succeeded`);
-        return sanitizePatch(JSON.parse(content.trim()));
+        return sanitizeFirmExtract(JSON.parse(content.trim()));
       }
       console.log(`    ↷ [${label}_EXTRACT] → no content in response`);
     } catch (e) {
@@ -1039,24 +1138,24 @@ ${combined.slice(0, 12_000)}`;
   }
 
   // Waterfall: Gemini 2.5 Flash → Groq 70b → Groq 8b → Gemini 2.0 → Perplexity (last resort)
-  // Each step returns [patch, providerLabel] so callers know who actually extracted.
+  // Each step returns [patch, providerLabel, portfolioNames] so callers know who actually extracted.
   // NOTE: "gemini-2.5-flash" is the stable model name (preview suffix was dropped in 2025).
   {
     const result = await tryGemini("gemini-2.5-flash", GEMINI_25_KEY, "generativelanguage.googleapis.com/2.5");
-    if (result) return [result, "GEMINI_25"];
+    if (result) return [result.patch, "GEMINI_25", result.portfolioNames];
   }
   {
     const result = await tryGroq("llama-3.3-70b-versatile", "api.groq.com/70b");
-    if (result) return [result, "GROQ_70B"];
+    if (result) return [result.patch, "GROQ_70B", result.portfolioNames];
   }
   {
     const result = await tryGroq("llama-3.1-8b-instant", "api.groq.com/8b");
-    if (result) return [result, "GROQ_8B"];
+    if (result) return [result.patch, "GROQ_8B", result.portfolioNames];
   }
   // Gemini 2.0 Flash — fallback if 2.5 returned 404/rate-limit
   {
     const result = await tryGemini("gemini-2.0-flash", GEMINI_KEY, "generativelanguage.googleapis.com/2.0");
-    if (result) return [result, "GEMINI_20"];
+    if (result) return [result.patch, "GEMINI_20", result.portfolioNames];
   }
   // Perplexity last resort — quota-sensitive, only fires if all above are exhausted
   if (PERPLEXITY_KEY && isAvailable("api.perplexity.ai")) {
@@ -1080,7 +1179,8 @@ ${combined.slice(0, 12_000)}`;
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           console.log(`    ✓ [PERPLEXITY_EXTRACT] succeeded`);
-          return [sanitizePatch(JSON.parse(jsonMatch[0])), "PERPLEXITY"];
+          const r = sanitizeFirmExtract(JSON.parse(jsonMatch[0]));
+          return [r.patch, "PERPLEXITY", r.portfolioNames];
         }
       }
       console.log(`    ↷ [PERPLEXITY_EXTRACT] → no parseable JSON in response`);
@@ -1089,7 +1189,7 @@ ${combined.slice(0, 12_000)}`;
     }
   }
 
-  return [{}, "NONE"];
+  return [{}, "NONE", []];
 }
 
 async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number }> {
@@ -1331,19 +1431,41 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
 
       // Step 2: Extract structured data — waterfall: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0
       console.log(`    → [AI_EXTRACT] waterfall: Gemini 2.5 → Groq 70b → Groq 8b → Gemini 2.0...`);
-      const [patch, extractProvider] = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
+      const [patch, extractProvider, websitePortfolioNames] = await extractFirmDataWithAI(
+        firm.firm_name,
+        combinedSearchText,
+        websiteText,
+        firm,
+      );
       providerPath.push(`AI_EXTRACT[${extractProvider}]`);
       console.log(`    ⬡ Provider path: ${providerPath.join(" → ")}`);
       await sleep(200);
 
-      // Step 3: Write to DB
+      // Step 3: Write to DB (+ optional website portfolio → firm_recent_deals)
       patch.last_enriched_at = new Date().toISOString();
 
-      const fieldCount = Object.keys(patch).length - 1; // -1 for last_enriched_at
-      if (fieldCount > 0) {
+      let portfolioUpserted = 0;
+      if (websitePortfolioNames.length > 0) {
+        portfolioUpserted = await upsertWebsitePortfolioCompanies(
+          firm.id,
+          websitePortfolioNames,
+          firm.website_url,
+        );
+        if (portfolioUpserted > 0) {
+          console.log(`    ✓ Portfolio (website) → upserted ${portfolioUpserted} row(s) (source_name=firm_website)`);
+        }
+      }
+
+      const firmFieldKeys = Object.keys(patch).filter((k) => k !== "last_enriched_at");
+      const fieldCount = firmFieldKeys.length;
+      if (fieldCount > 0 || portfolioUpserted > 0) {
         const ok = await sbUpdate("firm_records", firm.id, patch);
         if (ok) {
-          console.log(`    ✓ DB confirmed — updated ${fieldCount} fields: ${Object.keys(patch).filter(k => k !== "last_enriched_at").join(", ")}`);
+          if (fieldCount > 0) {
+            console.log(`    ✓ DB confirmed — updated ${fieldCount} fields: ${firmFieldKeys.join(", ")}`);
+          } else {
+            console.log(`    ✓ DB confirmed — last_enriched_at only (portfolio upsert)`);
+          }
           enriched++;
         } else {
           console.warn(`    ✗ DB write failed — fields were extracted but NOT saved`);
@@ -1365,13 +1487,31 @@ async function phase1_firmProfiles(): Promise<{ enriched: number; errors: number
         } else if (actualWait > 0) {
           console.log(`    ⏳ Waiting ${Math.round(actualWait / 1000)}s for AI provider to recover, then retrying...`);
           await sleep(actualWait);
-          const [retryPatch] = await extractFirmDataWithAI(firm.firm_name, combinedSearchText, websiteText, firm);
-          const retryFieldCount = Object.keys(retryPatch).length;
-          if (retryFieldCount > 0) {
+          const [retryPatch, , retryPortfolio] = await extractFirmDataWithAI(
+            firm.firm_name,
+            combinedSearchText,
+            websiteText,
+            firm,
+          );
+          let retryPortfolioUpserted = 0;
+          if (retryPortfolio.length > 0) {
+            retryPortfolioUpserted = await upsertWebsitePortfolioCompanies(
+              firm.id,
+              retryPortfolio,
+              firm.website_url,
+            );
+          }
+          const retryFirmKeys = Object.keys(retryPatch);
+          if (retryFirmKeys.length > 0 || retryPortfolioUpserted > 0) {
             retryPatch.last_enriched_at = new Date().toISOString();
             const retryOk = await sbUpdate("firm_records", firm.id, retryPatch);
             if (retryOk) {
-              console.log(`    ✓ DB confirmed — retry updated ${retryFieldCount} fields: ${Object.keys(retryPatch).filter(k => k !== "last_enriched_at").join(", ")}`);
+              const keysNoStamp = retryFirmKeys.filter((k) => k !== "last_enriched_at");
+              console.log(
+                `    ✓ DB confirmed — retry updated ${keysNoStamp.length} fields` +
+                  (retryPortfolioUpserted ? ` + ${retryPortfolioUpserted} portfolio row(s)` : "") +
+                  (keysNoStamp.length ? `: ${keysNoStamp.join(", ")}` : ""),
+              );
               enriched++;
             } else {
               console.warn(`    ✗ DB write failed on retry — fields extracted but NOT saved`);
@@ -1666,11 +1806,12 @@ async function phase2_triForce(): Promise<{ enriched: number; errors: number }> 
         console.log(`    AUM → ${result.aum}`);
       }
 
-      // Step 5: Upsert recent deals
+      // Step 5: Upsert recent deals (only replace Phase-2 rows with null source_name;
+      // preserve firm_website, signal_nfx, cb_insights, merged, manual, etc.)
       if (result.recent_deals?.length) {
-        // Delete old deals first
+        // Delete prior Phase-2 inserts only
         if (!DRY_RUN) {
-          await fetch(`${SUPABASE_URL}/rest/v1/firm_recent_deals?firm_id=eq.${firm.id}`, {
+          await fetch(`${SUPABASE_URL}/rest/v1/firm_recent_deals?firm_id=eq.${firm.id}&source_name=is.null`, {
             method: "DELETE",
             headers: { ...SB_HEADERS, Prefer: "return=minimal" },
           });
@@ -1765,6 +1906,11 @@ async function scrapeTeamPage(url: string): Promise<string> {
     } catch {}
   }
 
+  // Tier 2: ScrapingBee — JS-rendered HTML → text (many VC /people pages)
+  if (SCRAPINGBEE_KEY) {
+    const bee = await scrapeWithScrapingBee(url);
+    if (bee.length > 200) return bee;
+  }
 
   // Tier 3: Jina Reader — lightweight markdown extraction
   if (JINA_KEY) {
@@ -1796,12 +1942,28 @@ async function extractInvestorsWithAI(
   linkedin_url?: string;
   x_url?: string;
   avatar_url?: string;
+  website_url?: string;
+  medium_url?: string;
+  substack_url?: string;
   investment_themes?: string[];
+  portfolio_companies?: string[];
+  education_summary?: string;
   location?: string;
 }>> {
-  const prompt = `Extract all investment professionals from this VC firm team page for "${firmName}". Return a JSON array where each element has: { "first_name": string, "last_name": string, "title": string or null, "bio": string or null, "email": string or null, "linkedin_url": string or null, "x_url": string or null, "avatar_url": string or null, "investment_themes": string[] or null, "location": string or null }. Only include people who are partners, principals, MDs, VPs, associates, or analysts. Exclude administrative/operations staff. Return ONLY the JSON array, no markdown fences.`;
+  const prompt = `Extract investment professionals from this VC firm team page for "${firmName}".
 
-  const fullPrompt = `${prompt}\n\nTeam page content:\n${markdown.slice(0, 15_000)}`;
+Return a JSON array. Each object:
+- first_name, last_name (required strings)
+- title, bio, email, linkedin_url, x_url (Twitter/X profile URL only), website_url, medium_url, substack_url, avatar_url (absolute image URLs when shown on this page), location — use null when unknown
+- investment_themes: string[] of sectors/themes if listed for this person, else null
+- portfolio_companies: string[] of notable portfolio company NAMES or board seats explicitly tied to this person on the page (not the whole firm portfolio unless listed under their bio). Else null.
+- education_summary: concise education string from their profile text (school/program/degree). Example: "Stanford GSB (MBA); MIT (BS EECS)". Use null when unknown.
+
+Include partners, principals, MDs, VPs, associates, analysts, and investing team. You may include platform / IR / finance leads if they appear as named team cards with investing-adjacent titles.
+
+Return ONLY the JSON array, no markdown fences.`;
+
+  const fullPrompt = `${prompt}\n\nTeam page content:\n${markdown.slice(0, 24_000)}`;
 
   // Try Gemini 2.5 Flash first (primary), then Gemini 2.0, then Groq
   if (GEMINI_25_KEY && isAvailable("generativelanguage.googleapis.com/2.5")) {
@@ -1874,6 +2036,108 @@ async function extractInvestorsWithAI(
   return [];
 }
 
+function normalizeLinkedinProfileUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (!/linkedin\.com$/i.test(u.hostname.replace(/^www\./i, ""))) return null;
+    if (!/\/in\//i.test(u.pathname)) return null;
+    u.hash = "";
+    u.search = "";
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function normalizePersonalXUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    if (!["x.com", "twitter.com"].includes(host)) return null;
+    if (/intent|share|search|hashtag|home|explore|settings|i\/|statuses?\/|communities\//i.test(u.pathname)) return null;
+    const segs = u.pathname.split("/").filter(Boolean);
+    if (!segs[0] || ["intent", "share", "home", "search", "hashtag", "i", "explore"].includes(segs[0])) return null;
+    return `https://x.com/${segs[0]}`;
+  } catch {
+    return null;
+  }
+}
+
+function portfolioCompaniesToPastInvestments(names: string[]): { company: string }[] {
+  const seen = new Set<string>();
+  const out: { company: string }[] = [];
+  for (const n of names) {
+    const c = n.replace(/\s+/g, " ").trim();
+    if (c.length < 2 || c.length > 120) continue;
+    const key = c.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ company: c });
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
+function mergeBackgroundSummary(existing: string | null, addition: string | null | undefined): string | undefined {
+  if (!addition?.trim()) return undefined;
+  if (!existing?.trim()) return addition.trim();
+  if (existing.includes(addition.slice(0, 40))) return undefined;
+  return `${existing.trim()}\n\n${addition.trim()}`.slice(0, 8000);
+}
+
+function extractEducationSummaryFromText(text: string | null | undefined): string | undefined {
+  if (!text) return undefined;
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length < 30) return undefined;
+
+  const chunks = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const eduChunks = chunks.filter((chunk) =>
+    /\b(earned|received|holds?|graduated|studied|attended|alum|alumni|bachelor|master|mba|phd|doctorate|university|college|school)\b/i.test(
+      chunk
+    )
+  );
+  if (!eduChunks.length) return undefined;
+
+  return eduChunks
+    .slice(0, 2)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .slice(0, 280);
+}
+
+/** Web snippets: investments, boards, career context (not a substitute for verified CRM data). */
+async function enrichInvestorBackgroundWithExa(name: string, firmName: string): Promise<string | undefined> {
+  if (!EXA_KEY) return undefined;
+
+  const data = await jsonFetch<any>("https://api.exa.ai/search", {
+    method: "POST",
+    headers: { "x-api-key": EXA_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: `"${name}" "${firmName}" venture capital portfolio investments board advisor`,
+      type: "neural",
+      numResults: 5,
+      contents: { text: { maxCharacters: 2800 } },
+    }),
+  });
+
+  const results = data?.results || [];
+  const parts: string[] = [];
+  for (const r of results) {
+    const title = (r.title || "").trim();
+    const text = (r.text || "").trim();
+    const url = (r.url || "").trim();
+    const chunk = [title && `[${title}]`, url && `(${url})`, text].filter(Boolean).join(" ");
+    if (chunk.length > 40) parts.push(chunk);
+  }
+  if (!parts.length) return undefined;
+  const merged = parts.join("\n\n---\n\n").slice(0, 3500).trim();
+  return merged.length >= 100 ? merged : undefined;
+}
+
 async function enrichInvestorWithExa(
   name: string,
   firmName: string
@@ -1893,28 +2157,38 @@ async function enrichInvestorWithExa(
     body: JSON.stringify({
       query: `${name} ${firmName} venture capital investor`,
       type: "neural",
-      numResults: 3,
-      contents: { text: { maxCharacters: 2000 } },
+      numResults: 5,
+      contents: { text: { maxCharacters: 3200 } },
     }),
   });
 
   const results = data?.results || [];
   const patch: Record<string, string> = {};
+  const bioChunks: string[] = [];
 
   for (const r of results) {
-    const url = r.url || "";
-    const text = r.text || "";
+    const url = (r.url || "").trim();
+    const text = (r.text || "").trim();
 
-    if (!patch.linkedin_url && url.includes("linkedin.com/in/")) {
-      patch.linkedin_url = url;
+    if (!patch.linkedin_url) {
+      const li = normalizeLinkedinProfileUrl(url) || (text.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-z0-9\-_%/]+/i)?.[0] ?? "");
+      const canon = li ? normalizeLinkedinProfileUrl(li) : null;
+      if (canon) patch.linkedin_url = canon;
     }
-    if (!patch.x_url && (url.includes("twitter.com/") || url.includes("x.com/"))) {
-      patch.x_url = url;
+    if (!patch.x_url) {
+      const m = url.match(/https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/[a-z0-9_]+/i);
+      const xu = normalizePersonalXUrl(m?.[0] || url);
+      if (xu) patch.x_url = xu;
     }
-    if (!patch.bio && text.length > 50) {
-      // Use first 500 chars as a bio snippet
-      patch.bio = text.slice(0, 500).trim();
-    }
+    if (text.length > 80) bioChunks.push(text);
+  }
+
+  if (!patch.bio && bioChunks.length) {
+    patch.bio = bioChunks[0]!.slice(0, 700).trim();
+  }
+  if (!patch.education_summary && bioChunks.length) {
+    const edu = extractEducationSummaryFromText(bioChunks.join(" "));
+    if (edu) patch.education_summary = edu;
   }
 
   return patch;
@@ -1978,7 +2252,7 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
   // Get firms that have investors needing enrichment
   const { data: firms } = await sbQuery<{ id: string; firm_name: string; website_url: string | null }>(
     "firm_records",
-    `select=id,firm_name,website_url&deleted_at=is.null&website_url=not.is.null&order=firm_name.asc&limit=${MAX}`
+    `select=id,firm_name,website_url&deleted_at=is.null&order=firm_name.asc&limit=${MAX}`
   );
 
   if (!firms.length) {
@@ -1993,7 +2267,7 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
     // Get investors for this firm that are missing key fields
     const { data: investors } = await sbQuery<InvestorRow>(
       "firm_investors",
-      `select=*&firm_id=eq.${firm.id}&deleted_at=is.null&or=(title.is.null,bio.is.null,linkedin_url.is.null,email.is.null,avatar_url.is.null)&limit=50`
+      `select=*&firm_id=eq.${firm.id}&deleted_at=is.null&full_name=not.is.null&or=(title.is.null,bio.is.null,linkedin_url.is.null,email.is.null,avatar_url.is.null,x_url.is.null,background_summary.is.null,website_url.is.null,medium_url.is.null,substack_url.is.null,education_summary.is.null)&limit=500`
     );
 
     if (!investors.length) continue;
@@ -2041,6 +2315,11 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
           if (!investor.linkedin_url && matched.linkedin_url) patch.linkedin_url = matched.linkedin_url;
           if (!investor.x_url && matched.x_url) patch.x_url = matched.x_url;
           if (!investor.avatar_url && matched.avatar_url) patch.avatar_url = matched.avatar_url;
+          if (!investor.website_url && matched.website_url) patch.website_url = matched.website_url;
+          if (!investor.medium_url && matched.medium_url) patch.medium_url = matched.medium_url;
+          if (!investor.substack_url && matched.substack_url) patch.substack_url = matched.substack_url;
+          if (!investor.education_summary && matched.education_summary)
+            patch.education_summary = matched.education_summary;
           if (matched.investment_themes?.length && !investor.personal_thesis_tags?.length)
             patch.personal_thesis_tags = matched.investment_themes;
           if (matched.location && !investor.city) {
@@ -2050,22 +2329,62 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
           }
           if (!investor.first_name && matched.first_name) patch.first_name = matched.first_name;
           if (!investor.last_name && matched.last_name) patch.last_name = matched.last_name;
+
+          if (!patch.education_summary && !investor.education_summary) {
+            const eduFromBio = extractEducationSummaryFromText(matched.bio);
+            if (eduFromBio) patch.education_summary = eduFromBio;
+          }
+
+          const rawPc = matched.portfolio_companies;
+          const companies = Array.isArray(rawPc)
+            ? rawPc.filter((c: unknown): c is string => typeof c === "string" && c.trim().length > 1)
+            : [];
+          if (companies.length) {
+            const emptyPast =
+              !investor.past_investments ||
+              (Array.isArray(investor.past_investments) && investor.past_investments.length === 0);
+            const pi = portfolioCompaniesToPastInvestments(companies);
+            if (pi.length && emptyPast) patch.past_investments = pi;
+            const portfolioLine = `Portfolio (from team page): ${companies.slice(0, 25).join(", ")}`;
+            if (!investor.background_summary) {
+              patch.background_summary = portfolioLine;
+            } else {
+              const merged = mergeBackgroundSummary(investor.background_summary, portfolioLine);
+              if (merged) patch.background_summary = merged;
+            }
+          }
         }
 
-        // Enrich remaining gaps with Exa
-        if (!patch.linkedin_url && !investor.linkedin_url && EXA_KEY) {
-          const exaPatch = await enrichInvestorWithExa(
-            investor.full_name,
-            firm.firm_name
-          );
+        // Enrich remaining gaps with Exa (LinkedIn, X, bio; broader search than before)
+        const needsExa =
+          !!EXA_KEY &&
+          (!investor.linkedin_url || !investor.x_url || !investor.bio || !investor.education_summary);
+        if (needsExa) {
+          const exaPatch = await enrichInvestorWithExa(investor.full_name, firm.firm_name);
           for (const [k, v] of Object.entries(exaPatch)) {
             if (!patch[k] && !(investor as any)[k] && v) patch[k] = v;
           }
           await sleep(400);
         }
 
+        // Long-form background from web (investments, boards) — only when DB has no summary yet
+        if (EXA_KEY && !investor.background_summary) {
+          const bgExtra = await enrichInvestorBackgroundWithExa(investor.full_name, firm.firm_name);
+          if (bgExtra) {
+            const base = (patch.background_summary as string | undefined) || "";
+            patch.background_summary = base.trim()
+              ? (mergeBackgroundSummary(base, bgExtra) ?? `${base.trim()}\n\n${bgExtra}`.slice(0, 8000))
+              : bgExtra;
+          }
+          await sleep(350);
+        }
+
         // Enrich with People Data Labs for email/location/education
-        if ((!patch.email && !investor.email) || (!patch.city && !investor.city)) {
+        if (
+          (!patch.email && !investor.email) ||
+          (!patch.city && !investor.city) ||
+          (!patch.education_summary && !investor.education_summary)
+        ) {
           const firstName = patch.first_name || investor.first_name || investor.full_name.split(" ")[0];
           const lastName = patch.last_name || investor.last_name || investor.full_name.split(" ").slice(1).join(" ");
           if (firstName && lastName) {
@@ -2075,6 +2394,16 @@ async function phase3_firmInvestors(): Promise<{ enriched: number; errors: numbe
             }
             await sleep(300);
           }
+        }
+
+        if (patch.linkedin_url) {
+          const c = normalizeLinkedinProfileUrl(String(patch.linkedin_url));
+          if (c) patch.linkedin_url = c;
+        }
+        if (patch.x_url) {
+          const c = normalizePersonalXUrl(String(patch.x_url));
+          if (c) patch.x_url = c;
+          else delete patch.x_url;
         }
 
         // Apply the patch
@@ -2368,7 +2697,7 @@ async function phase5_headshots(): Promise<{ enriched: number; errors: number }>
     let teamMarkdown = "";
     let teamPageUrl: string | null = null;
 
-    if (websiteUrl && (JINA_KEY || FIRECRAWL_KEY)) {
+    if (websiteUrl && (JINA_KEY || FIRECRAWL_KEY || SCRAPINGBEE_KEY)) {
       teamPageUrl = await discoverTeamPageUrl(websiteUrl);
       if (teamPageUrl) {
         console.log(`  📄 Scraping team page: ${teamPageUrl}`);
@@ -2523,6 +2852,7 @@ async function audit() {
 
   const investorFields = [
     "email", "linkedin_url", "x_url", "bio", "avatar_url", "title",
+    "website_url", "medium_url", "substack_url",
     "city", "state", "country", "sector_focus", "stage_focus",
     "education_summary", "background_summary", "investment_style",
   ];

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 import { formatDistanceToNow } from "date-fns";
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
-import { getCompletionPercent, EMPTY_FORM } from "@/components/company-profile/types";
+import { getCompletionPercent, EMPTY_FORM, sanitizeCompanyData } from "@/components/company-profile/types";
+import { safeTrim } from "@/lib/utils";
 import { SectorClassification } from "@/components/SectorTags";
 import { HomeView } from "@/components/dashboard/HomeView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
@@ -189,7 +190,7 @@ const Index = () => {
   useEffect(() => {
     const handler = (e: Event) => {
       const d = (e as CustomEvent<VcReviewOpenDetail>).detail;
-      if (!d?.vcFirmId?.trim() || !d?.firmName?.trim() || !d?.ratingId?.trim()) return;
+      if (!safeTrim(d?.vcFirmId) || !safeTrim(d?.firmName) || !safeTrim(d?.ratingId)) return;
       setVcReviewBootstrap(d);
       setActiveView("investors");
     };
@@ -199,7 +200,11 @@ const Index = () => {
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
       const saved = localStorage.getItem("company-profile");
-      if (saved) { const p = JSON.parse(saved); if (p.name) return p; }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const c = sanitizeCompanyData(parsed);
+        if (c) return c;
+      }
     } catch {}
     return null;
   });
@@ -233,8 +238,8 @@ const Index = () => {
     try {
       const saved = localStorage.getItem("company-profile");
       if (saved) {
-        const p = JSON.parse(saved);
-        if (p.name) return false;
+        const c = sanitizeCompanyData(JSON.parse(saved));
+        if (c) return false;
       }
     } catch {}
     return true;
@@ -342,21 +347,22 @@ const Index = () => {
   };
 
   const handleOnboardingComplete = async (company: CompanyData, analysis: AnalysisResult) => {
-    setCompanyData(company);
+    const profile = sanitizeCompanyData(company) ?? company;
+    setCompanyData(profile);
     setAnalysisResult(analysis);
     setShowOnboarding(false);
     setShowTerminal(true);
 
     try {
       if (authUser) {
-        const ws = await ensureCompanyWorkspace(authUser.id, company);
+        const ws = await ensureCompanyWorkspace(authUser.id, profile);
         if (!ws.ok) {
           console.warn("[onboarding] ensureCompanyWorkspace:", ws.error);
         } else {
           const sync = await completeFounderOnboardingEdge({
             userId: authUser.id,
             companyId: ws.companyId,
-            companyFields: buildCompanyAnalysisPatchForDb(company, analysis),
+            companyFields: buildCompanyAnalysisPatchForDb(profile, analysis),
             profile: {
               has_completed_onboarding: true,
               company_id: ws.companyId,
@@ -392,7 +398,7 @@ const Index = () => {
     }
 
     try {
-      localStorage.setItem("company-profile", JSON.stringify(company));
+      localStorage.setItem("company-profile", JSON.stringify(profile));
       localStorage.setItem("company-analysis", JSON.stringify(analysis));
       if (analysis.stageClassification) {
         localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
@@ -406,10 +412,10 @@ const Index = () => {
       if (analysis.metricSources) {
         localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
       }
-      if (company.website) {
+      if (profile.website) {
         const domain = (() => {
           try {
-            let u = company.website.trim();
+            let u = profile.website.trim();
             if (!/^https?:\/\//i.test(u)) u = "https://" + u;
             return new URL(u).hostname.replace(/^www\./, "");
           } catch { return null; }
@@ -578,8 +584,9 @@ const Index = () => {
               <CompetitorsView companyData={companyData} onNavigateProfile={() => setActiveView("company")} onAddCompetitor={(name) => {
                 if (companyData && !companyData.competitors.includes(name)) {
                   const updated = { ...companyData, competitors: [...companyData.competitors, name] };
-                  setCompanyData(updated);
-                  try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                  const profile = sanitizeCompanyData(updated) ?? updated;
+                  setCompanyData(profile);
+                  try { localStorage.setItem("company-profile", JSON.stringify(profile)); } catch {}
                 }
               }} onCompetitorsChanged={(names) => {
                 if (companyData) {
@@ -587,8 +594,9 @@ const Index = () => {
                   const current = [...companyData.competitors].sort();
                   if (JSON.stringify(sorted) !== JSON.stringify(current)) {
                     const updated = { ...companyData, competitors: names };
-                    setCompanyData(updated);
-                    try { localStorage.setItem("company-profile", JSON.stringify(updated)); } catch {}
+                    const profile = sanitizeCompanyData(updated) ?? updated;
+                    setCompanyData(profile);
+                    try { localStorage.setItem("company-profile", JSON.stringify(profile)); } catch {}
                   }
                 }
               }} />

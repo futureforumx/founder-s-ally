@@ -1,7 +1,12 @@
+import { resolveFirmContactEmailByWebsiteUrl } from "../src/lib/firmContactEmailOverrides.js";
+
 type FirmWebsiteContact = {
   email: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  youtubeUrl: string | null;
   scannedUrls: string[];
 };
 
@@ -96,12 +101,30 @@ function chooseBestEmail(emails: string[], websiteHost: string): string | null {
   return scored[0]?.email ?? null;
 }
 
-function chooseSocialUrl(urls: string[], kind: "linkedin" | "x"): string | null {
-  const hostNeedles = kind === "linkedin" ? ["linkedin.com/company/", "linkedin.com/in/"] : ["x.com/", "twitter.com/"];
+function chooseSocialUrl(
+  urls: string[],
+  kind: "linkedin" | "x" | "facebook" | "instagram" | "youtube",
+): string | null {
+  const hostNeedles =
+    kind === "linkedin"
+      ? ["linkedin.com/company/", "linkedin.com/in/"]
+      : kind === "x"
+        ? ["x.com/", "twitter.com/"]
+        : kind === "facebook"
+          ? ["facebook.com/"]
+          : kind === "instagram"
+            ? ["instagram.com/"]
+            : ["youtube.com/", "youtu.be/"];
   const disallowNeedles =
     kind === "linkedin"
       ? ["/share", "/jobs"]
-      : ["/intent/", "/share", "/home", "/search", "/hashtag/"];
+      : kind === "x"
+        ? ["/intent/", "/share", "/home", "/search", "/hashtag/"]
+        : kind === "facebook"
+          ? ["/sharer", "/share.php", "/plugins/"]
+          : kind === "instagram"
+            ? ["/p/", "/reel/", "/stories/"]
+            : ["/watch?", "/results?", "/shorts/"];
   const match = urls.find((url) => {
     const lower = url.toLowerCase();
     return hostNeedles.some((needle) => lower.includes(needle)) && !disallowNeedles.some((needle) => lower.includes(needle));
@@ -127,13 +150,30 @@ async function fetchHtml(url: string): Promise<string | null> {
 export async function resolveFirmWebsiteContact(websiteUrl: string): Promise<FirmWebsiteContact> {
   const normalized = normalizeWebsiteUrl(websiteUrl);
   if (!normalized) {
-    return { email: null, linkedinUrl: null, xUrl: null, scannedUrls: [] };
+    return {
+      email: null,
+      linkedinUrl: null,
+      xUrl: null,
+      facebookUrl: null,
+      instagramUrl: null,
+      youtubeUrl: null,
+      scannedUrls: [],
+    };
   }
 
   const base = new URL(normalized);
+  const overrideEmail = resolveFirmContactEmailByWebsiteUrl(normalized);
   const homepageHtml = await fetchHtml(base.toString());
   if (!homepageHtml) {
-    return { email: null, linkedinUrl: null, xUrl: null, scannedUrls: [base.toString()] };
+    return {
+      email: overrideEmail,
+      linkedinUrl: null,
+      xUrl: null,
+      facebookUrl: null,
+      instagramUrl: null,
+      youtubeUrl: null,
+      scannedUrls: [base.toString()],
+    };
   }
 
   const candidatePages = collectCandidatePages(base.toString(), homepageHtml);
@@ -163,9 +203,12 @@ export async function resolveFirmWebsiteContact(websiteUrl: string): Promise<Fir
   }
 
   return {
-    email: chooseBestEmail(Array.from(emails), base.hostname),
+    email: overrideEmail ?? chooseBestEmail(Array.from(emails), base.hostname),
     linkedinUrl: chooseSocialUrl(Array.from(urls), "linkedin"),
     xUrl: chooseSocialUrl(Array.from(urls), "x"),
+    facebookUrl: chooseSocialUrl(Array.from(urls), "facebook"),
+    instagramUrl: chooseSocialUrl(Array.from(urls), "instagram"),
+    youtubeUrl: chooseSocialUrl(Array.from(urls), "youtube"),
     scannedUrls,
   };
 }

@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Flame, TrendingUp, ChevronDown, ChevronUp, Maximize2, Minimize2 } from "lucide-react";
 
 interface InvestorThemesProps {
   currentThesis?: string;
   recentDeals?: string[];
   firmName?: string;
+  firmWebsiteUrl?: string | null;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 }
@@ -55,9 +56,48 @@ function extractThemes(thesis: string, deals: string[]): Theme[] {
 
 const DEFAULT_VISIBLE = 4;
 
-export function InvestorThemes({ currentThesis = "", recentDeals = [], firmName, isExpanded = false, onToggleExpand }: InvestorThemesProps) {
+export function InvestorThemes({
+  currentThesis = "",
+  recentDeals = [],
+  firmName,
+  firmWebsiteUrl,
+  isExpanded = false,
+  onToggleExpand,
+}: InvestorThemesProps) {
   const [isListExpanded, setIsListExpanded] = useState(false);
-  const themes = useMemo(() => extractThemes(currentThesis, recentDeals), [currentThesis, recentDeals]);
+  const [websiteThemes, setWebsiteThemes] = useState<string[]>([]);
+
+  useEffect(() => {
+    const hasLocalSignals = (currentThesis || "").trim().length > 0 || (recentDeals?.length ?? 0) > 0;
+    if (hasLocalSignals || !(firmWebsiteUrl || "").trim()) {
+      setWebsiteThemes([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/firm-website-themes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ websiteUrl: firmWebsiteUrl }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { themes?: string[] };
+        if (!cancelled) setWebsiteThemes(Array.isArray(data.themes) ? data.themes : []);
+      } catch {
+        if (!cancelled) setWebsiteThemes([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentThesis, recentDeals, firmWebsiteUrl]);
+
+  const themes = useMemo(() => {
+    const fromSignals = extractThemes(currentThesis, recentDeals);
+    if (fromSignals.length > 0) return fromSignals;
+    return websiteThemes.map((label) => ({ label, signal: "thesis" as const, heat: 0.75 }));
+  }, [currentThesis, recentDeals, websiteThemes]);
   const visible = isListExpanded ? themes : themes.slice(0, DEFAULT_VISIBLE);
   const hiddenCount = themes.length - DEFAULT_VISIBLE;
 

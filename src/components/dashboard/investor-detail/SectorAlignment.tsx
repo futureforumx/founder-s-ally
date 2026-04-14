@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 interface SectorAlignmentProps {
   vcSectors: string[];
@@ -72,15 +73,18 @@ export function SectorAlignment({
   const sectorData = useMemo(() => {
     const seed = seedHash(vcSectors.join(",") || "default");
     return CANONICAL_SECTORS.map((sector, i) => {
-      const isActive = vcSectors.some(
-        (v) => v.toLowerCase().includes(sector.split(" ")[0].toLowerCase()) ||
-               sector.toLowerCase().includes(v.split(" ")[0].toLowerCase())
-      );
+      const sectorLo = sector.toLowerCase();
+      const sectorToken = sector.split(" ")[0].toLowerCase();
+      const isActive = vcSectors.some((v) => {
+        const vs = safeLower(v);
+        const vTok = safeTrim(v).split(" ")[0].toLowerCase();
+        return vs.includes(sectorToken) || sectorLo.includes(vTok);
+      });
       const base = isActive ? 40 + ((seed * (i + 3) * 17) % 160) : ((seed * (i + 7) * 13) % 30);
       const mult = timeRange === "6m" ? 0.3 : timeRange === "18m" ? 0.65 : 1;
       const amount = Math.round(base * mult);
-      const isPrimary = primarySector?.toLowerCase().includes(sector.split(" ")[0].toLowerCase()) || false;
-      const isSecondary = secondarySectors.some((s) => s.toLowerCase().includes(sector.split(" ")[0].toLowerCase()));
+      const isPrimary = safeLower(primarySector).includes(sectorToken) || false;
+      const isSecondary = secondarySectors.some((s) => safeLower(s).includes(sectorToken));
       return { name: sector, amount, isPrimary, isSecondary, isActive };
     });
   }, [vcSectors, primarySector, secondarySectors, timeRange]);

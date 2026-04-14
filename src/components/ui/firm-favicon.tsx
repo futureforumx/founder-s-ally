@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { resolveFirmDomain } from "@/components/ui/firm-logo";
+import { resolveFirmDomain, resolveKnownVcLogoUrl } from "@/components/ui/firm-logo";
+import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
 
 export function FirmFavicon({
   websiteUrl,
@@ -16,39 +17,44 @@ export function FirmFavicon({
     return resolveFirmDomain(websiteUrl, name);
   }, [websiteUrl, name]);
 
+  const storedLogoUrl = sanitizeFirmLogoUrlForDisplay(logoUrl);
+  const knownLogoUrl = resolveKnownVcLogoUrl(name, domain);
+  const primaryLogoUrl = storedLogoUrl ?? knownLogoUrl;
+  const directUrl = domain ? `https://${domain}/favicon.ico` : null;
   const gstaticUrl = domain
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`
     : null;
   const s2Url = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32` : null;
-  const directUrl = domain ? `https://${domain}/favicon.ico` : null;
 
   const [tier, setTier] = useState<1 | 2 | 3 | 4 | 5>(() => {
-    if (logoUrl) return 1;
-    if (gstaticUrl) return 2;
-    if (s2Url) return 3;
-    if (directUrl) return 4;
+    if (primaryLogoUrl) return 1;
+    if (directUrl) return 2;
+    if (gstaticUrl) return 3;
+    if (s2Url) return 4;
     return 5;
   });
 
   useEffect(() => {
-    if (logoUrl) {
+    const stored = sanitizeFirmLogoUrlForDisplay(logoUrl);
+    const known = resolveKnownVcLogoUrl(name, domain);
+    if (stored ?? known) {
       setTier(1);
-    } else if (gstaticUrl) {
-      setTier(2);
-    } else if (s2Url) {
-      setTier(3);
     } else if (directUrl) {
+      setTier(2);
+    } else if (gstaticUrl) {
+      setTier(3);
+    } else if (s2Url) {
       setTier(4);
     } else {
       setTier(5);
     }
-  }, [logoUrl, gstaticUrl, s2Url, directUrl]);
+  }, [logoUrl, name, domain, directUrl, gstaticUrl, s2Url]);
 
   const src =
-    tier === 1 ? logoUrl :
-    tier === 2 ? gstaticUrl :
-    tier === 3 ? s2Url :
-    tier === 4 ? directUrl :
+    tier === 1 ? primaryLogoUrl :
+    tier === 2 ? directUrl :
+    tier === 3 ? gstaticUrl :
+    tier === 4 ? s2Url :
     null;
 
   if (!src) {
@@ -66,9 +72,9 @@ export function FirmFavicon({
       className={className}
       onError={() => {
         setTier((prev) => {
-          if (prev === 1) return gstaticUrl ? 2 : s2Url ? 3 : directUrl ? 4 : 5;
-          if (prev === 2) return s2Url ? 3 : directUrl ? 4 : 5;
-          if (prev === 3) return directUrl ? 4 : 5;
+          if (prev === 1) return directUrl ? 2 : gstaticUrl ? 3 : s2Url ? 4 : 5;
+          if (prev === 2) return gstaticUrl ? 3 : s2Url ? 4 : 5;
+          if (prev === 3) return s2Url ? 4 : 5;
           return 5;
         });
       }}

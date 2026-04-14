@@ -20,13 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body ?? {};
   const websiteUrl = typeof body.websiteUrl === "string" ? body.websiteUrl.trim() : "";
+  const forceRefresh = body.forceRefresh === true;
   if (!websiteUrl) {
     return setCors(res).status(400).json({ error: "websiteUrl is required" });
   }
 
   try {
-    const people = await resolveFirmWebsiteTeam(websiteUrl);
-    return setCors(res).status(200).json({ people });
+    const { people, teamMemberEstimate } = await resolveFirmWebsiteTeam(websiteUrl, { forceRefresh });
+    return setCors(res).status(200).json({ people, teamMemberEstimate });
   } catch (error) {
     return setCors(res).status(500).json({
       error: error instanceof Error ? error.message : "Team lookup failed",

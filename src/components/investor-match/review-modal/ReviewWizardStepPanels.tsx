@@ -36,7 +36,7 @@ import {
   nonInvestorTagsForOverallScore,
   RELATIONSHIP_ORIGIN_OTHER_SUGGESTIONS,
 } from "@/lib/reviewFormContent";
-import { cn } from "@/lib/utils";
+import { cn, safeLower, safeTrim } from "@/lib/utils";
 import {
   reviewWizardChipFocus,
   reviewWizardChipIdle,
@@ -91,8 +91,8 @@ const REMEMBER_WHO_LEVEL_OPTIONS = [
 ] as const;
 
 /** Heuristic: keyboard mash, odd symbols, almost no vowels, etc. — nudge user to verify. */
-function shouldDoubleCheckRememberWhoInput(raw: string): boolean {
-  const v = raw.trim();
+function shouldDoubleCheckRememberWhoInput(raw: unknown): boolean {
+  const v = safeTrim(raw);
   if (v.length < 4) return false;
   if (/^I met with a:/i.test(v)) return false;
 
@@ -618,13 +618,13 @@ function isRememberWhoChipSelected(
   rememberWho: string,
   selectedPersonIds: string[],
 ): boolean {
-  const id = chip.vcPersonId?.trim();
+  const id = safeTrim(chip.vcPersonId);
   if (id && selectedPersonIds.includes(id)) return true;
-  const name = chip.name.trim().toLowerCase();
+  const name = safeLower(chip.name);
   if (!name) return false;
-  const segments = rememberWho
+  const segments = safeTrim(rememberWho)
     .split(",")
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => safeLower(s))
     .filter(Boolean);
   return segments.includes(name);
 }
@@ -908,7 +908,7 @@ export function ReviewWizardUnlinkedStep1({
   /** Resolved firm name for the first question (matches modal header when possible). */
   firmDisplayName: string;
 }) {
-  const name = firmDisplayName.trim() || "this firm";
+  const name = safeTrim(firmDisplayName) || "this firm";
   const engageQuestion = formConfig.questions.find((q) => q.id === "would_engage_again");
   const engageOptions = engageQuestion?.options ?? [
     "Definitely yes",
@@ -968,7 +968,7 @@ function unlinkedContextQuestions(
     if (q.id === "interaction_cold_inbound_discovery" && intro === "Cold inbound") return true;
     if (
       q.id === "interaction_cold_inbound_social_platform" &&
-      ((answers.interaction_cold_inbound_discovery as string) ?? "").toLowerCase() === "social"
+      safeLower(answers.interaction_cold_inbound_discovery) === "social"
     )
       return true;
     if (q.id === "interaction_cold_inbound_social_other" && (answers.interaction_cold_inbound_social_platform as string) === "other")

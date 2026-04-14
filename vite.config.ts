@@ -3,8 +3,12 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { resolveFirmWebsiteContact } from "./api/_firmWebsiteContact";
+import { resolveFirmWebsiteThemes } from "./api/_firmWebsiteThemes";
 import { resolveFirmWebsiteTeam } from "./api/_firmWebsiteTeam";
 import { resolvePersonWebsiteProfile } from "./api/_personWebsiteProfile";
+import { handleFirmWebsiteHqPost } from "./api/handleFirmWebsiteHqPost";
+import { mirrorFirmInvestorHeadshotsForFirm, supabaseAdminForMirror } from "./api/_mirrorFirmInvestorHeadshots";
+import { ensureFirmElevatorPitchSaved, supabaseAdminForElevatorPitch } from "./api/_ensureFirmElevatorPitch";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -174,6 +178,55 @@ function firmWebsiteContactDevPlugin() {
   };
 }
 
+function firmWebsiteThemesDevPlugin() {
+  return {
+    name: "firm-website-themes-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/firm-website-themes", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const websiteUrl = typeof body.websiteUrl === "string" ? body.websiteUrl.trim() : "";
+        if (!websiteUrl) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "websiteUrl is required" }));
+          return;
+        }
+
+        try {
+          const out = await resolveFirmWebsiteThemes(websiteUrl);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify(out));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Theme lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
 function firmWebsiteTeamDevPlugin() {
   return {
     name: "firm-website-team-dev",
@@ -211,12 +264,201 @@ function firmWebsiteTeamDevPlugin() {
         }
 
         try {
-          const people = await resolveFirmWebsiteTeam(websiteUrl);
+          const { people, teamMemberEstimate } = await resolveFirmWebsiteTeam(websiteUrl);
           res.writeHead(200, cors);
-          res.end(JSON.stringify({ people }));
+          res.end(JSON.stringify({ people, teamMemberEstimate }));
         } catch (error) {
           res.writeHead(500, cors);
           res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Team lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
+function firmWebsiteHqDevPlugin() {
+  return {
+    name: "firm-website-hq-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/firm-website-hq", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const firmWebsiteUrl = typeof body.firmWebsiteUrl === "string" ? body.firmWebsiteUrl.trim() : "";
+        if (!firmWebsiteUrl) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "firmWebsiteUrl is required" }));
+          return;
+        }
+
+        try {
+          const out = await handleFirmWebsiteHqPost(body);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify(out));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "HQ lookup failed" }));
+        }
+      });
+    },
+  };
+}
+
+function mirrorFirmInvestorHeadshotsDevPlugin() {
+  return {
+    name: "mirror-firm-investor-headshots-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/mirror-firm-investor-headshots", async (req, res) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
+
+        const firmRecordId = typeof body.firmRecordId === "string" ? body.firmRecordId.trim() : "";
+        if (!firmRecordId || !/^[0-9a-f-]{36}$/i.test(firmRecordId)) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "firmRecordId (uuid) is required" }));
+          return;
+        }
+
+        const admin = supabaseAdminForMirror();
+        if (!admin) {
+          res.writeHead(200, cors);
+          res.end(
+            JSON.stringify({
+              configured: false,
+              firmRecordId,
+              candidates: 0,
+              mirrored: 0,
+              failed: 0,
+              message: "SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL not set",
+            }),
+          );
+          return;
+        }
+
+        try {
+          const result = await mirrorFirmInvestorHeadshotsForFirm(admin, firmRecordId);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Mirror failed" }));
+        }
+      });
+    },
+  };
+}
+
+function ensureFirmElevatorPitchDevPlugin() {
+  return {
+    name: "ensure-firm-elevator-pitch-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/ensure-firm-elevator-pitch", async (req: any, res: any) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString());
+        } catch {
+          /* ok */
+        }
+
+        const firmRecordId = typeof body.firmRecordId === "string" ? body.firmRecordId.trim() : "";
+        if (!firmRecordId || !/^[0-9a-f-]{36}$/i.test(firmRecordId)) {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "firmRecordId (uuid) is required" }));
+          return;
+        }
+
+        const admin = supabaseAdminForElevatorPitch();
+        if (!admin) {
+          res.writeHead(200, cors);
+          res.end(
+            JSON.stringify({
+              ok: false,
+              updated: false,
+              firmRecordId,
+              message: "SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL not set",
+            }),
+          );
+          return;
+        }
+
+        try {
+          const result = await ensureFirmElevatorPitchSaved(admin, firmRecordId);
+          const status = !result.ok ? (result.message === "Firm not found" ? 404 : 500) : 200;
+          res.writeHead(status, cors);
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(
+            JSON.stringify({
+              ok: false,
+              updated: false,
+              firmRecordId,
+              error: error instanceof Error ? error.message : "ensure pitch failed",
+            }),
+          );
         }
       });
     },
@@ -279,12 +521,24 @@ function personWebsiteProfileDevPlugin() {
 export default defineConfig(async ({ mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
   const env = loadEnv(mode, process.cwd(), "");
+  // Dev API middleware (`/api/firm-website-team`, etc.) reads `process.env` — merge loaded files
+  // so `.env.local` CF_R2_* / Supabase keys match production (Vercel injects those automatically).
+  for (const [key, value] of Object.entries(env)) {
+    if (value === "" || value == null) continue;
+    if (process.env[key] === undefined || process.env[key] === "") {
+      process.env[key] = value;
+    }
+  }
   const plugins = [
     react(),
     mode === "development" && componentTagger(),
     mode === "development" && saveProfileDevPlugin(env),
     mode === "development" && firmWebsiteContactDevPlugin(),
+    mode === "development" && firmWebsiteThemesDevPlugin(),
     mode === "development" && firmWebsiteTeamDevPlugin(),
+    mode === "development" && firmWebsiteHqDevPlugin(),
+    mode === "development" && mirrorFirmInvestorHeadshotsDevPlugin(),
+    mode === "development" && ensureFirmElevatorPitchDevPlugin(),
     mode === "development" && personWebsiteProfileDevPlugin(),
   ].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
