@@ -237,6 +237,8 @@ export function InvestorDetailPanel({
   const [activeScoreTile, setActiveScoreTile] = useState<TileId | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  /** Shown in header until `useLatestMyVcRating` returns the saved row (or if refetch never succeeds). */
+  const [optimisticHeaderRating, setOptimisticHeaderRating] = useState<unknown>(null);
   const [firmReviewPopoverOpen, setFirmReviewPopoverOpen] = useState(false);
   const bootstrapReviewOpenedRef = useRef(false);
 
@@ -252,6 +254,7 @@ export function InvestorDetailPanel({
   useEffect(() => {
     setActiveScoreTile(null);
     setFirmReviewPopoverOpen(false);
+    setOptimisticHeaderRating(null);
   }, [investor?.name, vcFirm?.id]);
 
   const { session, user: authUser } = useAuth();
@@ -431,20 +434,30 @@ export function InvestorDetailPanel({
       : null;
   const ratingUserId = authUser?.id ?? session?.user?.id;
   const ratingFirmLabel = (heroName || displayName).trim() || null;
-  const { starRatings: myFirmRatingJson, createdAt: myFirmRatingCreatedAt } = useLatestMyVcRating(
+  const {
+    starRatings: myFirmRatingJson,
+    createdAt: myFirmRatingCreatedAt,
+    loading: myFirmRatingLoading,
+  } = useLatestMyVcRating(
     ratingUserId,
     reviewVcFirmId,
     reviewVcPersonId,
     ratingRefresh,
     ratingFirmLabel,
   );
+
+  useEffect(() => {
+    if (myFirmRatingJson != null && !myFirmRatingLoading) setOptimisticHeaderRating(null);
+  }, [myFirmRatingJson, myFirmRatingLoading]);
+
+  const headerRatingJson = optimisticHeaderRating ?? myFirmRatingJson;
   const myFirmRateDisplay = useMemo(
-    () => formatMyReviewRateButton(myFirmRatingJson),
-    [myFirmRatingJson],
+    () => formatMyReviewRateButton(headerRatingJson),
+    [headerRatingJson],
   );
   const myFirmReviewPopover = useMemo(
-    () => buildReviewPopoverSummary(myFirmRatingJson),
-    [myFirmRatingJson],
+    () => buildReviewPopoverSummary(headerRatingJson),
+    [headerRatingJson],
   );
 
   const mergedPartners = useMemo((): VCPerson[] => {
@@ -1108,7 +1121,8 @@ export function InvestorDetailPanel({
         key="review-modal"
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
-        onReviewSaved={() => {
+        onReviewSaved={(sr) => {
+          setOptimisticHeaderRating(sr);
           setRatingRefresh((n) => n + 1);
           setFirmReviewPopoverOpen(false);
         }}
@@ -1121,7 +1135,7 @@ export function InvestorDetailPanel({
         personId={reviewVcPersonId ?? ""}
         investorIsMappedToProfile={investorIsMappedToProfile}
         mappingRecordId={mappingRecordId}
-        initialStarRatings={myFirmRatingJson}
+        initialStarRatings={headerRatingJson}
         initialCreatedAt={myFirmRatingCreatedAt}
       />
     </AnimatePresence>

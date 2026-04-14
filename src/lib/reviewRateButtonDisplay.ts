@@ -1,5 +1,21 @@
 import { cn } from "@/lib/utils";
 
+/** Parse 1–10 from wizard storage (Postgres JSONB may coerce types). */
+function parseOverallTenRaw(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const n = Math.trunc(raw);
+    return n >= 1 && n <= 10 ? n : null;
+  }
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 10) return null;
+  if (String(n) === s) return n;
+  if (/^\d{1,2}$/.test(s)) return n;
+  return null;
+}
+
 /**
  * Extract 1–10 overall score from `vc_ratings.star_ratings` (unlinked review form Q1).
  */
@@ -7,11 +23,7 @@ export function parseOverallTenFromStarRatings(starRatings: unknown): number | n
   if (!starRatings || typeof starRatings !== "object") return null;
   const answers = (starRatings as { answers?: unknown }).answers;
   if (!answers || typeof answers !== "object") return null;
-  const raw = (answers as Record<string, unknown>).overall_interaction;
-  if (typeof raw !== "string") return null;
-  const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1 || n > 10 || String(n) !== raw) return null;
-  return n;
+  return parseOverallTenRaw((answers as Record<string, unknown>).overall_interaction);
 }
 
 /**

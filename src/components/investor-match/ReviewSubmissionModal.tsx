@@ -79,8 +79,11 @@ export interface ReviewSubmissionModalProps {
   initialStarRatings?: unknown;
   /** ISO timestamp of the existing review — used to enforce 48-hour edit window */
   initialCreatedAt?: string | null;
-  /** Called after a review is persisted so parents can refetch (e.g. header score + popover). */
-  onReviewSaved?: () => void;
+  /**
+   * Called after a review is persisted. Receives the same `star_ratings` JSON written to the DB
+   * so parents can show the score immediately (refetch can lag or fail on RLS/JWT).
+   */
+  onReviewSaved?: (starRatings: unknown) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1191,7 +1194,7 @@ export function ReviewSubmissionModal({
       }
 
       setSubmitted(true);
-      onReviewSaved?.();
+      onReviewSaved?.(structuredAnswers);
       toast.success(
         reviewRecordId
           ? savedAsRevision
