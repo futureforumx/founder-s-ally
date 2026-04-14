@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+/** Loose match for `star_ratings.firm_name` vs UI firm labels (same idea as CommunityView name keys). */
+function firmNameMatchKey(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Latest published `vc_ratings.star_ratings` JSON for the current user + firm (+ optional person).
  * Refetch when `refreshKey` increments (e.g. after closing the review modal).
@@ -31,9 +37,9 @@ export function useLatestMyVcRating(
     }
 
     const firm = vcFirmId?.trim();
-    const name = firmName?.trim().toLowerCase();
+    const nameKey = firmNameMatchKey(firmName);
 
-    if (!firm && !name) {
+    if (!firm && !nameKey) {
       setStarRatings(null);
       setCreatedAt(null);
       setLoading(false);
@@ -70,22 +76,29 @@ export function useLatestMyVcRating(
       }
 
       // ── 2. Fall back: scan recent vc_ratings and match by firm_name in JSONB ──
-      if (name) {
+      if (nameKey) {
         const { data: recent } = await supabase
           .from("vc_ratings")
           .select("star_ratings, created_at")
           .eq("author_user_id", userId)
           .eq("is_draft", false)
           .order("created_at", { ascending: false })
-          .limit(50);
+          .limit(80);
 
         if (cancelled) return;
 
         const match = (recent ?? []).find((row) => {
           const sr = (row as { star_ratings?: unknown }).star_ratings;
           if (!sr || typeof sr !== "object") return false;
-          const fn = ((sr as Record<string, unknown>).firm_name as string | undefined)?.trim().toLowerCase();
-          return fn === name;
+          const top = sr as Record<string, unknown>;
+          const rawName = (top.firm_name as string | undefined)?.trim();
+          const fromAnswers = top.answers as Record<string, unknown> | undefined;
+          const nestedFirm =
+            fromAnswers && typeof fromAnswers === "object" && !Array.isArray(fromAnswers)
+              ? (fromAnswers.firm_name as string | undefined)?.trim()
+              : undefined;
+          const keys = [firmNameMatchKey(rawName), firmNameMatchKey(nestedFirm)].filter(Boolean);
+          return keys.some((k) => k === nameKey);
         });
 
         if (match) {
@@ -104,7 +117,7 @@ export function useLatestMyVcRating(
           .select("star_ratings, created_at")
           .eq("founder_id", userId)
           .order("created_at", { ascending: false })
-          .limit(50);
+          .limit(80);
 
         if (cancelled) return;
 
@@ -112,8 +125,15 @@ export function useLatestMyVcRating(
           const r = row as { star_ratings?: unknown; firm_id?: string };
           const sr = r.star_ratings;
           if (!sr || typeof sr !== "object") return false;
-          const fn = ((sr as Record<string, unknown>).firm_name as string | undefined)?.trim().toLowerCase();
-          if (name && fn === name) return true;
+          const top = sr as Record<string, unknown>;
+          const rawName = (top.firm_name as string | undefined)?.trim();
+          const fromAnswers = top.answers as Record<string, unknown> | undefined;
+          const nestedFirm =
+            fromAnswers && typeof fromAnswers === "object" && !Array.isArray(fromAnswers)
+              ? (fromAnswers.firm_name as string | undefined)?.trim()
+              : undefined;
+          const keys = [firmNameMatchKey(rawName), firmNameMatchKey(nestedFirm)].filter(Boolean);
+          if (nameKey && keys.some((k) => k === nameKey)) return true;
           if (firm && r.firm_id === firm) return true;
           return false;
         });

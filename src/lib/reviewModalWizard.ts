@@ -113,3 +113,57 @@ export function formatNoteSummary(note: string): string {
   const t = note.trim();
   return t.length > 0 ? "Added" : "No note";
 }
+
+export type ReviewPopoverSummary = {
+  /** Main headline (e.g. overall score or relationship summary). */
+  primary: string;
+  /** Supporting lines (context, tags, note). */
+  details: string[];
+};
+
+function truncateForPopover(text: string, max = 240): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+/** Build copy for the “your review” popover from persisted `vc_ratings.star_ratings` / legacy JSON. */
+export function buildReviewPopoverSummary(starRatings: unknown): ReviewPopoverSummary | null {
+  if (!starRatings || typeof starRatings !== "object" || Array.isArray(starRatings)) return null;
+  const sr = starRatings as Record<string, unknown>;
+  const rawAnswers = sr.answers;
+  if (!rawAnswers || typeof rawAnswers !== "object" || Array.isArray(rawAnswers)) return null;
+  const answers = rawAnswers as Record<string, string | string[]>;
+
+  const reviewType = sr.review_type;
+  const linkedByType = reviewType === "investor_relationship_review";
+  const linkedByAnswers =
+    typeof answers.work_with_them_rating === "string" && answers.work_with_them_rating.trim().length > 0;
+  const tagsRaw = sr.tags;
+  const tagList = Array.isArray(tagsRaw)
+    ? tagsRaw.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    : [];
+  const rememberWho = typeof sr.remember_who === "string" ? sr.remember_who : "";
+  const founderNote = typeof answers.founder_note === "string" ? answers.founder_note.trim() : "";
+
+  if (linkedByType || linkedByAnswers) {
+    const primary = formatLinkedEvaluationSummary(answers);
+    const standout = Array.isArray(answers.standout_tags)
+      ? (answers.standout_tags as string[]).filter((s) => typeof s === "string" && s.trim().length > 0)
+      : [];
+    const tagLine = formatTagsSummary(standout.length ? standout : tagList);
+    const details: string[] = [];
+    if (tagLine && tagLine !== "—") details.push(tagLine);
+    if (founderNote) details.push(truncateForPopover(founderNote));
+    return {
+      primary,
+      details: details.length > 0 ? details : ["Your saved review."],
+    };
+  }
+
+  const primary = formatUnlinkedEvaluationSummary(answers);
+  const details: string[] = [formatUnlinkedContextSummary(answers, rememberWho)];
+  if (tagList.length) details.push(formatTagsSummary(tagList));
+  if (founderNote) details.push(truncateForPopover(founderNote));
+  return { primary, details };
+}
