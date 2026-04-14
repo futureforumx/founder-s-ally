@@ -1,25 +1,32 @@
 import { useMemo, useCallback, startTransition, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   X, ArrowLeft, MapPin, Mail, Globe, Linkedin, Twitter,
-  BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star,
+  BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star, AlertTriangle,
 } from "lucide-react";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
 import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
-import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
+import { investorAvatarUrlCandidates, investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm, VCPersonInvestment } from "@/hooks/useVCDirectory";
 import { sanitizeText } from "@/lib/sanitizeText";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 import { generateInvestorBio } from "@/lib/generateFallbacks";
+import { isPlausibleLocationLine } from "@/lib/locationLineQuality";
+import { supabase } from "@/integrations/supabase/client";
+import { splitBackgroundSummaryPortfolio } from "@/lib/investorBackgroundPortfolio";
+
+const FIRM_INVESTOR_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type WebsiteDerivedPersonProfile = {
   headshotUrl: string | null;
@@ -35,6 +42,49 @@ type WebsiteDerivedPersonProfile = {
   portfolioCompanies: string[];
 };
 
+type FirmInvestorSnapshot = {
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  bio: string | null;
+  background_summary: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  avatar_url: string | null;
+};
+
+function parseEducationItems(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    const out = value
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return "";
+        const row = entry as Record<string, unknown>;
+        const degree = safeTrim(row.degree);
+        const institution =
+          safeTrim(row.institution) ||
+          safeTrim(row.school) ||
+          safeTrim(row.university) ||
+          safeTrim(row.college);
+        const field = safeTrim(row.field_of_study) || safeTrim(row.field);
+        const year = safeTrim(row.end_year) || safeTrim(row.year);
+        return [degree, institution, field, year].filter(Boolean).join(", ");
+      })
+      .map((x) => safeTrim(x))
+      .filter(Boolean);
+    return Array.from(new Set(out));
+  }
+
+  const raw = safeTrim(value);
+  if (!raw) return [];
+  const parts = raw
+    .split(/\s*\n+\s*|\s*;\s*|\s*\|\s*/g)
+    .map((x) => safeTrim(x))
+    .filter(Boolean);
+  return Array.from(new Set(parts.length ? parts : [raw]));
+}
+
 interface PersonProfileModalProps {
   person: VCPerson | null;
   firm: VCFirm | null;
@@ -42,17 +92,21 @@ interface PersonProfileModalProps {
   onNavigateToFirm: (firmId: string) => void;
 }
 
+const PROCEED_WITH_CAUTION_NAMES = new Set(["jenn kranz guillen"]);
+
 function isLeadOrSponsoredDeal(leadOrFollow: string | null | undefined): boolean {
-  if (!leadOrFollow?.trim()) return false;
-  const u = leadOrFollow.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  const t = safeTrim(leadOrFollow);
+  if (!t) return false;
+  const u = t.toUpperCase().replace(/[\s-]+/g, "_");
   if (u === "FOLLOW" || u === "FOLLOW_ONLY" || u.includes("FOLLOW_ONLY") || u === "PARTICIPANT") return false;
   return u.includes("LEAD") || u.includes("SPONSOR") || u.includes("CO_LEAD") || u.includes("COLEAD");
 }
 
 function domainFromSourceUrl(sourceUrl: string | null | undefined): string | null {
-  if (!sourceUrl?.trim()) return null;
+  const s = safeTrim(sourceUrl);
+  if (!s) return null;
   try {
-    const host = new URL(sourceUrl.trim()).hostname.replace(/^www\./i, "");
+    const host = new URL(s).hostname.replace(/^www\./i, "");
     return host || null;
   } catch {
     return null;
@@ -61,7 +115,7 @@ function domainFromSourceUrl(sourceUrl: string | null | undefined): string | nul
 
 /** Normalize person URL fields to a safe http(s) href, or null if missing/invalid. */
 function personSocialHref(raw: string | null | undefined): string | null {
-  const s = raw?.trim();
+  const s = safeTrim(raw);
   if (!s) return null;
   let href = s;
   if (!/^https?:\/\//i.test(s)) {
@@ -87,8 +141,9 @@ function isLikelyPersonWebsiteHref(raw: string | null | undefined): boolean {
 }
 
 function investmentSortMs(date: string | null | undefined): number {
-  if (!date?.trim()) return 0;
-  const t = Date.parse(date);
+  const d = safeTrim(date);
+  if (!d) return 0;
+  const t = Date.parse(d);
   return Number.isNaN(t) ? 0 : t;
 }
 
@@ -102,7 +157,7 @@ function ledOrSponsoredInvestments(person: VCPerson): VCPersonInvestment[] {
 
 /* ── Deal row logo (favicon when we have a URL host; else initial) ── */
 function DealLogo({ domain, name }: { domain: string | null; name: string }) {
-  const d = domain?.trim() || null;
+  const d = safeTrim(domain) || null;
   const baseSrc = d
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${d}&size=128`
     : null;
@@ -140,10 +195,14 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session, user: authUser } = useAuth();
+  const queryClient = useQueryClient();
+  const [firmInvestorSnap, setFirmInvestorSnap] = useState<FirmInvestorSnapshot | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [optimisticPersonRating, setOptimisticPersonRating] = useState<unknown>(null);
   const [websiteProfile, setWebsiteProfile] = useState<WebsiteDerivedPersonProfile | null>(null);
+  const [dbEducationSummary, setDbEducationSummary] = useState<string | null>(null);
+  const [dbEducationItems, setDbEducationItems] = useState<string[]>([]);
   const handleClose = useCallback(() => {
     window.requestAnimationFrame(() => {
       startTransition(() => {
@@ -153,16 +212,33 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   }, [onClose]);
 
   const reviewFirmDisplayName =
-    firm?.name?.trim() ||
-    person?.primary_firm_name?.trim() ||
-    person?.affiliations?.find((a) => a.is_primary)?.firm_name?.trim() ||
-    person?.affiliations?.[0]?.firm_name?.trim() ||
+    safeTrim(firm?.name) ||
+    safeTrim(person?.primary_firm_name) ||
+    safeTrim(person?.affiliations?.find((a) => a.is_primary)?.firm_name) ||
+    safeTrim(person?.affiliations?.[0]?.firm_name) ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+
+  const mergedFromDb = useMemo(() => {
+    if (!person) return null;
+    const snap = firmInvestorSnap;
+    return {
+      email: safeTrim(snap?.email) || safeTrim(person.email) || null,
+      linkedin_url: safeTrim(snap?.linkedin_url) || safeTrim(person.linkedin_url) || null,
+      x_url: safeTrim(snap?.x_url) || safeTrim(person.x_url) || null,
+      website_url: safeTrim(snap?.website_url) || safeTrim(person.website_url) || null,
+      bio: safeTrim(snap?.bio) || safeTrim(person.bio) || null,
+      background_summary: safeTrim(snap?.background_summary) || safeTrim(person.background_summary) || null,
+      city: safeTrim(snap?.city) || safeTrim(person.city) || null,
+      state: safeTrim(snap?.state) || safeTrim(person.state) || null,
+      country: safeTrim(snap?.country) || safeTrim(person.country) || null,
+      avatar_url: safeTrim(snap?.avatar_url) || safeTrim(person.avatar_url) || safeTrim(person.profile_image_url) || null,
+    };
+  }, [person, firmInvestorSnap]);
   const resolvedFirmWebsiteUrl = useMemo(
     () =>
-      firm?.website_url?.trim() ||
-      (person as VCPerson & { _firm_website_url?: string | null } | null)?._firm_website_url?.trim() ||
+      safeTrim(firm?.website_url) ||
+      safeTrim((person as VCPerson & { _firm_website_url?: string | null } | null)?._firm_website_url) ||
       null,
     [firm?.website_url, person],
   );
@@ -170,31 +246,177 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   useEffect(() => {
     setWebsiteProfile(null);
     setOptimisticPersonRating(null);
+    setDbEducationSummary(null);
+    setDbEducationItems([]);
+    setFirmInvestorSnap(null);
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
-    const fullName = person?.full_name?.trim() || null;
+    if (!person?.id || !FIRM_INVESTOR_UUID_RE.test(person.id)) return;
+    const firmId = safeTrim(person.firm_id);
+    if (!firmId || !FIRM_INVESTOR_UUID_RE.test(firmId)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("firm_investors")
+          .select(
+            "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url",
+          )
+          .eq("id", person.id)
+          .eq("firm_id", firmId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (cancelled || error || !data) return;
+        setFirmInvestorSnap(data as FirmInvestorSnapshot);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [person?.id, person?.firm_id]);
+
+  useEffect(() => {
+    if (!person) {
+      setDbEducationSummary(null);
+      setDbEducationItems([]);
+      return;
+    }
+    const hasStructuredEducation = Array.isArray(person.education)
+      && person.education.some((e) => {
+        const degree = safeTrim(e?.degree);
+        const institution = safeTrim(e?.institution);
+        return Boolean(degree || institution);
+      });
+    const hasSummaryEducation =
+      safeTrim((person as VCPerson & { education_summary?: string | null }).education_summary).length > 0;
+    if (hasStructuredEducation || hasSummaryEducation) {
+      setDbEducationSummary(null);
+      setDbEducationItems([]);
+      return;
+    }
+
+    const fullName = safeTrim(person.full_name);
+    const firmId = safeTrim(person.firm_id);
+    if (!fullName || !firmId) {
+      setDbEducationSummary(null);
+      setDbEducationItems([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const personId = safeTrim(person.id);
+        let summary = "";
+        let parsedItems: string[] = [];
+
+        // First try vc_people (many person profiles are keyed there, not firm_investors).
+        if (personId) {
+          const { data: fromVcPeople } = await supabase
+            .from("vc_people")
+            .select("education, education_summary")
+            .eq("id", personId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          const vcEdu = fromVcPeople as
+            | { education?: unknown; education_summary?: string | null }
+            | null;
+          parsedItems = parseEducationItems(vcEdu?.education);
+          if (parsedItems.length === 0) {
+            parsedItems = parseEducationItems(vcEdu?.education_summary);
+          }
+          if (!summary) {
+            summary = safeTrim(vcEdu?.education_summary ?? null);
+          }
+        }
+
+        // Prefer direct row-id lookup: avoids misses from name variants.
+        if (!summary && personId) {
+          const { data: byId } = await supabase
+            .from("firm_investors")
+            .select("education, education_summary")
+            .eq("id", personId)
+            .eq("firm_id", firmId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          const row = byId as { education?: unknown; education_summary?: string | null } | null;
+          const rowItems = parseEducationItems(row?.education);
+          if (parsedItems.length === 0 && rowItems.length > 0) parsedItems = rowItems;
+          if (!summary) summary = safeTrim(row?.education_summary ?? null);
+        }
+
+        // Fallback for non-firm_investors ids or stale mappings.
+        if (!summary && parsedItems.length === 0) {
+          const { data: byName } = await supabase
+            .from("firm_investors")
+            .select("education, education_summary, full_name")
+            .eq("firm_id", firmId)
+            .ilike("full_name", `%${fullName}%`)
+            .is("deleted_at", null)
+            .limit(5);
+          const rows = Array.isArray(byName) ? byName : [];
+          const nameItems = rows.flatMap((row) =>
+            parseEducationItems((row as { education?: unknown }).education),
+          );
+          if (nameItems.length > 0) parsedItems = Array.from(new Set(nameItems));
+          if (!summary) {
+            summary = safeTrim(
+              rows
+                .map((row) => safeTrim((row as { education_summary?: string | null }).education_summary ?? null))
+                .find(Boolean) ?? null,
+            );
+          }
+        }
+
+        if (!cancelled) {
+          setDbEducationItems(parsedItems);
+          setDbEducationSummary(summary || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setDbEducationSummary(null);
+          setDbEducationItems([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [person]);
+
+  useEffect(() => {
+    if (!person) {
+      setWebsiteProfile(null);
+      return;
+    }
+
+    const fullName = safeTrim(person.full_name) || null;
     const title =
-      sanitizePersonTitle(person?.title, person?.full_name) ||
-      sanitizePersonTitle(person?.role, person?.full_name) ||
+      sanitizePersonTitle(person.title, person.full_name) ||
+      sanitizePersonTitle(person.role, person.full_name) ||
       null;
     const hasStoredAvatar = Boolean(
       investorPrimaryAvatarUrl({
-        avatar_url: person.avatar_url,
+        avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
         profile_image_url: person.profile_image_url,
       }),
     );
     const needsWebsiteEnrichment = Boolean(
-      person &&
       resolvedFirmWebsiteUrl &&
       (
         !hasStoredAvatar ||
-        !person.email?.trim() ||
-        !person.linkedin_url?.trim() ||
-        !person.x_url?.trim() ||
-        !person.bio?.trim() ||
-        !person.background_summary?.trim() ||
-        !(person.raw_location?.trim() || person.city?.trim() || person.state?.trim() || person.country?.trim())
+        !safeTrim(mergedFromDb?.email) ||
+        !safeTrim(mergedFromDb?.linkedin_url) ||
+        !safeTrim(mergedFromDb?.x_url) ||
+        !safeTrim(mergedFromDb?.bio) ||
+        !safeTrim(mergedFromDb?.background_summary) ||
+        !(
+          safeTrim(mergedFromDb?.city) ||
+          safeTrim(mergedFromDb?.state) ||
+          safeTrim(mergedFromDb?.country)
+        )
       ),
     );
 
@@ -209,11 +431,26 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         const res = await fetch("/api/person-website-profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firmWebsiteUrl: resolvedFirmWebsiteUrl, fullName, title }),
+          body: JSON.stringify({
+            firmWebsiteUrl: resolvedFirmWebsiteUrl,
+            fullName,
+            title,
+            firmInvestorId: person.id,
+            // Use cache + DB cooldown so repeat opens are fast; server still persists to `firm_investors`.
+            forceRefresh: false,
+          }),
         });
         if (!res.ok) throw new Error(`Profile lookup failed (${res.status})`);
         const data = (await res.json()) as WebsiteDerivedPersonProfile;
-        if (!cancelled) setWebsiteProfile(data);
+        if (!cancelled) {
+          setWebsiteProfile(data);
+          const fid = safeTrim(person.firm_id);
+          if (fid && FIRM_INVESTOR_UUID_RE.test(fid)) {
+            void queryClient.invalidateQueries({ queryKey: ["investor-profile", fid] });
+          }
+          const n = safeTrim(firm?.name) || safeTrim(person.primary_firm_name);
+          if (n) void queryClient.invalidateQueries({ queryKey: ["investor-profile-name", n.toLowerCase()] });
+        }
       } catch {
         if (!cancelled) setWebsiteProfile(null);
       }
@@ -240,6 +477,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.title,
     person?.x_url,
     resolvedFirmWebsiteUrl,
+    mergedFromDb,
+    firm?.name,
+    person?.firm_id,
+    queryClient,
   ]);
 
   const {
@@ -278,18 +519,31 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   const displayLocation = useMemo(() => {
     if (!person) return null;
-    const raw = person.raw_location?.trim();
-    if (raw) return raw;
-    const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(p?.trim()));
+    const raw = safeTrim(person.raw_location);
+    if (isPlausibleLocationLine(raw)) return raw;
+    const parts = [
+      mergedFromDb?.city ?? person.city,
+      mergedFromDb?.state ?? person.state,
+      mergedFromDb?.country ?? person.country,
+    ].filter((p): p is string => Boolean(safeTrim(p)));
     if (parts.length) return parts.join(", ");
-    return websiteProfile?.location?.trim() || null;
-  }, [person, websiteProfile?.location]);
+    const websiteLocation = safeTrim(websiteProfile?.location);
+    return isPlausibleLocationLine(websiteLocation) ? websiteLocation : null;
+  }, [mergedFromDb?.city, mergedFromDb?.country, mergedFromDb?.state, person, websiteProfile?.location]);
+  const showProceedWithCaution = useMemo(() => {
+    const normalizedName = safeTrim(person?.full_name).toLowerCase();
+    return PROCEED_WITH_CAUTION_NAMES.has(normalizedName);
+  }, [person?.full_name]);
 
   const backgroundText = useMemo(() => {
     if (!person) return null;
+    const narrative =
+      splitBackgroundSummaryPortfolio(mergedFromDb?.background_summary).narrative ||
+      splitBackgroundSummaryPortfolio(person.background_summary).narrative;
     return (
-      sanitizeText(person.background_summary) ||
+      sanitizeText(narrative) ||
       sanitizeText(websiteProfile?.bio) ||
+      sanitizeText(mergedFromDb?.bio) ||
       sanitizeText(person.bio) ||
       generateInvestorBio({
         full_name: person.full_name,
@@ -299,38 +553,42 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         firm_name: firm?.name || person.primary_firm_name || null,
         personal_thesis_tags: person.personal_thesis_tags,
         stage_focus: person.stage_focus,
-        city: person.city,
-        state: person.state,
-        country: person.country,
+        city: mergedFromDb?.city ?? person.city,
+        state: mergedFromDb?.state ?? person.state,
+        country: mergedFromDb?.country ?? person.country,
       }) ||
       null
     );
-  }, [firm?.name, investorTitle, person, websiteProfile?.bio]);
+  }, [firm?.name, investorTitle, mergedFromDb, person, websiteProfile?.bio]);
 
   const resolvedEmail = useMemo(
-    () => person?.email?.trim() || websiteProfile?.email?.trim() || null,
-    [person?.email, websiteProfile?.email],
+    () =>
+      safeTrim(mergedFromDb?.email) ||
+      safeTrim(person?.email) ||
+      safeTrim(websiteProfile?.email) ||
+      null,
+    [mergedFromDb?.email, person?.email, websiteProfile?.email],
   );
 
   const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
 
-  const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => s?.trim()) ?? [], [person?.stage_focus]);
+  const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => safeTrim(s)) ?? [], [person?.stage_focus]);
   const sectorFocusTags = useMemo(
     () => {
-      const explicit = person?.sector_focus?.filter((s) => s?.trim()) ?? [];
-      return explicit.length > 0 ? explicit : websiteProfile?.sectorFocus?.filter((s) => s?.trim()) ?? [];
+      const explicit = person?.sector_focus?.filter((s) => safeTrim(s)) ?? [];
+      return explicit.length > 0 ? explicit : websiteProfile?.sectorFocus?.filter((s) => safeTrim(s)) ?? [];
     },
     [person?.sector_focus, websiteProfile?.sectorFocus],
   );
   const qualityTags = useMemo(() => {
     if (!person) return [];
-    const q = person.investment_criteria_qualities?.filter((s) => s?.trim()) ?? [];
+    const q = person.investment_criteria_qualities?.filter((s) => safeTrim(s)) ?? [];
     if (q.length) return q;
-    return person.personal_qualities?.filter((s) => s?.trim()) ?? [];
+    return person.personal_qualities?.filter((s) => safeTrim(s)) ?? [];
   }, [person]);
 
   const publishedInsights = useMemo(() => {
-    const list = person?.published_content?.filter((c) => c.title?.trim()) ?? [];
+    const list = person?.published_content?.filter((c) => safeTrim(c.title)) ?? [];
     return [...list].sort((a, b) => {
       const ta = a.published_at ? Date.parse(a.published_at) : 0;
       const tb = b.published_at ? Date.parse(b.published_at) : 0;
@@ -338,18 +596,51 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     });
   }, [person?.published_content]);
 
+  const educationItems = useMemo(() => {
+    if (!person) return [] as string[];
+    const fromStructured = parseEducationItems(person.education);
+    if (fromStructured.length > 0) return fromStructured;
+
+    if (dbEducationItems.length > 0) return dbEducationItems;
+
+    const summary =
+      safeTrim((person as VCPerson & { education_summary?: string | null }).education_summary) ||
+      safeTrim(dbEducationSummary);
+    if (!summary) return [] as string[];
+    const parts = parseEducationItems(summary);
+    return parts.length ? parts : [summary];
+  }, [person, dbEducationItems, dbEducationSummary]);
+
   const hasPersonalFocus =
     stageFocusTags.length > 0 || sectorFocusTags.length > 0 || qualityTags.length > 0;
 
-  const displayPortfolioCompanies = useMemo(
-    () => websiteProfile?.portfolioCompanies?.filter((company) => company?.trim()) ?? [],
-    [websiteProfile?.portfolioCompanies],
-  );
+  /** Modal header: DB/directory avatars first, then `/api/person-website-profile` headshot (was fetched but never shown). */
+  const headerAvatarImageUrls = useMemo(() => {
+    if (!person) return [];
+    const base = investorAvatarUrlCandidates({
+      avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
+      profile_image_url: person.profile_image_url,
+    });
+    const web = safeTrim(websiteProfile?.headshotUrl);
+    if (!web || base.includes(web)) return base;
+    return [...base, web];
+  }, [mergedFromDb?.avatar_url, person, person?.avatar_url, person?.profile_image_url, websiteProfile?.headshotUrl]);
+
+  const displayPortfolioCompanies = useMemo(() => {
+    const fromDb = [
+      ...splitBackgroundSummaryPortfolio(mergedFromDb?.background_summary).companies,
+      ...splitBackgroundSummaryPortfolio(person?.background_summary).companies,
+    ];
+    const fromWeb = websiteProfile?.portfolioCompanies?.filter((company) => safeTrim(company)) ?? [];
+    return Array.from(new Set([...fromDb, ...fromWeb].map((c) => safeTrim(c)).filter(Boolean)));
+  }, [mergedFromDb?.background_summary, person?.background_summary, websiteProfile?.portfolioCompanies]);
 
   const socialLinks = useMemo(() => {
     if (!person) return [];
     const items: { key: string; href: string; icon: LucideIcon; label: string; hoverClass: string }[] = [];
-    const linkedin = personSocialHref(person.linkedin_url || websiteProfile?.linkedinUrl);
+    const linkedin = personSocialHref(
+      mergedFromDb?.linkedin_url || person.linkedin_url || websiteProfile?.linkedinUrl,
+    );
     if (linkedin) {
       items.push({
         key: "linkedin",
@@ -359,7 +650,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]",
       });
     }
-    const x = personSocialHref(person.x_url || websiteProfile?.xUrl);
+    const x = personSocialHref(mergedFromDb?.x_url || person.x_url || websiteProfile?.xUrl);
     if (x) {
       items.push({
         key: "x",
@@ -370,10 +661,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     const websiteRaw =
-      person.website_url?.trim() ||
-      (person as VCPerson & { personal_website_url?: string | null }).personal_website_url?.trim() ||
-      websiteProfile?.profileUrl?.trim() ||
-      websiteProfile?.websiteUrl?.trim() ||
+      safeTrim(mergedFromDb?.website_url) ||
+      safeTrim(person.website_url) ||
+      safeTrim((person as VCPerson & { personal_website_url?: string | null }).personal_website_url) ||
+      safeTrim(websiteProfile?.profileUrl) ||
+      safeTrim(websiteProfile?.websiteUrl) ||
       null;
     const website = isLikelyPersonWebsiteHref(websiteRaw) ? personSocialHref(websiteRaw) : null;
     if (website) {
@@ -386,7 +678,16 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     return items;
-  }, [person, websiteProfile?.linkedinUrl, websiteProfile?.profileUrl, websiteProfile?.websiteUrl, websiteProfile?.xUrl]);
+  }, [
+    person,
+    mergedFromDb?.linkedin_url,
+    mergedFromDb?.website_url,
+    mergedFromDb?.x_url,
+    websiteProfile?.linkedinUrl,
+    websiteProfile?.profileUrl,
+    websiteProfile?.websiteUrl,
+    websiteProfile?.xUrl,
+  ]);
 
   return (
     <AnimatePresence>
@@ -433,11 +734,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 {/* ── Hero Header ── */}
                 <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
                   <InvestorPersonAvatar
-                    imageUrl={investorPrimaryAvatarUrl({
-                      avatar_url: person.avatar_url,
-                      profile_image_url: person.profile_image_url,
-                    })}
-                    initials={person.full_name?.trim().charAt(0) || null}
+                    imageUrls={headerAvatarImageUrls}
+                    initials={safeTrim(person.full_name).charAt(0) || null}
                     size="md"
                     loading="eager"
                     fetchPriority="high"
@@ -452,6 +750,12 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         </span>
                       ) : null}
                     </div>
+                    {showProceedWithCaution ? (
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Proceed with caution
+                      </div>
+                    ) : null}
                     {investorTitle && !firm && (
                       <p className="mt-1 text-sm font-medium text-muted-foreground">{investorTitle}</p>
                     )}
@@ -557,7 +861,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                               host ||
                               [inv.sector, inv.date].filter(Boolean).join(" · ") ||
                               "Verified lead / sponsor";
-                            const roundLabel = inv.stage?.trim() || "—";
+                            const roundLabel = safeTrim(inv.stage) || "—";
                             const key = `${inv.company_name}-${inv.date ?? i}-${i}`;
                             const rowClass = `flex items-center gap-3 px-4 py-3 transition-colors group ${
                               inv.source_url ? "cursor-pointer hover:bg-secondary/40" : "cursor-default"
@@ -681,6 +985,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         Latest insights
                       </h4>
 
+                      {educationItems.length > 0 ? (
+                        <div className="mb-4 rounded-xl border border-border/70 bg-secondary/25 p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Education
+                          </p>
+                          <div className="mt-2 space-y-1.5">
+                            {educationItems.map((item, i) => (
+                              <p key={`${item}-${i}`} className="text-xs text-foreground">
+                                {item}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
                       {publishedInsights.length > 0 ? (
                         <div className="space-y-3">
                           {publishedInsights.map((item, i) => {
@@ -735,7 +1054,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               setOptimisticPersonRating(sr);
               setRatingRefresh((n) => n + 1);
             }}
-            firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
+            firmName={reviewFirmDisplayName || safeTrim(firm?.name) || "this firm"}
             firmLogoUrl={firm?.logo_url ?? null}
             firmWebsiteUrl={firm?.website_url ?? null}
             vcFirmId={reviewVcFirmId}

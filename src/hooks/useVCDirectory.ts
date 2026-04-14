@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabaseVcDirectory } from "@/integrations/supabase/client";
+import { safeTrim } from "@/lib/utils";
 
 // ── JSON Schema Types ──
 export interface VCFirm {
@@ -322,8 +323,9 @@ type DirectoryClient = {
 };
 
 function deriveWebsiteUrlFromFirmId(id: string | null | undefined): string | null {
-  if (!id) return null;
-  const normalized = id.trim().toLowerCase().replace(/^https?:\/\//, "");
+  const raw = safeTrim(id);
+  if (!raw) return null;
+  const normalized = raw.toLowerCase().replace(/^https?:\/\//, "");
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) return null;
   return `https://${normalized}`;
 }
@@ -335,6 +337,10 @@ function toStringArray(value: unknown): string[] | null {
     .filter((item) => item.length > 0);
 }
 
+const FIRM_LOGO_URL_OVERRIDES: Record<string, string> = {
+  "1248 holdings": "https://12-48.com/wp-content/uploads/2020/03/1248-Black-1.png",
+};
+
 function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
   const id = typeof row.id === "string" ? row.id : null;
   const name =
@@ -345,12 +351,22 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
         : null;
   if (!id || !name) return null;
 
+  const preferredStageTrim = safeTrim(row.preferred_stage);
+
   const websiteRaw =
     typeof row.website_url === "string"
       ? row.website_url
       : typeof row.website === "string"
         ? row.website
         : null;
+  const normalizedNameKey = safeTrim(name).toLowerCase();
+  const websiteFromRow = websiteRaw || deriveWebsiteUrlFromFirmId(id);
+  const websiteHost = safeTrim(websiteFromRow).toLowerCase();
+  const logoOverride =
+    FIRM_LOGO_URL_OVERRIDES[normalizedNameKey] ||
+    (websiteHost.includes("12-48.com")
+      ? "https://12-48.com/wp-content/uploads/2020/03/1248-Black-1.png"
+      : null);
 
   return {
     id,
@@ -373,16 +389,14 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
     stages:
       toStringArray(row.stages) ??
       toStringArray(row.stage_focus) ??
-      (typeof row.preferred_stage === "string" && row.preferred_stage.trim()
-        ? [row.preferred_stage.trim()]
-        : null),
+      (preferredStageTrim ? [preferredStageTrim] : null),
     sectors:
       toStringArray(row.sectors) ??
       toStringArray(row.sector_focus) ??
       toStringArray(row.thesis_verticals) ??
       null,
-    logo_url: typeof row.logo_url === "string" ? row.logo_url : null,
-    website_url: websiteRaw || deriveWebsiteUrlFromFirmId(id),
+    logo_url: logoOverride || (typeof row.logo_url === "string" ? row.logo_url : null),
+    website_url: websiteFromRow,
     aliases: toStringArray(row.aliases) ?? null,
   };
 }
@@ -393,7 +407,8 @@ function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
 
   const firstName = typeof row.first_name === "string" ? row.first_name : null;
   const lastName = typeof row.last_name === "string" ? row.last_name : null;
-  const fullNameRaw = typeof row.full_name === "string" ? row.full_name.trim() : "";
+  const fullNameRaw =
+    typeof row.full_name === "string" ? row.full_name.trim() : safeTrim(row.full_name);
   const fullName = fullNameRaw || `${firstName ?? ""} ${lastName ?? ""}`.trim();
   if (!fullName) return null;
 
@@ -446,6 +461,11 @@ function normalizePersonRow(row: Record<string, unknown>): VCPerson | null {
     business_models: toStringArray(row.business_models) ?? [],
     investment_criteria_qualities: toStringArray(row.investment_criteria_qualities) ?? [],
     personal_thesis_tags: toStringArray(row.personal_thesis_tags) ?? [],
+    title: typeof row.title === "string" ? row.title : null,
+    email: typeof row.email === "string" ? row.email : null,
+    linkedin_url: typeof row.linkedin_url === "string" ? row.linkedin_url : null,
+    x_url: typeof row.x_url === "string" ? row.x_url : null,
+    website_url: typeof row.website_url === "string" ? row.website_url : null,
   };
 }
 
@@ -474,15 +494,14 @@ function ensureStaticJson(): Promise<VCData> {
       try {
         const res = await fetch("/data/vc_mdm_output.json");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as VCData;
+        const d = (await res.json()) as { firms?: unknown[]; people?: unknown[] };
         const firms = (d.firms || [])
-          .filter((firm) => typeof firm.name === "string" && firm.name.trim().length > 0)
-          .map((firm) => ({
-            ...firm,
-            x_url: typeof (firm as { x_url?: unknown }).x_url === "string" ? (firm as { x_url: string }).x_url : null,
-            website_url: firm.website_url ?? deriveWebsiteUrlFromFirmId(firm.id),
-          }));
-        return { firms, people: d.people || [] };
+          .map((firm) => normalizeFirmRow((firm ?? {}) as Record<string, unknown>))
+          .filter((row): row is VCFirm => Boolean(row));
+        const people = (d.people || [])
+          .map((p) => normalizePersonRow((p ?? {}) as Record<string, unknown>))
+          .filter((row): row is VCPerson => Boolean(row));
+        return { firms, people };
       } catch (err) {
         console.error("[useVCDirectory] Failed to load static JSON:", err);
         _staticJsonPromise = null; // allow retry next time
@@ -569,7 +588,7 @@ export function useVCDirectory() {
       // Skip people whose affiliation with this firm has ended
       if (p.affiliation_end_date && new Date(p.affiliation_end_date) < now) continue;
       // Skip entries with no meaningful name
-      if (!p.full_name?.trim()) continue;
+      if (!safeTrim(p.full_name)) continue;
       const arr = m.get(p.firm_id) || [];
       arr.push(p);
       m.set(p.firm_id, arr);

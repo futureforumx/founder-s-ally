@@ -1,4 +1,5 @@
 import type { AumBand } from "@prisma/client";
+import { safeTrim } from "@/lib/utils";
 
 /** USD thresholds (lower bound inclusive for Micro+ via chained &lt; checks). */
 export const AUM_BAND_USD = {
@@ -56,18 +57,20 @@ export function representativeFundUsd(
 }
 
 export function formatAumBandLabel(raw: string | null | undefined): string {
-  if (!raw?.trim()) return "";
-  const k = raw.trim() as AumBand;
+  const t = safeTrim(raw);
+  if (!t) return "";
+  const k = t as AumBand;
   if (Object.prototype.hasOwnProperty.call(AUM_BAND_LABELS, k)) {
     return AUM_BAND_LABELS[k];
   }
-  return raw.replace(/_/g, " ");
+  return t.replace(/_/g, " ");
 }
 
 export function formatAumBandWithRange(raw: string | null | undefined): string {
   const label = formatAumBandLabel(raw);
-  if (!label || !raw?.trim()) return label;
-  const k = raw.trim() as AumBand;
+  const t = safeTrim(raw);
+  if (!label || !t) return label;
+  const k = t as AumBand;
   if (Object.prototype.hasOwnProperty.call(AUM_BAND_RANGES, k)) {
     return `${label}: ${AUM_BAND_RANGES[k]}`;
   }

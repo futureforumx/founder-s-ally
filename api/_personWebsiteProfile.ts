@@ -191,6 +191,22 @@ function chooseBestEmail(emails: string[]): string | null {
   return cleaned[0] ?? null;
 }
 
+function extractObfuscatedEmails(text: string): string[] {
+  const out = new Set<string>();
+  // e.g. "jenn at mucker dot com", "name(at)domain(dot)io"
+  const re =
+    /\b([a-z0-9._%+-]{1,64})\s*(?:@|\(at\)|\[at\]|\bat\b)\s*([a-z0-9.-]{1,253})\s*(?:\.|\(dot\)|\[dot\]|\bdot\b)\s*([a-z]{2,24})\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const local = (m[1] ?? "").toLowerCase();
+    const domain = (m[2] ?? "").toLowerCase().replace(/\.+/g, ".");
+    const tld = (m[3] ?? "").toLowerCase();
+    if (!local || !domain || !tld) continue;
+    out.add(`${local}@${domain}.${tld}`);
+  }
+  return Array.from(out);
+}
+
 function chooseSocialUrl(
   urls: string[],
   kind: "linkedin" | "x",
@@ -291,22 +307,77 @@ function extractBio(lines: string[], fullName: string, title?: string | null): s
   return paragraphs.join("\n\n").slice(0, 4000);
 }
 
+function unwrapKnownImageProxyUrl(rawUrl: string): string {
+  const u = rawUrl.trim();
+  // ShortPixel pattern: .../client/.../https://origin/path.jpg
+  const directIdx = u.indexOf("/https://");
+  if (directIdx >= 0) return u.slice(directIdx + 1);
+  const directHttpIdx = u.indexOf("/http://");
+  if (directHttpIdx >= 0) return u.slice(directHttpIdx + 1);
+  return u;
+}
+
+function looksLikeNonPersonImage(url: string): boolean {
+  return /logo|wordmark|favicon|icon|sprite|banner|background|bg[-_]|placeholder|horizontal|header|nav|brand/i.test(url);
+}
+
+function extractMetaImageCandidates(html: string, baseUrl: string): string[] {
+  const out: string[] = [];
+  const metaRe =
+    /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["'][^>]+content=["']([^"']+)["'][^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = metaRe.exec(html)) !== null) {
+    const raw = m[1]?.trim();
+    if (!raw) continue;
+    const unwrapped = unwrapKnownImageProxyUrl(raw);
+    const absolute = normalizeMaybeUrl(unwrapped, baseUrl);
+    if (!absolute) continue;
+    out.push(absolute);
+  }
+  return out;
+}
+
+function personNameTokens(fullName: string): string[] {
+  return slugifyName(fullName).split("-").filter((t) => t.length >= 3);
+}
+
 function extractImage(html: string, fullName: string, baseUrl: string): string | null {
   const nameIdx = html.toLowerCase().indexOf(fullName.toLowerCase());
-  const images: Array<{ url: string; pos: number }> = [];
+  const nameTokens = personNameTokens(fullName);
+  const images: Array<{ url: string; pos: number; score: number }> = [];
   IMG_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = IMG_RE.exec(html)) !== null) {
     const src = match[1]?.trim();
     if (!src) continue;
-    const absolute = normalizeMaybeUrl(src, baseUrl);
+    const unwrapped = unwrapKnownImageProxyUrl(src);
+    const absolute = normalizeMaybeUrl(unwrapped, baseUrl);
     if (!absolute) continue;
-    if (/logo|wordmark|icon|favicon|banner|background|bg[-_]|placeholder/i.test(absolute)) continue;
+    if (looksLikeNonPersonImage(absolute)) continue;
     if (/\.svg(?:\?|$)/i.test(absolute)) continue;
-    images.push({ url: absolute, pos: match.index });
+    let score = 0;
+    const lower = absolute.toLowerCase();
+    if (nameTokens.some((t) => lower.includes(t))) score += 60;
+    if (/\/team\//i.test(lower)) score += 25;
+    if (/\/wp-content\/uploads\//i.test(lower)) score += 10;
+    if (looksLikeNonPersonImage(lower)) score -= 80;
+    images.push({ url: absolute, pos: match.index, score });
+  }
+  for (const metaUrl of extractMetaImageCandidates(html, baseUrl)) {
+    const lower = metaUrl.toLowerCase();
+    if (/\.svg(?:\?|$)/i.test(metaUrl)) continue;
+    if (looksLikeNonPersonImage(lower)) continue;
+    let score = 35; // prefer OG/Twitter image over random page assets
+    if (nameTokens.some((t) => lower.includes(t))) score += 60;
+    if (/\/team\//i.test(lower)) score += 25;
+    images.push({ url: metaUrl, pos: nameIdx >= 0 ? nameIdx : Number.MAX_SAFE_INTEGER, score });
   }
   if (images.length === 0) return null;
-  if (nameIdx >= 0) images.sort((a, b) => Math.abs(a.pos - nameIdx) - Math.abs(b.pos - nameIdx));
+  images.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (nameIdx >= 0) return Math.abs(a.pos - nameIdx) - Math.abs(b.pos - nameIdx);
+    return a.pos - b.pos;
+  });
   return images[0].url;
 }
 
@@ -331,7 +402,7 @@ function extractLocation(lines: string[], bio: string | null): string | null {
 
   const text = [bio ?? "", ...lines].join(" ");
   const patterns = [
-    /\b(?:based in|located in|lives in)\s+([A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+){0,2})/i,
+    /\b(?:based in|located in|lives in)\s+([A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+){0,1})(?=,?\s+(?:where|who|and)\b|[.])/i,
     /\b([A-Z][A-Za-z .'-]+,\s*[A-Z]{2})(?:\b|,)/,
   ];
   for (const pattern of patterns) {
@@ -466,6 +537,8 @@ export async function resolvePersonWebsiteProfile(input: {
     const email = emailMatch[1]?.trim();
     if (email) emails.push(email);
   }
+  const obfuscated = extractObfuscatedEmails(stripTags(bestPage.html));
+  for (const email of obfuscated) emails.push(email);
   for (const href of hrefs) {
     if (href.toLowerCase().startsWith("mailto:")) {
       const email = href.slice("mailto:".length).split("?")[0]?.trim();

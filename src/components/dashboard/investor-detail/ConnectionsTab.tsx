@@ -13,6 +13,9 @@ import {
   Plus,
   Linkedin,
   Twitter,
+  Facebook,
+  Instagram,
+  Youtube,
   Globe,
 } from "lucide-react";
 import { extractXHandle } from "@/lib/extractXHandle";
@@ -22,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { ConnectionsGate } from "./ConnectionsGate";
 import { ContactRevealButton } from "./ContactRevealButton";
 import { supabase } from "@/integrations/supabase/client";
+import { safeTrim } from "@/lib/utils";
 
 interface Connection {
   user_id: string;
@@ -36,6 +40,9 @@ interface WebsiteContactLookup {
   email: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  youtubeUrl: string | null;
 }
 
 function normalizeExternalHref(url: string): string {
@@ -68,6 +75,9 @@ interface ConnectionsTabProps {
   email?: string | null;
   linkedinUrl?: string | null;
   xUrl?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+  youtubeUrl?: string | null;
   websiteUrl?: string | null;
 }
 
@@ -86,6 +96,9 @@ export function ConnectionsTab({
   email,
   linkedinUrl,
   xUrl,
+  facebookUrl,
+  instagramUrl,
+  youtubeUrl,
   websiteUrl,
 }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -120,8 +133,14 @@ export function ConnectionsTab({
   }, [investorName, currentUserId]);
 
   useEffect(() => {
-    const missingContactFields = !email?.trim() || !linkedinUrl?.trim() || !xUrl?.trim();
-    if (!websiteUrl?.trim() || !missingContactFields) {
+    const missingContactFields =
+      !safeTrim(email) ||
+      !safeTrim(linkedinUrl) ||
+      !safeTrim(xUrl) ||
+      !safeTrim(facebookUrl) ||
+      !safeTrim(instagramUrl) ||
+      !safeTrim(youtubeUrl);
+    if (!safeTrim(websiteUrl) || !missingContactFields) {
       setWebsiteContact(null);
       return;
     }
@@ -141,6 +160,9 @@ export function ConnectionsTab({
             email: data.email ?? null,
             linkedinUrl: data.linkedinUrl ?? null,
             xUrl: data.xUrl ?? null,
+            facebookUrl: data.facebookUrl ?? null,
+            instagramUrl: data.instagramUrl ?? null,
+            youtubeUrl: data.youtubeUrl ?? null,
           });
         }
       } catch {
@@ -152,17 +174,31 @@ export function ConnectionsTab({
     return () => {
       cancelled = true;
     };
-  }, [email, linkedinUrl, websiteUrl, xUrl]);
+  }, [email, linkedinUrl, websiteUrl, xUrl, facebookUrl, instagramUrl, youtubeUrl]);
 
-  const resolvedEmail = email?.trim() || websiteContact?.email || null;
-  const resolvedLinkedinUrl = linkedinUrl?.trim() || websiteContact?.linkedinUrl || null;
-  const resolvedXUrl = xUrl?.trim() || websiteContact?.xUrl || null;
+  const resolvedEmail = safeTrim(email) || websiteContact?.email || null;
+  const resolvedLinkedinUrl = safeTrim(linkedinUrl) || websiteContact?.linkedinUrl || null;
+  const resolvedXUrl = safeTrim(xUrl) || websiteContact?.xUrl || null;
+  const resolvedFacebookUrl = safeTrim(facebookUrl) || websiteContact?.facebookUrl || null;
+  const resolvedInstagramUrl = safeTrim(instagramUrl) || websiteContact?.instagramUrl || null;
+  const resolvedYoutubeUrl = safeTrim(youtubeUrl) || websiteContact?.youtubeUrl || null;
   const linkedinHref = resolvedLinkedinUrl ? normalizeExternalHref(resolvedLinkedinUrl) : null;
   const xHref = resolvedXUrl ? xProfileHref(resolvedXUrl) : null;
-  const websiteHref = websiteUrl?.trim() ? normalizeExternalHref(websiteUrl.trim()) : null;
-  const hasSocialLinks = !!(linkedinHref || xHref || websiteHref);
+  const facebookHref = resolvedFacebookUrl ? normalizeExternalHref(resolvedFacebookUrl) : null;
+  const instagramHref = resolvedInstagramUrl ? normalizeExternalHref(resolvedInstagramUrl) : null;
+  const youtubeHref = resolvedYoutubeUrl ? normalizeExternalHref(resolvedYoutubeUrl) : null;
+  const wTrim = safeTrim(websiteUrl);
+  const websiteHref = wTrim ? normalizeExternalHref(wTrim) : null;
+  const hasSocialLinks = !!(
+    linkedinHref ||
+    xHref ||
+    facebookHref ||
+    instagramHref ||
+    youtubeHref ||
+    websiteHref
+  );
   const hasContactCard =
-    !!(investorId || resolvedEmail || location?.trim() || hasSocialLinks);
+    !!(investorId || resolvedEmail || safeTrim(location) || hasSocialLinks);
 
   if (loading) {
     return (
@@ -209,12 +245,12 @@ export function ConnectionsTab({
               />
             </div>
           ) : null}
-          {location?.trim() && (
+          {safeTrim(location) && (
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 shrink-0">
                 <MapPin className="w-3.5 h-3.5 text-accent" />
               </div>
-              <p className="text-sm font-medium text-foreground">{location.trim()}</p>
+              <p className="text-sm font-medium text-foreground">{safeTrim(location)}</p>
             </div>
           )}
           {hasSocialLinks && (
@@ -241,6 +277,42 @@ export function ConnectionsTab({
                   aria-label={`${investorName} on X`}
                 >
                   <Twitter className="w-4 h-4" />
+                </a>
+              ) : null}
+              {facebookHref ? (
+                <a
+                  href={facebookHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-[#1877F2] hover:border-[#1877F2]/30 transition-colors"
+                  title="Facebook"
+                  aria-label={`${investorName} on Facebook`}
+                >
+                  <Facebook className="w-4 h-4" />
+                </a>
+              ) : null}
+              {instagramHref ? (
+                <a
+                  href={instagramHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-pink-500 hover:border-pink-500/30 transition-colors"
+                  title="Instagram"
+                  aria-label={`${investorName} on Instagram`}
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+              ) : null}
+              {youtubeHref ? (
+                <a
+                  href={youtubeHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-red-500 hover:border-red-500/30 transition-colors"
+                  title="YouTube"
+                  aria-label={`${investorName} on YouTube`}
+                >
+                  <Youtube className="w-4 h-4" />
                 </a>
               ) : null}
               {websiteHref ? (

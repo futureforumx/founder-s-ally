@@ -5,6 +5,12 @@ import {
   dedupeNewsArticles,
   fetchExternalNewsForFirm,
 } from "../_shared/investor-news-apis.ts";
+import {
+  fetchOgImageFromProfilePage,
+  firmWebsiteFaviconUrl,
+  pickCardImageUrl,
+  sanitizeFirmLogoUrlForFallback,
+} from "../_shared/activityCardImageUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,7 +128,7 @@ function formatDisplayDate(iso: string): string {
 
 // ── Fallback cards if AI unavailable ──
 
-function buildFallbackCards(articles: RawArticle[]): UpdateCard[] {
+function buildFallbackCards(articles: RawArticle[], firmFallbackImage: string | null): UpdateCard[] {
   return articles.map((a) => ({
     type: "Other" as const,
     display_source: a.source_name || "Source",
@@ -131,7 +137,7 @@ function buildFallbackCards(articles: RawArticle[]): UpdateCard[] {
     subtitle: a.content_snippet?.slice(0, 120) || "",
     why_it_matters: "Review this update to stay informed on this investor's activity.",
     url: a.url,
-    image_url: a.og_image_url || null,
+    image_url: pickCardImageUrl(a.og_image_url, firmFallbackImage),
     estimated_read_time_minutes: Math.max(1, Math.round((a.content_snippet?.split(" ").length || 200) / 200)),
     impact_level: "medium" as const,
     display_tags: a.tags?.slice(0, 3) || [],
@@ -162,33 +168,64 @@ serve(async (req) => {
       firmId != null && String(firmId).trim() !== "" ? String(firmId).trim() : null;
     let resolvedFirmName = typeof firmName === "string" ? firmName.trim() : "";
     let resolvedWebsite: string | null = null;
+    let resolvedLogoUrl: string | null = null;
+    let resolvedSignalNfxUrl: string | null = null;
+    let resolvedCbInsightsUrl: string | null = null;
+
+    type FirmRow = {
+      id?: string;
+      firm_name?: string;
+      website_url?: string | null;
+      logo_url?: string | null;
+      signal_nfx_url?: string | null;
+      cb_insights_url?: string | null;
+    };
 
     if (!resolvedFirmId && resolvedFirmName) {
       const { data: firmRows } = await admin
         .from("firm_records")
-        .select("id, firm_name, website_url")
+        .select("id, firm_name, website_url, logo_url, signal_nfx_url, cb_insights_url")
         .ilike("firm_name", resolvedFirmName)
         .limit(1);
-      const row = firmRows?.[0] as { id?: string; firm_name?: string; website_url?: string | null } | undefined;
+      const row = firmRows?.[0] as FirmRow | undefined;
       resolvedFirmId = row?.id ?? null;
       if (row?.firm_name) resolvedFirmName = row.firm_name;
-      if (row?.website_url) resolvedWebsite = row.website_url;
+      if (row?.website_url) resolvedWebsite = row.website_url ?? null;
+      if (row?.logo_url) resolvedLogoUrl = row.logo_url ?? null;
+      if (row?.signal_nfx_url) resolvedSignalNfxUrl = row.signal_nfx_url ?? null;
+      if (row?.cb_insights_url) resolvedCbInsightsUrl = row.cb_insights_url ?? null;
     } else if (resolvedFirmId && !resolvedFirmName) {
       const { data: fr } = await admin
         .from("firm_records")
-        .select("firm_name, website_url")
+        .select("firm_name, website_url, logo_url, signal_nfx_url, cb_insights_url")
         .eq("id", resolvedFirmId)
         .maybeSingle();
       if (fr?.firm_name) resolvedFirmName = String(fr.firm_name);
       if (fr?.website_url) resolvedWebsite = String(fr.website_url);
+      if (fr?.logo_url) resolvedLogoUrl = String(fr.logo_url);
+      if (fr?.signal_nfx_url) resolvedSignalNfxUrl = String(fr.signal_nfx_url);
+      if (fr?.cb_insights_url) resolvedCbInsightsUrl = String(fr.cb_insights_url);
     } else if (resolvedFirmId && resolvedFirmName) {
       const { data: fr } = await admin
         .from("firm_records")
-        .select("website_url")
+        .select("website_url, logo_url, signal_nfx_url, cb_insights_url")
         .eq("id", resolvedFirmId)
         .maybeSingle();
       if (fr?.website_url) resolvedWebsite = String(fr.website_url);
+      if (fr?.logo_url) resolvedLogoUrl = String(fr.logo_url);
+      if (fr?.signal_nfx_url) resolvedSignalNfxUrl = String(fr.signal_nfx_url);
+      if (fr?.cb_insights_url) resolvedCbInsightsUrl = String(fr.cb_insights_url);
     }
+
+    const firmFallbackImage = await (async (): Promise<string | null> => {
+      const db = sanitizeFirmLogoUrlForFallback(resolvedLogoUrl);
+      if (db) return db;
+      const ogS = await fetchOgImageFromProfilePage(resolvedSignalNfxUrl);
+      if (ogS) return ogS;
+      const ogC = await fetchOgImageFromProfilePage(resolvedCbInsightsUrl);
+      if (ogC) return ogC;
+      return firmWebsiteFaviconUrl(resolvedWebsite);
+    })();
 
     // ── 2. Query signals (vc_signals) for this firm ──
     let rawArticles: RawArticle[] = [];
@@ -251,7 +288,10 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       // No AI key — return fallback cards
       return new Response(
-        JSON.stringify({ cards: buildFallbackCards(rawArticles), source: "fallback" }),
+        JSON.stringify({
+          cards: buildFallbackCards(rawArticles, firmFallbackImage),
+          source: "fallback",
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -279,7 +319,10 @@ serve(async (req) => {
       console.error("AI gateway error:", aiResponse.status);
       // Fallback: return unprocessed cards
       return new Response(
-        JSON.stringify({ cards: buildFallbackCards(rawArticles), source: "fallback" }),
+        JSON.stringify({
+          cards: buildFallbackCards(rawArticles, firmFallbackImage),
+          source: "fallback",
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -297,7 +340,7 @@ serve(async (req) => {
       }
     } catch {
       console.error("Failed to parse AI response:", raw.slice(0, 200));
-      cards = buildFallbackCards(rawArticles);
+      cards = buildFallbackCards(rawArticles, firmFallbackImage);
     }
 
     // ── 6. Validate & sanitize cards ──
@@ -306,23 +349,29 @@ serve(async (req) => {
 
     cards = cards
       .filter((c: any) => c && typeof c.title === "string" && c.title.length > 0)
-      .map((c: any, i: number) => ({
-        type: validTypes.includes(c.type) ? c.type : "Other",
-        display_source: String(c.display_source || rawArticles[i]?.source_name || "Source").slice(0, 40),
-        display_date: String(c.display_date || formatDisplayDate(rawArticles[i]?.published_at || new Date().toISOString())).slice(0, 20),
-        title: String(c.title).slice(0, 200),
-        subtitle: String(c.subtitle || "").slice(0, 200),
-        why_it_matters: String(c.why_it_matters || "").slice(0, 200),
-        url: String(c.url || rawArticles[i]?.url || "").slice(0, 500),
-        image_url: typeof c.image_url === "string" && c.image_url.startsWith("http") ? c.image_url : null,
-        estimated_read_time_minutes: typeof c.estimated_read_time_minutes === "number"
-          ? Math.max(1, Math.min(30, c.estimated_read_time_minutes))
-          : 3,
-        impact_level: validImpact.includes(c.impact_level) ? c.impact_level : "medium",
-        display_tags: Array.isArray(c.display_tags)
-          ? c.display_tags.slice(0, 3).map((t: any) => String(t).slice(0, 25))
-          : [],
-      }));
+      .map((c: any, i: number) => {
+        const rawOg = rawArticles[i]?.og_image_url;
+        const aiImg =
+          typeof c.image_url === "string" && c.image_url.startsWith("http") ? c.image_url : null;
+        const primary = aiImg || (typeof rawOg === "string" && rawOg.startsWith("http") ? rawOg : null);
+        return {
+          type: validTypes.includes(c.type) ? c.type : "Other",
+          display_source: String(c.display_source || rawArticles[i]?.source_name || "Source").slice(0, 40),
+          display_date: String(c.display_date || formatDisplayDate(rawArticles[i]?.published_at || new Date().toISOString())).slice(0, 20),
+          title: String(c.title).slice(0, 200),
+          subtitle: String(c.subtitle || "").slice(0, 200),
+          why_it_matters: String(c.why_it_matters || "").slice(0, 200),
+          url: String(c.url || rawArticles[i]?.url || "").slice(0, 500),
+          image_url: pickCardImageUrl(primary, firmFallbackImage),
+          estimated_read_time_minutes: typeof c.estimated_read_time_minutes === "number"
+            ? Math.max(1, Math.min(30, c.estimated_read_time_minutes))
+            : 3,
+          impact_level: validImpact.includes(c.impact_level) ? c.impact_level : "medium",
+          display_tags: Array.isArray(c.display_tags)
+            ? c.display_tags.slice(0, 3).map((t: any) => String(t).slice(0, 25))
+            : [],
+        };
+      });
 
     return new Response(
       JSON.stringify({ cards, source: "ai" }),

@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, safeLower, safeTrim } from "@/lib/utils";
 
 type FundRow = {
   id: string;
@@ -58,15 +58,16 @@ const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
 export function FirmFundsSection({ firmRecordsId, firmName, isActivelyDeploying, firmAum, className }: FirmFundsSectionProps) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["investor-panel-fund-records", firmRecordsId, firmName?.toLowerCase().trim()],
+    queryKey: ["investor-panel-fund-records", firmRecordsId, safeLower(firmName)],
     queryFn: async () => {
       // Resolve firm UUID: use direct ID if available, otherwise look up by name
-      let resolvedId = firmRecordsId?.trim() ?? null;
-      if (!resolvedId && firmName?.trim()) {
+      let resolvedId = safeTrim(firmRecordsId) || null;
+      const nameT = safeTrim(firmName);
+      if (!resolvedId && nameT) {
         const { data: fr } = await DB
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", firmName.trim())
+          .ilike("firm_name", nameT)
           .is("deleted_at", null)
           .limit(1)
           .maybeSingle();
@@ -83,7 +84,7 @@ export function FirmFundsSection({ firmRecordsId, firmName, isActivelyDeploying,
       if (error) throw new Error(error.message);
       return sortFunds((data ?? []) as FundRow[]);
     },
-    enabled: Boolean((firmRecordsId?.trim() || firmName?.trim())) && isSupabaseConfigured,
+    enabled: Boolean(safeTrim(firmRecordsId) || safeTrim(firmName)) && isSupabaseConfigured,
     retry: false,
   });
 
@@ -103,7 +104,7 @@ export function FirmFundsSection({ firmRecordsId, firmName, isActivelyDeploying,
   }
 
   // ── Error or no resolvable firm → show fallback from firm_records ──────
-  if (isError || ((!firmRecordsId?.trim()) && (!firmName?.trim())) || (!isSupabaseConfigured)) {
+  if (isError || (!safeTrim(firmRecordsId) && !safeTrim(firmName)) || !isSupabaseConfigured) {
     const deploying = isActivelyDeploying === true;
     return (
       <div className={cn("rounded-xl border border-border/60 bg-card/50 p-4 space-y-2", className)}>

@@ -1,21 +1,22 @@
 import { Flame, Users, Clock } from "lucide-react";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import type { InvestorPreviewModel } from "./InvestorPreviewRow";
 import { formatStageForDisplay } from "@/lib/stageUtils";
 
-function stableMatchScore(name: string, explicit: number | null | undefined): number {
+function stableMatchScore(name: string | null | undefined, explicit: number | null | undefined): number {
   if (explicit != null) return explicit;
+  const s = String(name ?? "");
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return 60 + Math.abs(h % 21);
 }
 
 function compactMetaLine(model: InvestorPreviewModel): string {
   const stage = model.stage ? formatStageForDisplay(model.stage) : "";
-  const loc = (model.location || "").trim();
-  const parts = [model.sector?.trim(), stage, loc].filter(Boolean);
+  const loc = safeTrim(model.location);
+  const parts = [safeTrim(model.sector), stage, loc].filter(Boolean);
   return parts.join(" · ");
 }
 

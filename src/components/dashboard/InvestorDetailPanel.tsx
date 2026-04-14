@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
-import { cn } from "@/lib/utils";
+import { cn, safeLower, safeTrim } from "@/lib/utils";
 import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BookmarkPlus, CheckCircle2, Star } from "lucide-react";
+import { X, BookmarkPlus, CheckCircle2, Star, MapPin, DollarSign, Users, Briefcase } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -21,9 +21,16 @@ import { PortfolioTab } from "./investor-detail/PortfolioTab";
 import { INVESTOR_TABS, type InvestorTab, type InvestorEntry } from "./investor-detail/types";
 import { useInvestorEnrich, type EnrichResult } from "@/hooks/useInvestorEnrich";
 import { ScoreTilesRow, type TileId } from "./investor-detail/ScoreTilesRow";
-import { useInvestorProfile, useInvestorProfileByName, type InvestorPartner } from "@/hooks/useInvestorProfile";
+import {
+  useInvestorProfile,
+  useInvestorProfileByName,
+  type InvestorPartner,
+  type InvestorProfile,
+} from "@/hooks/useInvestorProfile";
 import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
+import { isMeaninglessDisplayLocation } from "@/lib/locationLineQuality";
+import { resolveFirmContactEmailByWebsiteUrl } from "@/lib/firmContactEmailOverrides";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
@@ -31,6 +38,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
+import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
+import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
+import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import {
   isFirmStrategyClassification,
   STRATEGY_CLASSIFICATION_DEFINITIONS,
@@ -39,6 +49,7 @@ import {
 } from "@/lib/firmStrategyClassifications";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
+import { allOfficeLinesFromLocationsJson, pickHqLineFromLocationsJson } from "@/lib/firmLocationsJson";
 
 interface CompanyContext {
   name?: string;
@@ -85,16 +96,79 @@ interface InvestorDetailPanelProps {
 
 export type { InvestorEntry };
 
-function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
+function firstNonEmpty(...values: unknown[]): string | null {
   for (const v of values) {
-    const t = typeof v === "string" ? v.trim() : "";
+    const t = safeTrim(v);
     if (t.length > 0) return t;
   }
   return null;
 }
 
+/**
+ * Map key for merging live / directory / website team rows onto one card.
+ * Strips interior single-letter tokens (e.g. middle initials) so "Kelci M. Horan" and "Kelci Horan"
+ * share one entry and website headshots attach to the DB partner row.
+ */
+function partnerTabDedupeKey(name: string): string {
+  const words = safeTrim(name).toLowerCase().split(/\s+/).filter(Boolean);
+  const n = words.length;
+  const kept = words.filter((w, i) => {
+    if (i === 0 || i === n - 1) return true;
+    return !(w.length === 1 || /^[a-z]\.$/i.test(w));
+  });
+  return kept.join("").replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Merge avatar fields when combining DB + website crawl rows.
+ * Preferring primary-only let a stale LinkedIn/CDN URL from DB win and discard mirrored R2 URLs from
+ * the website row — the Investors tab then showed initials after `<img onError>`.
+ * Order: secondary (website) first, then primary, deduped — UI still chains via `investorAvatarUrlCandidates`.
+ */
+function mergedPartnerPortraitFields(
+  primary: VCPerson,
+  secondary: VCPerson,
+): {
+  avatar_url: string | null;
+  profile_image_url: string | null;
+  _extra_avatar_urls?: string[];
+} {
+  const ordered = [
+    secondary.avatar_url,
+    secondary.profile_image_url,
+    primary.avatar_url,
+    primary.profile_image_url,
+  ];
+  const chain: string[] = [];
+  for (const u of ordered) {
+    const t = safeTrim(u);
+    if (!t || isBlockedExternalAvatarUrl(t)) continue;
+    if (!chain.includes(t)) chain.push(t);
+  }
+  const extra = chain.slice(2);
+  return {
+    avatar_url: chain[0] ?? null,
+    profile_image_url: chain[1] ?? null,
+    ...(extra.length ? { _extra_avatar_urls: extra } : {}),
+  };
+}
+
 function normalizeInvestorNameKey(name: string): string {
   return name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+}
+
+const FIRM_HQ_LOCATION_OVERRIDES: Record<string, string> = {
+  "137ventures": "San Francisco, CA",
+};
+
+function resolveFirmHqLocationOverride(...nameCandidates: Array<string | null | undefined>): string | null {
+  for (const candidate of nameCandidates) {
+    const key = normalizeInvestorNameKey(safeTrim(candidate));
+    if (!key) continue;
+    const hit = FIRM_HQ_LOCATION_OVERRIDES[key];
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /** Same alias expansion as CommunityView `getAliasKeys` — keep card label ↔ DB `firm_name` in sync. */
@@ -114,8 +188,8 @@ function liveFirmRowMatchesDirectorySelection(
   liveFirmName: string | null | undefined,
   directoryDisplayName: string | null | undefined,
 ): boolean {
-  const a = normalizeInvestorNameKey(liveFirmName?.trim() ?? "");
-  const b = normalizeInvestorNameKey(directoryDisplayName?.trim() ?? "");
+  const a = normalizeInvestorNameKey(safeTrim(liveFirmName));
+  const b = normalizeInvestorNameKey(safeTrim(directoryDisplayName));
   if (!a || !b) return false;
   if (a === b) return true;
   const keysA = firmNameAliasKeySet(a);
@@ -128,6 +202,115 @@ function liveFirmRowMatchesDirectorySelection(
   return false;
 }
 
+function formatUsdCheckRangeLine(min: number | null, max: number | null): string {
+  const fmt = (amount: number) =>
+    amount >= 1_000_000
+      ? `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`
+      : amount >= 1_000
+        ? `$${(amount / 1_000).toFixed(0)}K`
+        : `$${amount}`;
+  if (min != null && max != null) return `${fmt(min)}–${fmt(max)}`;
+  if (min != null) return fmt(min);
+  if (max != null) return fmt(max);
+  return "";
+}
+
+/** Prefer Supabase `firm_records` + relations over `investor-enrich` (Exa/Gemini) when the row is rich enough. */
+function enrichResultFromDbInvestorProfile(
+  profile: InvestorProfile | null,
+  directoryDisplayName: string,
+): EnrichResult | null {
+  if (!profile || profile.source !== "live") return null;
+  if (!liveFirmRowMatchesDirectorySelection(profile.firm_name, directoryDisplayName)) return null;
+
+  const dealNames = (profile.deals ?? []).map((d) => safeTrim(d.company_name)).filter(Boolean);
+  const legacy = (profile.recent_deals ?? []).map((s) => safeTrim(s)).filter(Boolean);
+  const recentDeals = [...new Set([...dealNames, ...legacy])].slice(0, 12);
+
+  const thesis = (profile.thesis_verticals ?? []).map((s) => safeTrim(s)).filter(Boolean);
+  const desc = safeTrim(profile.description) || safeTrim(profile.sentiment_detail);
+  const checkLine = formatUsdCheckRangeLine(profile.min_check_size, profile.max_check_size);
+  const geography =
+    resolveFirmDisplayLocation({
+      hq_city: profile.hq_city,
+      hq_state: profile.hq_state,
+      hq_country: profile.hq_country,
+      legacyLocation: profile.location,
+    }) ?? "";
+
+  const hasSubstance =
+    recentDeals.length > 0 ||
+    thesis.length > 0 ||
+    desc.length > 40 ||
+    checkLine.length > 0 ||
+    safeTrim(profile.preferred_stage).length > 0;
+
+  if (!hasSubstance) return null;
+
+  return {
+    profile: {
+      firmName: profile.firm_name,
+      logoUrl: profile.logo_url ?? "",
+      recentDeals,
+      currentThesis: thesis.slice(0, 12).join(", "),
+      stage: safeTrim(profile.preferred_stage) || "",
+      geography,
+      typicalCheckSize: checkLine,
+      confidenceScore: 0.95,
+      source: "local_db",
+      lastVerified: safeTrim(profile.last_enriched_at) || new Date().toISOString(),
+    },
+    tier: 3,
+  };
+}
+
+/**
+ * `firm_records.firm_name` sometimes stores a short brand (e.g. "a16z"). For the investor modal title,
+ * prefer `legal_name`, then a longer directory/card label when it still refers to the same firm.
+ */
+const RECORD_FIRM_NAME_SHORTHAND = new Set([
+  "a16z",
+  "gv",
+  "usv",
+  "yc",
+  "nea",
+]);
+
+const OFFICIAL_FIRM_NAME_BY_SHORTHAND: Record<string, string> = {
+  a16z: "Andreessen Horowitz",
+  gv: "Google Ventures",
+  usv: "Union Square Ventures",
+  yc: "Y Combinator",
+  nea: "New Enterprise Associates",
+};
+
+function resolveOfficialHeroFirmName(args: {
+  live: InvestorProfile | null | undefined;
+  supplemental: InvestorProfile | null | undefined;
+  investorName: string | null | undefined;
+  vcFirmName: string | null | undefined;
+  effectiveName: string | null | undefined;
+}): string {
+  const liveRow = args.live?.source === "live" ? args.live : null;
+  const record = liveRow ?? args.supplemental ?? null;
+  const legal = safeTrim(record?.legal_name);
+  if (legal) return legal;
+  const recordFirm = safeTrim(record?.firm_name ?? "");
+  const fromContext = safeTrim(firstNonEmpty(args.investorName, args.vcFirmName, args.effectiveName) ?? "");
+  if (
+    recordFirm &&
+    fromContext &&
+    liveFirmRowMatchesDirectorySelection(recordFirm, fromContext) &&
+    RECORD_FIRM_NAME_SHORTHAND.has(recordFirm.toLowerCase()) &&
+    (fromContext.includes(" ") || fromContext.length >= recordFirm.length + 8)
+  ) {
+    return fromContext;
+  }
+  const resolved = firstNonEmpty(recordFirm, fromContext, safeTrim(args.effectiveName ?? ""), "") ?? "";
+  const shorthandKey = safeTrim(resolved).toLowerCase();
+  return OFFICIAL_FIRM_NAME_BY_SHORTHAND[shorthandKey] ?? resolved;
+}
+
 function investorPartnerToVCPerson(
   p: InvestorPartner,
   firmId: string,
@@ -135,11 +318,12 @@ function investorPartnerToVCPerson(
   firmWebsiteUrl?: string | null,
   firmLogoUrl?: string | null,
 ): VCPerson {
-  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  const fullName = String(p.full_name ?? "").trim();
+  const parts = fullName.split(/\s+/).filter(Boolean);
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: p.first_name ?? parts[0] ?? null,
@@ -158,6 +342,7 @@ function investorPartnerToVCPerson(
     sector_focus: p.sector_focus ?? null,
     personal_thesis_tags: p.personal_thesis_tags ?? [],
     background_summary: p.background_summary ?? null,
+    education_summary: (p as InvestorPartner & { education_summary?: string | null }).education_summary ?? null,
     bio: p.bio ?? null,
     city: p.city ?? null,
     state: p.state ?? null,
@@ -166,10 +351,11 @@ function investorPartnerToVCPerson(
 }
 
 function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
+  const fullName = String(p.full_name ?? "").trim();
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     first_name: p.first_name ?? null,
     last_name: p.last_name ?? null,
@@ -194,11 +380,12 @@ function websiteTeamPersonToVCPerson(
   firmWebsiteUrl?: string | null,
   firmLogoUrl?: string | null,
 ): VCPerson {
-  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  const fullName = String(p.full_name ?? "").trim();
+  const parts = fullName.split(/\s+/).filter(Boolean);
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: parts[0] ?? null,
@@ -218,6 +405,7 @@ function websiteTeamPersonToVCPerson(
 }
 
 function mergePartnerPerson(primary: VCPerson, secondary: VCPerson): VCPerson {
+  const portraits = mergedPartnerPortraitFields(primary, secondary);
   return {
     ...secondary,
     ...primary,
@@ -228,8 +416,9 @@ function mergePartnerPerson(primary: VCPerson, secondary: VCPerson): VCPerson {
     last_name: primary.last_name ?? secondary.last_name ?? null,
     title: primary.title ?? secondary.title ?? null,
     role: primary.role ?? secondary.role ?? null,
-    profile_image_url: primary.profile_image_url ?? secondary.profile_image_url ?? null,
-    avatar_url: primary.avatar_url ?? secondary.avatar_url ?? null,
+    avatar_url: portraits.avatar_url,
+    profile_image_url: portraits.profile_image_url,
+    ...(portraits._extra_avatar_urls ? { _extra_avatar_urls: portraits._extra_avatar_urls } : {}),
     email: primary.email ?? secondary.email ?? null,
     linkedin_url: primary.linkedin_url ?? secondary.linkedin_url ?? null,
     x_url: primary.x_url ?? secondary.x_url ?? null,
@@ -298,14 +487,98 @@ export function InvestorDetailPanel({
   const investorName = investor?.name || vcFirm?.name || null;
   const { isMapped: investorIsMappedToProfile, mappingRecordId } = useInvestorMapping(investorName);
 
+  const explicitVcDirId =
+    typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
+      ? vcDirectoryFirmIdHint.trim()
+      : null;
+  const vcDirectoryFirmId = explicitVcDirId ?? vcFirm?.id ?? null;
+  const firmRecordIdFromVcDirectoryQuery = useQuery<string | null>({
+    queryKey: ["firm-record-id-from-vc-directory", vcDirectoryFirmId],
+    enabled: Boolean(vcDirectoryFirmId),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const prismaId = safeTrim(vcDirectoryFirmId);
+      if (!prismaId) return null;
+      const { data, error } = await supabase
+        .from("firm_records")
+        .select("id")
+        .eq("prisma_firm_id", prismaId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as { id: string } | null)?.id ?? null;
+    },
+  });
+  const firmRecordIdFromVcDirectory = firmRecordIdFromVcDirectoryQuery.data ?? null;
+  const investorDbIdFromEntry =
+    typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
+      ? investor.investorDatabaseId.trim()
+      : null;
+  const investorDbFirmRecordsId =
+    investorDbIdFromEntry && looksLikeFirmRecordsUuid(investorDbIdFromEntry)
+      ? investorDbIdFromEntry
+      : null;
+  const preferredLiveFirmRecordId = investorDbFirmRecordsId ?? firmRecordIdFromVcDirectory ?? null;
+
   // ── Live data hook ──
-  const liveQuery = useInvestorProfileByName(
-    investor?.name || vcFirm?.name || null
+  const queryClient = useQueryClient();
+  const liveByIdQuery = useInvestorProfile(preferredLiveFirmRecordId);
+  const liveByNameQuery = useInvestorProfileByName(
+    preferredLiveFirmRecordId ? null : (investor?.name || vcFirm?.name || null)
   );
+  const liveQuery = preferredLiveFirmRecordId ? liveByIdQuery : liveByNameQuery;
   const liveProfile = liveQuery.data;
   const liveLoading = liveQuery.isLoading;
-  /** True while `placeholderData` is showing a prior firm's profile for the new query key. */
-  const liveIsPlaceholder = Boolean(liveQuery.isPlaceholderData);
+  const fallbackFirmInvestorsQuery = useQuery<VCPerson[]>({
+    queryKey: ["fallback-firm-investors-by-name", safeLower(investor?.name || vcFirm?.name || "")],
+    enabled: Boolean(investor?.name || vcFirm?.name),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const targetName = safeTrim(investor?.name || vcFirm?.name);
+      if (!targetName) return [];
+      const { data: exactFirms, error: exactError } = await supabase
+        .from("firm_records")
+        .select("id, firm_name, website_url, logo_url")
+        .is("deleted_at", null)
+        .ilike("firm_name", targetName)
+        .limit(8);
+      if (exactError) return [];
+      const firms = exactFirms?.length
+        ? exactFirms
+        : (
+            await supabase
+              .from("firm_records")
+              .select("id, firm_name, website_url, logo_url")
+              .is("deleted_at", null)
+              .ilike("firm_name", `%${targetName}%`)
+              .limit(8)
+          ).data ?? [];
+      if (!firms.length) return [];
+      const matchedFirm = firms.find((f) => liveFirmRowMatchesDirectorySelection(f.firm_name, targetName)) ?? firms[0];
+      if (!matchedFirm?.id) return [];
+      const { data: rows, error: rowError } = await supabase
+        .from("firm_investors")
+        .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
+        .eq("firm_id", matchedFirm.id)
+        .is("deleted_at", null)
+        .order("full_name");
+      if (rowError || !rows?.length) return [];
+      return rows
+        .filter((row) => safeTrim(row.full_name))
+        .map((row) =>
+          investorPartnerToVCPerson(
+            {
+              ...(row as InvestorPartner),
+              full_name: safeTrim(row.full_name),
+            },
+            matchedFirm.id,
+            heroName || matchedFirm.firm_name,
+            (matchedFirm.website_url as string | null) ?? null,
+            (matchedFirm.logo_url as string | null) ?? null,
+          ),
+        );
+    },
+  });
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
@@ -331,12 +604,12 @@ export function InvestorDetailPanel({
       websiteUrl: vcFirm.website_url ?? null,
     };
   }, [investor, vcFirm]);
+  const displayName = safeTrim(effectiveInvestor?.name);
   const firmWebsiteUrl = firstNonEmpty(
     liveProfile?.website_url,
     effectiveInvestor?.websiteUrl,
     vcFirm?.website_url,
   );
-  const heroName = liveProfile?.firm_name ?? effectiveInvestor?.name ?? "";
   /** Live row may lag or have empty string; keep search/grid logo from entry or VC directory. */
   const heroLogo = firstNonEmpty(
     liveProfile?.logo_url,
@@ -359,15 +632,42 @@ export function InvestorDetailPanel({
       return;
     }
 
-    fetch("/api/firm-website-team", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ websiteUrl: firmWebsiteUrl }),
-    })
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as { people?: WebsiteTeamPerson[]; error?: string };
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        return Array.isArray(data.people) ? data.people : [];
+    // DB already has a solid team — skip HTML crawl + `/api/firm-website-team` on every open.
+    if (liveLoading) return;
+    if ((liveProfile?.partners?.length ?? 0) >= 3) {
+      setWebsitePartners([]);
+      return;
+    }
+
+    const fetchWebsiteTeam = async (forceRefresh: boolean) => {
+      const res = await fetch("/api/firm-website-team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ websiteUrl: firmWebsiteUrl, forceRefresh }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        people?: WebsiteTeamPerson[];
+        teamMemberEstimate?: number;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return {
+        people: Array.isArray(data.people) ? data.people : [],
+        teamMemberEstimate:
+          typeof data.teamMemberEstimate === "number" && Number.isFinite(data.teamMemberEstimate)
+            ? data.teamMemberEstimate
+            : 0,
+      };
+    };
+
+    fetchWebsiteTeam(false)
+      .then(async (initial) => {
+        const undercountedCache =
+          initial.people.length <= 2 &&
+          initial.teamMemberEstimate >= 4;
+        if (!undercountedCache) return initial.people;
+        const refreshed = await fetchWebsiteTeam(true);
+        return refreshed.people.length >= initial.people.length ? refreshed.people : initial.people;
       })
       .then((people) => {
         if (!cancelled) setWebsitePartners(people);
@@ -382,38 +682,10 @@ export function InvestorDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [firmWebsiteUrl]);
+  }, [firmWebsiteUrl, liveLoading, liveProfile?.partners?.length]);
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
-  const displayName = effectiveInvestor?.name || "";
-  const explicitVcDirId =
-    typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
-      ? vcDirectoryFirmIdHint.trim()
-      : null;
-  const vcDirectoryFirmId = explicitVcDirId ?? vcFirm?.id ?? null;
-  const firmRecordIdFromVcDirectoryQuery = useQuery<string | null>({
-    queryKey: ["firm-record-id-from-vc-directory", vcDirectoryFirmId],
-    enabled: Boolean(vcDirectoryFirmId),
-    staleTime: 60_000,
-    queryFn: async () => {
-      if (!vcDirectoryFirmId?.trim()) return null;
-      const { data, error } = await supabase
-        .from("firm_records")
-        .select("id")
-        .eq("prisma_firm_id", vcDirectoryFirmId.trim())
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as { id: string } | null)?.id ?? null;
-    },
-  });
-  const firmRecordIdFromVcDirectory = firmRecordIdFromVcDirectoryQuery.data ?? null;
-
-  const investorDbIdFromEntry =
-    typeof investor?.investorDatabaseId === "string" && investor.investorDatabaseId.trim()
-      ? investor.investorDatabaseId.trim()
-      : null;
   /** `liveProfile.id` is only a Supabase `firm_records` row when `source === "live"`. JSON fallback uses MDM domain ids — do not let those override an explicit DB id from Matches. */
   const databaseFirmId =
     liveProfile?.source === "live"
@@ -432,12 +704,26 @@ export function InvestorDetailPanel({
   const dealSizeProfile =
     liveProfile?.source === "live" ? liveProfile : supplementalFirmQuery.data ?? null;
 
+  const heroName = useMemo(
+    () =>
+      resolveOfficialHeroFirmName({
+        live: liveProfile,
+        supplemental: dealSizeProfile,
+        investorName: investor?.name,
+        vcFirmName: vcFirm?.name,
+        effectiveName: effectiveInvestor?.name,
+      }),
+    [liveProfile, dealSizeProfile, investor?.name, vcFirm?.name, effectiveInvestor?.name],
+  );
+
+  const resolvedLiveFirmDisplayName = heroName || null;
+
   const firmRecordXSupplement = useFirmRecordXUrlSupplement(liveProfile ?? undefined, vcFirm ?? undefined, databaseFirmId);
   const effectiveFirmXUrl = useMemo(
     () =>
-      liveProfile?.x_url?.trim() ||
-      vcFirm?.x_url?.trim() ||
-      firmRecordXSupplement.data?.trim() ||
+      safeTrim(liveProfile?.x_url) ||
+      safeTrim(vcFirm?.x_url) ||
+      safeTrim(firmRecordXSupplement.data) ||
       null,
     [liveProfile?.x_url, vcFirm?.x_url, firmRecordXSupplement.data],
   );
@@ -445,17 +731,17 @@ export function InvestorDetailPanel({
     () => (liveProfile?.source === "live" ? liveProfile.id : databaseFirmId ?? null),
     [liveProfile?.source, liveProfile?.id, databaseFirmId],
   );
-  const resolvedLiveFirmDisplayName = dealSizeProfile?.firm_name ?? liveProfile?.firm_name ?? effectiveInvestor?.name ?? null;
-
   /**
    * `vc_ratings.vc_firm_id` must be a directory `vc_firms.id`.
    * When the matched `vcFirm` object is missing (alias / sync edge cases), fall back to the
    * investor card’s UUID (`investorDatabaseId` / `_firmId`) — usually the same directory id.
    */
   const reviewVcFirmId = useMemo(() => {
-    if (explicitVcDirId?.trim()) return explicitVcDirId.trim();
-    if (vcFirm?.id?.trim()) return vcFirm.id.trim();
-    const inv = investor?.investorDatabaseId?.trim();
+    const ex = safeTrim(explicitVcDirId);
+    if (ex) return ex;
+    const vid = safeTrim(vcFirm?.id);
+    if (vid) return vid;
+    const inv = safeTrim(investor?.investorDatabaseId);
     if (inv && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inv)) return inv;
     return null;
   }, [explicitVcDirId, vcFirm?.id, investor?.investorDatabaseId]);
@@ -464,7 +750,7 @@ export function InvestorDetailPanel({
       ? reviewPersonIdHint.trim()
       : null;
   const ratingUserId = authUser?.id ?? session?.user?.id;
-  const ratingFirmLabel = (heroName || displayName).trim() || null;
+  const ratingFirmLabel = safeTrim(heroName || displayName) || null;
   const {
     starRatings: myFirmRatingJson,
     createdAt: myFirmRatingCreatedAt,
@@ -492,40 +778,46 @@ export function InvestorDetailPanel({
 
     // 1. DB people load first as the authoritative base
     for (const p of liveProfile?.partners ?? []) {
-      const key = p.full_name.toLowerCase().trim();
+      const key = partnerTabDedupeKey(p.full_name);
       const incoming = investorPartnerToVCPerson(
         p,
         firmKey || p.id,
-        liveProfile?.firm_name,
+        heroName || liveProfile?.firm_name,
         liveProfile?.website_url,
         liveProfile?.logo_url,
       );
       byName.set(key, byName.has(key) ? mergePartnerPerson(byName.get(key)!, incoming) : incoming);
     }
     for (const p of vcPartners) {
-      const k = p.full_name.toLowerCase().trim();
+      const k = partnerTabDedupeKey(p.full_name);
       byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, p) : p);
     }
 
-    // 2. Static partner fallback if still empty
+    // 2. If name-resolved live query missed people, pull direct firm_investors by firm name.
+    for (const p of fallbackFirmInvestorsQuery.data ?? []) {
+      const k = partnerTabDedupeKey(p.full_name);
+      byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, p) : p);
+    }
+
+    // 3. Static partner fallback if still empty
     if (byName.size === 0 && effectiveInvestor?.name) {
-      for (const p of getPartnersForFirm(effectiveInvestor.name)) {
-        const k = p.full_name.toLowerCase().trim();
+      for (const p of getPartnersForFirm(String(effectiveInvestor.name ?? ""))) {
+        const k = partnerTabDedupeKey(p.full_name);
         const incoming = partnerPersonToVCPerson(p, firmKey || vcFirm?.id || p.id);
         byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, incoming) : incoming);
       }
     }
 
-    // 3. Website people ENRICH existing records or ADD new ones — never filter
+    // 4. Website people ENRICH existing records or ADD new ones — never filter
     for (const p of websitePartners) {
       const normalized = websiteTeamPersonToVCPerson(
         p,
         firmKey || p.id,
-        liveProfile?.firm_name ?? effectiveInvestor?.name ?? vcFirm?.name ?? null,
+        heroName || liveProfile?.firm_name || effectiveInvestor?.name || vcFirm?.name || null,
         firmWebsiteUrl,
         heroLogo,
       );
-      const key = normalized.full_name.toLowerCase().trim();
+      const key = partnerTabDedupeKey(normalized.full_name);
       if (byName.has(key)) {
         // DB person wins for most fields; website fills in missing ones (e.g. profile_image_url)
         byName.set(key, mergePartnerPerson(byName.get(key)!, normalized));
@@ -539,13 +831,14 @@ export function InvestorDetailPanel({
       venture_partner: 3, principal: 4, associate: 5, analyst: 6, scout: 7, other: 8,
     };
     function seniorityRank(p: VCPerson): number {
-      const s = (p.seniority ?? p.investor_type ?? "").toLowerCase().replace(/\s+/g, "_");
+      const s = safeTrim(p.seniority ?? p.investor_type).toLowerCase().replace(/\s+/g, "_");
       return SENIORITY_ORDER[s] ?? 9;
     }
     const ORG_NAME_RE = /\b(capital|ventures?|fund|funds|management|investments|holdings|advisors|advisory|partnership|associates?|technologies|labs|innovation|foundation|trust)\b/i;
     function looksLikeOrgName(name: string): boolean {
-      if (ORG_NAME_RE.test(name)) return true;
-      const words = name.trim().split(/\s+/);
+      const n = safeTrim(name);
+      if (ORG_NAME_RE.test(n)) return true;
+      const words = n.split(/\s+/).filter(Boolean);
       // Single-word entries are probably not people
       if (words.length < 2) return true;
       // More than 5 words is probably a sentence fragment, not a name
@@ -553,16 +846,23 @@ export function InvestorDetailPanel({
       return false;
     }
     return Array.from(byName.values())
-      .filter((p) => p.is_active !== false && !looksLikeOrgName(p.full_name))
+      .filter((p) => {
+        const name = safeTrim(p.full_name);
+        if (!name) return false;
+        // Keep people even when upstream `is_active` flags are stale; only drop obvious org labels.
+        return !looksLikeOrgName(name);
+      })
       .sort((a, b) => seniorityRank(a) - seniorityRank(b) || a.full_name.localeCompare(b.full_name));
   }, [
     websitePartners,
     liveProfile?.partners,
     liveProfile?.firm_name,
+    heroName,
     liveProfile?.website_url,
     liveProfile?.logo_url,
     liveProfile?.id,
     vcPartners,
+    fallbackFirmInvestorsQuery.data,
     databaseFirmId,
     explicitVcDirId,
     vcFirm?.id,
@@ -572,19 +872,135 @@ export function InvestorDetailPanel({
     heroLogo,
   ]);
 
+  const headshotMirrorFirmIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const firmId = databaseFirmId;
+    if (!firmId || !looksLikeFirmRecordsUuid(firmId)) return;
+    if (mergedPartners.length === 0) return;
+    if (headshotMirrorFirmIdRef.current === firmId) return;
+    const dbPartners = liveProfile?.partners ?? [];
+    if (dbPartners.length > 0 && !dbPartners.some((p) => investorHeadshotNeedsOffloadedMirror(p))) {
+      headshotMirrorFirmIdRef.current = firmId;
+      return;
+    }
+    headshotMirrorFirmIdRef.current = firmId;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/mirror-firm-investor-headshots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firmRecordId: firmId }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          mirrored?: number;
+          configured?: boolean;
+        };
+        if (res.ok && data.configured !== false && (data.mirrored ?? 0) > 0) {
+          await queryClient.invalidateQueries({ queryKey: ["investor-profile", firmId] });
+          const n = investor?.name ?? vcFirm?.name;
+          if (n) {
+            await queryClient.invalidateQueries({ queryKey: ["investor-profile-name", safeLower(n)] });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+  }, [databaseFirmId, mergedPartners.length, liveProfile?.partners, queryClient, investor?.name, vcFirm?.name]);
+
+  const pitchEnsureFirmIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const firmId = databaseFirmId;
+    if (!firmId || !looksLikeFirmRecordsUuid(firmId)) return;
+    if (liveLoading || !liveProfile || liveProfile.source !== "live") return;
+    if (safeTrim(liveProfile.elevator_pitch).length >= 15) {
+      pitchEnsureFirmIdRef.current = firmId;
+      return;
+    }
+    if (pitchEnsureFirmIdRef.current === firmId) return;
+    pitchEnsureFirmIdRef.current = firmId;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/ensure-firm-elevator-pitch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firmRecordId: firmId }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { updated?: boolean };
+        if (res.ok && data.updated) {
+          await queryClient.invalidateQueries({ queryKey: ["investor-profile", firmId] });
+          const n = investor?.name ?? vcFirm?.name;
+          if (n) {
+            await queryClient.invalidateQueries({ queryKey: ["investor-profile-name", safeLower(n)] });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+  }, [
+    databaseFirmId,
+    liveLoading,
+    liveProfile?.source,
+    liveProfile?.id,
+    liveProfile?.elevator_pitch,
+    queryClient,
+    investor?.name,
+    vcFirm?.name,
+  ]);
+
   const partnerNamesLower = useMemo(
-    () => new Set(mergedPartners.map((p) => p.full_name.toLowerCase().trim())),
+    () => new Set(mergedPartners.map((p) => safeTrim(p.full_name).toLowerCase())),
     [mergedPartners]
   );
 
   useEffect(() => {
-    if (!displayName) { setEnrichedData(null); return; }
-    const key = displayName.toLowerCase().trim();
-    if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
+    if (!displayName) {
+      setEnrichedData(null);
+      return;
+    }
+
+    const expectLiveRow = Boolean(
+      preferredLiveFirmRecordId || firmRecordIdFromVcDirectory || investor?.name || vcFirm?.name,
+    );
+    if (!liveLoading) {
+      const fromDb = enrichResultFromDbInvestorProfile(liveProfile ?? null, displayName);
+      if (fromDb) {
+        setEnrichedData(fromDb);
+        return;
+      }
+    } else if (expectLiveRow) {
+      setEnrichedData(null);
+      return;
+    }
+
+    const key = displayName.toLowerCase();
+    if (enrichCache[key]) {
+      setEnrichedData(enrichCache[key]);
+      return;
+    }
     let cancelled = false;
-    enrich(displayName).then(result => { if (!cancelled) setEnrichedData(result); });
-    return () => { cancelled = true; };
-  }, [displayName]);
+    enrich(displayName).then((result) => {
+      if (!cancelled) setEnrichedData(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    displayName,
+    enrich,
+    enrichCache,
+    firmRecordIdFromVcDirectory,
+    investor?.name,
+    liveLoading,
+    liveProfile,
+    preferredLiveFirmRecordId,
+    vcFirm?.name,
+  ]);
 
   // Track 'viewed' interaction for collaborative filtering
   const viewedRef = useRef<string | null>(null);
@@ -604,7 +1020,7 @@ export function InvestorDetailPanel({
         const { data: firms } = await supabase
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", displayName.trim())
+          .ilike("firm_name", displayName)
           .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
@@ -613,7 +1029,7 @@ export function InvestorDetailPanel({
         const { data: firms } = await supabase
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", `%${displayName.trim()}%`)
+          .ilike("firm_name", `%${displayName}%`)
           .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
@@ -654,20 +1070,23 @@ export function InvestorDetailPanel({
 
   // Prefer live profile HQ when the row matches this panel; if DB HQ/location is still empty, keep the
   // Suggested/Trending card line (`effectiveInvestor.location`) so rails and modal stay consistent.
-  /** Connect tab: full mailing/HQ line from `firm_records` when `location` is empty. */
-  const connectLocation = useMemo(() => {
+  /** Connect tab: HQ from matched `firm_records` (live or supplemental `dealSizeProfile`), then enrich/geo. */
+  const connectLocationFromRecords = useMemo(() => {
     const directoryName = investor?.name ?? vcFirm?.name ?? null;
     const directorySeed =
-      typeof effectiveInvestor?.location === "string" && effectiveInvestor.location.trim().length > 0
-        ? effectiveInvestor.location.trim()
+      safeTrim(effectiveInvestor?.location).length > 0
+        ? safeTrim(effectiveInvestor?.location)
         : null;
 
-    const profile =
-      liveProfile?.source === "live" && !liveIsPlaceholder ? liveProfile : null;
-    const matched =
-      Boolean(profile) &&
+    const enrichGeo = safeTrim(enrichedData?.profile?.geography);
+
+    const rawLive = liveProfile?.source === "live" ? liveProfile : null;
+    const matchedLive =
+      Boolean(rawLive) &&
       Boolean(directoryName) &&
-      liveFirmRowMatchesDirectorySelection(profile!.firm_name, directoryName);
+      liveFirmRowMatchesDirectorySelection(rawLive.firm_name, directoryName);
+    const profile = matchedLive ? rawLive : null;
+    const locationsHintLive = profile ? pickHqLineFromLocationsJson(profile.locations) : null;
 
     const liveResolved = profile
       ? resolveFirmDisplayLocation({
@@ -678,26 +1097,179 @@ export function InvestorDetailPanel({
         })
       : null;
 
-    if (matched) {
-      return firstNonEmpty(liveResolved, profile!.address?.trim(), directorySeed);
+    const deal = dealSizeProfile;
+    const matchedDeal =
+      Boolean(deal) &&
+      Boolean(directoryName) &&
+      liveFirmRowMatchesDirectorySelection(deal.firm_name, directoryName);
+    const locationsHintDeal = matchedDeal && deal ? pickHqLineFromLocationsJson(deal.locations) : null;
+    const dealResolved = matchedDeal
+      ? resolveFirmDisplayLocation({
+          hq_city: deal.hq_city,
+          hq_state: deal.hq_state,
+          hq_country: deal.hq_country,
+          legacyLocation: deal.location,
+        })
+      : null;
+
+    if (matchedLive && profile) {
+      return firstNonEmpty(
+        liveResolved,
+        locationsHintLive,
+        profile.address,
+        directorySeed,
+        enrichGeo,
+        matchedDeal ? dealResolved : null,
+        matchedDeal ? locationsHintDeal : null,
+        matchedDeal && deal ? deal.address : null,
+      );
+    }
+
+    if (matchedDeal && deal) {
+      return firstNonEmpty(dealResolved, locationsHintDeal, deal.address, directorySeed, enrichGeo);
     }
 
     // Name mismatch or no live row yet: never show another firm's HQ over the grid/rail seed line.
     if (directorySeed) return directorySeed;
-    return firstNonEmpty(liveResolved, profile?.address?.trim());
+    return firstNonEmpty(enrichGeo);
   }, [
     liveProfile,
-    liveIsPlaceholder,
+    dealSizeProfile,
     investor?.name,
     vcFirm?.name,
     effectiveInvestor?.location,
+    enrichedData?.profile?.geography,
     liveProfile?.hq_city,
     liveProfile?.hq_state,
     liveProfile?.hq_country,
     liveProfile?.location,
     liveProfile?.address,
     liveProfile?.firm_name,
+    liveProfile?.locations,
+    dealSizeProfile?.firm_name,
+    dealSizeProfile?.hq_city,
+    dealSizeProfile?.hq_state,
+    dealSizeProfile?.hq_country,
+    dealSizeProfile?.location,
+    dealSizeProfile?.address,
+    dealSizeProfile?.locations,
   ]);
+
+  const [websiteHqLine, setWebsiteHqLine] = useState<string | null>(null);
+
+  useEffect(() => {
+    setWebsiteHqLine(null);
+  }, [firmWebsiteUrl, connectLocationFromRecords]);
+
+  useEffect(() => {
+    const site = safeTrim(firmWebsiteUrl);
+    if (!site) return;
+    const dbLine = safeTrim(connectLocationFromRecords);
+    if (dbLine && !isMeaninglessDisplayLocation(dbLine)) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        let firmRecordId: string | undefined;
+        for (const id of [
+          databaseFirmId,
+          liveProfile?.source === "live" ? liveProfile.id : null,
+          firmRecordIdFromVcDirectory,
+        ]) {
+          if (id && looksLikeFirmRecordsUuid(String(id))) {
+            firmRecordId = String(id);
+            break;
+          }
+        }
+
+        const res = await fetch("/api/firm-website-hq", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firmWebsiteUrl: site, ...(firmRecordId ? { firmRecordId } : {}) }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          hqLine?: string | null;
+          persisted?: boolean;
+        };
+        const line = safeTrim(data?.hqLine);
+        if (!cancelled && line) setWebsiteHqLine(line);
+        if (!cancelled && data.persisted) {
+          if (databaseFirmId) {
+            await queryClient.invalidateQueries({ queryKey: ["investor-profile", databaseFirmId] });
+          }
+          const n = investor?.name ?? vcFirm?.name;
+          if (n) {
+            await queryClient.invalidateQueries({ queryKey: ["investor-profile-name", safeLower(n)] });
+          }
+          await queryClient.invalidateQueries({ queryKey: ["investor-directory"] });
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    firmWebsiteUrl,
+    connectLocationFromRecords,
+    databaseFirmId,
+    firmRecordIdFromVcDirectory,
+    liveProfile?.source,
+    liveProfile?.id,
+    queryClient,
+    investor?.name,
+    vcFirm?.name,
+  ]);
+
+  const connectLocation = useMemo(() => {
+    const dbLine = safeTrim(connectLocationFromRecords);
+    if (dbLine && !isMeaninglessDisplayLocation(dbLine)) return dbLine;
+    const fallback = firstNonEmpty(websiteHqLine, dbLine);
+    if (fallback && !isMeaninglessDisplayLocation(fallback)) return fallback;
+    return resolveFirmHqLocationOverride(
+      heroName,
+      investor?.name,
+      vcFirm?.name,
+      effectiveInvestor?.name,
+      liveProfile?.firm_name,
+      dealSizeProfile?.firm_name,
+    );
+  }, [
+    connectLocationFromRecords,
+    websiteHqLine,
+    heroName,
+    investor?.name,
+    vcFirm?.name,
+    effectiveInvestor?.name,
+    liveProfile?.firm_name,
+    dealSizeProfile?.firm_name,
+  ]);
+
+  const locationsForTooltip = useMemo(() => {
+    const dir = investor?.name ?? vcFirm?.name ?? null;
+    const rawLive = liveProfile?.source === "live" ? liveProfile : null;
+    const matchedLiveRow =
+      Boolean(rawLive) &&
+      Boolean(dir) &&
+      liveFirmRowMatchesDirectorySelection(rawLive.firm_name, dir);
+    if (matchedLiveRow) return rawLive!.locations;
+    const deal = dealSizeProfile;
+    const matchedDealRow =
+      Boolean(deal) &&
+      Boolean(dir) &&
+      liveFirmRowMatchesDirectorySelection(deal.firm_name, dir);
+    if (matchedDealRow) return deal!.locations;
+    return null;
+  }, [liveProfile, dealSizeProfile, investor?.name, vcFirm?.name]);
+
+  const locationDetailTitle = useMemo(() => {
+    const all = allOfficeLinesFromLocationsJson(locationsForTooltip);
+    if (all.length > 1) return all.join("\n");
+    if (all.length === 1) return all[0];
+    return connectLocation ?? undefined;
+  }, [locationsForTooltip, connectLocation]);
 
   const heroAumDisplay = firstNonEmpty(liveProfile?.aum, vcFirm?.aum) ?? null;
   const heroInvestmentsTotal =
@@ -707,23 +1279,46 @@ export function InvestorDetailPanel({
         ? enrichedData.profile.recentDeals.length
         : null;
 
+  const connectWebsiteUrl =
+    safeTrim(liveProfile?.website_url) ||
+    safeTrim(vcFirm?.website_url) ||
+    safeTrim(effectiveInvestor?.websiteUrl) ||
+    null;
   const connectEmailFromRecord =
-    liveProfile?.source === "live" && liveProfile.email?.trim()
-      ? liveProfile.email.trim()
-      : null;
+    (liveProfile?.source === "live" && safeTrim(liveProfile.email) ? safeTrim(liveProfile.email) : null) ||
+    resolveFirmContactEmailByWebsiteUrl(connectWebsiteUrl);
   const connectLinkedInUrl =
-    liveProfile?.source === "live" && liveProfile.linkedin_url?.trim()
-      ? liveProfile.linkedin_url.trim()
+    liveProfile?.source === "live" && safeTrim(liveProfile.linkedin_url)
+      ? safeTrim(liveProfile.linkedin_url)
       : null;
   const connectXUrl = effectiveFirmXUrl;
-  const connectWebsiteUrl =
-    liveProfile?.website_url?.trim() ||
-    vcFirm?.website_url?.trim() ||
-    effectiveInvestor?.websiteUrl?.trim() ||
-    null;
+  const connectFacebookUrl =
+    liveProfile?.source === "live" && safeTrim(liveProfile.facebook_url)
+      ? safeTrim(liveProfile.facebook_url)
+      : null;
+  const connectInstagramUrl =
+    liveProfile?.source === "live" && safeTrim(liveProfile.instagram_url)
+      ? safeTrim(liveProfile.instagram_url)
+      : null;
+  const connectYoutubeUrl =
+    liveProfile?.source === "live" && safeTrim(liveProfile.youtube_url)
+      ? safeTrim(liveProfile.youtube_url)
+      : null;
 
-  // Prefer firm's actual headcount from DB; fall back to null (don't show DB row count)
-  const heroHeadcount = liveProfile?.total_headcount ?? null;
+  /**
+   * Prefer the same list the Investors tab shows (`mergedPartners`) so the number matches the UI.
+   * When that list is still empty, fall back to `firm_records.total_headcount`.
+   */
+  const { heroHeadcount, heroHeadcountFromWebsite } = useMemo(() => {
+    const rawDb = dealSizeProfile?.total_headcount;
+    const dbHeadcount =
+      typeof rawDb === "number" && Number.isFinite(rawDb) && rawDb > 0 ? rawDb : null;
+    const mergedCount = mergedPartners.length;
+    const heroHeadcount = mergedCount > 0 ? mergedCount : dbHeadcount;
+    const heroHeadcountFromWebsite =
+      dbHeadcount == null ? mergedCount > 0 : mergedCount > (dbHeadcount ?? 0);
+    return { heroHeadcount, heroHeadcountFromWebsite };
+  }, [dealSizeProfile?.total_headcount, mergedPartners]);
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at
     ? new Date(liveProfile.last_enriched_at)
@@ -752,12 +1347,54 @@ export function InvestorDetailPanel({
     ],
   );
 
-  const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
+  const heroElevatorPitch = useMemo(() => {
+    if (liveProfile?.source === "live") {
+      const fromDb = resolveElevatorPitchForDisplay({
+        elevator_pitch: liveProfile.elevator_pitch,
+        description: liveProfile.description,
+        sentiment_detail: liveProfile.sentiment_detail,
+        firm_name: liveProfile.firm_name,
+        thesis_verticals: liveProfile.thesis_verticals,
+        stage_focus: liveProfile.stage_focus,
+        preferred_stage: liveProfile.preferred_stage,
+        hq_city: liveProfile.hq_city,
+        hq_state: liveProfile.hq_state,
+        hq_country: liveProfile.hq_country,
+        entity_type: null,
+        min_check_size: liveProfile.min_check_size,
+        max_check_size: liveProfile.max_check_size,
+      });
+      if (fromDb) return fromDb;
+    }
+    const fallback = safeTrim(effectiveInvestor?.description);
+    return fallback ? clampElevatorPitch(fallback) : null;
+  }, [
+    liveProfile?.source,
+    liveProfile?.elevator_pitch,
+    liveProfile?.description,
+    liveProfile?.sentiment_detail,
+    liveProfile?.firm_name,
+    liveProfile?.thesis_verticals,
+    liveProfile?.stage_focus,
+    liveProfile?.preferred_stage,
+    liveProfile?.hq_city,
+    liveProfile?.hq_state,
+    liveProfile?.hq_country,
+    liveProfile?.firm_type,
+    liveProfile?.min_check_size,
+    liveProfile?.max_check_size,
+    effectiveInvestor?.description,
+  ]);
 
   const metaFacts = [
     { label: "AUM", value: heroAumDisplay ?? "—" },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
-    { label: "Team", value: heroHeadcount ? `${heroHeadcount} people` : "—" },
+    {
+      label: "Team",
+      value: heroHeadcount
+        ? `${heroHeadcountFromWebsite ? "~" : ""}${heroHeadcount} people`
+        : "—",
+    },
   ];
 
   const handleClose = () => {
@@ -835,50 +1472,59 @@ export function InvestorDetailPanel({
                             <CheckCircle2 className="h-[15px] w-[15px] shrink-0 text-accent fill-accent/15 mb-0.5" />
                           </div>
 
-                          {/* Tagline */}
-                          {heroTagline && (
-                            <p className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 truncate max-w-sm">
-                              {heroTagline}
+                          {/* Elevator pitch (≤200 chars; persisted on `firm_records.elevator_pitch` when generated) */}
+                          {heroElevatorPitch && (
+                            <p
+                              className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 max-w-xl line-clamp-3"
+                              title={heroElevatorPitch}
+                            >
+                              {heroElevatorPitch}
                             </p>
                           )}
 
-                          {/* Meta — single row; location truncates when the header column is narrow */}
+                          {/* Meta — one row; hairline dividers + padding read cleaner than middots */}
                           <div
                             className={cn(
-                              "flex min-w-0 w-full flex-nowrap items-center gap-x-1.5 overflow-hidden text-[10px] leading-none text-foreground/70 sm:text-[11px]",
-                              !heroTagline && "mt-2",
+                              "flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]",
+                              !heroElevatorPitch && "mt-2",
                             )}
                           >
-                            <span className="flex min-w-0 flex-1 items-baseline gap-1 overflow-hidden">
-                              <span className="shrink-0 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                Location
-                              </span>
-                              <span className="min-w-0 truncate font-medium text-foreground/80">
+                            <div
+                              role="group"
+                              className="flex min-w-0 min-h-[1.125rem] max-w-[48%] items-center gap-1.5 overflow-hidden pr-2"
+                              aria-label={`Location: ${connectLocation ?? "unknown"}`}
+                            >
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                              <span
+                                className="min-w-0 truncate font-medium text-foreground/85"
+                                title={locationDetailTitle}
+                              >
                                 {connectLocation ?? "—"}
                               </span>
-                            </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
-                            </span>
-                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                AUM
-                              </span>
+                            </div>
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3"
+                              title="Assets under management"
+                              aria-label={`AUM: ${heroAumDisplay ?? "unknown"}`}
+                            >
+                              <DollarSign className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span className="font-medium text-foreground/80">{heroAumDisplay ?? "—"}</span>
                             </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
-                            </span>
-                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
-                                Headcount
-                              </span>
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3"
+                              title={
+                                heroHeadcountFromWebsite
+                                  ? "Matches the Investors list (directory + firm website)"
+                                  : "Team headcount"
+                              }
+                              aria-label={`Headcount: ${heroHeadcount != null ? String(heroHeadcount) : "unknown"}`}
+                            >
+                              <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span className="font-medium text-foreground/80">
-                                {heroHeadcount != null ? `${heroHeadcount}` : "—"}
+                                {heroHeadcount != null
+                                  ? `${heroHeadcountFromWebsite ? "~" : ""}${heroHeadcount}`
+                                  : "—"}
                               </span>
-                            </span>
-                            <span className="shrink-0 select-none text-border/45" aria-hidden>
-                              ·
                             </span>
                             <button
                               type="button"
@@ -892,12 +1538,10 @@ export function InvestorDetailPanel({
                                   ? `Open Portfolio: ${heroInvestmentsTotal} total investments`
                                   : "Open Portfolio: total investments"
                               }
-                              className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap rounded-sm text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3 text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                             >
-                              <span className="text-[7px] font-semibold uppercase tracking-wide text-muted-foreground/90 underline-offset-2 decoration-border/60 hover:underline sm:text-[8px]">
-                                Total investments
-                              </span>
-                              <span className="font-medium text-foreground/80 tabular-nums">
+                              <Briefcase className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                              <span className="font-medium text-foreground/80 tabular-nums underline-offset-2 decoration-border/60 hover:underline">
                                 {heroInvestmentsTotal != null ? heroInvestmentsTotal : "—"}
                               </span>
                             </button>
@@ -1056,6 +1700,8 @@ export function InvestorDetailPanel({
                           firmName={effectiveInvestor.name}
                           firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? undefined}
                           xUrl={effectiveFirmXUrl}
+                          firmLogoUrl={heroLogo}
+                          firmWebsiteUrl={firmWebsiteUrl}
                         />
                       </motion.div>
                     )}
@@ -1098,6 +1744,7 @@ export function InvestorDetailPanel({
                         }
                         isActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
                         firmAum={dealSizeProfile?.aum ?? vcFirm?.aum ?? null}
+                        firmWebsiteUrl={connectWebsiteUrl ?? null}
                       />
                     
                     )}
@@ -1158,6 +1805,9 @@ export function InvestorDetailPanel({
                           email={connectEmailFromRecord || undefined}
                           linkedinUrl={connectLinkedInUrl || undefined}
                           xUrl={connectXUrl || undefined}
+                          facebookUrl={connectFacebookUrl || undefined}
+                          instagramUrl={connectInstagramUrl || undefined}
+                          youtubeUrl={connectYoutubeUrl || undefined}
                           websiteUrl={connectWebsiteUrl || undefined}
                         />
                       </motion.div>

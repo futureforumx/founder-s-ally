@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { safeTrim } from "@/lib/utils";
 import {
   isInvestorReviewsPersonIdSchemaCacheError,
   pickInvestorReviewRowForPerson,
@@ -6,21 +7,22 @@ import {
 import { isMissingVcRatingsTableError } from "@/lib/vcRatingsTableErrors";
 
 /** Loose match for `star_ratings.firm_name` vs UI firm labels (same idea as CommunityView name keys). */
-export function firmNameMatchKey(raw: string | null | undefined): string {
-  if (!raw) return "";
-  return raw.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+export function firmNameMatchKey(raw: unknown): string {
+  const s = safeTrim(raw);
+  if (!s) return "";
+  return s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
 }
 
 function starRatingsFirmKeys(starRatings: unknown): string[] {
   if (!starRatings || typeof starRatings !== "object") return [];
   const top = starRatings as Record<string, unknown>;
-  const rawName = (top.firm_name as string | undefined)?.trim();
+  const rawName = safeTrim(top.firm_name);
   const fromAnswers = top.answers as Record<string, unknown> | undefined;
   const nestedFirm =
     fromAnswers && typeof fromAnswers === "object" && !Array.isArray(fromAnswers)
-      ? (fromAnswers.firm_name as string | undefined)?.trim()
-      : undefined;
-  return [firmNameMatchKey(rawName), firmNameMatchKey(nestedFirm)].filter(Boolean);
+      ? safeTrim(fromAnswers.firm_name)
+      : "";
+  return [firmNameMatchKey(rawName || null), firmNameMatchKey(nestedFirm || null)].filter(Boolean);
 }
 
 export type SelfPublishedVcRatingHydration = {
@@ -61,9 +63,9 @@ export async function fetchSelfPublishedVcRatingHydration(opts: {
   vcPersonId: string | null | undefined;
 }): Promise<SelfPublishedVcRatingHydration | null> {
   const { userId, firmDisplayName, vcFirmIdHint, vcPersonId } = opts;
-  const firm = vcFirmIdHint?.trim() || null;
+  const firm = safeTrim(vcFirmIdHint) || null;
   const nameKey = firmNameMatchKey(firmDisplayName);
-  const pid = vcPersonId?.trim() || null;
+  const pid = safeTrim(vcPersonId) || null;
 
   if (!userId || (!firm && !nameKey)) return null;
 

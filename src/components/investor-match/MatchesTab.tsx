@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 // ── Types ──
 
@@ -296,7 +297,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 bg-background text-xs font-medium text-foreground hover:bg-primary/10 transition-colors"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10 text-primary text-[10px] font-bold">
-                  {rec.firm_name.charAt(0)}
+                  {safeTrim(rec.firm_name).charAt(0) || "?"}
                 </span>
                 {rec.firm_name}
                 <Badge variant="secondary" className="text-[9px] ml-1 px-1.5 py-0">
@@ -312,7 +313,7 @@ export const MatchesTab = forwardRef<HTMLDivElement, MatchesTabProps>(function M
       <LayoutGroup>
         <div className="grid gap-4 sm:grid-cols-1">
           {orderedInvestors.map(investor => {
-            const key = investor.firm_name.toLowerCase().trim();
+            const key = safeLower(investor.firm_name);
             const enriched = enrichedData?.[key];
             const isEnriching = enrichingKeys?.has(key);
             const isSaved = savedFirmIds?.has(investor.id) || false;

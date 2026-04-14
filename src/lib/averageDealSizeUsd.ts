@@ -1,3 +1,5 @@
+import { safeTrim } from "@/lib/utils";
+
 /**
  * Resolve average deal / check size in USD from firm DB fields, deals, partners, and text hints.
  */
@@ -31,8 +33,9 @@ function scaleUsd(n: number, suffix: string | undefined): number {
 
 /** Parses a single $-style amount like "$4M", "4.5m", "USD 12M" */
 export function parseUsdAmount(raw: string | null | undefined): number | null {
-  if (!raw?.trim()) return null;
-  const s = raw.replace(/,/g, " ").trim();
+  const str = safeTrim(raw);
+  if (!str) return null;
+  const s = str.replace(/,/g, " ").trim();
   const m = s.match(/\$?\s*([\d.]+)\s*([KMB])?\b/i);
   if (!m) return null;
   const n = parseFloat(m[1]);
@@ -52,8 +55,9 @@ export function formatDealSizeDisplay(n: number): string {
 }
 
 export function parseUsdFlexible(raw: string | null | undefined): number | null {
-  if (!raw?.trim()) return null;
-  const s = raw.replace(/,/g, "").trim();
+  const str = safeTrim(raw);
+  if (!str) return null;
+  const s = str.replace(/,/g, "").trim();
 
   const range = s.match(
     /\$?\s*([\d.]+)\s*([KMB])?\s*[-–—]\s*\$?\s*([\d.]+)\s*([KMB])?/i,
@@ -121,7 +125,7 @@ export function yearlyDealAverageMultipliers(
   for (const d of deals) {
     const amt = parseUsdAmount(d.amount);
     if (amt == null) continue;
-    if (!d.date_announced?.trim()) continue;
+    if (!safeTrim(d.date_announced)) continue;
     const y = new Date(d.date_announced).getFullYear();
     if (!Number.isFinite(y) || y < startYear || y > endYear) continue;
     usedDeals += 1;
@@ -185,7 +189,7 @@ export function resolveAverageDealSize(input: {
   if (yearly && yearly.multipliers.length === SPARKYears) {
     const windowAmounts = deals.flatMap((d) => {
       const amt = parseUsdAmount(d.amount);
-      if (amt == null || !d.date_announced?.trim()) return [];
+      if (amt == null || !safeTrim(d.date_announced)) return [];
       const y = new Date(d.date_announced).getFullYear();
       if (!Number.isFinite(y) || y < yearly.startYear || y > endYear) return [];
       return [amt];
