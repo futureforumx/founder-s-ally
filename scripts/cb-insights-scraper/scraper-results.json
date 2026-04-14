@@ -82802,5 +82802,12 @@
     "name": "Katy Sexton-Darby",
     "status": "updated",
     "timestamp": "2026-04-14T02:44:34.972Z"
+  },
+  {
+    "type": "investor",
+    "id": "1c49bb7e-27b0-4722-869f-4d86d0fef57f",
+    "name": "Compliance Counsel",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:44:44.903Z"
   }
 ]
