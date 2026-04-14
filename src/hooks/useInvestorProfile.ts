@@ -264,11 +264,14 @@ async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
 // ── Hooks ──
 
 /** Fetch a full investor profile by UUID */
+const INVESTOR_PROFILE_STALE_MS = 5 * 60_000;
+
 export function useInvestorProfile(firmId: string | null) {
   return useQuery<InvestorProfile>({
     queryKey: ["investor-profile", firmId],
     queryFn: () => fetchInvestorProfile(firmId!),
     enabled: !!firmId,
+    staleTime: INVESTOR_PROFILE_STALE_MS,
     placeholderData: (prev) => prev, // SWR: keep old data while refetching
   });
 }
@@ -279,6 +282,7 @@ export function useInvestorProfileByName(firmName: string | null) {
     queryKey: ["investor-profile-name", safeLower(firmName)],
     queryFn: () => fetchInvestorByName(safeTrim(firmName)),
     enabled: !!firmName,
+    staleTime: INVESTOR_PROFILE_STALE_MS,
     placeholderData: (prev) => prev,
   });
 }

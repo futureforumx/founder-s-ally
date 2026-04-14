@@ -54,3 +54,17 @@ export function investorAvatarDisplayChain(
   }
   return out;
 }
+
+/**
+ * True when `/api/mirror-firm-investor-headshots` would still have remote URLs to fetch and upload.
+ * Matches server `pickMirrorSource` / `alreadyCanonicalR2Headshot` behavior except the public R2 base
+ * (not available in the browser); `r2.cloudflarestorage.com` is treated as already mirrored.
+ */
+export function investorHeadshotNeedsOffloadedMirror(fields: InvestorAvatarFields): boolean {
+  for (const u of [safeTrim(fields.avatar_url), safeTrim(fields.profile_image_url)]) {
+    if (!u || isBlockedExternalAvatarUrl(u)) continue;
+    if (u.includes("r2.cloudflarestorage.com")) continue;
+    if (/^https?:\/\//i.test(u)) return true;
+  }
+  return false;
+}
