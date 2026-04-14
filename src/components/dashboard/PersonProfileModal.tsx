@@ -141,6 +141,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const { session, user: authUser } = useAuth();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
+  const [optimisticPersonRating, setOptimisticPersonRating] = useState<unknown>(null);
   const [websiteProfile, setWebsiteProfile] = useState<WebsiteDerivedPersonProfile | null>(null);
   const handleClose = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -167,6 +168,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   useEffect(() => {
     setWebsiteProfile(null);
+    setOptimisticPersonRating(null);
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
@@ -234,16 +236,25 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     resolvedFirmWebsiteUrl,
   ]);
 
-  const { starRatings: myPersonRatingJson } = useLatestMyVcRating(
+  const {
+    starRatings: myPersonRatingJson,
+    loading: myPersonRatingLoading,
+  } = useLatestMyVcRating(
     authUser?.id ?? session?.user?.id,
     reviewVcFirmId,
     person?.id ?? null,
     ratingRefresh,
     reviewFirmDisplayName || null,
   );
+
+  useEffect(() => {
+    if (myPersonRatingJson != null && !myPersonRatingLoading) setOptimisticPersonRating(null);
+  }, [myPersonRatingJson, myPersonRatingLoading]);
+
+  const personHeaderRatingJson = optimisticPersonRating ?? myPersonRatingJson;
   const myPersonRateDisplay = useMemo(
-    () => formatMyReviewRateButton(myPersonRatingJson),
-    [myPersonRatingJson],
+    () => formatMyReviewRateButton(personHeaderRatingJson),
+    [personHeaderRatingJson],
   );
 
   const {
@@ -721,7 +732,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
           <ReviewSubmissionModal
             open={reviewOpen}
             onClose={() => setReviewOpen(false)}
-            onReviewSaved={() => setRatingRefresh((n) => n + 1)}
+            onReviewSaved={(sr) => {
+              setOptimisticPersonRating(sr);
+              setRatingRefresh((n) => n + 1);
+            }}
             firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
             firmLogoUrl={firm?.logo_url ?? null}
             firmWebsiteUrl={firm?.website_url ?? null}
