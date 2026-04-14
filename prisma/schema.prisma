@@ -466,14 +466,14 @@ model VCFund {
   /// ISO 4217 currency code (default: USD).
   currency String? @default("USD") @db.VarChar(3)
 
-  size_usd            Float?
-  aum_usd             Float?
+  size_usd             Float?
+  aum_usd              Float?
   /// Tier from `aum_usd` / `size_usd` on this vehicle (see `AumBand`).
-  aum_band            AumBand?
-  committed_capital   Float?
-  gp_commit_usd       Float?
+  aum_band             AumBand?
+  committed_capital    Float?
+  gp_commit_usd        Float?
   /// Stated target fund size (USD).
-  target_size_usd     Float?
+  target_size_usd      Float?
   /// Final close amount (USD).
   final_close_size_usd Float?
 
@@ -519,11 +519,11 @@ model VCFund {
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
-  investments      VCInvestment[]
-  score_snapshots  VCScoreSnapshot[]
-  reg_d_filings    RegDFiling[]
-  aliases          VCFundAlias[]
-  source_evidence  VCFundSourceEvidence[]
+  investments     VCInvestment[]
+  score_snapshots VCScoreSnapshot[]
+  reg_d_filings   RegDFiling[]
+  aliases         VCFundAlias[]
+  source_evidence VCFundSourceEvidence[]
 
   @@unique([firm_id, normalized_fund_name])
   @@index([firm_id])
@@ -663,6 +663,81 @@ model VCRating {
 }
 
 // =============================================================================
+// Startup Data Source Enums
+// =============================================================================
+
+/// Source from which a startup record was scraped or imported.
+enum StartupDataSource {
+  SEEDTABLE
+  TOPSTARTUPS
+  TINYTEAMS
+  YC
+  NEXTPLAY
+  STARTUPS_GALLERY
+  CB_INSIGHTS
+  CRUNCHBASE
+  MANUAL
+  OTHER
+}
+
+/// Company status lifecycle.
+enum StartupStatus {
+  ACTIVE
+  ACQUIRED
+  SHUT_DOWN
+  IPO
+  UNKNOWN
+}
+
+/// Business model archetype.
+enum BusinessModel {
+  SAAS
+  MARKETPLACE
+  E_COMMERCE
+  FINTECH_INFRA
+  API_PLATFORM
+  HARDWARE
+  D2C
+  ENTERPRISE
+  CONSUMER_APP
+  OPEN_SOURCE
+  OTHER
+}
+
+/// Revenue range band.
+enum RevenueRange {
+  PRE_REVENUE
+  SUB_1M
+  ARR_1M_5M
+  ARR_5M_10M
+  ARR_10M_50M
+  ARR_50M_100M
+  ARR_100M_PLUS
+  UNKNOWN
+}
+
+/// Founder archetype classification.
+enum FounderArchetype {
+  TECHNICAL
+  COMMERCIAL
+  HYBRID
+  DOMAIN_EXPERT
+  OPERATOR
+  SERIAL_ENTREPRENEUR
+}
+
+/// Target customer segment.
+enum TargetCustomer {
+  SMB
+  MID_MARKET
+  ENTERPRISE
+  CONSUMER
+  PROSUMER
+  GOVERNMENT
+  OTHER
+}
+
+// =============================================================================
 // Startup
 // =============================================================================
 
@@ -677,7 +752,264 @@ model Startup {
   last_verified_at  DateTime       @default(now()) @db.Timestamptz(6)
   investments       VCInvestment[]
 
+  // --- Company Core ---
+  /// Canonical domain (lowercase, no www) — primary dedup key across sources.
+  domain               String?               @unique
+  description_short    String?               @db.Text
+  description_long     String?               @db.Text
+  logo_url             String?
+  founding_date        DateTime?             @db.Date
+  founded_year         Int?
+  hq_city              String?
+  hq_state             String?
+  hq_country           String?
+  geo_footprint        String[]              @default([]) /// e.g. ["US", "EU", "APAC"]
+  stage                OperatorCompanyStage  @default(UNKNOWN)
+  status               StartupStatus         @default(ACTIVE)
+  sectors              SectorFocus[]
+  secondary_sectors    String[]              @default([])
+  business_model       BusinessModel?
+  business_model_tags  String[]              @default([])
+  headcount            Int?
+  headcount_band       CompanyHeadcountBand?
+  headcount_growth_pct Float? /// YoY headcount growth %
+  tech_stack           String[]              @default([])
+
+  // --- Funding & Traction ---
+  last_round_size_usd Decimal?      @db.Decimal(15, 2)
+  last_round_date     DateTime?     @db.Date
+  last_round_type     String? /// "Seed", "Series A", etc.
+  valuation_usd       Decimal?      @db.Decimal(15, 2)
+  revenue_range       RevenueRange?
+  /// Growth indicators
+  hiring_velocity     Int? /// open roles count
+  web_traffic_rank    Int? /// Similarweb / Alexa rank proxy
+
+  // --- Investor Relationships (denormalized for fast display) ---
+  investor_names      String[] @default([])
+  lead_investor_names String[] @default([])
+  board_members       String[] @default([])
+
+  // --- Customer & Market ---
+  target_customer    TargetCustomer?
+  icp_description    String?         @db.Text
+  notable_customers  String[]        @default([])
+  market_category    String?
+  market_subcategory String?
+
+  // --- Derived / Computed Scores (0–100) ---
+  fundraising_readiness_score Int?
+  investor_fit_score          Int?
+  momentum_score              Int?
+  quality_of_backers_score    Int?
+  likelihood_to_raise_score   Int?
+
+  // --- Source Tracking ---
+  data_sources        StartupDataSource[]
+  /// Primary source that last wrote to this record.
+  primary_data_source StartupDataSource?
+  /// External IDs for dedup: { "yc_slug": "...", "crunchbase_uuid": "...", "topstartups_slug": "..." }
+  external_ids        Json?
+  data_confidence     Int? /// 0–100 composite confidence
+
+  // --- Social links ---
+  linkedin_url   String?
+  x_url          String?
+  github_url     String?
+  crunchbase_url String?
+
+  // --- YC-specific ---
+  yc_batch String?
+  yc_slug  String?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  funding_rounds   StartupFundingRound[]
+  founders         StartupFounder[]
+  competitors_from StartupCompetitor[]    @relation("CompetitorFrom")
+  competitors_to   StartupCompetitor[]    @relation("CompetitorTo")
+  signals          StartupSignal[]
+  score_snapshots  StartupScoreSnapshot[]
+
+  @@index([domain])
+  @@index([stage])
+  @@index([status])
+  @@index([sector])
+  @@index([hq_country, hq_state, hq_city])
+  @@index([yc_batch])
+  @@index([momentum_score])
+  @@index([fundraising_readiness_score])
+  @@index([primary_data_source])
+  @@index([deleted_at])
   @@map("startups")
+}
+
+// =============================================================================
+// StartupFundingRound — individual funding round history
+// =============================================================================
+
+model StartupFundingRound {
+  id         String  @id @default(cuid())
+  startup_id String
+  startup    Startup @relation(fields: [startup_id], references: [id], onDelete: Cascade)
+
+  round_name     String /// "Pre-Seed", "Seed", "Series A", etc.
+  round_date     DateTime?          @db.Date
+  amount_usd     Decimal?           @db.Decimal(15, 2)
+  valuation_usd  Decimal?           @db.Decimal(15, 2)
+  lead_investors String[]           @default([])
+  participants   String[]           @default([])
+  /// "lead" | "participant" tagging per investor: [{name, role}]
+  investor_roles Json?
+  source_url     String?
+  data_source    StartupDataSource?
+  confidence     Float? /// 0–1
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([startup_id, round_name, round_date])
+  @@index([startup_id])
+  @@index([round_date])
+  @@index([round_name])
+  @@map("startup_funding_rounds")
+}
+
+// =============================================================================
+// StartupFounder — founder profile linked to a startup
+// =============================================================================
+
+model StartupFounder {
+  id         String  @id @default(cuid())
+  startup_id String
+  startup    Startup @relation(fields: [startup_id], references: [id], onDelete: Cascade)
+
+  /// Optional FK to StartupProfessional for rich graph data.
+  professional_id String?
+
+  full_name    String
+  role         String? /// "CEO", "CTO", "Co-Founder", etc.
+  linkedin_url String?
+  x_url        String?
+  location     String?
+  avatar_url   String?
+  email        String?
+
+  // --- Background ---
+  prior_companies     String[] @default([]) /// companies founded or worked at
+  prior_exits         String[] @default([]) /// "Company (outcome)" format
+  has_prior_exit      Boolean  @default(false)
+  education_highlight String? /// Only signal education: "Stanford CS", "MIT MBA"
+  operator_background String? /// "PM", "Eng", "Sales", "Product"
+  domain_expertise    String[] @default([])
+
+  // --- Reputation & Signal Layer ---
+  is_repeat_founder     Boolean           @default(false)
+  founder_archetype     FounderArchetype?
+  /// operator → founder transition flag
+  operator_to_founder   Boolean           @default(false)
+  /// Derived track record: 0–100
+  track_record_score    Int?
+  /// "success" | "failure" | "partial" | "in_progress"
+  prior_outcome_summary String?
+
+  data_source StartupDataSource?
+  confidence  Float? /// 0–1
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([startup_id, full_name])
+  @@index([startup_id])
+  @@index([professional_id])
+  @@index([is_repeat_founder])
+  @@index([founder_archetype])
+  @@index([track_record_score])
+  @@map("startup_founders")
+}
+
+// =============================================================================
+// StartupCompetitor — linked company pairs
+// =============================================================================
+
+model StartupCompetitor {
+  id            String  @id @default(cuid())
+  startup_id    String
+  competitor_id String
+  startup       Startup @relation("CompetitorFrom", fields: [startup_id], references: [id], onDelete: Cascade)
+  competitor    Startup @relation("CompetitorTo", fields: [competitor_id], references: [id], onDelete: Cascade)
+
+  /// "direct" | "indirect" | "adjacent"
+  relationship_type String             @default("direct")
+  data_source       StartupDataSource?
+  confidence        Float?
+
+  created_at DateTime @default(now())
+
+  @@unique([startup_id, competitor_id])
+  @@index([startup_id])
+  @@index([competitor_id])
+  @@map("startup_competitors")
+}
+
+// =============================================================================
+// StartupSignal — activity & momentum signals
+// =============================================================================
+
+model StartupSignal {
+  id         String  @id @default(cuid())
+  startup_id String
+  startup    Startup @relation(fields: [startup_id], references: [id], onDelete: Cascade)
+
+  /// "recent_hire" | "exec_hire" | "product_launch" | "press_mention" | "fundraising_signal" | "hiring_role"
+  signal_type String
+  title       String
+  description String?   @db.Text
+  url         String?
+  signal_date DateTime? @db.Timestamptz(6)
+  /// Arbitrary metadata from the source.
+  metadata    Json?
+
+  data_source      StartupDataSource?
+  confidence_score Int? /// 0–100
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  @@index([startup_id])
+  @@index([signal_type])
+  @@index([signal_date])
+  @@index([deleted_at])
+  @@map("startup_signals")
+}
+
+// =============================================================================
+// StartupScoreSnapshot — time-series scoring outputs
+// =============================================================================
+
+model StartupScoreSnapshot {
+  id         String  @id @default(cuid())
+  startup_id String
+  startup    Startup @relation(fields: [startup_id], references: [id], onDelete: Cascade)
+
+  fundraising_readiness Int @default(0)
+  investor_fit          Int @default(0)
+  momentum              Int @default(0)
+  quality_of_backers    Int @default(0)
+  likelihood_to_raise   Int @default(0)
+
+  explanation   String?  @db.Text
+  model_version String?
+  computed_at   DateTime @default(now())
+
+  created_at DateTime @default(now())
+
+  @@index([startup_id])
+  @@index([computed_at])
+  @@map("startup_score_snapshots")
 }
 
 // =============================================================================
@@ -850,13 +1182,13 @@ model StartupProfessional {
 
   // --- Operator Graph Extensions ---
   /// Short bio / headline (Apollo headline, PDL summary, or first-party)
-  bioSummary         String?           @map("bio_summary") @db.Text
-  avatarUrl          String?           @map("avatar_url")
-  xUrl               String?           @map("x_url")
-  websiteUrl         String?           @map("website_url")
+  bioSummary String? @map("bio_summary") @db.Text
+  avatarUrl  String? @map("avatar_url")
+  xUrl       String? @map("x_url")
+  websiteUrl String? @map("website_url")
 
   /// Normalized functional area (mapped from title via taxonomy worker)
-  normalizedFunction  OperatorFunction? @map("normalized_function")
+  normalizedFunction  OperatorFunction?  @map("normalized_function")
   /// Normalized seniority tier (mapped from title via taxonomy worker)
   normalizedSeniority OperatorSeniority? @map("normalized_seniority")
 
@@ -868,23 +1200,23 @@ model StartupProfessional {
   stages        String[] @default([]) @map("stages")
 
   /// Apollo people ID - enrichment idempotency key
-  apolloId         String?   @unique @map("apollo_id")
+  apolloId        String?   @unique @map("apollo_id")
   /// People Data Labs person ID
-  pdlId            String?   @map("pdl_id")
+  pdlId           String?   @map("pdl_id")
   /// 0-100 overall data confidence (completeness x source quality)
-  confidenceScore  Int?      @map("confidence_score")
-  lastEnrichedAt   DateTime? @map("last_enriched_at") @db.Timestamptz(6)
+  confidenceScore Int?      @map("confidence_score")
+  lastEnrichedAt  DateTime? @map("last_enriched_at") @db.Timestamptz(6)
 
   /// FK to current employer in operator_companies (optional)
-  currentCompanyId String?         @map("current_company_id")
+  currentCompanyId String?          @map("current_company_id")
   currentCompany   OperatorCompany? @relation("CurrentEmployer", fields: [currentCompanyId], references: [id], onDelete: SetNull)
 
   changeLogs    StartupProfessionalChangeLog[]
   experiences   OperatorExperience[]
   signals       OperatorSignal[]
   reputation    OperatorReputation?
-  relationsFrom OperatorRelationship[] @relation("RelationshipSource")
-  relationsTo   OperatorRelationship[] @relation("RelationshipTarget")
+  relationsFrom OperatorRelationship[]         @relation("RelationshipSource")
+  relationsTo   OperatorRelationship[]         @relation("RelationshipTarget")
 
   @@unique([fullName, currentStartup], map: "startup_professionals_full_name_current_startup_key")
   @@index([ycBatch])
@@ -947,7 +1279,7 @@ model OperatorCompany {
   sector        SectorFocus?
   sectors       SectorFocus[]
   /// B2B, B2C, B2B2C, marketplace, etc.
-  businessModel String? @map("business_model")
+  businessModel String?       @map("business_model")
 
   stage         OperatorCompanyStage  @default(UNKNOWN)
   headcountBand CompanyHeadcountBand? @map("headcount_band")
@@ -964,11 +1296,11 @@ model OperatorCompany {
   investors         String[]  @default([])
 
   /// Populated by Greenhouse / Ashby signal scripts.
-  activeJobCount   Int?      @map("active_job_count")
-  lastJobPostedAt  DateTime? @map("last_job_posted_at") @db.Timestamptz(6)
+  activeJobCount  Int?      @map("active_job_count")
+  lastJobPostedAt DateTime? @map("last_job_posted_at") @db.Timestamptz(6)
 
-  apolloOrgId    String? @unique @map("apollo_org_id")
-  pdlCompanyId   String? @unique @map("pdl_company_id")
+  apolloOrgId      String?   @unique @map("apollo_org_id")
+  pdlCompanyId     String?   @unique @map("pdl_company_id")
   latestActivityAt DateTime? @map("latest_activity_at") @db.Timestamptz(6)
   lastEnrichedAt   DateTime? @map("last_enriched_at") @db.Timestamptz(6)
   dataSource       String?   @map("data_source")
@@ -977,10 +1309,10 @@ model OperatorCompany {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  currentEmployees OperatorExperience[]              @relation("CompanyExperiences")
+  currentEmployees OperatorExperience[]   @relation("CompanyExperiences")
   signals          OperatorSignal[]
-  relationships    OperatorRelationship[]             @relation("RelationshipTargetCompany")
-  currentEmployer  StartupProfessional[]              @relation("CurrentEmployer")
+  relationships    OperatorRelationship[] @relation("RelationshipTargetCompany")
+  currentEmployer  StartupProfessional[]  @relation("CurrentEmployer")
 
   @@index([name])
   @@index([sector])
@@ -1009,11 +1341,11 @@ model OperatorExperience {
   functionNormalized  OperatorFunction?  @map("function_normalized")
   seniorityNormalized OperatorSeniority? @map("seniority_normalized")
 
-  startDate DateTime? @map("start_date") @db.Date
-  endDate   DateTime? @map("end_date") @db.Date
-  isCurrent Boolean   @default(false) @map("is_current")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  isCurrent   Boolean   @default(false) @map("is_current")
   /// True when same company + higher seniority than prior role (inferred).
-  isPromotion Boolean @default(false) @map("is_promotion")
+  isPromotion Boolean   @default(false) @map("is_promotion")
 
   description String? @db.Text
   dataSource  String? @map("data_source")
@@ -1035,9 +1367,9 @@ model OperatorExperience {
 /// Freshness and activity signal for a person or company.
 /// Sources: Greenhouse/Ashby (job postings), Apollo (job changes), GDELT (news), manual.
 model OperatorSignal {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   /// "person" | "company"
-  entityType String @map("entity_type")
+  entityType String  @map("entity_type")
   personId   String? @map("person_id")
   companyId  String? @map("company_id")
 
@@ -1117,8 +1449,8 @@ model OperatorReputation {
 /// Directed graph edge between operators, or an operator and a company.
 /// Enables queries like "operators trusted by seed fintech founders in LA."
 model OperatorRelationship {
-  id             String @id @default(cuid())
-  sourcePersonId String @map("source_person_id")
+  id              String  @id @default(cuid())
+  sourcePersonId  String  @map("source_person_id")
   /// Exactly one of targetPersonId / targetCompanyId must be non-null.
   targetPersonId  String? @map("target_person_id")
   targetCompanyId String? @map("target_company_id")
@@ -1127,14 +1459,14 @@ model OperatorRelationship {
   targetPerson  StartupProfessional? @relation("RelationshipTarget", fields: [targetPersonId], references: [id], onDelete: Cascade)
   targetCompany OperatorCompany?     @relation("RelationshipTargetCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
 
-  edgeType OperatorEdgeType @map("edge_type")
+  edgeType   OperatorEdgeType @map("edge_type")
   /// "apollo" | "user_submission" | "co_employment" | "manual"
   source     String?
   /// 0–1 confidence on this edge
   confidence Float?
   /// 0–100 relationship strength (decays without refresh)
   strength   Int?
-  notes      String? @db.Text
+  notes      String?          @db.Text
 
   firstSeenAt DateTime? @map("first_seen_at") @db.Timestamptz(6)
   lastSeenAt  DateTime? @map("last_seen_at") @db.Timestamptz(6)
@@ -1221,15 +1553,15 @@ model EnrichmentReviewQueue {
   firm_id     String?
 
   /// Human-readable reason this was flagged.
-  reason       String  @db.Text
+  reason      String       @db.Text
   /// Structured context for the reviewer (candidate data, conflict details, etc.)
-  review_data  Json?
-  status       ReviewStatus @default(PENDING)
+  review_data Json?
+  status      ReviewStatus @default(PENDING)
 
   /// Who resolved it (user ID or "system").
-  resolved_by  String?
-  resolved_at  DateTime?
-  resolution_notes String? @db.Text
+  resolved_by      String?
+  resolved_at      DateTime?
+  resolution_notes String?   @db.Text
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
