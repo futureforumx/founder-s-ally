@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { useInvestorDirectory, useInvestorPeopleDirectory } from "@/hooks/useInvestorDirectory";
+import {
+  useInvestorDirectory,
+  useInvestorPeopleDirectory,
+  mapDbInvestor,
+  type LiveInvestorEntry,
+} from "@/hooks/useInvestorDirectory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,10 +48,12 @@ import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/a
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
+import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { AumBand } from "@prisma/client";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -458,6 +465,10 @@ const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}
 };
 
 const PAGE_SIZE = 9;
+/** Investor grid: show more than one screen initially so mid-alphabet firms are reachable without many “Load more” taps. */
+const INVESTOR_DIRECTORY_INITIAL_VISIBLE = 120;
+/** Larger chunk when loading the investor directory (firms far in A–Z order). */
+const INVESTOR_DIRECTORY_LOAD_MORE = 96;
 
 const normalizeFirmName = (name: string | null | undefined) =>
   String(name ?? "")
@@ -691,6 +702,39 @@ function investorAumBandLabel(aum: string | null | undefined): string | null {
   if (mm == null) return null;
   const band = resolveAumBandFromUsd(mm * 1_000_000);
   return band ? INVESTOR_CARD_AUM_BADGE[band] : null;
+}
+
+/** Same card shape as `dbOnlyFirmEntries` — used when merging `search_firm_records` RPC hits into the grid. */
+function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry {
+  return {
+    name: inv.name,
+    sector: inv.sector || "Generalist",
+    stage: inv.stage || "Multi-stage",
+    description: inv.description,
+    location: inv.location || "",
+    model: inv.model || "",
+    initial: inv.initial,
+    matchReason: null,
+    category: "investor",
+    _sectors: [] as string[],
+    _stages: [] as string[],
+    _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
+    _isActivelyDeploying: inv.is_actively_deploying ?? true,
+    _founderSentimentScore: inv.founder_reputation_score ?? null,
+    _headcount: inv.headcount ?? null,
+    _aum: inv.aum ?? null,
+    _aumBand: investorAumBandLabel(inv.aum ?? null),
+    _logoUrl: inv.logo_url ?? null,
+    _isTrending: inv.is_trending ?? false,
+    _isPopular: inv.is_popular ?? false,
+    _isRecent: inv.is_recent ?? false,
+    _firmId: inv.id,
+    _websiteUrl: inv.website_url ?? null,
+    _dealVelocityScore: computeDealVelocityScore(
+      inv.recent_deals ?? null,
+      inv.is_actively_deploying ?? null,
+    ),
+  };
 }
 
 function aumBandKeyFromCardBadgeLabel(label: string): AumBand | null {
@@ -1717,7 +1761,9 @@ export function CommunityView({
   const [activeScope, setActiveScope] = useState<EntityScope>(
     initialScope ?? (isInvestorSearch ? "investors" : "all"),
   );
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [visibleCount, setVisibleCount] = useState(() =>
+    variant === "investor-search" ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE,
+  );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFounder, setSelectedFounder] = useState<DirectoryEntry | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<DirectoryEntry | null>(null);
@@ -1728,7 +1774,9 @@ export function CommunityView({
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
-  const [investorSort, setInvestorSort] = useState<InvestorSortValue>("recommended");
+  const [investorSort, setInvestorSort] = useState<InvestorSortValue>(() =>
+    variant === "investor-search" ? "name_az" : "recommended",
+  );
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1857,7 +1905,9 @@ export function CommunityView({
         category: "investor" as const,
         _sectors: sectorFocus,
         _stages: stageFocus,
-        _firmType: person.firm?.firm_type || "Institutional",
+        _firmType:
+          person.firm?.firm_type ??
+          resolveDirectoryFirmTypeKey(firmName, null, person.firm?.entity_type ?? null),
         _isActivelyDeploying: person.firm?.is_actively_deploying ?? true,
         _founderSentimentScore: person.firm?.founder_reputation_score ?? null,
         _headcount: person.firm?.headcount ?? null,
@@ -1898,9 +1948,11 @@ export function CommunityView({
     const seedNames = new Set(
       ALL_ENTRIES.filter((e) => e.category === "investor").map((e) => e.name.toLowerCase()),
     );
+    /** When mock investor cards are omitted, keep every MDM firm — otherwise a name collision hides the real row. */
+    const investorMocksShown = !isInvestorSearch && activeScope !== "investors";
     return vcFirms
       .filter((f) => typeof f.name === "string" && f.name.trim().length > 0)
-      .filter((f) => !seedNames.has(f.name.toLowerCase()))
+      .filter((f) => !investorMocksShown || !seedNames.has(f.name.toLowerCase()))
       .map((f) => {
         const displayName = f.name.trim();
         const dbMatch = getDbMatch(displayName);
@@ -1919,7 +1971,7 @@ export function CommunityView({
           category: "investor" as const,
           _sectors: f.sectors || [] as string[],
           _stages: f.stages || [] as string[],
-          _firmType: (dbMatch as any)?.firm_type || "Institutional",
+          _firmType: (dbMatch as any)?.firm_type ?? resolveDirectoryFirmTypeKey(displayName, null),
           _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
@@ -1941,7 +1993,7 @@ export function CommunityView({
           ),
         };
       });
-  }, [vcFirms, getDbMatch]);
+  }, [vcFirms, getDbMatch, isInvestorSearch, activeScope]);
 
   /** Firms that exist in live `firm_records` but not in MDM JSON / `vc_firms` — otherwise they are unsearchable. */
   const dbOnlyFirmEntries: DirectoryEntry[] = useMemo(() => {
@@ -1966,7 +2018,7 @@ export function CommunityView({
         category: "investor" as const,
         _sectors: [] as string[],
         _stages: [] as string[],
-        _firmType: inv.firm_type || "Institutional",
+        _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
         _isActivelyDeploying: inv.is_actively_deploying ?? true,
         _founderSentimentScore: inv.founder_reputation_score ?? null,
         _headcount: inv.headcount ?? null,
@@ -2115,7 +2167,9 @@ export function CommunityView({
             ? ((dbMatch as any)?.founder_reputation_score ?? null)
             : (e._founderSentimentScore ?? null),
           _headcount: (dbMatch as any)?.headcount ?? e._headcount ?? null,
-          _firmType: (dbMatch as any)?.firm_type ?? e._firmType ?? "Institutional",
+          _firmType:
+            (dbMatch as any)?.firm_type ??
+            resolveDirectoryFirmTypeKey(e.name, typeof e._firmType === "string" ? e._firmType : null),
           _dealVelocityScore: dbMatch
             ? computeDealVelocityScore(
                 (dbMatch as any)?.recent_deals ?? null,
@@ -2342,8 +2396,8 @@ export function CommunityView({
 
   // Reset pagination on filter/scope/sort change (not on text search — large indices must stay reachable for scroll-to-pick)
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab, investorSort]);
+    setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
+  }, [activeFilter, activeScope, activeInvestorTab, investorSort, isInvestorSearch]);
 
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(
     (e) => e.category !== "investor" || isInvestorSearch || activeScope === "investors",
@@ -2425,12 +2479,72 @@ export function CommunityView({
 
   // Use tab-filtered list for investor-search, otherwise the standard filteredAll
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
+  const investorSearchQueryTrim = safeTextTrim(investorListSearchQuery ?? "");
+
+  /** Firms from `search_firm_records` when the grid query is non-trivial — surfaces names missed by MDM merge / pagination. */
+  const investorDirectoryRpcFirms = useQuery({
+    queryKey: ["community-investor-directory-firm-rpc", investorSearchQueryTrim],
+    queryFn: async () => {
+      const rows = await rpcSearchFirmRecords(investorSearchQueryTrim, 60, true, supabaseVcDirectory);
+      return rows.map((row) => mapDbInvestor(row));
+    },
+    enabled: isInvestorSearch && investorSearchQueryTrim.length >= 2 && isSupabaseConfigured,
+    staleTime: 45_000,
+  });
+
+  const displayEntriesWithRpcFirms = useMemo(() => {
+    if (!isInvestorSearch || investorSearchQueryTrim.length < 2) return displayEntries;
+    const seenFirmId = new Set<string>();
+    const seenFirmNameKey = new Set<string>();
+    for (const e of displayEntries) {
+      if (e.category !== "investor") continue;
+      if (e._firmId && isUuid(e._firmId)) seenFirmId.add(String(e._firmId));
+      if (e._investorEntityType !== "person") {
+        const nk = normalizeFirmName(e.name);
+        if (nk) seenFirmNameKey.add(nk);
+      } else if (e._investorFirmName) {
+        const nk = normalizeFirmName(e._investorFirmName);
+        if (nk) seenFirmNameKey.add(nk);
+      }
+    }
+    const extra: DirectoryEntry[] = [];
+    const tryAddInvestor = (inv: LiveInvestorEntry) => {
+      if (!inv.id) return;
+      if (seenFirmId.has(inv.id)) return;
+      const nk = normalizeFirmName(inv.name);
+      if (nk && seenFirmNameKey.has(nk)) return;
+      if (nk) seenFirmNameKey.add(nk);
+      seenFirmId.add(inv.id);
+      extra.push(directoryEntryFromLiveInvestor(inv));
+    };
+
+    const rpcHits = investorDirectoryRpcFirms.data;
+    if (rpcHits?.length) {
+      for (const inv of rpcHits) tryAddInvestor(inv);
+    }
+
+    const q = investorSearchQueryTrim;
+    if (dbInvestors?.length) {
+      for (const inv of dbInvestors) {
+        if (!firmDisplayNameMatchesQuery(inv.name, q)) continue;
+        tryAddInvestor(inv);
+      }
+    }
+
+    return extra.length > 0 ? [...extra, ...displayEntries] : displayEntries;
+  }, [
+    displayEntries,
+    isInvestorSearch,
+    investorSearchQueryTrim,
+    investorDirectoryRpcFirms.data,
+    dbInvestors,
+  ]);
 
   const textFilteredEntries = useMemo(() => {
     const qRaw = safeTextTrim(investorListSearchQuery);
     const q = qRaw.toLowerCase();
-    if (!isInvestorSearch || !q) return displayEntries;
-    return displayEntries.filter((e) => {
+    if (!isInvestorSearch || !q) return displayEntriesWithRpcFirms;
+    return displayEntriesWithRpcFirms.filter((e) => {
       const nameMatch =
         e.category === "investor" && e._investorEntityType === "person"
           ? personDisplayNameMatchesQuery((e.name ?? "").toString(), qRaw)
@@ -2447,7 +2561,7 @@ export function CommunityView({
         model.includes(q)
       );
     });
-  }, [displayEntries, investorListSearchQuery, isInvestorSearch]);
+  }, [displayEntriesWithRpcFirms, investorListSearchQuery, isInvestorSearch]);
 
   const gridEntries = useMemo(() => {
     if (!isInvestorSearch && !isOperatorHubLayout) return textFilteredEntries;
@@ -2597,10 +2711,15 @@ export function CommunityView({
     setIsLoadingMore(true);
     // Simulate network delay for smooth UX
     setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, textFilteredEntries.length));
+      setVisibleCount((prev) =>
+        Math.min(
+          prev + (isInvestorSearch ? INVESTOR_DIRECTORY_LOAD_MORE : PAGE_SIZE),
+          textFilteredEntries.length,
+        ),
+      );
       setIsLoadingMore(false);
     }, 400);
-  }, [hasMore, isLoadingMore, textFilteredEntries.length]);
+  }, [hasMore, isLoadingMore, textFilteredEntries.length, isInvestorSearch]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {

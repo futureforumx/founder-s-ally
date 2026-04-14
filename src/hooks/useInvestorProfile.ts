@@ -143,7 +143,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     hq_zip_code: firm.hq_zip_code,
     hq_country: firm.hq_country,
     locations: firm.locations && typeof firm.locations === "object" ? (firm.locations as Record<string, unknown>) : null,
-    firm_type: resolveDirectoryFirmTypeKey(firm.firm_name, firm.firm_type),
+    firm_type: resolveDirectoryFirmTypeKey(firm.firm_name, firm.firm_type, firm.entity_type),
     aum: firm.aum,
     location: resolveFirmDisplayLocation({
       hq_city: firm.hq_city,

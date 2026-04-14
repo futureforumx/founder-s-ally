@@ -314,13 +314,30 @@ interface VCData {
   people: VCPerson[];
 }
 
-type DirectoryClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      is: (column: string, value: null) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
-    };
-  };
-};
+/** PostgREST returns at most ~1000 rows per request — a single select silently truncates the MDM upgrade. */
+const VC_DIRECTORY_PAGE_SIZE = 1000;
+
+async function fetchAllVcDirectoryTableRows(
+  table: "vc_firms" | "vc_people",
+  columns = "*",
+): Promise<unknown[]> {
+  const acc: unknown[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabaseVcDirectory
+      .from(table)
+      .select(columns)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + VC_DIRECTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const chunk = data ?? [];
+    acc.push(...chunk);
+    if (chunk.length < VC_DIRECTORY_PAGE_SIZE) break;
+    from += VC_DIRECTORY_PAGE_SIZE;
+  }
+  return acc;
+}
 
 function deriveWebsiteUrlFromFirmId(id: string | null | undefined): string | null {
   const raw = safeTrim(id);
@@ -550,25 +567,31 @@ export function useVCDirectory() {
     if (supabaseUpgradedForUser === userId) return; // already attempted
     supabaseUpgradedForUser = userId;
 
-    const directory = supabaseVcDirectory as unknown as DirectoryClient;
-    Promise.all([
-      directory.from("vc_firms").select("*").is("deleted_at", null),
-      directory.from("vc_people").select("*").is("deleted_at", null),
-    ]).then(([firmRes, peopleRes]) => {
-      if (firmRes.error || !firmRes.data) return; // keep static data
-      const firms = (firmRes.data || [])
+    void (async () => {
+      let firmRows: unknown[] = [];
+      try {
+        firmRows = await fetchAllVcDirectoryTableRows("vc_firms", "*");
+      } catch {
+        return; // keep static JSON
+      }
+      const firms = firmRows
         .map((row) => normalizeFirmRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCFirm => Boolean(row));
-      if (firms.length === 0) return; // keep static data
-      const people = ((peopleRes.error ? [] : peopleRes.data) || [])
+      if (firms.length === 0) return;
+
+      let peopleRows: unknown[] = [];
+      try {
+        peopleRows = await fetchAllVcDirectoryTableRows("vc_people", "*");
+      } catch {
+        peopleRows = [];
+      }
+      const people = peopleRows
         .map((row) => normalizePersonRow((row || {}) as Record<string, unknown>))
         .filter((row): row is VCPerson => Boolean(row));
       cachedData = { firms, people };
       setData(cachedData);
       setError(null);
-    }).catch(() => {
-      // Supabase failed — static JSON is already showing, nothing to do
-    });
+    })();
   }, [authLoading, user?.id]);
 
   const firmMap = useMemo(() => {
