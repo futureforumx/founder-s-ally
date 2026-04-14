@@ -8,6 +8,13 @@ import { AverageDealSizeCard } from "./AverageDealSizeCard";
 import { GeographicFocus } from "./GeographicFocus";
 import { FirmFundsSection } from "./FirmFundsSection";
 import type { FirmDeal, InvestorPartner } from "@/hooks/useInvestorProfile";
+import { safeTrim } from "@/lib/utils";
+
+function splitSectorList(raw: unknown): string[] {
+  const s = safeTrim(raw);
+  if (!s) return [];
+  return s.split(", ").map((x) => safeTrim(x)).filter(Boolean);
+}
 
 type ExpandedPanel = "sector" | "stage" | "themes" | "geo" | null;
 
@@ -67,7 +74,7 @@ export function ThesisTabContent({
       >
         {expanded === "sector" && (
           <SectorAlignment
-            vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
+            vcSectors={vcFirm?.sectors || splitSectorList(effectiveInvestor?.sector)}
             primarySector={companyData?.sector}
             secondarySectors={(companyData as any)?.subsectors || []}
             isExpanded
@@ -106,7 +113,7 @@ export function ThesisTabContent({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <div className="lg:col-span-1 h-full">
             <SectorAlignment
-              vcSectors={vcFirm?.sectors || (effectiveInvestor.sector ? effectiveInvestor.sector.split(", ").map((s: string) => s.trim()) : [])}
+              vcSectors={vcFirm?.sectors || splitSectorList(effectiveInvestor?.sector)}
               primarySector={companyData?.sector}
               secondarySectors={(companyData as any)?.subsectors || []}
               onToggleExpand={() => toggle("sector")}
@@ -147,8 +154,8 @@ export function ThesisTabContent({
         </div>
 
         <FirmFundsSection
-          firmRecordsId={firmRecordsId?.trim() || null}
-          firmName={firmDisplayName?.trim() || null}
+          firmRecordsId={safeTrim(firmRecordsId) || null}
+          firmName={safeTrim(firmDisplayName) || null}
           isActivelyDeploying={isActivelyDeploying ?? null}
           firmAum={firmAum ?? null}
         />

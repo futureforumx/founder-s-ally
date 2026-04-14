@@ -74,13 +74,14 @@ export interface LiveInvestorPersonEntry {
 
 // Transform DB rows into DirectoryEntry-compatible shape
 function mapDbInvestor(row: any): LiveInvestorEntry {
+  const firmName = String(row.firm_name ?? "").trim() || "Unknown firm";
   return {
-    id: row.id,
-    name: row.firm_name,
+    id: String(row.id ?? ""),
+    name: firmName,
     sector: row.thesis_verticals?.filter(Boolean).join(", ") || "Generalist",
-    stage: row.preferred_stage || "Seed–Growth",
+    stage: String(row.preferred_stage ?? "").trim() || "Seed–Growth",
     description: row.sentiment_detail || row.description || row.elevator_pitch || generateElevatorPitch({
-      firm_name: row.firm_name,
+      firm_name: firmName,
       description: row.description,
       stage_focus: row.stage_focus,
       thesis_verticals: row.thesis_verticals,
@@ -88,12 +89,12 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
       hq_state: row.hq_state,
       hq_country: row.hq_country,
       entity_type: row.entity_type,
-    }) || `${row.firm_name} is an active investment firm.`,
-    location: row.location || "",
+    }) || `${firmName} is an active investment firm.`,
+    location: String(row.location ?? "").trim(),
     model: row.min_check_size && row.max_check_size
       ? `$${row.min_check_size >= 1_000_000 ? `${(row.min_check_size / 1_000_000).toFixed(0)}M` : `${(row.min_check_size / 1_000).toFixed(0)}K`}–$${row.max_check_size >= 1_000_000 ? `${(row.max_check_size / 1_000_000).toFixed(0)}M` : `${(row.max_check_size / 1_000).toFixed(0)}K`}`
       : "$1M–$10M",
-    initial: row.firm_name?.charAt(0).toUpperCase() || "?",
+    initial: firmName.charAt(0).toUpperCase() || "?",
     matchReason: null,
     category: "investor",
     dataSource: "verified",
@@ -214,6 +215,10 @@ export function useInvestorPeopleDirectory(limit = 5000) {
       if (error) throw error;
 
       return (data ?? [])
+        .filter(
+          (row: any) =>
+            row?.firm && typeof row.full_name === "string" && row.full_name.trim().length > 0,
+        )
         .map((row: any) => ({
           id: row.id,
           firm_id: row.firm_id,
@@ -275,8 +280,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                 recent_deals: Array.isArray(row.firm.recent_deals) ? row.firm.recent_deals.filter(Boolean) : null,
               }
             : null,
-        }))
-        .filter((row) => row.firm && row.full_name.trim().length > 0);
+        }));
     },
     staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,

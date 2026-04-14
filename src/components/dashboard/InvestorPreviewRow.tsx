@@ -4,7 +4,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { Badge } from "@/components/ui/badge";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import type { AumBand } from "@prisma/client";
 import { resolveAumBandFromUsd } from "@/lib/aumBand";
 import { formatStageForDisplay } from "@/lib/stageUtils";
@@ -34,8 +34,9 @@ export type InvestorPreviewModel = {
 };
 
 function parseAumToMillions(raw: string | null | undefined): number | null {
-  if (!raw?.trim()) return null;
-  const s = raw.replace(/,/g, "").toLowerCase();
+  const str = safeTrim(raw);
+  if (!str) return null;
+  const s = str.replace(/,/g, "").toLowerCase();
   let maxM = 0;
   const re = /\$\s*([\d.]+)\s*([bmk])(?![a-z])/gi;
   let m: RegExpExecArray | null;
@@ -77,10 +78,11 @@ export function computeDealVelocityScore(
   return Math.min(100, base + boost);
 }
 
-function stableMatchScore(name: string, explicit: number | null | undefined): number {
+function stableMatchScore(name: string | null | undefined, explicit: number | null | undefined): number {
   if (explicit != null) return explicit;
+  const s = String(name ?? "");
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return 60 + Math.abs(h % 21);
 }
 

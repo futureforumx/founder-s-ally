@@ -5,6 +5,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
+import { safeTrim } from "@/lib/utils";
 
 export interface InvestorTypeaheadResult {
   id: string;
@@ -199,7 +200,7 @@ export function InvestorSearchOmnibox({
             ) : (
               <InvestorPersonAvatar
                 imageUrl={selectionLead.profileImageUrl}
-                initials={selectionLead.name?.trim().charAt(0) || null}
+                initials={safeTrim(selectionLead.name).charAt(0) || null}
                 fetchPriority="high"
                 loading="eager"
               />
@@ -222,7 +223,7 @@ export function InvestorSearchOmnibox({
             setHighlightIdx(-1);
             if (
               !selectionLead ||
-              v.trim().toLowerCase() !== selectionLead.name.trim().toLowerCase()
+              v.trim().toLowerCase() !== safeTrim(selectionLead.name).toLowerCase()
             ) {
               setSelectionLead(null);
             }
@@ -314,7 +315,7 @@ export function InvestorSearchOmnibox({
                       >
                         <InvestorPersonAvatar
                           imageUrl={result.profileImageUrl}
-                          initials={result.name?.trim().charAt(0) || null}
+                          initials={safeTrim(result.name).charAt(0) || null}
                           loading="lazy"
                           className="shrink-0"
                         />

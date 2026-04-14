@@ -1,10 +1,10 @@
 /** Spaces around en/em dashes in stage ranges (e.g. Pre-Seed–Seed → Pre-Seed – Seed). Hyphens inside words (Pre-Seed) unchanged. */
-export function formatStageForDisplay(stage: string): string {
-  return stage.replace(/\s*[\u2013\u2014]\s*/g, " – ");
+export function formatStageForDisplay(stage: unknown): string {
+  return String(stage ?? "").replace(/\s*[\u2013\u2014]\s*/g, " – ");
 }
 
-export function normalizeStageKey(s: string): string {
-  return s
+export function normalizeStageKey(s: unknown): string {
+  return String(s ?? "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -33,7 +33,7 @@ export const STAGE_ORDER: Record<string, number> = {
   "multistage": 12,
 };
 
-export function stageRank(s: string): number {
+export function stageRank(s: unknown): number {
   const k = normalizeStageKey(s);
   if (k in STAGE_ORDER) return STAGE_ORDER[k];
   const m = k.match(/^series ([a-e])(\+)?$/);
@@ -50,11 +50,12 @@ export function stageRank(s: string): number {
  * Collapses an array of stage labels to a range string: "Seed – Series B".
  * Preserves single labels and existing range strings.
  */
-export function collapseStagesToRange(stages: string[]): string | null {
+export function collapseStagesToRange(stages: readonly unknown[]): string | null {
   const uniq: string[] = [];
   const seen = new Set<string>();
   for (const s of stages) {
-    const t = s.trim();
+    if (s == null) continue;
+    const t = String(s).trim();
     if (!t) continue;
     const key = normalizeStageKey(t);
     if (seen.has(key)) continue;
@@ -71,7 +72,7 @@ export function collapseStagesToRange(stages: string[]): string | null {
 }
 
 /** "Early" / "Early stage" as an upper bound is non-specific; prefer Series A/B etc. when present. */
-export function isVagueEarlyStageLabel(s: string): boolean {
+export function isVagueEarlyStageLabel(s: unknown): boolean {
   const k = normalizeStageKey(s);
   return k === "early" || k === "early stage";
 }
@@ -80,11 +81,12 @@ export function isVagueEarlyStageLabel(s: string): boolean {
  * Like {@link collapseStagesToRange}, but if the max label is only "Early" / "Early stage",
  * use the strongest non-vague stage in the list as the high bound (e.g. "Seed – Series A").
  */
-export function collapseStagesToRangePreferringSpecificOverEarly(stages: string[]): string | null {
+export function collapseStagesToRangePreferringSpecificOverEarly(stages: readonly unknown[]): string | null {
   const uniq: string[] = [];
   const seen = new Set<string>();
   for (const s of stages) {
-    const t = s.trim();
+    if (s == null) continue;
+    const t = String(s).trim();
     if (!t) continue;
     const key = normalizeStageKey(t);
     if (seen.has(key)) continue;
@@ -109,8 +111,8 @@ export function collapseStagesToRangePreferringSpecificOverEarly(stages: string[
 }
 
 /** Split a human-written stage range without breaking hyphens inside labels (e.g. Pre-Seed). */
-export function splitStageRangeLabel(s: string): [string, string] | null {
-  const t = s.trim();
+export function splitStageRangeLabel(s: unknown): [string, string] | null {
+  const t = String(s ?? "").trim();
   if (!t) return null;
   const byEn = t.split(/\s+\u2013\s+/);
   if (byEn.length === 2) return [byEn[0]!.trim(), byEn[1]!.trim()];
@@ -135,8 +137,8 @@ export function stageFromLatestConcreteDeal(
   if (!deals?.length) return null;
   const rows = deals
     .map((d) => {
-      const stage = d.stage?.trim() ?? "";
-      const raw = d.date_announced?.trim();
+      const stage = String(d.stage ?? "").trim();
+      const raw = d.date_announced != null ? String(d.date_announced).trim() : "";
       const ts = raw ? Date.parse(raw) : NaN;
       return { stage, t: Number.isFinite(ts) ? ts : 0 };
     })
@@ -156,15 +158,19 @@ export function stageFromLatestConcreteDeal(
  */
 export function resolveInvestorHeroStageFocus(input: {
   preferredStage?: string | null;
-  directoryStages?: readonly string[] | null;
+  directoryStages?: readonly unknown[] | null;
   deals?: ReadonlyArray<{ stage?: string | null; date_announced?: string | null }> | null;
   fallbackStage?: string | null;
 }): string {
-  const stages = input.directoryStages?.filter((s): s is string => Boolean(s?.trim())) ?? [];
+  const stages =
+    input.directoryStages?.map((s) => String(s ?? "").trim()).filter(Boolean) ?? [];
   const fromStages = stages.length ? collapseStagesToRangePreferringSpecificOverEarly(stages) : null;
 
   const raw =
-    input.preferredStage?.trim() || fromStages || input.fallbackStage?.trim() || "";
+    String(input.preferredStage ?? "").trim() ||
+    fromStages ||
+    String(input.fallbackStage ?? "").trim() ||
+    "";
 
   if (!raw) return "-";
 

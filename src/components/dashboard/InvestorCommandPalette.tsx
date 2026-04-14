@@ -12,6 +12,7 @@ import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import Fuse from "fuse.js";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import type { LiveInvestorEntry } from "@/hooks/useInvestorDirectory";
+import { safeTrim } from "@/lib/utils";
 
 // ── Types ──
 type FilterChip = "all" | "matches" | "sector" | "stage" | "trending" | "popular" | "recent";
@@ -397,7 +398,7 @@ export function InvestorCommandPalette({
                             profile_image_url: person.profile_image_url,
                             avatar_url: person.avatar_url,
                           })}
-                          initials={person.full_name?.trim().charAt(0) || null}
+                          initials={safeTrim(person.full_name).charAt(0) || null}
                           loading="lazy"
                           className="shrink-0 border border-zinc-600 bg-zinc-800"
                           iconClassName="text-zinc-200"

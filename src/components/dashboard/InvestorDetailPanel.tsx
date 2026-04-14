@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -114,8 +114,8 @@ function liveFirmRowMatchesDirectorySelection(
   liveFirmName: string | null | undefined,
   directoryDisplayName: string | null | undefined,
 ): boolean {
-  const a = normalizeInvestorNameKey(liveFirmName?.trim() ?? "");
-  const b = normalizeInvestorNameKey(directoryDisplayName?.trim() ?? "");
+  const a = normalizeInvestorNameKey(safeTrim(liveFirmName));
+  const b = normalizeInvestorNameKey(safeTrim(directoryDisplayName));
   if (!a || !b) return false;
   if (a === b) return true;
   const keysA = firmNameAliasKeySet(a);
@@ -135,11 +135,12 @@ function investorPartnerToVCPerson(
   firmWebsiteUrl?: string | null,
   firmLogoUrl?: string | null,
 ): VCPerson {
-  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  const fullName = String(p.full_name ?? "").trim();
+  const parts = fullName.split(/\s+/).filter(Boolean);
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: p.first_name ?? parts[0] ?? null,
@@ -166,10 +167,11 @@ function investorPartnerToVCPerson(
 }
 
 function partnerPersonToVCPerson(p: PartnerPerson, firmId: string): VCPerson {
+  const fullName = String(p.full_name ?? "").trim();
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     first_name: p.first_name ?? null,
     last_name: p.last_name ?? null,
@@ -194,11 +196,12 @@ function websiteTeamPersonToVCPerson(
   firmWebsiteUrl?: string | null,
   firmLogoUrl?: string | null,
 ): VCPerson {
-  const parts = p.full_name.trim().split(/\s+/).filter(Boolean);
+  const fullName = String(p.full_name ?? "").trim();
+  const parts = fullName.split(/\s+/).filter(Boolean);
   return {
     id: p.id,
-    full_name: p.full_name,
-    title: sanitizePersonTitle(p.title, p.full_name),
+    full_name: fullName,
+    title: sanitizePersonTitle(p.title, fullName),
     firm_id: firmId,
     primary_firm_name: firmName ?? null,
     first_name: parts[0] ?? null,
@@ -386,7 +389,7 @@ export function InvestorDetailPanel({
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
-  const displayName = effectiveInvestor?.name || "";
+  const displayName = safeTrim(effectiveInvestor?.name);
   const explicitVcDirId =
     typeof vcDirectoryFirmIdHint === "string" && vcDirectoryFirmIdHint.trim()
       ? vcDirectoryFirmIdHint.trim()
@@ -397,11 +400,12 @@ export function InvestorDetailPanel({
     enabled: Boolean(vcDirectoryFirmId),
     staleTime: 60_000,
     queryFn: async () => {
-      if (!vcDirectoryFirmId?.trim()) return null;
+      const prismaId = safeTrim(vcDirectoryFirmId);
+      if (!prismaId) return null;
       const { data, error } = await supabase
         .from("firm_records")
         .select("id")
-        .eq("prisma_firm_id", vcDirectoryFirmId.trim())
+        .eq("prisma_firm_id", prismaId)
         .is("deleted_at", null)
         .maybeSingle();
       if (error) throw error;
@@ -435,9 +439,9 @@ export function InvestorDetailPanel({
   const firmRecordXSupplement = useFirmRecordXUrlSupplement(liveProfile ?? undefined, vcFirm ?? undefined, databaseFirmId);
   const effectiveFirmXUrl = useMemo(
     () =>
-      liveProfile?.x_url?.trim() ||
-      vcFirm?.x_url?.trim() ||
-      firmRecordXSupplement.data?.trim() ||
+      safeTrim(liveProfile?.x_url) ||
+      safeTrim(vcFirm?.x_url) ||
+      safeTrim(firmRecordXSupplement.data) ||
       null,
     [liveProfile?.x_url, vcFirm?.x_url, firmRecordXSupplement.data],
   );
@@ -453,9 +457,11 @@ export function InvestorDetailPanel({
    * investor card’s UUID (`investorDatabaseId` / `_firmId`) — usually the same directory id.
    */
   const reviewVcFirmId = useMemo(() => {
-    if (explicitVcDirId?.trim()) return explicitVcDirId.trim();
-    if (vcFirm?.id?.trim()) return vcFirm.id.trim();
-    const inv = investor?.investorDatabaseId?.trim();
+    const ex = safeTrim(explicitVcDirId);
+    if (ex) return ex;
+    const vid = safeTrim(vcFirm?.id);
+    if (vid) return vid;
+    const inv = safeTrim(investor?.investorDatabaseId);
     if (inv && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inv)) return inv;
     return null;
   }, [explicitVcDirId, vcFirm?.id, investor?.investorDatabaseId]);
@@ -464,7 +470,7 @@ export function InvestorDetailPanel({
       ? reviewPersonIdHint.trim()
       : null;
   const ratingUserId = authUser?.id ?? session?.user?.id;
-  const ratingFirmLabel = (heroName || displayName).trim() || null;
+  const ratingFirmLabel = safeTrim(heroName || displayName) || null;
   const {
     starRatings: myFirmRatingJson,
     createdAt: myFirmRatingCreatedAt,
@@ -492,7 +498,7 @@ export function InvestorDetailPanel({
 
     // 1. DB people load first as the authoritative base
     for (const p of liveProfile?.partners ?? []) {
-      const key = p.full_name.toLowerCase().trim();
+      const key = safeTrim(p.full_name).toLowerCase();
       const incoming = investorPartnerToVCPerson(
         p,
         firmKey || p.id,
@@ -503,14 +509,14 @@ export function InvestorDetailPanel({
       byName.set(key, byName.has(key) ? mergePartnerPerson(byName.get(key)!, incoming) : incoming);
     }
     for (const p of vcPartners) {
-      const k = p.full_name.toLowerCase().trim();
+      const k = safeTrim(p.full_name).toLowerCase();
       byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, p) : p);
     }
 
     // 2. Static partner fallback if still empty
     if (byName.size === 0 && effectiveInvestor?.name) {
-      for (const p of getPartnersForFirm(effectiveInvestor.name)) {
-        const k = p.full_name.toLowerCase().trim();
+      for (const p of getPartnersForFirm(String(effectiveInvestor.name ?? ""))) {
+        const k = safeTrim(p.full_name).toLowerCase();
         const incoming = partnerPersonToVCPerson(p, firmKey || vcFirm?.id || p.id);
         byName.set(k, byName.has(k) ? mergePartnerPerson(byName.get(k)!, incoming) : incoming);
       }
@@ -525,7 +531,7 @@ export function InvestorDetailPanel({
         firmWebsiteUrl,
         heroLogo,
       );
-      const key = normalized.full_name.toLowerCase().trim();
+      const key = safeTrim(normalized.full_name).toLowerCase();
       if (byName.has(key)) {
         // DB person wins for most fields; website fills in missing ones (e.g. profile_image_url)
         byName.set(key, mergePartnerPerson(byName.get(key)!, normalized));
@@ -539,13 +545,14 @@ export function InvestorDetailPanel({
       venture_partner: 3, principal: 4, associate: 5, analyst: 6, scout: 7, other: 8,
     };
     function seniorityRank(p: VCPerson): number {
-      const s = (p.seniority ?? p.investor_type ?? "").toLowerCase().replace(/\s+/g, "_");
+      const s = safeTrim(p.seniority ?? p.investor_type).toLowerCase().replace(/\s+/g, "_");
       return SENIORITY_ORDER[s] ?? 9;
     }
     const ORG_NAME_RE = /\b(capital|ventures?|fund|funds|management|investments|holdings|advisors|advisory|partnership|associates?|technologies|labs|innovation|foundation|trust)\b/i;
     function looksLikeOrgName(name: string): boolean {
-      if (ORG_NAME_RE.test(name)) return true;
-      const words = name.trim().split(/\s+/);
+      const n = safeTrim(name);
+      if (ORG_NAME_RE.test(n)) return true;
+      const words = n.split(/\s+/).filter(Boolean);
       // Single-word entries are probably not people
       if (words.length < 2) return true;
       // More than 5 words is probably a sentence fragment, not a name
@@ -573,13 +580,13 @@ export function InvestorDetailPanel({
   ]);
 
   const partnerNamesLower = useMemo(
-    () => new Set(mergedPartners.map((p) => p.full_name.toLowerCase().trim())),
+    () => new Set(mergedPartners.map((p) => safeTrim(p.full_name).toLowerCase())),
     [mergedPartners]
   );
 
   useEffect(() => {
     if (!displayName) { setEnrichedData(null); return; }
-    const key = displayName.toLowerCase().trim();
+    const key = displayName.toLowerCase();
     if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
     let cancelled = false;
     enrich(displayName).then(result => { if (!cancelled) setEnrichedData(result); });
@@ -604,7 +611,7 @@ export function InvestorDetailPanel({
         const { data: firms } = await supabase
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", displayName.trim())
+          .ilike("firm_name", displayName)
           .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
@@ -613,7 +620,7 @@ export function InvestorDetailPanel({
         const { data: firms } = await supabase
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", `%${displayName.trim()}%`)
+          .ilike("firm_name", `%${displayName}%`)
           .is("deleted_at", null)
           .limit(1);
         firmId = firms?.[0]?.id;
@@ -658,8 +665,8 @@ export function InvestorDetailPanel({
   const connectLocation = useMemo(() => {
     const directoryName = investor?.name ?? vcFirm?.name ?? null;
     const directorySeed =
-      typeof effectiveInvestor?.location === "string" && effectiveInvestor.location.trim().length > 0
-        ? effectiveInvestor.location.trim()
+      safeTrim(effectiveInvestor?.location).length > 0
+        ? safeTrim(effectiveInvestor?.location)
         : null;
 
     const profile =
@@ -679,12 +686,12 @@ export function InvestorDetailPanel({
       : null;
 
     if (matched) {
-      return firstNonEmpty(liveResolved, profile!.address?.trim(), directorySeed);
+      return firstNonEmpty(liveResolved, safeTrim(profile!.address), directorySeed);
     }
 
     // Name mismatch or no live row yet: never show another firm's HQ over the grid/rail seed line.
     if (directorySeed) return directorySeed;
-    return firstNonEmpty(liveResolved, profile?.address?.trim());
+    return firstNonEmpty(liveResolved, safeTrim(profile?.address));
   }, [
     liveProfile,
     liveIsPlaceholder,
@@ -708,18 +715,16 @@ export function InvestorDetailPanel({
         : null;
 
   const connectEmailFromRecord =
-    liveProfile?.source === "live" && liveProfile.email?.trim()
-      ? liveProfile.email.trim()
-      : null;
+    liveProfile?.source === "live" && safeTrim(liveProfile.email) ? safeTrim(liveProfile.email) : null;
   const connectLinkedInUrl =
-    liveProfile?.source === "live" && liveProfile.linkedin_url?.trim()
-      ? liveProfile.linkedin_url.trim()
+    liveProfile?.source === "live" && safeTrim(liveProfile.linkedin_url)
+      ? safeTrim(liveProfile.linkedin_url)
       : null;
   const connectXUrl = effectiveFirmXUrl;
   const connectWebsiteUrl =
-    liveProfile?.website_url?.trim() ||
-    vcFirm?.website_url?.trim() ||
-    effectiveInvestor?.websiteUrl?.trim() ||
+    safeTrim(liveProfile?.website_url) ||
+    safeTrim(vcFirm?.website_url) ||
+    safeTrim(effectiveInvestor?.websiteUrl) ||
     null;
 
   // Prefer firm's actual headcount from DB; fall back to null (don't show DB row count)
@@ -752,7 +757,10 @@ export function InvestorDetailPanel({
     ],
   );
 
-  const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
+  const heroTagline =
+    String(liveProfile?.description ?? effectiveInvestor?.description ?? "")
+      .split(".")[0]
+      ?.trim() || null;
 
   const metaFacts = [
     { label: "AUM", value: heroAumDisplay ?? "—" },

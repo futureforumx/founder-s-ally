@@ -126,8 +126,10 @@ function isInvestorPersonEntry(entry: DirectoryEntry): boolean {
 }
 
 function isUuid(value: string | null | undefined): value is string {
-  if (!value) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+  if (value == null) return false;
+  const s = String(value).trim();
+  if (!s) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
 type AdminEditableRecord =
@@ -157,7 +159,7 @@ function getAdminEditableRecord(entry: DirectoryEntry): AdminEditableRecord | nu
   if (entry._investorEntityType === "person" && isUuid(entry._personData?.id)) {
     return {
       type: "investor",
-      id: entry._personData.id.trim(),
+      id: String(entry._personData.id).trim(),
       full_name: entry._personData.full_name ?? entry.name,
       title: entry._personData.title ?? entry.model ?? null,
       email: entry._personData.email ?? null,
@@ -169,7 +171,7 @@ function getAdminEditableRecord(entry: DirectoryEntry): AdminEditableRecord | nu
   if (isUuid(entry._firmId)) {
     return {
       type: "firm",
-      id: entry._firmId.trim(),
+      id: String(entry._firmId).trim(),
       name: entry.name,
       website_url: entry._websiteUrl ?? null,
       location: entry.location || null,
@@ -455,8 +457,17 @@ const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}
 
 const PAGE_SIZE = 9;
 
-const normalizeFirmName = (name: string) =>
-  name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+const normalizeFirmName = (name: string | null | undefined) =>
+  String(name ?? "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+
+/** DB/JSON sometimes returns numbers or other primitives — never call `.trim()` on unknown values. */
+function safeTextTrim(v: unknown): string {
+  if (v == null) return "";
+  return String(v).trim();
+}
 
 const getAliasKeys = (normalizedName: string) => {
   const keys = [normalizedName];
@@ -466,7 +477,7 @@ const getAliasKeys = (normalizedName: string) => {
 };
 
 const normalizeWebsiteHost = (websiteUrl?: string | null) => {
-  const raw = websiteUrl?.trim();
+  const raw = safeTextTrim(websiteUrl);
   if (!raw) return null;
   try {
     const parsed = new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`);
@@ -505,8 +516,9 @@ function isInvestorTrendingMerged(
 }
 
 const deriveWebsiteUrlFromFirmId = (firmId?: string | null): string | null => {
-  if (!firmId) return null;
-  const normalized = firmId.trim().toLowerCase().replace(/^https?:\/\//, "");
+  const raw = safeTextTrim(firmId);
+  if (!raw) return null;
+  const normalized = raw.toLowerCase().replace(/^https?:\/\//, "");
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) return null;
   return `https://${normalized}`;
 };
@@ -645,8 +657,9 @@ function FounderCardSkeleton() {
 
 /** Largest AUM figure in millions USD from strings like "$42B", "$1.5B", "$850M", "$500K". */
 function parseAumToMillions(raw: string | null | undefined): number | null {
-  if (!raw?.trim()) return null;
-  const s = raw.replace(/,/g, "").toLowerCase();
+  const str = String(raw ?? "").trim();
+  if (!str) return null;
+  const s = str.replace(/,/g, "").toLowerCase();
   let maxM = 0;
   const re = /\$\s*([\d.]+)\s*([bmk])(?![a-z])/gi;
   let m: RegExpExecArray | null;
@@ -695,8 +708,10 @@ function aumBandBadgeTooltipText(cardLabel: string): string {
   return `${human}: ${range}. Derived from the largest AUM figure we parse on this profile.`;
 }
 
-function firmTypeBadgeTooltipText(firmType: string): string {
-  const t = firmType.trim().toLowerCase();
+function firmTypeBadgeTooltipText(firmType: string | number | null | undefined): string {
+  const t = String(firmType ?? "Institutional")
+    .trim()
+    .toLowerCase();
   if (t === "institutional") {
     return "Professional fund or firm investing pooled third-party (LP) capital—typical venture partnerships, corporate venture arms, and similar vehicles.";
   }
@@ -732,12 +747,12 @@ const INVESTOR_CARD_DEPLOY_INACTIVE_BADGE =
 /** Spaces around en/em dashes in stage ranges (e.g. Seed–Growth → Seed – Growth). */
 
 function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
-  const sector = entry.sector?.trim() || null;
-  const raw = entry.stage?.trim();
+  const sector = safeTextTrim(entry.sector) || null;
+  const raw = safeTextTrim(entry.stage);
   if (!raw) return { sector, stage: null };
 
   if (entry._stages && entry._stages.length > 0) {
-    const collapsed = collapseStagesToRange(entry._stages);
+    const collapsed = collapseStagesToRange(entry._stages.map((s) => String(s)));
     return { sector, stage: collapsed ?? formatStageForDisplay(raw) };
   }
 
@@ -770,6 +785,7 @@ function InvestorCard({
   onAdminEdit?: () => void;
 }) {
   const isPerson = founder._investorEntityType === "person";
+  const locationLine = safeTextTrim(founder.location);
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore;
@@ -990,7 +1006,7 @@ function InvestorCard({
         <div className="space-y-1.5 border-t border-border/40 pt-1.5">
           <div className="flex flex-wrap items-center gap-1">
             <TooltipProvider delayDuration={200}>
-              {founder.location?.trim() ? (
+              {locationLine ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
@@ -999,20 +1015,18 @@ function InvestorCard({
                         INVESTOR_CARD_META_BADGE,
                         "inline-flex max-w-[12rem] items-center gap-0.5 normal-case font-medium tracking-normal",
                       )}
-                      aria-label={`Firm location: ${founder.location}`}
+                      aria-label={`Firm location: ${locationLine}`}
                     >
                       <MapPin className="h-2 w-2 shrink-0 opacity-80" aria-hidden />
                       <span className="truncate">
-                        {founder.location.trim().length > 34
-                          ? `${founder.location.trim().slice(0, 33)}…`
-                          : founder.location.trim()}
+                        {locationLine.length > 34 ? `${locationLine.slice(0, 33)}…` : locationLine}
                       </span>
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
                     <p className="text-xs font-bold text-foreground">Firm location</p>
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      {firmLocationBadgeTooltipText(founder.location.trim())}
+                      {firmLocationBadgeTooltipText(locationLine)}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1022,15 +1036,15 @@ function InvestorCard({
                   <Badge
                     variant="outline"
                     className={INVESTOR_CARD_META_BADGE}
-                    aria-label={`Firm type: ${founder._firmType || "Institutional"}`}
+                    aria-label={`Firm type: ${safeTextTrim(founder._firmType) || "Institutional"}`}
                   >
-                    {founder._firmType || "Institutional"}
+                    {safeTextTrim(founder._firmType) || "Institutional"}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
                   <p className="text-xs font-bold text-foreground">Firm type</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    {firmTypeBadgeTooltipText(founder._firmType || "Institutional")}
+                    {firmTypeBadgeTooltipText(safeTextTrim(founder._firmType) || "Institutional")}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -1096,15 +1110,15 @@ function InvestorCard({
     </Card>);
 }
 
-function operatorRoleBadgeText(model: string): string {
-  const t = model.trim();
+function operatorRoleBadgeText(model: unknown): string {
+  const t = safeTextTrim(model);
   if (!t) return "OPERATOR";
   const u = t.toUpperCase();
   return u.length <= 22 ? u : `${u.slice(0, 20).trimEnd()}…`;
 }
 
-function operatorEngagementTooltipText(engagement: string): string {
-  const t = engagement.trim() || "this operator";
+function operatorEngagementTooltipText(engagement: unknown): string {
+  const t = safeTextTrim(engagement) || "this operator";
   return `Typical engagement: ${t}. Describes how this profile works with founders (fractional, advisory, embedded, etc.).`;
 }
 
@@ -1132,7 +1146,7 @@ function OperatorHubCard({
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60);
   const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
   const { sector: opSector, stage: opStage } = investorSectorStageParts(founder);
-  const roleBadge = operatorRoleBadgeText(founder.model || "");
+  const roleBadge = operatorRoleBadgeText(founder.model);
 
   return (
     <Card
@@ -1252,13 +1266,13 @@ function OperatorHubCard({
                   </p>
                 </TooltipContent>
               </Tooltip>
-              {founder.model?.trim() ? (
+              {safeTextTrim(founder.model) ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge
                       variant="outline"
                       className="h-5 min-h-5 max-w-[9rem] cursor-help truncate border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-                      aria-label={`Engagement: ${founder.model}`}
+                      aria-label={`Engagement: ${safeTextTrim(founder.model)}`}
                     >
                       {roleBadge}
                     </Badge>
@@ -1573,30 +1587,32 @@ const INVESTOR_SORT_OPTIONS = [
 type InvestorSortValue = (typeof INVESTOR_SORT_OPTIONS)[number]["value"];
 
 function investorMatchPriority(e: DirectoryEntry): number {
-  const r = e.matchReason?.toLowerCase() ?? "";
+  const r = safeTextTrim(e.matchReason).toLowerCase();
   if (r.includes("sector")) return 3;
   if (r.includes("stage")) return 2;
-  if (e.matchReason) return 1;
+  if (r.length > 0) return 1;
   return 0;
 }
 
 /** Stable sort for Network → Investors grid (investor entries only). */
 function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: InvestorSortValue): number {
+  const nameA = a.name ?? "";
+  const nameB = b.name ?? "";
   switch (sort) {
     case "name_az":
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
     case "name_za":
-      return b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
+      return nameB.localeCompare(nameA, undefined, { sensitivity: "base" });
     case "sentiment": {
       const sa = a._founderSentimentScore;
       const sb = b._founderSentimentScore;
       if (sa == null && sb == null) {
-        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
       }
       if (sa == null) return 1;
       if (sb == null) return -1;
       if (sb !== sa) return sb - sa;
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
     }
     case "deploying": {
       const da = a._isActivelyDeploying ? 1 : 0;
@@ -1619,7 +1635,7 @@ function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: Inv
     if (sb == null) return -1;
     if (sb !== sa) return sb - sa;
   }
-  return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
 }
 
 function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewModel {
@@ -1704,6 +1720,10 @@ export function CommunityView({
   const [investorSort, setInvestorSort] = useState<InvestorSortValue>("recommended");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (isInvestorSearch) setActiveScope("investors");
+  }, [isInvestorSearch]);
+
   const toggleStatus = (status: string) => {
     setUserStatuses(prev => 
       prev.includes(status) 
@@ -1770,7 +1790,7 @@ export function CommunityView({
       const stageFocus = person.stage_focus.length > 0 ? person.stage_focus : person.firm?.stage_focus ?? [];
       const sectorFocus = person.sector_focus.length > 0 ? person.sector_focus : person.firm?.thesis_verticals ?? [];
       const location = [person.city, person.state, person.country].filter(Boolean).join(", ") || person.firm?.location || "";
-      const title = person.title?.trim() || "Investor";
+      const title = safeTextTrim(person.title) || "Investor";
       const personFirm: VCFirm = {
         id: vcFirmMatch?.id ?? person.firm_id,
         name: firmName,
@@ -1966,7 +1986,11 @@ export function CommunityView({
       stage: op.stage_focus || "—",
       description: op.bio || (op.title ? `${op.title} — available for operator engagements.` : "Experienced operator."),
       location: [op.city, op.state, op.country].filter(Boolean).join(", "),
-      model: op.engagement_type ? op.engagement_type.charAt(0).toUpperCase() + op.engagement_type.slice(1) : "Advisory",
+      model: (() => {
+        const et = safeTextTrim(op.engagement_type);
+        if (!et) return "Advisory";
+        return et.charAt(0).toUpperCase() + et.slice(1);
+      })(),
       initial: op.full_name.charAt(0).toUpperCase(),
       matchReason: null,
       category: "operator" as const,
@@ -2058,17 +2082,16 @@ export function CommunityView({
 
   // ── Smart Cohort data ──
   const cohorts = useMemo(() => {
-    const userLocation = companyData?.hqLocation || "San Francisco, CA";
-    const userCity = userLocation.split(",")[0].trim();
-    const userStage = companyData?.stage || "Seed";
+    const userLocation = String(companyData?.hqLocation ?? "San Francisco, CA");
+    const userCity = userLocation.split(",")[0]?.trim() ?? "";
+    const userStage = safeTextTrim(companyData?.stage) || "Seed";
 
     if (isOperatorHubLayout) {
       const op = mergedEntries.filter((e) => e.category === "operator");
       const matchCount = op.filter((e) => e.matchReason).length;
-      const localCount = op.filter((e) => e.location.includes(userCity)).length;
-      const stageCount = op.filter((e) =>
-        (e.stage ?? "").toLowerCase().includes(userStage.toLowerCase()),
-      ).length;
+      const localCount = op.filter((e) => safeTextTrim(e.location).includes(userCity)).length;
+      const stageNorm = userStage.toLowerCase();
+      const stageCount = op.filter((e) => safeTextTrim(e.stage).toLowerCase().includes(stageNorm)).length;
       const benchCount = op.length;
       return [
         {
@@ -2206,9 +2229,9 @@ export function CommunityView({
   // Cohort detail entries — filtered list shown inside the detail drawer
   const cohortDetailEntries = useMemo(() => {
     if (!activeCohortId) return [];
-    const userLocation = companyData?.hqLocation || "San Francisco, CA";
-    const userCity = userLocation.split(",")[0].trim();
-    const userStage = companyData?.stage || "Seed";
+    const userLocation = String(companyData?.hqLocation ?? "San Francisco, CA");
+    const userCity = userLocation.split(",")[0]?.trim() ?? "";
+    const userStage = safeTextTrim(companyData?.stage) || "Seed";
     const base = isOperatorHubLayout
       ? mergedEntries.filter((e) => e.category === "operator")
       : mergedEntries;
@@ -2216,13 +2239,13 @@ export function CommunityView({
       case "matches":
         return base.filter((e) => e.matchReason);
       case "local":
-        return base.filter((e) => e.location.includes(userCity));
+        return base.filter((e) => safeTextTrim(e.location).includes(userCity));
       case "stage":
         return base.filter((e) => {
           if (isOperatorHubLayout) {
-            return (e.stage ?? "").toLowerCase().includes(userStage.toLowerCase());
+            return safeTextTrim(e.stage).toLowerCase().includes(userStage.toLowerCase());
           }
-          return e.stage === userStage;
+          return safeTextTrim(e.stage) === userStage;
         });
       case "founders":
         if (isOperatorHubLayout) return base;
@@ -2261,7 +2284,7 @@ export function CommunityView({
   );
 
   const filteredAll = scopedAll.filter((f) => {
-    const filterQ = activeFilter?.toLowerCase() || "";
+    const filterQ = safeTextTrim(activeFilter).toLowerCase();
     if (!filterQ) return true;
     const stage = (f.stage ?? "").toString().toLowerCase();
     const sector = (f.sector ?? "").toString().toLowerCase();
@@ -2270,8 +2293,9 @@ export function CommunityView({
   });
 
   // ── Investor tab filtering & sorting ──
-  const userStage = companyData?.stage || "";
-  const userSector = companyData?.sector || "";
+  // Company profile JSON can store stage/sector as numbers — never call string methods on raw values.
+  const userStage = safeTextTrim(companyData?.stage);
+  const userSector = safeTextTrim(companyData?.sector);
 
   const investorTabFiltered = useMemo(() => {
     if (!isInvestorSearch) return filteredAll;
@@ -2287,8 +2311,8 @@ export function CommunityView({
         if (!userStage) return investors;
         return investors.filter((e) => {
           // Exact match against structured _stages array when available
-          if (e._stages && e._stages.length > 0) {
-            return e._stages.includes(userStage);
+          if (Array.isArray(e._stages) && e._stages.length > 0) {
+            return e._stages.some((s) => safeTextTrim(s) === userStage);
           }
           // Fallback for mock entries
           const stageNorm = userStage.toLowerCase();
@@ -2303,13 +2327,17 @@ export function CommunityView({
         if (!userSector) return investors;
         // Collect all user sectors (primary + secondary from subsectors)
         const userSectors = [userSector];
-        if (companyData?.subsectors) {
-          userSectors.push(...companyData.subsectors);
+        const subs = companyData?.subsectors;
+        if (Array.isArray(subs)) {
+          for (const s of subs) {
+            const t = safeTextTrim(s);
+            if (t) userSectors.push(t);
+          }
         }
         return investors.filter((e) => {
           // Exact match against structured _sectors array when available
-          if (e._sectors && e._sectors.length > 0) {
-            return e._sectors.some((s) => userSectors.includes(s));
+          if (Array.isArray(e._sectors) && e._sectors.length > 0) {
+            return e._sectors.some((s) => userSectors.includes(safeTextTrim(s)));
           }
           // Fallback for mock entries
           const sectorNorm = userSector.toLowerCase();
@@ -2333,7 +2361,7 @@ export function CommunityView({
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
 
   const textFilteredEntries = useMemo(() => {
-    const q = investorListSearchQuery?.trim().toLowerCase();
+    const q = safeTextTrim(investorListSearchQuery).toLowerCase();
     if (!isInvestorSearch || !q) return displayEntries;
     return displayEntries.filter((e) => {
       const name = (e.name ?? "").toString().toLowerCase();
@@ -2483,8 +2511,8 @@ export function CommunityView({
   const showOperatorRails =
     isOperatorHubLayout && (operatorRailSuggested.length > 0 || operatorRailTrending.length > 0);
 
-  const labels = SCOPE_LABELS[activeScope];
-  const carouselTitles = CAROUSEL_TITLES[activeScope];
+  const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
+  const carouselTitles = CAROUSEL_TITLES[activeScope] ?? CAROUSEL_TITLES.all;
 
   const handleViewAll = useCallback(() => {
     // Scroll to the all grid section

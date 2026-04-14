@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
@@ -49,11 +50,12 @@ type InvestmentRow = {
 
 /** Infer investment stage from deal amount string */
 function inferStageFromAmount(amount: string | null | undefined): string {
-  if (!amount) return "—";
-  const m = amount.replace(/[$,MmKkBb\s]/g, "");
+  const a = safeTrim(amount);
+  if (!a) return "—";
+  const m = a.replace(/[$,MmKkBb\s]/g, "");
   const raw = parseFloat(m);
   if (Number.isNaN(raw)) return "—";
-  const lower = amount.toLowerCase();
+  const lower = a.toLowerCase();
   const mult = lower.includes("b") ? 1000 : lower.includes("k") ? 0.001 : 1;
   const usd = raw * mult;
   if (usd < 1) return "Pre-Seed";
@@ -88,18 +90,18 @@ function usePortfolioDeals(
   skip: boolean
 ) {
   return useQuery({
-    queryKey: ["portfolio-deals", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase().trim()],
-    enabled: !skip && Boolean(firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured,
+    queryKey: ["portfolio-deals", firmRecordsId, vcDirectoryFirmId, safeLower(firmDisplayName)],
+    enabled: !skip && Boolean(safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured,
     retry: false,
     queryFn: async (): Promise<FirmDeal[]> => {
-      const trimmedFirmRecordsId = firmRecordsId?.trim() ?? null;
+      const trimmedFirmRecordsId = safeTrim(firmRecordsId) || null;
       let resolvedId =
         trimmedFirmRecordsId && looksLikeFirmRecordsUuid(trimmedFirmRecordsId)
           ? trimmedFirmRecordsId
           : null;
 
       const candidateVcDirectoryId =
-        vcDirectoryFirmId?.trim() ??
+        safeTrim(vcDirectoryFirmId) ||
         (trimmedFirmRecordsId && !looksLikeFirmRecordsUuid(trimmedFirmRecordsId) ? trimmedFirmRecordsId : null);
 
       if (!resolvedId && candidateVcDirectoryId) {
@@ -113,22 +115,23 @@ function usePortfolioDeals(
         resolvedId = (prismaMatch as { id: string } | null)?.id ?? null;
       }
 
-      if (!resolvedId && firmDisplayName?.trim()) {
+      const nameTrim = safeTrim(firmDisplayName);
+      if (!resolvedId && nameTrim) {
         const { data: fr } = await DB
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", firmDisplayName.trim())
+          .ilike("firm_name", nameTrim)
           .is("deleted_at", null)
           .limit(1)
           .maybeSingle();
         resolvedId = (fr as { id: string } | null)?.id ?? null;
       }
 
-      if (!resolvedId && firmDisplayName?.trim()) {
+      if (!resolvedId && nameTrim) {
         const { data: partial } = await DB
           .from("firm_records")
           .select("id")
-          .ilike("firm_name", `%${firmDisplayName.trim()}%`)
+          .ilike("firm_name", `%${nameTrim}%`)
           .is("deleted_at", null)
           .limit(1)
           .maybeSingle();
@@ -157,13 +160,13 @@ function dealToRow(
   const partnerLabel = lead || "—";
   const inDb = !!lead && (partnerNamesLower?.has(lead.toLowerCase().trim()) ?? false);
   const inferredStage = inferStageFromAmount(d.amount);
-  const sector = d.stage?.trim() || "—"; // stage column holds category/description in this schema
+  const sector = safeTrim(d.stage) || "—"; // stage column holds category/description in this schema
   return {
     key: d.id,
-    name: d.company_name,
+    name: safeTrim(d.company_name) || "—",
     stage: inferredStage,
     sector,
-    amount: d.amount?.trim() || "—",
+    amount: safeTrim(d.amount) || "—",
     date: formatDealDate(d.date_announced ?? (d as any).created_at),
     website: guessPortfolioWebsite(d.company_name),
     description: sector !== "—" ? sector : `Portfolio company — ${d.company_name}.`,
