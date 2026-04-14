@@ -12,6 +12,7 @@ import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { safeLower, safeTrim } from "@/lib/utils";
+import { splitBackgroundSummaryPortfolio } from "@/lib/investorBackgroundPortfolio";
 
 const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
 
@@ -148,6 +149,53 @@ function usePortfolioDeals(
 
       if (error) throw new Error(error.message);
       return (data ?? []) as FirmDeal[];
+    },
+  });
+}
+
+/**
+ * Pulls portfolio company names from firm_investors.background_summary for the
+ * given firmRecordsId and converts them into synthetic FirmDeal rows.
+ */
+function usePortfolioFromInvestorBios(
+  firmRecordsId: string | null | undefined,
+  skip: boolean
+) {
+  return useQuery({
+    queryKey: ["portfolio-from-bios", firmRecordsId],
+    enabled: !skip && !!safeTrim(firmRecordsId) && isSupabaseConfigured,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async (): Promise<FirmDeal[]> => {
+      const { data, error } = await DB
+        .from("firm_investors")
+        .select("id, background_summary")
+        .eq("firm_id", firmRecordsId)
+        .is("deleted_at", null);
+
+      if (error || !data) return [];
+
+      const seen = new Set<string>();
+      const deals: FirmDeal[] = [];
+
+      for (const inv of data as Array<{ id: string; background_summary: string | null }>) {
+        const { companies } = splitBackgroundSummaryPortfolio(inv.background_summary);
+        for (const name of companies) {
+          const key = safeLower(name);
+          if (!seen.has(key)) {
+            seen.add(key);
+            deals.push({
+              id: `bio-${inv.id}-${key}`,
+              company_name: name,
+              amount: null,
+              stage: null,
+              date_announced: null,
+            });
+          }
+        }
+      }
+
+      return deals;
     },
   });
 }
@@ -497,8 +545,24 @@ export function PortfolioTab({
     skipQuery
   );
 
-  const allDeals: FirmDeal[] = hasPreloadedDeals ? firmDeals : queriedDeals ?? firmDeals ?? [];
-  const isLoading = portfolioLoading || (!skipQuery && queryLoading);
+  // Also collect portfolio company names scraped into firm_investors.background_summary
+  const resolvedIdForBios = safeTrim(firmRecordsId) && looksLikeFirmRecordsUuid(firmRecordsId!) ? firmRecordsId : null;
+  const { data: bioDerivedDeals, isLoading: bioLoading } = usePortfolioFromInvestorBios(
+    resolvedIdForBios,
+    false
+  );
+
+  const allDeals: FirmDeal[] = useMemo(() => {
+    const base: FirmDeal[] = hasPreloadedDeals ? firmDeals : queriedDeals ?? firmDeals ?? [];
+    const bioDeals = bioDerivedDeals ?? [];
+    if (bioDeals.length === 0) return base;
+    // Merge: keep DB deals, append bio-sourced ones not already present by name
+    const existingNames = new Set(base.map((d) => safeLower(d.company_name)));
+    const extra = bioDeals.filter((d) => !existingNames.has(safeLower(d.company_name)));
+    return [...base, ...extra];
+  }, [hasPreloadedDeals, firmDeals, queriedDeals, bioDerivedDeals]);
+
+  const isLoading = portfolioLoading || (!skipQuery && queryLoading) || bioLoading;
 
   const lead = (leadPartnerName || "").trim();
 
