@@ -30,6 +30,7 @@ import {
 } from "@/lib/investorReviewFallback";
 import { isContextStepValidUnlinked, isEvaluationStepValidUnlinked } from "@/lib/reviewWizard";
 import { cn } from "@/lib/utils";
+import { fetchSelfPublishedVcRatingHydration } from "@/lib/vcRatingSelfLookup";
 import { isMissingVcRatingsTableError } from "@/lib/vcRatingsTableErrors";
 import {
   ReviewWizardBody,
@@ -791,22 +792,6 @@ export function ReviewSubmissionModal({
 
     (async () => {
       try {
-        const resolvedFirmId = await resolveVcFirmId(firmName, vcFirmResolveHint, resolveVcFirmCtx);
-        if (!resolvedFirmId || cancelled) return;
-
-        const pid = personId?.trim() || null;
-        let query = (supabase as unknown as { from: (t: string) => any })
-          .from("vc_ratings")
-          .select("id, anonymous, comment, star_ratings, created_at")
-          .eq("author_user_id", user.id)
-          .eq("vc_firm_id", resolvedFirmId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        query = pid ? query.eq("vc_person_id", pid) : query.is("vc_person_id", null);
-
-        const { data, error } = await query;
-
         type HydratedRow = {
           id?: string;
           anonymous?: boolean;
@@ -820,72 +805,33 @@ export function ReviewSubmissionModal({
           } | null;
         };
 
-        let row: HydratedRow | undefined;
-        let reviewIdForVcRatings: string | null = null;
+        const hydrated = await fetchSelfPublishedVcRatingHydration({
+          userId: user.id,
+          firmDisplayName: firmName,
+          vcFirmIdHint: vcFirmResolveHint,
+          vcPersonId: personId,
+        });
 
-        if (!error && data?.length) {
-          row = data[0] as HydratedRow;
-          reviewIdForVcRatings = typeof row?.id === "string" && row.id.trim() ? row.id.trim() : null;
-        } else if (error && isMissingVcRatingsTableError(error) && !cancelled) {
-          const personKey = pid?.trim() ?? "";
-          const exactResult = await supabase
-            .from("investor_reviews")
-            .select("comment, star_ratings, created_at, is_anonymous")
-            .eq("founder_id", user.id)
-            .eq("firm_id", resolvedFirmId)
-            .eq("person_id", personKey)
-            .order("created_at", { ascending: false })
-            .limit(5);
+        if (cancelled) return;
 
-          let invRows: unknown[] = [];
-          if (exactResult.error && isInvestorReviewsPersonIdSchemaCacheError(exactResult.error)) {
-            const legacyResult = await supabase
-              .from("investor_reviews")
-              .select("comment, star_ratings, created_at, is_anonymous")
-              .eq("founder_id", user.id)
-              .eq("firm_id", resolvedFirmId)
-              .order("created_at", { ascending: false })
-              .limit(20);
-            if (cancelled || legacyResult.error) return;
-            const picked = pickInvestorReviewRowForPerson(
-              (legacyResult.data ?? []) as Array<{ star_ratings?: unknown; created_at?: string | null }>,
-              personKey,
-            );
-            invRows = picked ? [picked] : [];
-          } else if (!exactResult.error) {
-            invRows = exactResult.data ?? [];
-          } else {
-            return;
-          }
-
-          if (cancelled || invRows.length === 0) return;
-          const ir = invRows[0] as {
-            comment?: string | null;
-            created_at?: string | null;
-            is_anonymous?: boolean | null;
-            star_ratings?: unknown;
-          };
-          reviewIdForVcRatings = null;
-          row = {
-            anonymous: typeof ir.is_anonymous === "boolean" ? ir.is_anonymous : true,
-            comment: ir.comment ?? null,
-            created_at: typeof ir.created_at === "string" ? ir.created_at : null,
-            star_ratings:
-              ir.star_ratings && typeof ir.star_ratings === "object" && !Array.isArray(ir.star_ratings)
-                ? (ir.star_ratings as HydratedRow["star_ratings"])
-                : null,
-          };
-        } else if (cancelled || error) {
-          return;
-        } else {
+        if (!hydrated?.starRatings) {
           if (!cancelled) setReviewRecordId(null);
           return;
         }
 
-        if (!row) {
-          if (!cancelled) setReviewRecordId(null);
-          return;
-        }
+        const reviewIdForVcRatings = hydrated.reviewRecordId;
+        const row: HydratedRow = {
+          id: hydrated.reviewRecordId ?? undefined,
+          anonymous: hydrated.anonymous,
+          comment: hydrated.comment,
+          created_at: hydrated.createdAt,
+          star_ratings:
+            hydrated.starRatings &&
+            typeof hydrated.starRatings === "object" &&
+            !Array.isArray(hydrated.starRatings)
+              ? (hydrated.starRatings as HydratedRow["star_ratings"])
+              : null,
+        };
 
         const sr = row.star_ratings ?? null;
         const loadedAnswers =
@@ -921,7 +867,7 @@ export function ReviewSubmissionModal({
     return () => {
       cancelled = true;
     };
-  }, [open, user, firmName, vcFirmResolveHint, resolveVcFirmCtx, personId, investorIsMappedToProfile]);
+  }, [open, user, firmName, vcFirmResolveHint, personId, investorIsMappedToProfile]);
 
   const setAnswer = useCallback((id: string, value: string | string[]) => {
     setAnswers((prev) => {
