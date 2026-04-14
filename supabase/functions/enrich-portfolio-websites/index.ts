@@ -338,6 +338,7 @@ Deno.serve(async (req: Request) => {
   const lovableKey = body.lovable_api_key ?? Deno.env.get('LOVABLE_API_KEY') ?? '';
   const openaiKey  = body.openai_api_key  ?? Deno.env.get('OPENAI_API_KEY')  ?? '';
   const groqKey    = body.groq_api_key    ?? Deno.env.get('GROQ_API_KEY')    ?? '';
+  const geminiKey  = body.gemini_api_key  ?? Deno.env.get('GEMINI_API_KEY')  ?? '';
   const bfKey      = body.brandfetch_api_key ?? Deno.env.get('BRANDFETCH_API_KEY') ?? '';
   const batchSize  = Math.min(body.batch_size ?? 15, 30);
   const dryRun     = body.dry_run ?? false;
@@ -350,8 +351,10 @@ Deno.serve(async (req: Request) => {
     aiKey = openaiKey; aiBaseUrl = 'https://api.openai.com/v1'; aiModel = 'gpt-4o-mini';
   } else if (groqKey) {
     aiKey = groqKey; aiBaseUrl = 'https://api.groq.com/openai/v1'; aiModel = 'llama-3.3-70b-versatile';
+  } else if (geminiKey) {
+    aiKey = geminiKey; aiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/openai'; aiModel = 'gemini-2.0-flash';
   }
-  console.log(`v6 batch=${batchSize} ai=${aiKey ? aiModel : 'html_only'}`);
+  console.log(`v7 batch=${batchSize} ai=${aiKey ? aiModel : 'html_only'}`);
 
   const filterQs = reEnrich
     ? `portfolio_source=in.(attempted,website_scrape_html)&website_url=not.is.null`
