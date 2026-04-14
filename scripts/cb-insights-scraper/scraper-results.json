@@ -82753,5 +82753,40 @@
     "name": "David Krane",
     "status": "updated",
     "timestamp": "2026-04-14T02:43:28.518Z"
+  },
+  {
+    "type": "investor",
+    "id": "270594af-fd18-4020-9a26-5b1cf7bce03a",
+    "name": "Francis Pollara",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:43:38.561Z"
+  },
+  {
+    "type": "investor",
+    "id": "6d94ff52-0b12-485e-8b92-f03a9d13b4bd",
+    "name": "Kevin Marks",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:43:47.319Z"
+  },
+  {
+    "type": "investor",
+    "id": "a74a441f-0af9-47f6-a32b-6efd982ed55d",
+    "name": "The Travel Industry",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:43:57.237Z"
+  },
+  {
+    "type": "investor",
+    "id": "9f0e4b3d-3933-4080-b4e7-fb7f74e74a55",
+    "name": "Jackson Gates",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:44:07.209Z"
+  },
+  {
+    "type": "investor",
+    "id": "d043ada4-a12c-4b19-852d-bf656e56e91f",
+    "name": "David Schenkein",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:44:17.134Z"
   }
 ]
