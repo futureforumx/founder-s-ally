@@ -82788,5 +82788,19 @@
     "name": "David Schenkein",
     "status": "not_found",
     "timestamp": "2026-04-14T02:44:17.134Z"
+  },
+  {
+    "type": "investor",
+    "id": "41e543ba-6253-4bae-b981-6299e5bf419c",
+    "name": "KJ Sidberry",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:44:25.913Z"
+  },
+  {
+    "type": "investor",
+    "id": "0f5ba696-b386-4168-9036-60ce3e320372",
+    "name": "Katy Sexton-Darby",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:44:34.972Z"
   }
 ]
