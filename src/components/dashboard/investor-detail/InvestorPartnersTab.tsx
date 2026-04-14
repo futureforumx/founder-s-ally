@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
 import { CheckCircle2, ArrowUpRight } from "lucide-react";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
-import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
+import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
+import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { VCPerson } from "@/hooks/useVCDirectory";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 
 interface InvestorPartnersTabProps {
-  firmId: string;
   firmName: string;
   /** For `[role] at [favicon] [firm]` on each card. */
   firmWebsiteUrl?: string | null;
@@ -23,7 +22,6 @@ function partnerDisplayRole(p: VCPerson): string | null {
   return null;
 }
 
-/** Lazily fetches a headshot from the firm website when no stored image is available. */
 function PartnerCard({
   p,
   firmName,
@@ -37,49 +35,10 @@ function PartnerCard({
   firmLogoUrl: string | null;
   onSelectPerson?: (person: VCPerson) => void;
 }) {
-  const [fetchedHeadshot, setFetchedHeadshot] = useState<string | null>(null);
-
-  const hasStoredImage = !!(p.profile_image_url?.trim() || p.avatar_url?.trim());
-
-  useEffect(() => {
-    if (hasStoredImage || !firmWebsiteUrl || !p.full_name?.trim()) return;
-    let cancelled = false;
-    async function fetchProfile() {
-      try {
-        const res = await fetch("/api/person-website-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firmWebsiteUrl,
-            fullName: p.full_name,
-            title: p.title?.trim() || p.role?.trim() || null,
-          }),
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data.headshotUrl) setFetchedHeadshot(data.headshotUrl);
-      } catch {
-        // silently ignore — fall through to initials
-      }
-    }
-    fetchProfile();
-    return () => { cancelled = true; };
-  }, [hasStoredImage, firmWebsiteUrl, p.full_name, p.title, p.role]);
-
   const role = partnerDisplayRole(p);
-  const imageUrls = investorPersonImageCandidates({
-    profile_image_url: fetchedHeadshot || p.profile_image_url,
-    avatar_url: fetchedHeadshot || p.avatar_url,
-    firmWebsiteUrl,
-    title: p.title,
-    role: p.role,
-    investorType: p.investor_type,
-    email: p.email,
-    website_url: p.website_url,
-    linkedin_url: p.linkedin_url,
-    x_url: p.x_url,
-    personal_website_url: p.personal_website_url,
-    full_name: p.full_name,
+  const imageUrl = investorPrimaryAvatarUrl({
+    avatar_url: p.avatar_url,
+    profile_image_url: p.profile_image_url,
   });
 
   return (
@@ -88,9 +47,11 @@ function PartnerCard({
       className="rounded-xl border border-border bg-card p-4 flex items-center gap-3 cursor-pointer hover:border-accent/40 hover:shadow-sm transition-all group"
     >
       <InvestorPersonAvatar
-        imageUrls={imageUrls}
+        imageUrl={imageUrl}
+        initials={p.full_name?.trim().charAt(0) || null}
         size="md"
-        className="h-12 w-12 border border-border shrink-0"
+        loading="lazy"
+        className="h-12 w-12 border border-border shrink-0 rounded-full"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -118,42 +79,24 @@ function PartnerCard({
 }
 
 export function InvestorPartnersTab({
-  firmId: _firmId,
   firmName,
-  firmWebsiteUrl = null,
-  firmLogoUrl = null,
+  firmWebsiteUrl,
+  firmLogoUrl,
   partners,
   onSelectPerson,
 }: InvestorPartnersTabProps) {
-  const displayPartners = partners.length > 0 ? partners : [];
-
-  if (displayPartners.length === 0) {
-    return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        No partner data available for {firmName}.
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <div>
-        <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-          Team at {firmName} ({displayPartners.length})
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayPartners.map((p) => (
-            <PartnerCard
-              key={p.id}
-              p={p}
-              firmName={firmName}
-              firmWebsiteUrl={firmWebsiteUrl}
-              firmLogoUrl={firmLogoUrl}
-              onSelectPerson={onSelectPerson}
-            />
-          ))}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {partners.map((p) => (
+        <PartnerCard
+          key={p.id}
+          p={p}
+          firmName={firmName}
+          firmWebsiteUrl={firmWebsiteUrl ?? null}
+          firmLogoUrl={firmLogoUrl ?? null}
+          onSelectPerson={onSelectPerson}
+        />
+      ))}
     </div>
   );
 }

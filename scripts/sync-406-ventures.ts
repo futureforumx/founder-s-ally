@@ -10,6 +10,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { augmentFirmRecordsPatchWithFetch } from "./lib/firmRecordsCanonicalHqPolicy";
+import { formatCanonicalHqLine } from "../src/lib/formatCanonicalHqLine";
 
 // ── Env loader (same as other scripts) ───────────────────────────────────────
 function loadEnv() {
@@ -282,6 +284,9 @@ async function main() {
       hq_city: "Boston",
       hq_state: "MA",
       hq_country: "USA",
+      location: formatCanonicalHqLine("Boston", "MA", "USA"),
+      canonical_hq_source: "sync_406_ventures",
+      canonical_hq_set_at: new Date().toISOString(),
       thesis_verticals: ["Healthcare", "Enterprise Software", "Cybersecurity"],
       logo_url: "https://www.406ventures.com/wp-content/themes/ics-theme/assets/images/406-Ventures_logo.svg",
       is_actively_deploying: true,

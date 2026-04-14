@@ -746,6 +746,86 @@ async function scrapeProfilePage(page) {
   return data;
 }
 
+// ─── Canonical HQ write policy (align with scripts/lib/firmRecordsCanonicalHqPolicy.ts) ──
+
+function formatCanonicalHqLineForScraper(city, state, country) {
+  const parts = [city, state, country]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
+const FIRM_RECORD_HQ_WRITE_KEYS = [
+  "hq_city",
+  "hq_state",
+  "hq_country",
+  "hq_zip_code",
+  "hq_region",
+  "address",
+  "location",
+  "locations",
+];
+
+function patchTouchesHq(patch) {
+  return FIRM_RECORD_HQ_WRITE_KEYS.some((k) => Object.prototype.hasOwnProperty.call(patch, k));
+}
+
+function stripFirmRecordHqKeys(patch) {
+  const out = { ...patch };
+  for (const k of FIRM_RECORD_HQ_WRITE_KEYS) delete out[k];
+  delete out.canonical_hq_source;
+  delete out.canonical_hq_set_at;
+  return out;
+}
+
+/** Respects canonical_hq_locked; sets provenance + derived location when writing hq_* */
+async function augmentFirmRecordsPatchForScraper(supabaseClient, firmId, patch, source) {
+  if (!patchTouchesHq(patch)) return patch;
+  const { data: row, error } = await supabaseClient
+    .from("firm_records")
+    .select("canonical_hq_locked, hq_city, hq_state, hq_country")
+    .eq("id", firmId)
+    .maybeSingle();
+  if (error || !row) return patch;
+  if (row.canonical_hq_locked) return stripFirmRecordHqKeys(patch);
+
+  const out = { ...patch };
+  const hqTouched =
+    Object.prototype.hasOwnProperty.call(out, "hq_city") ||
+    Object.prototype.hasOwnProperty.call(out, "hq_state") ||
+    Object.prototype.hasOwnProperty.call(out, "hq_country") ||
+    Object.prototype.hasOwnProperty.call(out, "hq_zip_code") ||
+    Object.prototype.hasOwnProperty.call(out, "hq_region") ||
+    Object.prototype.hasOwnProperty.call(out, "address") ||
+    Object.prototype.hasOwnProperty.call(out, "locations");
+
+  if (
+    Object.prototype.hasOwnProperty.call(out, "location") &&
+    !hqTouched &&
+    !Object.prototype.hasOwnProperty.call(out, "hq_city") &&
+    !Object.prototype.hasOwnProperty.call(out, "hq_state") &&
+    !Object.prototype.hasOwnProperty.call(out, "hq_country")
+  ) {
+    delete out.location;
+  }
+
+  const mergedCity = Object.prototype.hasOwnProperty.call(out, "hq_city") ? out.hq_city : row.hq_city;
+  const mergedState = Object.prototype.hasOwnProperty.call(out, "hq_state") ? out.hq_state : row.hq_state;
+  const mergedCountry = Object.prototype.hasOwnProperty.call(out, "hq_country") ? out.hq_country : row.hq_country;
+
+  const line = formatCanonicalHqLineForScraper(mergedCity, mergedState, mergedCountry);
+  if (line && hqTouched) {
+    out.location = line;
+  }
+
+  if (hqTouched || Object.prototype.hasOwnProperty.call(out, "location")) {
+    out.canonical_hq_source = out.canonical_hq_source ?? source;
+    out.canonical_hq_set_at = out.canonical_hq_set_at ?? new Date().toISOString();
+  }
+
+  return out;
+}
+
 // ─── Database Queries ────────────────────────────────────────────────────────
 
 function isUSActiveFirm(firm) {
@@ -902,9 +982,11 @@ async function updateFirmRecord(firmId, scraped) {
     return { updated: true, fields: Object.keys(updates), dryRun: true };
   }
 
+  const finalUpdates = await augmentFirmRecordsPatchForScraper(supabase, firmId, updates, "cb_insights_scraper");
+
   const { error } = await supabase
     .from("firm_records")
-    .update(updates)
+    .update(finalUpdates)
     .eq("id", firmId);
 
   if (error) throw error;

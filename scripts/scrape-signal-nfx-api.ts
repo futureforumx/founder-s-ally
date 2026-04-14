@@ -26,6 +26,7 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync, createReadStre
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 import { uploadHeadshot } from "./r2-image-upload";
 
 // ── Env ───────────────────────────────────────────────────────────────────────
@@ -483,10 +484,18 @@ async function upsertOne(inv: SignalInvestor): Promise<void> {
         fp.signal_nfx_url = `https://signal.nfx.com/firms/${inv.firm_slug}`;
 
       if (Object.keys(fp).length > 1) {
-        await retryDb(
-          "signal api firm update",
-          () => supabase.from("firm_records").update(fp).eq("id", firmId).select("id")
-        );
+        const merged = (await augmentFirmRecordsPatchWithSupabase(
+          supabase,
+          firmId!,
+          fp,
+          "signal_nfx_api",
+        )) as Record<string, any>;
+        if (Object.keys(merged).length > 0) {
+          await retryDb(
+            "signal api firm update",
+            () => supabase.from("firm_records").update(merged).eq("id", firmId).select("id"),
+          );
+        }
       }
     } else {
       // Create a new firm record from Signal data

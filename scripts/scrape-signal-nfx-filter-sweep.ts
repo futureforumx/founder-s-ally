@@ -52,6 +52,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -967,7 +968,15 @@ async function upsertProfile(profile: InvestorProfile): Promise<void> {
     if (finalAvatar)         fp.logo_url = finalAvatar;
     fp.signal_nfx_url = `https://signal.nfx.com/firms/${profile.firmName.toLowerCase().replace(/\s+/g, "-")}`;
     fp.updated_at = new Date().toISOString();
-    await supabase.from("firm_records").update(fp).eq("id", firm.id);
+    const merged = (await augmentFirmRecordsPatchWithSupabase(
+      supabase,
+      firm.id,
+      fp,
+      "signal_nfx_filter_sweep",
+    )) as Record<string, any>;
+    if (Object.keys(merged).length > 0) {
+      await supabase.from("firm_records").update(merged).eq("id", firm.id);
+    }
 
     // Upsert investor
     const ip: Record<string, any> = {

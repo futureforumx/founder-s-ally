@@ -7,10 +7,7 @@ import { cn } from "@/lib/utils";
 import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  X, Zap, BookmarkPlus, CheckCircle2,
-  ArrowUpRight, Landmark, Target, MapPin, Users, Star,
-} from "lucide-react";
+import { X, BookmarkPlus, CheckCircle2, Star } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -41,6 +38,7 @@ import {
   formatStrategyClassificationLabel,
 } from "@/lib/firmStrategyClassifications";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 
 interface CompanyContext {
   name?: string;
@@ -93,6 +91,41 @@ function firstNonEmpty(...values: Array<string | null | undefined>): string | nu
     if (t.length > 0) return t;
   }
   return null;
+}
+
+function normalizeInvestorNameKey(name: string): string {
+  return name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+}
+
+/** Same alias expansion as CommunityView `getAliasKeys` — keep card label ↔ DB `firm_name` in sync. */
+function firmNameAliasKeySet(normalized: string): Set<string> {
+  const out = new Set<string>([normalized]);
+  if (normalized.includes("andreessenhorowitz")) out.add("a16z");
+  if (normalized === "a16z") out.add("andreessenhorowitz");
+  return out;
+}
+
+/**
+ * When `firm_records.firm_name` differs from the directory card label (e.g. "Andreessen Horowitz" vs "a16z"),
+ * we still treat the live row as the same firm so HQ/location from DB applies. If the live row is clearly
+ * another firm, skip it and use the directory entry's `location` instead.
+ */
+function liveFirmRowMatchesDirectorySelection(
+  liveFirmName: string | null | undefined,
+  directoryDisplayName: string | null | undefined,
+): boolean {
+  const a = normalizeInvestorNameKey(liveFirmName?.trim() ?? "");
+  const b = normalizeInvestorNameKey(directoryDisplayName?.trim() ?? "");
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const keysA = firmNameAliasKeySet(a);
+  const keysB = firmNameAliasKeySet(b);
+  for (const ka of keysA) {
+    if (keysB.has(ka)) return true;
+  }
+  // e.g. "luxcapital" vs "luxcapitalmanagement" — same brand, different legal suffix in DB
+  if (a.length >= 8 && b.length >= 8 && (a.includes(b) || b.includes(a))) return true;
+  return false;
 }
 
 function investorPartnerToVCPerson(
@@ -271,6 +304,8 @@ export function InvestorDetailPanel({
   );
   const liveProfile = liveQuery.data;
   const liveLoading = liveQuery.isLoading;
+  /** True while `placeholderData` is showing a prior firm's profile for the new query key. */
+  const liveIsPlaceholder = Boolean(liveQuery.isPlaceholderData);
 
   // Synthesize an investor entry from vcFirm when opened directly from omnibox
   const effectiveInvestor: InvestorEntry | null = useMemo(() => {
@@ -617,24 +652,60 @@ export function InvestorDetailPanel({
     };
   }, [effectiveInvestor, enrichedData]);
 
-  // Prefer live profile data, fallback to vcFirm/effectiveInvestor
-  const heroInitial = heroName.charAt(0).toUpperCase() || "?";
-  const heroAum = liveProfile?.aum ?? vcFirm?.aum ?? "$85B";
-  const heroLocation = liveProfile?.location ?? effectiveInvestor?.location ?? null;
+  // Prefer live profile HQ when the row matches this panel; if DB HQ/location is still empty, keep the
+  // Suggested/Trending card line (`effectiveInvestor.location`) so rails and modal stay consistent.
   /** Connect tab: full mailing/HQ line from `firm_records` when `location` is empty. */
   const connectLocation = useMemo(() => {
-    if (liveProfile?.source === "live") {
-      const loc = liveProfile.location?.trim();
-      if (loc) return loc;
-      const addr = liveProfile.address?.trim();
-      if (addr) return addr;
-      const parts = [liveProfile.hq_city, liveProfile.hq_state, liveProfile.hq_country]
-        .map((p) => (typeof p === "string" ? p.trim() : ""))
-        .filter(Boolean);
-      if (parts.length) return parts.join(", ");
+    const directoryName = investor?.name ?? vcFirm?.name ?? null;
+    const directorySeed =
+      typeof effectiveInvestor?.location === "string" && effectiveInvestor.location.trim().length > 0
+        ? effectiveInvestor.location.trim()
+        : null;
+
+    const profile =
+      liveProfile?.source === "live" && !liveIsPlaceholder ? liveProfile : null;
+    const matched =
+      Boolean(profile) &&
+      Boolean(directoryName) &&
+      liveFirmRowMatchesDirectorySelection(profile!.firm_name, directoryName);
+
+    const liveResolved = profile
+      ? resolveFirmDisplayLocation({
+          hq_city: profile.hq_city,
+          hq_state: profile.hq_state,
+          hq_country: profile.hq_country,
+          legacyLocation: profile.location,
+        })
+      : null;
+
+    if (matched) {
+      return firstNonEmpty(liveResolved, profile!.address?.trim(), directorySeed);
     }
-    return effectiveInvestor?.location?.trim() || null;
-  }, [liveProfile, effectiveInvestor?.location]);
+
+    // Name mismatch or no live row yet: never show another firm's HQ over the grid/rail seed line.
+    if (directorySeed) return directorySeed;
+    return firstNonEmpty(liveResolved, profile?.address?.trim());
+  }, [
+    liveProfile,
+    liveIsPlaceholder,
+    investor?.name,
+    vcFirm?.name,
+    effectiveInvestor?.location,
+    liveProfile?.hq_city,
+    liveProfile?.hq_state,
+    liveProfile?.hq_country,
+    liveProfile?.location,
+    liveProfile?.address,
+    liveProfile?.firm_name,
+  ]);
+
+  const heroAumDisplay = firstNonEmpty(liveProfile?.aum, vcFirm?.aum) ?? null;
+  const heroInvestmentsTotal =
+    typeof dealSizeProfile?.deals?.length === "number"
+      ? dealSizeProfile.deals.length
+      : typeof enrichedData?.profile?.recentDeals?.length === "number"
+        ? enrichedData.profile.recentDeals.length
+        : null;
 
   const connectEmailFromRecord =
     liveProfile?.source === "live" && liveProfile.email?.trim()
@@ -684,7 +755,7 @@ export function InvestorDetailPanel({
   const heroTagline = (liveProfile?.description ?? effectiveInvestor?.description ?? "").split(".")[0].trim() || null;
 
   const metaFacts = [
-    { label: "AUM", value: heroAum },
+    { label: "AUM", value: heroAumDisplay ?? "—" },
     { label: "Sweet Spot", value: vcFirm?.sweet_spot || effectiveInvestor?.model || "$1M–$10M" },
     { label: "Team", value: heroHeadcount ? `${heroHeadcount} people` : "—" },
   ];
@@ -747,10 +818,11 @@ export function InvestorDetailPanel({
                         <>
                           <Skeleton className="h-[26px] w-44 rounded mb-1.5" />
                           <Skeleton className="h-3.5 w-60 rounded mb-3" />
-                          <div className="flex gap-3">
-                            <Skeleton className="h-3.5 w-14 rounded" />
-                            <Skeleton className="h-3.5 w-10 rounded" />
-                            <Skeleton className="h-3.5 w-20 rounded" />
+                          <div className="flex flex-wrap gap-2">
+                            <Skeleton className="h-3.5 w-[88px] rounded" />
+                            <Skeleton className="h-3.5 w-[72px] rounded" />
+                            <Skeleton className="h-3.5 w-[76px] rounded" />
+                            <Skeleton className="h-3.5 w-[104px] rounded" />
                           </div>
                         </>
                       ) : (
@@ -770,32 +842,65 @@ export function InvestorDetailPanel({
                             </p>
                           )}
 
-                          {/* Meta — inline dots, no pill background */}
-                          <div className={cn("flex items-center gap-2 text-[11.5px]", !heroTagline && "mt-2")}>
-                            {heroAum && (
-                              <span className="flex items-center gap-1 text-foreground/70">
-                                <Landmark className="w-[11px] h-[11px] opacity-40 shrink-0" />
-                                <span className="font-medium">{heroAum}</span>
+                          {/* Meta — single row; location truncates when the header column is narrow */}
+                          <div
+                            className={cn(
+                              "flex min-w-0 w-full flex-nowrap items-center gap-x-1.5 overflow-hidden text-[10px] leading-none text-foreground/70 sm:text-[11px]",
+                              !heroTagline && "mt-2",
+                            )}
+                          >
+                            <span className="flex min-w-0 flex-1 items-baseline gap-1 overflow-hidden">
+                              <span className="shrink-0 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
+                                Location
                               </span>
-                            )}
-                            {heroAum && (heroHeadcount != null || heroLocation) && (
-                              <span className="text-border/50 select-none">·</span>
-                            )}
-                            {heroHeadcount != null && (
-                              <span className="flex items-center gap-1 text-foreground/70">
-                                <Users className="w-[11px] h-[11px] opacity-40 shrink-0" />
-                                <span className="font-medium">{heroHeadcount} people</span>
+                              <span className="min-w-0 truncate font-medium text-foreground/80">
+                                {connectLocation ?? "—"}
                               </span>
-                            )}
-                            {heroHeadcount != null && heroLocation && (
-                              <span className="text-border/50 select-none">·</span>
-                            )}
-                            {heroLocation && (
-                              <span className="flex items-center gap-1 text-foreground/70">
-                                <MapPin className="w-[11px] h-[11px] opacity-40 shrink-0" />
-                                <span className="font-medium">{heroLocation}</span>
+                            </span>
+                            <span className="shrink-0 select-none text-border/45" aria-hidden>
+                              ·
+                            </span>
+                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
+                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
+                                AUM
                               </span>
-                            )}
+                              <span className="font-medium text-foreground/80">{heroAumDisplay ?? "—"}</span>
+                            </span>
+                            <span className="shrink-0 select-none text-border/45" aria-hidden>
+                              ·
+                            </span>
+                            <span className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap">
+                              <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground/90 sm:text-[9px]">
+                                Headcount
+                              </span>
+                              <span className="font-medium text-foreground/80">
+                                {heroHeadcount != null ? `${heroHeadcount}` : "—"}
+                              </span>
+                            </span>
+                            <span className="shrink-0 select-none text-border/45" aria-hidden>
+                              ·
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveTab("Portfolio");
+                              }}
+                              title="Open Portfolio tab — total tracked investments (recent deals)"
+                              aria-label={
+                                heroInvestmentsTotal != null
+                                  ? `Open Portfolio: ${heroInvestmentsTotal} total investments`
+                                  : "Open Portfolio: total investments"
+                              }
+                              className="inline-flex shrink-0 items-baseline gap-1 whitespace-nowrap rounded-sm text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                            >
+                              <span className="text-[7px] font-semibold uppercase tracking-wide text-muted-foreground/90 underline-offset-2 decoration-border/60 hover:underline sm:text-[8px]">
+                                Total investments
+                              </span>
+                              <span className="font-medium text-foreground/80 tabular-nums">
+                                {heroInvestmentsTotal != null ? heroInvestmentsTotal : "—"}
+                              </span>
+                            </button>
                           </div>
 
                           {(() => {
@@ -1021,7 +1126,6 @@ export function InvestorDetailPanel({
                     {activeTab === "Investors" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <InvestorPartnersTab
-                          firmId={databaseFirmId ?? explicitVcDirId ?? vcFirm?.id ?? ""}
                           firmName={effectiveInvestor.name}
                           firmWebsiteUrl={liveProfile?.website_url ?? vcFirm?.website_url ?? null}
                           firmLogoUrl={heroLogo}

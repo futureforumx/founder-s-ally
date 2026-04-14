@@ -520,6 +520,9 @@ export type Database = {
           beehiiv_url: string | null
           ca_sb54_compliant: boolean | null
           cb_insights_url: string | null
+          canonical_hq_locked: boolean
+          canonical_hq_set_at: string | null
+          canonical_hq_source: string | null
           community_rating: number | null
           created_at: string
           crunchbase_url: string | null
@@ -613,6 +616,9 @@ export type Database = {
           beehiiv_url?: string | null
           ca_sb54_compliant?: boolean | null
           cb_insights_url?: string | null
+          canonical_hq_locked?: boolean
+          canonical_hq_set_at?: string | null
+          canonical_hq_source?: string | null
           community_rating?: number | null
           created_at?: string
           crunchbase_url?: string | null
@@ -705,6 +711,9 @@ export type Database = {
           beehiiv_url?: string | null
           ca_sb54_compliant?: boolean | null
           cb_insights_url?: string | null
+          canonical_hq_locked?: boolean
+          canonical_hq_set_at?: string | null
+          canonical_hq_source?: string | null
           community_rating?: number | null
           created_at?: string
           crunchbase_url?: string | null
@@ -791,6 +800,59 @@ export type Database = {
           youtube_url?: string | null
         }
         Relationships: []
+      }
+      firm_records_hq_audit: {
+        Row: {
+          changed_at: string
+          firm_id: string
+          id: string
+          new_hq_city: string | null
+          new_hq_country: string | null
+          new_hq_state: string | null
+          new_location: string | null
+          old_hq_city: string | null
+          old_hq_country: string | null
+          old_hq_state: string | null
+          old_location: string | null
+          source: string | null
+        }
+        Insert: {
+          changed_at?: string
+          firm_id: string
+          id?: string
+          new_hq_city?: string | null
+          new_hq_country?: string | null
+          new_hq_state?: string | null
+          new_location?: string | null
+          old_hq_city?: string | null
+          old_hq_country?: string | null
+          old_hq_state?: string | null
+          old_location?: string | null
+          source?: string | null
+        }
+        Update: {
+          changed_at?: string
+          firm_id?: string
+          id?: string
+          new_hq_city?: string | null
+          new_hq_country?: string | null
+          new_hq_state?: string | null
+          new_location?: string | null
+          old_hq_city?: string | null
+          old_hq_country?: string | null
+          old_hq_state?: string | null
+          old_location?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_records_hq_audit_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       firm_investors: {
         Row: {

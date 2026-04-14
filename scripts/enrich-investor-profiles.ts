@@ -28,6 +28,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ---------------------------------------------------------------------------
 // Env loading
@@ -586,10 +587,13 @@ async function main() {
       merged.last_enriched_at = new Date().toISOString();
 
       // ----- Update firm_records -----
-      const { error: updateErr } = await supabase
-        .from("firm_records")
-        .update(merged)
-        .eq("id", firm.id);
+      const toWrite = (await augmentFirmRecordsPatchWithSupabase(
+        supabase,
+        firm.id,
+        merged as Record<string, unknown>,
+        "enrich_investor_profiles",
+      )) as Record<string, unknown>;
+      const { error: updateErr } = await supabase.from("firm_records").update(toWrite).eq("id", firm.id);
       if (updateErr) throw updateErr;
 
       // ----- Hunter: enrich partner emails -----

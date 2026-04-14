@@ -134,6 +134,11 @@ type FirmInvestorRow = {
   sector_focus: string[] | null;
   personal_thesis_tags: string[] | null;
   background_summary: string | null;
+  avatar_source_url?: string | null;
+  avatar_source_type?: string | null;
+  avatar_confidence?: number | null;
+  avatar_last_verified_at?: string | null;
+  avatar_needs_review?: boolean | null;
 };
 
 // Stage / Sector string enums (matches existing DB values)
@@ -219,6 +224,14 @@ type ExtractedPerson = {
   investmentSectors: SectorFocus[];
   sourceUrl: string;
   confidence: number;
+};
+
+type AvatarSelection = {
+  avatarUrl: string | null;
+  sourceUrl: string | null;
+  sourceType: string | null;
+  confidence: number | null;
+  needsReview: boolean;
 };
 
 type PageFetch = {
@@ -902,27 +915,72 @@ function socialAvatarUrl(profileUrl: string | null | undefined): string | null {
   return normalized ? `https://unavatar.io/${encodeURIComponent(normalized)}` : null;
 }
 
-function isLikelyHeadshotUrl(rawUrl: string | null | undefined): boolean {
+function isLikelyHeadshotUrl(rawUrl: string | null | undefined, fullName?: string | null): boolean {
   const normalized = normalizeUrl(rawUrl ?? "");
   if (!normalized) return false;
   const lower = normalized.toLowerCase();
   if (!/\.(jpg|jpeg|png|webp|avif)(\?|$)/.test(lower)) return false;
-  if (/(logo|favicon|icon|sprite|banner|hero|background|wordmark|placeholder)/.test(lower)) return false;
-  return true;
+  if (/(logo|favicon|icon|sprite|banner|hero|background|wordmark|placeholder|cover|header|footer|mark)/.test(lower)) return false;
+  const path = (() => {
+    try {
+      return decodeURIComponent(new URL(normalized).pathname.toLowerCase());
+    } catch {
+      return lower;
+    }
+  })();
+  const portraitHint = /(headshot|profile|team|people|person|portrait|bio)/.test(path);
+  const nameTokens = (fullName ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z]/g, ""))
+    .filter((t) => t.length >= 3);
+  const nameHint = nameTokens.some((t) => path.includes(t));
+  return portraitHint || nameHint;
 }
 
-function resolvePreferredAvatarUrl(
+function resolvePreferredAvatar(
+  fullName: string,
   websiteAvatarUrl: string | null | undefined,
   linkedinUrl: string | null | undefined,
   xUrl: string | null | undefined,
-): string | null {
+): AvatarSelection {
   const websiteAvatar = normalizeUrl(websiteAvatarUrl ?? "");
-  if (websiteAvatar && isLikelyHeadshotUrl(websiteAvatar)) return websiteAvatar;
+  if (websiteAvatar && isLikelyHeadshotUrl(websiteAvatar, fullName)) {
+    return {
+      avatarUrl: websiteAvatar,
+      sourceUrl: websiteAvatar,
+      sourceType: "website",
+      confidence: 0.9,
+      needsReview: false,
+    };
+  }
   const liAvatar = socialAvatarUrl(linkedinUrl);
-  if (liAvatar) return liAvatar;
+  if (liAvatar) {
+    return {
+      avatarUrl: liAvatar,
+      sourceUrl: normalizeUrl(linkedinUrl ?? "") ?? liAvatar,
+      sourceType: "linkedin_unavatar",
+      confidence: 0.82,
+      needsReview: false,
+    };
+  }
   const xAvatar = socialAvatarUrl(xUrl);
-  if (xAvatar) return xAvatar;
-  return null;
+  if (xAvatar) {
+    return {
+      avatarUrl: xAvatar,
+      sourceUrl: normalizeUrl(xUrl ?? "") ?? xAvatar,
+      sourceType: "x_unavatar",
+      confidence: 0.72,
+      needsReview: true,
+    };
+  }
+  return {
+    avatarUrl: null,
+    sourceUrl: null,
+    sourceType: null,
+    confidence: null,
+    needsReview: true,
+  };
 }
 
 function toAbsoluteUrl(href: string, baseUrl: string): string | null {
@@ -955,7 +1013,10 @@ function uniq<T>(vals: T[]): T[] {
 }
 
 const NON_COMPANY_TOKENS_RE =
-  /^(portfolio|investments?|deals?|investment notes|source|visit website|learn more|all companies|active|exited|acquired|ipo|healthcare|cybersecurity|data \+ ai|enterprise|consumer\/marketplace)$/i;
+  /^(portfolio|investments?|deals?|investment notes|source|visit website|learn more|all companies|active|exited|acquired|ipo|healthcare|cybersecurity|data \+ ai|enterprise|consumer\/marketplace|thesis|themes?|focus|stage|sector|articles?)$/i;
+const NON_COMPANY_FINANCE_RE =
+  /\b(ventures?|capital|partners?|fund|asset management|holdings?|advisors?|advisory|family office|vc)\b/i;
+const LEGAL_ENTITY_SUFFIX_RE = /\b(inc|llc|ltd|plc|gmbh|ag|sa|sarl|bv|pte|co)\b\.?$/i;
 
 function isLikelyCompanyName(value: string): boolean {
   const v = value.trim().replace(/\s+/g, " ");
@@ -967,6 +1028,8 @@ function isLikelyCompanyName(value: string): boolean {
   if (!/[A-Za-z]/.test(v)) return false;
   // Avoid sentence-like fragments.
   if (v.split(/\s+/).length > 5) return false;
+  // Strictly avoid investor/fund entities in portfolio lists unless explicitly legal-entity company-like.
+  if (NON_COMPANY_FINANCE_RE.test(v) && !LEGAL_ENTITY_SUFFIX_RE.test(v)) return false;
   return true;
 }
 
@@ -982,6 +1045,52 @@ function sanitizeCompanyNames(values: string[]): string[] {
     out.push(cleaned);
   }
   return out;
+}
+
+function sanitizeArticleRecords(values: ArticleRecord[]): ArticleRecord[] {
+  const out: ArticleRecord[] = [];
+  const seen = new Set<string>();
+  for (const item of values) {
+    const url = normalizeUrl(item.url ?? "");
+    if (!url) continue;
+    const lower = url.toLowerCase();
+    if (!/(medium\.com|substack\.com|linkedin\.com\/pulse\/|\/blog\/|\/insights\/|\/articles?\/)/.test(lower)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({
+      title: (item.title || "Untitled").slice(0, 180),
+      url,
+      published_at: item.published_at?.slice(0, 10),
+      platform: item.platform ?? "other",
+      summary: item.summary?.slice(0, 300),
+    });
+  }
+  return out;
+}
+
+function appendArticleLinksToBackground(
+  existing: string | null | undefined,
+  articles: ArticleRecord[],
+): string | undefined {
+  if (!articles.length) return existing ?? undefined;
+  const articleLinks = sanitizeArticleRecords(articles).map((a) => a.url);
+  if (!articleLinks.length) return existing ?? undefined;
+  const existingLines = (existing ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const existingArticleUrls = new Set(
+    existingLines
+      .filter((l) => /^Articles?:/i.test(l))
+      .flatMap((l) => l.replace(/^Articles?:\s*/i, "").split(/\s*,\s*/))
+      .map((u) => normalizeUrl(u ?? "") ?? "")
+      .filter(Boolean),
+  );
+  const toAdd = articleLinks.filter((u) => !existingArticleUrls.has(u));
+  if (!toAdd.length) return existing ?? undefined;
+  const base = existingLines.filter((l) => !/^Articles?:/i.test(l)).join("\n");
+  const mergedArticleLine = `Articles: ${[...existingArticleUrls, ...toAdd].slice(0, 10).join(", ")}`;
+  return [base, mergedArticleLine].filter(Boolean).join("\n").slice(0, 4000);
 }
 
 function chunk<T>(vals: T[], size: number): T[][] {
@@ -1287,7 +1396,7 @@ function normalizeAiPerson(raw: AiExtractedPerson): {
   xUrl?: string | null;
   mediumUrl?: string | null;
   substackUrl?: string | null;
-  preferredAvatar: string | null;
+  avatarSelection: AvatarSelection;
   portfolioCompanies: string[];
 } | null {
   const rawFirst = raw.first_name?.trim();
@@ -1321,7 +1430,7 @@ function normalizeAiPerson(raw: AiExtractedPerson): {
   const xUrl = normalizeUrl(raw.x_url ?? "") ?? null;
   const mediumUrl = normalizeUrl(raw.medium_url ?? "") ?? null;
   const substackUrl = normalizeUrl(raw.substack_url ?? "") ?? null;
-  const preferredAvatar = resolvePreferredAvatarUrl(raw.avatar_url ?? null, linkedinUrl, xUrl);
+  const avatarSelection = resolvePreferredAvatar(fullName, raw.avatar_url ?? null, linkedinUrl, xUrl);
   const portfolioCompanies = sanitizeCompanyNames(raw.portfolio_companies ?? []);
 
   return {
@@ -1334,7 +1443,7 @@ function normalizeAiPerson(raw: AiExtractedPerson): {
     xUrl,
     mediumUrl,
     substackUrl,
-    preferredAvatar,
+    avatarSelection,
     portfolioCompanies,
   };
 }
@@ -1891,19 +2000,6 @@ function resolveExistingPerson(
   return fullRowsById.get(base.id) || null;
 }
 
-// ---------------------------------------------------------------------------
-// Article signals helper
-// ---------------------------------------------------------------------------
-
-// Article signals are not written to firm_investors — kept as a no-op stub
-// so existing call sites compile without changes.
-async function upsertArticleSignals(
-  _firmId: string,
-  _personId: string,
-  _articles: ArticleRecord[],
-  _authorName: string,
-): Promise<void> {}
-
 async function main() {
   const cfg = configFromEnv();
 
@@ -2065,7 +2161,7 @@ async function main() {
         const aiXUrl = normalizedAi.xUrl;
         const aiMediumUrl = normalizedAi.mediumUrl;
         const aiSubstackUrl = normalizedAi.substackUrl;
-        const preferredAiAvatar = normalizedAi.preferredAvatar;
+        const aiAvatar = normalizedAi.avatarSelection;
         const cleanPortfolioCompanies = normalizedAi.portfolioCompanies;
         aiHandledNames.add(normName(aiFullName));
 
@@ -2077,12 +2173,7 @@ async function main() {
             )
           : null;
 
-        // Merge articles — keep existing + add new
-        const existingArticles: ArticleRecord[] = (existingAi?.articles as ArticleRecord[] | null) ?? [];
-        const newArticles = (ap.articles ?? []).filter(
-          (a) => a.url && !existingArticles.some((e) => e.url === a.url)
-        );
-        const mergedArticles = [...existingArticles, ...newArticles];
+        const newArticles = sanitizeArticleRecords(ap.articles ?? []);
 
         const aiThemes = uniq((ap.investment_themes ?? []).map((t) => t.trim()).filter(Boolean));
 
@@ -2093,7 +2184,14 @@ async function main() {
           if (shouldReplaceTitle(existingAi.title, aiTitle, cfg.overwrite)) updates.title = aiTitle;
           if (shouldReplace(existingAi.bio, ap.bio, cfg.overwrite)) updates.bio = ap.bio;
           if (shouldReplace(existingAi.email, aiEmail, cfg.overwrite)) updates.email = aiEmail;
-          if (shouldReplace(existingAi.avatar_url, preferredAiAvatar ?? undefined, cfg.overwrite)) updates.avatar_url = preferredAiAvatar;
+          if (shouldReplace(existingAi.avatar_url, aiAvatar.avatarUrl ?? undefined, cfg.overwrite)) {
+            updates.avatar_url = aiAvatar.avatarUrl;
+            updates.avatar_source_url = aiAvatar.sourceUrl;
+            updates.avatar_source_type = aiAvatar.sourceType;
+            updates.avatar_confidence = aiAvatar.confidence;
+            updates.avatar_last_verified_at = new Date().toISOString();
+            updates.avatar_needs_review = aiAvatar.needsReview;
+          }
           if (shouldReplace(existingAi.linkedin_url, aiLinkedinUrl ?? undefined, cfg.overwrite)) updates.linkedin_url = aiLinkedinUrl;
           if (shouldReplace(existingAi.x_url, aiXUrl ?? undefined, cfg.overwrite)) updates.x_url = aiXUrl;
           if (shouldReplace((existingAi as Record<string, unknown>).medium_url as string | null, aiMediumUrl ?? undefined, cfg.overwrite)) {
@@ -2124,16 +2222,14 @@ async function main() {
               updates.background_summary = [existingAi.background_summary, portfolioLine].filter(Boolean).join("\n").slice(0, 4000);
             }
           }
-          if (mergedArticles.length > existingArticles.length) {
-            updates.articles = mergedArticles;
+          const withArticles = appendArticleLinksToBackground(
+            (updates.background_summary as string | undefined) ?? existingAi.background_summary,
+            newArticles,
+          );
+          if (withArticles && withArticles !== existingAi.background_summary) {
+            updates.background_summary = withArticles;
           }
-          if (aiThemes.length) {
-            const existingThemes = ((existingAi as Record<string, unknown>).investment_themes as string[] | null) ?? [];
-            const mergedThemes = uniq([...existingThemes, ...aiThemes]).slice(0, 20);
-            updates.investment_themes = mergedThemes;
-          }
-
-          // Drop fields not in firm_investors (team_page_scraped_at, investment_themes → personal_thesis_tags)
+          // Drop fields not in firm_investors (team_page_scraped_at)
           delete (updates as Record<string, unknown>).team_page_scraped_at;
           if (aiThemes.length) {
             const existing2 = (existingAi.personal_thesis_tags ?? []) as string[];
@@ -2145,15 +2241,12 @@ async function main() {
             byId.set(existingAi.id, { ...existingAi, ...updates } as FirmInvestorRow);
           }
           stats.updatedPeople += 1;
-
-          if (!cfg.dryRun) {
-            await upsertArticleSignals(firm.id, existingAi.id, newArticles, aiFullName);
-          }
         } else {
           const aiCreateLoc = ap.location ? parseLocation(ap.location) : {};
           const portfolioSummary = cleanPortfolioCompanies.length
             ? `Portfolio: ${cleanPortfolioCompanies.slice(0, 15).join(", ")}`
             : null;
+          const summaryWithArticles = appendArticleLinksToBackground(portfolioSummary, newArticles) ?? portfolioSummary;
           const createData: Record<string, unknown> = {
             firm_id: firm.id,
             full_name: aiFullName,
@@ -2162,7 +2255,12 @@ async function main() {
             title: aiTitle ?? null,
             bio: ap.bio ?? null,
             email: aiEmail ?? null,
-            avatar_url: preferredAiAvatar,
+            avatar_url: aiAvatar.avatarUrl,
+            avatar_source_url: aiAvatar.sourceUrl,
+            avatar_source_type: aiAvatar.sourceType,
+            avatar_confidence: aiAvatar.confidence,
+            avatar_last_verified_at: new Date().toISOString(),
+            avatar_needs_review: aiAvatar.needsReview,
             linkedin_url: aiLinkedinUrl,
             x_url: aiXUrl,
             medium_url: aiMediumUrl,
@@ -2173,14 +2271,13 @@ async function main() {
             stage_focus: parseStageFocusFromStrings(ap.investment_stages ?? []),
             sector_focus: parseSectorFocusFromStrings(ap.investment_sectors ?? []),
             personal_thesis_tags: aiThemes.length > 0 ? aiThemes : null,
-            background_summary: portfolioSummary,
+            background_summary: summaryWithArticles,
           };
 
           if (!cfg.dryRun) {
             const created = await sbPost<FirmInvestorRow>("firm_investors", createData);
             if (created) {
               byId.set(created.id, created);
-              await upsertArticleSignals(firm.id, created.id, newArticles, aiFullName);
             }
           }
           stats.createdPeople += 1;
@@ -2194,7 +2291,7 @@ async function main() {
 
         const existing = resolveExistingPerson(firm, p, byId);
         const thesisTags = uniq((p.themes || []).map((t) => t.trim()).filter(Boolean));
-        const preferredHeuristicAvatar = resolvePreferredAvatarUrl(p.avatarUrl ?? null, p.linkedinUrl ?? null, p.xUrl ?? null);
+        const heuristicAvatar = resolvePreferredAvatar(p.fullName, p.avatarUrl ?? null, p.linkedinUrl ?? null, p.xUrl ?? null);
 
         if (existing) {
           const updates: Record<string, unknown> = { team_page_scraped_at: new Date() };
@@ -2205,7 +2302,14 @@ async function main() {
           if (shouldReplace(existing.linkedin_url, p.linkedinUrl, cfg.overwrite)) updates.linkedin_url = p.linkedinUrl;
           if (shouldReplace(existing.x_url, p.xUrl, cfg.overwrite)) updates.x_url = p.xUrl;
           if (shouldReplace(existing.website_url, p.profileUrl, cfg.overwrite)) updates.website_url = p.profileUrl;
-          if (shouldReplace(existing.avatar_url, preferredHeuristicAvatar ?? undefined, cfg.overwrite)) updates.avatar_url = preferredHeuristicAvatar;
+          if (shouldReplace(existing.avatar_url, heuristicAvatar.avatarUrl ?? undefined, cfg.overwrite)) {
+            updates.avatar_url = heuristicAvatar.avatarUrl;
+            updates.avatar_source_url = heuristicAvatar.sourceUrl;
+            updates.avatar_source_type = heuristicAvatar.sourceType;
+            updates.avatar_confidence = heuristicAvatar.confidence;
+            updates.avatar_last_verified_at = new Date().toISOString();
+            updates.avatar_needs_review = heuristicAvatar.needsReview;
+          }
           if (shouldReplace((existing as Record<string, unknown>).medium_url as string | null, p.mediumUrl, cfg.overwrite)) {
             updates.medium_url = p.mediumUrl;
           }
@@ -2275,7 +2379,12 @@ async function main() {
           medium_url: p.mediumUrl || null,
           substack_url: p.substackUrl || null,
           website_url: p.profileUrl || null,
-          avatar_url: preferredHeuristicAvatar,
+          avatar_url: heuristicAvatar.avatarUrl,
+          avatar_source_url: heuristicAvatar.sourceUrl,
+          avatar_source_type: heuristicAvatar.sourceType,
+          avatar_confidence: heuristicAvatar.confidence,
+          avatar_last_verified_at: new Date().toISOString(),
+          avatar_needs_review: heuristicAvatar.needsReview,
           city: hCreateLoc.city ?? null,
           state: hCreateLoc.state ?? null,
           country: hCreateLoc.country ?? null,

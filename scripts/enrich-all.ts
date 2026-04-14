@@ -40,6 +40,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { augmentFirmRecordsPatchWithFetch } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ---------------------------------------------------------------------------
 // Env loading
@@ -217,8 +218,19 @@ async function sbUpdate(
   id: string,
   patch: Record<string, any>
 ): Promise<boolean> {
+  let effectivePatch = patch;
+  if (table === "firm_records") {
+    effectivePatch = (await augmentFirmRecordsPatchWithFetch(
+      SUPABASE_URL,
+      SB_HEADERS,
+      id,
+      patch,
+      "enrich_all",
+    )) as Record<string, any>;
+  }
+
   // Always track what fields are being set (for post-run audit)
-  trackFieldUpdates(table, patch);
+  trackFieldUpdates(table, effectivePatch);
 
   if (DRY_RUN) {
     // Fetch current record to show a proper before → after diff
@@ -229,7 +241,7 @@ async function sbUpdate(
       const rows = cur.ok ? await cur.json() : [];
       const before: Record<string, any> = rows[0] ?? {};
       const skip = new Set(["updated_at", "last_enriched_at", "needs_review"]);
-      const meaningful = Object.entries(patch).filter(([k]) => !skip.has(k));
+      const meaningful = Object.entries(effectivePatch).filter(([k]) => !skip.has(k));
       if (meaningful.length > 0) {
         console.log(`    [DRY RUN] ${table} id=${id.slice(0, 8)}...`);
         for (const [k, v] of meaningful) {
@@ -239,7 +251,7 @@ async function sbUpdate(
         }
       }
     } catch {
-      console.log(`    [DRY RUN] Would update ${table}.${id}:`, Object.keys(patch).join(", "));
+      console.log(`    [DRY RUN] Would update ${table}.${id}:`, Object.keys(effectivePatch).join(", "));
     }
     return true;
   }
@@ -247,7 +259,7 @@ async function sbUpdate(
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: "PATCH",
     headers: { ...SB_HEADERS, Prefer: "return=minimal" },
-    body: JSON.stringify(patch),
+    body: JSON.stringify(effectivePatch),
   });
   if (!res.ok) {
     const errBody = await res.text().catch(() => "");

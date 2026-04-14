@@ -4,6 +4,7 @@ import type { FirmStrategyClassification } from "@/lib/firmStrategyClassificatio
 import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
 import { sanitizeText } from "@/lib/sanitizeText";
 import { generateInvestorBio, generateElevatorPitch } from "@/lib/generateFallbacks";
+import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 
 // ── Types ──
 export interface InvestorPartner {
@@ -137,7 +138,12 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     hq_country: firm.hq_country,
     firm_type: firm.firm_type,
     aum: firm.aum,
-    location: firm.location,
+    location: resolveFirmDisplayLocation({
+      hq_city: firm.hq_city,
+      hq_state: firm.hq_state,
+      hq_country: firm.hq_country,
+      legacyLocation: firm.location,
+    }),
     logo_url: firm.logo_url,
     website_url: firm.website_url,
     lead_partner: firm.lead_partner,

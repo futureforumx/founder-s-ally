@@ -13,7 +13,8 @@ import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmiss
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
-import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
+import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
+import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { VCPerson, VCFirm, VCPersonInvestment } from "@/hooks/useVCDirectory";
 import { sanitizeText } from "@/lib/sanitizeText";
@@ -177,12 +178,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       sanitizePersonTitle(person?.title, person?.full_name) ||
       sanitizePersonTitle(person?.role, person?.full_name) ||
       null;
+    const hasStoredAvatar = Boolean(
+      investorPrimaryAvatarUrl({
+        avatar_url: person.avatar_url,
+        profile_image_url: person.profile_image_url,
+      }),
+    );
     const needsWebsiteEnrichment = Boolean(
       person &&
       resolvedFirmWebsiteUrl &&
       (
-        !person.profile_image_url?.trim() ||
-        !person.avatar_url?.trim() ||
+        !hasStoredAvatar ||
         !person.email?.trim() ||
         !person.linkedin_url?.trim() ||
         !person.x_url?.trim() ||
@@ -427,21 +433,14 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                 {/* ── Hero Header ── */}
                 <div className="flex gap-5 items-start mb-6 pb-6 border-b border-border">
                   <InvestorPersonAvatar
-                    imageUrls={investorPersonImageCandidates({
-                      profile_image_url: websiteProfile?.headshotUrl || person.profile_image_url,
-                      avatar_url: websiteProfile?.headshotUrl || person.avatar_url,
-                      firmWebsiteUrl: firm?.website_url ?? null,
-                      title: person.title,
-                      role: person.role,
-                      investorType: person.investor_type,
-                      email: person.email || websiteProfile?.email,
-                      website_url: person.website_url || websiteProfile?.websiteUrl,
-                      linkedin_url: person.linkedin_url || websiteProfile?.linkedinUrl,
-                      x_url: person.x_url || websiteProfile?.xUrl,
-                      personal_website_url: person.personal_website_url,
-                      full_name: person.full_name,
+                    imageUrl={investorPrimaryAvatarUrl({
+                      avatar_url: person.avatar_url,
+                      profile_image_url: person.profile_image_url,
                     })}
+                    initials={person.full_name?.trim().charAt(0) || null}
                     size="md"
+                    loading="eager"
+                    fetchPriority="high"
                     className="h-20 w-20 rounded-2xl border-2 border-border shadow-sm shrink-0"
                   />
                   <div className="min-w-0 flex-1">

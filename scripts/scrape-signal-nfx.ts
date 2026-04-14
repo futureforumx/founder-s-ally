@@ -57,6 +57,7 @@ import { createClient } from "@supabase/supabase-js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvFiles } from "./lib/loadEnvFiles";
+import { augmentFirmRecordsPatchWithSupabase } from "./lib/firmRecordsCanonicalHqPolicy";
 
 // ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -334,6 +335,24 @@ function parseDollar(s: string): number | null {
   return Math.round(n);
 }
 
+const NON_COMPANY_INVESTMENT_RE =
+  /^(portfolio|investments?|deals?|source|learn more|all companies|active|exited|acquired|ipo|healthcare|cybersecurity|enterprise|consumer\/marketplace|angel list)$/i;
+const FINANCE_ENTITY_RE =
+  /\b(ventures?|capital|partners?|fund|asset management|holdings?|advisors?|advisory|family office|vc)\b/i;
+const LEGAL_SUFFIX_RE = /\b(inc|llc|ltd|plc|gmbh|ag|sa|sarl|bv|pte|co)\b\.?$/i;
+
+function isLikelyPortfolioCompanyName(value: string): boolean {
+  const v = (value || "").trim().replace(/\s+/g, " ");
+  if (!v || v.length < 2 || v.length > 70) return false;
+  if (NON_COMPANY_INVESTMENT_RE.test(v)) return false;
+  if (/https?:\/\//i.test(v) || /@/.test(v)) return false;
+  if (/[!?]/.test(v)) return false;
+  if (!/[A-Za-z]/.test(v)) return false;
+  if (v.split(/\s+/).length > 5) return false;
+  if (FINANCE_ENTITY_RE.test(v) && !LEGAL_SUFFIX_RE.test(v)) return false;
+  return true;
+}
+
 function formatAum(raw: string): string | null {
   const m = raw.match(/\$([\d.]+)([BMK]?)/i);
   if (!m) return null;
@@ -490,6 +509,8 @@ async function scrapeProfile(page: Page, slug: string): Promise<InvestorProfile 
 
   // Past investments
   const pastInvestments: PastInvestment[] = (raw.investments || []).map(inv => {
+    const companyName = (inv.company || "").trim();
+    if (!isLikelyPortfolioCompanyName(companyName)) return null;
     // "Seed RoundFeb 2020$6M" → parse stage, date, round_size
     const stageMatch = inv.details.match(/^([\w\s]+?Round|Pre-Seed|Seed|Series [A-Z]+|Venture|Bridge|Convertible)/i);
     const dateMatch  = inv.details.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
@@ -499,14 +520,14 @@ async function scrapeProfile(page: Page, slug: string): Promise<InvestorProfile 
       ? inv.coInvestorText.split(",").map(s => s.replace(/\(.*?\)/g, "").trim()).filter(Boolean)
       : [];
     return {
-      company:         inv.company,
+      company:         companyName,
       stage:           stageMatch?.[0]?.trim() || null,
       date:            dateMatch?.[0] || null,
       round_size_usd:  sizeMatch?.[0]  ? parseDollar(sizeMatch[0])  : null,
       total_raised_usd: totalMatch?.[0] ? parseDollar(totalMatch[0]) : null,
       co_investors:    coNames,
     };
-  });
+  }).filter((v): v is PastInvestment => Boolean(v));
 
   // Co-investors — pair up lines (name, firm) and match to slugs
   const coInvSlugMap = new Map((raw.coInvLinks || []).map((l: any) => [l.name, l.slug]));
@@ -570,10 +591,18 @@ async function upsertProfile(profile: InvestorProfile): Promise<void> {
       `https://signal.nfx.com/firms/${(profile.firmName || "").toLowerCase().replace(/\s+/g, "-")}`;
     if (Object.keys(fp).length > 0) {
       fp.updated_at = new Date().toISOString();
-      await retryDb(
-        "signal firm update",
-        () => supabase.from("firm_records").update(fp).eq("id", firm.id).select("id")
-      );
+      const merged = (await augmentFirmRecordsPatchWithSupabase(
+        supabase,
+        firm.id,
+        fp,
+        "signal_nfx_scrape",
+      )) as Record<string, any>;
+      if (Object.keys(merged).length > 0) {
+        await retryDb(
+          "signal firm update",
+          () => supabase.from("firm_records").update(merged).eq("id", firm.id).select("id"),
+        );
+      }
     }
 
     // 2. Fill missing investor fields conservatively.

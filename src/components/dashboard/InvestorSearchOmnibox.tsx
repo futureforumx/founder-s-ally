@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, X, Loader2, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { InvestorPersonAvatar, investorPersonImageCandidates } from "@/components/ui/investor-person-avatar";
+import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
+import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 
 export interface InvestorTypeaheadResult {
@@ -12,9 +13,8 @@ export interface InvestorTypeaheadResult {
   type: "firm" | "person";
   logoUrl?: string | null;
   websiteUrl?: string | null;
-  /** Partners & angels — `profile_image_url` / `avatar_url` */
+  /** Partners & angels — canonical stored headshot (R2 / DB). */
   profileImageUrl?: string | null;
-  profileImageUrls?: string[];
 }
 
 interface InvestorSearchOmniboxProps {
@@ -33,7 +33,7 @@ const MAX_RESULTS_PER_GROUP = 5;
 
 type SearchSelectionLead =
   | { kind: "firm"; name: string; logoUrl: string | null; websiteUrl: string | null }
-  | { kind: "person"; name: string; profileImageUrl: string | null; profileImageUrls?: string[] }
+  | { kind: "person"; name: string; profileImageUrl: string | null }
   | null;
 
 export function InvestorSearchOmnibox({
