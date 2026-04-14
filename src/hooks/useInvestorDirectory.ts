@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseVcDirectory } from "@/integrations/supabase/client";
 import { generateElevatorPitch } from "@/lib/generateFallbacks";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
@@ -64,6 +64,7 @@ export interface LiveInvestorPersonEntry {
     stage_focus: string[];
     location: string | null;
     firm_type: string | null;
+    entity_type?: string | null;
     is_actively_deploying: boolean | null;
     founder_reputation_score: number | null;
     headcount: string | null;
@@ -112,7 +113,7 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
     dataSource: "verified",
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
-    firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type),
+    firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type, row.entity_type),
     is_actively_deploying: row.is_actively_deploying ?? true,
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
@@ -149,6 +150,7 @@ const DIRECTORY_COLUMNS = [
   "max_check_size",
   "logo_url",
   "firm_type",
+  "entity_type",
   "is_actively_deploying",
   "founder_reputation_score",
   "headcount",
@@ -162,19 +164,37 @@ const DIRECTORY_COLUMNS = [
   "stage_focus",
 ].join(",");
 
+/** PostgREST / Supabase default max rows per request — without paging, late-alphabet firms never load. */
+const FIRM_DIRECTORY_PAGE_SIZE = 1000;
+
+async function fetchAllReadyLiveFirmRows(): Promise<any[]> {
+  const acc: any[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabaseVcDirectory
+      .from("firm_records")
+      .select(DIRECTORY_COLUMNS)
+      .is("deleted_at", null)
+      .eq("ready_for_live", true)
+      .order("firm_name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + FIRM_DIRECTORY_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    const chunk = data ?? [];
+    acc.push(...chunk);
+    if (chunk.length < FIRM_DIRECTORY_PAGE_SIZE) break;
+    from += FIRM_DIRECTORY_PAGE_SIZE;
+  }
+  return acc;
+}
+
 export function useInvestorDirectory() {
   return useQuery({
-    queryKey: ["investor-directory"],
+    queryKey: ["investor-directory", "paged-vc-client"],
     queryFn: async (): Promise<LiveInvestorEntry[]> => {
-      const { data, error } = await supabase
-        .from("firm_records")
-        .select(DIRECTORY_COLUMNS)
-        .is("deleted_at", null) // filter at DB level — avoids pulling soft-deleted rows
-        .eq("ready_for_live", true) // only show production-quality records
-        .order("firm_name");
-
-      if (error) throw error;
-      return (data || []).map(mapDbInvestor);
+      const rows = await fetchAllReadyLiveFirmRows();
+      return rows.map(mapDbInvestor);
     },
     staleTime: 30 * 60 * 1000, // Investor list is stable — 30 min before background refresh
     gcTime: 60 * 60 * 1000,    // Keep in memory cache for 1 hour
@@ -188,7 +208,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
   return useQuery({
     queryKey: ["investor-people-directory", limit],
     queryFn: async (): Promise<LiveInvestorPersonEntry[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseVcDirectory
         .from("firm_investors")
         .select(
           [
@@ -215,7 +235,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
             "check_size_max",
             "sweet_spot",
             "firm:firm_records!firm_investors_firm_id_fkey(",
-            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,",
+            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,entity_type,",
             "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals",
             ")",
           ].join(""),
@@ -290,7 +310,8 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                   }) ??
                   pickHqLineFromLocationsJson(row.firm.locations) ??
                   null,
-                firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm.firm_type),
+                firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm.firm_type, row.firm.entity_type),
+                entity_type: row.firm.entity_type ?? null,
                 is_actively_deploying:
                   typeof row.firm.is_actively_deploying === "boolean" ? row.firm.is_actively_deploying : null,
                 founder_reputation_score:

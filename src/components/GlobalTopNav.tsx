@@ -35,7 +35,7 @@ import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
 import type { AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { useInvestorDirectory, mapDbInvestor } from "@/hooks/useInvestorDirectory";
-import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { normalizeForFirmSearch, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmInvestors, rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -720,8 +720,8 @@ export function GlobalTopNav({
     queryKey: ["global-nav-investor-search", investorSearchTrim],
     queryFn: async () => {
       const [firms, people] = await Promise.all([
-        rpcSearchFirmRecords(investorSearchTrim, 24, null, supabase),
-        rpcSearchFirmInvestors(investorSearchTrim, 16, supabase),
+        rpcSearchFirmRecords(investorSearchTrim, 24, null, supabaseVcDirectory),
+        rpcSearchFirmInvestors(investorSearchTrim, 16, supabaseVcDirectory),
       ]);
       return { firms, people };
     },
