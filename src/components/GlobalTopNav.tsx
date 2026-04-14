@@ -298,9 +298,11 @@ function escapeRegExp(s: string): string {
 }
 
 /** Higher = better match for ranking “most related”. */
-function nameMatchScore(name: string, qLower: string): number {
-  const n = name.toLowerCase().trim();
-  if (!qLower || !n.includes(qLower)) return -1;
+function nameMatchScore(name: string | null | undefined, qLower: string): number {
+  const n = String(name ?? "")
+    .toLowerCase()
+    .trim();
+  if (!n || !qLower || !n.includes(qLower)) return -1;
   if (n === qLower) return 1000;
   if (n.startsWith(qLower)) return 800;
   const words = n.split(/\s+/).filter(Boolean);

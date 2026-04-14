@@ -4,6 +4,7 @@ import { InvestorPersonAvatar } from "@/components/ui/investor-person-avatar";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import type { VCPerson } from "@/hooks/useVCDirectory";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
+import { safeTrim } from "@/lib/utils";
 
 interface InvestorPartnersTabProps {
   firmName: string;
@@ -17,7 +18,7 @@ interface InvestorPartnersTabProps {
 function partnerDisplayRole(p: VCPerson): string | null {
   const t = sanitizePersonTitle(p.title, p.full_name);
   if (t) return t;
-  const r = p.role?.trim();
+  const r = safeTrim(p.role);
   if (r) return r;
   return null;
 }
@@ -48,7 +49,7 @@ function PartnerCard({
     >
       <InvestorPersonAvatar
         imageUrl={imageUrl}
-        initials={p.full_name?.trim().charAt(0) || null}
+        initials={safeTrim(p.full_name).charAt(0) || null}
         size="md"
         loading="lazy"
         className="h-12 w-12 border border-border shrink-0 rounded-full"

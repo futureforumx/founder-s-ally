@@ -8,6 +8,7 @@ import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, B
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
+import { safeLower, safeTrim } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,8 +61,9 @@ function fmtUsd(n: number | null | undefined): string {
 }
 
 function parseAmountUsd(amount: string | null): number | null {
-  if (!amount) return null;
-  const lower = amount.toLowerCase().replace(/[,\s]/g, "");
+  const s = safeTrim(amount);
+  if (!s) return null;
+  const lower = s.toLowerCase().replace(/[,\s]/g, "");
   const multiplier = lower.includes("billion") || /\db$/.test(lower) ? 1e9
     : lower.includes("million") || lower.includes("mn") || /\dm$/.test(lower) ? 1e6
     : lower.includes("thousand") || /\dk$/.test(lower) ? 1e3
@@ -110,11 +112,11 @@ async function resolveFirmRecordId(
   vcDirectoryFirmId: string | null,
   firmDisplayName: string | null,
 ): Promise<string | null> {
-  const trimmedFirmId = firmRecordsId?.trim() ?? null;
+  const trimmedFirmId = safeTrim(firmRecordsId) || null;
   if (trimmedFirmId && looksLikeFirmRecordsUuid(trimmedFirmId)) return trimmedFirmId;
 
   const candidateVcDirectoryId =
-    vcDirectoryFirmId?.trim() ??
+    safeTrim(vcDirectoryFirmId) ||
     (trimmedFirmId && !looksLikeFirmRecordsUuid(trimmedFirmId) ? trimmedFirmId : null);
   if (candidateVcDirectoryId) {
     const { data: byPrisma } = await DB
@@ -128,8 +130,9 @@ async function resolveFirmRecordId(
     if (prismaId) return prismaId;
   }
 
-  if (!firmDisplayName?.trim()) return null;
-  const trimmed = firmDisplayName.trim();
+  const displayTrim = safeTrim(firmDisplayName);
+  if (!displayTrim) return null;
+  const trimmed = displayTrim;
 
   const { data: exact } = await DB
     .from("firm_records")
@@ -155,7 +158,7 @@ async function resolveFirmRecordId(
 
 function useActiveFund(firmRecordsId: string | null, vcDirectoryFirmId: string | null, firmDisplayName: string | null) {
   return useQuery<FundRecord | null>({
-    queryKey: ["activity-active-fund", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase()],
+    queryKey: ["activity-active-fund", firmRecordsId, vcDirectoryFirmId, safeLower(firmDisplayName)],
     queryFn: async () => {
       const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
       if (!resolvedId) return null;
@@ -171,14 +174,14 @@ function useActiveFund(firmRecordsId: string | null, vcDirectoryFirmId: string |
       if (error) return null;
       return (data as FundRecord | null) ?? null;
     },
-    enabled: Boolean((firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    enabled: Boolean((safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured),
     retry: false,
   });
 }
 
 function useRecentDeals(firmRecordsId: string | null, vcDirectoryFirmId: string | null, firmDisplayName: string | null) {
   return useQuery<DealRow[]>({
-    queryKey: ["activity-deals", firmRecordsId, vcDirectoryFirmId, firmDisplayName?.toLowerCase()],
+    queryKey: ["activity-deals", firmRecordsId, vcDirectoryFirmId, safeLower(firmDisplayName)],
     queryFn: async () => {
       const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
       if (!resolvedId) return [];
@@ -190,7 +193,7 @@ function useRecentDeals(firmRecordsId: string | null, vcDirectoryFirmId: string 
       if (error) return [];
       return (data ?? []) as DealRow[];
     },
-    enabled: Boolean((firmRecordsId?.trim() || vcDirectoryFirmId?.trim() || firmDisplayName?.trim()) && isSupabaseConfigured),
+    enabled: Boolean((safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured),
     retry: false,
   });
 }
@@ -379,7 +382,7 @@ export function ActivityDashboard({
   const sectorBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     allDeals.forEach((d) => {
-      const tag = d.stage?.trim();
+      const tag = safeTrim(d.stage);
       if (tag) counts[tag] = (counts[tag] ?? 0) + 1;
     });
     const total = Object.values(counts).reduce((s, n) => s + n, 0);
@@ -670,8 +673,9 @@ export function ActivityDashboard({
               const dateStr = deal.date_announced
                 ? new Date(deal.date_announced).toLocaleDateString("en-US", { month: "short", year: "numeric" })
                 : new Date(deal.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-              const sectorMatch = companySector && deal.stage?.toLowerCase().includes(companySector.toLowerCase());
-              const initial = deal.company_name.charAt(0).toUpperCase();
+              const sectorMatch =
+                companySector && safeLower(deal.stage).includes(companySector.toLowerCase());
+              const initial = safeTrim(deal.company_name).charAt(0).toUpperCase() || "?";
               const stageColor = stage === "Seed" || stage === "Pre-Seed"
                 ? "bg-success/15 text-success border-success/20"
                 : stage === "Series A"

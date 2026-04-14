@@ -2,7 +2,7 @@ import { useMemo, useCallback, startTransition, useEffect, useState } from "reac
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
-import { cn } from "@/lib/utils";
+import { cn, safeTrim } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -43,16 +43,18 @@ interface PersonProfileModalProps {
 }
 
 function isLeadOrSponsoredDeal(leadOrFollow: string | null | undefined): boolean {
-  if (!leadOrFollow?.trim()) return false;
-  const u = leadOrFollow.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  const t = safeTrim(leadOrFollow);
+  if (!t) return false;
+  const u = t.toUpperCase().replace(/[\s-]+/g, "_");
   if (u === "FOLLOW" || u === "FOLLOW_ONLY" || u.includes("FOLLOW_ONLY") || u === "PARTICIPANT") return false;
   return u.includes("LEAD") || u.includes("SPONSOR") || u.includes("CO_LEAD") || u.includes("COLEAD");
 }
 
 function domainFromSourceUrl(sourceUrl: string | null | undefined): string | null {
-  if (!sourceUrl?.trim()) return null;
+  const s = safeTrim(sourceUrl);
+  if (!s) return null;
   try {
-    const host = new URL(sourceUrl.trim()).hostname.replace(/^www\./i, "");
+    const host = new URL(s).hostname.replace(/^www\./i, "");
     return host || null;
   } catch {
     return null;
@@ -61,7 +63,7 @@ function domainFromSourceUrl(sourceUrl: string | null | undefined): string | nul
 
 /** Normalize person URL fields to a safe http(s) href, or null if missing/invalid. */
 function personSocialHref(raw: string | null | undefined): string | null {
-  const s = raw?.trim();
+  const s = safeTrim(raw);
   if (!s) return null;
   let href = s;
   if (!/^https?:\/\//i.test(s)) {
@@ -87,8 +89,9 @@ function isLikelyPersonWebsiteHref(raw: string | null | undefined): boolean {
 }
 
 function investmentSortMs(date: string | null | undefined): number {
-  if (!date?.trim()) return 0;
-  const t = Date.parse(date);
+  const d = safeTrim(date);
+  if (!d) return 0;
+  const t = Date.parse(d);
   return Number.isNaN(t) ? 0 : t;
 }
 
@@ -102,7 +105,7 @@ function ledOrSponsoredInvestments(person: VCPerson): VCPersonInvestment[] {
 
 /* ── Deal row logo (favicon when we have a URL host; else initial) ── */
 function DealLogo({ domain, name }: { domain: string | null; name: string }) {
-  const d = domain?.trim() || null;
+  const d = safeTrim(domain) || null;
   const baseSrc = d
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${d}&size=128`
     : null;
@@ -153,16 +156,16 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   }, [onClose]);
 
   const reviewFirmDisplayName =
-    firm?.name?.trim() ||
-    person?.primary_firm_name?.trim() ||
-    person?.affiliations?.find((a) => a.is_primary)?.firm_name?.trim() ||
-    person?.affiliations?.[0]?.firm_name?.trim() ||
+    safeTrim(firm?.name) ||
+    safeTrim(person?.primary_firm_name) ||
+    safeTrim(person?.affiliations?.find((a) => a.is_primary)?.firm_name) ||
+    safeTrim(person?.affiliations?.[0]?.firm_name) ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
   const resolvedFirmWebsiteUrl = useMemo(
     () =>
-      firm?.website_url?.trim() ||
-      (person as VCPerson & { _firm_website_url?: string | null } | null)?._firm_website_url?.trim() ||
+      safeTrim(firm?.website_url) ||
+      safeTrim((person as VCPerson & { _firm_website_url?: string | null } | null)?._firm_website_url) ||
       null,
     [firm?.website_url, person],
   );
@@ -173,7 +176,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
-    const fullName = person?.full_name?.trim() || null;
+    const fullName = safeTrim(person?.full_name) || null;
     const title =
       sanitizePersonTitle(person?.title, person?.full_name) ||
       sanitizePersonTitle(person?.role, person?.full_name) ||
@@ -189,12 +192,12 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       resolvedFirmWebsiteUrl &&
       (
         !hasStoredAvatar ||
-        !person.email?.trim() ||
-        !person.linkedin_url?.trim() ||
-        !person.x_url?.trim() ||
-        !person.bio?.trim() ||
-        !person.background_summary?.trim() ||
-        !(person.raw_location?.trim() || person.city?.trim() || person.state?.trim() || person.country?.trim())
+        !safeTrim(person.email) ||
+        !safeTrim(person.linkedin_url) ||
+        !safeTrim(person.x_url) ||
+        !safeTrim(person.bio) ||
+        !safeTrim(person.background_summary) ||
+        !(safeTrim(person.raw_location) || safeTrim(person.city) || safeTrim(person.state) || safeTrim(person.country))
       ),
     );
 
@@ -278,11 +281,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   const displayLocation = useMemo(() => {
     if (!person) return null;
-    const raw = person.raw_location?.trim();
+    const raw = safeTrim(person.raw_location);
     if (raw) return raw;
-    const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(p?.trim()));
+    const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(safeTrim(p)));
     if (parts.length) return parts.join(", ");
-    return websiteProfile?.location?.trim() || null;
+    return safeTrim(websiteProfile?.location) || null;
   }, [person, websiteProfile?.location]);
 
   const backgroundText = useMemo(() => {
@@ -308,29 +311,29 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   }, [firm?.name, investorTitle, person, websiteProfile?.bio]);
 
   const resolvedEmail = useMemo(
-    () => person?.email?.trim() || websiteProfile?.email?.trim() || null,
+    () => safeTrim(person?.email) || safeTrim(websiteProfile?.email) || null,
     [person?.email, websiteProfile?.email],
   );
 
   const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
 
-  const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => s?.trim()) ?? [], [person?.stage_focus]);
+  const stageFocusTags = useMemo(() => person?.stage_focus?.filter((s) => safeTrim(s)) ?? [], [person?.stage_focus]);
   const sectorFocusTags = useMemo(
     () => {
-      const explicit = person?.sector_focus?.filter((s) => s?.trim()) ?? [];
-      return explicit.length > 0 ? explicit : websiteProfile?.sectorFocus?.filter((s) => s?.trim()) ?? [];
+      const explicit = person?.sector_focus?.filter((s) => safeTrim(s)) ?? [];
+      return explicit.length > 0 ? explicit : websiteProfile?.sectorFocus?.filter((s) => safeTrim(s)) ?? [];
     },
     [person?.sector_focus, websiteProfile?.sectorFocus],
   );
   const qualityTags = useMemo(() => {
     if (!person) return [];
-    const q = person.investment_criteria_qualities?.filter((s) => s?.trim()) ?? [];
+    const q = person.investment_criteria_qualities?.filter((s) => safeTrim(s)) ?? [];
     if (q.length) return q;
-    return person.personal_qualities?.filter((s) => s?.trim()) ?? [];
+    return person.personal_qualities?.filter((s) => safeTrim(s)) ?? [];
   }, [person]);
 
   const publishedInsights = useMemo(() => {
-    const list = person?.published_content?.filter((c) => c.title?.trim()) ?? [];
+    const list = person?.published_content?.filter((c) => safeTrim(c.title)) ?? [];
     return [...list].sort((a, b) => {
       const ta = a.published_at ? Date.parse(a.published_at) : 0;
       const tb = b.published_at ? Date.parse(b.published_at) : 0;
@@ -342,7 +345,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     stageFocusTags.length > 0 || sectorFocusTags.length > 0 || qualityTags.length > 0;
 
   const displayPortfolioCompanies = useMemo(
-    () => websiteProfile?.portfolioCompanies?.filter((company) => company?.trim()) ?? [],
+    () => websiteProfile?.portfolioCompanies?.filter((company) => safeTrim(company)) ?? [],
     [websiteProfile?.portfolioCompanies],
   );
 
@@ -370,10 +373,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     const websiteRaw =
-      person.website_url?.trim() ||
-      (person as VCPerson & { personal_website_url?: string | null }).personal_website_url?.trim() ||
-      websiteProfile?.profileUrl?.trim() ||
-      websiteProfile?.websiteUrl?.trim() ||
+      safeTrim(person.website_url) ||
+      safeTrim((person as VCPerson & { personal_website_url?: string | null }).personal_website_url) ||
+      safeTrim(websiteProfile?.profileUrl) ||
+      safeTrim(websiteProfile?.websiteUrl) ||
       null;
     const website = isLikelyPersonWebsiteHref(websiteRaw) ? personSocialHref(websiteRaw) : null;
     if (website) {
@@ -437,7 +440,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                       avatar_url: person.avatar_url,
                       profile_image_url: person.profile_image_url,
                     })}
-                    initials={person.full_name?.trim().charAt(0) || null}
+                    initials={safeTrim(person.full_name).charAt(0) || null}
                     size="md"
                     loading="eager"
                     fetchPriority="high"
@@ -557,7 +560,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                               host ||
                               [inv.sector, inv.date].filter(Boolean).join(" · ") ||
                               "Verified lead / sponsor";
-                            const roundLabel = inv.stage?.trim() || "—";
+                            const roundLabel = safeTrim(inv.stage) || "—";
                             const key = `${inv.company_name}-${inv.date ?? i}-${i}`;
                             const rowClass = `flex items-center gap-3 px-4 py-3 transition-colors group ${
                               inv.source_url ? "cursor-pointer hover:bg-secondary/40" : "cursor-default"
@@ -735,7 +738,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
               setOptimisticPersonRating(sr);
               setRatingRefresh((n) => n + 1);
             }}
-            firmName={reviewFirmDisplayName || firm?.name?.trim() || "this firm"}
+            firmName={reviewFirmDisplayName || safeTrim(firm?.name) || "this firm"}
             firmLogoUrl={firm?.logo_url ?? null}
             firmWebsiteUrl={firm?.website_url ?? null}
             vcFirmId={reviewVcFirmId}

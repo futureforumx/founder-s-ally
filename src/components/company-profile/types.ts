@@ -152,6 +152,81 @@ export const EMPTY_FORM: CompanyData = {
   burnRate: "", nrr: "", cac: "", ltv: "",
 };
 
+const COMPANY_DATA_KEYS = new Set<string>([
+  "name",
+  "stage",
+  "sector",
+  "subsectors",
+  "description",
+  "website",
+  "teamSize",
+  "businessModel",
+  "targetCustomer",
+  "hqLocation",
+  "competitors",
+  "uniqueValueProp",
+  "currentARR",
+  "yoyGrowth",
+  "momGrowth",
+  "totalHeadcount",
+  "socialTwitter",
+  "socialLinkedin",
+  "socialInstagram",
+  "onePagerUrl",
+  "burnRate",
+  "nrr",
+  "cac",
+  "ltv",
+]);
+
+/** Coerce localStorage / API shapes into CompanyData; preserves unknown keys (e.g. logo_url). */
+export function sanitizeCompanyData(raw: unknown): CompanyData | null {
+  if (!raw || typeof raw !== "object") return null;
+  const p = raw as Record<string, unknown>;
+  const name = String(p.name ?? "").trim();
+  if (!name) return null;
+
+  const extras: Record<string, unknown> = {};
+  for (const key of Object.keys(p)) {
+    if (!COMPANY_DATA_KEYS.has(key)) extras[key] = p[key];
+  }
+
+  const str = (v: unknown) => (v == null ? "" : String(v).trim());
+  const strArray = (v: unknown): string[] => {
+    if (!Array.isArray(v)) return [];
+    return v.map((x) => String(x ?? "").trim()).filter(Boolean);
+  };
+
+  return {
+    ...EMPTY_FORM,
+    ...extras,
+    name,
+    stage: str(p.stage),
+    sector: str(p.sector),
+    subsectors: strArray(p.subsectors),
+    description: str(p.description),
+    website: str(p.website),
+    teamSize: str(p.teamSize),
+    businessModel: strArray(p.businessModel),
+    targetCustomer: strArray(p.targetCustomer),
+    hqLocation: str(p.hqLocation),
+    competitors: strArray(p.competitors),
+    uniqueValueProp: str(p.uniqueValueProp),
+    currentARR: str(p.currentARR),
+    yoyGrowth: str(p.yoyGrowth),
+    momGrowth: str(p.momGrowth),
+    totalHeadcount: str(p.totalHeadcount),
+    socialTwitter: str(p.socialTwitter),
+    socialLinkedin: str(p.socialLinkedin),
+    socialInstagram: str(p.socialInstagram),
+    onePagerUrl: str(p.onePagerUrl),
+    burnRate: str(p.burnRate),
+    nrr: str(p.nrr),
+    cac: str(p.cac),
+    ltv: str(p.ltv),
+  } as CompanyData;
+}
+
 export function getCompletionPercent(form: CompanyData): number {
   const fields: (keyof CompanyData)[] = [
     // Overview
