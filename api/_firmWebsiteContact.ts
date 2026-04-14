@@ -1,3 +1,5 @@
+import { resolveFirmContactEmailByWebsiteUrl } from "../src/lib/firmContactEmailOverrides.js";
+
 type FirmWebsiteContact = {
   email: string | null;
   linkedinUrl: string | null;
@@ -160,10 +162,11 @@ export async function resolveFirmWebsiteContact(websiteUrl: string): Promise<Fir
   }
 
   const base = new URL(normalized);
+  const overrideEmail = resolveFirmContactEmailByWebsiteUrl(normalized);
   const homepageHtml = await fetchHtml(base.toString());
   if (!homepageHtml) {
     return {
-      email: null,
+      email: overrideEmail,
       linkedinUrl: null,
       xUrl: null,
       facebookUrl: null,
@@ -200,7 +203,7 @@ export async function resolveFirmWebsiteContact(websiteUrl: string): Promise<Fir
   }
 
   return {
-    email: chooseBestEmail(Array.from(emails), base.hostname),
+    email: overrideEmail ?? chooseBestEmail(Array.from(emails), base.hostname),
     linkedinUrl: chooseSocialUrl(Array.from(urls), "linkedin"),
     xUrl: chooseSocialUrl(Array.from(urls), "x"),
     facebookUrl: chooseSocialUrl(Array.from(urls), "facebook"),

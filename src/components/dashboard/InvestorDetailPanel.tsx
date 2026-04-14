@@ -37,7 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
-import { isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
+import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
 import {
   isFirmStrategyClassification,
   STRATEGY_CLASSIFICATION_DEFINITIONS,
@@ -197,6 +197,68 @@ function liveFirmRowMatchesDirectorySelection(
   // e.g. "luxcapital" vs "luxcapitalmanagement" — same brand, different legal suffix in DB
   if (a.length >= 8 && b.length >= 8 && (a.includes(b) || b.includes(a))) return true;
   return false;
+}
+
+function formatUsdCheckRangeLine(min: number | null, max: number | null): string {
+  const fmt = (amount: number) =>
+    amount >= 1_000_000
+      ? `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`
+      : amount >= 1_000
+        ? `$${(amount / 1_000).toFixed(0)}K`
+        : `$${amount}`;
+  if (min != null && max != null) return `${fmt(min)}–${fmt(max)}`;
+  if (min != null) return fmt(min);
+  if (max != null) return fmt(max);
+  return "";
+}
+
+/** Prefer Supabase `firm_records` + relations over `investor-enrich` (Exa/Gemini) when the row is rich enough. */
+function enrichResultFromDbInvestorProfile(
+  profile: InvestorProfile | null,
+  directoryDisplayName: string,
+): EnrichResult | null {
+  if (!profile || profile.source !== "live") return null;
+  if (!liveFirmRowMatchesDirectorySelection(profile.firm_name, directoryDisplayName)) return null;
+
+  const dealNames = (profile.deals ?? []).map((d) => safeTrim(d.company_name)).filter(Boolean);
+  const legacy = (profile.recent_deals ?? []).map((s) => safeTrim(s)).filter(Boolean);
+  const recentDeals = [...new Set([...dealNames, ...legacy])].slice(0, 12);
+
+  const thesis = (profile.thesis_verticals ?? []).map((s) => safeTrim(s)).filter(Boolean);
+  const desc = safeTrim(profile.description);
+  const checkLine = formatUsdCheckRangeLine(profile.min_check_size, profile.max_check_size);
+  const geography =
+    resolveFirmDisplayLocation({
+      hq_city: profile.hq_city,
+      hq_state: profile.hq_state,
+      hq_country: profile.hq_country,
+      legacyLocation: profile.location,
+    }) ?? "";
+
+  const hasSubstance =
+    recentDeals.length > 0 ||
+    thesis.length > 0 ||
+    desc.length > 40 ||
+    checkLine.length > 0 ||
+    safeTrim(profile.preferred_stage).length > 0;
+
+  if (!hasSubstance) return null;
+
+  return {
+    profile: {
+      firmName: profile.firm_name,
+      logoUrl: profile.logo_url ?? "",
+      recentDeals,
+      currentThesis: thesis.slice(0, 12).join(", "),
+      stage: safeTrim(profile.preferred_stage) || "",
+      geography,
+      typicalCheckSize: checkLine,
+      confidenceScore: 0.95,
+      source: "local_db",
+      lastVerified: safeTrim(profile.last_enriched_at) || new Date().toISOString(),
+    },
+    tier: 3,
+  };
 }
 
 /**
@@ -567,6 +629,13 @@ export function InvestorDetailPanel({
       return;
     }
 
+    // DB already has a solid team — skip HTML crawl + `/api/firm-website-team` on every open.
+    if (liveLoading) return;
+    if ((liveProfile?.partners?.length ?? 0) >= 3) {
+      setWebsitePartners([]);
+      return;
+    }
+
     const fetchWebsiteTeam = async (forceRefresh: boolean) => {
       const res = await fetch("/api/firm-website-team", {
         method: "POST",
@@ -610,7 +679,7 @@ export function InvestorDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [firmWebsiteUrl]);
+  }, [firmWebsiteUrl, liveLoading, liveProfile?.partners?.length]);
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
@@ -807,6 +876,11 @@ export function InvestorDetailPanel({
     if (!firmId || !looksLikeFirmRecordsUuid(firmId)) return;
     if (mergedPartners.length === 0) return;
     if (headshotMirrorFirmIdRef.current === firmId) return;
+    const dbPartners = liveProfile?.partners ?? [];
+    if (dbPartners.length > 0 && !dbPartners.some((p) => investorHeadshotNeedsOffloadedMirror(p))) {
+      headshotMirrorFirmIdRef.current = firmId;
+      return;
+    }
     headshotMirrorFirmIdRef.current = firmId;
 
     void (async () => {
@@ -831,7 +905,7 @@ export function InvestorDetailPanel({
         /* non-fatal */
       }
     })();
-  }, [databaseFirmId, mergedPartners.length, queryClient, investor?.name, vcFirm?.name]);
+  }, [databaseFirmId, mergedPartners.length, liveProfile?.partners, queryClient, investor?.name, vcFirm?.name]);
 
   const partnerNamesLower = useMemo(
     () => new Set(mergedPartners.map((p) => safeTrim(p.full_name).toLowerCase())),
@@ -839,13 +913,48 @@ export function InvestorDetailPanel({
   );
 
   useEffect(() => {
-    if (!displayName) { setEnrichedData(null); return; }
+    if (!displayName) {
+      setEnrichedData(null);
+      return;
+    }
+
+    const expectLiveRow = Boolean(
+      preferredLiveFirmRecordId || firmRecordIdFromVcDirectory || investor?.name || vcFirm?.name,
+    );
+    if (!liveLoading) {
+      const fromDb = enrichResultFromDbInvestorProfile(liveProfile ?? null, displayName);
+      if (fromDb) {
+        setEnrichedData(fromDb);
+        return;
+      }
+    } else if (expectLiveRow) {
+      setEnrichedData(null);
+      return;
+    }
+
     const key = displayName.toLowerCase();
-    if (enrichCache[key]) { setEnrichedData(enrichCache[key]); return; }
+    if (enrichCache[key]) {
+      setEnrichedData(enrichCache[key]);
+      return;
+    }
     let cancelled = false;
-    enrich(displayName).then(result => { if (!cancelled) setEnrichedData(result); });
-    return () => { cancelled = true; };
-  }, [displayName]);
+    enrich(displayName).then((result) => {
+      if (!cancelled) setEnrichedData(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    displayName,
+    enrich,
+    enrichCache,
+    firmRecordIdFromVcDirectory,
+    investor?.name,
+    liveLoading,
+    liveProfile,
+    preferredLiveFirmRecordId,
+    vcFirm?.name,
+  ]);
 
   // Track 'viewed' interaction for collaborative filtering
   const viewedRef = useRef<string | null>(null);
