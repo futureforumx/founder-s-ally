@@ -1,3 +1,6 @@
+import { mirrorWebsiteTeamHeadshotsToR2 } from "./_r2MirrorWebsiteHeadshot.js";
+import { createClient } from "@supabase/supabase-js";
+
 export type FirmWebsiteTeamPerson = {
   id: string;
   full_name: string;
@@ -18,7 +21,7 @@ const REQUEST_HEADERS = {
 };
 
 const HREF_RE = /href=["']([^"'#]+)["']/gi;
-const IMG_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+const IMG_OPEN_TAG_RE = /<img\b([^>]*)\/?>/gi;
 const SOCIAL_LINK_RE = /href=["']([^"']*(?:linkedin\.com|x\.com|twitter\.com)[^"']*)["']/gi;
 const MAILTO_RE = /mailto:([^"'? ]+)/i;
 // Unicode letters for names like "Peter Hébert", "José García"
@@ -66,6 +69,139 @@ function stripTags(html: string): string {
 
 function normalizeNameKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function safeTrim(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function supabaseAdmin() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+function splitNameParts(fullName: string): { first: string | null; last: string | null } {
+  const parts = safeTrim(fullName).split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: null, last: null };
+  if (parts.length === 1) return { first: parts[0], last: null };
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function pickIncomingString(current: unknown, incoming: string | null | undefined): string | undefined {
+  const next = safeTrim(incoming);
+  if (!next) return undefined;
+  const prev = safeTrim(current);
+  if (!prev) return next;
+  return prev === next ? undefined : next;
+}
+
+async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: FirmWebsiteTeamPerson[]): Promise<void> {
+  if (!people.length) return;
+  const admin = supabaseAdmin();
+  if (!admin) return;
+
+  let host = "";
+  try {
+    host = normalizeHostname(new URL(websiteUrl).hostname);
+  } catch {
+    return;
+  }
+  if (!host) return;
+
+  const { data: candidateFirms } = await admin
+    .from("firm_records")
+    .select("id, website_url")
+    .is("deleted_at", null)
+    .ilike("website_url", `%${host}%`)
+    .limit(8);
+  if (!candidateFirms?.length) return;
+
+  let firmRecordId: string | null = null;
+  for (const row of candidateFirms) {
+    const w = safeTrim((row as Record<string, unknown>).website_url);
+    if (!w) continue;
+    try {
+      const rowHost = normalizeHostname(new URL(w.includes("://") ? w : `https://${w}`).hostname);
+      if (rowHost === host) {
+        firmRecordId = String((row as Record<string, unknown>).id);
+        break;
+      }
+    } catch {
+      /* ignore malformed website_url */
+    }
+  }
+  if (!firmRecordId) return;
+
+  const { data: investors } = await admin
+    .from("firm_investors")
+    .select("id, full_name, title, email, linkedin_url, x_url, bio, background_summary, raw_location, avatar_url, profile_image_url")
+    .eq("firm_id", firmRecordId)
+    .is("deleted_at", null)
+    .limit(1000);
+
+  const byName = new Map<string, Record<string, unknown>>();
+  for (const inv of (investors ?? []) as Record<string, unknown>[]) {
+    const key = normalizeNameKey(safeTrim(inv.full_name));
+    if (key) byName.set(key, inv);
+  }
+
+  const updates: Array<Promise<unknown>> = [];
+  for (const p of people) {
+    const key = normalizeNameKey(safeTrim(p.full_name));
+    if (!key) continue;
+    const inv = byName.get(key);
+    if (inv) {
+      const patch: Record<string, unknown> = {};
+      const maybeTitle = pickIncomingString(inv.title, p.title);
+      if (maybeTitle) patch.title = maybeTitle;
+      const maybeEmail = pickIncomingString(inv.email, p.email);
+      if (maybeEmail) patch.email = maybeEmail;
+      const maybeLinkedIn = pickIncomingString(inv.linkedin_url, p.linkedin_url);
+      if (maybeLinkedIn) patch.linkedin_url = maybeLinkedIn;
+      const maybeX = pickIncomingString(inv.x_url, p.x_url);
+      if (maybeX) patch.x_url = maybeX;
+      const maybeBackground = pickIncomingString(inv.background_summary, p.bio);
+      if (maybeBackground) patch.background_summary = maybeBackground;
+      const maybeBio = pickIncomingString(inv.bio, p.bio);
+      if (maybeBio) patch.bio = maybeBio;
+      const maybeLocation = pickIncomingString(inv.raw_location, p.location);
+      if (maybeLocation) patch.raw_location = maybeLocation;
+      const maybeProfileImage = pickIncomingString(inv.profile_image_url, p.profile_image_url);
+      if (maybeProfileImage) patch.profile_image_url = maybeProfileImage;
+      const maybeAvatar = pickIncomingString(inv.avatar_url, p.profile_image_url);
+      if (maybeAvatar) patch.avatar_url = maybeAvatar;
+      if (!Object.keys(patch).length) continue;
+      updates.push(admin.from("firm_investors").update(patch).eq("id", String(inv.id)));
+      continue;
+    }
+
+    const { first, last } = splitNameParts(p.full_name);
+    const insertRow: Record<string, unknown> = {
+      firm_id: firmRecordId,
+      full_name: p.full_name,
+      first_name: first,
+      last_name: last,
+      title: safeTrim(p.title) || null,
+      email: safeTrim(p.email) || null,
+      linkedin_url: safeTrim(p.linkedin_url) || null,
+      x_url: safeTrim(p.x_url) || null,
+      website_url: safeTrim(p.website_url) || null,
+      background_summary: safeTrim(p.bio) || null,
+      bio: safeTrim(p.bio) || null,
+      raw_location: safeTrim(p.location) || null,
+      profile_image_url: safeTrim(p.profile_image_url) || null,
+      avatar_url: safeTrim(p.profile_image_url) || null,
+      is_active: true,
+      ready_for_live: true,
+    };
+    updates.push(admin.from("firm_investors").insert(insertRow));
+  }
+
+  if (updates.length) {
+    await Promise.allSettled(updates);
+  }
 }
 
 /** LinkedIn `/in/{slug}` in anchor hrefs — used as a fallback team size when card parsing finds nobody. */
@@ -248,21 +384,119 @@ function chooseTitle(
   return opsLine;
 }
 
-function chooseImage(block: string, fullName: string, baseUrl: string): string | null {
-  const nameIdx = block.toLowerCase().indexOf(fullName.toLowerCase());
-  const images: Array<{ url: string; pos: number }> = [];
-  IMG_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = IMG_RE.exec(block)) !== null) {
-    const src = match[1]?.trim();
-    if (!src) continue;
-    const url = normalizeMaybeUrl(src, baseUrl);
-    if (!url) continue;
-    if (/logo|icon|favicon|banner|bg[-_]/i.test(url)) continue;
-    images.push({ url, pos: match.index });
+function attrValue(attrs: string, attr: string): string | null {
+  const re = new RegExp(`\\b${attr}=["']([^"']*)["']`, "i");
+  return attrs.match(re)?.[1]?.trim() ?? null;
+}
+
+function isJunkOrPlaceholderImageUrl(url: string): boolean {
+  return (
+    /^data:image\//i.test(url) ||
+    /logo|icon|favicon|banner|bg[-_]|spacer|1x1|blank\.gif|pixel\.gif|placeholder|loading\.svg/i.test(url)
+  );
+}
+
+/** Prefer largest `640w`-style candidate from a srcset string. */
+function bestUrlFromSrcset(srcset: string | null, baseUrl: string): string | null {
+  if (!srcset) return null;
+  let best: { url: string; w: number } | null = null;
+  for (const part of srcset.split(",")) {
+    const bits = part.trim().split(/\s+/).filter(Boolean);
+    if (!bits.length) continue;
+    const raw = bits[0];
+    const url = normalizeMaybeUrl(raw, baseUrl);
+    if (!url || isJunkOrPlaceholderImageUrl(url)) continue;
+    const wMatch = bits[1]?.toLowerCase().match(/^(\d+)w$/);
+    const w = wMatch ? parseInt(wMatch[1], 10) : 0;
+    if (!best || w > best.w) best = { url, w };
   }
+  return best?.url ?? null;
+}
+
+/**
+ * Resolve a usable portrait URL from one `<img ...>` attribute string (lazy-load + srcset).
+ */
+function collectImgTagImageUrls(attrs: string, baseUrl: string): string[] {
+  const src = attrValue(attrs, "src");
+  const srcset = attrValue(attrs, "srcset");
+  const dataSrc =
+    attrValue(attrs, "data-src") ||
+    attrValue(attrs, "data-lazy-src") ||
+    attrValue(attrs, "data-original") ||
+    attrValue(attrs, "data-image");
+  const fromSet = bestUrlFromSrcset(srcset, baseUrl);
+  const orderedRaw = [dataSrc, fromSet, src];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of orderedRaw) {
+    if (!raw) continue;
+    const url = normalizeMaybeUrl(raw, baseUrl);
+    if (!url || isJunkOrPlaceholderImageUrl(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
+
+function altTextNameKey(attrs: string): string | null {
+  const alt = attrValue(attrs, "alt");
+  if (!alt) return null;
+  const cleaned = stripTags(alt).trim();
+  if (cleaned.length < 2) return null;
+  return normalizeNameKey(cleaned);
+}
+
+function altMatchesPerson(altKey: string | null, personKey: string): boolean {
+  if (!altKey || altKey.length < 4) return false;
+  if (altKey === personKey) return true;
+  if (altKey.length >= 8 && personKey.includes(altKey)) return true;
+  if (altKey.length >= 8 && altKey.includes(personKey)) return true;
+  return false;
+}
+
+function collectPictureSourceBestUrls(block: string, baseUrl: string): Array<{ url: string; pos: number }> {
+  const out: Array<{ url: string; pos: number }> = [];
+  const re = /<source\b([^>]*)\/?>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block)) !== null) {
+    const srcset = attrValue(m[1] ?? "", "srcset");
+    const url = bestUrlFromSrcset(srcset, baseUrl);
+    if (!url || isJunkOrPlaceholderImageUrl(url)) continue;
+    out.push({ url, pos: m.index });
+  }
+  return out;
+}
+
+function chooseImage(block: string, fullName: string, baseUrl: string): string | null {
+  const personKey = normalizeNameKey(fullName);
+  const nameIdx = block.toLowerCase().indexOf(fullName.toLowerCase());
+
+  type Cand = { url: string; pos: number; altKey: string | null };
+  const images: Cand[] = [];
+
+  IMG_OPEN_TAG_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = IMG_OPEN_TAG_RE.exec(block)) !== null) {
+    const attrs = m[1] ?? "";
+    const pos = m.index;
+    const urls = collectImgTagImageUrls(attrs, baseUrl);
+    const url = urls.find((u) => !/logo|icon|favicon|banner|bg[-_]/i.test(u));
+    if (!url) continue;
+    images.push({ url, pos, altKey: altTextNameKey(attrs) });
+  }
+
+  for (const { url, pos } of collectPictureSourceBestUrls(block, baseUrl)) {
+    if (/logo|icon|favicon|banner|bg[-_]/i.test(url)) continue;
+    images.push({ url, pos, altKey: null });
+  }
+
   if (images.length === 0) return null;
-  // Pick the image closest to the person's name — avoids grabbing an adjacent person's photo
+
+  for (const im of images) {
+    if (altMatchesPerson(im.altKey, personKey)) return im.url;
+  }
+
   if (nameIdx >= 0) {
     images.sort((a, b) => Math.abs(a.pos - nameIdx) - Math.abs(b.pos - nameIdx));
   }
@@ -368,8 +602,7 @@ function hasNameInHeading(block: string): boolean {
 
 function scoreBlock(block: string, text: string, allowOpsTitle: boolean): number {
   let score = 0;
-  if (IMG_RE.test(block)) score += 4;
-  IMG_RE.lastIndex = 0;
+  if (/<img\b/i.test(block)) score += 4;
   if (STRICT_TITLE_KW_RE.test(text)) {
     score += 4;
   } else if (allowOpsTitle && OPS_TITLE_KW_RE.test(text)) {
@@ -427,8 +660,7 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
   const text = stripTags(block);
 
   const hasNameHeading = hasNameInHeading(block);
-  const hasPhoto = IMG_RE.test(block);
-  IMG_RE.lastIndex = 0;
+  const hasPhoto = /<img\b/i.test(block);
   const hasMailto = MAILTO_RE.test(block);
   const hasInLinkedIn = hasLinkedInProfileHref(block);
 
@@ -507,8 +739,7 @@ function parseLinkedInNeighborhoodBlock(
   if (block.length > MAX_PERSON_BLOCK_CHARS) return null;
 
   const text = stripTags(block);
-  const hasPhoto = IMG_RE.test(block);
-  IMG_RE.lastIndex = 0;
+  const hasPhoto = /<img\b/i.test(block);
   const hasNameHeading = hasNameInHeading(block);
   const hasStrictTitle = STRICT_TITLE_KW_RE.test(text);
   STRICT_TITLE_KW_RE.lastIndex = 0;
@@ -571,7 +802,7 @@ function ingestLinkedInNeighborhoodPeople(
     if (!slug || seenOnPage.has(slug) || linkedInProfileSlugUsed(byName, slug)) continue;
     seenOnPage.add(slug);
     const idx = m.index ?? 0;
-    const block = html.slice(Math.max(0, idx - 3000), Math.min(html.length, idx + 800));
+    const block = html.slice(Math.max(0, idx - 3600), Math.min(html.length, idx + 900));
     const person = parseLinkedInNeighborhoodBlock(block, pageUrl, canon, seq.value++);
     if (!person) continue;
     const key = normalizeNameKey(person.full_name);
@@ -601,9 +832,51 @@ export type FirmWebsiteTeamResult = {
   teamMemberEstimate: number;
 };
 
-export async function resolveFirmWebsiteTeam(websiteUrl: string): Promise<FirmWebsiteTeamResult> {
+const TEAM_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const EMPTY_TEAM_CACHE_COOLDOWN_MS = 2 * 24 * 60 * 60 * 1000;
+
+type CachedTeamRow = {
+  people: unknown;
+  team_member_estimate: number | null;
+  fetched_at: string | null;
+};
+
+function parseCachedPeople(raw: unknown): FirmWebsiteTeamPerson[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((p): p is FirmWebsiteTeamPerson => {
+    if (!p || typeof p !== "object") return false;
+    const row = p as Record<string, unknown>;
+    return typeof row.id === "string" && typeof row.full_name === "string" && typeof row.source_page_url === "string";
+  });
+}
+
+export async function resolveFirmWebsiteTeam(
+  websiteUrl: string,
+  options?: { forceRefresh?: boolean },
+): Promise<FirmWebsiteTeamResult> {
   const normalized = normalizeWebsiteUrl(websiteUrl);
   if (!normalized) return { people: [], teamMemberEstimate: 0 };
+  const forceRefresh = options?.forceRefresh === true;
+  const admin = supabaseAdmin();
+  const host = normalizeHostname(new URL(normalized).hostname);
+
+  if (admin && !forceRefresh) {
+    const { data: cached, error } = await admin
+      .from("firm_website_team_cache")
+      .select("people, team_member_estimate, fetched_at")
+      .eq("firm_website_host", host)
+      .maybeSingle();
+    if (!error && cached) {
+      const row = cached as CachedTeamRow;
+      const ageMs = row.fetched_at ? Date.now() - new Date(row.fetched_at).getTime() : Number.POSITIVE_INFINITY;
+      const people = parseCachedPeople(row.people);
+      const estimate = typeof row.team_member_estimate === "number" ? row.team_member_estimate : 0;
+      const ttl = people.length > 0 ? TEAM_CACHE_TTL_MS : EMPTY_TEAM_CACHE_COOLDOWN_MS;
+      if (Number.isFinite(ageMs) && ageMs >= 0 && ageMs < ttl) {
+        return { people, teamMemberEstimate: estimate };
+      }
+    }
+  }
 
   const homepageHtml = await fetchHtml(normalized);
   if (!homepageHtml) return { people: [], teamMemberEstimate: 0 };
@@ -641,8 +914,40 @@ export async function resolveFirmWebsiteTeam(websiteUrl: string): Promise<FirmWe
     ingestLinkedInNeighborhoodPeople(html, pageUrl, byName, personSeq);
   }
 
-  return {
-    people: Array.from(byName.values()),
+  let people = Array.from(byName.values());
+  try {
+    people = await mirrorWebsiteTeamHeadshotsToR2(people, normalized);
+  } catch (err) {
+    console.error("[resolveFirmWebsiteTeam] R2 headshot mirror failed (returning scraped URLs):", err);
+  }
+
+  // Save website-derived people data for faster subsequent modal loads.
+  try {
+    await persistWebsiteTeamToFirmInvestors(normalized, people);
+  } catch (err) {
+    console.error("[resolveFirmWebsiteTeam] DB writeback failed (continuing with scraped payload):", err);
+  }
+
+  const out = {
+    people,
     teamMemberEstimate: linkedInSlugs.size,
   };
+
+  if (admin) {
+    try {
+      await admin.from("firm_website_team_cache").upsert(
+        {
+          firm_website_host: host,
+          people,
+          team_member_estimate: out.teamMemberEstimate,
+          fetched_at: new Date().toISOString(),
+        },
+        { onConflict: "firm_website_host" },
+      );
+    } catch (err) {
+      console.error("[resolveFirmWebsiteTeam] cache upsert failed:", err);
+    }
+  }
+
+  return out;
 }

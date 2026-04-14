@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { resolveFirmDomain } from "@/components/ui/firm-logo";
+import { resolveFirmDomain, resolveKnownVcLogoUrl } from "@/components/ui/firm-logo";
 import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
 
 export function FirmFavicon({
@@ -18,6 +18,8 @@ export function FirmFavicon({
   }, [websiteUrl, name]);
 
   const storedLogoUrl = sanitizeFirmLogoUrlForDisplay(logoUrl);
+  const knownLogoUrl = resolveKnownVcLogoUrl(name, domain);
+  const primaryLogoUrl = storedLogoUrl ?? knownLogoUrl;
   const directUrl = domain ? `https://${domain}/favicon.ico` : null;
   const gstaticUrl = domain
     ? `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=32`
@@ -25,7 +27,7 @@ export function FirmFavicon({
   const s2Url = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32` : null;
 
   const [tier, setTier] = useState<1 | 2 | 3 | 4 | 5>(() => {
-    if (storedLogoUrl) return 1;
+    if (primaryLogoUrl) return 1;
     if (directUrl) return 2;
     if (gstaticUrl) return 3;
     if (s2Url) return 4;
@@ -34,7 +36,8 @@ export function FirmFavicon({
 
   useEffect(() => {
     const stored = sanitizeFirmLogoUrlForDisplay(logoUrl);
-    if (stored) {
+    const known = resolveKnownVcLogoUrl(name, domain);
+    if (stored ?? known) {
       setTier(1);
     } else if (directUrl) {
       setTier(2);
@@ -45,10 +48,10 @@ export function FirmFavicon({
     } else {
       setTier(5);
     }
-  }, [logoUrl, directUrl, gstaticUrl, s2Url]);
+  }, [logoUrl, name, domain, directUrl, gstaticUrl, s2Url]);
 
   const src =
-    tier === 1 ? storedLogoUrl :
+    tier === 1 ? primaryLogoUrl :
     tier === 2 ? directUrl :
     tier === 3 ? gstaticUrl :
     tier === 4 ? s2Url :
