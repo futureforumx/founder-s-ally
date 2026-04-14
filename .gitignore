@@ -64,5 +64,7 @@ data/portfolio-enrichment-results.json
 scripts/cb-insights-scraper/scraper-progress.json
 scripts/cb-insights-scraper/scraper-results.json
 data/signal-nfx-investor-lists.json
+# Startup scraper progress files (resume state, not source data)
+data/scraper-progress-*.json
 .aidesigner/*
 !.aidesigner/.gitkeep
