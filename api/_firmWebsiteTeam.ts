@@ -96,61 +96,21 @@ function linkedInSlugFromUrl(url: string | null | undefined): string | null {
   return s && s.length >= 3 ? s : null;
 }
 
-/** Turn `jane-doe-1234567` → `Jane Doe` when it looks like a person name. */
-function linkedInSlugToDisplayName(slug: string): string | null {
+function normalizeLinkedInProfileUrl(raw: string): string | null {
   try {
-    let s = decodeURIComponent(slug).trim().toLowerCase();
-    if (s.length < 3) return null;
-    s = s.replace(/-\d{6,}$/u, "").replace(/\d+$/u, "");
-    const parts = s.split(/[-_+]+/).filter((p) => p.length > 0 && !/^\d+$/u.test(p));
-    if (parts.length < 2) return null;
-    const name = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-    return isLikelyPersonName(name) ? name : null;
+    const u = new URL(raw, "https://www.linkedin.com");
+    if (!/\/in\//i.test(u.pathname)) return null;
+    if (/\/in\/company\//i.test(u.pathname)) return null;
+    u.hash = "";
+    u.search = "";
+    const parts = u.pathname.split("/").filter(Boolean);
+    const inIdx = parts.indexOf("in");
+    if (inIdx < 0 || !parts[inIdx + 1]) return null;
+    const slug = parts[inIdx + 1];
+    if (LINKEDIN_IN_SLUG_BLOCKLIST.test(slug.toLowerCase())) return null;
+    return `https://www.linkedin.com/in/${slug}/`;
   } catch {
     return null;
-  }
-}
-
-function mergeSyntheticPeopleFromLinkedIn(
-  byName: Map<string, FirmWebsiteTeamPerson>,
-  linkedInSlugs: Set<string>,
-  sourcePageUrl: string,
-): void {
-  const claimedSlugs = new Set<string>();
-  for (const p of byName.values()) {
-    const slug = linkedInSlugFromUrl(p.linkedin_url);
-    if (slug) claimedSlugs.add(slug);
-  }
-  let i = 0;
-  for (const slug of linkedInSlugs) {
-    if (claimedSlugs.has(slug)) continue;
-    const fullName = linkedInSlugToDisplayName(slug);
-    if (!fullName) continue;
-    const key = normalizeNameKey(fullName);
-    const existing = byName.get(key);
-    if (existing) {
-      if (!existing.linkedin_url) {
-        byName.set(key, {
-          ...existing,
-          linkedin_url: `https://www.linkedin.com/in/${encodeURIComponent(slug)}/`,
-        });
-      }
-      continue;
-    }
-    byName.set(key, {
-      id: `website-li-${slug}-${i}`,
-      full_name: fullName,
-      title: null,
-      email: null,
-      linkedin_url: `https://www.linkedin.com/in/${encodeURIComponent(slug)}/`,
-      x_url: null,
-      website_url: null,
-      profile_image_url: null,
-      bio: null,
-      location: null,
-      source_page_url: sourcePageUrl,
-    });
-    i += 1;
   }
 }
 
@@ -178,6 +138,11 @@ function isLikelyPersonName(name: string): boolean {
 // Prefer names inside headings — Webflow / marketing sites use h1–h6
 const HEADING_TAG_RE = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi;
 
+const IMG_ALT_NAME_CANDIDATE_RE = /<img[^>]+alt=["']([^"']{4,100})["'][^>]*>/gi;
+const DATA_PERSON_NAME_RE =
+  /(?:data-full-name|data-person-name|data-team-member-name|data-member-name|data-name)=["']([^"']{4,100})["']/gi;
+const BOLD_NAME_CANDIDATE_RE = /<(?:strong|b)(?:\s[^>]*)?>([^<]{4,100})<\/(?:strong|b)>/gi;
+
 function chooseName(html: string, text: string): string | null {
   // 1. Try heading tags first — team pages put the person's name in <h2>–<h5>
   let m: RegExpExecArray | null;
@@ -189,7 +154,33 @@ function chooseName(html: string, text: string): string | null {
     if (nameMatch?.[1] && isLikelyPersonName(nameMatch[1])) return nameMatch[1];
   }
   HEADING_TAG_RE.lastIndex = 0;
-  // 2. Fall back to pattern matching in plain text
+
+  // 2. Portrait / headshot alt text (very common on team grids)
+  while ((m = IMG_ALT_NAME_CANDIDATE_RE.exec(html)) !== null) {
+    const inner = stripTags(m[1] ?? "").trim();
+    if (isLikelyPersonName(inner)) return inner;
+    const nameMatch = inner.match(NAME_ONE_RE);
+    if (nameMatch?.[1] && isLikelyPersonName(nameMatch[1])) return nameMatch[1];
+  }
+  IMG_ALT_NAME_CANDIDATE_RE.lastIndex = 0;
+
+  // 3. data-* names from Webflow / headless builds
+  while ((m = DATA_PERSON_NAME_RE.exec(html)) !== null) {
+    const inner = stripTags(m[1] ?? "").trim();
+    if (isLikelyPersonName(inner)) return inner;
+  }
+  DATA_PERSON_NAME_RE.lastIndex = 0;
+
+  // 4. First prominent bold line in card (name above title)
+  while ((m = BOLD_NAME_CANDIDATE_RE.exec(html)) !== null) {
+    const inner = stripTags(m[1] ?? "").trim();
+    if (isLikelyPersonName(inner)) return inner;
+    const nameMatch = inner.match(NAME_ONE_RE);
+    if (nameMatch?.[1] && isLikelyPersonName(nameMatch[1])) return nameMatch[1];
+  }
+  BOLD_NAME_CANDIDATE_RE.lastIndex = 0;
+
+  // 5. Fall back to pattern matching in plain text
   const matches = Array.from(text.matchAll(NAME_RE))
     .map((n) => n[1]?.trim())
     .filter((value): value is string => Boolean(value) && isLikelyPersonName(value));
@@ -317,6 +308,7 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
     normalizeMaybeUrl("/investment-team", base.toString()) ?? "",
     normalizeMaybeUrl("/leadership", base.toString()) ?? "",
     normalizeMaybeUrl("/bios", base.toString()) ?? "",
+    normalizeMaybeUrl("/investors", base.toString()) ?? "",
     base.toString(),
     normalizeMaybeUrl("/about", base.toString()) ?? "",
     normalizeMaybeUrl("/about-us", base.toString()) ?? "",
@@ -327,6 +319,7 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
   const keywords = [
     "team", "people", "about", "partners", "investors", "leadership",
     "bios", "advisors", "principal", "who-we-are", "investment",
+    "venture", "profile",
   ];
   for (const href of extractHrefs(html, base.toString())) {
     try {
@@ -334,17 +327,17 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
       if (normalizeHostname(parsed.hostname) !== host) continue;
       const haystack = `${parsed.pathname} ${parsed.search}`.toLowerCase();
       if (keywords.some((k) => haystack.includes(k))) candidates.add(parsed.toString());
-      if (candidates.size >= 18) break;
+      if (candidates.size >= 24) break;
     } catch {
       // ignore malformed hrefs
     }
   }
-  return Array.from(candidates).slice(0, 12);
+  return Array.from(candidates).slice(0, 16);
 }
 
 function extractBlocks(html: string): string[] {
   const blocks = html
-    .split(/<\/(?:article|section|div|li|tr|figure)>/i)
+    .split(/<\/(?:article|section|div|li|tr|figure|a)>/i)
     .map((block) => block.trim())
     .filter(Boolean);
   return blocks.length > 0 ? blocks : [html];
@@ -464,7 +457,8 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
   if (!title && !hasMailto && !hasInLinkedIn) return null;
 
   const hrefs = extractHrefs(block, pageUrl);
-  const linkedin = hrefs.find((href) => /linkedin\.com\/(in|company)\//i.test(href)) ?? null;
+  const linkedin =
+    hrefs.find((href) => /linkedin\.com\/in\//i.test(href) && !/\/in\/company\//i.test(href)) ?? null;
   const x = hrefs.find((href) => /(x\.com|twitter\.com)\//i.test(href) && !/share|intent|search/i.test(href)) ?? null;
   const website = chooseMemberWebsiteUrl(hrefs, pageUrl);
   const email =
@@ -490,6 +484,115 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
   };
 }
 
+function linkedInProfileSlugUsed(byName: Map<string, FirmWebsiteTeamPerson>, slug: string): boolean {
+  for (const p of byName.values()) {
+    const s = linkedInSlugFromUrl(p.linkedin_url);
+    if (s && s === slug) return true;
+  }
+  return false;
+}
+
+/**
+ * Each LinkedIn profile link + surrounding HTML — names must come from markup (headings, img alt,
+ * data-*, bold), never from URL slugs.
+ */
+function parseLinkedInNeighborhoodBlock(
+  block: string,
+  pageUrl: string,
+  linkedinCanon: string,
+  index: number,
+): FirmWebsiteTeamPerson | null {
+  if (block.length > MAX_PERSON_BLOCK_CHARS) return null;
+
+  const text = stripTags(block);
+  const hasPhoto = IMG_RE.test(block);
+  IMG_RE.lastIndex = 0;
+  const hasNameHeading = hasNameInHeading(block);
+  const hasStrictTitle = STRICT_TITLE_KW_RE.test(text);
+  STRICT_TITLE_KW_RE.lastIndex = 0;
+  const hasOpsTitle = OPS_TITLE_KW_RE.test(text);
+  OPS_TITLE_KW_RE.lastIndex = 0;
+  const hasTitleLine = hasStrictTitle || hasOpsTitle;
+  if (!hasTitleLine && !hasNameHeading && !hasPhoto) return null;
+
+  const fullName = chooseName(block, text);
+  if (!fullName || !isLikelyPersonName(fullName)) return null;
+
+  const allowOpsTitle = true;
+  const title = chooseTitle(text, { allowOpsTitle });
+  if (!title && !hasPhoto && !hasNameHeading) return null;
+
+  const hrefs = extractHrefs(block, pageUrl);
+  const linkedin =
+    hrefs.find((href) => /linkedin\.com\/in\//i.test(href) && !/\/in\/company\//i.test(href)) ?? linkedinCanon;
+  const x = hrefs.find((href) => /(x\.com|twitter\.com)\//i.test(href) && !/share|intent|search/i.test(href)) ?? null;
+  const website = chooseMemberWebsiteUrl(hrefs, pageUrl);
+  const email =
+    hrefs
+      .find((href) => href.toLowerCase().startsWith("mailto:"))
+      ?.replace(/^mailto:/i, "")
+      .split("?")[0]
+      ?.trim() ??
+    null;
+
+  return {
+    id: `website-n-${normalizeNameKey(fullName)}-${index}`,
+    full_name: fullName,
+    title,
+    email,
+    linkedin_url: linkedin,
+    x_url: x,
+    website_url: website,
+    profile_image_url: chooseImage(block, fullName, pageUrl),
+    bio: stripHtmlEntities(text).slice(0, 500) || null,
+    location: chooseLocation(text),
+    source_page_url: pageUrl,
+  };
+}
+
+const LINKEDIN_IN_PAGE_ANCHOR_RE = /href=["'](https?:\/\/[^"']*linkedin\.com\/in\/[^"']+)["']/gi;
+
+function ingestLinkedInNeighborhoodPeople(
+  html: string,
+  pageUrl: string,
+  byName: Map<string, FirmWebsiteTeamPerson>,
+  seq: { value: number },
+): void {
+  const seenOnPage = new Set<string>();
+  LINKEDIN_IN_PAGE_ANCHOR_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = LINKEDIN_IN_PAGE_ANCHOR_RE.exec(html)) !== null) {
+    const raw = m[1];
+    const canon = normalizeLinkedInProfileUrl(raw);
+    if (!canon) continue;
+    const slug = linkedInSlugFromUrl(canon);
+    if (!slug || seenOnPage.has(slug) || linkedInProfileSlugUsed(byName, slug)) continue;
+    seenOnPage.add(slug);
+    const idx = m.index ?? 0;
+    const block = html.slice(Math.max(0, idx - 3000), Math.min(html.length, idx + 800));
+    const person = parseLinkedInNeighborhoodBlock(block, pageUrl, canon, seq.value++);
+    if (!person) continue;
+    const key = normalizeNameKey(person.full_name);
+    const existing = byName.get(key);
+    if (existing) {
+      byName.set(key, {
+        ...(existing ?? person),
+        ...person,
+        title: person.title ?? existing.title ?? null,
+        email: person.email ?? existing.email ?? null,
+        linkedin_url: person.linkedin_url ?? existing.linkedin_url ?? null,
+        x_url: person.x_url ?? existing.x_url ?? null,
+        website_url: person.website_url ?? existing.website_url ?? null,
+        profile_image_url: person.profile_image_url ?? existing.profile_image_url ?? null,
+        bio: person.bio ?? existing.bio ?? null,
+        location: person.location ?? existing.location ?? null,
+      });
+    } else {
+      byName.set(key, person);
+    }
+  }
+}
+
 export type FirmWebsiteTeamResult = {
   people: FirmWebsiteTeamPerson[];
   /** Unique LinkedIn `/in/{slug}` links seen on crawled pages — fallback headcount when `people` is empty. */
@@ -506,6 +609,7 @@ export async function resolveFirmWebsiteTeam(websiteUrl: string): Promise<FirmWe
   const pages = collectCandidatePages(normalized, homepageHtml);
   const byName = new Map<string, FirmWebsiteTeamPerson>();
   const linkedInSlugs = new Set<string>();
+  const personSeq = { value: 0 };
 
   for (const pageUrl of pages) {
     const html = pageUrl === normalized ? homepageHtml : await fetchHtml(pageUrl);
@@ -531,9 +635,9 @@ export async function resolveFirmWebsiteTeam(websiteUrl: string): Promise<FirmWe
         location: person.location ?? existing?.location ?? null,
       });
     });
-  }
 
-  mergeSyntheticPeopleFromLinkedIn(byName, linkedInSlugs, normalized);
+    ingestLinkedInNeighborhoodPeople(html, pageUrl, byName, personSeq);
+  }
 
   return {
     people: Array.from(byName.values()),
