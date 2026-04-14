@@ -27,10 +27,11 @@ const MAX =
   maxRaw === "0" || maxRaw === "unlimited" || maxRaw === "all"
     ? Number.POSITIVE_INFINITY
     : Math.max(1, parseInt(process.env.PORTFOLIO_PAGE_MAX || "2000", 10));
-const DELAY_MS = Math.max(0, parseInt(process.env.PORTFOLIO_PAGE_DELAY_MS || "400", 10));
+const DELAY_MS = Math.max(0, parseInt(process.env.PORTFOLIO_PAGE_DELAY_MS || "0", 10));
 const FIRM_SLUG = (process.env.PORTFOLIO_PAGE_FIRM_SLUG || "").trim();
 const OVERWRITE = ["1", "true", "yes"].includes((process.env.PORTFOLIO_PAGE_OVERWRITE || "").toLowerCase());
-const PROGRESS_EVERY = Math.max(1, parseInt(process.env.PORTFOLIO_PAGE_PROGRESS_EVERY || "10", 10));
+const PROGRESS_EVERY = Math.max(1, parseInt(process.env.PORTFOLIO_PAGE_PROGRESS_EVERY || "25", 10));
+const CONCURRENCY = Math.max(1, Math.min(20, parseInt(process.env.PORTFOLIO_PAGE_CONCURRENCY || "8", 10)));
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -141,7 +142,7 @@ async function main() {
 
   const maxLabel = Number.isFinite(MAX) ? String(MAX) : "unlimited";
   console.log(
-    `[portfolio-page-backfill] start ${new Date().toISOString()} firms=${firms.length} max=${maxLabel} delay_ms=${DELAY_MS} overwrite=${OVERWRITE} dry=${DRY}`,
+    `[portfolio-page-backfill] start ${new Date().toISOString()} firms=${firms.length} max=${maxLabel} concurrency=${CONCURRENCY} delay_ms=${DELAY_MS} overwrite=${OVERWRITE} dry=${DRY}`,
   );
 
   let processed = 0;
@@ -151,27 +152,24 @@ async function main() {
   let inserted = 0;
   let failed = 0;
 
+  // Build the work queue (skip firms that already have deals)
+  const queue: FirmRow[] = [];
   for (const firm of firms) {
-    if (processed >= MAX) break;
-
+    if (queue.length >= MAX) break;
     if (!OVERWRITE && firmsWithDeals.has(firm.id)) {
       skippedHasDeals += 1;
       continue;
     }
+    queue.push(firm);
+  }
 
-    processed += 1;
-    const label = `${processed} ${firm.firm_name ?? firm.id}`;
+  async function processFirm(firm: FirmRow, idx: number): Promise<void> {
+    const label = `${idx} ${firm.firm_name ?? firm.id}`;
 
     if (DRY) {
       console.log(`[dry] ${label}  ${firm.website_url}`);
       if (DELAY_MS) await sleep(DELAY_MS);
-      continue;
-    }
-
-    if (processed % PROGRESS_EVERY === 0) {
-      console.log(
-        `[portfolio-page-backfill] progress ${new Date().toISOString()} processed=${processed} with_companies=${withCompanies} zero=${zeroCompanies} inserted=${inserted} failed=${failed}`,
-      );
+      return;
     }
 
     try {
@@ -194,8 +192,28 @@ async function main() {
       console.warn(`! ${label}`, e);
     }
 
+    processed += 1;
+    if (processed % PROGRESS_EVERY === 0) {
+      console.log(
+        `[portfolio-page-backfill] progress ${new Date().toISOString()} processed=${processed}/${queue.length} with_companies=${withCompanies} zero=${zeroCompanies} inserted=${inserted} failed=${failed}`,
+      );
+    }
+
     if (DELAY_MS) await sleep(DELAY_MS);
   }
+
+  // Concurrency pool: run CONCURRENCY workers draining the queue
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < queue.length) {
+      const idx = cursor + 1;
+      const firm = queue[cursor++];
+      await processFirm(firm, idx);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () => worker());
+  await Promise.all(workers);
 
   console.log(
     `[portfolio-page-backfill] done ${new Date().toISOString()} processed=${processed} skipped_has_deals=${skippedHasDeals} with_companies=${withCompanies} zero_companies=${zeroCompanies} inserted=${inserted} failed=${failed}`,
