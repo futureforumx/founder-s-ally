@@ -16,7 +16,7 @@ export function splitBackgroundSummaryPortfolio(raw: string | null | undefined):
   try {
     const parsed = JSON.parse(jsonPart) as unknown;
     const arr = Array.isArray(parsed)
-      ? parsed.filter((x): x is string => typeof x === "string" && safeTrim(x))
+      ? parsed.filter((x): x is string => typeof x === "string" && !!safeTrim(x))
       : [];
     return { narrative, companies: arr.map((x) => safeTrim(x)).filter(Boolean) };
   } catch {
