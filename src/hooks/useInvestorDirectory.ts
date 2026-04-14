@@ -92,7 +92,7 @@ function mapDbInvestor(row: any): LiveInvestorEntry {
     name: firmName,
     sector: row.thesis_verticals?.filter(Boolean).join(", ") || "Generalist",
     stage: String(row.preferred_stage ?? "").trim() || "Seed–Growth",
-    description: row.sentiment_detail || row.description || row.elevator_pitch || generateElevatorPitch({
+    description: row.elevator_pitch || row.sentiment_detail || row.description || generateElevatorPitch({
       firm_name: firmName,
       description: row.description,
       stage_focus: row.stage_focus,

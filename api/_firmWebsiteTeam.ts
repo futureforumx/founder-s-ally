@@ -136,7 +136,7 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
 
   const { data: investors } = await admin
     .from("firm_investors")
-    .select("id, full_name, title, email, linkedin_url, x_url, bio, background_summary, raw_location, avatar_url, profile_image_url")
+    .select("id, full_name, title, email, linkedin_url, x_url, bio, background_summary, avatar_url")
     .eq("firm_id", firmRecordId)
     .is("deleted_at", null)
     .limit(1000);
@@ -166,10 +166,6 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       if (maybeBackground) patch.background_summary = maybeBackground;
       const maybeBio = pickIncomingString(inv.bio, p.bio);
       if (maybeBio) patch.bio = maybeBio;
-      const maybeLocation = pickIncomingString(inv.raw_location, p.location);
-      if (maybeLocation) patch.raw_location = maybeLocation;
-      const maybeProfileImage = pickIncomingString(inv.profile_image_url, p.profile_image_url);
-      if (maybeProfileImage) patch.profile_image_url = maybeProfileImage;
       const maybeAvatar = pickIncomingString(inv.avatar_url, p.profile_image_url);
       if (maybeAvatar) patch.avatar_url = maybeAvatar;
       if (!Object.keys(patch).length) continue;
@@ -190,8 +186,6 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       website_url: safeTrim(p.website_url) || null,
       background_summary: safeTrim(p.bio) || null,
       bio: safeTrim(p.bio) || null,
-      raw_location: safeTrim(p.location) || null,
-      profile_image_url: safeTrim(p.profile_image_url) || null,
       avatar_url: safeTrim(p.profile_image_url) || null,
       is_active: true,
       ready_for_live: true,
@@ -327,7 +321,8 @@ function chooseName(html: string, text: string): string | null {
 const STRICT_TITLE_PARTS = [
   "managing partner", "general partner", "venture partner", "investing partner",
   "co-founder", "cofounder",
-  "partner", "principal", "associate", "senior associate", "analyst", "scout",
+  "partner", "principal",   "associate", "senior associate", "analyst", "scout",
+  "investor",
   "founder", "advisor", "adviser",
   "president", "vice president", "managing director",
   "chief executive", "chief operating", "chief financial", "chief technology",
@@ -345,6 +340,7 @@ const STRICT_TITLE_KW_RE = new RegExp(`\\b(${STRICT_TITLE_PARTS.join("|")})\\b`,
 
 // Ops / function words — only count when there is a real person card signal (photo+name heading or LinkedIn /in/)
 const OPS_TITLE_PARTS = [
+  "portfolio",
   "development and operations",
   "finance",
   "accounting",
@@ -368,6 +364,8 @@ const OPS_TITLE_PARTS = [
 const OPS_TITLE_KW_RE = new RegExp(`\\b(${OPS_TITLE_PARTS.join("|")})\\b`, "i");
 
 const MAX_PERSON_BLOCK_CHARS = 12_000;
+/** Elementor `loop-item` team tiles can include very deep DOM trees (still one logical card). */
+const MAX_ELEMENTOR_LOOP_ITEM_CHARS = 200_000;
 
 function chooseTitle(
   text: string,
@@ -382,6 +380,22 @@ function chooseTitle(
   const opsLine = tryLines(OPS_TITLE_KW_RE);
   if (!opsLine || opsLine.length > 80 || opsLine.split(/\s+/).length > 8) return null;
   return opsLine;
+}
+
+/** Elementor roster tiles: person name in `<h3 class="elementor-heading-title">`, role line in following `<h2>`. */
+function elementorTeamCardRoleLine(block: string): string | null {
+  if (!/elementor-heading-title/i.test(block)) return null;
+  if (!/\b(data-vekta-elementor-loop-card|e-loop-item|type-team\b|post-\d+\s+team\b)/i.test(block)) {
+    return null;
+  }
+  const m = block.match(
+    /<h3[^>]*elementor-heading-title[^>]*>([^<]+)<\/h3>[\s\S]{0,8000}?<h2[^>]*elementor-heading-title[^>]*>([^<]+)<\/h2>/i,
+  );
+  if (!m?.[1] || !m?.[2]) return null;
+  const name = stripTags(m[1]).trim();
+  const role = stripHtmlEntities(m[2]).trim();
+  if (!isLikelyPersonName(name) || role.length < 2 || role.length > 80) return null;
+  return role;
 }
 
 function attrValue(attrs: string, attr: string): string | null {
@@ -571,7 +585,26 @@ function collectCandidatePages(baseUrl: string, html: string): string[] {
   return Array.from(candidates).slice(0, 16);
 }
 
+/**
+ * Elementor team grids (`data-elementor-type="loop-item"`) — one card per person (~3–8k chars).
+ * Splitting on `</div>` alone fragments cards; whole-section splits exceed `MAX_PERSON_BLOCK_CHARS`.
+ */
+function extractElementorLoopItemBlocks(html: string): string[] | null {
+  if (!/\bdata-elementor-type=["']loop-item["']/i.test(html)) return null;
+  const parts = html.split(/<div[^>]*\bdata-elementor-type=["']loop-item["'][^>]*>/i);
+  const cards = parts
+    .slice(1)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 400 && p.length <= MAX_ELEMENTOR_LOOP_ITEM_CHARS)
+    // Opening `loop-item` wrapper is removed by `split` — tag fragments so role-line heuristics apply.
+    .map((p) => `<div data-vekta-elementor-loop-card="1">${p}`);
+  return cards.length >= 2 ? cards : null;
+}
+
 function extractBlocks(html: string): string[] {
+  const elementorCards = extractElementorLoopItemBlocks(html);
+  if (elementorCards) return elementorCards;
+
   const blocks = html
     .split(/<\/(?:article|section|div|li|tr|figure)>/i)
     .map((block) => block.trim())
@@ -621,6 +654,13 @@ function scoreBlock(block: string, text: string, allowOpsTitle: boolean): number
   return score;
 }
 
+function sanitizeWebsitePersonBioSnippet(text: string, maxLen: number): string | null {
+  const raw = stripHtmlEntities(text).slice(0, maxLen).trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/\bRead bio\b/gi, " ").replace(/\s{2,}/g, " ").trim();
+  return cleaned.length ? cleaned.slice(0, maxLen) : null;
+}
+
 function stripHtmlEntities(text: string): string {
   return text
     .replace(/&nbsp;/gi, " ")
@@ -655,7 +695,11 @@ function chooseMemberWebsiteUrl(hrefs: string[], pageUrl: string): string | null
 }
 
 function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWebsiteTeamPerson | null {
-  if (block.length > MAX_PERSON_BLOCK_CHARS) return null;
+  const maxBlockChars =
+    /\b(data-vekta-elementor-loop-card|e-loop-item|data-elementor-type=["']loop-item)/i.test(block)
+      ? MAX_ELEMENTOR_LOOP_ITEM_CHARS
+      : MAX_PERSON_BLOCK_CHARS;
+  if (block.length > maxBlockChars) return null;
 
   const text = stripTags(block);
 
@@ -669,7 +713,8 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
   STRICT_TITLE_KW_RE.lastIndex = 0;
   const hasOpsTitle = OPS_TITLE_KW_RE.test(text);
   OPS_TITLE_KW_RE.lastIndex = 0;
-  const hasTitleSignal = hasStrictTitle || (hasOpsTitle && allowOpsTitle);
+  const elementorRole = elementorTeamCardRoleLine(block);
+  const hasTitleSignal = hasStrictTitle || (hasOpsTitle && allowOpsTitle) || Boolean(elementorRole);
 
   // Real person card: strict role line, ops role only on tiles / LinkedIn /in/, or direct contact
   if (!hasTitleSignal && !hasMailto && !hasInLinkedIn) return null;
@@ -682,12 +727,14 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
       : hasInLinkedIn
         ? MIN_PERSON_SCORE - 1
         : MIN_PERSON_SCORE;
-  if (scoreBlock(block, text, allowOpsTitle) < minPersonScore) return null;
+  let blockScore = scoreBlock(block, text, allowOpsTitle);
+  if (elementorRole) blockScore += 4;
+  if (blockScore < minPersonScore) return null;
 
   const fullName = chooseName(block, text);
   if (!fullName || !isLikelyPersonName(fullName)) return null;
 
-  const title = chooseTitle(text, { allowOpsTitle });
+  const title = elementorRole ?? chooseTitle(text, { allowOpsTitle });
   if (!title && !hasMailto && !hasInLinkedIn) return null;
 
   const hrefs = extractHrefs(block, pageUrl);
@@ -712,7 +759,7 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
     x_url: x,
     website_url: website,
     profile_image_url: chooseImage(block, fullName, pageUrl),
-    bio: stripHtmlEntities(text).slice(0, 500) || null,
+    bio: sanitizeWebsitePersonBioSnippet(text, 500),
     location: chooseLocation(text),
     source_page_url: pageUrl,
   };
@@ -777,7 +824,7 @@ function parseLinkedInNeighborhoodBlock(
     x_url: x,
     website_url: website,
     profile_image_url: chooseImage(block, fullName, pageUrl),
-    bio: stripHtmlEntities(text).slice(0, 500) || null,
+    bio: sanitizeWebsitePersonBioSnippet(text, 500),
     location: chooseLocation(text),
     source_page_url: pageUrl,
   };

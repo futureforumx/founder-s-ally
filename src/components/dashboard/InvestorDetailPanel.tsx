@@ -39,6 +39,8 @@ import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
+import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
+import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import {
   isFirmStrategyClassification,
   STRATEGY_CLASSIFICATION_DEFINITIONS,
@@ -226,7 +228,7 @@ function enrichResultFromDbInvestorProfile(
   const recentDeals = [...new Set([...dealNames, ...legacy])].slice(0, 12);
 
   const thesis = (profile.thesis_verticals ?? []).map((s) => safeTrim(s)).filter(Boolean);
-  const desc = safeTrim(profile.description);
+  const desc = safeTrim(profile.description) || safeTrim(profile.sentiment_detail);
   const checkLine = formatUsdCheckRangeLine(profile.min_check_size, profile.max_check_size);
   const geography =
     resolveFirmDisplayLocation({
@@ -908,6 +910,49 @@ export function InvestorDetailPanel({
     })();
   }, [databaseFirmId, mergedPartners.length, liveProfile?.partners, queryClient, investor?.name, vcFirm?.name]);
 
+  const pitchEnsureFirmIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const firmId = databaseFirmId;
+    if (!firmId || !looksLikeFirmRecordsUuid(firmId)) return;
+    if (liveLoading || !liveProfile || liveProfile.source !== "live") return;
+    if (safeTrim(liveProfile.elevator_pitch).length >= 15) {
+      pitchEnsureFirmIdRef.current = firmId;
+      return;
+    }
+    if (pitchEnsureFirmIdRef.current === firmId) return;
+    pitchEnsureFirmIdRef.current = firmId;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/ensure-firm-elevator-pitch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ firmRecordId: firmId }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { updated?: boolean };
+        if (res.ok && data.updated) {
+          await queryClient.invalidateQueries({ queryKey: ["investor-profile", firmId] });
+          const n = investor?.name ?? vcFirm?.name;
+          if (n) {
+            await queryClient.invalidateQueries({ queryKey: ["investor-profile-name", safeLower(n)] });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+    })();
+  }, [
+    databaseFirmId,
+    liveLoading,
+    liveProfile?.source,
+    liveProfile?.id,
+    liveProfile?.elevator_pitch,
+    queryClient,
+    investor?.name,
+    vcFirm?.name,
+  ]);
+
   const partnerNamesLower = useMemo(
     () => new Set(mergedPartners.map((p) => safeTrim(p.full_name).toLowerCase())),
     [mergedPartners]
@@ -1302,10 +1347,44 @@ export function InvestorDetailPanel({
     ],
   );
 
-  const heroTagline =
-    String(liveProfile?.description ?? effectiveInvestor?.description ?? "")
-      .split(".")[0]
-      ?.trim() || null;
+  const heroElevatorPitch = useMemo(() => {
+    if (liveProfile?.source === "live") {
+      const fromDb = resolveElevatorPitchForDisplay({
+        elevator_pitch: liveProfile.elevator_pitch,
+        description: liveProfile.description,
+        sentiment_detail: liveProfile.sentiment_detail,
+        firm_name: liveProfile.firm_name,
+        thesis_verticals: liveProfile.thesis_verticals,
+        stage_focus: liveProfile.stage_focus,
+        preferred_stage: liveProfile.preferred_stage,
+        hq_city: liveProfile.hq_city,
+        hq_state: liveProfile.hq_state,
+        hq_country: liveProfile.hq_country,
+        entity_type: null,
+        min_check_size: liveProfile.min_check_size,
+        max_check_size: liveProfile.max_check_size,
+      });
+      if (fromDb) return fromDb;
+    }
+    const fallback = safeTrim(effectiveInvestor?.description);
+    return fallback ? clampElevatorPitch(fallback) : null;
+  }, [
+    liveProfile?.source,
+    liveProfile?.elevator_pitch,
+    liveProfile?.description,
+    liveProfile?.sentiment_detail,
+    liveProfile?.firm_name,
+    liveProfile?.thesis_verticals,
+    liveProfile?.stage_focus,
+    liveProfile?.preferred_stage,
+    liveProfile?.hq_city,
+    liveProfile?.hq_state,
+    liveProfile?.hq_country,
+    liveProfile?.firm_type,
+    liveProfile?.min_check_size,
+    liveProfile?.max_check_size,
+    effectiveInvestor?.description,
+  ]);
 
   const metaFacts = [
     { label: "AUM", value: heroAumDisplay ?? "—" },
@@ -1393,10 +1472,13 @@ export function InvestorDetailPanel({
                             <CheckCircle2 className="h-[15px] w-[15px] shrink-0 text-accent fill-accent/15 mb-0.5" />
                           </div>
 
-                          {/* Tagline */}
-                          {heroTagline && (
-                            <p className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 truncate max-w-sm">
-                              {heroTagline}
+                          {/* Elevator pitch (≤200 chars; persisted on `firm_records.elevator_pitch` when generated) */}
+                          {heroElevatorPitch && (
+                            <p
+                              className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 max-w-xl line-clamp-3"
+                              title={heroElevatorPitch}
+                            >
+                              {heroElevatorPitch}
                             </p>
                           )}
 
@@ -1404,7 +1486,7 @@ export function InvestorDetailPanel({
                           <div
                             className={cn(
                               "flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]",
-                              !heroTagline && "mt-2",
+                              !heroElevatorPitch && "mt-2",
                             )}
                           >
                             <div

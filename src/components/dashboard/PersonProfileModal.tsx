@@ -1,4 +1,5 @@
 import { useMemo, useCallback, startTransition, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useLatestMyVcRating } from "@/hooks/useLatestMyVcRating";
 import { formatMyReviewRateButton } from "@/lib/reviewRateButtonDisplay";
@@ -22,6 +23,10 @@ import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 import { generateInvestorBio } from "@/lib/generateFallbacks";
 import { isPlausibleLocationLine } from "@/lib/locationLineQuality";
 import { supabase } from "@/integrations/supabase/client";
+import { splitBackgroundSummaryPortfolio } from "@/lib/investorBackgroundPortfolio";
+
+const FIRM_INVESTOR_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type WebsiteDerivedPersonProfile = {
   headshotUrl: string | null;
@@ -35,6 +40,19 @@ type WebsiteDerivedPersonProfile = {
   profileUrl: string | null;
   sectorFocus: string[];
   portfolioCompanies: string[];
+};
+
+type FirmInvestorSnapshot = {
+  email: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  bio: string | null;
+  background_summary: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  avatar_url: string | null;
 };
 
 function parseEducationItems(value: unknown): string[] {
@@ -177,6 +195,8 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
 
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session, user: authUser } = useAuth();
+  const queryClient = useQueryClient();
+  const [firmInvestorSnap, setFirmInvestorSnap] = useState<FirmInvestorSnapshot | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [optimisticPersonRating, setOptimisticPersonRating] = useState<unknown>(null);
@@ -198,6 +218,23 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     safeTrim(person?.affiliations?.[0]?.firm_name) ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+
+  const mergedFromDb = useMemo(() => {
+    if (!person) return null;
+    const snap = firmInvestorSnap;
+    return {
+      email: safeTrim(snap?.email) || safeTrim(person.email) || null,
+      linkedin_url: safeTrim(snap?.linkedin_url) || safeTrim(person.linkedin_url) || null,
+      x_url: safeTrim(snap?.x_url) || safeTrim(person.x_url) || null,
+      website_url: safeTrim(snap?.website_url) || safeTrim(person.website_url) || null,
+      bio: safeTrim(snap?.bio) || safeTrim(person.bio) || null,
+      background_summary: safeTrim(snap?.background_summary) || safeTrim(person.background_summary) || null,
+      city: safeTrim(snap?.city) || safeTrim(person.city) || null,
+      state: safeTrim(snap?.state) || safeTrim(person.state) || null,
+      country: safeTrim(snap?.country) || safeTrim(person.country) || null,
+      avatar_url: safeTrim(snap?.avatar_url) || safeTrim(person.avatar_url) || safeTrim(person.profile_image_url) || null,
+    };
+  }, [person, firmInvestorSnap]);
   const resolvedFirmWebsiteUrl = useMemo(
     () =>
       safeTrim(firm?.website_url) ||
@@ -211,7 +248,35 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     setOptimisticPersonRating(null);
     setDbEducationSummary(null);
     setDbEducationItems([]);
+    setFirmInvestorSnap(null);
   }, [person?.id, firm?.id]);
+
+  useEffect(() => {
+    if (!person?.id || !FIRM_INVESTOR_UUID_RE.test(person.id)) return;
+    const firmId = safeTrim(person.firm_id);
+    if (!firmId || !FIRM_INVESTOR_UUID_RE.test(firmId)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("firm_investors")
+          .select(
+            "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url",
+          )
+          .eq("id", person.id)
+          .eq("firm_id", firmId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (cancelled || error || !data) return;
+        setFirmInvestorSnap(data as FirmInvestorSnapshot);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [person?.id, person?.firm_id]);
 
   useEffect(() => {
     if (!person) {
@@ -334,7 +399,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       null;
     const hasStoredAvatar = Boolean(
       investorPrimaryAvatarUrl({
-        avatar_url: person.avatar_url,
+        avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
         profile_image_url: person.profile_image_url,
       }),
     );
@@ -342,12 +407,16 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       resolvedFirmWebsiteUrl &&
       (
         !hasStoredAvatar ||
-        !safeTrim(person.email) ||
-        !safeTrim(person.linkedin_url) ||
-        !safeTrim(person.x_url) ||
-        !safeTrim(person.bio) ||
-        !safeTrim(person.background_summary) ||
-        !(safeTrim(person.raw_location) || safeTrim(person.city) || safeTrim(person.state) || safeTrim(person.country))
+        !safeTrim(mergedFromDb?.email) ||
+        !safeTrim(mergedFromDb?.linkedin_url) ||
+        !safeTrim(mergedFromDb?.x_url) ||
+        !safeTrim(mergedFromDb?.bio) ||
+        !safeTrim(mergedFromDb?.background_summary) ||
+        !(
+          safeTrim(mergedFromDb?.city) ||
+          safeTrim(mergedFromDb?.state) ||
+          safeTrim(mergedFromDb?.country)
+        )
       ),
     );
 
@@ -367,12 +436,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
             fullName,
             title,
             firmInvestorId: person.id,
-            forceRefresh: true,
+            // Use cache + DB cooldown so repeat opens are fast; server still persists to `firm_investors`.
+            forceRefresh: false,
           }),
         });
         if (!res.ok) throw new Error(`Profile lookup failed (${res.status})`);
         const data = (await res.json()) as WebsiteDerivedPersonProfile;
-        if (!cancelled) setWebsiteProfile(data);
+        if (!cancelled) {
+          setWebsiteProfile(data);
+          const fid = safeTrim(person.firm_id);
+          if (fid && FIRM_INVESTOR_UUID_RE.test(fid)) {
+            void queryClient.invalidateQueries({ queryKey: ["investor-profile", fid] });
+          }
+          const n = safeTrim(firm?.name) || safeTrim(person.primary_firm_name);
+          if (n) void queryClient.invalidateQueries({ queryKey: ["investor-profile-name", n.toLowerCase()] });
+        }
       } catch {
         if (!cancelled) setWebsiteProfile(null);
       }
@@ -399,6 +477,10 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     person?.title,
     person?.x_url,
     resolvedFirmWebsiteUrl,
+    mergedFromDb,
+    firm?.name,
+    person?.firm_id,
+    queryClient,
   ]);
 
   const {
@@ -439,11 +521,15 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     if (!person) return null;
     const raw = safeTrim(person.raw_location);
     if (isPlausibleLocationLine(raw)) return raw;
-    const parts = [person.city, person.state, person.country].filter((p): p is string => Boolean(safeTrim(p)));
+    const parts = [
+      mergedFromDb?.city ?? person.city,
+      mergedFromDb?.state ?? person.state,
+      mergedFromDb?.country ?? person.country,
+    ].filter((p): p is string => Boolean(safeTrim(p)));
     if (parts.length) return parts.join(", ");
     const websiteLocation = safeTrim(websiteProfile?.location);
     return isPlausibleLocationLine(websiteLocation) ? websiteLocation : null;
-  }, [person, websiteProfile?.location]);
+  }, [mergedFromDb?.city, mergedFromDb?.country, mergedFromDb?.state, person, websiteProfile?.location]);
   const showProceedWithCaution = useMemo(() => {
     const normalizedName = safeTrim(person?.full_name).toLowerCase();
     return PROCEED_WITH_CAUTION_NAMES.has(normalizedName);
@@ -451,9 +537,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   const backgroundText = useMemo(() => {
     if (!person) return null;
+    const narrative =
+      splitBackgroundSummaryPortfolio(mergedFromDb?.background_summary).narrative ||
+      splitBackgroundSummaryPortfolio(person.background_summary).narrative;
     return (
-      sanitizeText(person.background_summary) ||
+      sanitizeText(narrative) ||
       sanitizeText(websiteProfile?.bio) ||
+      sanitizeText(mergedFromDb?.bio) ||
       sanitizeText(person.bio) ||
       generateInvestorBio({
         full_name: person.full_name,
@@ -463,17 +553,21 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         firm_name: firm?.name || person.primary_firm_name || null,
         personal_thesis_tags: person.personal_thesis_tags,
         stage_focus: person.stage_focus,
-        city: person.city,
-        state: person.state,
-        country: person.country,
+        city: mergedFromDb?.city ?? person.city,
+        state: mergedFromDb?.state ?? person.state,
+        country: mergedFromDb?.country ?? person.country,
       }) ||
       null
     );
-  }, [firm?.name, investorTitle, person, websiteProfile?.bio]);
+  }, [firm?.name, investorTitle, mergedFromDb, person, websiteProfile?.bio]);
 
   const resolvedEmail = useMemo(
-    () => safeTrim(person?.email) || safeTrim(websiteProfile?.email) || null,
-    [person?.email, websiteProfile?.email],
+    () =>
+      safeTrim(mergedFromDb?.email) ||
+      safeTrim(person?.email) ||
+      safeTrim(websiteProfile?.email) ||
+      null,
+    [mergedFromDb?.email, person?.email, websiteProfile?.email],
   );
 
   const ledDeals = useMemo(() => (person ? ledOrSponsoredInvestments(person) : []), [person]);
@@ -524,23 +618,29 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const headerAvatarImageUrls = useMemo(() => {
     if (!person) return [];
     const base = investorAvatarUrlCandidates({
-      avatar_url: person.avatar_url,
+      avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
       profile_image_url: person.profile_image_url,
     });
     const web = safeTrim(websiteProfile?.headshotUrl);
     if (!web || base.includes(web)) return base;
     return [...base, web];
-  }, [person, person?.avatar_url, person?.profile_image_url, websiteProfile?.headshotUrl]);
+  }, [mergedFromDb?.avatar_url, person, person?.avatar_url, person?.profile_image_url, websiteProfile?.headshotUrl]);
 
-  const displayPortfolioCompanies = useMemo(
-    () => websiteProfile?.portfolioCompanies?.filter((company) => safeTrim(company)) ?? [],
-    [websiteProfile?.portfolioCompanies],
-  );
+  const displayPortfolioCompanies = useMemo(() => {
+    const fromDb = [
+      ...splitBackgroundSummaryPortfolio(mergedFromDb?.background_summary).companies,
+      ...splitBackgroundSummaryPortfolio(person?.background_summary).companies,
+    ];
+    const fromWeb = websiteProfile?.portfolioCompanies?.filter((company) => safeTrim(company)) ?? [];
+    return Array.from(new Set([...fromDb, ...fromWeb].map((c) => safeTrim(c)).filter(Boolean)));
+  }, [mergedFromDb?.background_summary, person?.background_summary, websiteProfile?.portfolioCompanies]);
 
   const socialLinks = useMemo(() => {
     if (!person) return [];
     const items: { key: string; href: string; icon: LucideIcon; label: string; hoverClass: string }[] = [];
-    const linkedin = personSocialHref(person.linkedin_url || websiteProfile?.linkedinUrl);
+    const linkedin = personSocialHref(
+      mergedFromDb?.linkedin_url || person.linkedin_url || websiteProfile?.linkedinUrl,
+    );
     if (linkedin) {
       items.push({
         key: "linkedin",
@@ -550,7 +650,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         hoverClass: "hover:border-[#0A66C2]/40 hover:text-[#0A66C2]",
       });
     }
-    const x = personSocialHref(person.x_url || websiteProfile?.xUrl);
+    const x = personSocialHref(mergedFromDb?.x_url || person.x_url || websiteProfile?.xUrl);
     if (x) {
       items.push({
         key: "x",
@@ -561,6 +661,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     const websiteRaw =
+      safeTrim(mergedFromDb?.website_url) ||
       safeTrim(person.website_url) ||
       safeTrim((person as VCPerson & { personal_website_url?: string | null }).personal_website_url) ||
       safeTrim(websiteProfile?.profileUrl) ||
@@ -577,7 +678,16 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       });
     }
     return items;
-  }, [person, websiteProfile?.linkedinUrl, websiteProfile?.profileUrl, websiteProfile?.websiteUrl, websiteProfile?.xUrl]);
+  }, [
+    person,
+    mergedFromDb?.linkedin_url,
+    mergedFromDb?.website_url,
+    mergedFromDb?.x_url,
+    websiteProfile?.linkedinUrl,
+    websiteProfile?.profileUrl,
+    websiteProfile?.websiteUrl,
+    websiteProfile?.xUrl,
+  ]);
 
   return (
     <AnimatePresence>

@@ -16,6 +16,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_ENABLED?: string;
   /** When `true`, send Sentry events during `vite dev` (default: off in dev to avoid blocked ingest). */
   readonly VITE_SENTRY_IN_DEV?: string;
+  /** Optional public headshot CDN base (same as CF_R2_PUBLIC_BASE_HEADSHOTS) so the UI tries those URLs before slow third-party hosts. */
+  readonly VITE_HEADSHOT_CDN_BASE?: string;
 }
 
 interface ImportMeta {
