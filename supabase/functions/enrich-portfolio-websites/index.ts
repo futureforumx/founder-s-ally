@@ -1,11 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // ---------------------------------------------------------------------------
-// enrich-portfolio-websites  v6
+// enrich-portfolio-websites  v8
 // ---------------------------------------------------------------------------
 // Fetches VC firm portfolio pages, extracts companies via HTML parsing
 // (no AI key required) + optional AI enrichment when LOVABLE_API_KEY,
-// OPENAI_API_KEY, or GROQ_API_KEY is set as a Supabase secret.
+// OPENAI_API_KEY, GROQ_API_KEY, or GEMINI_API_KEY is set as a Supabase secret.
+//
+// Table: public.firm_records  (website_url, portfolio, portfolio_enriched_at)
 //
 // pg_cron fires this every minute via net.http_post with {"batch_size":15}.
 // Each invocation marks a batch of firms immediately (prevents double-processing)
@@ -354,19 +356,19 @@ Deno.serve(async (req: Request) => {
   } else if (geminiKey) {
     aiKey = geminiKey; aiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/openai'; aiModel = 'gemini-2.0-flash';
   }
-  console.log(`v7 batch=${batchSize} ai=${aiKey ? aiModel : 'html_only'}`);
+  console.log(`v8 batch=${batchSize} ai=${aiKey ? aiModel : 'html_only'}`);
 
   const filterQs = reEnrich
     ? `portfolio_source=in.(attempted,website_scrape_html)&website_url=not.is.null`
-    : `portfolio_enriched_at=is.null&website_url=not.is.null`;
+    : `portfolio_enriched_at=is.null&website_url=not.is.null&deleted_at=is.null`;
 
   const params = new URLSearchParams({
-    select: 'id,name,website_url,portfolio_count',
-    order: 'portfolio_count.desc.nullslast',
+    select: 'id,firm_name,website_url',
+    order: 'match_score.desc.nullslast',
     limit: String(batchSize),
   });
   const firmsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/investormatch_vc_firms?${filterQs}&${params}`,
+    `${SUPABASE_URL}/rest/v1/firm_records?${filterQs}&${params}`,
     { headers: SB_HEADERS }
   );
   if (!firmsRes.ok) {
@@ -385,7 +387,7 @@ Deno.serve(async (req: Request) => {
   // Mark immediately to prevent double-processing by concurrent cron invocations
   if (!dryRun) {
     const now = new Date().toISOString();
-    await fetch(`${SUPABASE_URL}/rest/v1/investormatch_vc_firms?id=in.(${firms.map((f: any) => f.id).join(',')})`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/firm_records?id=in.(${firms.map((f: any) => f.id).join(',')})`, {
       method: 'PATCH',
       headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
       body: JSON.stringify({ portfolio_enriched_at: now }),
@@ -399,14 +401,14 @@ Deno.serve(async (req: Request) => {
         const page = await fetchPortfolioPage(firm.website_url);
         if (page) {
           if (aiKey) {
-            companies = await extractWithAI(firm.name, page.text, aiKey, aiBaseUrl, aiModel);
+            companies = await extractWithAI(firm.firm_name, page.text, aiKey, aiBaseUrl, aiModel);
             if (companies.length === 0) companies = extractCompaniesFromHTML(page.html, firm.website_url);
           } else {
             companies = extractCompaniesFromHTML(page.html, firm.website_url);
           }
-          console.log(`${firm.name}: ${page.url} → ${companies.length} companies`);
+          console.log(`${firm.firm_name}: ${page.url} → ${companies.length} companies`);
         } else {
-          console.log(`${firm.name}: no portfolio page`);
+          console.log(`${firm.firm_name}: no portfolio page`);
         }
 
         if (companies.length > 0 && bfKey) {
@@ -417,7 +419,7 @@ Deno.serve(async (req: Request) => {
 
         if (!dryRun) {
           const now = new Date().toISOString();
-          await fetch(`${SUPABASE_URL}/rest/v1/investormatch_vc_firms?id=eq.${firm.id}`, {
+          await fetch(`${SUPABASE_URL}/rest/v1/firm_records?id=eq.${firm.id}`, {
             method: 'PATCH',
             headers: { ...SB_HEADERS, Prefer: 'return=minimal' },
             body: JSON.stringify({
@@ -434,7 +436,7 @@ Deno.serve(async (req: Request) => {
         if (companies.length > 0) { stats.enriched++; } else { stats.no_data++; }
         stats.total_companies += companies.length;
       } catch (err: any) {
-        console.error(`Error: ${firm.name}:`, err);
+        console.error(`Error: ${firm.firm_name}:`, err);
         stats.errors++;
       }
     }
@@ -442,7 +444,7 @@ Deno.serve(async (req: Request) => {
   })());
 
   return new Response(
-    JSON.stringify({ ok: true, batch: firms.map((f: any) => f.name), dry_run: dryRun, ai_mode: aiKey ? aiModel : 'html_only', ...stats }),
+    JSON.stringify({ ok: true, batch: firms.map((f: any) => f.firm_name), dry_run: dryRun, ai_mode: aiKey ? aiModel : 'html_only', ...stats }),
     { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
   );
 });
