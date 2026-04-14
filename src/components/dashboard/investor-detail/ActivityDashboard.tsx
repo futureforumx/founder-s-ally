@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2 } from "lucide-react";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { safeLower, safeTrim } from "@/lib/utils";
@@ -143,6 +144,10 @@ async function resolveFirmRecordId(
     .maybeSingle();
   const exactId = (exact as { id: string } | null)?.id ?? null;
   if (exactId) return exactId;
+
+  const rpcRows = await rpcSearchFirmRecords(trimmed, 8, null, supabaseVcDirectory);
+  const rpcFirst = rpcRows[0] as { id?: string } | undefined;
+  if (rpcFirst?.id) return String(rpcFirst.id);
 
   const { data: partial } = await DB
     .from("firm_records")

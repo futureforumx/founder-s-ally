@@ -6,6 +6,7 @@ import { sanitizeText } from "@/lib/sanitizeText";
 import { generateInvestorBio } from "@/lib/generateFallbacks";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 import { safeLower, safeTrim } from "@/lib/utils";
+import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 
 // ── Types ──
@@ -199,6 +200,13 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
 // ── By-name variant (resolves name → id, then fetches) ──
 async function fetchInvestorByName(firmName: string): Promise<InvestorProfile> {
   const trimmed = safeTrim(firmName);
+
+  const rpcRows = await rpcSearchFirmRecords(trimmed, 15, null);
+  const rpcFirst = rpcRows[0] as { id?: string } | undefined;
+  if (rpcFirst?.id) {
+    return fetchInvestorProfile(String(rpcFirst.id));
+  }
+
   const { data, error } = await supabase
     .from("firm_records")
     .select("id, firm_name, hq_city, hq_state, hq_country, location, ready_for_live")

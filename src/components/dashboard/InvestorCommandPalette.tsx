@@ -12,6 +12,7 @@ import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import Fuse from "fuse.js";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
 import type { LiveInvestorEntry } from "@/hooks/useInvestorDirectory";
+import { firmDisplayNameMatchesQuery, normalizeForFirmSearch } from "@/lib/firmSearchNormalize";
 import { safeTrim } from "@/lib/utils";
 
 // ── Types ──
@@ -174,7 +175,11 @@ export function InvestorCommandPalette({
 
     // Also filter chip-filtered DB by query
     const dbr = chipFiltered
-      .filter(i => i.name.toLowerCase().includes(q.toLowerCase()) || i.sector.toLowerCase().includes(q.toLowerCase()))
+      .filter(
+        (i) =>
+          firmDisplayNameMatchesQuery(i.name, q) ||
+          i.sector.toLowerCase().includes(q.toLowerCase()),
+      )
       .slice(0, 6);
 
     return { firmResults: fr, personResults: pr, dbResults: dbr };
@@ -198,7 +203,12 @@ export function InvestorCommandPalette({
   const handleSelectDbInvestor = useCallback((entry: LiveInvestorEntry) => {
     setOpen(false);
     // Try to find matching VC firm first
-    const vcFirm = firms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+    const entryKey = normalizeForFirmSearch(entry.name, true);
+    const vcFirm = firms.find(
+      (f) =>
+        normalizeForFirmSearch(f.name, true) === entryKey ||
+        f.name.toLowerCase() === entry.name.toLowerCase(),
+    );
     if (vcFirm) {
       onSelectFirm?.(vcFirm.id);
     } else {
@@ -295,7 +305,12 @@ export function InvestorCommandPalette({
                   </span>
                 }>
                   {dbResults.map(entry => {
-                    const vcFirm = firms.find(f => f.name.toLowerCase() === entry.name.toLowerCase());
+                    const entryKey = normalizeForFirmSearch(entry.name, true);
+                    const vcFirm = firms.find(
+                      (f) =>
+                        normalizeForFirmSearch(f.name, true) === entryKey ||
+                        f.name.toLowerCase() === entry.name.toLowerCase(),
+                    );
                     return (
                       <CommandItem
                         key={entry.id}

@@ -75,8 +75,8 @@ export interface LiveInvestorPersonEntry {
   } | null;
 }
 
-// Transform DB rows into DirectoryEntry-compatible shape
-function mapDbInvestor(row: any): LiveInvestorEntry {
+/** Transform a `firm_records` row into the directory card shape (also used for RPC search hits). */
+export function mapDbInvestor(row: any): LiveInvestorEntry {
   const firmName = String(row.firm_name ?? "").trim() || "Unknown firm";
   const location =
     resolveFirmDisplayLocation({

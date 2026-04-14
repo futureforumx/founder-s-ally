@@ -43,6 +43,7 @@ import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/a
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import type { AumBand } from "@prisma/client";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -2426,16 +2427,20 @@ export function CommunityView({
   const displayEntries = isInvestorSearch ? investorTabFiltered : filteredAll;
 
   const textFilteredEntries = useMemo(() => {
-    const q = safeTextTrim(investorListSearchQuery).toLowerCase();
+    const qRaw = safeTextTrim(investorListSearchQuery);
+    const q = qRaw.toLowerCase();
     if (!isInvestorSearch || !q) return displayEntries;
     return displayEntries.filter((e) => {
-      const name = (e.name ?? "").toString().toLowerCase();
+      const nameMatch =
+        e.category === "investor" && e._investorEntityType === "person"
+          ? personDisplayNameMatchesQuery((e.name ?? "").toString(), qRaw)
+          : firmDisplayNameMatchesQuery((e.name ?? "").toString(), qRaw);
       const sector = (e.sector ?? "").toString().toLowerCase();
       const stage = (e.stage ?? "").toString().toLowerCase();
       const desc = (e.description ?? "").toString().toLowerCase();
       const model = (e.model ?? "").toString().toLowerCase();
       return (
-        name.includes(q) ||
+        nameMatch ||
         sector.includes(q) ||
         stage.includes(q) ||
         desc.includes(q) ||

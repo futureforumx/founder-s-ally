@@ -571,6 +571,7 @@ export type Database = {
           network_strength: number | null
           news_sentiment_score: number | null
           next_update_scheduled_at: string | null
+          normalized_name: string | null
           openvc_url: string | null
           partner_names: string[] | null
           phone: string | null
@@ -592,6 +593,7 @@ export type Database = {
           status: string | null
           strategy_classifications: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url: string | null
+          search_vector: unknown | null
           thesis_orientation: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals: string[]
           tiktok_url: string | null
@@ -667,6 +669,7 @@ export type Database = {
           network_strength?: number | null
           news_sentiment_score?: number | null
           next_update_scheduled_at?: string | null
+          normalized_name?: string | null
           openvc_url?: string | null
           partner_names?: string[] | null
           phone?: string | null
@@ -688,6 +691,7 @@ export type Database = {
           status?: string | null
           strategy_classifications?: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url?: string | null
+          search_vector?: unknown | null
           thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
           tiktok_url?: string | null
@@ -762,6 +766,7 @@ export type Database = {
           network_strength?: number | null
           news_sentiment_score?: number | null
           next_update_scheduled_at?: string | null
+          normalized_name?: string | null
           openvc_url?: string | null
           partner_names?: string[] | null
           phone?: string | null
@@ -783,6 +788,7 @@ export type Database = {
           status?: string | null
           strategy_classifications?: Database["public"]["Enums"]["firm_strategy_classification"][]
           substack_url?: string | null
+          search_vector?: unknown | null
           thesis_orientation?: Database["public"]["Enums"]["thesis_orientation"] | null
           thesis_verticals?: string[]
           tiktok_url?: string | null
@@ -886,6 +892,7 @@ export type Database = {
           medium_url: string | null
           needs_review: boolean
           network_strength: number | null
+          normalized_full_name: string | null
           personal_thesis_tags: string[] | null
           phone: string | null
           preferred_name: string | null
@@ -939,6 +946,7 @@ export type Database = {
           medium_url?: string | null
           needs_review?: boolean
           network_strength?: number | null
+          normalized_full_name?: string | null
           personal_thesis_tags?: string[] | null
           phone?: string | null
           preferred_name?: string | null
@@ -992,6 +1000,7 @@ export type Database = {
           medium_url?: string | null
           needs_review?: boolean
           network_strength?: number | null
+          normalized_full_name?: string | null
           personal_thesis_tags?: string[] | null
           phone?: string | null
           preferred_name?: string | null
@@ -2277,6 +2286,24 @@ export type Database = {
         }[]
       }
       reveal_contact_info: { Args: { _investor_id: string }; Returns: Json }
+      search_firm_investors: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          avatar_url: string | null
+          firm_id: string
+          firm_name: string
+          full_name: string
+          id: string
+          match_rank: number
+          profile_image_url: string | null
+          sim_score: number
+          title: string | null
+        }[]
+      }
+      search_firm_records: {
+        Args: { p_limit?: number; p_query: string; p_ready_for_live?: boolean | null }
+        Returns: Database["public"]["Tables"]["firm_records"]["Row"][]
+      }
     }
     Enums: {
       app_permission: "user" | "manager" | "admin" | "god"
