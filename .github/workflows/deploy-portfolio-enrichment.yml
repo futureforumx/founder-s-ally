@@ -1,12 +1,13 @@
-# Deploys the enrich-portfolio-websites edge function, applies the DB migration,
-# and wires up pg_cron on project zmnlsdohtwztneamvwaq.
+name: Deploy Portfolio Enrichment
+
+# Deploys enrich-portfolio-websites to zmnlsdohtwztneamvwaq, applies the DB
+# migration, and wires up pg_cron so the function fires every minute.
 #
-# Required repo secrets:
+# Required repo secret:
 #   SUPABASE_ACCESS_TOKEN  — PAT with permissions on zmnlsdohtwztneamvwaq
 #
-# Run manually once from the Actions tab, then pg_cron handles scheduling.
-
-name: Deploy Portfolio Enrichment
+# Run ONCE manually from the Actions tab (select the feature branch).
+# pg_cron handles scheduling from then on.
 
 on:
   workflow_dispatch:
@@ -25,7 +26,7 @@ jobs:
         with:
           version: latest
 
-      # ── 1. Deploy edge function ──────────────────────────────────────────────
+      # ── 1. Deploy edge function ───────────────────────────────────────────
       - name: Deploy enrich-portfolio-websites
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -33,81 +34,54 @@ jobs:
           supabase functions deploy enrich-portfolio-websites \
             --project-ref "$PROJECT_REF" \
             --no-verify-jwt
-          echo "✅ Edge function deployed (no-verify-jwt so pg_cron needs no auth header)"
+          echo "✅ Edge function deployed (no-verify-jwt → pg_cron needs no auth header)"
 
-      # ── 2. Apply DB migration ────────────────────────────────────────────────
-      - name: Apply migration (portfolio enrichment fields)
+      # ── 2. Apply DB migrations ────────────────────────────────────────────
+      - name: Apply migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase db push --project-ref "$PROJECT_REF"
           echo "✅ Migrations applied"
 
-      # ── 3. Set up pg_cron to fire every minute ───────────────────────────────
-      - name: Install postgresql-client
-        run: sudo apt-get install -y postgresql-client
-
-      - name: Get DB connection info & set up pg_cron
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # ── 3. Set up pg_cron (fires every minute, batch_size=15) ─────────────
+      - name: Write pg_cron SQL
         run: |
-          set -euo pipefail
+          cat > /tmp/setup_cron.sql << 'SQL'
+          -- Ensure extensions are present (idempotent)
+          CREATE EXTENSION IF NOT EXISTS pg_net  WITH SCHEMA extensions;
+          CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA extensions;
 
-          # Get DB credentials from Management API
-          PROJECT_JSON=$(curl -sf \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            "https://api.supabase.com/v1/projects/$PROJECT_REF")
+          -- Remove any stale job
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'enrich-portfolio-overnight') THEN
+              PERFORM cron.unschedule('enrich-portfolio-overnight');
+            END IF;
+          END $$;
 
-          DB_HOST=$(echo "$PROJECT_JSON" | jq -r '.db_host // "db." + .id + ".supabase.co"')
-          DB_USER="postgres"
-          DB_NAME="postgres"
-
-          # Get DB password via API (may need to use the project password reset endpoint
-          # — if this fails use SUPABASE_DB_PASSWORD secret instead)
-          DB_PASSWORD="$(curl -sf \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            -X GET \
-            "https://api.supabase.com/v1/projects/$PROJECT_REF/database/connection-string" \
-            | jq -r '.uri // empty' \
-            | sed 's|.*://[^:]*:\([^@]*\)@.*|\1|' || true)"
-
-          if [ -z "$DB_PASSWORD" ] && [ -n "${{ secrets.SUPABASE_DB_PASSWORD }}" ]; then
-            DB_PASSWORD="${{ secrets.SUPABASE_DB_PASSWORD }}"
-          fi
-
-          if [ -z "$DB_PASSWORD" ]; then
-            echo "⚠️  Could not obtain DB password automatically."
-            echo "    Add SUPABASE_DB_PASSWORD as a repo secret and re-run."
-            exit 1
-          fi
-
-          PGPASSWORD="$DB_PASSWORD" psql \
-            -h "$DB_HOST" -p 5432 -U "$DB_USER" -d "$DB_NAME" \
-            --set=ON_ERROR_STOP=1 << 'PGSQL'
-          -- Enable required extensions
-          CREATE EXTENSION IF NOT EXISTS pg_net;
-          CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-          -- Remove any stale job first
-          SELECT cron.unschedule(jobid)
-          FROM cron.job
-          WHERE jobname = 'enrich-portfolio-overnight';
-
-          -- Schedule: every minute, batch 15 firms
-          -- No auth header needed because function was deployed with --no-verify-jwt
+          -- Schedule: every minute, no auth header required (--no-verify-jwt)
           SELECT cron.schedule(
             'enrich-portfolio-overnight',
             '* * * * *',
-            $$
+            $cron$
             SELECT net.http_post(
-              url := 'https://zmnlsdohtwztneamvwaq.supabase.co/functions/v1/enrich-portfolio-websites',
-              headers := '{"Content-Type": "application/json"}'::jsonb,
-              body := '{"batch_size": 15}'::jsonb
+              url     := 'https://zmnlsdohtwztneamvwaq.supabase.co/functions/v1/enrich-portfolio-websites',
+              headers := '{"Content-Type":"application/json"}'::jsonb,
+              body    := '{"batch_size":15}'::jsonb
             );
-            $$
+            $cron$
           );
 
-          SELECT jobname, schedule FROM cron.job WHERE jobname = 'enrich-portfolio-overnight';
-          PGSQL
+          SELECT jobname, schedule, command
+          FROM   cron.job
+          WHERE  jobname = 'enrich-portfolio-overnight';
+          SQL
+          echo "SQL written"
 
+      - name: Apply pg_cron setup
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase db execute --project-ref "$PROJECT_REF" --file /tmp/setup_cron.sql
           echo "✅ pg_cron job scheduled — fires every minute, batch_size=15"
