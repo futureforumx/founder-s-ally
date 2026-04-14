@@ -1,21 +1,11 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-
-/** Loose match for `star_ratings.firm_name` vs UI firm labels (same idea as CommunityView name keys). */
-function firmNameMatchKey(raw: string | null | undefined): string {
-  if (!raw) return "";
-  return raw.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
-}
+import { fetchSelfPublishedVcRatingHydration } from "@/lib/vcRatingSelfLookup";
 
 /**
  * Latest published `vc_ratings.star_ratings` JSON for the current user + firm (+ optional person).
  * Refetch when `refreshKey` increments (e.g. after closing the review modal).
  *
- * Strategy:
- * 1. Try matching by `vc_firm_id` in `vc_ratings` (fast, exact).
- * 2. Fall back to scanning recent `vc_ratings` by `star_ratings.firm_name` (handles mismatched UUIDs).
- * 3. Final fallback: check `investor_reviews` by `firm_name` or `firm_id`
- *    (handles cases where vc_firm_id FK validation failed and the edge function saved there instead).
+ * Uses the same lookup rules as `fetchSelfPublishedVcRatingHydration` (shared with the review modal).
  */
 export function useLatestMyVcRating(
   userId: string | undefined,
@@ -37,9 +27,9 @@ export function useLatestMyVcRating(
     }
 
     const firm = vcFirmId?.trim();
-    const nameKey = firmNameMatchKey(firmName);
+    const displayName = (firmName ?? "").trim();
 
-    if (!firm && !nameKey) {
+    if (!firm && !displayName) {
       setStarRatings(null);
       setCreatedAt(null);
       setLoading(false);
@@ -50,105 +40,23 @@ export function useLatestMyVcRating(
     setLoading(true);
 
     (async () => {
-      // ── 1. Try by firm id ────────────────────────────────────────────────
-      if (firm) {
-        let q = supabase
-          .from("vc_ratings")
-          .select("star_ratings, created_at")
-          .eq("author_user_id", userId)
-          .eq("vc_firm_id", firm)
-          .eq("is_draft", false);
+      const row = await fetchSelfPublishedVcRatingHydration({
+        userId,
+        firmDisplayName: displayName,
+        vcFirmIdHint: firm,
+        vcPersonId,
+      });
 
-        const pid = vcPersonId?.trim();
-        q = pid ? q.eq("vc_person_id", pid) : q.is("vc_person_id", null);
+      if (cancelled) return;
 
-        const { data } = await q.order("created_at", { ascending: false }).limit(1);
-
-        if (cancelled) return;
-
-        if (data?.[0]) {
-          const row0 = data[0] as { star_ratings?: unknown; created_at?: string | null };
-          setLoading(false);
-          setStarRatings(row0.star_ratings ?? null);
-          setCreatedAt(typeof row0.created_at === "string" ? row0.created_at : null);
-          return;
-        }
-      }
-
-      // ── 2. Fall back: scan recent vc_ratings and match by firm_name in JSONB ──
-      if (nameKey) {
-        const { data: recent } = await supabase
-          .from("vc_ratings")
-          .select("star_ratings, created_at")
-          .eq("author_user_id", userId)
-          .eq("is_draft", false)
-          .order("created_at", { ascending: false })
-          .limit(80);
-
-        if (cancelled) return;
-
-        const match = (recent ?? []).find((row) => {
-          const sr = (row as { star_ratings?: unknown }).star_ratings;
-          if (!sr || typeof sr !== "object") return false;
-          const top = sr as Record<string, unknown>;
-          const rawName = (top.firm_name as string | undefined)?.trim();
-          const fromAnswers = top.answers as Record<string, unknown> | undefined;
-          const nestedFirm =
-            fromAnswers && typeof fromAnswers === "object" && !Array.isArray(fromAnswers)
-              ? (fromAnswers.firm_name as string | undefined)?.trim()
-              : undefined;
-          const keys = [firmNameMatchKey(rawName), firmNameMatchKey(nestedFirm)].filter(Boolean);
-          return keys.some((k) => k === nameKey);
-        });
-
-        if (match) {
-          setLoading(false);
-          const m = match as { star_ratings?: unknown; created_at?: string | null };
-          setStarRatings(m.star_ratings ?? null);
-          setCreatedAt(typeof m.created_at === "string" ? m.created_at : null);
-          return;
-        }
-      }
-
-      // ── 3. Final fallback: check investor_reviews (used when vc_firm_id FK fails) ──
-      {
-        const { data: irRows } = await supabase
-          .from("investor_reviews")
-          .select("star_ratings, created_at")
-          .eq("founder_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(80);
-
-        if (cancelled) return;
-
-        const irMatch = (irRows ?? []).find((row) => {
-          const r = row as { star_ratings?: unknown; firm_id?: string };
-          const sr = r.star_ratings;
-          if (!sr || typeof sr !== "object") return false;
-          const top = sr as Record<string, unknown>;
-          const rawName = (top.firm_name as string | undefined)?.trim();
-          const fromAnswers = top.answers as Record<string, unknown> | undefined;
-          const nestedFirm =
-            fromAnswers && typeof fromAnswers === "object" && !Array.isArray(fromAnswers)
-              ? (fromAnswers.firm_name as string | undefined)?.trim()
-              : undefined;
-          const keys = [firmNameMatchKey(rawName), firmNameMatchKey(nestedFirm)].filter(Boolean);
-          if (nameKey && keys.some((k) => k === nameKey)) return true;
-          if (firm && r.firm_id === firm) return true;
-          return false;
-        });
-
-        setLoading(false);
-        if (irMatch) {
-          const m = irMatch as { star_ratings?: unknown; created_at?: string | null };
-          setStarRatings(m.star_ratings ?? null);
-          setCreatedAt(typeof m.created_at === "string" ? m.created_at : null);
-        } else {
-          setStarRatings(null);
-          setCreatedAt(null);
-        }
+      setLoading(false);
+      if (!row?.starRatings) {
+        setStarRatings(null);
+        setCreatedAt(null);
         return;
       }
+      setStarRatings(row.starRatings);
+      setCreatedAt(row.createdAt);
     })();
 
     return () => {
