@@ -82809,5 +82809,82 @@
     "name": "Compliance Counsel",
     "status": "not_found",
     "timestamp": "2026-04-14T02:44:44.903Z"
+  },
+  {
+    "type": "investor",
+    "id": "926e9964-5d22-4c8f-bd51-026aba484482",
+    "name": "Gordon Research Conferences",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:44:54.808Z"
+  },
+  {
+    "type": "investor",
+    "id": "94c03949-9b76-4e24-bd5c-17e3058934c0",
+    "name": "Robert J. Maccini",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:03.559Z"
+  },
+  {
+    "type": "investor",
+    "id": "070bdb53-9b7f-4e68-af1a-2cfefb57675f",
+    "name": "Sachin Shah",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:12.717Z"
+  },
+  {
+    "type": "investor",
+    "id": "d17c6281-f09c-4e6a-97d8-a5f7cf5b9830",
+    "name": "Zack King",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:21.478Z"
+  },
+  {
+    "type": "investor",
+    "id": "2f1616a5-99b6-4653-808d-31048b085f0e",
+    "name": "Pablo Casilimas",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:45:31.454Z"
+  },
+  {
+    "type": "investor",
+    "id": "21e20abf-9abb-4e1d-a1f3-25530839f6da",
+    "name": "Erik Nordlander",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:40.665Z"
+  },
+  {
+    "type": "investor",
+    "id": "fd4b240f-50a9-4412-b70e-378163a582bc",
+    "name": "Mandy Stolpa",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:49.605Z"
+  },
+  {
+    "type": "investor",
+    "id": "b49f0e84-180f-455e-8fc4-8ee9d36b8cdb",
+    "name": "Roland Geeraedts",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:45:58.653Z"
+  },
+  {
+    "type": "investor",
+    "id": "a45d87dd-e9e7-4fa6-94ae-c54cb6082125",
+    "name": "Alex Hughes",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:46:07.370Z"
+  },
+  {
+    "type": "investor",
+    "id": "02268064-69e2-4e34-bbbb-92b256277b0a",
+    "name": "New England",
+    "status": "not_found",
+    "timestamp": "2026-04-14T02:46:17.346Z"
+  },
+  {
+    "type": "investor",
+    "id": "93a4b68d-d5fb-4c80-b7a5-9583f198f8fb",
+    "name": "Elena Sakach",
+    "status": "updated",
+    "timestamp": "2026-04-14T02:46:26.037Z"
   }
 ]
