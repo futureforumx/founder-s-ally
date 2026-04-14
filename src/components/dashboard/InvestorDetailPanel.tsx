@@ -30,6 +30,7 @@ import {
 import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { isMeaninglessDisplayLocation } from "@/lib/locationLineQuality";
+import { resolveFirmContactEmailByWebsiteUrl } from "@/lib/firmContactEmailOverrides";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { VCFirm, VCPerson } from "@/hooks/useVCDirectory";
@@ -1233,8 +1234,14 @@ export function InvestorDetailPanel({
         ? enrichedData.profile.recentDeals.length
         : null;
 
+  const connectWebsiteUrl =
+    safeTrim(liveProfile?.website_url) ||
+    safeTrim(vcFirm?.website_url) ||
+    safeTrim(effectiveInvestor?.websiteUrl) ||
+    null;
   const connectEmailFromRecord =
-    liveProfile?.source === "live" && safeTrim(liveProfile.email) ? safeTrim(liveProfile.email) : null;
+    (liveProfile?.source === "live" && safeTrim(liveProfile.email) ? safeTrim(liveProfile.email) : null) ||
+    resolveFirmContactEmailByWebsiteUrl(connectWebsiteUrl);
   const connectLinkedInUrl =
     liveProfile?.source === "live" && safeTrim(liveProfile.linkedin_url)
       ? safeTrim(liveProfile.linkedin_url)
@@ -1252,11 +1259,6 @@ export function InvestorDetailPanel({
     liveProfile?.source === "live" && safeTrim(liveProfile.youtube_url)
       ? safeTrim(liveProfile.youtube_url)
       : null;
-  const connectWebsiteUrl =
-    safeTrim(liveProfile?.website_url) ||
-    safeTrim(vcFirm?.website_url) ||
-    safeTrim(effectiveInvestor?.websiteUrl) ||
-    null;
 
   /**
    * Prefer the same list the Investors tab shows (`mergedPartners`) so the number matches the UI.
