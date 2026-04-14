@@ -97,7 +97,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       .maybeSingle(),
     supabase
       .from("firm_investors")
-      .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, sector_focus, background_summary, check_size_min, check_size_max, sweet_spot")
+      .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, profile_image_last_fetched_at, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, sector_focus, background_summary, check_size_min, check_size_max, sweet_spot")
       .eq("firm_id", firmId)
       .is("deleted_at", null)
       .eq("ready_for_live", true)
@@ -162,6 +162,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     total_headcount: typeof firm.total_headcount === "number" ? firm.total_headcount : null,
     partners: (partnersRes.data ?? []).map((p: any) => ({
       ...p,
+      profile_image_last_fetched_at: p.profile_image_last_fetched_at ?? null,
       bio: sanitizeText(p.bio) || generateInvestorBio({
         full_name: p.full_name,
         first_name: p.first_name,

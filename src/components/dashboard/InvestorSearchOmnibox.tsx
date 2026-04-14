@@ -87,21 +87,10 @@ export function InvestorSearchOmnibox({
           name: p.full_name,
           subtitle: [p.title, firm?.name].filter(Boolean).join(" at "),
           type: "person" as const,
-          profileImageUrls: investorPersonImageCandidates({
+          profileImageUrl: investorPrimaryAvatarUrl({
             profile_image_url: p.profile_image_url,
             avatar_url: p.avatar_url,
-            firmWebsiteUrl: firm?.website_url ?? null,
-            title: p.title,
-            role: p.role,
-            investorType: p.investor_type,
-            email: p.email,
-            website_url: p.website_url,
-            linkedin_url: p.linkedin_url,
-            x_url: p.x_url,
-            personal_website_url: p.personal_website_url,
-            full_name: p.full_name,
           }),
-          profileImageUrl: null,
         };
       });
 
@@ -143,7 +132,6 @@ export function InvestorSearchOmnibox({
         kind: "person",
         name: result.name,
         profileImageUrl: result.profileImageUrl ?? null,
-        profileImageUrls: result.profileImageUrls,
       });
     }
     setOpen(false);
@@ -211,7 +199,9 @@ export function InvestorSearchOmnibox({
             ) : (
               <InvestorPersonAvatar
                 imageUrl={selectionLead.profileImageUrl}
-                imageUrls={selectionLead.profileImageUrls}
+                initials={selectionLead.name?.trim().charAt(0) || null}
+                fetchPriority="high"
+                loading="eager"
               />
             )
           ) : (
@@ -324,7 +314,8 @@ export function InvestorSearchOmnibox({
                       >
                         <InvestorPersonAvatar
                           imageUrl={result.profileImageUrl}
-                          imageUrls={result.profileImageUrls}
+                          initials={result.name?.trim().charAt(0) || null}
+                          loading="lazy"
                           className="shrink-0"
                         />
                         <div className="min-w-0 flex-1">

@@ -857,6 +857,8 @@ export type Database = {
       firm_investors: {
         Row: {
           avatar_url: string | null
+          profile_image_url: string | null
+          profile_image_last_fetched_at: string | null
           background_summary: string | null
           bio: string | null
           check_size_max: number | null
@@ -908,6 +910,8 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          profile_image_url?: string | null
+          profile_image_last_fetched_at?: string | null
           background_summary?: string | null
           bio?: string | null
           check_size_max?: number | null
@@ -959,6 +963,8 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          profile_image_url?: string | null
+          profile_image_last_fetched_at?: string | null
           background_summary?: string | null
           bio?: string | null
           check_size_max?: number | null
