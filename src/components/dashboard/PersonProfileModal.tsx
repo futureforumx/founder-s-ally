@@ -53,7 +53,23 @@ type FirmInvestorSnapshot = {
   state: string | null;
   country: string | null;
   avatar_url: string | null;
+  profile_image_url: string | null;
 };
+
+/** When bio + narrative are only a short line (e.g. title stub), still run person-website-profile. */
+function isThinInvestorNarrative(
+  mergedBg: string | null | undefined,
+  personBg: string | null | undefined,
+  bio: string | null | undefined,
+): boolean {
+  const narrative =
+    splitBackgroundSummaryPortfolio(safeTrim(mergedBg)).narrative ||
+    splitBackgroundSummaryPortfolio(safeTrim(personBg)).narrative ||
+    "";
+  const combined = `${safeTrim(narrative)}\n${safeTrim(bio)}`.trim();
+  if (combined.length >= 90) return false;
+  return combined.split(/\s+/).filter(Boolean).length < 14;
+}
 
 function parseEducationItems(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -197,6 +213,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const { session, user: authUser } = useAuth();
   const queryClient = useQueryClient();
   const [firmInvestorSnap, setFirmInvestorSnap] = useState<FirmInvestorSnapshot | null>(null);
+  /** Avoid showing directory/website-merge `person` avatars before `firm_investors` row resolves (UUID person ids). */
+  const [firmInvestorRowFetched, setFirmInvestorRowFetched] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [optimisticPersonRating, setOptimisticPersonRating] = useState<unknown>(null);
@@ -232,7 +250,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       city: safeTrim(snap?.city) || safeTrim(person.city) || null,
       state: safeTrim(snap?.state) || safeTrim(person.state) || null,
       country: safeTrim(snap?.country) || safeTrim(person.country) || null,
-      avatar_url: safeTrim(snap?.avatar_url) || safeTrim(person.avatar_url) || safeTrim(person.profile_image_url) || null,
+      avatar_url: safeTrim(snap?.avatar_url) || safeTrim(person.avatar_url) || null,
+      profile_image_url: safeTrim(snap?.profile_image_url) || safeTrim(person.profile_image_url) || null,
     };
   }, [person, firmInvestorSnap]);
   const resolvedFirmWebsiteUrl = useMemo(
@@ -249,30 +268,46 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     setDbEducationSummary(null);
     setDbEducationItems([]);
     setFirmInvestorSnap(null);
+    setFirmInvestorRowFetched(false);
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
-    if (!person?.id || !FIRM_INVESTOR_UUID_RE.test(person.id)) return;
+    if (!person?.id || !FIRM_INVESTOR_UUID_RE.test(person.id)) {
+      setFirmInvestorRowFetched(true);
+      return;
+    }
     const firmId = safeTrim(person.firm_id);
-    if (!firmId || !FIRM_INVESTOR_UUID_RE.test(firmId)) return;
+    if (!firmId || !FIRM_INVESTOR_UUID_RE.test(firmId)) {
+      setFirmInvestorRowFetched(true);
+      return;
+    }
+
+    setFirmInvestorRowFetched(false);
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const { data, error } = await supabase
           .from("firm_investors")
           .select(
-            "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url",
+            "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url, profile_image_url",
           )
           .eq("id", person.id)
           .eq("firm_id", firmId)
           .is("deleted_at", null)
           .maybeSingle();
-        if (cancelled || error || !data) return;
+        if (cancelled) return;
+        if (error || !data) {
+          setFirmInvestorSnap(null);
+          return;
+        }
         setFirmInvestorSnap(data as FirmInvestorSnapshot);
       } catch {
-        /* ignore */
+        if (!cancelled) setFirmInvestorSnap(null);
+      } finally {
+        if (!cancelled) setFirmInvestorRowFetched(true);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -400,13 +435,19 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     const hasStoredAvatar = Boolean(
       investorPrimaryAvatarUrl({
         avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
-        profile_image_url: person.profile_image_url,
+        profile_image_url: mergedFromDb?.profile_image_url ?? person.profile_image_url,
       }),
+    );
+    const needsRichNarrative = isThinInvestorNarrative(
+      mergedFromDb?.background_summary,
+      person.background_summary,
+      mergedFromDb?.bio ?? person.bio,
     );
     const needsWebsiteEnrichment = Boolean(
       resolvedFirmWebsiteUrl &&
       (
         !hasStoredAvatar ||
+        needsRichNarrative ||
         !safeTrim(mergedFromDb?.email) ||
         !safeTrim(mergedFromDb?.linkedin_url) ||
         !safeTrim(mergedFromDb?.x_url) ||
@@ -614,17 +655,47 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const hasPersonalFocus =
     stageFocusTags.length > 0 || sectorFocusTags.length > 0 || qualityTags.length > 0;
 
-  /** Modal header: DB/directory avatars first, then `/api/person-website-profile` headshot (was fetched but never shown). */
+  /**
+   * Modal header: when we have a `firm_investors` snapshot, use **only** that row for raster URLs so a
+   * stale/wrong `person` image from directory ↔ website merge cannot sit ahead of the correct email row.
+   * Otherwise fall back to merged props; append person-website-profile headshot last.
+   */
   const headerAvatarImageUrls = useMemo(() => {
     if (!person) return [];
-    const base = investorAvatarUrlCandidates({
+    const snap = firmInvestorSnap;
+    const expectFirmInvestorRow =
+      FIRM_INVESTOR_UUID_RE.test(person.id) && FIRM_INVESTOR_UUID_RE.test(safeTrim(person.firm_id));
+    const fromSnap = snap
+      ? investorAvatarUrlCandidates({
+          avatar_url: snap.avatar_url,
+          profile_image_url: snap.profile_image_url,
+        })
+      : [];
+    const fromPerson = investorAvatarUrlCandidates({
       avatar_url: mergedFromDb?.avatar_url ?? person.avatar_url,
-      profile_image_url: person.profile_image_url,
+      profile_image_url: mergedFromDb?.profile_image_url ?? person.profile_image_url,
     });
+    const base =
+      expectFirmInvestorRow && !firmInvestorRowFetched
+        ? []
+        : fromSnap.length > 0
+          ? fromSnap
+          : fromPerson;
     const web = safeTrim(websiteProfile?.headshotUrl);
     if (!web || base.includes(web)) return base;
     return [...base, web];
-  }, [mergedFromDb?.avatar_url, person, person?.avatar_url, person?.profile_image_url, websiteProfile?.headshotUrl]);
+  }, [
+    firmInvestorSnap,
+    firmInvestorRowFetched,
+    mergedFromDb?.avatar_url,
+    mergedFromDb?.profile_image_url,
+    person,
+    person?.avatar_url,
+    person?.firm_id,
+    person?.id,
+    person?.profile_image_url,
+    websiteProfile?.headshotUrl,
+  ]);
 
   const displayPortfolioCompanies = useMemo(() => {
     const fromDb = [
