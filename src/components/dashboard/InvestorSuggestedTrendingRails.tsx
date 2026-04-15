@@ -4,7 +4,8 @@ import { CompactInvestorRailRow } from "./CompactInvestorRailRow";
 import type { InvestorPreviewModel } from "./InvestorPreviewRow";
 import { cn } from "@/lib/utils";
 
-const WINDOW = 5;
+/** Visible rows per column before prev/next arrows reveal more */
+const WINDOW = 3;
 
 function useListWindow(length: number) {
   const maxStart = Math.max(0, length - WINDOW);
@@ -119,6 +120,17 @@ function RailColumnHeader({
   );
 }
 
+function stepperLabelForRowKind(
+  rowKind: "investor" | "operator" | "founder" | "company",
+  column: "suggested" | "trending",
+): string {
+  const col = column === "suggested" ? "Suggested" : "Trending";
+  if (rowKind === "operator") return `${col} operators page`;
+  if (rowKind === "founder") return `${col} founders page`;
+  if (rowKind === "company") return `${col} companies page`;
+  return `${col} investors page`;
+}
+
 export function InvestorSuggestedTrendingRails({
   suggested,
   trending,
@@ -132,6 +144,8 @@ export function InvestorSuggestedTrendingRails({
   onDeployingClick,
   anchorVcFirmId,
   rowKind = "investor",
+  suggestedStepperLabel,
+  trendingStepperLabel,
 }: {
   suggested: InvestorPreviewModel[];
   trending: InvestorPreviewModel[];
@@ -145,7 +159,11 @@ export function InvestorSuggestedTrendingRails({
   /** Omit for operator rails (no deploying signal). */
   onDeployingClick?: (inv: InvestorPreviewModel) => void;
   anchorVcFirmId?: (inv: InvestorPreviewModel) => string | null;
-  rowKind?: "investor" | "operator";
+  rowKind?: "investor" | "operator" | "founder" | "company";
+  /** Overrides stepper `aria-label` group for the suggested column (e.g. mixed “All” tab). */
+  suggestedStepperLabel?: string;
+  /** Overrides stepper `aria-label` group for the trending column. */
+  trendingStepperLabel?: string;
 }) {
   const suggestedWin = useListWindow(suggested.length);
   const trendingWin = useListWindow(trending.length);
@@ -179,7 +197,9 @@ export function InvestorSuggestedTrendingRails({
             canNext={suggestedWin.canNext}
             onPrev={suggestedWin.goPrev}
             onNext={suggestedWin.goNext}
-            stepperLabel={rowKind === "operator" ? "Suggested operators page" : "Suggested investors page"}
+            stepperLabel={
+              suggestedStepperLabel ?? stepperLabelForRowKind(rowKind, "suggested")
+            }
           />
           <div className="flex flex-col">
             {suggestedSlots.map((inv, i) =>
@@ -189,11 +209,13 @@ export function InvestorSuggestedTrendingRails({
                   className="border-b border-border/[0.12] last:border-b-0"
                 >
                   <CompactInvestorRailRow
-                    rowKind={rowKind}
+                    rowKind={inv._railRowKind ?? rowKind}
                     model={inv}
                     anchorVcFirmId={anchorVcFirmId?.(inv) ?? null}
                     onClick={() => onPreviewClick(inv)}
-                    onDeployingClick={() => onDeployingClick?.(inv)}
+                    onDeployingClick={() =>
+                      (inv._railRowKind ?? rowKind) === "investor" ? onDeployingClick?.(inv) : undefined
+                    }
                   />
                 </div>
               ) : null,
@@ -211,7 +233,9 @@ export function InvestorSuggestedTrendingRails({
             canNext={trendingWin.canNext}
             onPrev={trendingWin.goPrev}
             onNext={trendingWin.goNext}
-            stepperLabel={rowKind === "operator" ? "Trending operators page" : "Trending investors page"}
+            stepperLabel={
+              trendingStepperLabel ?? stepperLabelForRowKind(rowKind, "trending")
+            }
           />
           <div className="flex flex-col">
             {trendingSlots.map((inv, i) =>
@@ -221,12 +245,14 @@ export function InvestorSuggestedTrendingRails({
                   className="border-b border-border/[0.12] last:border-b-0"
                 >
                   <CompactInvestorRailRow
-                    rowKind={rowKind}
+                    rowKind={inv._railRowKind ?? rowKind}
                     model={inv}
                     trendingColumn
                     anchorVcFirmId={anchorVcFirmId?.(inv) ?? null}
                     onClick={() => onPreviewClick(inv)}
-                    onDeployingClick={() => onDeployingClick?.(inv)}
+                    onDeployingClick={() =>
+                      (inv._railRowKind ?? rowKind) === "investor" ? onDeployingClick?.(inv) : undefined
+                    }
                   />
                 </div>
               ) : null,
