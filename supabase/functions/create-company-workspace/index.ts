@@ -102,13 +102,14 @@ serve(async (req) => {
 
   const newCompId = crypto.randomUUID();
 
+  // Do not set `claimed_by` here: on DBs that never ran 20260328180000 it remains uuid and Clerk `sub`
+  // (e.g. user_2abc…) is not a valid UUID. Ownership is already `user_id` = sub (text after Clerk migration).
   const { error: compErr } = await admin.from("company_analyses").insert({
     id: newCompId,
     user_id: sub,
     company_name: companyName,
     website_url: websiteUrl,
     is_claimed: true,
-    claimed_by: sub,
   });
 
   if (compErr) {
