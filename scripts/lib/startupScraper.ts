@@ -368,7 +368,26 @@ export async function upsertStartup(
     data.id = genId();
     data.created_at = now;
     const { error } = await sb.from("startups").insert(data);
-    if (error) throw new Error(`Insert startup "${name}": ${error.message}`);
+    if (error) {
+      // Domain collision — retry without domain
+      if (error.message.includes("duplicate key") && error.message.includes("domain") && data.domain) {
+        delete data.domain;
+        const { error: retryErr } = await sb.from("startups").insert(data);
+        if (retryErr) throw new Error(`Insert startup "${name}": ${retryErr.message}`);
+      } else if (error.message.includes("duplicate key") && error.message.includes("company_name")) {
+        // Race condition — another process inserted it; update instead
+        const { data: found } = await sb.from("startups").select("id").eq("company_name", name).maybeSingle();
+        if (found) {
+          delete data.id;
+          delete data.created_at;
+          await sb.from("startups").update(data).eq("id", found.id);
+          return { id: found.id, created: false, fieldsUpdated: Object.keys(data).length };
+        }
+        throw new Error(`Insert startup "${name}": ${error.message}`);
+      } else {
+        throw new Error(`Insert startup "${name}": ${error.message}`);
+      }
+    }
     startupId = data.id;
     created = true;
   } else {
